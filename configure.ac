@@ -28,6 +28,7 @@ AC_GNU_SOURCE
 CONFIGURE_LINE="$0 $@"
 AM_INIT_AUTOMAKE([-Wall -Werror])
 AM_SILENT_RULES([yes])
+AM_PROG_AR
 LT_INIT
 AC_PROG_CC
 AC_PROG_CXX
@@ -38,7 +39,8 @@ AC_DEFINE_UNQUOTED(SID_CONFIGURE_LINE,"$CONFIGURE_LINE", [configure command line
 AC_DEFINE_UNQUOTED(SID_COMPILED_BY, "$(whoami)", [user who ran configure])
 AC_DEFINE_UNQUOTED(SID_COMPILATION_HOST, "$(hostname -f 2>/dev/null || hostname)", [host on which configure was executed])
 AC_DEFINE_UNQUOTED(SID_COMPILER, "$($CC --version | head -n 1)", [compiler used to compile sources])
-AC_CONFIG_FILES([Makefile daemon/Makefile])
+AC_CONFIG_FILES([Makefile log/Makefile daemon/Makefile])
 AC_CONFIG_HEADERS([include/configure.h])
-AC_CHECK_HEADERS([stdlib.h])
+AC_CHECK_HEADERS([stdlib.h syslog.h])
+AC_CHECK_FUNCS([strerror])
 AC_OUTPUT
