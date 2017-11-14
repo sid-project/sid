@@ -19,3 +19,4 @@
 
 bin_PROGRAMS = sid
 sid_SOURCES = sid.c
+sid_LDADD = $(top_builddir)/log/liblog.la

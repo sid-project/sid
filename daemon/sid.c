@@ -24,12 +24,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "log.h"
 
 static void _help(FILE *f)
 {
 	fprintf(f, "Usage: sid [options]\n"
 		"\n"
 		"    -h|--help        Show this help information.\n"
+		"    -v|--verbose     Verbose mode, repeat to increase level.\n"
 		"    -V|--version     Show SID version.\n"
 		"\n");
 }
@@ -45,18 +47,23 @@ static void _version(FILE *f)
 int main(int argc, char *argv[])
 {
 	int opt;
+	int verbose = 0;
 
 	struct option longopts[] = {
 		{ "help",		0, NULL, 'h' },
+		{ "verbose",            0, NULL, 'v' },
 		{ "version",		0, NULL, 'V' },
 		{ NULL,			0, NULL,  0  }
 	};
 
-	while ((opt = getopt_long(argc, argv, "hV", longopts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "hvV", longopts, NULL)) != -1) {
 		switch(opt) {
 			case 'h':
 				_help(stdout);
 				return EXIT_SUCCESS;
+			case 'v':
+				verbose++;
+				break;
 			case 'V':
 				_version(stdout);
 				return EXIT_SUCCESS;
@@ -65,6 +72,8 @@ int main(int argc, char *argv[])
 				return -EINVAL;
 		}
 	}
+
+	log_init(LOG_TARGET_STANDARD, verbose);
 
 	return EXIT_SUCCESS;
 }
