@@ -19,4 +19,10 @@
 
 noinst_LTLIBRARIES = libmisc.la
 libmisc_la_SOURCES = $(top_builddir)/include/mem.h \
-		     mem.c
+		     mem.c \
+		     $(top_builddir)/include/buffer-common.h \
+		     $(top_builddir)/include/buffer.h \
+		     buffer-type.h \
+		     buffer-type-linear.c \
+		     buffer-type-vector.c \
+		     buffer.c
