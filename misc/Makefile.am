@@ -25,4 +25,6 @@ libmisc_la_SOURCES = $(top_builddir)/include/mem.h \
 		     buffer-type.h \
 		     buffer-type-linear.c \
 		     buffer-type-vector.c \
-		     buffer.c
+		     buffer.c \
+		     $(top_builddir)/include/list.h \
+		     list.c

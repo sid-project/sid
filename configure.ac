@@ -42,6 +42,7 @@ AC_DEFINE_UNQUOTED(SID_COMPILER, "$($CC --version | head -n 1)", [compiler used 
 AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile daemon/Makefile])
 AC_CONFIG_HEADERS([include/configure.h])
 AC_CHECK_HEADERS([fcntl.h stdlib.h syslog.h])
+AC_CHECK_HEADER_STDBOOL
 AC_CHECK_FUNCS([dup2 memset select strerror])
 AC_FUNC_FORK
 AC_FUNC_MALLOC
