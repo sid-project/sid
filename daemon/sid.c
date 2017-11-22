@@ -23,13 +23,22 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include "log.h"
+
+#define SID_DEFAULT_UMASK 0077
+#define LOG_PREFIX "main"
+
+static volatile sig_atomic_t _shutdown_requested = 0;
 
 static void _help(FILE *f)
 {
 	fprintf(f, "Usage: sid [options]\n"
 		"\n"
+		"    -f|--foreground  Run in foreground.\n"
 		"    -h|--help        Show this help information.\n"
 		"    -v|--verbose     Verbose mode, repeat to increase level.\n"
 		"    -V|--version     Show SID version.\n"
@@ -44,20 +53,91 @@ static void _version(FILE *f)
 		SID_COMPILATION_HOST, SID_COMPILER);
 }
 
+static void _shutdown_signal_handler(int sig __attribute__((unused)))
+{
+	_shutdown_requested = 1;
+}
+
+static void _become_daemon()
+{
+	pid_t pid = 0;
+	int child_status;
+	struct timeval tval;
+	int fd;
+
+	signal(SIGTERM, &_shutdown_signal_handler);
+
+	if ((pid = fork()) < 0) {
+		log_error_errno(LOG_PREFIX, errno, "Failed to fork daemon");
+		exit(EXIT_FAILURE);
+	}
+
+	if (pid > 0) {
+		log_debug(LOG_PREFIX, "Forked SID with pid=%d", pid);
+		while (!waitpid(pid, &child_status, WNOHANG) && !_shutdown_requested) {
+			tval.tv_sec = 1;
+			tval.tv_usec = 0;
+			select(0, NULL, NULL, NULL, &tval);
+		}
+
+		exit(_shutdown_requested ? EXIT_SUCCESS : WEXITSTATUS(child_status));
+	}
+
+	if (!setsid()) {
+		log_error_errno(LOG_PREFIX, errno, "Failed to set session ID");
+		exit(EXIT_FAILURE);
+	}
+
+	if (chdir("/")) {
+		log_error_errno(LOG_PREFIX, errno, "Failed to change working directory");
+		exit(EXIT_FAILURE);
+	}
+
+	if ((fd = open("/dev/null", O_RDWR)) == -1) {
+		log_error_errno(LOG_PREFIX, errno, "Failed to open /dev/null");
+		exit(EXIT_FAILURE);
+	}
+
+	if ((dup2(fd, STDIN_FILENO) < 0) ||
+	    (dup2(fd, STDOUT_FILENO) < 0) ||
+	    (dup2(fd, STDERR_FILENO) < 0)) {
+		log_error_errno(LOG_PREFIX, errno, "Failed to duplicate standard IO streams");
+		exit(EXIT_FAILURE);
+	}
+
+        for (fd = sysconf(_SC_OPEN_MAX) - 1; fd > STDERR_FILENO; fd--) {
+                if (close(fd)) {
+			if (errno == EBADF)
+				continue;
+			log_error_errno(LOG_PREFIX, errno, "Failed to close FD %d", fd);
+		}
+	}
+
+	umask(SID_DEFAULT_UMASK);
+
+	if (kill(getppid(), SIGTERM) < 0)
+		log_error_errno(LOG_PREFIX, errno, "Failed to send SIGTERM signal to parent");
+}
+
 int main(int argc, char *argv[])
 {
 	int opt;
 	int verbose = 0;
+	int foreground = 0;
 
 	struct option longopts[] = {
+		{ "foreground",         0, NULL, 'f' },
 		{ "help",		0, NULL, 'h' },
 		{ "verbose",            0, NULL, 'v' },
 		{ "version",		0, NULL, 'V' },
 		{ NULL,			0, NULL,  0  }
 	};
 
-	while ((opt = getopt_long(argc, argv, "hvV", longopts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "fhvV", longopts, NULL)) != -1) {
 		switch(opt) {
+			case 'f':
+				foreground = 1;
+				break;
 			case 'h':
 				_help(stdout);
 				return EXIT_SUCCESS;
@@ -73,7 +153,12 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	log_init(LOG_TARGET_STANDARD, verbose);
+	if (foreground)
+		log_init(LOG_TARGET_STANDARD, verbose);
+	else {
+		log_init(LOG_TARGET_SYSLOG, verbose);
+		_become_daemon();
+	}
 
 	return EXIT_SUCCESS;
 }

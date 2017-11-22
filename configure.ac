@@ -41,6 +41,8 @@ AC_DEFINE_UNQUOTED(SID_COMPILATION_HOST, "$(hostname -f 2>/dev/null || hostname)
 AC_DEFINE_UNQUOTED(SID_COMPILER, "$($CC --version | head -n 1)", [compiler used to compile sources])
 AC_CONFIG_FILES([Makefile log/Makefile daemon/Makefile])
 AC_CONFIG_HEADERS([include/configure.h])
-AC_CHECK_HEADERS([stdlib.h syslog.h])
-AC_CHECK_FUNCS([strerror])
+AC_CHECK_HEADERS([fcntl.h stdlib.h syslog.h])
+AC_CHECK_FUNCS([dup2 select strerror])
+AC_FUNC_FORK
+AC_TYPE_PID_T
 AC_OUTPUT
