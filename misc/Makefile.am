@@ -17,5 +17,6 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = log misc daemon
+noinst_LTLIBRARIES = libmisc.la
+libmisc_la_SOURCES = $(top_builddir)/include/mem.h \
+		     mem.c
