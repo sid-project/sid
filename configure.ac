@@ -41,9 +41,9 @@ AC_DEFINE_UNQUOTED(SID_COMPILATION_HOST, "$(hostname -f 2>/dev/null || hostname)
 AC_DEFINE_UNQUOTED(SID_COMPILER, "$($CC --version | head -n 1)", [compiler used to compile sources])
 AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile daemon/Makefile])
 AC_CONFIG_HEADERS([include/configure.h])
-AC_CHECK_HEADERS([fcntl.h stdlib.h syslog.h])
+AC_CHECK_HEADERS([fcntl.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
-AC_CHECK_FUNCS([dup2 memset select strerror])
+AC_CHECK_FUNCS([dup2 memset select socket strerror])
 AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC

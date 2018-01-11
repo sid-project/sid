@@ -27,4 +27,7 @@ libmisc_la_SOURCES = $(top_builddir)/include/mem.h \
 		     buffer-type-vector.c \
 		     buffer.c \
 		     $(top_builddir)/include/list.h \
-		     list.c
+		     list.c \
+		     $(top_builddir)/include/comms.h \
+		     comms.c
+libmisc_la_LIBADD = $(top_builddir)/log/liblog.la
