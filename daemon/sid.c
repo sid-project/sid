@@ -28,11 +28,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "log.h"
+#include "resource.h"
 
 #define SID_DEFAULT_UMASK 0077
 #define LOG_PREFIX "main"
 
 static volatile sig_atomic_t _shutdown_requested = 0;
+
+const struct sid_resource_reg sid_resource_reg_sid;
 
 static void _help(FILE *f)
 {
@@ -124,6 +127,8 @@ int main(int argc, char *argv[])
 	int opt;
 	int verbose = 0;
 	int foreground = 0;
+	struct sid_resource *sid_res = NULL;
+	int r = -1;
 
 	struct option longopts[] = {
 		{ "foreground",         0, NULL, 'f' },
@@ -160,5 +165,14 @@ int main(int argc, char *argv[])
 		_become_daemon();
 	}
 
-	return EXIT_SUCCESS;
+
+	if (!(sid_res = sid_resource_create(NULL, &sid_resource_reg_sid, 0, NULL, NULL)))
+		goto out;
+
+	r = sid_resource_run_event_loop(sid_res);
+out:
+	if (sid_res)
+		(void) sid_resource_destroy(sid_res);
+
+	return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

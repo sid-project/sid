@@ -18,5 +18,6 @@
 ##############################################################################
 
 bin_PROGRAMS = sid
-sid_SOURCES = sid.c
+sid_SOURCES = resource-sid.c \
+	      sid.c
 sid_LDADD = $(top_builddir)/resource/libresource.la
