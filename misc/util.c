@@ -80,3 +80,33 @@ out:
 	free(path_copy);
 	return r;
 }
+
+udev_action_t util_get_udev_action_from_string(const char *str)
+{
+	if (!strcasecmp(str, "add"))
+		return UDEV_ACTION_ADD;
+	else if (!strcasecmp(str, "change"))
+		return UDEV_ACTION_CHANGE;
+	else if (!strcasecmp(str, "remove"))
+		return UDEV_ACTION_REMOVE;
+	else if (!strcasecmp(str, "move"))
+		return UDEV_ACTION_MOVE;
+	else if (!strcasecmp(str, "online"))
+		return UDEV_ACTION_ONLINE;
+	else if (!strcasecmp(str, "offline"))
+		return UDEV_ACTION_OFFLINE;
+	else if (!strcasecmp(str, "bind"))
+		return UDEV_ACTION_BIND;
+	else if (!strcasecmp(str, "unbind"))
+		return UDEV_ACTION_UNBIND;
+	else
+		return UDEV_ACTION_UNKNOWN;
+}
+
+uint64_t util_get_now_usec(clockid_t clock_id)
+{
+	struct timespec ts;
+
+	clock_gettime(clock_id, &ts);
+	return (uint64_t) ts.tv_sec * 1000000 + (uint64_t) ts.tv_nsec / 1000000;
+}

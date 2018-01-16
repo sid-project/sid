@@ -23,7 +23,8 @@ libresource_la_SOURCES = $(top_builddir)/include/wrapper-sd.h \
 			 $(top_builddir)/include/resource.h \
 			 $(top_builddir)/include/resource-regs.h \
 			 resource.c \
-			 aggregate.c
+			 aggregate.c \
+			 ubridge.c
 libresource_la_CFLAGS = $(SYSTEMD_CFLAGS)
 libresource_la_LIBADD = $(top_builddir)/misc/libmisc.la \
 			$(SYSTEMD_LIBS)

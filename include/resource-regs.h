@@ -21,5 +21,6 @@
 #define _SID_RESOURCE_REGS_H
 
 const struct sid_resource_reg sid_resource_reg_aggregate;
+const struct sid_resource_reg sid_resource_reg_ubridge;
 
 #endif
