@@ -39,7 +39,7 @@ AC_DEFINE_UNQUOTED(SID_CONFIGURE_LINE,"$CONFIGURE_LINE", [configure command line
 AC_DEFINE_UNQUOTED(SID_COMPILED_BY, "$(whoami)", [user who ran configure])
 AC_DEFINE_UNQUOTED(SID_COMPILATION_HOST, "$(hostname -f 2>/dev/null || hostname)", [host on which configure was executed])
 AC_DEFINE_UNQUOTED(SID_COMPILER, "$($CC --version | head -n 1)", [compiler used to compile sources])
-AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile daemon/Makefile])
+AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile resource/Makefile daemon/Makefile])
 AC_CONFIG_HEADERS([include/configure.h])
 AC_CHECK_HEADERS([fcntl.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
@@ -51,5 +51,7 @@ AC_TYPE_SSIZE_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
 AC_TYPE_UINT32_T
+AC_TYPE_UINT64_T
 AC_FUNC_MALLOC
+PKG_CHECK_MODULES(SYSTEMD, libsystemd >= 221) # event loop supported in libsystemd version >= 221
 AC_OUTPUT

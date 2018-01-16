@@ -18,4 +18,4 @@
 ##############################################################################
 
 ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = log misc daemon
+SUBDIRS = log misc resource daemon

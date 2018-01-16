@@ -17,6 +17,12 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-bin_PROGRAMS = sid
-sid_SOURCES = sid.c
-sid_LDADD = $(top_builddir)/resource/libresource.la
+noinst_LTLIBRARIES = libresource.la
+libresource_la_SOURCES = $(top_builddir)/include/wrapper-sd.h \
+			 $(top_builddir)/include/types.h \
+			 $(top_builddir)/include/resource.h \
+			 $(top_builddir)/include/resource-regs.h \
+			 resource.c
+libresource_la_CFLAGS = $(SYSTEMD_CFLAGS)
+libresource_la_LIBADD = $(top_builddir)/misc/libmisc.la \
+			$(SYSTEMD_LIBS)
