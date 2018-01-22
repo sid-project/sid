@@ -29,5 +29,7 @@ libmisc_la_SOURCES = $(top_builddir)/include/mem.h \
 		     $(top_builddir)/include/list.h \
 		     list.c \
 		     $(top_builddir)/include/comms.h \
-		     comms.c
+		     comms.c \
+		     $(top_builddir)/include/util.h \
+		     util.c
 libmisc_la_LIBADD = $(top_builddir)/log/liblog.la
