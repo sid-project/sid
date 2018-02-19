@@ -17,11 +17,20 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _SID_RESOURCE_REGS_H
-#define _SID_RESOURCE_REGS_H
+#ifndef _SID_MODULE_H
+#define _SID_MODULE_H
 
-const struct sid_resource_reg sid_resource_reg_aggregate;
-const struct sid_resource_reg sid_resource_reg_ubridge;
-const struct sid_resource_reg sid_resource_reg_module_registry;
+struct sid_module;
+
+typedef int sid_module_fn_t (struct sid_module *module);
+
+#define SID_MODULE_FN(name, fn) sid_module_fn_t *sid_module_ ## name = fn;
+
+#define SID_MODULE_INIT(fn)     SID_MODULE_FN(init, fn)
+#define SID_MODULE_EXIT(fn)     SID_MODULE_FN(exit, fn)
+#define SID_MODULE_RELOAD(fn)   SID_MODULE_FN(reload, fn)
+
+void sid_module_set_data(struct sid_module *module, void *data);
+void *sid_module_get_data(struct sid_module *module);
 
 #endif
