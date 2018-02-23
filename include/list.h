@@ -26,6 +26,10 @@
 
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct list {
 	struct list *n;
 	struct list *p;
@@ -79,5 +83,9 @@ void list_add(struct list *head, struct list *elem);
 void list_del(struct list *elem);
 bool list_is_empty(const struct list *head);
 unsigned int list_size(const struct list *head);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

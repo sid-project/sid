@@ -26,9 +26,17 @@
 #include <sys/types.h>
 #include "types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int util_pid_to_string(pid_t pid, char *buf, size_t buf_size);
 int util_create_full_dir_path(const char *path);
 udev_action_t util_get_udev_action_from_string(const char *str);
 uint64_t util_get_now_usec(clockid_t clock_id);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

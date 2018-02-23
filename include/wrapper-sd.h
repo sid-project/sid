@@ -23,6 +23,10 @@
 #include <systemd/sd-event.h>
 #include <systemd/sd-id128.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define sid_event_source sd_event_source
 #define sid_io_handler sd_event_io_handler_t
 #define sid_signal_handler sd_event_signal_handler_t
@@ -31,5 +35,9 @@
 #define sid_generic_handler sd_event_handler_t
 
 #define sid_uuid sd_id128_t
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

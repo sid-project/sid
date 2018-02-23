@@ -24,6 +24,10 @@
 #include <module.h>
 #include "types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct sid_ubridge_cmd_context;
 
 typedef int sid_ubridge_cmd_fn_t(const struct sid_ubridge_cmd_context *cmd);
@@ -56,5 +60,9 @@ void *sid_ubridge_cmd_dev_get_custom(const struct sid_ubridge_cmd_context *cmd);
 const char *sid_ubridge_cmd_dev_get_synth_uuid(const struct sid_ubridge_cmd_context *cmd);
 const char *sid_ubridge_cmd_dev_get_synth_arg_value(const struct sid_ubridge_cmd_context *cmd, const char *key);
 const char *sid_ubridge_cmd_dev_get_uevent_env_value(const struct sid_ubridge_cmd_context *cmd, const char *key);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

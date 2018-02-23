@@ -23,6 +23,10 @@
 #include <stdbool.h>
 #include "buffer-common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct buffer;
 
 struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t initial_size);
@@ -33,5 +37,9 @@ bool buffer_is_complete(struct buffer *buf);
 ssize_t buffer_read(struct buffer *buf, int fd);
 ssize_t buffer_write(struct buffer *buf, int fd);
 int buffer_get_data(struct buffer *buf, const void **data, size_t *data_len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

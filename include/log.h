@@ -25,6 +25,10 @@
 #include <string.h>
 #include <syslog.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	LOG_TARGET_NONE,
 	LOG_TARGET_STANDARD,
@@ -74,5 +78,9 @@ void log_output(int level_id, const char *prefix, int class_id, int errno_id,
 #define log_sys_error(p, x, y)          log_error_errno(p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
 
 #define INTERNAL_ERROR                  "Internal error: "
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

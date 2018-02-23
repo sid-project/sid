@@ -23,6 +23,10 @@
 #include "module.h"
 #include "resource.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define SID_MODULE_NAME_SUFFIX                 ".so"
 #define SID_MODULE_NAME_SUFFIX_LEN             (sizeof(SID_MODULE_NAME_SUFFIX) - 1)
 
@@ -53,5 +57,9 @@ int sid_module_registry_get_module_symbols(struct sid_resource *module_res, cons
 
 int sid_module_registry_reload_modules(struct sid_resource *module_registry_res);
 int sid_module_registry_reload_module(struct sid_resource *module_res);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

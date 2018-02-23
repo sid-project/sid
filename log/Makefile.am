@@ -17,8 +17,9 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-noinst_LTLIBRARIES = liblog.la
-liblog_la_SOURCES = $(top_builddir)/include/log.h \
-		    log-target-standard.c \
-		    log-target-syslog.c \
-		    log.c
+pkglib_LTLIBRARIES = libsidlog.la
+libsidlog_la_SOURCES = log-target-standard.c \
+		       log-target-syslog.c \
+		       log.c
+pkginclude_HEADERS = $(top_builddir)/include/log.h
+ 

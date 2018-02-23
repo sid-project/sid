@@ -20,8 +20,16 @@
 #ifndef _SID_RESOURCE_REGS_H
 #define _SID_RESOURCE_REGS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 const struct sid_resource_reg sid_resource_reg_aggregate;
 const struct sid_resource_reg sid_resource_reg_ubridge;
 const struct sid_resource_reg sid_resource_reg_module_registry;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

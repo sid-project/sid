@@ -22,6 +22,14 @@
 
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void *zalloc(size_t size) __attribute__((__malloc__));
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

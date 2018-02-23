@@ -22,6 +22,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MSG_SIZE_PREFIX_TYPE uint32_t
 #define MSG_SIZE_PREFIX_LEN (sizeof(uint32_t))
 
@@ -34,5 +38,9 @@ typedef enum {
 	BUFFER_MODE_PLAIN,       /* plain buffer */
 	BUFFER_MODE_SIZE_PREFIX, /* has uint32_t size prefix */
 } buffer_mode_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

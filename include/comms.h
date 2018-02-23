@@ -23,8 +23,17 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+}
+#endif
+
 int comms_unix_create(const char *path, int type);
 ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send);
 int comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

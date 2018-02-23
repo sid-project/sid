@@ -17,20 +17,20 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-noinst_LTLIBRARIES = libmisc.la
-libmisc_la_SOURCES = $(top_builddir)/include/types.h \
+pkglib_LTLIBRARIES = libsidmisc.la
+libsidmisc_la_SOURCES = mem.c \
+			buffer-type.h \
+			buffer-type-linear.c \
+			buffer-type-vector.c \
+			buffer.c \
+			list.c \
+			comms.c \
+			util.c
+pkginclude_HEADERS = $(top_builddir)/include/types.h \
 		     $(top_builddir)/include/mem.h \
-		     mem.c \
 		     $(top_builddir)/include/buffer-common.h \
 		     $(top_builddir)/include/buffer.h \
-		     buffer-type.h \
-		     buffer-type-linear.c \
-		     buffer-type-vector.c \
-		     buffer.c \
 		     $(top_builddir)/include/list.h \
-		     list.c \
 		     $(top_builddir)/include/comms.h \
-		     comms.c \
-		     $(top_builddir)/include/util.h \
-		     util.c
-libmisc_la_LIBADD = $(top_builddir)/log/liblog.la
+		     $(top_builddir)/include/util.h
+libsidmisc_la_LIBADD = $(top_builddir)/log/libsidlog.la

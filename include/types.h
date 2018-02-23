@@ -22,6 +22,10 @@
 
 #include "wrapper-sd.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	UDEV_ACTION_UNKNOWN,
 	UDEV_ACTION_ADD,
@@ -33,5 +37,9 @@ typedef enum {
 	UDEV_ACTION_BIND,
 	UDEV_ACTION_UNBIND
 } udev_action_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -26,6 +26,10 @@
 #include "resource-regs.h"
 #include "types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* opaque handler */
 struct sid_resource;
 
@@ -96,5 +100,9 @@ int sid_resource_isolate_with_children(struct sid_resource *res);
 /* event loop functions */
 int sid_resource_run_event_loop(struct sid_resource *res);
 int sid_resource_exit_event_loop(struct sid_resource *res);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
