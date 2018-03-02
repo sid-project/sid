@@ -39,7 +39,9 @@ AC_DEFINE_UNQUOTED(SID_CONFIGURE_LINE,"$CONFIGURE_LINE", [configure command line
 AC_DEFINE_UNQUOTED(SID_COMPILED_BY, "$(whoami)", [user who ran configure])
 AC_DEFINE_UNQUOTED(SID_COMPILATION_HOST, "$(hostname -f 2>/dev/null || hostname)", [host on which configure was executed])
 AC_DEFINE_UNQUOTED(SID_COMPILER, "$($CC --version | head -n 1)", [compiler used to compile sources])
-AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile resource/Makefile daemon/Makefile])
+AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile resource/Makefile daemon/Makefile
+		 modules/Makefile modules/ubridge-cmd/Makefile modules/ubridge-cmd/type/Makefile
+		 modules/ubridge-cmd/type/dummy_type/Makefile])
 AC_CONFIG_HEADERS([include/configure.h])
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL

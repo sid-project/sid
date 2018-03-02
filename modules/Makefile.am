@@ -17,5 +17,4 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = log misc resource daemon modules
+SUBDIRS = ubridge-cmd

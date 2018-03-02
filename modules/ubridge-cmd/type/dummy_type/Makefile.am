@@ -17,5 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = log misc resource daemon modules
+dummy_typedir = $(pkglibdir)/modules/ubridge-cmd/type
+dummy_type_LTLIBRARIES = dummy_type.la
+dummy_type_la_SOURCES = dummy_type.c
+dummy_type_la_LDFLAGS = -module -avoid-version
+dummy_type_la_LIBADD = $(top_builddir)/log/libsidlog.la
