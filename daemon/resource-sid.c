@@ -63,6 +63,11 @@ static int _init_sid(struct sid_resource *res, const void *kickstart_data, void 
 		goto fail;
 	}
 
+	if (!sid_resource_create(res, &sid_resource_reg_ubridge, 0, NULL, NULL)) {
+		log_error(ID(res), "Failed to create udev bridge interface.");
+		goto fail;
+	}
+
 	*data = sid;
 	return 0;
 fail:
