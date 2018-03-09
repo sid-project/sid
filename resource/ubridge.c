@@ -19,6 +19,7 @@
 
 #include "configure.h"
 
+#include <ctype.h>
 #include <signal.h>
 #include <stdio.h>
 #include <sys/signalfd.h>
@@ -28,7 +29,9 @@
 #include "list.h"
 #include "log.h"
 #include "mem.h"
+#include "module-registry.h"
 #include "resource.h"
+#include "ubridge-cmd-module.h"
 #include "util.h"
 
 #define UBRIDGE_PROTOCOL             1
@@ -38,6 +41,10 @@
 #define OBSERVER_NAME                "observer"
 #define WORKER_NAME                  "worker"
 #define COMMAND_NAME                 "command"
+
+#define MODULES_AGGREGATE_ID         "modules"
+#define MODULES_BLOCK_ID             "block"
+#define MODULES_TYPE_ID              "type"
 
 #define WORKER_IDLE_TIMEOUT_USEC     5000000
 
@@ -49,6 +56,24 @@
 #define COMMAND_STATUS_MASK_OVERALL  UINT64_C(0x0000000000000001)
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
 #define COMMAND_STATUS_FAILURE       UINT64_C(0x0000000000000001)
+
+#define PROC_DEVICES_PATH            "/proc/devices"
+
+
+#define UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY "/usr/local/lib/sid/modules/ubridge-cmd/block"
+#define UBRIDGE_CMD_TYPE_MODULE_DIRECTORY  "/usr/local/lib/sid/modules/ubridge-cmd/type"
+
+#define UBRIDGE_CMD_MODULE_FN_NAME_IDENT                  "sid_ubridge_cmd_ident"
+#define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_PRE               "sid_ubridge_cmd_scan_pre"
+#define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_CURRENT           "sid_ubridge_cmd_scan_current"
+#define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_NEXT              "sid_ubridge_cmd_scan_next"
+#define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_CURRENT      "sid_ubridge_cmd_scan_post_current"
+#define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_NEXT         "sid_ubridge_cmd_scan_post_next"
+
+#define UBRIDGE_CMD_MODULE_FN_NAME_ERROR                  "sid_ubridge_cmd_error"
+#define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ubridge_cmd_trigger_action_current"
+#define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ubridge_cmd_trigger_action_next"
+
 
 /* internal resources */
 const struct sid_resource_reg sid_resource_reg_ubridge_observer;
@@ -86,22 +111,17 @@ typedef enum {
 	__CMD_IDENT_PHASE_START = 0,
 	CMD_IDENT_PHASE_IDENT = 0,
 	CMD_IDENT_PHASE_SCAN_PRE,
-	CMD_IDENT_PHASE_SCAN_CORE_CURRENT,
-	CMD_IDENT_PHASE_SCAN_CORE_NEXT_BASIC,
-	CMD_IDENT_PHASE_SCAN_CORE_NEXT_EXTENDED,
-	CMD_IDENT_PHASE_SCAN_POST,
-	__CMD_IDENT_PHASE_END = CMD_IDENT_PHASE_SCAN_POST,
+	CMD_IDENT_PHASE_SCAN_CURRENT,
+	CMD_IDENT_PHASE_SCAN_NEXT,
+	CMD_IDENT_PHASE_SCAN_POST_CURRENT,
+	CMD_IDENT_PHASE_SCAN_POST_NEXT,
+	__CMD_IDENT_PHASE_END = CMD_IDENT_PHASE_SCAN_POST_NEXT,
 	CMD_IDENT_PHASE_TRIGGER_ACTION_CURRENT,
 	__CMD_IDENT_TRIGGER_ACTION_START = CMD_IDENT_PHASE_TRIGGER_ACTION_CURRENT,
 	CMD_IDENT_PHASE_TRIGGER_ACTION_NEXT,
 	__CMD_IDENT_TRIGGER_ACTION_END = CMD_IDENT_PHASE_TRIGGER_ACTION_NEXT, 
 	CMD_IDENT_PHASE_ERROR,
 } cmd_ident_phase_t;
-
-struct command_reg {
-	const char *name;
-	int (*execute) (struct sid_resource *cmd_res);
-};
 
 struct observer {
 	pid_t worker_pid;
@@ -153,7 +173,7 @@ struct device {
 	void *custom;
 };
 
-struct command {
+struct sid_ubridge_cmd_context {
 	uint8_t protocol;
 	command_t type;
 	uint16_t status;
@@ -161,6 +181,82 @@ struct command {
 	struct device dev;
 	struct buffer *result_buf;
 };
+
+struct command_module_fns {
+	sid_ubridge_cmd_fn_t *ident;
+	sid_ubridge_cmd_fn_t *scan_pre;
+	sid_ubridge_cmd_fn_t *scan_current;
+	sid_ubridge_cmd_fn_t *scan_next;
+	sid_ubridge_cmd_fn_t *scan_post_current;
+	sid_ubridge_cmd_fn_t *scan_post_next;
+	sid_ubridge_cmd_fn_t *trigger_action_current;
+	sid_ubridge_cmd_fn_t *trigger_action_next;
+	sid_ubridge_cmd_fn_t *error;
+} __attribute__((packed));
+
+struct command_exec_args {
+	struct sid_resource *cmd_res;
+	struct sid_resource_iter *block_mod_iter;
+	const struct command_module_fns *type_mod_fns_current;
+	const struct command_module_fns *type_mod_fns_next;
+};
+
+struct command_reg {
+	const char *name;
+	int (*execute) (struct command_exec_args *exec_arg);
+};
+
+udev_action_t sid_ubridge_cmd_dev_get_action(const struct sid_ubridge_cmd_context *cmd)
+{
+	return cmd->dev.action;
+}
+
+int sid_ubridge_cmd_cmd_dev_get_major(const struct sid_ubridge_cmd_context *cmd)
+{
+	return cmd->dev.major;
+}
+
+int sid_ubridge_cmd_cmd_dev_get_minor(const struct sid_ubridge_cmd_context *cmd)
+{
+	return cmd->dev.minor;
+}
+
+const char *sid_ubridge_cmd_dev_get_name(const struct sid_ubridge_cmd_context *cmd)
+{
+	return cmd->dev.name;
+}
+
+const char *sid_ubridge_cmd_dev_get_type(const struct sid_ubridge_cmd_context *cmd)
+{
+	return cmd->dev.type;
+}
+
+uint64_t sid_ubridge_cmd_dev_get_seqnum(const struct sid_ubridge_cmd_context *cmd)
+{
+	return cmd->dev.seqnum;
+}
+
+const char *sid_ubridge_cmd_dev_get_synth_uuid(const struct sid_ubridge_cmd_context *cmd)
+{
+	return cmd->dev.synth_uuid;
+}
+
+const char *sid_ubridge_cmd_dev_get_synth_arg_value(const struct sid_ubridge_cmd_context *cmd, const char *key)
+{
+	/* TODO: implement this */
+	return NULL;
+}
+
+const char *sid_ubridge_cmd_dev_get_uevent_env_value(const struct sid_ubridge_cmd_context *cmd, const char *key)
+{
+	/* TODO: implement this */
+	return NULL;
+}
+
+void *sid_ubridge_cmd_dev_get_custom(const struct sid_ubridge_cmd_context *cmd)
+{
+	return cmd->dev.custom;
+}
 
 static int _device_add_field(struct sid_resource *cmd_res, struct device *dev, const char *key)
 {
@@ -191,7 +287,7 @@ static int _device_add_field(struct sid_resource *cmd_res, struct device *dev, c
 	return 0;
 };
 
-static int _parse_cmd_nullstr_udev_env(struct sid_resource *cmd_res, struct command *cmd)
+static int _parse_cmd_nullstr_udev_env(struct sid_resource *cmd_res, struct sid_ubridge_cmd_context *cmd)
 {
 	size_t i = 0;
 	const char *delim, *str;
@@ -213,32 +309,119 @@ fail:
 	return -EINVAL;
 }
 
-static int _init_device(struct sid_resource *cmd_res)
+static void _canonicalize_module_name(char *name)
 {
-	struct command *cmd = sid_resource_get_data(cmd_res);
-	int r;
+	char *p = name;
 
-	if ((r = _parse_cmd_nullstr_udev_env(cmd_res, cmd)) < 0) {
-		log_error_errno(ID(cmd_res), r, "Failed to parse udev environment variables.");
-		return -1;
+	while (*p) {
+		if (*p == '-')
+			*p = '_';
+		p++;
+	}
+}
+
+/*
+ *  Module name is equal to the name as exposed in PROC_DEVICES_PATH + MODULE_NAME_SUFFIX.
+ */
+static int _lookup_module_name(struct sid_resource *cmd_res, struct device *dev, char *buf, size_t buf_size)
+{
+	FILE *f = NULL;
+	char line[80];
+	int in_block_section = 0;
+	char *p, *end, *found = NULL;
+	int major;
+	size_t len;
+	int r = -1;
+
+	if (!(f = fopen(PROC_DEVICES_PATH, "r"))) {
+		log_sys_error(ID(cmd_res), "fopen", PROC_DEVICES_PATH);
+		goto out;
 	}
 
-	return 0;
+	while (fgets(line, sizeof(line), f) != NULL) {
+		/* we need to be under "Block devices:" section */
+		if (!in_block_section) {
+			if (line[0] == 'B')
+				in_block_section = 1;
+			continue;
+		}
+
+		p = line;
+
+		/* skip space prefix in line */
+		while (isspace(*p))
+			p++;
+
+		/* skip whole line if there's no number */
+		if (!isdigit(*p))
+			continue;
+
+		/* find where the number ends */
+		end = p;
+		while (isdigit(*end))
+			end++;
+
+		/* place '\0' at the end so only that number is a string */
+		end[0] = '\0';
+
+		/* try to convert the string */
+		if ((major = atoi(p)) == 0)
+			continue;
+
+		/* is it the major we're looking for? */
+		if (major == dev->major) {
+			found = end + 1;
+			break;
+		}
+	}
+
+	if (!found) {
+		log_error(ID(cmd_res), "Unable to find major number %d for device %s in %s.",
+			  dev->major, dev->name, PROC_DEVICES_PATH);
+		goto out;
+	}
+
+	p = found;
+	while (isprint(*p))
+		p++;
+	p[0] = '\0';
+
+	len = p - found;
+
+	if (len >= (buf_size - strlen(SID_MODULE_NAME_SUFFIX))) {
+		log_error(ID(cmd_res), "Insufficient result buffer for device lookup in %s, "
+			  "found string \"%s\", buffer size is only %zu.", PROC_DEVICES_PATH,
+			  found, buf_size);
+		goto out;
+	}
+
+	memcpy(buf, found, len);
+	memcpy(buf + len, SID_MODULE_NAME_SUFFIX, SID_MODULE_NAME_SUFFIX_LEN);
+	buf[len + SID_MODULE_NAME_SUFFIX_LEN] = '\0';
+	_canonicalize_module_name(buf);
+
+	r = 0;
+out:
+	if (f)
+		fclose(f);
+	return r;
 }
 
-static int _cmd_execute_unknown(struct sid_resource *cmd_res)
+
+
+static int _cmd_execute_unknown(struct command_exec_args *exec_args)
 {
 	return 0;
 }
 
-static int _cmd_execute_reply(struct sid_resource *cmd_res)
+static int _cmd_execute_reply(struct command_exec_args *exec_args)
 {
 	return 0;
 }
 
-static int _cmd_execute_version(struct sid_resource *cmd_res)
+static int _cmd_execute_version(struct command_exec_args *exec_args)
 {
-	struct command *cmd = sid_resource_get_data(cmd_res);
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	static struct version this_version = {.major = SID_VERSION_MAJOR,
 					      .minor = SID_VERSION_MINOR,
 					      .release = SID_VERSION_RELEASE};
@@ -247,65 +430,247 @@ static int _cmd_execute_version(struct sid_resource *cmd_res)
 	return 0;
 }
 
-static int _cmd_execute_identify_ident(struct sid_resource *cmd_res)
+static int _execute_block_modules(struct command_exec_args *exec_args, cmd_ident_phase_t phase)
 {
-	return 0;
-}
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	struct sid_resource *block_mod_res;
+	const struct command_module_fns *block_mod_fns;
 
-static int _cmd_execute_identify_scan_pre(struct sid_resource *cmd_res)
-{
-	return 0;
-}
+	sid_resource_iter_reset(exec_args->block_mod_iter);
 
-static int _cmd_execute_identify_scan_core_current(struct sid_resource *cmd_res)
-{
-	return 0;
-}
+	while ((block_mod_res = sid_resource_iter_next(exec_args->block_mod_iter))) {
+		if (sid_module_registry_get_module_symbols(block_mod_res, (const void ***) &block_mod_fns) < 0) {
+			log_error(ID(exec_args->cmd_res), "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
+			return -1;
+		}
 
-static int _cmd_execute_identify_scan_core_next_basic(struct sid_resource *cmd_res)
-{
-	return 0;
-}
-
-static int _cmd_execute_identify_scan_core_next_extended(struct sid_resource *cmd_res)
-{
-	return 0;
-}
-
-static int _cmd_execute_identify_scan_post(struct sid_resource *cmd_res)
-{
-	return 0;
-}
-
-static struct command_reg _cmd_ident_phase_regs[] =  {
-	{.name = "ident",                   .execute = _cmd_execute_identify_ident},
-	{.name = "scan-pre",                .execute = _cmd_execute_identify_scan_pre},
-	{.name = "scan-core-current",       .execute = _cmd_execute_identify_scan_core_current},
-	{.name = "scan-core-next-basic",    .execute = _cmd_execute_identify_scan_core_next_basic},
-	{.name = "scan-core-next-extended", .execute = _cmd_execute_identify_scan_core_next_extended},
-	{.name = "scan-post",               .execute = _cmd_execute_identify_scan_post}
-};
-
-static int _cmd_execute_identify(struct sid_resource *cmd_res)
-{
-	cmd_ident_phase_t phase;
-	int r;
-
-	if ((r = _init_device(cmd_res) < 0))
-		return r;
-
-	for (phase = __CMD_IDENT_PHASE_START; phase <= __CMD_IDENT_PHASE_END; phase++) {
-		log_debug(ID(cmd_res), "Executing %s phase.", _cmd_ident_phase_regs[phase].name);
-		if ((r = _cmd_ident_phase_regs[phase].execute(cmd_res)) < 0) {
-			log_error(ID(cmd_res), "%s phase failed.", _cmd_ident_phase_regs[phase].name);
-			return r;
+		switch (phase) {
+			case CMD_IDENT_PHASE_IDENT:
+				if (block_mod_fns->ident && block_mod_fns->ident(cmd) < 0)
+					return -1;
+				break;
+			case CMD_IDENT_PHASE_SCAN_PRE:
+				if (block_mod_fns->scan_pre && block_mod_fns->scan_pre(cmd) < 0)
+					return -1;
+				break;
+			case CMD_IDENT_PHASE_SCAN_CURRENT:
+				if (block_mod_fns->scan_current && block_mod_fns->scan_current(cmd) < 0)
+					return -1;
+				break;
+			case CMD_IDENT_PHASE_SCAN_NEXT:
+				if (block_mod_fns->scan_next && block_mod_fns->scan_next(cmd) < 0)
+					return -1;
+				break;
+			case CMD_IDENT_PHASE_SCAN_POST_CURRENT:
+				if (block_mod_fns->scan_post_current && block_mod_fns->scan_post_current(cmd) < 0)
+					return -1;
+				break;
+			case CMD_IDENT_PHASE_SCAN_POST_NEXT:
+				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(cmd) < 0)
+					return -1;
+				break;
+			case CMD_IDENT_PHASE_TRIGGER_ACTION_CURRENT:
+				if (block_mod_fns->trigger_action_current && block_mod_fns->trigger_action_current(cmd) < 0)
+					return -1;
+				break;
+			case CMD_IDENT_PHASE_TRIGGER_ACTION_NEXT:
+				if (block_mod_fns->trigger_action_next && block_mod_fns->trigger_action_next(cmd) < 0)
+					return -1;
+				break;
+			case CMD_IDENT_PHASE_ERROR:
+				if (block_mod_fns->error && block_mod_fns->error(cmd) < 0)
+					return -1;
+				break;
 		}
 	}
+
+	return 0;
+}
+
+static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
+{
+	struct sid_resource *modules_res;
+	struct sid_resource *type_mod_res;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	char buf[32];
+	int r;
+
+	if ((r = _parse_cmd_nullstr_udev_env(exec_args->cmd_res, cmd)) < 0) {
+		log_error_errno(ID(exec_args->cmd_res), r, "Failed to parse udev environment variables.");
+		return -1;
+	}
+
+	if ((r = _lookup_module_name(exec_args->cmd_res, &cmd->dev, buf, sizeof(buf))) < 0)
+		return -1;
+
+	if (!(modules_res = sid_resource_get_child(sid_resource_get_top_level(exec_args->cmd_res), &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID)) ||
+	    !(modules_res = sid_resource_get_child(modules_res, &sid_resource_reg_module_registry, MODULES_TYPE_ID))) {
+		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find module handler.");
+		return -1;
+	}
+
+	if (!(type_mod_res = sid_module_registry_load_module(modules_res, buf))) {
+		log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", buf);
+		return -1;
+	}
+
+	if (sid_module_registry_get_module_symbols(type_mod_res, (const void ***) &exec_args->type_mod_fns_current) < 0) {
+		log_error(ID(exec_args->cmd_res), "Failed to retrieve module symbols from module %s.", buf);
+		return -1;
+	}
+
+	_execute_block_modules(exec_args, CMD_IDENT_PHASE_IDENT);
+
+	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->ident)
+		return exec_args->type_mod_fns_current->ident(cmd);
+
+	return 0;
+}
+
+static int _cmd_execute_identify_scan_pre(struct command_exec_args *exec_args)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+
+	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_PRE);
+
+	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->scan_pre)
+		return exec_args->type_mod_fns_current->scan_pre(cmd);
+
+	return 0;
+}
+
+static int _cmd_execute_identify_scan_current(struct command_exec_args *exec_args)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+
+	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_CURRENT);
+
+	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->scan_current)
+		return exec_args->type_mod_fns_current->scan_current(cmd);
+
+	return 0;
+}
+
+static int _cmd_execute_identify_scan_next(struct command_exec_args *exec_args)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+
+	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_NEXT);
+
+	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->scan_next)
+		return exec_args->type_mod_fns_next->scan_next(cmd);
+
+	return 0;
+}
+
+static int _cmd_execute_identify_scan_post_current(struct command_exec_args *exec_args)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+
+	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_POST_CURRENT);
+
+	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->scan_post_current)
+		return exec_args->type_mod_fns_current->scan_post_current(cmd);
+
+	return 0;
+}
+
+static int _cmd_execute_identify_scan_post_next(struct command_exec_args *exec_args)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+
+	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_POST_NEXT);
+
+	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->scan_post_next)
+		return exec_args->type_mod_fns_next->scan_post_next(cmd);
+
+	return 0;
+}
+
+static int _cmd_execute_trigger_action_current(struct command_exec_args *exec_args)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+
+	_execute_block_modules(exec_args, CMD_IDENT_PHASE_TRIGGER_ACTION_CURRENT);
+
+	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->trigger_action_current)
+		return exec_args->type_mod_fns_current->trigger_action_current(cmd);
+
+	return 0;
+}
+
+static int _cmd_execute_trigger_action_next(struct command_exec_args *exec_args)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+
+	_execute_block_modules(exec_args, CMD_IDENT_PHASE_TRIGGER_ACTION_NEXT);
+
+	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->trigger_action_next)
+		return exec_args->type_mod_fns_next->trigger_action_next(cmd);
+
+	return 0;
+}
+
+static int _cmd_execute_error(struct command_exec_args *exec_args)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	int r = 0;
+
+	_execute_block_modules(exec_args, CMD_IDENT_PHASE_ERROR);
+
+	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->error)
+		r = exec_args->type_mod_fns_current->error(cmd);
+
+	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->error)
+		r = exec_args->type_mod_fns_next->error(cmd);
 
 	return r;
 }
 
-static int _cmd_execute_checkpoint(struct sid_resource *cmd_res)
+static struct command_reg _cmd_ident_phase_regs[] =  {
+	{.name = "ident",              .execute = _cmd_execute_identify_ident},
+	{.name = "scan-pre",           .execute = _cmd_execute_identify_scan_pre},
+	{.name = "scan-current",       .execute = _cmd_execute_identify_scan_current},
+	{.name = "scan-next",          .execute = _cmd_execute_identify_scan_next},
+	{.name = "scan-post-current",  .execute = _cmd_execute_identify_scan_post_current},
+	{.name = "scan-post-next",     .execute = _cmd_execute_identify_scan_post_next},
+};
+
+static int _cmd_execute_identify(struct command_exec_args *exec_args)
+{
+	struct sid_resource *modules_res;
+	cmd_ident_phase_t phase;
+	int r = -1;
+
+	if (!(modules_res = sid_resource_get_child(sid_resource_get_top_level(exec_args->cmd_res), &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID)) ||
+	    !(modules_res = sid_resource_get_child(modules_res, &sid_resource_reg_module_registry, MODULES_BLOCK_ID))) {
+		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find module handler.");
+		goto out;
+	}
+
+	if (!(exec_args->block_mod_iter = sid_resource_iter_create(modules_res))) {
+		log_error(ID(exec_args->cmd_res), "Failed to create block module iterator.");
+		goto out;
+	}
+
+	for (phase = __CMD_IDENT_PHASE_START; phase <= __CMD_IDENT_PHASE_END; phase++) {
+		log_debug(ID(exec_args->cmd_res), "Executing %s phase.", _cmd_ident_phase_regs[phase].name);
+		if ((r = _cmd_ident_phase_regs[phase].execute(exec_args)) < 0) {
+			log_error(ID(exec_args->cmd_res), "%s phase failed.", _cmd_ident_phase_regs[phase].name);
+			if (_cmd_execute_error(exec_args) < 0)
+				log_error(ID(exec_args->cmd_res), "error phase failed.");
+			goto out;
+		}
+	}
+out:
+	if (exec_args->block_mod_iter) {
+		(void) sid_resource_iter_destroy(exec_args->block_mod_iter);
+		exec_args->block_mod_iter = NULL;
+	}
+	return r;
+}
+
+static int _cmd_execute_checkpoint(struct command_exec_args *exec_args)
 {
 	return 0;
 }
@@ -321,24 +686,27 @@ static struct command_reg _command_regs[] = {
 static int _cmd_handler(sid_event_source *es, void *data)
 {
 	struct sid_resource *cmd_res = data;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 	struct worker *worker = sid_resource_get_data(sid_resource_get_parent(cmd_res));
-	struct command *cmd = sid_resource_get_data(cmd_res);
 	struct raw_command_header response_header = {0};
+	struct command_exec_args exec_args = {0};
+
 	int r = -1;
 
-	buffer_add(cmd->result_buf, &response_header, sizeof(response_header));
+	(void) buffer_add(cmd->result_buf, &response_header, sizeof(response_header));
 
 	if (cmd->protocol <= UBRIDGE_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
 		response_header.protocol = cmd->protocol;
-		if ((r = _command_regs[cmd->type].execute(cmd_res)) < 0)
+		exec_args.cmd_res = cmd_res;
+		if ((r = _command_regs[cmd->type].execute(&exec_args)) < 0)
 			log_error_errno(ID(cmd_res), r, "Failed to execute command");
 	}
 
 	if (r < 0)
 		response_header.status |= COMMAND_STATUS_FAILURE;
 
-	buffer_write(cmd->result_buf, worker->conn_fd);
+	(void) buffer_write(cmd->result_buf, worker->conn_fd);
 
 	return r;
 }
@@ -346,7 +714,7 @@ static int _cmd_handler(sid_event_source *es, void *data)
 static int _init_command(struct sid_resource *res, const void *kickstart_data, void **data)
 {
 	const struct raw_command *raw_cmd = kickstart_data;
-	struct command *cmd = NULL;
+	struct sid_ubridge_cmd_context *cmd = NULL;
 
 	if (!(cmd = zalloc(sizeof(*cmd)))) {
 		log_error(ID(res), "Failed to allocate new command structure.");
@@ -383,7 +751,7 @@ fail:
 
 static int _destroy_command(struct sid_resource *res)
 {
-	struct command *cmd = sid_resource_get_data(res);
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(res);
 
 	(void) sid_resource_destroy_event_source(res, &cmd->es);
 	free(cmd->dev.raw_udev_env);
@@ -700,6 +1068,7 @@ static struct sid_resource *_spawn_worker(struct sid_resource *ubridge_res, int 
 	struct kickstart kickstart = {0};
 	sigset_t original_sigmask, new_sigmask;
 	struct sid_resource *res = NULL;
+	struct sid_resource *modules_res;
 	int signals_blocked = 0;
 	int comms_fd[2];
 	pid_t pid = -1;
@@ -737,12 +1106,19 @@ static struct sid_resource *_spawn_worker(struct sid_resource *ubridge_res, int 
 		kickstart.comms_fd = comms_fd[1];
 		(void) close(comms_fd[0]);
 
+		modules_res = sid_resource_get_child(ubridge_res, &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID);
+		(void) sid_resource_isolate_with_children(modules_res);
+
 		if (sid_resource_destroy(sid_resource_get_top_level(ubridge_res)) < 0)
 			log_error(ID(ubridge_res), "Failed to clean resource tree after forking a new worker.");
 
 		(void) util_pid_to_string(kickstart.worker_pid, id, sizeof(id));
-		if (!(res = sid_resource_create(NULL, &sid_resource_reg_ubridge_worker, 0, id, &kickstart)))
+		if (!(res = sid_resource_create(NULL, &sid_resource_reg_ubridge_worker, 0, id, &kickstart))) {
+			(void) sid_resource_destroy(modules_res);
 			exit(EXIT_FAILURE);
+		}
+
+		(void) sid_resource_add_child(res, modules_res);
 	} else {
 		/* Parent is a child observer. */
 		log_debug(ID(ubridge_res), "Spawned new worker process with PID %d.", pid);
@@ -830,7 +1206,7 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 
 	if (is_worker) {
 		r = sid_resource_run_event_loop(res);
-		(void) sid_resource_destroy(res);
+		(void) sid_resource_destroy(sid_resource_get_top_level(res));
 		exit(-r);
 	} else {
 		r = _accept_connection_and_pass_to_worker(ubridge_res, res);
@@ -838,12 +1214,113 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 	}
 }
 
+static const struct sid_module_registry_resource_params block_res_mod_params = {UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
+										SID_MODULE_REGISTRY_PRELOAD |
+										SID_MODULE_REGISTRY_INDIRECT_CALLBACKS,
+									{
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_SCAN_PRE,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_SCAN_CURRENT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_SCAN_NEXT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_CURRENT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_NEXT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_ERROR,
+											SID_MODULE_SYMBOL_FAIL_ON_MISSING |
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{NULL, 0}
+									}};
+
+static const struct sid_module_registry_resource_params type_res_mod_params = {UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
+									       SID_MODULE_REGISTRY_PRELOAD |
+									       SID_MODULE_REGISTRY_INDIRECT_CALLBACKS,
+									{
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
+											SID_MODULE_SYMBOL_FAIL_ON_MISSING |
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_SCAN_PRE,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_SCAN_CURRENT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_SCAN_NEXT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_CURRENT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_NEXT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT,
+											SID_MODULE_SYMBOL_INDIRECT,
+										},	
+										{
+											UBRIDGE_CMD_MODULE_FN_NAME_ERROR,
+											SID_MODULE_SYMBOL_FAIL_ON_MISSING |
+											SID_MODULE_SYMBOL_INDIRECT,
+										},
+										{NULL, 0}
+									}};
+
 static int _init_ubridge(struct sid_resource *res, const void *kickstart_data, void **data)
 {
 	struct ubridge *ubridge = NULL;
+	struct sid_resource *modules_res = NULL;
 
 	if (!(ubridge = zalloc(sizeof(struct ubridge)))) {
 		log_error(ID(res), "Failed to allocate memory for interface structure.");
+		goto fail;
+	}
+
+	if (!(modules_res = sid_resource_create(res, &sid_resource_reg_aggregate, 0, MODULES_AGGREGATE_ID, NULL))) {
+		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
+		goto fail;
+	}
+
+	if (!(sid_resource_create(modules_res, &sid_resource_reg_module_registry, 0, MODULES_BLOCK_ID, &block_res_mod_params)) ||
+	    !(sid_resource_create(modules_res, &sid_resource_reg_module_registry, 0, MODULES_TYPE_ID, &type_res_mod_params))) {
+		log_error(ID(res), "Failed to create module handler.");
 		goto fail;
 	}
 
