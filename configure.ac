@@ -41,7 +41,8 @@ AC_DEFINE_UNQUOTED(SID_COMPILATION_HOST, "$(hostname -f 2>/dev/null || hostname)
 AC_DEFINE_UNQUOTED(SID_COMPILER, "$($CC --version | head -n 1)", [compiler used to compile sources])
 AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile resource/Makefile daemon/Makefile
 		 modules/Makefile modules/ubridge-cmd/Makefile modules/ubridge-cmd/type/Makefile
-		 modules/ubridge-cmd/type/dummy_type/Makefile])
+		 modules/ubridge-cmd/type/dummy_type/Makefile
+		 modules/ubridge-cmd/type/device_mapper/Makefile])
 AC_CONFIG_HEADERS([include/configure.h])
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
