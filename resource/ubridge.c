@@ -20,6 +20,7 @@
 #include "configure.h"
 
 #include <ctype.h>
+#include <libudev.h>
 #include <signal.h>
 #include <stdio.h>
 #include <sys/signalfd.h>
@@ -194,11 +195,19 @@ struct command_module_fns {
 	sid_ubridge_cmd_fn_t *error;
 } __attribute__((packed));
 
+struct udev_monitor_setup {
+	struct udev *udev;
+	struct udev_monitor *monitor;
+	sid_event_source *es;
+	char tag[25]; /* "sid_<20_chars_for_64_bit_uevent_seqnum_in_decimal>" + "\0" */
+};
+
 struct command_exec_args {
 	struct sid_resource *cmd_res;
 	struct sid_resource_iter *block_mod_iter;
 	const struct command_module_fns *type_mod_fns_current;
 	const struct command_module_fns *type_mod_fns_next;
+	struct udev_monitor_setup umonitor;
 };
 
 struct command_reg {
@@ -627,6 +636,60 @@ static int _cmd_execute_error(struct command_exec_args *exec_args)
 	return r;
 }
 
+static int _on_cmd_udev_monitor(sid_event_source *es, int fd, uint32_t revents, void *data)
+{
+	return _cmd_execute_trigger_action_current(data) &&
+	       _cmd_execute_trigger_action_next(data);
+}
+
+static int _set_up_udev_monitor(struct command_exec_args *exec_args)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	struct udev_monitor_setup *umonitor = &exec_args->umonitor;
+	int umonitor_fd = -1;
+
+	if (!(umonitor->udev = udev_new())) {
+		log_error(ID(exec_args->cmd_res), "Failed to create udev handle.");
+		goto fail;
+	}
+
+	if (!(umonitor->monitor = udev_monitor_new_from_netlink(umonitor->udev, "udev"))) {
+		log_error(ID(exec_args->cmd_res), "Failed to create udev monitor.");
+		goto fail;
+	}
+
+	snprintf(umonitor->tag, sizeof(umonitor->tag), "sid_%" PRIu64, cmd->dev.seqnum);
+
+	if (udev_monitor_filter_add_match_tag(umonitor->monitor, umonitor->tag) < 0) {
+		log_error(ID(exec_args->cmd_res), "Failed to create tag filter.");
+		goto fail;
+	}
+
+	umonitor_fd = udev_monitor_get_fd(umonitor->monitor);
+
+	if (sid_resource_create_io_event_source(exec_args->cmd_res, &umonitor->es, umonitor_fd,
+						_on_cmd_udev_monitor, NULL, exec_args) < 0) {
+		log_error(ID(exec_args->cmd_res), "Failed to register udev monitoring.");
+		goto fail;
+	}
+
+	if (udev_monitor_enable_receiving(umonitor->monitor) < 0) {
+		log_error(ID(exec_args->cmd_res), "Failed to enable udev monitoring.");
+		goto fail;
+	}
+
+	return 0;
+fail:
+	if (umonitor->udev) {
+		if (umonitor->monitor)
+			udev_monitor_unref(umonitor->monitor);
+		udev_unref(umonitor->udev);
+		if (umonitor->es)
+			(void) sid_resource_destroy_event_source(exec_args->cmd_res, &umonitor->es);
+	}
+	return -1;
+}
+
 static struct command_reg _cmd_ident_phase_regs[] =  {
 	{.name = "ident",              .execute = _cmd_execute_identify_ident},
 	{.name = "scan-pre",           .execute = _cmd_execute_identify_scan_pre},
@@ -662,11 +725,14 @@ static int _cmd_execute_identify(struct command_exec_args *exec_args)
 			goto out;
 		}
 	}
+
+	//_set_up_udev_monitor(exec_args);
 out:
 	if (exec_args->block_mod_iter) {
 		(void) sid_resource_iter_destroy(exec_args->block_mod_iter);
 		exec_args->block_mod_iter = NULL;
 	}
+
 	return r;
 }
 
