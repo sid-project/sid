@@ -17,4 +17,4 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = type block
+SUBDIRS = dummy_block
