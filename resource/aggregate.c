@@ -17,9 +17,22 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _SID_RESOURCE_REGS_H
-#define _SID_RESOURCE_REGS_H
+#include "resource.h"
 
-const struct sid_resource_reg sid_resource_reg_aggregate;
+#define AGGREGATE_NAME "aggregate"
 
-#endif
+/*
+ * This resource is only used to aggregate other resources.
+ * There's no resource-specific implementation here.
+ */
+
+static int _init_aggregate(struct sid_resource *res, const void *kickstart_data, void **data)
+{
+	*data = (void *) kickstart_data;
+	return 0;
+}
+
+const struct sid_resource_reg sid_resource_reg_aggregate = {
+	.name = AGGREGATE_NAME,
+	.init = _init_aggregate,
+};
