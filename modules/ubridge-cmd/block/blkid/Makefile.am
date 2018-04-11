@@ -17,4 +17,9 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = dummy_block blkid
+blkiddir = $(pkglibdir)/modules/ubridge-cmd/block
+blkid_LTLIBRARIES = blkid.la
+blkid_la_SOURCES = blkid.c
+blkid_la_LDFLAGS = -module -avoid-version
+blkid_la_LIBADD = $(top_builddir)/log/libsidlog.la \
+		  -lblkid
