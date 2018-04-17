@@ -22,7 +22,6 @@ Makefile.in
 /cscope.out
 /cscope.po.out
 /tags
-.gdbinit
 
 *.o
 *.lo
