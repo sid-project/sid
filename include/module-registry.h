@@ -50,13 +50,13 @@ struct sid_module_registry_resource_params {
 	const struct sid_module_symbol_params symbol_params[]; /* NULL-terminated list of symbol params */
 };
 
-struct sid_resource *sid_module_registry_load_module(struct sid_resource *module_registry_res, const char *module_name);
-struct sid_resource *sid_module_registry_get_module(struct sid_resource *module_registry_res, const char *module_name);
-int sid_module_registry_unload_module(struct sid_resource *module_res);
-int sid_module_registry_get_module_symbols(struct sid_resource *module_res, const void ***ret);
+sid_resource_t *sid_module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name);
+sid_resource_t *sid_module_registry_get_module(sid_resource_t *module_registry_res, const char *module_name);
+int sid_module_registry_unload_module(sid_resource_t *module_res);
+int sid_module_registry_get_module_symbols(sid_resource_t *module_res, const void ***ret);
 
-int sid_module_registry_reload_modules(struct sid_resource *module_registry_res);
-int sid_module_registry_reload_module(struct sid_resource *module_res);
+int sid_module_registry_reload_modules(sid_resource_t *module_registry_res);
+int sid_module_registry_reload_module(sid_resource_t *module_res);
 
 #ifdef __cplusplus
 }

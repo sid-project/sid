@@ -31,7 +31,7 @@ struct sid_data {
 	sid_event_source *sigterm_es;
 };
 
-static int _init_sid(struct sid_resource *res, const void *kickstart_data, void **data)
+static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	struct sid_data *sid;
 	sigset_t sig_set;
@@ -81,7 +81,7 @@ fail:
 	return -1;
 }
 
-static int _destroy_sid(struct sid_resource *res)
+static int _destroy_sid(sid_resource_t *res)
 {
 	struct sid_data *sid = sid_resource_get_data(res);
 
@@ -92,7 +92,7 @@ static int _destroy_sid(struct sid_resource *res)
 	return 0;
 }
 
-const struct sid_resource_reg sid_resource_reg_sid = {
+const sid_resource_reg_t sid_resource_reg_sid = {
 	.name = SID_NAME,
 	.with_event_loop = 1,
 	.with_watchdog = 1,

@@ -27,31 +27,31 @@
 #include "mem.h"
 #include "resource.h"
 
-struct sid_resource {
+typedef struct sid_resource {
 	struct list list;
-	const struct sid_resource_reg *reg;
+	const sid_resource_reg_t *reg;
 	char *id;
-	struct sid_resource *parent;
+	sid_resource_t *parent;
 	struct list children;
 	sd_event *event_loop;
 	pid_t pid_created;
 	void *data;
-};
+} sid_resource_t;
 
-struct sid_resource_iter {
-	struct sid_resource *res;
+typedef struct sid_resource_iter {
+	sid_resource_t *res;
 	struct list *prev; /* for safety */
 	struct list *current;
 	struct list *next; /* for safety */
-};
+} sid_resource_iter_t;
 
-struct sid_resource *sid_resource_create(struct sid_resource *parent_res, const struct sid_resource_reg *reg,
-					 uint64_t flags __attribute__((unused)), const char *id_part, const void *kickstart_data)
+sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_reg_t *reg,
+				    uint64_t flags __attribute__((unused)), const char *id_part, const void *kickstart_data)
 {
-	struct sid_resource *res;
+	sid_resource_t *res;
 	size_t id_size;
 	char *id;
-	struct sid_resource *child_res, *tmp_child_res;
+	sid_resource_t *child_res, *tmp_child_res;
 
 	/* +1 for '/' if id is defined and +1 for '\0' at the end */
 	id_size = (reg->name ? strlen(reg->name) : 0) + (id_part ? strlen(id_part) + 1 : 0) + 1;
@@ -104,12 +104,12 @@ fail:
 	return NULL;
 }
 
-int sid_resource_destroy(struct sid_resource *res)
+int sid_resource_destroy(sid_resource_t *res)
 {
 	static const char msg_destroying[] = "Destroying resource";
 	static const char msg_destroyed[] = "Resource destroyed";
 	static const char msg_pid_created_current[] = "PID created/current";
-	struct sid_resource *child_res, *tmp_child_res;
+	sid_resource_t *child_res, *tmp_child_res;
 	pid_t pid = getpid();
 
 	if (pid == res->pid_created)
@@ -142,24 +142,24 @@ int sid_resource_destroy(struct sid_resource *res)
 	return 0;
 }
 
-bool sid_resource_is_registered_by(struct sid_resource *res, const struct sid_resource_reg *reg)
+bool sid_resource_is_registered_by(sid_resource_t *res, const sid_resource_reg_t *reg)
 {
 	return res->reg == reg;
 }
 
-const char *sid_resource_get_id(struct sid_resource *res)
+const char *sid_resource_get_id(sid_resource_t *res)
 {
 	return res->id;
 }
 
-void *sid_resource_get_data(struct sid_resource *res)
+void *sid_resource_get_data(sid_resource_t *res)
 {
 	return res->data;
 }
 
-struct sid_resource *_get_resource_with_event_loop(struct sid_resource *res, int error_if_not_found)
+sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_not_found)
 {
-	struct sid_resource *tmp_res = res;
+	sid_resource_t *tmp_res = res;
 
 	do {
 		if (tmp_res->event_loop)
@@ -173,10 +173,10 @@ struct sid_resource *_get_resource_with_event_loop(struct sid_resource *res, int
 	return NULL;
 }
 
-int sid_resource_create_io_event_source(struct sid_resource *res, sid_event_source **es, int fd,
+int sid_resource_create_io_event_source(sid_resource_t *res, sid_event_source **es, int fd,
 				        sid_io_handler handler, const char *name, void *data)
 {
-	struct sid_resource *res_event_loop = _get_resource_with_event_loop(res, 1);
+	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 	int r;
 
 	if (!res_event_loop)
@@ -192,10 +192,10 @@ int sid_resource_create_io_event_source(struct sid_resource *res, sid_event_sour
 	return 0;
 }
 
-int sid_resource_create_signal_event_source(struct sid_resource *res, sid_event_source **es, int signal,
+int sid_resource_create_signal_event_source(sid_resource_t *res, sid_event_source **es, int signal,
 					    sid_signal_handler handler, const char *name, void *data)
 {
-	struct sid_resource *res_event_loop = _get_resource_with_event_loop(res, 1);
+	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 	int r;
 
 	if (!res_event_loop)
@@ -211,10 +211,10 @@ int sid_resource_create_signal_event_source(struct sid_resource *res, sid_event_
 	return 0;
 }
 
-int sid_resource_create_child_event_source(struct sid_resource *res, sid_event_source **es, pid_t pid,
+int sid_resource_create_child_event_source(sid_resource_t *res, sid_event_source **es, pid_t pid,
 					   int options, sid_child_handler handler, const char *name, void *data)
 {
-	struct sid_resource *res_event_loop = _get_resource_with_event_loop(res, 1);
+	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 	int r;
 
 	if (!res_event_loop)
@@ -230,11 +230,11 @@ int sid_resource_create_child_event_source(struct sid_resource *res, sid_event_s
 	return 0;
 }
 
-int sid_resource_create_time_event_source(struct sid_resource *res, sid_event_source **es, clockid_t clock,
+int sid_resource_create_time_event_source(sid_resource_t *res, sid_event_source **es, clockid_t clock,
 					  uint64_t usec, uint64_t accuracy, sid_time_handler handler,
 					  const char *name, void *data)
 {
-	struct sid_resource *res_event_loop = _get_resource_with_event_loop(res, 1);
+	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 	int r;
 
 	if (!res_event_loop)
@@ -250,9 +250,9 @@ int sid_resource_create_time_event_source(struct sid_resource *res, sid_event_so
 	return 0;
 }
 
-int sid_resource_create_deferred_event_source(struct sid_resource *res, sid_event_source **es, sid_generic_handler handler, void *data)
+int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_event_source **es, sid_generic_handler handler, void *data)
 {
-	struct sid_resource *res_event_loop = _get_resource_with_event_loop(res, 1);
+	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 
 	if (!res_event_loop)
 		return -ENOMEDIUM;
@@ -260,9 +260,9 @@ int sid_resource_create_deferred_event_source(struct sid_resource *res, sid_even
 	return sd_event_add_defer(res_event_loop->event_loop, es, handler, data);
 }
 
-int sid_resource_create_post_event_source(struct sid_resource *res, sid_event_source **es, sid_generic_handler handler, void *data)
+int sid_resource_create_post_event_source(sid_resource_t *res, sid_event_source **es, sid_generic_handler handler, void *data)
 {
-	struct sid_resource *res_event_loop = _get_resource_with_event_loop(res, 1);
+	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 
 	if (!res_event_loop)
 		return -ENOMEDIUM;
@@ -270,9 +270,9 @@ int sid_resource_create_post_event_source(struct sid_resource *res, sid_event_so
 	return sd_event_add_defer(res_event_loop->event_loop, es, handler, data);
 }
 
-int sid_resource_create_exit_event_source(struct sid_resource *res, sid_event_source **es, sid_generic_handler handler, void *data)
+int sid_resource_create_exit_event_source(sid_resource_t *res, sid_event_source **es, sid_generic_handler handler, void *data)
 {
-	struct sid_resource *res_event_loop = _get_resource_with_event_loop(res, 1);
+	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 
 	if (!res_event_loop)
 		return -ENOMEDIUM;
@@ -280,19 +280,19 @@ int sid_resource_create_exit_event_source(struct sid_resource *res, sid_event_so
 	return sd_event_add_defer(res_event_loop->event_loop, es, handler, data);
 }
 
-int sid_resource_destroy_event_source(struct sid_resource *res __attribute__((unused)),
+int sid_resource_destroy_event_source(sid_resource_t *res __attribute__((unused)),
 				      sid_event_source **es)
 {
 	*es = sd_event_source_unref(*es);
 	return 0;
 }
 
-struct sid_resource *sid_resource_get_parent(struct sid_resource *res)
+sid_resource_t *sid_resource_get_parent(sid_resource_t *res)
 {
 	return res->parent;
 }
 
-struct sid_resource *sid_resource_get_top_level(struct sid_resource *res)
+sid_resource_t *sid_resource_get_top_level(sid_resource_t *res)
 {
 	while (res->parent)
 		res = res->parent;
@@ -300,9 +300,9 @@ struct sid_resource *sid_resource_get_top_level(struct sid_resource *res)
 	return res;
 }
 
-struct sid_resource *sid_resource_get_child(struct sid_resource *res, const struct sid_resource_reg *reg, const char *id)
+sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_reg_t *reg, const char *id)
 {
-	struct sid_resource *child_res;
+	sid_resource_t *child_res;
 	size_t id_offset = reg->name ? strlen(reg->name) + 1 : 0;
 
 	list_iterate_items(child_res, &res->children) {
@@ -313,7 +313,7 @@ struct sid_resource *sid_resource_get_child(struct sid_resource *res, const stru
 	return NULL;
 }
 
-int sid_resource_add_child(struct sid_resource *res, struct sid_resource *child)
+int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child)
 {
 	if (!res || child->parent)
 		return -EINVAL;
@@ -325,9 +325,9 @@ int sid_resource_add_child(struct sid_resource *res, struct sid_resource *child)
 	return 0;
 }
 
-int sid_resource_isolate(struct sid_resource *res)
+int sid_resource_isolate(sid_resource_t *res)
 {
-	struct sid_resource *tmp_child_res, *child_res;
+	sid_resource_t *tmp_child_res, *child_res;
 
 	/* Only allow to isolate resource with parent and without event loop! */
 	if (res->event_loop || !res->parent)
@@ -344,7 +344,7 @@ int sid_resource_isolate(struct sid_resource *res)
 	return 0;
 }
 
-int sid_resource_isolate_with_children(struct sid_resource *res)
+int sid_resource_isolate_with_children(sid_resource_t *res)
 {
 
 	if (res->event_loop || !res->parent)
@@ -356,9 +356,9 @@ int sid_resource_isolate_with_children(struct sid_resource *res)
 	return 0;
 }
 
-struct sid_resource_iter *sid_resource_iter_create(struct sid_resource *res)
+sid_resource_iter_t *sid_resource_iter_create(sid_resource_t *res)
 {
-	struct sid_resource_iter *iter;
+	sid_resource_iter_t *iter;
 
 	if (!(iter = malloc(sizeof(*iter))))
 		return NULL;
@@ -372,15 +372,15 @@ struct sid_resource_iter *sid_resource_iter_create(struct sid_resource *res)
 	return iter;
 }
 
-struct sid_resource *sid_resource_iter_current(struct sid_resource_iter *iter)
+sid_resource_t *sid_resource_iter_current(sid_resource_iter_t *iter)
 {
 	if (iter->current == &iter->res->children)
 		return NULL;
 
-	return list_struct_base(iter->current, struct sid_resource, list);
+	return list_struct_base(iter->current, sid_resource_t, list);
 }
 
-struct sid_resource *sid_resource_iter_next(struct sid_resource_iter *iter)
+sid_resource_t *sid_resource_iter_next(sid_resource_iter_t *iter)
 {
 	if (iter->next == &iter->res->children)
 		return NULL;
@@ -388,10 +388,10 @@ struct sid_resource *sid_resource_iter_next(struct sid_resource_iter *iter)
 	iter->current = iter->next;
 	iter->next = iter->current->n;
 
-	return list_struct_base(iter->current, struct sid_resource, list);
+	return list_struct_base(iter->current, sid_resource_t, list);
 }
 
-struct sid_resource *sid_resource_iter_previous(struct sid_resource_iter *iter)
+sid_resource_t *sid_resource_iter_previous(sid_resource_iter_t *iter)
 {
 	if (iter->prev == &iter->res->children)
 		return NULL;
@@ -399,22 +399,22 @@ struct sid_resource *sid_resource_iter_previous(struct sid_resource_iter *iter)
 	iter->current = iter->prev;
 	iter->prev = iter->current->p;
 
-	return list_struct_base(iter->current, struct sid_resource, list);
+	return list_struct_base(iter->current, sid_resource_t, list);
 }
 
-void sid_resource_iter_reset(struct sid_resource_iter *iter)
+void sid_resource_iter_reset(sid_resource_iter_t *iter)
 {
 	iter->current = &iter->res->children;
 	iter->prev = iter->current->p;
 	iter->next = iter->current->n;
 }
 
-void sid_resource_iter_destroy(struct sid_resource_iter *iter)
+void sid_resource_iter_destroy(sid_resource_iter_t *iter)
 {
 	free(iter);
 }
 
-int sid_resource_run_event_loop(struct sid_resource *res)
+int sid_resource_run_event_loop(sid_resource_t *res)
 {
 	int r;
 
@@ -436,7 +436,7 @@ int sid_resource_run_event_loop(struct sid_resource *res)
 	return 0;
 }
 
-int sid_resource_exit_event_loop(struct sid_resource *res)
+int sid_resource_exit_event_loop(sid_resource_t *res)
 {
 	if (!res->event_loop)
 		return -ENOMEDIUM;

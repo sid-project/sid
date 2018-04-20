@@ -77,9 +77,9 @@
 
 
 /* internal resources */
-const struct sid_resource_reg sid_resource_reg_ubridge_observer;
-const struct sid_resource_reg sid_resource_reg_ubridge_worker;
-const struct sid_resource_reg sid_resource_reg_ubridge_command;
+const sid_resource_reg_t sid_resource_reg_ubridge_observer;
+const sid_resource_reg_t sid_resource_reg_ubridge_worker;
+const sid_resource_reg_t sid_resource_reg_ubridge_command;
 
 struct ubridge {
 	int socket_fd;
@@ -203,8 +203,8 @@ struct udev_monitor_setup {
 };
 
 struct command_exec_args {
-	struct sid_resource *cmd_res;
-	struct sid_resource_iter *block_mod_iter;
+	sid_resource_t *cmd_res;
+	sid_resource_iter_t *block_mod_iter;
 	const struct command_module_fns *type_mod_fns_current;
 	const struct command_module_fns *type_mod_fns_next;
 	struct udev_monitor_setup umonitor;
@@ -267,7 +267,7 @@ void *sid_ubridge_cmd_dev_get_custom(const struct sid_ubridge_cmd_context *cmd)
 	return cmd->dev.custom;
 }
 
-static int _device_add_field(struct sid_resource *cmd_res, struct device *dev, const char *key)
+static int _device_add_field(sid_resource_t *cmd_res, struct device *dev, const char *key)
 {
 	const char *value;
 	size_t key_len;
@@ -296,7 +296,7 @@ static int _device_add_field(struct sid_resource *cmd_res, struct device *dev, c
 	return 0;
 };
 
-static int _parse_cmd_nullstr_udev_env(struct sid_resource *cmd_res, struct sid_ubridge_cmd_context *cmd)
+static int _parse_cmd_nullstr_udev_env(sid_resource_t *cmd_res, struct sid_ubridge_cmd_context *cmd)
 {
 	size_t i = 0;
 	const char *delim, *str;
@@ -332,7 +332,7 @@ static void _canonicalize_module_name(char *name)
 /*
  *  Module name is equal to the name as exposed in PROC_DEVICES_PATH + MODULE_NAME_SUFFIX.
  */
-static int _lookup_module_name(struct sid_resource *cmd_res, struct device *dev, char *buf, size_t buf_size)
+static int _lookup_module_name(sid_resource_t *cmd_res, struct device *dev, char *buf, size_t buf_size)
 {
 	FILE *f = NULL;
 	char line[80];
@@ -442,7 +442,7 @@ static int _cmd_execute_version(struct command_exec_args *exec_args)
 static int _execute_block_modules(struct command_exec_args *exec_args, cmd_ident_phase_t phase)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-	struct sid_resource *block_mod_res;
+	sid_resource_t *block_mod_res;
 	const struct command_module_fns *block_mod_fns;
 
 	sid_resource_iter_reset(exec_args->block_mod_iter);
@@ -498,8 +498,8 @@ static int _execute_block_modules(struct command_exec_args *exec_args, cmd_ident
 
 static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 {
-	struct sid_resource *modules_res;
-	struct sid_resource *type_mod_res;
+	sid_resource_t *modules_res;
+	sid_resource_t *type_mod_res;
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	char buf[32];
 	int r;
@@ -701,7 +701,7 @@ static struct command_reg _cmd_ident_phase_regs[] =  {
 
 static int _cmd_execute_identify(struct command_exec_args *exec_args)
 {
-	struct sid_resource *modules_res;
+	sid_resource_t *modules_res;
 	cmd_ident_phase_t phase;
 	int r = -1;
 
@@ -751,7 +751,7 @@ static struct command_reg _command_regs[] = {
 
 static int _cmd_handler(sid_event_source *es, void *data)
 {
-	struct sid_resource *cmd_res = data;
+	sid_resource_t *cmd_res = data;
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 	struct worker *worker = sid_resource_get_data(sid_resource_get_parent(cmd_res));
 	struct raw_command_header response_header = {0};
@@ -777,7 +777,7 @@ static int _cmd_handler(sid_event_source *es, void *data)
 	return r;
 }
 
-static int _init_command(struct sid_resource *res, const void *kickstart_data, void **data)
+static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct raw_command *raw_cmd = kickstart_data;
 	struct sid_ubridge_cmd_context *cmd = NULL;
@@ -815,7 +815,7 @@ fail:
 	return -1;
 }
 
-static int _destroy_command(struct sid_resource *res)
+static int _destroy_command(sid_resource_t *res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(res);
 
@@ -826,12 +826,12 @@ static int _destroy_command(struct sid_resource *res)
 	return 0;
 }
 
-static int _worker_cleanup(struct sid_resource *worker_res)
+static int _worker_cleanup(sid_resource_t *worker_res)
 {
 	struct worker *worker = sid_resource_get_data(worker_res);
 	char buf[INTERNAL_COMMS_BUFFER_LEN];
-	struct sid_resource_iter *iter;
-	struct sid_resource *cmd_res;
+	sid_resource_iter_t *iter;
+	sid_resource_t *cmd_res;
 
 	if (!(iter = sid_resource_iter_create(worker_res)))
 		return -1;
@@ -855,7 +855,7 @@ static int _worker_cleanup(struct sid_resource *worker_res)
 
 static int _on_worker_conn_event(sid_event_source *es, int fd, uint32_t revents, void *data)
 {
-	struct sid_resource *worker_res = data;
+	sid_resource_t *worker_res = data;
 	struct worker *worker = sid_resource_get_data(worker_res);
 	const char *raw_stream;
 	size_t raw_stream_len;
@@ -909,7 +909,7 @@ static int _on_worker_conn_event(sid_event_source *es, int fd, uint32_t revents,
 
 static int _on_worker_comms_event(sid_event_source *es, int fd, uint32_t revents, void *data)
 {
-	struct sid_resource *worker_res = data;
+	sid_resource_t *worker_res = data;
 	struct worker *worker = sid_resource_get_data(worker_res);
 	char buf[INTERNAL_COMMS_BUFFER_LEN];
 	int fd_received;
@@ -936,7 +936,7 @@ static int _on_worker_comms_event(sid_event_source *es, int fd, uint32_t revents
 
 static int _on_idle_task_timeout_event(sid_event_source *es, uint64_t usec, void *data)
 {
-	struct sid_resource *observer_res = data;
+	sid_resource_t *observer_res = data;
 	struct observer *observer = sid_resource_get_data(observer_res);
 
 	log_debug(ID(observer_res), "Idle timeout expired.");
@@ -949,7 +949,7 @@ static int _on_idle_task_timeout_event(sid_event_source *es, uint64_t usec, void
 
 static int _on_observer_comms_event(sid_event_source *es, int fd, uint32_t revents, void *data)
 {
-	struct sid_resource *observer_res = data;
+	sid_resource_t *observer_res = data;
 	struct observer *observer = sid_resource_get_data(observer_res);
 	char buf[INTERNAL_COMMS_BUFFER_LEN];
 	int fd_received;
@@ -974,7 +974,7 @@ static int _on_observer_comms_event(sid_event_source *es, int fd, uint32_t reven
 
 static int _on_observer_child_event(sid_event_source *es, const siginfo_t *si, void *data)
 {
-	struct sid_resource *observer_res = data;
+	sid_resource_t *observer_res = data;
 	struct observer *observer = sid_resource_get_data(observer_res);
 
 	switch (si->si_code) {
@@ -998,14 +998,14 @@ static int _on_observer_child_event(sid_event_source *es, const siginfo_t *si, v
 
 static int _on_signal_event(sid_event_source *es, const struct signalfd_siginfo *si, void *userdata)
 {
-	struct sid_resource *res = userdata;
+	sid_resource_t *res = userdata;
 
 	log_print(ID(res), "Received signal %d.", si->ssi_signo);
 	sid_resource_exit_event_loop(res);
 	return 0;
 }
 
-static int _init_observer(struct sid_resource *res, const void *kickstart_data, void **data)
+static int _init_observer(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct kickstart *kickstart = kickstart_data;
 	struct observer *observer = NULL;
@@ -1045,7 +1045,7 @@ fail:
 
 }
 
-static int _destroy_observer(struct sid_resource *res)
+static int _destroy_observer(sid_resource_t *res)
 {
 	struct observer *observer = sid_resource_get_data(res);
 
@@ -1059,7 +1059,7 @@ static int _destroy_observer(struct sid_resource *res)
 	return 0;
 }
 
-static int _init_worker(struct sid_resource *res, const void *kickstart_data, void **data)
+static int _init_worker(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct kickstart *kickstart = kickstart_data;
 	struct worker *worker = NULL;
@@ -1110,7 +1110,7 @@ fail:
 
 }
 
-static int _destroy_worker(struct sid_resource *res)
+static int _destroy_worker(sid_resource_t *res)
 {
 	struct worker *worker = sid_resource_get_data(res);
 
@@ -1129,12 +1129,12 @@ static int _destroy_worker(struct sid_resource *res)
 	return 0;
 }
 
-static struct sid_resource *_spawn_worker(struct sid_resource *ubridge_res, int *is_worker)
+static sid_resource_t *_spawn_worker(sid_resource_t *ubridge_res, int *is_worker)
 {
 	struct kickstart kickstart = {0};
 	sigset_t original_sigmask, new_sigmask;
-	struct sid_resource *res = NULL;
-	struct sid_resource *modules_res;
+	sid_resource_t *res = NULL;
+	sid_resource_t *modules_res;
 	int signals_blocked = 0;
 	int comms_fd[2];
 	pid_t pid = -1;
@@ -1205,7 +1205,7 @@ out:
 	return res;
 }
 
-static int _accept_connection_and_pass_to_worker(struct sid_resource *ubridge_res, struct sid_resource *observer_res)
+static int _accept_connection_and_pass_to_worker(sid_resource_t *ubridge_res, sid_resource_t *observer_res)
 {
 	struct ubridge *ubridge;
 	struct observer *observer;
@@ -1236,10 +1236,10 @@ static int _accept_connection_and_pass_to_worker(struct sid_resource *ubridge_re
 	return 0;
 }
 
-static struct sid_resource *_find_observer_for_idle_worker(struct sid_resource *ubridge_res)
+static sid_resource_t *_find_observer_for_idle_worker(sid_resource_t *ubridge_res)
 {
-	struct sid_resource_iter *iter;
-	struct sid_resource *res;
+	sid_resource_iter_t *iter;
+	sid_resource_t *res;
 
 	if (!(iter = sid_resource_iter_create(ubridge_res)))
 		return NULL;
@@ -1257,8 +1257,8 @@ static struct sid_resource *_find_observer_for_idle_worker(struct sid_resource *
 
 static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t revents, void *data)
 {
-	struct sid_resource *ubridge_res = data;
-	struct sid_resource *res = NULL;
+	sid_resource_t *ubridge_res = data;
+	sid_resource_t *res = NULL;
 	int is_worker = 0;
 	int r;
 
@@ -1369,10 +1369,10 @@ static const struct sid_module_registry_resource_params type_res_mod_params = {U
 										{NULL, 0}
 									}};
 
-static int _init_ubridge(struct sid_resource *res, const void *kickstart_data, void **data)
+static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	struct ubridge *ubridge = NULL;
-	struct sid_resource *modules_res = NULL;
+	sid_resource_t *modules_res = NULL;
 
 	if (!(ubridge = zalloc(sizeof(struct ubridge)))) {
 		log_error(ID(res), "Failed to allocate memory for interface structure.");
@@ -1413,7 +1413,7 @@ fail:
 	return -1;
 }
 
-static int _destroy_ubridge(struct sid_resource *res)
+static int _destroy_ubridge(sid_resource_t *res)
 {
 	struct ubridge *ubridge = sid_resource_get_data(res);
 
@@ -1426,26 +1426,26 @@ static int _destroy_ubridge(struct sid_resource *res)
 	return 0;
 }
 
-const struct sid_resource_reg sid_resource_reg_ubridge_command = {
+const sid_resource_reg_t sid_resource_reg_ubridge_command = {
 	.name = COMMAND_NAME,
 	.init = _init_command,
 	.destroy = _destroy_command,
 };
 
-const struct sid_resource_reg sid_resource_reg_ubridge_observer = {
+const sid_resource_reg_t sid_resource_reg_ubridge_observer = {
 	.name = OBSERVER_NAME,
 	.init = _init_observer,
 	.destroy = _destroy_observer,
 };
 
-const struct sid_resource_reg sid_resource_reg_ubridge_worker = {
+const sid_resource_reg_t sid_resource_reg_ubridge_worker = {
 	.name = WORKER_NAME,
 	.init = _init_worker,
 	.destroy = _destroy_worker,
 	.with_event_loop = 1,
 };
 
-const struct sid_resource_reg sid_resource_reg_ubridge = {
+const sid_resource_reg_t sid_resource_reg_ubridge = {
 	.name = UBRIDGE_NAME,
 	.init = _init_ubridge,
 	.destroy = _destroy_ubridge,

@@ -35,7 +35,7 @@
 
 static volatile sig_atomic_t _shutdown_requested = 0;
 
-const struct sid_resource_reg sid_resource_reg_sid;
+const sid_resource_reg_t sid_resource_reg_sid;
 
 static void _help(FILE *f)
 {
@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
 	int opt;
 	int verbose = 0;
 	int foreground = 0;
-	struct sid_resource *sid_res = NULL;
+	sid_resource_t *sid_res = NULL;
 	int r = -1;
 
 	struct option longopts[] = {

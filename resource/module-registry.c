@@ -32,14 +32,14 @@
 #define MODULE_REGISTRY_NAME "module-registry"
 #define MODULE_NAME "module"
 
-const struct sid_resource_reg sid_resource_reg_module;
+const sid_resource_reg_t sid_resource_reg_module;
 
 struct module_registry {
 	const char *directory;
 	uint64_t flags;
 	unsigned symbol_count;
 	const struct sid_module_symbol_params *symbol_params;
-	struct sid_resource_iter *module_iter;
+	sid_resource_iter_t *module_iter;
 };
 
 struct sid_module {
@@ -52,10 +52,10 @@ struct sid_module {
 	void *data;
 };
 
-static struct sid_resource *_find_module(struct sid_resource *module_registry_res, const char *module_name)
+static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const char *module_name)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
-	struct sid_resource *res, *found = NULL;
+	sid_resource_t *res, *found = NULL;
 
 	sid_resource_iter_reset(registry->module_iter);
 	while ((res = sid_resource_iter_next(registry->module_iter))) {
@@ -70,10 +70,10 @@ static struct sid_resource *_find_module(struct sid_resource *module_registry_re
 	return found;
 }
 
-struct sid_resource *sid_module_registry_load_module(struct sid_resource *module_registry_res, const char *module_name)
+sid_resource_t *sid_module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
-	struct sid_resource *module_res;
+	sid_resource_t *module_res;
 
 	if ((module_res = _find_module(module_registry_res, module_name))) {
 		log_debug(ID(module_registry_res), "Module %s/%s already loaded, skipping load request.", registry->directory, module_name);
@@ -88,18 +88,17 @@ struct sid_resource *sid_module_registry_load_module(struct sid_resource *module
 	return module_res;
 }
 
-struct sid_resource *sid_module_registry_get_module(struct sid_resource *module_registry_res, const char *module_name)
+sid_resource_t *sid_module_registry_get_module(sid_resource_t *module_registry_res, const char *module_name)
 {
 	return _find_module(module_registry_res, module_name);
 }
 
-int sid_module_registry_unload_module(struct sid_resource *module_res)
+int sid_module_registry_unload_module(sid_resource_t *module_res)
 {
 	return sid_resource_destroy(module_res);
 }
 
-
-int sid_module_registry_get_module_symbols(struct sid_resource *module_res, const void ***ret)
+int sid_module_registry_get_module_symbols(sid_resource_t *module_res, const void ***ret)
 {
 	struct sid_module *module = sid_resource_get_data(module_res);
 
@@ -109,10 +108,10 @@ int sid_module_registry_get_module_symbols(struct sid_resource *module_res, cons
 
 static const char module_reload_failed_msg[]= "Module-specific reload failed.";
 
-int sid_module_registry_reload_modules(struct sid_resource *module_registry_res)
+int sid_module_registry_reload_modules(sid_resource_t *module_registry_res)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
-	struct sid_resource *res;
+	sid_resource_t *res;
 	struct sid_module *module;
 
 	sid_resource_iter_reset(registry->module_iter);
@@ -126,7 +125,7 @@ int sid_module_registry_reload_modules(struct sid_resource *module_registry_res)
 	return 0;
 }
 
-int sid_module_registry_reload_module(struct sid_resource *module_res)
+int sid_module_registry_reload_module(sid_resource_t *module_res)
 {
 	struct sid_module *module = sid_resource_get_data(module_res);
 
@@ -162,9 +161,9 @@ static int _has_suffix(const char *s, const char *suffix, int no_case)
 		       : strcmp(s + len_s - len_suffix, suffix) == 0;
 }
 
-static int _preload_modules(struct sid_resource *module_registry_res, struct module_registry *registry)
+static int _preload_modules(sid_resource_t *module_registry_res, struct module_registry *registry)
 {
-	struct sid_resource *module_res;
+	sid_resource_t *module_res;
 	struct dirent **dirent = NULL;
 	int count, i;
 	int r = 0;
@@ -191,7 +190,7 @@ out:
 
 typedef void (*generic_t) (void);
 
-static int _load_module_symbol(struct sid_resource *module_res, void *dl_handle, const struct sid_module_symbol_params *params, void **symbol_store)
+static int _load_module_symbol(sid_resource_t *module_res, void *dl_handle, const struct sid_module_symbol_params *params, void **symbol_store)
 {
 	void *symbol;
 
@@ -214,7 +213,7 @@ static int _load_module_symbol(struct sid_resource *module_res, void *dl_handle,
 #define SID_MODULE_EXIT_NAME   "sid_module_exit"
 #define SID_MODULE_RELOAD_NAME "sid_module_reload"
 
-static int _init_module(struct sid_resource *module_res, const void *kickstart_data, void **data)
+static int _init_module(sid_resource_t *module_res, const void *kickstart_data, void **data)
 {
 	struct module_registry *registry = sid_resource_get_data(sid_resource_get_parent(module_res));
 	struct sid_module_symbol_params symbol_params = {0};
@@ -277,7 +276,7 @@ fail:
 	return -1;
 }
 
-static int _destroy_module(struct sid_resource *module_res)
+static int _destroy_module(sid_resource_t *module_res)
 {
 	struct sid_module *module = sid_resource_get_data(module_res);
 
@@ -293,7 +292,7 @@ static int _destroy_module(struct sid_resource *module_res)
 	return 0;
 }
 
-static int _init_module_registry(struct sid_resource *module_registry_res, const void *kickstart_data, void **data)
+static int _init_module_registry(sid_resource_t *module_registry_res, const void *kickstart_data, void **data)
 {
 	const struct sid_module_registry_resource_params *params = kickstart_data;
 	struct module_registry *registry = NULL;
@@ -347,7 +346,7 @@ fail:
 	return -1;
 }
 
-static int _destroy_module_registry(struct sid_resource *module_registry_res)
+static int _destroy_module_registry(sid_resource_t *module_registry_res)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
 
@@ -357,13 +356,13 @@ static int _destroy_module_registry(struct sid_resource *module_registry_res)
 	return 0;
 }
 
-const struct sid_resource_reg sid_resource_reg_module = {
+const sid_resource_reg_t sid_resource_reg_module = {
 	.name = MODULE_NAME,
 	.init = _init_module,
 	.destroy = _destroy_module,
 };
 
-const struct sid_resource_reg sid_resource_reg_module_registry = {
+const sid_resource_reg_t sid_resource_reg_module_registry = {
 	.name = MODULE_REGISTRY_NAME,
 	.init = _init_module_registry,
 	.destroy = _destroy_module_registry,

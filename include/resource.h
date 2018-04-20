@@ -23,83 +23,85 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/timerfd.h>
-#include "resource-regs.h"
 #include "types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* opaque handler */
-struct sid_resource;
+/* opaque resource handler */
+typedef struct sid_resource sid_resource_t;
 
 /* resource registration structure */
-struct sid_resource_reg {
+typedef struct sid_resource_reg {
 	const char *name;
-	int (*init) (struct sid_resource *res, const void *kickstart_data, void **data);
-	int (*destroy) (struct sid_resource *res);
+	int (*init) (sid_resource_t *res, const void *kickstart_data, void **data);
+	int (*destroy) (sid_resource_t *res);
 	unsigned int with_event_loop : 1;
 	unsigned int with_watchdog   : 1;
-};
+} sid_resource_reg_t;
+
+/* opaque resource's child iteration handler */
+typedef struct sid_resource_iter sid_resource_iter_t;
+
+#include "resource-regs.h"
 
 /* 
  * create/destroy functions
  */
-struct sid_resource *sid_resource_create(struct sid_resource *parent_res, const struct sid_resource_reg *reg,
-					 uint64_t flags, const char *id, const void *kickstart_data);
-int sid_resource_destroy(struct sid_resource *res);
+sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_reg_t *reg,
+				    uint64_t flags, const char *id, const void *kickstart_data);
+int sid_resource_destroy(sid_resource_t *res);
 
 /*
  * basic property retrieval functions
  */
-bool sid_resource_is_registered_by(struct sid_resource *res, const struct sid_resource_reg *reg);
-void *sid_resource_get_data(struct sid_resource *res);
-const char *sid_resource_get_id(struct sid_resource *res);
+bool sid_resource_is_registered_by(sid_resource_t *res, const sid_resource_reg_t *reg);
+void *sid_resource_get_data(sid_resource_t *res);
+const char *sid_resource_get_id(sid_resource_t *res);
 
 #define ID(res) sid_resource_get_id(res)
 
 /*
  * event source handling functions
  */
-int sid_resource_create_io_event_source(struct sid_resource *res, sid_event_source **es, int fd,
+int sid_resource_create_io_event_source(sid_resource_t *res, sid_event_source **es, int fd,
 					sid_io_handler handler, const char *name, void *data);
-int sid_resource_create_signal_event_source(struct sid_resource *res, sid_event_source **es, int signal,
+int sid_resource_create_signal_event_source(sid_resource_t *res, sid_event_source **es, int signal,
 					    sid_signal_handler handler, const char *name, void *data);
-int sid_resource_create_child_event_source(struct sid_resource *res, sid_event_source **es, pid_t pid,
+int sid_resource_create_child_event_source(sid_resource_t *res, sid_event_source **es, pid_t pid,
 					   int options, sid_child_handler handler, const char *name, void *data);
-int sid_resource_create_time_event_source(struct sid_resource *res, sid_event_source **es, clockid_t clock,
+int sid_resource_create_time_event_source(sid_resource_t *res, sid_event_source **es, clockid_t clock,
 					  uint64_t usec, uint64_t accuracy, sid_time_handler handler,
 					  const char *name, void *data);
-int sid_resource_create_deferred_event_source(struct sid_resource *res, sid_event_source **es,
+int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_event_source **es,
 					      sid_generic_handler handler, void *data);
-int sid_resource_destroy_event_source(struct sid_resource *res __attribute__((unused)), sid_event_source **es);
+int sid_resource_destroy_event_source(sid_resource_t *res __attribute__((unused)), sid_event_source **es);
 
 /* 
  * structure/tree iterator and 'get' functions
  */
-struct sid_resource_iter;
+sid_resource_iter_t *sid_resource_iter_create(sid_resource_t *res);
+sid_resource_t *sid_resource_iter_current(sid_resource_iter_t *iter);
+sid_resource_t *sid_resource_iter_next(sid_resource_iter_t *iter);
+sid_resource_t *sid_resource_iter_previous(sid_resource_iter_t *iter);
+void sid_resource_iter_reset(sid_resource_iter_t *iter);
+void sid_resource_iter_destroy(sid_resource_iter_t *iter);
 
-struct sid_resource_iter *sid_resource_iter_create(struct sid_resource *res);
-struct sid_resource *sid_resource_iter_current(struct sid_resource_iter *iter);
-struct sid_resource *sid_resource_iter_next(struct sid_resource_iter *iter);
-struct sid_resource *sid_resource_iter_previous(struct sid_resource_iter *iter);
-void sid_resource_iter_reset(struct sid_resource_iter *iter);
-void sid_resource_iter_destroy(struct sid_resource_iter *iter);
-
-struct sid_resource *sid_resource_get_parent(struct sid_resource *res);
-struct sid_resource *sid_resource_get_top_level(struct sid_resource *res);
-struct sid_resource *sid_resource_get_child(struct sid_resource *res, const struct sid_resource_reg *reg, const char *id);
+sid_resource_t *sid_resource_get_parent(sid_resource_t *res);
+sid_resource_t *sid_resource_get_top_level(sid_resource_t *res);
+sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_reg_t *reg, const char *id);
 
 /*
  * structure/tree modification functions
  */
-int sid_resource_add_child(struct sid_resource *res, struct sid_resource *child);
-int sid_resource_isolate(struct sid_resource *res);
-int sid_resource_isolate_with_children(struct sid_resource *res);
+int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child);
+int sid_resource_isolate(sid_resource_t *res);
+int sid_resource_isolate_with_children(sid_resource_t *res);
 
 /* event loop functions */
-int sid_resource_run_event_loop(struct sid_resource *res);
-int sid_resource_exit_event_loop(struct sid_resource *res);
+int sid_resource_run_event_loop(sid_resource_t *res);
+int sid_resource_exit_event_loop(sid_resource_t *res);
 
 #ifdef __cplusplus
 }

@@ -24,9 +24,9 @@
 extern "C" {
 #endif
 
-const struct sid_resource_reg sid_resource_reg_aggregate;
-const struct sid_resource_reg sid_resource_reg_ubridge;
-const struct sid_resource_reg sid_resource_reg_module_registry;
+const sid_resource_reg_t sid_resource_reg_aggregate;
+const sid_resource_reg_t sid_resource_reg_ubridge;
+const sid_resource_reg_t sid_resource_reg_module_registry;
 
 #ifdef __cplusplus
 }
