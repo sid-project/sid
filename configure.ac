@@ -46,7 +46,8 @@ AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile resource/Makefile daemon/Ma
 		 modules/ubridge-cmd/type/dummy_type/Makefile
 		 modules/ubridge-cmd/type/device_mapper/Makefile
 		 modules/ubridge-cmd/block/dummy_block/Makefile
-		 modules/ubridge-cmd/block/blkid/Makefile])
+		 modules/ubridge-cmd/block/blkid/Makefile
+		 modules/ubridge-cmd/block/multipath_component/Makefile])
 AC_CONFIG_HEADERS([include/configure.h])
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
