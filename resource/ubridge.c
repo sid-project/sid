@@ -43,6 +43,8 @@
 #define WORKER_NAME                  "worker"
 #define COMMAND_NAME                 "command"
 
+#define INTERNAL_AGGREGATE_ID        "ubridge-internal"
+#define OBSERVERS_AGGREGATE_ID       "observers"
 #define MODULES_AGGREGATE_ID         "modules"
 #define MODULES_BLOCK_ID             "block"
 #define MODULES_TYPE_ID              "type"
@@ -84,6 +86,9 @@ const sid_resource_reg_t sid_resource_reg_ubridge_command;
 struct ubridge {
 	int socket_fd;
 	sid_event_source *es;
+	sid_resource_t *internal_res;
+	sid_resource_t *modules_res;
+	sid_resource_t *observers_res;
 };
 
 struct kickstart {
@@ -1131,6 +1136,7 @@ static int _destroy_worker(sid_resource_t *res)
 
 static sid_resource_t *_spawn_worker(sid_resource_t *ubridge_res, int *is_worker)
 {
+	struct ubridge *ubridge;
 	struct kickstart kickstart = {0};
 	sigset_t original_sigmask, new_sigmask;
 	sid_resource_t *res = NULL;
@@ -1165,6 +1171,8 @@ static sid_resource_t *_spawn_worker(sid_resource_t *ubridge_res, int *is_worker
 		goto out;
 	}
 
+	ubridge = sid_resource_get_data(ubridge_res);
+
 	if (pid == 0) {
 		/* Child is a worker. */
 		*is_worker = 1;
@@ -1172,7 +1180,8 @@ static sid_resource_t *_spawn_worker(sid_resource_t *ubridge_res, int *is_worker
 		kickstart.comms_fd = comms_fd[1];
 		(void) close(comms_fd[0]);
 
-		modules_res = sid_resource_get_child(ubridge_res, &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID);
+		modules_res = ubridge->modules_res;
+
 		(void) sid_resource_isolate_with_children(modules_res);
 
 		if (sid_resource_destroy(sid_resource_get_top_level(ubridge_res)) < 0)
@@ -1194,7 +1203,7 @@ static sid_resource_t *_spawn_worker(sid_resource_t *ubridge_res, int *is_worker
 		(void) close(comms_fd[1]);
 
 		(void) util_pid_to_string(kickstart.worker_pid, id, sizeof(id));
-		res = sid_resource_create(ubridge_res, &sid_resource_reg_ubridge_observer, 0, id, &kickstart);
+		res = sid_resource_create(ubridge->observers_res, &sid_resource_reg_ubridge_observer, 0, id, &kickstart);
 	}
 out:
 	if (signals_blocked && pid) {
@@ -1236,19 +1245,17 @@ static int _accept_connection_and_pass_to_worker(sid_resource_t *ubridge_res, si
 	return 0;
 }
 
-static sid_resource_t *_find_observer_for_idle_worker(sid_resource_t *ubridge_res)
+static sid_resource_t *_find_observer_for_idle_worker(sid_resource_t *observers_res)
 {
 	sid_resource_iter_t *iter;
 	sid_resource_t *res;
 
-	if (!(iter = sid_resource_iter_create(ubridge_res)))
+	if (!(iter = sid_resource_iter_create(observers_res)))
 		return NULL;
 
 	while ((res = sid_resource_iter_next(iter))) {
-		if (sid_resource_is_registered_by(res, &sid_resource_reg_ubridge_observer)) {
-			if (((struct observer *) sid_resource_get_data(res))->worker_state == WORKER_IDLE)
-				break;
-		}
+		if (((struct observer *) sid_resource_get_data(res))->worker_state == WORKER_IDLE)
+			break;
 	}
 
 	sid_resource_iter_destroy(iter);
@@ -1258,13 +1265,14 @@ static sid_resource_t *_find_observer_for_idle_worker(sid_resource_t *ubridge_re
 static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *ubridge_res = data;
+	struct ubridge *ubridge = sid_resource_get_data(ubridge_res);
 	sid_resource_t *res = NULL;
 	int is_worker = 0;
 	int r;
 
 	log_debug(ID(ubridge_res), "Received an event.");
 
-	if (!(res = _find_observer_for_idle_worker(ubridge_res))) {
+	if (!(res = _find_observer_for_idle_worker(ubridge->observers_res))) {
 		log_debug(ID(ubridge_res), "Idle worker not found, spawning a new one.");
 		if (!(res = _spawn_worker(ubridge_res, &is_worker)))
 			return -1;
@@ -1372,20 +1380,29 @@ static const struct sid_module_registry_resource_params type_res_mod_params = {U
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	struct ubridge *ubridge = NULL;
-	sid_resource_t *modules_res = NULL;
 
 	if (!(ubridge = zalloc(sizeof(struct ubridge)))) {
 		log_error(ID(res), "Failed to allocate memory for interface structure.");
 		goto fail;
 	}
 
-	if (!(modules_res = sid_resource_create(res, &sid_resource_reg_aggregate, 0, MODULES_AGGREGATE_ID, NULL))) {
+	if (!(ubridge->internal_res = sid_resource_create(res, &sid_resource_reg_aggregate, SID_RESOURCE_INTERNAL, INTERNAL_AGGREGATE_ID, ubridge))) {
+		log_error(ID(res), "Failed to create internal ubridge resource.");
+		goto fail;
+	}
+
+	if (!(ubridge->observers_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_aggregate, 0, OBSERVERS_AGGREGATE_ID, NULL))) {
+		log_error(ID(res), "Failed to create aggregate resource for ubridge observers.");
+		goto fail;
+	}
+
+	if (!(ubridge->modules_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_aggregate, 0, MODULES_AGGREGATE_ID, NULL))) {
 		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
 		goto fail;
 	}
 
-	if (!(sid_resource_create(modules_res, &sid_resource_reg_module_registry, 0, MODULES_BLOCK_ID, &block_res_mod_params)) ||
-	    !(sid_resource_create(modules_res, &sid_resource_reg_module_registry, 0, MODULES_TYPE_ID, &type_res_mod_params))) {
+	if (!(sid_resource_create(ubridge->modules_res, &sid_resource_reg_module_registry, 0, MODULES_BLOCK_ID, &block_res_mod_params)) ||
+	    !(sid_resource_create(ubridge->modules_res, &sid_resource_reg_module_registry, 0, MODULES_TYPE_ID, &type_res_mod_params))) {
 		log_error(ID(res), "Failed to create module handler.");
 		goto fail;
 	}
