@@ -33,6 +33,7 @@ typedef struct sid_resource {
 	char *id;
 	sid_resource_t *parent;
 	struct list children;
+	uint64_t flags;
 	sd_event *event_loop;
 	pid_t pid_created;
 	void *data;
@@ -46,7 +47,7 @@ typedef struct sid_resource_iter {
 } sid_resource_iter_t;
 
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_reg_t *reg,
-				    uint64_t flags __attribute__((unused)), const char *id_part, const void *kickstart_data)
+				    uint64_t flags, const char *id_part, const void *kickstart_data)
 {
 	sid_resource_t *res;
 	size_t id_size;
@@ -68,6 +69,7 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 		goto fail;
 
 	res->id = id;
+	res->flags = flags;
 	list_init(&res->children);
 	res->reg = reg;
 	res->event_loop = NULL;
@@ -289,6 +291,9 @@ int sid_resource_destroy_event_source(sid_resource_t *res __attribute__((unused)
 
 sid_resource_t *sid_resource_get_parent(sid_resource_t *res)
 {
+	if (res->parent->flags & SID_RESOURCE_INTERNAL)
+		return NULL;
+
 	return res->parent;
 }
 
@@ -306,6 +311,8 @@ sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_r
 	size_t id_offset = reg->name ? strlen(reg->name) + 1 : 0;
 
 	list_iterate_items(child_res, &res->children) {
+		if (child_res->flags & SID_RESOURCE_INTERNAL)
+			continue;
 		if (child_res->reg == reg && !strcmp(child_res->id + id_offset, id))
 			return child_res;
 	}
@@ -382,24 +389,36 @@ sid_resource_t *sid_resource_iter_current(sid_resource_iter_t *iter)
 
 sid_resource_t *sid_resource_iter_next(sid_resource_iter_t *iter)
 {
+	sid_resource_t *res;
+
 	if (iter->next == &iter->res->children)
 		return NULL;
 
 	iter->current = iter->next;
 	iter->next = iter->current->n;
 
-	return list_struct_base(iter->current, sid_resource_t, list);
+	if ((res = list_struct_base(iter->current, sid_resource_t, list)) &&
+	     res->flags & SID_RESOURCE_INTERNAL)
+		return sid_resource_iter_next(iter);
+
+	return res;
 }
 
 sid_resource_t *sid_resource_iter_previous(sid_resource_iter_t *iter)
 {
+	sid_resource_t *res;
+
 	if (iter->prev == &iter->res->children)
 		return NULL;
 
 	iter->current = iter->prev;
 	iter->prev = iter->current->p;
 
-	return list_struct_base(iter->current, sid_resource_t, list);
+	if ((res = list_struct_base(iter->current, sid_resource_t, list)) &&
+	     res->flags & SID_RESOURCE_INTERNAL)
+		return sid_resource_iter_previous(iter);
+
+	return res;
 }
 
 void sid_resource_iter_reset(sid_resource_iter_t *iter)

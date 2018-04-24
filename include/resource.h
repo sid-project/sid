@@ -46,6 +46,8 @@ typedef struct sid_resource_iter sid_resource_iter_t;
 
 #include "resource-regs.h"
 
+#define SID_RESOURCE_INTERNAL 0x0000000000000001
+
 /* 
  * create/destroy functions
  */
