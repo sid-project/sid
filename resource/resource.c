@@ -337,7 +337,7 @@ int sid_resource_isolate(sid_resource_t *res)
 	sid_resource_t *tmp_child_res, *child_res;
 
 	/* Only allow to isolate resource with parent and without event loop! */
-	if (res->event_loop || !res->parent)
+	if (res->event_loop || !res->parent || (res->flags & SID_RESOURCE_DISALLOW_ISOLATION))
 		return -EPERM;
 
 	/* Reparent and isolate. */
@@ -354,7 +354,7 @@ int sid_resource_isolate(sid_resource_t *res)
 int sid_resource_isolate_with_children(sid_resource_t *res)
 {
 
-	if (res->event_loop || !res->parent)
+	if (res->event_loop || !res->parent || (res->flags & SID_RESOURCE_DISALLOW_ISOLATION))
 		return -EPERM;
 
 	list_del(&res->list);
