@@ -52,13 +52,13 @@ struct list {
 #define list_iterate_items(v, head) \
 	list_iterate_items_gen(v, (head), list)
 
-#define list_iterate_items_gen_back(v, head, start, field) \
+#define list_iterate_items_gen_back(v, head, field) \
 	for (v = list_struct_base((head)->p, __typeof__(*v), field); \
 	     &v->field != (head); \
 	     v = list_struct_base(v->field.p, __typeof__(*v), field))
 
-#define list_iterate_items_back(v, head, start) \
-	list_iterate_items_gen_back(v, (head), start, list)
+#define list_iterate_items_back(v, head) \
+	list_iterate_items_gen_back(v, (head), list)
 
 #define list_iterate_items_gen_safe(v, t, head, field) \
 	for (v = list_struct_base((head)->n, __typeof__(*v), field), \
