@@ -27,9 +27,9 @@ int util_pid_to_string(pid_t pid, char *buf, size_t buf_size)
 {
 	int size;
 
-	size = snprintf(buf, buf_size - 1, "%d", pid);
+	size = snprintf(buf, buf_size, "%d", pid);
 
-	if (size < 0 || size > (buf_size - 1))
+	if (size < 0 || size >= buf_size)
 		return -1;
 
 	return 0;
