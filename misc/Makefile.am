@@ -25,12 +25,14 @@ libsidmisc_la_SOURCES = mem.c \
 			buffer.c \
 			list.c \
 			comms.c \
-			util.c
+			util.c \
+			hash.c
 pkginclude_HEADERS = $(top_builddir)/include/types.h \
 		     $(top_builddir)/include/mem.h \
 		     $(top_builddir)/include/buffer-common.h \
 		     $(top_builddir)/include/buffer.h \
 		     $(top_builddir)/include/list.h \
 		     $(top_builddir)/include/comms.h \
-		     $(top_builddir)/include/util.h
+		     $(top_builddir)/include/util.h \
+		     $(top_builddir)/include/hash.h
 libsidmisc_la_LIBADD = $(top_builddir)/log/libsidlog.la
