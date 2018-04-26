@@ -108,5 +108,5 @@ uint64_t util_get_now_usec(clockid_t clock_id)
 	struct timespec ts;
 
 	clock_gettime(clock_id, &ts);
-	return (uint64_t) ts.tv_sec * 1000000 + (uint64_t) ts.tv_nsec / 1000000;
+	return (uint64_t) ts.tv_sec * 1000000 + (uint64_t) ts.tv_nsec / 1000;
 }
