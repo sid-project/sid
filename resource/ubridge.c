@@ -210,6 +210,7 @@ struct udev_monitor_setup {
 struct command_exec_args {
 	sid_resource_t *cmd_res;
 	sid_resource_iter_t *block_mod_iter;
+	struct sid_module *type_mod;
 	const struct command_module_fns *type_mod_fns_current;
 	const struct command_module_fns *type_mod_fns_next;
 	struct udev_monitor_setup umonitor;
@@ -448,6 +449,7 @@ static int _execute_block_modules(struct command_exec_args *exec_args, cmd_ident
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	sid_resource_t *block_mod_res;
+	struct sid_module *block_mod;
 	const struct command_module_fns *block_mod_fns;
 
 	sid_resource_iter_reset(exec_args->block_mod_iter);
@@ -458,41 +460,43 @@ static int _execute_block_modules(struct command_exec_args *exec_args, cmd_ident
 			return -1;
 		}
 
+		block_mod = sid_resource_get_data(block_mod_res);
+
 		switch (phase) {
 			case CMD_IDENT_PHASE_IDENT:
-				if (block_mod_fns->ident && block_mod_fns->ident(cmd) < 0)
+				if (block_mod_fns->ident && block_mod_fns->ident(block_mod, cmd) < 0)
 					return -1;
 				break;
 			case CMD_IDENT_PHASE_SCAN_PRE:
-				if (block_mod_fns->scan_pre && block_mod_fns->scan_pre(cmd) < 0)
+				if (block_mod_fns->scan_pre && block_mod_fns->scan_pre(block_mod, cmd) < 0)
 					return -1;
 				break;
 			case CMD_IDENT_PHASE_SCAN_CURRENT:
-				if (block_mod_fns->scan_current && block_mod_fns->scan_current(cmd) < 0)
+				if (block_mod_fns->scan_current && block_mod_fns->scan_current(block_mod, cmd) < 0)
 					return -1;
 				break;
 			case CMD_IDENT_PHASE_SCAN_NEXT:
-				if (block_mod_fns->scan_next && block_mod_fns->scan_next(cmd) < 0)
+				if (block_mod_fns->scan_next && block_mod_fns->scan_next(block_mod, cmd) < 0)
 					return -1;
 				break;
 			case CMD_IDENT_PHASE_SCAN_POST_CURRENT:
-				if (block_mod_fns->scan_post_current && block_mod_fns->scan_post_current(cmd) < 0)
+				if (block_mod_fns->scan_post_current && block_mod_fns->scan_post_current(block_mod, cmd) < 0)
 					return -1;
 				break;
 			case CMD_IDENT_PHASE_SCAN_POST_NEXT:
-				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(cmd) < 0)
+				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(block_mod, cmd) < 0)
 					return -1;
 				break;
 			case CMD_IDENT_PHASE_TRIGGER_ACTION_CURRENT:
-				if (block_mod_fns->trigger_action_current && block_mod_fns->trigger_action_current(cmd) < 0)
+				if (block_mod_fns->trigger_action_current && block_mod_fns->trigger_action_current(block_mod, cmd) < 0)
 					return -1;
 				break;
 			case CMD_IDENT_PHASE_TRIGGER_ACTION_NEXT:
-				if (block_mod_fns->trigger_action_next && block_mod_fns->trigger_action_next(cmd) < 0)
+				if (block_mod_fns->trigger_action_next && block_mod_fns->trigger_action_next(block_mod, cmd) < 0)
 					return -1;
 				break;
 			case CMD_IDENT_PHASE_ERROR:
-				if (block_mod_fns->error && block_mod_fns->error(cmd) < 0)
+				if (block_mod_fns->error && block_mod_fns->error(block_mod, cmd) < 0)
 					return -1;
 				break;
 		}
@@ -533,10 +537,12 @@ static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 		return -1;
 	}
 
+	exec_args->type_mod = sid_resource_get_data(type_mod_res);
+
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_IDENT);
 
 	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->ident)
-		return exec_args->type_mod_fns_current->ident(cmd);
+		return exec_args->type_mod_fns_current->ident(exec_args->type_mod, cmd);
 
 	return 0;
 }
@@ -548,7 +554,7 @@ static int _cmd_execute_identify_scan_pre(struct command_exec_args *exec_args)
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_PRE);
 
 	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->scan_pre)
-		return exec_args->type_mod_fns_current->scan_pre(cmd);
+		return exec_args->type_mod_fns_current->scan_pre(exec_args->type_mod, cmd);
 
 	return 0;
 }
@@ -560,7 +566,7 @@ static int _cmd_execute_identify_scan_current(struct command_exec_args *exec_arg
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_CURRENT);
 
 	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->scan_current)
-		return exec_args->type_mod_fns_current->scan_current(cmd);
+		return exec_args->type_mod_fns_current->scan_current(exec_args->type_mod, cmd);
 
 	return 0;
 }
@@ -572,7 +578,7 @@ static int _cmd_execute_identify_scan_next(struct command_exec_args *exec_args)
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_NEXT);
 
 	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->scan_next)
-		return exec_args->type_mod_fns_next->scan_next(cmd);
+		return exec_args->type_mod_fns_next->scan_next(exec_args->type_mod, cmd);
 
 	return 0;
 }
@@ -584,7 +590,7 @@ static int _cmd_execute_identify_scan_post_current(struct command_exec_args *exe
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_POST_CURRENT);
 
 	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->scan_post_current)
-		return exec_args->type_mod_fns_current->scan_post_current(cmd);
+		return exec_args->type_mod_fns_current->scan_post_current(exec_args->type_mod, cmd);
 
 	return 0;
 }
@@ -596,7 +602,7 @@ static int _cmd_execute_identify_scan_post_next(struct command_exec_args *exec_a
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_POST_NEXT);
 
 	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->scan_post_next)
-		return exec_args->type_mod_fns_next->scan_post_next(cmd);
+		return exec_args->type_mod_fns_next->scan_post_next(exec_args->type_mod, cmd);
 
 	return 0;
 }
@@ -608,7 +614,7 @@ static int _cmd_execute_trigger_action_current(struct command_exec_args *exec_ar
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_TRIGGER_ACTION_CURRENT);
 
 	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->trigger_action_current)
-		return exec_args->type_mod_fns_current->trigger_action_current(cmd);
+		return exec_args->type_mod_fns_current->trigger_action_current(exec_args->type_mod, cmd);
 
 	return 0;
 }
@@ -620,7 +626,7 @@ static int _cmd_execute_trigger_action_next(struct command_exec_args *exec_args)
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_TRIGGER_ACTION_NEXT);
 
 	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->trigger_action_next)
-		return exec_args->type_mod_fns_next->trigger_action_next(cmd);
+		return exec_args->type_mod_fns_next->trigger_action_next(exec_args->type_mod, cmd);
 
 	return 0;
 }
@@ -633,10 +639,10 @@ static int _cmd_execute_error(struct command_exec_args *exec_args)
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_ERROR);
 
 	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->error)
-		r = exec_args->type_mod_fns_current->error(cmd);
+		r = exec_args->type_mod_fns_current->error(exec_args->type_mod, cmd);
 
 	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->error)
-		r = exec_args->type_mod_fns_next->error(cmd);
+		r = exec_args->type_mod_fns_next->error(exec_args->type_mod, cmd);
 
 	return r;
 }

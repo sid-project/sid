@@ -43,63 +43,63 @@ static int _dummy_block_reload(struct sid_module *module)
 }
 SID_MODULE_RELOAD(_dummy_block_reload)
 
-static int _dummy_block_ident(const struct sid_ubridge_cmd_context *cmd)
+static int _dummy_block_ident(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "ident");
 	return 0;
 }
 SID_UBRIDGE_CMD_IDENT(_dummy_block_ident)
 
-static int _dummy_block_scan_pre(const struct sid_ubridge_cmd_context *cmd)
+static int _dummy_block_scan_pre(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "scan-pre");
 	return 0;
 }
 SID_UBRIDGE_CMD_SCAN_PRE(_dummy_block_scan_pre)
 
-static int _dummy_block_scan_current(const struct sid_ubridge_cmd_context *cmd)
+static int _dummy_block_scan_current(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "scan-current");
 	return 0;
 }
 SID_UBRIDGE_CMD_SCAN_CURRENT(_dummy_block_scan_current)
 
-static int _dummy_block_scan_next(const struct sid_ubridge_cmd_context *cmd)
+static int _dummy_block_scan_next(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "scan-next");
 	return 0;
 }
 SID_UBRIDGE_CMD_SCAN_NEXT(_dummy_block_scan_next)
 
-static int _dummy_block_scan_post_current(const struct sid_ubridge_cmd_context *cmd)
+static int _dummy_block_scan_post_current(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "scan-post-current");
 	return 0;
 }
 SID_UBRIDGE_CMD_SCAN_POST_CURRENT(_dummy_block_scan_post_current)
 
-static int _dummy_block_scan_post_next(const struct sid_ubridge_cmd_context *cmd)
+static int _dummy_block_scan_post_next(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "scan-post-next");
 	return 0;
 }
 SID_UBRIDGE_CMD_SCAN_POST_NEXT(_dummy_block_scan_post_next)
 
-static int _dummy_block_trigger_action_current(const struct sid_ubridge_cmd_context *cmd)
+static int _dummy_block_trigger_action_current(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "trigger-action-current");
 	return 0;
 }
 SID_UBRIDGE_CMD_TRIGGER_ACTION_CURRENT(_dummy_block_trigger_action_current)
 
-static int _dummy_block_trigger_action_next(const struct sid_ubridge_cmd_context *cmd)
+static int _dummy_block_trigger_action_next(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "trigger-action-next");
 	return 0;
 }
 SID_UBRIDGE_CMD_TRIGGER_ACTION_NEXT(_dummy_block_trigger_action_next)
 
-static int _dummy_block_error(const struct sid_ubridge_cmd_context *cmd)
+static int _dummy_block_error(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "error");
 	return 0;

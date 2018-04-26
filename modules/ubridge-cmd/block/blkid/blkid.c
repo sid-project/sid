@@ -151,7 +151,7 @@ static int _probe_superblocks(blkid_probe pr) {
         return blkid_do_safeprobe(pr);
 }
 
-static int _blkid_scan_next(const struct sid_ubridge_cmd_context *cmd)
+static int _blkid_scan_next(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	const char *dev_path;
         int64_t offset = 0;
@@ -212,7 +212,7 @@ out:
 }
 SID_UBRIDGE_CMD_SCAN_NEXT(_blkid_scan_next)
 
-static int _blkid_error(const struct sid_ubridge_cmd_context *cmd)
+static int _blkid_error(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "error");
 	return 0;

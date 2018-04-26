@@ -30,7 +30,7 @@ extern "C" {
 
 struct sid_ubridge_cmd_context;
 
-typedef int sid_ubridge_cmd_fn_t(const struct sid_ubridge_cmd_context *cmd);
+typedef int sid_ubridge_cmd_fn_t(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd);
 
 /*
  * Macros to register module's phase functions.
