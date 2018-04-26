@@ -86,7 +86,7 @@ ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_sen
 		cmsg->cmsg_level = SOL_SOCKET;
 		cmsg->cmsg_type = SCM_RIGHTS;
 		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-		*((int *) CMSG_DATA(cmsg)) = fd_to_send;
+		memcpy(CMSG_DATA(cmsg), &fd_to_send, sizeof(int));
 	}   
 
 	return sendmsg(socket_fd, &msg, 0); 
@@ -123,7 +123,7 @@ int comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
 	    cmsg->cmsg_len == CMSG_LEN(sizeof(int)) &&
 	    cmsg->cmsg_level == SOL_SOCKET &&
 	    cmsg->cmsg_type == SCM_RIGHTS)
-		*fd_received = *((int *) CMSG_DATA(cmsg));
+		memcpy(fd_received, CMSG_DATA(cmsg), sizeof(int));
 
 	return size;
 }
