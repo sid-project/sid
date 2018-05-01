@@ -269,7 +269,7 @@ int sid_resource_create_post_event_source(sid_resource_t *res, sid_event_source 
 	if (!res_event_loop)
 		return -ENOMEDIUM;
 
-	return sd_event_add_defer(res_event_loop->event_loop, es, handler, data);
+	return sd_event_add_post(res_event_loop->event_loop, es, handler, data);
 }
 
 int sid_resource_create_exit_event_source(sid_resource_t *res, sid_event_source **es, sid_generic_handler handler, void *data)
@@ -279,7 +279,7 @@ int sid_resource_create_exit_event_source(sid_resource_t *res, sid_event_source 
 	if (!res_event_loop)
 		return -ENOMEDIUM;
 
-	return sd_event_add_defer(res_event_loop->event_loop, es, handler, data);
+	return sd_event_add_exit(res_event_loop->event_loop, es, handler, data);
 }
 
 int sid_resource_destroy_event_source(sid_resource_t *res __attribute__((unused)),
