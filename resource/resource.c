@@ -291,7 +291,7 @@ int sid_resource_destroy_event_source(sid_resource_t *res __attribute__((unused)
 
 sid_resource_t *sid_resource_get_parent(sid_resource_t *res)
 {
-	if (res->parent->flags & SID_RESOURCE_INTERNAL)
+	if (!res->parent || res->parent->flags & SID_RESOURCE_INTERNAL)
 		return NULL;
 
 	return res->parent;
