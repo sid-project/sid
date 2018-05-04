@@ -30,7 +30,7 @@ extern "C" {
 
 struct sid_ubridge_cmd_context;
 
-typedef int sid_ubridge_cmd_fn_t(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd);
+typedef int sid_ubridge_cmd_fn_t(struct sid_module *module, struct sid_ubridge_cmd_context *cmd);
 
 /*
  * Macros to register module's phase functions.
@@ -50,16 +50,16 @@ typedef int sid_ubridge_cmd_fn_t(const struct sid_module *module, const struct s
 /*
  * Functions to retrieve device properties associated with given command context.
  */
-udev_action_t sid_ubridge_cmd_dev_get_action(const struct sid_ubridge_cmd_context *cmd);
-int sid_ubridge_cmd_dev_get_major(const struct sid_ubridge_cmd_context *cmd);
-int sid_ubridge_cmd_dev_get_minor(const struct sid_ubridge_cmd_context *cmd);
-const char *sid_ubridge_cmd_dev_get_name(const struct sid_ubridge_cmd_context *cmd);
-const char *sid_ubridge_cmd_dev_get_type(const struct sid_ubridge_cmd_context *cmd);
-uint64_t sid_ubridge_cmd_dev_get_seqnum(const struct sid_ubridge_cmd_context *cmd);
-void *sid_ubridge_cmd_dev_get_custom(const struct sid_ubridge_cmd_context *cmd);
-const char *sid_ubridge_cmd_dev_get_synth_uuid(const struct sid_ubridge_cmd_context *cmd);
-const char *sid_ubridge_cmd_dev_get_synth_arg_value(const struct sid_ubridge_cmd_context *cmd, const char *key);
-const char *sid_ubridge_cmd_dev_get_uevent_env_value(const struct sid_ubridge_cmd_context *cmd, const char *key);
+udev_action_t sid_ubridge_cmd_dev_get_action(struct sid_ubridge_cmd_context *cmd);
+int sid_ubridge_cmd_dev_get_major(struct sid_ubridge_cmd_context *cmd);
+int sid_ubridge_cmd_dev_get_minor(struct sid_ubridge_cmd_context *cmd);
+const char *sid_ubridge_cmd_dev_get_name(struct sid_ubridge_cmd_context *cmd);
+const char *sid_ubridge_cmd_dev_get_type(struct sid_ubridge_cmd_context *cmd);
+uint64_t sid_ubridge_cmd_dev_get_seqnum(struct sid_ubridge_cmd_context *cmd);
+void *sid_ubridge_cmd_dev_get_custom(struct sid_ubridge_cmd_context *cmd);
+const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *cmd);
+const char *sid_ubridge_cmd_dev_get_synth_arg_value(struct sid_ubridge_cmd_context *cmd, const char *key);
+const char *sid_ubridge_cmd_dev_get_uevent_env_value(struct sid_ubridge_cmd_context *cmd, const char *key);
 
 #ifdef __cplusplus
 }

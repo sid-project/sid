@@ -54,7 +54,7 @@ static int _blkid_reload(struct sid_module *module)
 SID_MODULE_RELOAD(_blkid_reload)
 
 /* TODO: Also add ID_PART_GPT_AUTO_ROOT_UUID - see udev-builtin-blkid in systemd source tree. */
-static void _add_property(const struct sid_ubridge_cmd_context *cmd, const char *name, const char *value) {
+static void _add_property(struct sid_ubridge_cmd_context *cmd, const char *name, const char *value) {
         char s[256];
 
         s[0] = '\0';
@@ -151,7 +151,7 @@ static int _probe_superblocks(blkid_probe pr) {
         return blkid_do_safeprobe(pr);
 }
 
-static int _blkid_scan_next(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
+static int _blkid_scan_next(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {
 	const char *dev_path;
         int64_t offset = 0;
@@ -212,7 +212,7 @@ out:
 }
 SID_UBRIDGE_CMD_SCAN_NEXT(_blkid_scan_next)
 
-static int _blkid_error(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
+static int _blkid_error(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "error");
 	return 0;

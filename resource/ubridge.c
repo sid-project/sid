@@ -221,54 +221,54 @@ struct command_reg {
 	int (*execute) (struct command_exec_args *exec_arg);
 };
 
-udev_action_t sid_ubridge_cmd_dev_get_action(const struct sid_ubridge_cmd_context *cmd)
+udev_action_t sid_ubridge_cmd_dev_get_action(struct sid_ubridge_cmd_context *cmd)
 {
 	return cmd->dev.action;
 }
 
-int sid_ubridge_cmd_cmd_dev_get_major(const struct sid_ubridge_cmd_context *cmd)
+int sid_ubridge_cmd_cmd_dev_get_major(struct sid_ubridge_cmd_context *cmd)
 {
 	return cmd->dev.major;
 }
 
-int sid_ubridge_cmd_cmd_dev_get_minor(const struct sid_ubridge_cmd_context *cmd)
+int sid_ubridge_cmd_cmd_dev_get_minor(struct sid_ubridge_cmd_context *cmd)
 {
 	return cmd->dev.minor;
 }
 
-const char *sid_ubridge_cmd_dev_get_name(const struct sid_ubridge_cmd_context *cmd)
+const char *sid_ubridge_cmd_dev_get_name(struct sid_ubridge_cmd_context *cmd)
 {
 	return cmd->dev.name;
 }
 
-const char *sid_ubridge_cmd_dev_get_type(const struct sid_ubridge_cmd_context *cmd)
+const char *sid_ubridge_cmd_dev_get_type(struct sid_ubridge_cmd_context *cmd)
 {
 	return cmd->dev.type;
 }
 
-uint64_t sid_ubridge_cmd_dev_get_seqnum(const struct sid_ubridge_cmd_context *cmd)
+uint64_t sid_ubridge_cmd_dev_get_seqnum(struct sid_ubridge_cmd_context *cmd)
 {
 	return cmd->dev.seqnum;
 }
 
-const char *sid_ubridge_cmd_dev_get_synth_uuid(const struct sid_ubridge_cmd_context *cmd)
+const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *cmd)
 {
 	return cmd->dev.synth_uuid;
 }
 
-const char *sid_ubridge_cmd_dev_get_synth_arg_value(const struct sid_ubridge_cmd_context *cmd, const char *key)
+const char *sid_ubridge_cmd_dev_get_synth_arg_value(struct sid_ubridge_cmd_context *cmd, const char *key)
 {
 	/* TODO: implement this */
 	return NULL;
 }
 
-const char *sid_ubridge_cmd_dev_get_uevent_env_value(const struct sid_ubridge_cmd_context *cmd, const char *key)
+const char *sid_ubridge_cmd_dev_get_uevent_env_value(struct sid_ubridge_cmd_context *cmd, const char *key)
 {
 	/* TODO: implement this */
 	return NULL;
 }
 
-void *sid_ubridge_cmd_dev_get_custom(const struct sid_ubridge_cmd_context *cmd)
+void *sid_ubridge_cmd_dev_get_custom(struct sid_ubridge_cmd_context *cmd)
 {
 	return cmd->dev.custom;
 }

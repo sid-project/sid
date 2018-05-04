@@ -44,7 +44,7 @@ static int _multipath_component_reload(struct sid_module *module)
 }
 SID_MODULE_RELOAD(_multipath_component_reload)
 
-static int _multipath_component_scan_pre(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
+static int _multipath_component_scan_pre(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "scan-pre");
 
@@ -56,7 +56,7 @@ static int _multipath_component_scan_pre(const struct sid_module *module, const 
 }
 SID_UBRIDGE_CMD_SCAN_PRE(_multipath_component_scan_pre)
 
-static int _multipath_component_error(const struct sid_module *module, const struct sid_ubridge_cmd_context *cmd)
+static int _multipath_component_error(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {
 	log_debug(ID, "error");
 	return 0;
