@@ -155,32 +155,36 @@ static struct hash_node **_find(struct hash_table *t, const void *key, uint32_t 
 	return c;
 }
 
-void *hash_lookup_binary(struct hash_table *t, const void *key,
-			    uint32_t len)
+void *hash_lookup_binary(struct hash_table *t, const void *key, uint32_t len)
 {
 	struct hash_node **c = _find(t, key, len);
 
 	return *c ? (*c)->data : NULL;
 }
 
-int hash_insert_binary(struct hash_table *t, const void *key,
-			  uint32_t len, void *data)
+static int _do_hash_insert_binary(struct hash_table *t, struct hash_node **c, const void *key, uint32_t len, void *data)
+{
+	struct hash_node *n = _create_node(key, len);
+
+	if (!n)
+		return -1;
+
+	n->data = data;
+	n->next = 0;
+	*c = n;
+	t->num_nodes++;
+
+	return 0;
+}
+
+int hash_insert_binary(struct hash_table *t, const void *key, uint32_t len, void *data)
 {
 	struct hash_node **c = _find(t, key, len);
 
 	if (*c)
 		(*c)->data = data;
-	else {
-		struct hash_node *n = _create_node(key, len);
-
-		if (!n)
-			return -1;
-
-		n->data = data;
-		n->next = 0;
-		*c = n;
-		t->num_nodes++;
-	}
+	else
+		return _do_hash_insert_binary(t, c, key, len, data);
 
 	return 0;
 }
@@ -389,4 +393,23 @@ struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n)
 	unsigned h = _hash(n->key, n->keylen) & (t->num_slots - 1);
 
 	return n->next ? n->next : _next_slot(t, h + 1);
+}
+
+
+/*
+ * THE FUNCTIONS BELOW ARE EXTRA TO ORIGINAL CODE TAKEN FROM LVM2 SOURCETREE AND ITS dm_hash_table IMPLEMENTATION.
+ */
+
+int hash_update_binary(struct hash_table *t, const void *key, uint32_t len, void *data,
+		       hash_dup_key_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
+{
+	struct hash_node **c = _find(t, key, len);
+
+	if (*c) {
+		if (!dup_key_resolver || dup_key_resolver(key, len, (*c)->data, data, dup_key_resolver_arg))
+			(*c)->data = data;
+		return 0;
+	}
+
+	return _do_hash_insert_binary(t, c, key, len, data);
 }
