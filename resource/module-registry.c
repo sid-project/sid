@@ -137,6 +137,11 @@ int sid_module_registry_reload_module(sid_resource_t *module_res)
 	return 0;
 }
 
+const char *sid_module_get_name(struct sid_module *module)
+{
+	return module->name;
+}
+
 void sid_module_set_data(struct sid_module *module, void *data)
 {
 	module->data = data;

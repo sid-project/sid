@@ -30,6 +30,7 @@ typedef int sid_module_fn_t (struct sid_module *module);
 #define SID_MODULE_EXIT(fn)     SID_MODULE_FN(exit, fn)
 #define SID_MODULE_RELOAD(fn)   SID_MODULE_FN(reload, fn)
 
+const char *sid_module_get_name(struct sid_module *module);
 void sid_module_set_data(struct sid_module *module, void *data);
 void *sid_module_get_data(struct sid_module *module);
 
