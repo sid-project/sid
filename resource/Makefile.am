@@ -21,13 +21,15 @@ pkglib_LTLIBRARIES = libsidresource.la
 libsidresource_la_SOURCES = resource.c \
 			    aggregate.c \
 			    ubridge.c \
-			    module-registry.c
+			    module-registry.c \
+			    kv-store.c
 pkginclude_HEADERS = $(top_builddir)/include/wrapper-sd.h \
 		     $(top_builddir)/include/types.h \
 		     $(top_builddir)/include/resource.h \
 		     $(top_builddir)/include/resource-regs.h \
 		     $(top_builddir)/include/module.h \
-		     $(top_builddir)/include/module-registry.h
+		     $(top_builddir)/include/module-registry.h \
+		     $(top_builddir)/include/kv-store.h
 libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
 			   $(UDEV_CFLAGS)
 libsidresource_la_LIBADD = $(top_builddir)/misc/libsidmisc.la \
