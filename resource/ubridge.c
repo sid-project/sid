@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include "buffer.h"
 #include "comms.h"
+#include "kv-store.h"
 #include "list.h"
 #include "log.h"
 #include "mem.h"
@@ -76,6 +77,8 @@
 #define UBRIDGE_CMD_MODULE_FN_NAME_ERROR                  "sid_ubridge_cmd_error"
 #define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ubridge_cmd_trigger_action_current"
 #define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ubridge_cmd_trigger_action_next"
+
+#define UDEV_KV_STORE_NAME  "udev"
 
 #define UDEV_KEY_ACTION     "ACTION"
 #define UDEV_KEY_DEVNAME    "DEVNAME"
@@ -189,6 +192,7 @@ struct sid_ubridge_cmd_context {
 	uint16_t status;
 	sid_event_source *es;
 	struct device dev;
+	sid_resource_t *udev_kv_store_res;
 	sid_resource_t *mod_res; /* the module that is processed at the moment */
 	struct buffer *result_buf;
 
@@ -261,7 +265,7 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 	return cmd->dev.synth_uuid;
 }
 
-static int _device_add_field(struct sid_ubridge_cmd_context *cmd, const char *key)
+static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 {
 	char *value;
 	size_t key_len;
@@ -271,14 +275,18 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, const char *ke
 		goto out;
 
 	key_len = value - key - 1;
+	key[key_len] = '\0';
+
+	if (!(value = kv_store_set_value(cmd->udev_kv_store_res, NULL, key, value, strlen(value) + 1, 1, NULL, NULL)))
+		goto out;
 
 	/* Common key=value pairs are also directly in the cmd->dev structure. */
 	if (!strncmp(key, UDEV_KEY_ACTION, key_len))
 		cmd->dev.action = util_get_udev_action_from_string(value);
 	else if (!strncmp(key, UDEV_KEY_DEVNAME, key_len))
-		cmd->dev.name = strdup(value);
+		cmd->dev.name = value;
 	else if (!strncmp(key, UDEV_KEY_DEVTYPE, key_len))
-		cmd->dev.type = strdup(value);
+		cmd->dev.type = value;
 	else if (!strncmp(key, UDEV_KEY_MAJOR, key_len))
 		cmd->dev.major = atoi(value);
 	else if (!strncmp(key, UDEV_KEY_MINOR, key_len))
@@ -286,7 +294,9 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, const char *ke
 	else if (!strncmp(key, UDEV_KEY_SEQNUM, key_len))
 		cmd->dev.seqnum = strtoull(value, NULL, 10);
 	else if (!strncmp(key, UDEV_KEY_SYNTH_UUID, key_len))
-		cmd->dev.synth_uuid = strdup(value);
+		cmd->dev.synth_uuid = value;
+
+	key[key_len] = '=';
 
 	r = 0;
 out:
@@ -296,7 +306,8 @@ out:
 static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct sid_ubridge_cmd_context *cmd)
 {
 	size_t i = 0;
-	const char *delim, *str;
+	const char *delim;
+	char *str;
 	size_t raw_udev_env_len = raw_cmd->len - sizeof(struct raw_command_header);
 
 	if (raw_cmd->header->cmd_number != CMD_IDENTIFY)
@@ -789,6 +800,9 @@ static int _cmd_handler(sid_event_source *es, void *data)
 	return r;
 }
 
+static const struct sid_kv_store_resource_params udev_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,
+									     .hash.initial_size = 32};
+
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct raw_command *raw_cmd = kickstart_data;
@@ -809,6 +823,11 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	cmd->type = raw_cmd->header->cmd_number;
 	cmd->status = raw_cmd->header->status;
 
+	if (!(cmd->udev_kv_store_res = sid_resource_create(res, &sid_resource_reg_kv_store, 0, UDEV_KV_STORE_NAME, &udev_kv_store_res_params))) {
+		log_error(ID(res), "Failed to create udev key-value store.");
+		goto fail;
+	}
+
 	if ((r = _parse_cmd_nullstr_udev_env(raw_cmd, cmd)) < 0) {
 		log_error_errno(ID(res), r, "Failed to parse udev environment variables.");
 		goto fail;
@@ -826,19 +845,11 @@ fail:
 	return -1;
 }
 
-static void _free_cmd_dev_fields(struct device *dev)
-{
-	free(dev->name);
-	free(dev->type);
-	free(dev->synth_uuid);
-}
-
 static int _destroy_command(sid_resource_t *res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(res);
 
 	(void) sid_resource_destroy_event_source(res, &cmd->es);
-	_free_cmd_dev_fields(&cmd->dev);
 	buffer_destroy(cmd->result_buf);
 	free(cmd);
 	return 0;
