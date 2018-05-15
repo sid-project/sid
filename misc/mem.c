@@ -29,3 +29,13 @@ void *zalloc(size_t size)
 
 	return p;
 }
+
+void *alloc_copy(void *mem, size_t size)
+{
+	void *p;
+
+	if ((p = malloc(size)))
+		memcpy(p, mem, size);
+
+	return p;
+}
