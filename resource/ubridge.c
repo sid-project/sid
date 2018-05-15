@@ -77,6 +77,13 @@
 #define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ubridge_cmd_trigger_action_current"
 #define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ubridge_cmd_trigger_action_next"
 
+#define UDEV_KEY_ACTION     "ACTION"
+#define UDEV_KEY_DEVNAME    "DEVNAME"
+#define UDEV_KEY_DEVTYPE    "DEVTYPE"
+#define UDEV_KEY_MAJOR      "MAJOR"
+#define UDEV_KEY_MINOR      "MINOR"
+#define UDEV_KEY_SEQNUM     "SEQNUM"
+#define UDEV_KEY_SYNTH_UUID "SYNTH_UUID"
 
 /* internal resources */
 const sid_resource_reg_t sid_resource_reg_ubridge_observer;
@@ -170,13 +177,10 @@ struct device {
 	udev_action_t action;
 	int major;
 	int minor;
-	const char *name;
-	const char *type;
+	char *name;
+	char *type;
 	uint64_t seqnum;
-	const char *synth_uuid;
-	char *raw_udev_env;
-	size_t raw_udev_env_len;
-	void *custom;
+	char *synth_uuid;
 };
 
 struct sid_ubridge_cmd_context {
@@ -185,7 +189,9 @@ struct sid_ubridge_cmd_context {
 	uint16_t status;
 	sid_event_source *es;
 	struct device dev;
+	sid_resource_t *mod_res; /* the module that is processed at the moment */
 	struct buffer *result_buf;
+
 };
 
 struct command_module_fns {
@@ -209,10 +215,9 @@ struct udev_monitor_setup {
 
 struct command_exec_args {
 	sid_resource_t *cmd_res;
-	sid_resource_iter_t *block_mod_iter;
-	struct sid_module *type_mod;
-	const struct command_module_fns *type_mod_fns_current;
-	const struct command_module_fns *type_mod_fns_next;
+	sid_resource_iter_t *block_mod_iter;  /* all block modules to execute */
+	sid_resource_t *type_mod_res_current; /* one type module for current layer to execute */
+	sid_resource_t *type_mod_res_next;    /* one type module for next layer to execute */
 	struct udev_monitor_setup umonitor;
 };
 
@@ -256,64 +261,59 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 	return cmd->dev.synth_uuid;
 }
 
-const char *sid_ubridge_cmd_dev_get_synth_arg_value(struct sid_ubridge_cmd_context *cmd, const char *key)
+static int _device_add_field(struct sid_ubridge_cmd_context *cmd, const char *key)
 {
-	/* TODO: implement this */
-	return NULL;
-}
-
-const char *sid_ubridge_cmd_dev_get_uevent_env_value(struct sid_ubridge_cmd_context *cmd, const char *key)
-{
-	/* TODO: implement this */
-	return NULL;
-}
-
-void *sid_ubridge_cmd_dev_get_custom(struct sid_ubridge_cmd_context *cmd)
-{
-	return cmd->dev.custom;
-}
-
-static int _device_add_field(sid_resource_t *cmd_res, struct device *dev, const char *key)
-{
-	const char *value;
+	char *value;
 	size_t key_len;
+	int r = -1;
 
 	if (!(value = strchr(key, '=')) || !*(value++))
-		return -1;
+		goto out;
 
 	key_len = value - key - 1;
 
-	if (!strncmp(key, "ACTION", key_len))
-		dev->action = util_get_udev_action_from_string(value);
-	else if (!strncmp(key, "DEVNAME", key_len))
-		dev->name = value;
-	else if (!strncmp(key, "DEVTYPE", key_len))
-		dev->type = value;
-	else if (!strncmp(key, "MAJOR", key_len))
-		dev->major = atoi(value);
-	else if (!strncmp(key, "MINOR", key_len))
-		dev->minor = atoi(value);
-	else if (!strncmp(key, "SEQNUM", key_len))
-		/* TODO: add sanity checks! */
-		dev->seqnum = strtoull(value, NULL, 10);
-	else if (!strncmp(key, "SYNTH_UUID", key_len))
-		dev->synth_uuid = value;
+	/* Common key=value pairs are also directly in the cmd->dev structure. */
+	if (!strncmp(key, UDEV_KEY_ACTION, key_len))
+		cmd->dev.action = util_get_udev_action_from_string(value);
+	else if (!strncmp(key, UDEV_KEY_DEVNAME, key_len))
+		cmd->dev.name = strdup(value);
+	else if (!strncmp(key, UDEV_KEY_DEVTYPE, key_len))
+		cmd->dev.type = strdup(value);
+	else if (!strncmp(key, UDEV_KEY_MAJOR, key_len))
+		cmd->dev.major = atoi(value);
+	else if (!strncmp(key, UDEV_KEY_MINOR, key_len))
+		cmd->dev.minor = atoi(value);
+	else if (!strncmp(key, UDEV_KEY_SEQNUM, key_len))
+		cmd->dev.seqnum = strtoull(value, NULL, 10);
+	else if (!strncmp(key, UDEV_KEY_SYNTH_UUID, key_len))
+		cmd->dev.synth_uuid = strdup(value);
 
-	return 0;
+	r = 0;
+out:
+	return r;
 };
 
-static int _parse_cmd_nullstr_udev_env(sid_resource_t *cmd_res, struct sid_ubridge_cmd_context *cmd)
+static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct sid_ubridge_cmd_context *cmd)
 {
 	size_t i = 0;
 	const char *delim, *str;
+	size_t raw_udev_env_len = raw_cmd->len - sizeof(struct raw_command_header);
 
-	while (i < cmd->dev.raw_udev_env_len) {
-		str = cmd->dev.raw_udev_env + i;
+	if (raw_cmd->header->cmd_number != CMD_IDENTIFY)
+		return 0;
 
-		if (!(delim = memchr(str, '\0', cmd->dev.raw_udev_env_len - i)))
+	/*
+	 * We have this on input:
+	 *
+	 *   key1=value1\0key2=value2\0...
+	 */
+	while (i < raw_udev_env_len) {
+		str = raw_cmd->header->data + i;
+
+		if (!(delim = memchr(str, '\0', raw_udev_env_len - i)))
 			goto fail;
 
-		if (_device_add_field(cmd_res, &cmd->dev, str) < 0)
+		if (_device_add_field(cmd, str) < 0)
 			goto fail;
 
 		i += delim - str + 1;
@@ -448,75 +448,76 @@ static int _cmd_execute_version(struct command_exec_args *exec_args)
 static int _execute_block_modules(struct command_exec_args *exec_args, cmd_ident_phase_t phase)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	sid_resource_t *orig_mod_res = cmd->mod_res;
 	sid_resource_t *block_mod_res;
 	struct sid_module *block_mod;
 	const struct command_module_fns *block_mod_fns;
+	int r = -1;
 
 	sid_resource_iter_reset(exec_args->block_mod_iter);
 
 	while ((block_mod_res = sid_resource_iter_next(exec_args->block_mod_iter))) {
 		if (sid_module_registry_get_module_symbols(block_mod_res, (const void ***) &block_mod_fns) < 0) {
 			log_error(ID(exec_args->cmd_res), "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
-			return -1;
+			goto out;
 		}
 
+		cmd->mod_res = block_mod_res;
 		block_mod = sid_resource_get_data(block_mod_res);
 
 		switch (phase) {
 			case CMD_IDENT_PHASE_IDENT:
 				if (block_mod_fns->ident && block_mod_fns->ident(block_mod, cmd) < 0)
-					return -1;
+					goto out;
 				break;
 			case CMD_IDENT_PHASE_SCAN_PRE:
 				if (block_mod_fns->scan_pre && block_mod_fns->scan_pre(block_mod, cmd) < 0)
-					return -1;
+					goto out;
 				break;
 			case CMD_IDENT_PHASE_SCAN_CURRENT:
 				if (block_mod_fns->scan_current && block_mod_fns->scan_current(block_mod, cmd) < 0)
-					return -1;
+					goto out;
 				break;
 			case CMD_IDENT_PHASE_SCAN_NEXT:
 				if (block_mod_fns->scan_next && block_mod_fns->scan_next(block_mod, cmd) < 0)
-					return -1;
+					goto out;
 				break;
 			case CMD_IDENT_PHASE_SCAN_POST_CURRENT:
 				if (block_mod_fns->scan_post_current && block_mod_fns->scan_post_current(block_mod, cmd) < 0)
-					return -1;
+					goto out;
 				break;
 			case CMD_IDENT_PHASE_SCAN_POST_NEXT:
 				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(block_mod, cmd) < 0)
-					return -1;
+					goto out;
 				break;
 			case CMD_IDENT_PHASE_TRIGGER_ACTION_CURRENT:
 				if (block_mod_fns->trigger_action_current && block_mod_fns->trigger_action_current(block_mod, cmd) < 0)
-					return -1;
+					goto out;
 				break;
 			case CMD_IDENT_PHASE_TRIGGER_ACTION_NEXT:
 				if (block_mod_fns->trigger_action_next && block_mod_fns->trigger_action_next(block_mod, cmd) < 0)
-					return -1;
+					goto out;
 				break;
 			case CMD_IDENT_PHASE_ERROR:
 				if (block_mod_fns->error && block_mod_fns->error(block_mod, cmd) < 0)
-					return -1;
+					goto out;
 				break;
 		}
 	}
 
-	return 0;
+	r = 0;
+out:
+	cmd->mod_res = orig_mod_res;
+	return r;
 }
 
 static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 {
 	sid_resource_t *modules_res;
-	sid_resource_t *type_mod_res;
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	const struct command_module_fns *mod_fns;
 	char buf[32];
 	int r;
-
-	if ((r = _parse_cmd_nullstr_udev_env(exec_args->cmd_res, cmd)) < 0) {
-		log_error_errno(ID(exec_args->cmd_res), r, "Failed to parse udev environment variables.");
-		return -1;
-	}
 
 	if ((r = _lookup_module_name(exec_args->cmd_res, &cmd->dev, buf, sizeof(buf))) < 0)
 		return -1;
@@ -527,22 +528,16 @@ static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 		return -1;
 	}
 
-	if (!(type_mod_res = sid_module_registry_load_module(modules_res, buf))) {
+	if (!(cmd->mod_res = exec_args->type_mod_res_current = sid_module_registry_load_module(modules_res, buf))) {
 		log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", buf);
 		return -1;
 	}
-
-	if (sid_module_registry_get_module_symbols(type_mod_res, (const void ***) &exec_args->type_mod_fns_current) < 0) {
-		log_error(ID(exec_args->cmd_res), "Failed to retrieve module symbols from module %s.", buf);
-		return -1;
-	}
-
-	exec_args->type_mod = sid_resource_get_data(type_mod_res);
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_IDENT);
 
-	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->ident)
-		return exec_args->type_mod_fns_current->ident(exec_args->type_mod, cmd);
+	if (mod_fns && mod_fns->ident)
+		return mod_fns->ident(sid_resource_get_data(cmd->mod_res), cmd);
 
 	return 0;
 }
@@ -550,11 +545,14 @@ static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 static int _cmd_execute_identify_scan_pre(struct command_exec_args *exec_args)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	const struct command_module_fns *mod_fns;
+
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_PRE);
 
-	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->scan_pre)
-		return exec_args->type_mod_fns_current->scan_pre(exec_args->type_mod, cmd);
+	if (mod_fns && mod_fns->scan_pre)
+		return mod_fns->scan_pre(sid_resource_get_data(cmd->mod_res), cmd);
 
 	return 0;
 }
@@ -562,11 +560,14 @@ static int _cmd_execute_identify_scan_pre(struct command_exec_args *exec_args)
 static int _cmd_execute_identify_scan_current(struct command_exec_args *exec_args)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	const struct command_module_fns *mod_fns;
+
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_CURRENT);
 
-	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->scan_current)
-		return exec_args->type_mod_fns_current->scan_current(exec_args->type_mod, cmd);
+	if (mod_fns && mod_fns->scan_current)
+		return mod_fns->scan_current(sid_resource_get_data(cmd->mod_res), cmd);
 
 	return 0;
 }
@@ -574,11 +575,14 @@ static int _cmd_execute_identify_scan_current(struct command_exec_args *exec_arg
 static int _cmd_execute_identify_scan_next(struct command_exec_args *exec_args)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	const struct command_module_fns *mod_fns;
+
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_NEXT);
 
-	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->scan_next)
-		return exec_args->type_mod_fns_next->scan_next(exec_args->type_mod, cmd);
+	if (mod_fns && mod_fns->scan_next)
+		return mod_fns->scan_next(sid_resource_get_data(cmd->mod_res), cmd);
 
 	return 0;
 }
@@ -586,11 +590,14 @@ static int _cmd_execute_identify_scan_next(struct command_exec_args *exec_args)
 static int _cmd_execute_identify_scan_post_current(struct command_exec_args *exec_args)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	const struct command_module_fns *mod_fns;
+
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_POST_CURRENT);
 
-	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->scan_post_current)
-		return exec_args->type_mod_fns_current->scan_post_current(exec_args->type_mod, cmd);
+	if (mod_fns && mod_fns->scan_post_current)
+		return mod_fns->scan_post_current(sid_resource_get_data(cmd->mod_res), cmd);
 
 	return 0;
 }
@@ -598,51 +605,45 @@ static int _cmd_execute_identify_scan_post_current(struct command_exec_args *exe
 static int _cmd_execute_identify_scan_post_next(struct command_exec_args *exec_args)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	const struct command_module_fns *mod_fns;
+
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_POST_NEXT);
 
-	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->scan_post_next)
-		return exec_args->type_mod_fns_next->scan_post_next(exec_args->type_mod, cmd);
+	if (mod_fns && mod_fns->scan_post_next)
+		return mod_fns->scan_post_next(sid_resource_get_data(cmd->mod_res), cmd);
 
 	return 0;
 }
 
 static int _cmd_execute_trigger_action_current(struct command_exec_args *exec_args)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-
-	_execute_block_modules(exec_args, CMD_IDENT_PHASE_TRIGGER_ACTION_CURRENT);
-
-	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->trigger_action_current)
-		return exec_args->type_mod_fns_current->trigger_action_current(exec_args->type_mod, cmd);
-
 	return 0;
 }
 
 static int _cmd_execute_trigger_action_next(struct command_exec_args *exec_args)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-
-	_execute_block_modules(exec_args, CMD_IDENT_PHASE_TRIGGER_ACTION_NEXT);
-
-	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->trigger_action_next)
-		return exec_args->type_mod_fns_next->trigger_action_next(exec_args->type_mod, cmd);
-
 	return 0;
 }
 
 static int _cmd_execute_error(struct command_exec_args *exec_args)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	const struct command_module_fns *mod_fns;
 	int r = 0;
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_ERROR);
 
-	if (exec_args->type_mod_fns_current && exec_args->type_mod_fns_current->error)
-		r = exec_args->type_mod_fns_current->error(exec_args->type_mod, cmd);
+	cmd->mod_res = exec_args->type_mod_res_current;
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->error)
+		r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
 
-	if (exec_args->type_mod_fns_next && exec_args->type_mod_fns_next->error)
-		r = exec_args->type_mod_fns_next->error(exec_args->type_mod, cmd);
+	cmd->mod_res = exec_args->type_mod_res_next;
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->error)
+		r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
 
 	return r;
 }
@@ -792,10 +793,11 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 {
 	const struct raw_command *raw_cmd = kickstart_data;
 	struct sid_ubridge_cmd_context *cmd = NULL;
+	int r;
 
 	if (!(cmd = zalloc(sizeof(*cmd)))) {
 		log_error(ID(res), "Failed to allocate new command structure.");
-		goto fail;
+		return -1;
 	}
 
 	if (!(cmd->result_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 0))) {
@@ -803,16 +805,14 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	cmd->dev.raw_udev_env_len = raw_cmd->len - sizeof(struct raw_command_header);
-	if (!(cmd->dev.raw_udev_env = malloc(cmd->dev.raw_udev_env_len))) {
-		log_error(ID(res), "Failed to allocate memory for command's environment variables.");
-		goto fail;
-	}
-	memcpy(cmd->dev.raw_udev_env, raw_cmd->header->data, cmd->dev.raw_udev_env_len);
-
 	cmd->protocol = raw_cmd->header->protocol;
 	cmd->type = raw_cmd->header->cmd_number;
 	cmd->status = raw_cmd->header->status;
+
+	if ((r = _parse_cmd_nullstr_udev_env(raw_cmd, cmd)) < 0) {
+		log_error_errno(ID(res), r, "Failed to parse udev environment variables.");
+		goto fail;
+	}
 
 	if (sid_resource_create_deferred_event_source(res, &cmd->es, _cmd_handler, res) < 0) {
 		log_error(ID(res), "Failed to register command handler.");
@@ -826,12 +826,19 @@ fail:
 	return -1;
 }
 
+static void _free_cmd_dev_fields(struct device *dev)
+{
+	free(dev->name);
+	free(dev->type);
+	free(dev->synth_uuid);
+}
+
 static int _destroy_command(sid_resource_t *res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(res);
 
 	(void) sid_resource_destroy_event_source(res, &cmd->es);
-	free(cmd->dev.raw_udev_env);
+	_free_cmd_dev_fields(&cmd->dev);
 	buffer_destroy(cmd->result_buf);
 	free(cmd);
 	return 0;

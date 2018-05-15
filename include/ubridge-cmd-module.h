@@ -56,10 +56,7 @@ int sid_ubridge_cmd_dev_get_minor(struct sid_ubridge_cmd_context *cmd);
 const char *sid_ubridge_cmd_dev_get_name(struct sid_ubridge_cmd_context *cmd);
 const char *sid_ubridge_cmd_dev_get_type(struct sid_ubridge_cmd_context *cmd);
 uint64_t sid_ubridge_cmd_dev_get_seqnum(struct sid_ubridge_cmd_context *cmd);
-void *sid_ubridge_cmd_dev_get_custom(struct sid_ubridge_cmd_context *cmd);
 const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *cmd);
-const char *sid_ubridge_cmd_dev_get_synth_arg_value(struct sid_ubridge_cmd_context *cmd, const char *key);
-const char *sid_ubridge_cmd_dev_get_uevent_env_value(struct sid_ubridge_cmd_context *cmd, const char *key);
 
 #ifdef __cplusplus
 }
