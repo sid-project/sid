@@ -78,6 +78,7 @@
 #define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ubridge_cmd_trigger_action_current"
 #define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ubridge_cmd_trigger_action_next"
 
+#define MAIN_KV_STORE_NAME  "main"
 #define UDEV_KV_STORE_NAME  "udev"
 
 #define UDEV_KEY_ACTION     "ACTION"
@@ -99,6 +100,7 @@ struct ubridge {
 	sid_resource_t *internal_res;
 	sid_resource_t *modules_res;
 	sid_resource_t *observers_res;
+	sid_resource_t *main_kv_store_res;
 };
 
 struct kickstart {
@@ -193,6 +195,7 @@ struct sid_ubridge_cmd_context {
 	sid_event_source *es;
 	struct device dev;
 	sid_resource_t *udev_kv_store_res;
+	sid_resource_t *main_kv_store_res;
 	sid_resource_t *mod_res; /* the module that is processed at the moment */
 	struct buffer *result_buf;
 
@@ -828,6 +831,11 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
+	if (!(cmd->main_kv_store_res = sid_resource_get_child(sid_resource_get_top_level(res), &sid_resource_reg_kv_store, MAIN_KV_STORE_NAME))) {
+		log_error(ID(res), INTERNAL_ERROR "Failed to find key-value store.");
+		goto fail;
+	}
+
 	if ((r = _parse_cmd_nullstr_udev_env(raw_cmd, cmd)) < 0) {
 		log_error_errno(ID(res), r, "Failed to parse udev environment variables.");
 		goto fail;
@@ -1165,6 +1173,7 @@ static sid_resource_t *_spawn_worker(sid_resource_t *ubridge_res, int *is_worker
 	sigset_t original_sigmask, new_sigmask;
 	sid_resource_t *res = NULL;
 	sid_resource_t *modules_res;
+	sid_resource_t *main_kv_store_res;
 	int signals_blocked = 0;
 	int comms_fd[2];
 	pid_t pid = -1;
@@ -1205,8 +1214,10 @@ static sid_resource_t *_spawn_worker(sid_resource_t *ubridge_res, int *is_worker
 		(void) close(comms_fd[0]);
 
 		modules_res = ubridge->modules_res;
+		main_kv_store_res = ubridge->main_kv_store_res;
 
 		(void) sid_resource_isolate_with_children(modules_res);
+		(void) sid_resource_isolate_with_children(main_kv_store_res);
 
 		if (sid_resource_destroy(sid_resource_get_top_level(ubridge_res)) < 0)
 			log_error(ID(ubridge_res), "Failed to clean resource tree after forking a new worker.");
@@ -1218,6 +1229,7 @@ static sid_resource_t *_spawn_worker(sid_resource_t *ubridge_res, int *is_worker
 		}
 
 		(void) sid_resource_add_child(res, modules_res);
+		(void) sid_resource_add_child(res, main_kv_store_res);
 	} else {
 		/* Parent is a child observer. */
 		log_debug(ID(ubridge_res), "Spawned new worker process with PID %d.", pid);
@@ -1401,6 +1413,9 @@ static const struct sid_module_registry_resource_params type_res_mod_params = {U
 										{NULL, 0}
 									}};
 
+static const struct sid_kv_store_resource_params main_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,
+									     .hash.initial_size = 32};
+
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	struct ubridge *ubridge = NULL;
@@ -1428,6 +1443,12 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	if (!(sid_resource_create(ubridge->modules_res, &sid_resource_reg_module_registry, 0, MODULES_BLOCK_ID, &block_res_mod_params)) ||
 	    !(sid_resource_create(ubridge->modules_res, &sid_resource_reg_module_registry, 0, MODULES_TYPE_ID, &type_res_mod_params))) {
 		log_error(ID(res), "Failed to create module handler.");
+		goto fail;
+	}
+
+	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_kv_store, 0,
+							       MAIN_KV_STORE_NAME, &main_kv_store_res_params))) {
+		log_error(ID(res), "Failed to create main key-value store.");
 		goto fail;
 	}
 
