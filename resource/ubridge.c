@@ -21,6 +21,7 @@
 
 #include <ctype.h>
 #include <libudev.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <sys/signalfd.h>
@@ -81,6 +82,9 @@
 #define MAIN_KV_STORE_NAME  "main"
 #define UDEV_KV_STORE_NAME  "udev"
 #define TEMP_KV_STORE_NAME  "temp"
+
+#define KV_PAIR             "="
+#define KV_END              ""
 
 #define UDEV_KEY_ACTION     "ACTION"
 #define UDEV_KEY_DEVNAME    "DEVNAME"
@@ -235,6 +239,12 @@ struct command_reg {
 	int (*execute) (struct command_exec_args *exec_arg);
 };
 
+struct kv_store_value {
+	uint64_t seqnum;
+	uint64_t flags;
+	char data[0];
+};
+
 udev_action_t sid_ubridge_cmd_dev_get_action(struct sid_ubridge_cmd_context *cmd)
 {
 	return cmd->dev.action;
@@ -270,20 +280,115 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 	return cmd->dev.synth_uuid;
 }
 
+static const char *_get_key_prefix(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+				   char *buf, size_t buf_size)
+{
+	switch (ns) {
+		case KV_NS_UDEV:
+			return "";
+		case KV_NS_GLOBAL:
+			return "*";
+		case KV_NS_MODULE:
+			snprintf(buf, buf_size, "M_%s", sid_module_get_name(sid_resource_get_data(cmd->mod_res)));
+			break;
+		case KV_NS_DEVICE:
+			snprintf(buf, buf_size, "D_%d:%d", cmd->dev.major, cmd->dev.minor);
+			break;
+	}
+
+	return buf;
+}
+
+static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new)
+{
+	return 1;
+}
+
+
+static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+					const char *key, uint64_t flags, void *value, size_t value_size)
+{
+	char buf[PATH_MAX];
+	const char *key_prefix;
+	sid_resource_t *kv_store_res;
+	struct iovec iov[3];
+	struct kv_store_value *kv_store_value;
+
+	if (!(key_prefix = _get_key_prefix(cmd, ns, buf, sizeof(buf)))) {
+		errno = ENOKEY;
+		return NULL;
+	}
+
+	if (ns == KV_NS_UDEV)
+		kv_store_res = cmd->udev_kv_store_res;
+	else
+		kv_store_res = cmd->temp_kv_store_res;
+
+	iov[0].iov_base = &cmd->dev.seqnum;
+	iov[0].iov_len = sizeof(cmd->dev.seqnum);
+
+	iov[1].iov_base = &flags;
+	iov[1].iov_len = sizeof(flags);
+
+	iov[2].iov_base = value;
+	iov[2].iov_len = value_size;
+
+	if (!(kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, 3, 1, (kv_dup_key_resolver_t) _kv_overwrite, NULL)))
+		return NULL;
+
+	return kv_store_value->data;
+}
+
+void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+			     const char *key, void *value, size_t value_size, uint64_t flags)
+{
+	if (ns == KV_NS_UDEV)
+		flags |= KV_PERSIST;
+
+	return _do_sid_ubridge_cmd_set_kv(cmd, ns, key, flags, value, value_size);
+}
+
+void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+			     const char *key, size_t *value_size, uint64_t *flags)
+{
+	char buf[PATH_MAX];
+	const char *key_prefix;
+	struct kv_store_value *kv_store_value;
+
+	if (!(key_prefix = _get_key_prefix(cmd, ns, buf, sizeof(buf)))) {
+		errno = ENOKEY;
+		return NULL;
+	}
+
+	if (ns == KV_NS_UDEV)
+		kv_store_value = kv_store_get_value(cmd->udev_kv_store_res, key_prefix, key, value_size);
+	else {
+		if (!(kv_store_value = kv_store_get_value(cmd->temp_kv_store_res, key_prefix, key, value_size)))
+			kv_store_value = kv_store_get_value(cmd->main_kv_store_res, key_prefix, key, value_size);
+	}
+
+	if (!kv_store_value)
+		return NULL;
+
+	if (flags)
+		*flags = kv_store_value->flags;
+
+	return kv_store_value->data;
+}
+
 static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 {
 	char *value;
 	size_t key_len;
-	int r = -1;
 
-	if (!(value = strchr(key, '=')) || !*(value++))
-		goto out;
+	if (!(value = strchr(key, KV_PAIR[0])) || !*(value++))
+		return -1;
 
 	key_len = value - key - 1;
 	key[key_len] = '\0';
 
-	if (!(value = kv_store_set_value(cmd->udev_kv_store_res, NULL, key, value, strlen(value) + 1, 1, NULL, NULL)))
-		goto out;
+	if (!(value = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, key, 0, value, strlen(value) + 1)))
+		goto bad;
 
 	/* Common key=value pairs are also directly in the cmd->dev structure. */
 	if (!strncmp(key, UDEV_KEY_ACTION, key_len))
@@ -301,11 +406,13 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 	else if (!strncmp(key, UDEV_KEY_SYNTH_UUID, key_len))
 		cmd->dev.synth_uuid = value;
 
-	key[key_len] = '=';
+	key[key_len] = KV_PAIR[0];
 
-	r = 0;
-out:
-	return r;
+	return 0;
+bad:
+	key[key_len] = KV_PAIR[0];
+
+	return -1;
 };
 
 static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct sid_ubridge_cmd_context *cmd)
@@ -326,7 +433,7 @@ static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct
 	while (i < raw_udev_env_len) {
 		str = raw_cmd->header->data + i;
 
-		if (!(delim = memchr(str, '\0', raw_udev_env_len - i)))
+		if (!(delim = memchr(str, KV_END[0], raw_udev_env_len - i)))
 			goto fail;
 
 		if (_device_add_field(cmd, str) < 0)

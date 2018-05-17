@@ -58,6 +58,19 @@ const char *sid_ubridge_cmd_dev_get_type(struct sid_ubridge_cmd_context *cmd);
 uint64_t sid_ubridge_cmd_dev_get_seqnum(struct sid_ubridge_cmd_context *cmd);
 const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *cmd);
 
+typedef enum {
+	KV_NS_UDEV,
+	KV_NS_GLOBAL,
+	KV_NS_MODULE,
+	KV_NS_DEVICE,
+} sid_ubridge_cmd_kv_namespace_t;
+
+#define KV_PERSIST UINT64_C(0x0000000000000001)
+
+void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+			     const char *key, void *value, size_t value_size, uint64_t flags);
+void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+			     const char *key, size_t *value_size, uint64_t *flags);
 #ifdef __cplusplus
 }
 #endif
