@@ -80,6 +80,7 @@
 
 #define MAIN_KV_STORE_NAME  "main"
 #define UDEV_KV_STORE_NAME  "udev"
+#define TEMP_KV_STORE_NAME  "temp"
 
 #define UDEV_KEY_ACTION     "ACTION"
 #define UDEV_KEY_DEVNAME    "DEVNAME"
@@ -196,6 +197,7 @@ struct sid_ubridge_cmd_context {
 	struct device dev;
 	sid_resource_t *udev_kv_store_res;
 	sid_resource_t *main_kv_store_res;
+	sid_resource_t *temp_kv_store_res;
 	sid_resource_t *mod_res; /* the module that is processed at the moment */
 	struct buffer *result_buf;
 
@@ -806,6 +808,9 @@ static int _cmd_handler(sid_event_source *es, void *data)
 static const struct sid_kv_store_resource_params udev_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,
 									     .hash.initial_size = 32};
 
+static const struct sid_kv_store_resource_params temp_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,
+									     .hash.initial_size = 32};
+
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct raw_command *raw_cmd = kickstart_data;
@@ -828,6 +833,11 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 
 	if (!(cmd->udev_kv_store_res = sid_resource_create(res, &sid_resource_reg_kv_store, 0, UDEV_KV_STORE_NAME, &udev_kv_store_res_params))) {
 		log_error(ID(res), "Failed to create udev key-value store.");
+		goto fail;
+	}
+
+	if (!(cmd->temp_kv_store_res = sid_resource_create(res, &sid_resource_reg_kv_store, 0, TEMP_KV_STORE_NAME, &temp_kv_store_res_params))) {
+		log_error(ID(res), "Failed to create temporary key-value store.");
 		goto fail;
 	}
 
