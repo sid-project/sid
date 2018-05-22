@@ -295,7 +295,7 @@ static int _device_add_field(sid_resource_t *cmd_res, struct device *dev, const 
 		dev->minor = atoi(value);
 	else if (!strncmp(key, "SEQNUM", key_len))
 		/* TODO: add sanity checks! */
-		dev->seqnum = strtoull(value, NULL, key_len);
+		dev->seqnum = strtoull(value, NULL, 10);
 	else if (!strncmp(key, "SYNTH_UUID", key_len))
 		dev->synth_uuid = value;
 
