@@ -884,6 +884,44 @@ static struct command_reg _command_regs[] = {
 	{.name = "checkpoint", .execute = _cmd_execute_checkpoint}
 };
 
+static int _export_kv_stores(sid_resource_t *cmd_res)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	struct kv_store_value *kv_store_value;
+	kv_store_iter_t *iter;
+	const char *key;
+	size_t size;
+
+	/*
+	 * Export udev key-value store.
+	 *
+	 * We append key=value pairs to the output buffer that is sent back to udev
+	 * as result of "sid identify" udev builtin command.
+	 *
+	 * We send only the key=value pairs that we have added during cmd processing,
+	 * that means the ones which have KV_PERSIST flag set (SID core sets this flag
+	 * automatically for all newly added/updated key=value pairs).
+	 */
+	if (!(iter = kv_store_iter_create(cmd->udev_kv_store_res))) {
+		log_error(ID(cmd_res), "Failed to create iterator for udev key-value store.");
+		return -1;
+	}
+
+	while ((kv_store_value = kv_store_iter_next(iter, &size))) {
+		if (!(kv_store_value->flags & KV_PERSIST))
+			continue;
+		key = kv_store_iter_current_key(iter);
+		buffer_add(cmd->result_buf, (void *) key, strlen(key));
+		buffer_add(cmd->result_buf, KV_PAIR, 1);
+		buffer_add(cmd->result_buf, kv_store_value->data, strlen(kv_store_value->data));
+		buffer_add(cmd->result_buf, KV_END, 1);
+	}
+
+	kv_store_iter_destroy(iter);
+
+	return 0;
+}
+
 static int _cmd_handler(sid_event_source *es, void *data)
 {
 	sid_resource_t *cmd_res = data;
@@ -902,6 +940,11 @@ static int _cmd_handler(sid_event_source *es, void *data)
 		exec_args.cmd_res = cmd_res;
 		if ((r = _command_regs[cmd->type].execute(&exec_args)) < 0)
 			log_error_errno(ID(cmd_res), r, "Failed to execute command");
+	}
+
+	if (_export_kv_stores(cmd_res) < 0) {
+		log_error(ID(cmd_res), "Failed to synchronize key-value stores.");
+		r = -1;
 	}
 
 	if (r < 0)
