@@ -135,7 +135,9 @@ void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_pref
 			 void *value, size_t value_size, int copy,
 			 kv_dup_key_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
 {
-	struct dup_key_resolver_arg hash_dup_key_resolver_arg = {.dup_key_resolver = dup_key_resolver,
+	struct dup_key_resolver_arg hash_dup_key_resolver_arg = {.key_prefix = key_prefix,
+								 .key = key,
+								 .dup_key_resolver = dup_key_resolver,
 								 .dup_key_resolver_arg = dup_key_resolver_arg};
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];
@@ -162,7 +164,9 @@ void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const ch
 				     struct iovec *iov, int iov_cnt, int copy,
 				     kv_dup_key_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
 {
-	struct dup_key_resolver_arg hash_dup_key_resolver_arg = {.dup_key_resolver = dup_key_resolver,
+	struct dup_key_resolver_arg hash_dup_key_resolver_arg = {.key_prefix = key_prefix,
+								 .key = key,
+								 .dup_key_resolver = dup_key_resolver,
 								 .dup_key_resolver_arg = dup_key_resolver_arg};
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];

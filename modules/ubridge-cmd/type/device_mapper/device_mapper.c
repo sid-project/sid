@@ -52,7 +52,16 @@ SID_UBRIDGE_CMD_IDENT(_device_mapper_ident)
 
 static int _device_mapper_scan_pre(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {
+	const char *v;
+
 	log_debug(ID, "scan-pre");
+
+	v = sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "test", "1", 2, 0);
+	v = sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "test", "X", 2, 0);
+	v = sid_ubridge_cmd_set_kv(cmd, KV_NS_MODULE, "test", "2", 2, KV_PERSIST);
+	v = sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, "test", "3", 2, KV_PERSIST);
+	v = sid_ubridge_cmd_set_kv(cmd, KV_NS_GLOBAL, "test", "4", 2, KV_PERSIST);
+
 	return 0;
 }
 SID_UBRIDGE_CMD_SCAN_PRE(_device_mapper_scan_pre)
@@ -60,7 +69,15 @@ SID_UBRIDGE_CMD_SCAN_PRE(_device_mapper_scan_pre)
 
 static int _device_mapper_scan_current(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {
+	const char *v;
+
 	log_debug(ID, "scan-current");
+
+	v = sid_ubridge_cmd_get_kv(cmd, KV_NS_UDEV, "test", NULL, NULL);
+	v = sid_ubridge_cmd_get_kv(cmd, KV_NS_MODULE, "test", NULL, NULL);
+	v = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, "test", NULL, NULL);
+	v = sid_ubridge_cmd_get_kv(cmd, KV_NS_GLOBAL, "test", NULL, NULL);
+
 	return 0;
 }
 SID_UBRIDGE_CMD_SCAN_CURRENT(_device_mapper_scan_current)

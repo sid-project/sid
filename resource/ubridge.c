@@ -24,6 +24,7 @@
 #include <limits.h>
 #include <signal.h>
 #include <stdio.h>
+#include <sys/mman.h>
 #include <sys/signalfd.h>
 #include <unistd.h>
 #include "buffer.h"
@@ -53,10 +54,12 @@
 
 #define WORKER_IDLE_TIMEOUT_USEC     5000000
 
-#define INTERNAL_COMMS_BUFFER_LEN    1
+#define INTERNAL_COMMS_BUFFER_LEN      1
 
-#define INTERNAL_COMMS_CMD_RUNNING   1
-#define INTERNAL_COMMS_CMD_IDLE      2
+#define INTERNAL_COMMS_CMD_RUNNING     1
+#define INTERNAL_COMMS_CMD_IDLE        2
+#define INTERNAL_COMMS_CMD_KV_SYNC     3
+#define INTERNAL_COMMS_CMD_KV_SYNC_ACK 4
 
 #define COMMAND_STATUS_MASK_OVERALL  UINT64_C(0x0000000000000001)
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
@@ -884,13 +887,26 @@ static struct command_reg _command_regs[] = {
 	{.name = "checkpoint", .execute = _cmd_execute_checkpoint}
 };
 
+static int _send_export_fd_to_observer(sid_resource_t *cmd_res, int export_fd)
+{
+	struct worker *worker = sid_resource_get_data(sid_resource_get_top_level(cmd_res));
+	char buf[INTERNAL_COMMS_BUFFER_LEN];
+
+	buf[0] = INTERNAL_COMMS_CMD_KV_SYNC;
+
+	return comms_unix_send(worker->comms_fd, buf, sizeof(buf), export_fd);
+}
+
 static int _export_kv_stores(sid_resource_t *cmd_res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 	struct kv_store_value *kv_store_value;
 	kv_store_iter_t *iter;
 	const char *key;
-	size_t size;
+	size_t size, key_size;
+	int export_fd;
+	size_t bytes_written = 0;
+	ssize_t r;
 
 	/*
 	 * Export udev key-value store.
@@ -919,7 +935,78 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 
 	kv_store_iter_destroy(iter);
 
+	/*
+	 * Export temp key-value store.
+	 *
+	 * We serialize the temp key-value store to an anonymous file in memory created by
+	 * memfd_create. Then we pass the file FD over to observer that reads it and it
+	 * updates the "master" key-value store.
+	 *
+	 * We only send key=value pairs which are marked with KV_PERSIST flag.
+	 */
+	if (!(iter = kv_store_iter_create(cmd->temp_kv_store_res))) {
+		// TODO: Discard udev kv-store we've already appended to the output buffer!
+		log_error(ID(cmd_res), "Failed to create iterator for temp key-value store.");
+		return -1;
+	}
+
+	export_fd = memfd_create("kv_store_export", MFD_CLOEXEC);
+
+	/* Reserve space to write the overall data size. */
+	lseek(export_fd, sizeof(bytes_written), SEEK_SET);
+
+	// FIXME: maybe buffer first so there's only single write
+	while ((kv_store_value = kv_store_iter_next(iter, &size))) {
+		if (!(kv_store_value->flags & KV_PERSIST))
+			continue;
+		key = kv_store_iter_current_key(iter);
+		key_size = strlen(key) + 1;
+		/*
+		 * Serialization format fields:
+		 *
+		 *  1) overall message size (size_t)
+		 *  2) key size             (size_t)
+		 *  3) data size            (size_t)
+		 *  4) key                  (key_size)
+		 *  5) data                 (data_size)
+		 *
+		 *  Repeat 2) - 5) as long as there are items to send.
+		 */
+		// TODO: Clean up this code!
+		if ((r = write(export_fd, &key_size, sizeof(key_size))) == sizeof(key_size))
+			bytes_written += r;
+		else
+			goto bad;
+
+		if ((r = write(export_fd, &size, sizeof(size))) == sizeof(size))
+			bytes_written += r;
+		else
+			goto bad;
+
+		if ((r = write(export_fd, key, strlen(key) + 1)) == strlen(key) + 1)
+			bytes_written += r;
+		else
+			goto bad;
+
+		if ((r = write(export_fd, kv_store_value, size)) == size)
+			bytes_written += r;
+		else
+			goto bad;
+	}
+
+	lseek(export_fd, 0, SEEK_SET);
+	write(export_fd, &bytes_written, sizeof(bytes_written));
+	lseek(export_fd, 0, SEEK_SET);
+
+	_send_export_fd_to_observer(cmd_res, export_fd);
+
+	kv_store_iter_destroy(iter);
+
+	close(export_fd);
+
 	return 0;
+bad:
+	return -1;
 }
 
 static int _cmd_handler(sid_event_source *es, void *data)
@@ -1050,6 +1137,57 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 	return 0;
 }
 
+static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, void *arg)
+{
+	log_debug(">>>>", "_master_kv_store_update: key:%s  old seqnum:%" PRIu64 "  new seqnum:%" PRIu64, key, old->seqnum, new->seqnum);
+	return new->seqnum >= old->seqnum;
+}
+
+static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
+{
+	struct ubridge *ubridge = sid_resource_get_data(sid_resource_get_parent(observer_res));
+
+	size_t msg_size, key_size, data_size;
+	char *key, *shm, *p, *end;
+	struct kv_store_value *data;
+
+	if (read(fd, &msg_size, sizeof(msg_size)) != sizeof(msg_size)) {
+		log_error_errno(ID(observer_res), errno, "Failed to read shared memory size");
+		return -1;
+	}
+
+	if ((p = shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+		log_error_errno(ID(observer_res), errno, "Failed to map memory with key-value store");
+		return -1;
+	}
+
+	p += sizeof(msg_size);
+	end = p + msg_size;
+
+	while (p < end) {
+		key_size = *((size_t *) p);
+		p += sizeof(key_size);
+		data_size = *((size_t *) p);
+		p += sizeof(data_size);
+		key = p;
+		p += key_size;
+		data = (struct kv_store_value *) p;
+		p += data_size;
+
+		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key, data->data, data->seqnum);
+		kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1, (kv_dup_key_resolver_t) _master_kv_store_update, NULL);
+	}
+
+	if (munmap(shm, msg_size) < 0) {
+		log_error_errno(ID(observer_res), errno, "Failed to unmap memory with key-value store");
+		return -1;
+	}
+
+	close(fd);
+
+	return 0;
+}
+
 static int _on_worker_conn_event(sid_event_source *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *worker_res = data;
@@ -1164,6 +1302,10 @@ static int _on_observer_comms_event(sid_event_source *es, int fd, uint32_t reven
 						      timeout_usec, 0, _on_idle_task_timeout_event, NULL, observer_res);
 		observer->worker_state = WORKER_IDLE;
 		log_debug(ID(observer_res), "Worker state changed to WORKER_IDLE.");
+	} else if (buf[0] == INTERNAL_COMMS_CMD_KV_SYNC) {
+		log_debug(ID(observer_res), "Received worker's key-value store to sync with master key-value store (fd %d).", fd_received);
+		_sync_master_kv_store(observer_res, fd_received);
+		close(fd_received);
 	}
 
 	return 0;
@@ -1590,7 +1732,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(ubridge->observers_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_aggregate, 0, OBSERVERS_AGGREGATE_ID, NULL))) {
+	if (!(ubridge->observers_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_aggregate, 0, OBSERVERS_AGGREGATE_ID, ubridge))) {
 		log_error(ID(res), "Failed to create aggregate resource for ubridge observers.");
 		goto fail;
 	}
