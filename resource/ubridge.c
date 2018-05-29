@@ -1183,8 +1183,6 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 		return -1;
 	}
 
-	close(fd);
-
 	return 0;
 }
 
