@@ -334,7 +334,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[1].iov_len = sizeof(flags);
 
 	iov[2].iov_base = value;
-	iov[2].iov_len = value_size;
+	iov[2].iov_len = value ? value_size : 0;
 
 	if (!(kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, 3, 1, (kv_dup_key_resolver_t) _kv_overwrite, NULL)))
 		return NULL;
@@ -1150,6 +1150,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	size_t msg_size, key_size, data_size;
 	char *key, *shm, *p, *end;
 	struct kv_store_value *data;
+	int unset;
 
 	if (read(fd, &msg_size, sizeof(msg_size)) != sizeof(msg_size)) {
 		log_error_errno(ID(observer_res), errno, "Failed to read shared memory size");
@@ -1174,8 +1175,14 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 		data = (struct kv_store_value *) p;
 		p += data_size;
 
-		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key, data->data, data->seqnum);
-		kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1, (kv_dup_key_resolver_t) _master_kv_store_update, NULL);
+		unset = (data_size == (sizeof(struct kv_store_value)));
+		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
+			  unset ? "NULL" : data->data, data->seqnum);
+
+		if (data_size > (sizeof(struct kv_store_value)))
+			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1, (kv_dup_key_resolver_t) _master_kv_store_update, NULL);
+		else
+			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key);
 	}
 
 	if (munmap(shm, msg_size) < 0) {
