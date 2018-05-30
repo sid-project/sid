@@ -216,6 +216,37 @@ bad:
 	return NULL;
 }
 
+int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key)
+{
+	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+	char buf[PATH_MAX];
+	const char *full_key;
+	struct kv_store_item *found;
+
+	if (!(full_key = _get_full_key(buf, sizeof(buf), key_prefix, key))) {
+		errno = ENOKEY;
+		goto bad;
+	}
+
+	/*
+	 * FIXME: hash_lookup and hash_remove are two searches inside hash - maybe try to do
+	 *        this in one step (...that requires hash interface extension).
+	 */
+	if (!(found = hash_lookup(kv_store->ht, full_key))) {
+		errno = ENODATA;
+		goto bad;
+	}
+
+	if (found->is_copy)
+		free(found);
+
+	hash_remove(kv_store->ht, full_key);
+
+	return 0;
+bad:
+	return -1;
+}
+
 kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res)
 {
 	kv_store_iter_t *iter;

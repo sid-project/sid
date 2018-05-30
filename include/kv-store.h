@@ -81,6 +81,8 @@ void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const ch
  */
 void *kv_store_get_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key, size_t *value_size);
 
+int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key);
+
 typedef struct kv_store_iter kv_store_iter_t;
 
 kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res);
