@@ -58,8 +58,9 @@
 
 #define INTERNAL_COMMS_CMD_RUNNING     1
 #define INTERNAL_COMMS_CMD_IDLE        2
-#define INTERNAL_COMMS_CMD_KV_SYNC     3
-#define INTERNAL_COMMS_CMD_KV_SYNC_ACK 4
+#define INTERNAL_COMMS_CMD_EXIT        3
+#define INTERNAL_COMMS_CMD_KV_SYNC     4
+#define INTERNAL_COMMS_CMD_KV_SYNC_ACK 5
 
 #define COMMAND_STATUS_MASK_OVERALL  UINT64_C(0x0000000000000001)
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
@@ -1131,7 +1132,15 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 	(void) sid_resource_destroy_event_source(worker_res, &worker->conn_es);
 	(void) buffer_reset(worker->buf, 0);
 
-	buf[0] = INTERNAL_COMMS_CMD_IDLE;
+	/*
+	 *  FIXME: Either send INTERNAL_COMMS_CMD_IDLE or EXIT based on configuration,
+	 *        take into account the KV store backend - e.g. if we're using hash,
+	 *        then we can't have a pool of IDLE workers, we need to fork a new
+	 *        process for each request.
+	 */
+
+	/* buf[0] = INTERNAL_COMMS_CMD_IDLE; */
+	buf[0] = INTERNAL_COMMS_CMD_EXIT;
 	if (!comms_unix_send(worker->comms_fd, buf, sizeof(buf), -1))
 		return -1;
 
@@ -1317,6 +1326,8 @@ static int _on_observer_comms_event(sid_event_source *es, int fd, uint32_t reven
 						      timeout_usec, 0, _on_idle_task_timeout_event, NULL, observer_res);
 		observer->worker_state = WORKER_IDLE;
 		log_debug(ID(observer_res), WORKER_STATE_CHANGED_TO_MSG "WORKER_IDLE.");
+	} else if (buf[0] == INTERNAL_COMMS_CMD_EXIT) {
+		_make_worker_exit(observer_res);
 	} else if (buf[0] == INTERNAL_COMMS_CMD_KV_SYNC) {
 		log_debug(ID(observer_res), "Received worker's key-value store to sync with master key-value store (fd %d).", fd_received);
 		_sync_master_kv_store(observer_res, fd_received);
