@@ -1149,8 +1149,17 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 
 static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, void *arg)
 {
-	log_debug(">>>>", "_master_kv_store_update: key:%s  old seqnum:%" PRIu64 "  new seqnum:%" PRIu64, key, old->seqnum, new->seqnum);
-	return new->seqnum >= old->seqnum;
+	sid_resource_t *kv_store_res = arg;
+
+	if (new->seqnum >= old->seqnum) {
+		log_debug(ID(kv_store_res), "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
+			  key, new->seqnum, old->seqnum);
+		return 1;
+	}
+
+	log_debug(ID(kv_store_res), "Keeping old value for key %s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
+		  key, new->seqnum, old->seqnum);
+	return 0;
 }
 
 static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
@@ -1190,7 +1199,8 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			  unset ? "NULL" : data->data, data->seqnum);
 
 		if (data_size > (sizeof(struct kv_store_value)))
-			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1, (kv_dup_key_resolver_t) _master_kv_store_update, NULL);
+			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1,
+					   (kv_dup_key_resolver_t) _master_kv_store_update, ubridge->main_kv_store_res);
 		else
 			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key);
 	}
