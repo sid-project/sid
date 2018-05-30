@@ -118,9 +118,10 @@ struct kickstart {
 
 typedef enum {
 	WORKER_IDLE,
-	WORKER_INIT,
+	WORKER_INITIALIZING,
 	WORKER_RUNNING,
-	WORKER_FINI,
+	WORKER_EXITING,
+	WORKER_EXITED,
 } worker_state_t;
 
 typedef enum {
@@ -1274,15 +1275,24 @@ static int _on_worker_comms_event(sid_event_source *es, int fd, uint32_t revents
 	return 0;
 }
 
+#define WORKER_STATE_CHANGED_TO_MSG "Worker state changed to "
+
+static int _make_worker_exit(sid_resource_t *observer_res)
+{
+	struct observer *observer = sid_resource_get_data(observer_res);
+
+	observer->worker_state = WORKER_EXITING;
+	log_debug(ID(observer_res), WORKER_STATE_CHANGED_TO_MSG "WORKER_EXITING.");
+
+	return kill(observer->worker_pid, SIGTERM);
+}
+
 static int _on_idle_task_timeout_event(sid_event_source *es, uint64_t usec, void *data)
 {
 	sid_resource_t *observer_res = data;
-	struct observer *observer = sid_resource_get_data(observer_res);
 
 	log_debug(ID(observer_res), "Idle timeout expired.");
-	observer->worker_state = WORKER_FINI;
-	log_debug(ID(observer_res), "Worker state changed to WORKER_FINI.");
-	kill(observer->worker_pid, SIGTERM);
+	_make_worker_exit(observer_res);
 
 	return 0;
 }
@@ -1300,13 +1310,13 @@ static int _on_observer_comms_event(sid_event_source *es, int fd, uint32_t reven
 
 	if (buf[0] == INTERNAL_COMMS_CMD_RUNNING) {
 		observer->worker_state = WORKER_RUNNING;
-		log_debug(ID(observer_res), "Worker state changed to WORKER_RUNNING.");
+		log_debug(ID(observer_res), WORKER_STATE_CHANGED_TO_MSG "WORKER_RUNNING.");
 	} else if (buf[0] == INTERNAL_COMMS_CMD_IDLE) {
 		timeout_usec = util_get_now_usec(CLOCK_MONOTONIC) + WORKER_IDLE_TIMEOUT_USEC;
 		sid_resource_create_time_event_source(observer_res, &observer->idle_timeout_es, CLOCK_MONOTONIC,
 						      timeout_usec, 0, _on_idle_task_timeout_event, NULL, observer_res);
 		observer->worker_state = WORKER_IDLE;
-		log_debug(ID(observer_res), "Worker state changed to WORKER_IDLE.");
+		log_debug(ID(observer_res), WORKER_STATE_CHANGED_TO_MSG "WORKER_IDLE.");
 	} else if (buf[0] == INTERNAL_COMMS_CMD_KV_SYNC) {
 		log_debug(ID(observer_res), "Received worker's key-value store to sync with master key-value store (fd %d).", fd_received);
 		_sync_master_kv_store(observer_res, fd_received);
@@ -1318,22 +1328,22 @@ static int _on_observer_comms_event(sid_event_source *es, int fd, uint32_t reven
 
 static int _on_observer_child_event(sid_event_source *es, const siginfo_t *si, void *data)
 {
+	static const char worker_exited_msg[] = WORKER_STATE_CHANGED_TO_MSG "WORKER_EXITED";
 	sid_resource_t *observer_res = data;
 	struct observer *observer = sid_resource_get_data(observer_res);
 
+	observer->worker_state = WORKER_EXITED;
+
 	switch (si->si_code) {
 		case CLD_EXITED:
-			log_debug(ID(observer_res), "Worker %d exited with exit code %d.",
-				  observer->worker_pid, si->si_status);
+			log_debug(ID(observer_res), "%s (exited with exit code %d).", worker_exited_msg, si->si_status);
 			break;
 		case CLD_KILLED:
 		case CLD_DUMPED:
-			log_debug(ID(observer_res), "Worker %d terminated by signal %d.",
-				  observer->worker_pid, si->si_status);
+			log_debug(ID(observer_res), "%s (terminated by signal %d).", worker_exited_msg, si->si_status);
 			break;
 		default:
-			log_debug(ID(observer_res), "Worker %d failed unexpectedly.",
-				  observer->worker_pid);
+			log_debug(ID(observer_res), "%s (failed unexpectedly).", worker_exited_msg);
 	}
 
 	(void) sid_resource_destroy(observer_res);
@@ -1344,8 +1354,9 @@ static int _on_signal_event(sid_event_source *es, const struct signalfd_siginfo 
 {
 	sid_resource_t *res = userdata;
 
-	log_print(ID(res), "Received signal %d.", si->ssi_signo);
+	log_print(ID(res), "Received signal %d from %d.", si->ssi_signo, si->ssi_pid);
 	sid_resource_exit_event_loop(res);
+
 	return 0;
 }
 
@@ -1582,8 +1593,8 @@ static int _accept_connection_and_pass_to_worker(sid_resource_t *ubridge_res, si
 
 	(void) close(conn_fd);
 	(void) sid_resource_destroy_event_source(observer_res, &observer->idle_timeout_es);
-	observer->worker_state = WORKER_INIT;
-	log_debug(ID(observer_res), "Worker state changed to WORKER_INIT.");
+	observer->worker_state = WORKER_INITIALIZING;
+	log_debug(ID(observer_res), WORKER_STATE_CHANGED_TO_MSG "WORKER_INITIALIZING.");
 
 	return 0;
 }
