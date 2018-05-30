@@ -27,6 +27,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "blkid-type.h"
 #include "ubridge-cmd-module.h"
 #include "log.h"
 
@@ -56,11 +57,14 @@ SID_MODULE_RELOAD(_blkid_reload)
 /* TODO: Also add ID_PART_GPT_AUTO_ROOT_UUID - see udev-builtin-blkid in systemd source tree. */
 static void _add_property(struct sid_ubridge_cmd_context *cmd, const char *name, const char *value) {
         char s[256];
+	const struct blkid_type *blkid_type;
 
         s[0] = '\0';
 
         if (!strcmp(name, "TYPE")) {
-
+		/* Translate blkid type name to sid module name and save the result in SID_NEXT_MOD variable in KV_NS_DEVICE. */
+		if ((blkid_type = blkid_type_lookup(value, strlen(value))))
+			sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, "SID_NEXT_MOD", blkid_type->sid_module_name, strlen(blkid_type->sid_module_name) + 1, KV_PERSIST);
         } else if (!strcmp(name, "USAGE")) {
 		// ID_FS_USAGE
 

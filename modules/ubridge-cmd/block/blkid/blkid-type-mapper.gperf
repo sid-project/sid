@@ -1,0 +1,86 @@
+%{
+#include "blkid-type.h"
+%}
+struct blkid_type;
+%language=ANSI-C
+%includes
+%null-strings
+%omit-struct-type
+%struct-type
+%define slot-name blkid_type_name
+%define hash-function-name blkid_type_hash
+%define lookup-function-name blkid_type_lookup
+%readonly-tables
+%%
+linux_raid_member,		SID_MOD_NAME_MD
+ddf_raid_member,		SID_MOD_NAME_MD
+isw_raid_member,		SID_MOD_NAME_MD
+lsi_mega_raid_member,		SID_MOD_NAME_MD
+via_raid_member,		SID_MOD_NAME_MD
+silicon_medley_raid_member,	SID_MOD_NAME_MD
+nvidia_raid_member,		SID_MOD_NAME_MD
+promise_fasttrack_raid_member,	SID_MOD_NAME_MD
+hpt45x_raid_member,		SID_MOD_NAME_MD
+hpt37x_raid_member,		SID_MOD_NAME_MD
+adaptec_raid_member,		SID_MOD_NAME_MD
+jmicron_raid_member,		SID_MOD_NAME_MD
+bcache,				SID_MOD_NAME_BCACHE
+drbd,				SID_MOD_NAME_DRBD
+drbdmanage_control_volume,	SID_MOD_NAME_DRBD
+drbdproxy_datalog,		SID_MOD_NAME_DRBD
+LVM2_member,			SID_MOD_NAME_DM
+LVM1_member,			SID_MOD_NAME_DM
+DM_snapshot_cow,		SID_MOD_NAME_DM
+DM_verity_hash,			SID_MOD_NAME_DM
+DM_integrity,			SID_MOD_NAME_DM
+crypto_LUKS,			SID_MOD_NAME_DM
+VMFS_volume_member,		SID_MOD_NAME_NONE
+ubi,				SID_MOD_NAME_NONE
+vdo,				SID_MOD_NAME_VDO
+stratis,			SID_MOD_NAME_STRATIS
+vfat,				SID_MOD_NAME_FS
+swsuspend,			SID_MOD_NAME_NONE
+swap,				SID_MOD_NAME_SWAP
+xfs,				SID_MOD_NAME_FS
+xfs_external_log,		SID_MOD_NAME_FS
+exfs,				SID_MOD_NAME_FS
+ext4dev,			SID_MOD_NAME_FS
+ext4,				SID_MOD_NAME_FS
+ext3,				SID_MOD_NAME_FS
+ext2,				SID_MOD_NAME_FS
+jbd,				SID_MOD_NAME_FS
+reiserfs,			SID_MOD_NAME_FS
+reiser4,			SID_MOD_NAME_FS
+jfs,				SID_MOD_NAME_FS
+udf,				SID_MOD_NAME_FS
+iso9660,			SID_MOD_NAME_FS
+zfs_member,			SID_MOD_NAME_FS
+hfsplus,			SID_MOD_NAME_FS
+hfs,				SID_MOD_NAME_FS
+ufs,				SID_MOD_NAME_FS
+hpfs,				SID_MOD_NAME_FS
+sysv,				SID_MOD_NAME_NONE
+xenix,				SID_MOD_NAME_FS
+ntfs,				SID_MOD_NAME_FS
+ReFS,				SID_MOD_NAME_FS
+cramfs,				SID_MOD_NAME_FS
+romfs,				SID_MOD_NAME_FS
+minix,				SID_MOD_NAME_FS
+gfs,				SID_MOD_NAME_FS
+gfs2,				SID_MOD_NAME_FS
+ocfs,				SID_MOD_NAME_FS
+ocfs2,				SID_MOD_NAME_FS
+oracleasm,			SID_MOD_NAME_NONE
+vxfs,				SID_MOD_NAME_FS
+squashfs,			SID_MOD_NAME_FS
+squashfs3,			SID_MOD_NAME_FS
+nss,				SID_MOD_NAME_NONE
+btrfs,				SID_MOD_NAME_NONE
+ubifs,				SID_MOD_NAME_FS
+bfs,				SID_MOD_NAME_FS
+VMFS,				SID_MOD_NAME_FS
+befs,				SID_MOD_NAME_FS
+nilfs2,				SID_MOD_NAME_FS
+exfat,				SID_MOD_NAME_FS
+f2fs,				SID_MOD_NAME_FS
+mpool,				SID_MOD_NAME_NONE
