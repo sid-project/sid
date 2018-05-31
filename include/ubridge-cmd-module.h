@@ -68,9 +68,9 @@ typedef enum {
 #define KV_PERSIST UINT64_C(0x0000000000000001)
 
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-			     const char *key, void *value, size_t value_size, uint64_t flags);
-void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-			     const char *key, size_t *value_size, uint64_t *flags);
+			     const char *key, const void *value, size_t value_size, uint64_t flags);
+const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+				   const char *key, size_t *value_size, uint64_t *flags);
 #ifdef __cplusplus
 }
 #endif

@@ -311,7 +311,7 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 
 
 static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-					const char *key, uint64_t flags, void *value, size_t value_size)
+					const char *key, uint64_t flags, const void *value, size_t value_size)
 {
 	char buf[PATH_MAX];
 	const char *key_prefix;
@@ -335,7 +335,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[1].iov_base = &flags;
 	iov[1].iov_len = sizeof(flags);
 
-	iov[2].iov_base = value;
+	iov[2].iov_base = (void *) value;
 	iov[2].iov_len = value ? value_size : 0;
 
 	if (!(kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, 3, 1, (kv_dup_key_resolver_t) _kv_overwrite, NULL)))
@@ -345,7 +345,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 }
 
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-			     const char *key, void *value, size_t value_size, uint64_t flags)
+			     const char *key, const void *value, size_t value_size, uint64_t flags)
 {
 	if (ns == KV_NS_UDEV)
 		flags |= KV_PERSIST;
@@ -353,8 +353,8 @@ void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cm
 	return _do_sid_ubridge_cmd_set_kv(cmd, ns, key, flags, value, value_size);
 }
 
-void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-			     const char *key, size_t *value_size, uint64_t *flags)
+const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+				   const char *key, size_t *value_size, uint64_t *flags)
 {
 	char buf[PATH_MAX];
 	const char *key_prefix;
