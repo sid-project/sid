@@ -58,68 +58,75 @@ SID_MODULE_RELOAD(_blkid_reload)
 static void _add_property(struct sid_ubridge_cmd_context *cmd, const char *name, const char *value) {
         char s[256];
 	const struct blkid_type *blkid_type;
+	size_t len;
 
         s[0] = '\0';
 
         if (!strcmp(name, "TYPE")) {
+		len = strlen(value);
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_TYPE", value, len + 1, 0);
+
 		/* Translate blkid type name to sid module name and save the result in SID_NEXT_MOD variable in KV_NS_DEVICE. */
-		if ((blkid_type = blkid_type_lookup(value, strlen(value))))
+		if ((blkid_type = blkid_type_lookup(value, len)))
 			sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, "SID_NEXT_MOD", blkid_type->sid_module_name, strlen(blkid_type->sid_module_name) + 1, KV_PERSIST);
-        } else if (!strcmp(name, "USAGE")) {
-		// ID_FS_USAGE
-
-        } else if (!strcmp(name, "VERSION")) {
-		// ID_FS_VERSION
-
-        } else if (!strcmp(name, "UUID")) {
+        }
+	else if (!strcmp(name, "USAGE")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_USAGE", value, strlen(value) + 1, 0);
+        }
+	else if (!strcmp(name, "VERSION")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_VERSION", value, strlen(value) + 1, 0);
+        }
+	else if (!strcmp(name, "UUID")) {
                 blkid_safe_string(value, s, sizeof(s));
-		// ID_FS_UUID
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_UUID", value, strlen(value) + 1, 0);
                 blkid_encode_string(value, s, sizeof(s));
-		// ID_FS_UUID_ENC
-
-        } else if (!strcmp(name, "UUID_SUB")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_UUID_ENC", s, strlen(s) + 1, 0);
+        }
+	else if (!strcmp(name, "UUID_SUB")) {
                 blkid_safe_string(value, s, sizeof(s));
-		// ID_FS_UUID_SUB
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_UUID_SUB", value, strlen(value) + 1, 0);
                 blkid_encode_string(value, s, sizeof(s));
-		// ID_FS_UUID_SUB_ENC
-
-        } else if (!strcmp(name, "LABEL")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_UUID_SUB_ENC", s, strlen(s) + 1, 0);
+        }
+	else if (!strcmp(name, "LABEL")) {
                 blkid_safe_string(value, s, sizeof(s));
-		// ID_FS_LABEL
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_LABEL", s, strlen(s) + 1, 0);
                 blkid_encode_string(value, s, sizeof(s));
-		// ID_FS_LABEL_ENC
-
-        } else if (!strcmp(name, "PTTYPE")) {
-		// ID_PART_TABLE_TYPE
-
-        } else if (!strcmp(name, "PTUUID")) {
-		// ID_PART_TABLE_UUID
-
-        } else if (!strcmp(name, "PART_ENTRY_NAME")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_LABEL_ENC", s, strlen(s) + 1, 0);
+        }
+	else if (!strcmp(name, "PTTYPE")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_PART_TABLE_TYPE", value, strlen(value) + 1, 0);
+        }
+	else if (!strcmp(name, "PTUUID")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_PART_TABLE_UUID", value, strlen(value) + 1, 0);
+        }
+	else if (!strcmp(name, "PART_ENTRY_NAME")) {
                 blkid_encode_string(value, s, sizeof(s));
-		// ID_PART_ENTRY_NAME
-
-        } else if (!strcmp(name, "PART_ENTRY_TYPE")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_PART_ENTRY_NAME", s, strlen(s) + 1, 0);
+        }
+	else if (!strcmp(name, "PART_ENTRY_TYPE")) {
                 blkid_encode_string(value, s, sizeof(s));
-		// ID_PART_ENTRY_TYPE
-
-        } else if (!strncmp(name, "PART_ENTRY_", strlen("PART_ENTRY_"))) {
-		// ID_PART_ENTRY_...
-
-        } else if (!strcmp(name, "SYSTEM_ID")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_PART_ENTRY_TYPE", s, strlen(s) + 1, 0);
+        }
+	else if (!strncmp(name, "PART_ENTRY_", strlen("PART_ENTRY_"))) {
+		snprintf(s, sizeof(s), "ID_%s",	name);
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, s, value, strlen(value) + 1, 0);
+        }
+	else if (!strcmp(name, "SYSTEM_ID")) {
                 blkid_encode_string(value, s, sizeof(s));
-		// ID_FS_SYSTEM_ID
-
-        } else if (!strcmp(name, "PUBLISHER_ID")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_SYSTEM_ID", s, strlen(s) + 1, 0);
+        }
+	else if (!strcmp(name, "PUBLISHER_ID")) {
                 blkid_encode_string(value, s, sizeof(s));
-		// ID_FS_PUBLISHER_ID
-        } else if (!strcmp(name, "APPLICATION_ID")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_PUBLISHER_ID", s, strlen(s) + 1, 0);
+        }
+	else if (!strcmp(name, "APPLICATION_ID")) {
                 blkid_encode_string(value, s, sizeof(s));
-		// ID_FS_APPLICATION_ID
-
-        } else if (!strcmp(name, "BOOT_SYSTEM_ID")) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_APPLICATION_ID", s, strlen(s) + 1, 0);
+        }
+	else if (!strcmp(name, "BOOT_SYSTEM_ID")) {
                 blkid_encode_string(value, s, sizeof(s));
-		// ID_FS_BOOT_SYSTEM_ID
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_BOOT_SYSTEM_ID", s, strlen(s) + 1, 0);
         }
 }
 
