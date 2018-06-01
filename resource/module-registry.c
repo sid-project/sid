@@ -100,9 +100,16 @@ int sid_module_registry_unload_module(sid_resource_t *module_res)
 
 int sid_module_registry_get_module_symbols(sid_resource_t *module_res, const void ***ret)
 {
-	struct sid_module *module = sid_resource_get_data(module_res);
+	struct sid_module *module;
 
+	if (!module_res) {
+		*ret = NULL;
+		return 0;
+	}
+
+	module = sid_resource_get_data(module_res);
 	*ret = (const void **) module->symbols;
+
 	return 0;
 }
 

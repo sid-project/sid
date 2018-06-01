@@ -233,6 +233,7 @@ struct udev_monitor_setup {
 
 struct command_exec_args {
 	sid_resource_t *cmd_res;
+	sid_resource_t *type_mod_registry_res;
 	sid_resource_iter_t *block_mod_iter;  /* all block modules to execute */
 	sid_resource_t *type_mod_res_current; /* one type module for current layer to execute */
 	sid_resource_t *type_mod_res_next;    /* one type module for next layer to execute */
@@ -550,8 +551,6 @@ out:
 	return r;
 }
 
-
-
 static int _cmd_execute_unknown(struct command_exec_args *exec_args)
 {
 	return 0;
@@ -641,29 +640,22 @@ out:
 
 static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 {
-	sid_resource_t *modules_res;
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	const struct command_module_fns *mod_fns;
-	char buf[32];
+	char mod_name[32];
 	int r;
-
-	if ((r = _lookup_module_name(exec_args->cmd_res, &cmd->dev, buf, sizeof(buf))) < 0)
-		return -1;
-
-	if (!(modules_res = sid_resource_get_child(sid_resource_get_top_level(exec_args->cmd_res), &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID)) ||
-	    !(modules_res = sid_resource_get_child(modules_res, &sid_resource_reg_module_registry, MODULES_TYPE_ID))) {
-		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find module handler.");
-		return -1;
-	}
-
-	if (!(cmd->mod_res = exec_args->type_mod_res_current = sid_module_registry_load_module(modules_res, buf))) {
-		log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", buf);
-		return -1;
-	}
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_IDENT);
 
+	if ((r = _lookup_module_name(exec_args->cmd_res, &cmd->dev, mod_name, sizeof(mod_name))) < 0)
+		return -1;
+
+	if (!(cmd->mod_res = exec_args->type_mod_res_current = sid_module_registry_load_module(exec_args->type_mod_registry_res, mod_name))) {
+		log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", mod_name);
+		return -1;
+	}
+
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->ident)
 		return mod_fns->ident(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -675,10 +667,9 @@ static int _cmd_execute_identify_scan_pre(struct command_exec_args *exec_args)
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	const struct command_module_fns *mod_fns;
 
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_PRE);
 
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_pre)
 		return mod_fns->scan_pre(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -690,12 +681,12 @@ static int _cmd_execute_identify_scan_current(struct command_exec_args *exec_arg
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	const struct command_module_fns *mod_fns;
 
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_CURRENT);
 
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_current)
-		return mod_fns->scan_current(sid_resource_get_data(cmd->mod_res), cmd);
+		if (mod_fns->scan_current(sid_resource_get_data(cmd->mod_res), cmd))
+			return -1;
 
 	return 0;
 }
@@ -704,11 +695,21 @@ static int _cmd_execute_identify_scan_next(struct command_exec_args *exec_args)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	const struct command_module_fns *mod_fns;
-
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	const char *next_mod_name;
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_NEXT);
 
+	if ((next_mod_name = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, "SID_NEXT_MOD", NULL, NULL))) {
+		if (!(exec_args->type_mod_res_next = sid_module_registry_load_module(exec_args->type_mod_registry_res, next_mod_name))) {
+			log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", next_mod_name);
+			return -1;
+		}
+	} else
+		exec_args->type_mod_res_next = NULL;
+
+	cmd->mod_res = exec_args->type_mod_res_next;
+
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_next)
 		return mod_fns->scan_next(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -720,10 +721,11 @@ static int _cmd_execute_identify_scan_post_current(struct command_exec_args *exe
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	const struct command_module_fns *mod_fns;
 
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	cmd->mod_res = exec_args->type_mod_res_current;
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_POST_CURRENT);
 
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_current)
 		return mod_fns->scan_post_current(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -735,10 +737,11 @@ static int _cmd_execute_identify_scan_post_next(struct command_exec_args *exec_a
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	const struct command_module_fns *mod_fns;
 
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	cmd->mod_res = exec_args->type_mod_res_next;
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_POST_NEXT);
 
+	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_next)
 		return mod_fns->scan_post_next(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -747,11 +750,17 @@ static int _cmd_execute_identify_scan_post_next(struct command_exec_args *exec_a
 
 static int _cmd_execute_trigger_action_current(struct command_exec_args *exec_args)
 {
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+
+	cmd->mod_res = exec_args->type_mod_res_current;
 	return 0;
 }
 
 static int _cmd_execute_trigger_action_next(struct command_exec_args *exec_args)
 {
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+
+	cmd->mod_res = exec_args->type_mod_res_next;
 	return 0;
 }
 
@@ -841,18 +850,27 @@ static struct command_reg _cmd_ident_phase_regs[] =  {
 
 static int _cmd_execute_identify(struct command_exec_args *exec_args)
 {
-	sid_resource_t *modules_res;
+	sid_resource_t *modules_aggr_res, *block_mod_registry_res;
 	cmd_ident_phase_t phase;
 	int r = -1;
 
-	if (!(modules_res = sid_resource_get_child(sid_resource_get_top_level(exec_args->cmd_res), &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID)) ||
-	    !(modules_res = sid_resource_get_child(modules_res, &sid_resource_reg_module_registry, MODULES_BLOCK_ID))) {
-		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find module handler.");
+	if (!(modules_aggr_res = sid_resource_get_child(sid_resource_get_top_level(exec_args->cmd_res), &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID))) {
+		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find modules aggregate resource.");
 		goto out;
 	}
 
-	if (!(exec_args->block_mod_iter = sid_resource_iter_create(modules_res))) {
+	if (!(block_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_reg_module_registry, MODULES_BLOCK_ID))) {
+		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find block module registry resource.");
+		goto out;
+	}
+
+	if (!(exec_args->block_mod_iter = sid_resource_iter_create(block_mod_registry_res))) {
 		log_error(ID(exec_args->cmd_res), "Failed to create block module iterator.");
+		goto out;
+	}
+
+	if (!(exec_args->type_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_reg_module_registry, MODULES_TYPE_ID))) {
+		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find type module registry resource.");
 		goto out;
 	}
 
