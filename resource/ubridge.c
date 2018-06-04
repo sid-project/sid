@@ -647,6 +647,8 @@ static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_IDENT);
 
+	sid_resource_dump_all_in_dot(sid_resource_get_top_level(exec_args->cmd_res));
+
 	if ((r = _lookup_module_name(exec_args->cmd_res, &cmd->dev, mod_name, sizeof(mod_name))) < 0)
 		return -1;
 
@@ -1818,6 +1820,8 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		log_error(ID(res), "Failed to register interface with event loop.");
 		goto fail;
 	}
+
+	sid_resource_dump_all_in_dot(sid_resource_get_top_level(res));
 
 	*data = ubridge;
 	return 0;
