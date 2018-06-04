@@ -1020,7 +1020,8 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	write(export_fd, &bytes_written, sizeof(bytes_written));
 	lseek(export_fd, 0, SEEK_SET);
 
-	_send_export_fd_to_observer(cmd_res, export_fd);
+	if (bytes_written)
+		_send_export_fd_to_observer(cmd_res, export_fd);
 
 	kv_store_iter_destroy(iter);
 
