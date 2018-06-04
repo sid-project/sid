@@ -926,7 +926,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	kv_store_iter_t *iter;
 	const char *key;
 	size_t size, key_size;
-	int export_fd;
+	int export_fd = -1;
 	size_t bytes_written = 0;
 	ssize_t r;
 
@@ -1029,6 +1029,9 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 
 	return 0;
 bad:
+	if (export_fd >= 0)
+		close(export_fd);
+
 	return -1;
 }
 
