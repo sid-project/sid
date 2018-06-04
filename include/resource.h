@@ -106,6 +106,8 @@ int sid_resource_isolate_with_children(sid_resource_t *res);
 int sid_resource_run_event_loop(sid_resource_t *res);
 int sid_resource_exit_event_loop(sid_resource_t *res);
 
+void sid_resource_dump_all_in_dot(sid_resource_t *res);
+
 #ifdef __cplusplus
 }
 #endif

@@ -462,3 +462,30 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 
 	return sd_event_exit(res->event_loop, 0);
 }
+
+void _dump_children_recursively_in_dot(sid_resource_t *res)
+{
+	static const char ID[] = "DOT";
+	static const char style_dotted[] = " [style=dotted]";
+	static const char color_red[] = " [color=red]";
+	sid_resource_t *child_res;
+
+	list_iterate_items(child_res, &res->children) {
+		log_print(ID, "\"%s\";", child_res->id);
+		log_print(ID, "\"%s\" -> \"%s\"%s%s;", res->id, child_res->id,
+					    child_res->flags & SID_RESOURCE_INTERNAL ? style_dotted : "",
+					    child_res->flags & SID_RESOURCE_DISALLOW_ISOLATION ? color_red : "");
+		_dump_children_recursively_in_dot(child_res);
+	}
+
+}
+
+void sid_resource_dump_all_in_dot(sid_resource_t *res)
+{
+	static const char ID[] = "DOT";
+
+	log_print(ID, "digraph resources {");
+	log_print(ID, "\"%s\";", res->id);
+	_dump_children_recursively_in_dot(res);
+	log_print(ID, "}");
+}
