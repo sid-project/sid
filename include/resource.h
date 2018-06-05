@@ -46,8 +46,11 @@ typedef struct sid_resource_iter sid_resource_iter_t;
 
 #include "resource-regs.h"
 
-#define SID_RESOURCE_INTERNAL           0x0000000000000001
-#define SID_RESOURCE_DISALLOW_ISOLATION 0x0000000000000002
+#define SID_RESOURCE_RESTRICT_MASK      0x0000000000000003
+#define SID_RESOURCE_RESTRICT_WALK_UP   0x0000000000000001	/* restrict walk from child to parent */
+#define SID_RESOURCE_RESTRICT_WALK_DOWN 0x0000000000000002	/* restrict walk from parent to child */
+
+#define SID_RESOURCE_DISALLOW_ISOLATION 0x0000000000000004
 
 /* 
  * create/destroy functions

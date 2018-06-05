@@ -1788,7 +1788,9 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(ubridge->internal_res = sid_resource_create(res, &sid_resource_reg_aggregate, SID_RESOURCE_INTERNAL, INTERNAL_AGGREGATE_ID, ubridge))) {
+	if (!(ubridge->internal_res = sid_resource_create(res, &sid_resource_reg_aggregate,
+							  SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_RESTRICT_WALK_DOWN,
+							  INTERNAL_AGGREGATE_ID, ubridge))) {
 		log_error(ID(res), "Failed to create internal ubridge resource.");
 		goto fail;
 	}

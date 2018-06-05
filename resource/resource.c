@@ -291,7 +291,7 @@ int sid_resource_destroy_event_source(sid_resource_t *res __attribute__((unused)
 
 sid_resource_t *sid_resource_get_parent(sid_resource_t *res)
 {
-	if (!res->parent || res->parent->flags & SID_RESOURCE_INTERNAL)
+	if (!res->parent || res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP)
 		return NULL;
 
 	return res->parent;
@@ -311,7 +311,7 @@ sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_r
 	size_t id_offset = reg->name ? strlen(reg->name) + 1 : 0;
 
 	list_iterate_items(child_res, &res->children) {
-		if (child_res->flags & SID_RESOURCE_INTERNAL)
+		if (child_res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
 			continue;
 		if (child_res->reg == reg && !strcmp(child_res->id + id_offset, id))
 			return child_res;
@@ -398,7 +398,7 @@ sid_resource_t *sid_resource_iter_next(sid_resource_iter_t *iter)
 	iter->next = iter->current->n;
 
 	if ((res = list_struct_base(iter->current, sid_resource_t, list)) &&
-	     res->flags & SID_RESOURCE_INTERNAL)
+	     res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
 		return sid_resource_iter_next(iter);
 
 	return res;
@@ -415,7 +415,7 @@ sid_resource_t *sid_resource_iter_previous(sid_resource_iter_t *iter)
 	iter->prev = iter->current->p;
 
 	if ((res = list_struct_base(iter->current, sid_resource_t, list)) &&
-	     res->flags & SID_RESOURCE_INTERNAL)
+	     res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
 		return sid_resource_iter_previous(iter);
 
 	return res;
@@ -466,15 +466,30 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 void _dump_children_recursively_in_dot(sid_resource_t *res)
 {
 	static const char ID[] = "DOT";
-	static const char style_dotted[] = " [style=dotted]";
-	static const char color_red[] = " [color=red]";
 	sid_resource_t *child_res;
+	const char *dir;
 
 	list_iterate_items(child_res, &res->children) {
 		log_print(ID, "\"%s\";", child_res->id);
-		log_print(ID, "\"%s\" -> \"%s\"%s%s;", res->id, child_res->id,
-					    child_res->flags & SID_RESOURCE_INTERNAL ? style_dotted : "",
-					    child_res->flags & SID_RESOURCE_DISALLOW_ISOLATION ? color_red : "");
+
+		switch (child_res->flags & SID_RESOURCE_RESTRICT_MASK) {
+			case SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_RESTRICT_WALK_DOWN:
+				dir = " [dir=none]";
+				break;
+			case SID_RESOURCE_RESTRICT_WALK_UP:
+				dir = " [dir=forward]";
+				break;
+			case SID_RESOURCE_RESTRICT_WALK_DOWN:
+				dir = " [dir=back]";
+				break;
+			default:
+				dir = "[dir=both]";
+				break;
+		}
+
+		log_print(ID, "\"%s\" -> \"%s\" %s%s;",
+			  res->id, child_res->id, dir,
+			  child_res->flags & SID_RESOURCE_DISALLOW_ISOLATION ? " [color=red]" : "");
 		_dump_children_recursively_in_dot(child_res);
 	}
 
