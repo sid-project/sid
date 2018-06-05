@@ -1094,12 +1094,12 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	cmd->type = raw_cmd->header->cmd_number;
 	cmd->status = raw_cmd->header->status;
 
-	if (!(cmd->udev_kv_store_res = sid_resource_create(res, &sid_resource_reg_kv_store, 0, UDEV_KV_STORE_NAME, &udev_kv_store_res_params))) {
+	if (!(cmd->udev_kv_store_res = sid_resource_create(res, &sid_resource_reg_kv_store, SID_RESOURCE_RESTRICT_WALK_UP, UDEV_KV_STORE_NAME, &udev_kv_store_res_params))) {
 		log_error(ID(res), "Failed to create udev key-value store.");
 		goto fail;
 	}
 
-	if (!(cmd->temp_kv_store_res = sid_resource_create(res, &sid_resource_reg_kv_store, 0, TEMP_KV_STORE_NAME, &temp_kv_store_res_params))) {
+	if (!(cmd->temp_kv_store_res = sid_resource_create(res, &sid_resource_reg_kv_store, SID_RESOURCE_RESTRICT_WALK_UP, TEMP_KV_STORE_NAME, &temp_kv_store_res_params))) {
 		log_error(ID(res), "Failed to create temporary key-value store.");
 		goto fail;
 	}
@@ -1811,7 +1811,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_kv_store, 0,
+	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_kv_store, SID_RESOURCE_RESTRICT_WALK_UP,
 							       MAIN_KV_STORE_NAME, &main_kv_store_res_params))) {
 		log_error(ID(res), "Failed to create main key-value store.");
 		goto fail;

@@ -63,7 +63,7 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 		goto fail;
 	}
 
-	if (!sid_resource_create(res, &sid_resource_reg_ubridge, 0, NULL, NULL)) {
+	if (!sid_resource_create(res, &sid_resource_reg_ubridge, SID_RESOURCE_RESTRICT_WALK_UP, NULL, NULL)) {
 		log_error(ID(res), "Failed to create udev bridge interface.");
 		goto fail;
 	}
