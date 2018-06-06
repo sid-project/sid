@@ -66,7 +66,8 @@ typedef enum {
 	KV_NS_DEVICE,
 } sid_ubridge_cmd_kv_namespace_t;
 
-#define KV_PERSIST UINT64_C(0x0000000000000001)
+#define KV_PERSIST     UINT64_C(0x0000000000000001)
+#define KV_MOD_PROTECT UINT64_C(0x0000000000000002)
 
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
 			     const char *key, const void *value, size_t value_size, uint64_t flags);
