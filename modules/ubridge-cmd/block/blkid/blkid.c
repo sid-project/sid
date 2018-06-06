@@ -69,7 +69,7 @@ static void _add_property(struct sid_ubridge_cmd_context *cmd, const char *name,
 
 		/* Translate blkid type name to sid module name and save the result in SID_NEXT_MOD variable in KV_NS_DEVICE. */
 		if ((blkid_type = blkid_type_lookup(value, len)))
-			sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, "SID_NEXT_MOD", blkid_type->sid_module_name, strlen(blkid_type->sid_module_name) + 1, KV_PERSIST);
+			sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, "SID_NEXT_MOD", blkid_type->sid_module_name, strlen(blkid_type->sid_module_name) + 1, KV_PERSIST | KV_MOD_PROTECT);
         }
 	else if (!strcmp(name, "USAGE")) {
 		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, "ID_FS_USAGE", value, strlen(value) + 1, 0);
