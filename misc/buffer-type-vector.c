@@ -17,10 +17,11 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <errno.h>
-#include <sys/uio.h>
 #include "buffer-type.h"
 #include "mem.h"
+
+#include <errno.h>
+#include <sys/uio.h>
 
 #define VECTOR_ITEM_SIZE sizeof(struct iovec)
 

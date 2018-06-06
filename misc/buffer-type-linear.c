@@ -17,11 +17,12 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "buffer-type.h"
+#include "mem.h"
+
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-#include "buffer-type.h"
-#include "mem.h"
 
 static int _buffer_linear_create(struct buffer *buf, size_t initial_size)
 {

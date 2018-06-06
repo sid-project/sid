@@ -17,7 +17,6 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <stdlib.h>
 #include "buffer.h"
 #include "list.h"
 #include "log.h"

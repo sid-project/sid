@@ -17,9 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "log.h"
+
 #include <stdio.h>
 #include <unistd.h>
-#include "log.h"
 
 static int _max_level_id = -1;
 static int _force_err_out = 0;

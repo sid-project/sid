@@ -17,15 +17,16 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "list.h"
+#include "log.h"
+#include "mem.h"
+#include "resource.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <systemd/sd-daemon.h>
 #include <unistd.h>
-#include "list.h"
-#include "log.h"
-#include "mem.h"
-#include "resource.h"
 
 typedef struct sid_resource {
 	struct list list;

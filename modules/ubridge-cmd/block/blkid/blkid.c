@@ -17,6 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "blkid-type.h"
+#include "ubridge-cmd-module.h"
+#include "log.h"
+
 #include <blkid/blkid.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -27,9 +31,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "blkid-type.h"
-#include "ubridge-cmd-module.h"
-#include "log.h"
 
 #define ID "blkid"
 

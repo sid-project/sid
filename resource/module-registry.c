@@ -18,16 +18,16 @@
 */
 
 #include "configure.h"
-
-#include <dirent.h>
-#include <dlfcn.h>
-#include <limits.h>
-#include <stdio.h>
 #include "list.h"
 #include "log.h"
 #include "mem.h"
 #include "module-registry.h"
 #include "resource.h"
+
+#include <dirent.h>
+#include <dlfcn.h>
+#include <limits.h>
+#include <stdio.h>
 
 #define MODULE_REGISTRY_NAME "module-registry"
 #define MODULE_NAME "module"

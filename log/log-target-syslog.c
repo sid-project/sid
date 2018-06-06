@@ -17,8 +17,9 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <stdio.h>
 #include "log.h"
+
+#include <stdio.h>
 
 #define SID_SYSLOG_IDENT "sid"
 

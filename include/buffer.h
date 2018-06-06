@@ -20,8 +20,10 @@
 #ifndef _SID_BUFFER_H
 #define _SID_BUFFER_H
 
-#include <stdbool.h>
 #include "buffer-common.h"
+
+#include <stdbool.h>
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {

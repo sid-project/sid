@@ -17,8 +17,9 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <string.h>
 #include "mem.h"
+
+#include <string.h>
 
 void *zalloc(size_t size)
 {

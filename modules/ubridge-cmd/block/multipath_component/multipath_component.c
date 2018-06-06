@@ -17,9 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <mpath_valid.h>
 #include "ubridge-cmd-module.h"
 #include "log.h"
+
+#include <mpath_valid.h>
 
 #define ID "multipath_component"
 

@@ -19,6 +19,7 @@
 
 #include "comms.h"
 #include "log.h"
+
 #include <stddef.h>
 #include <sys/socket.h>
 #include <sys/un.h>

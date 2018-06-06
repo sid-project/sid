@@ -22,6 +22,8 @@
 
 #include "resource.h"
 
+#include <sys/uio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

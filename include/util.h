@@ -20,11 +20,12 @@
 #ifndef _SID_UTIL_H
 #define _SID_UTIL_H
 
+#include "types.h"
+
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/timerfd.h>
 #include <sys/types.h>
-#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {

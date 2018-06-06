@@ -18,15 +18,14 @@
 */
 
 #include "configure.h"
-
-#include <limits.h>
-#include <stdio.h>
-#include <sys/uio.h>
 #include "hash.h"
 #include "kv-store.h"
 #include "log.h"
 #include "mem.h"
 #include "resource.h"
+
+#include <limits.h>
+#include <stdio.h>
 
 #define KV_STORE_NAME "kv-store"
 

@@ -17,11 +17,12 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "util.h"
+
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "util.h"
 
 int util_pid_to_string(pid_t pid, char *buf, size_t buf_size)
 {

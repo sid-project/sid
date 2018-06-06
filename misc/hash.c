@@ -18,10 +18,11 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <stdlib.h>
-#include <string.h>
 #include "mem.h"
 #include "hash.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 struct hash_node {
 	struct hash_node *next;

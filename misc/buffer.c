@@ -17,7 +17,6 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <stdlib.h>
 #include "buffer.h"
 #include "buffer-type.h"
 #include "mem.h"

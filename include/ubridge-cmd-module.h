@@ -20,9 +20,10 @@
 #ifndef _SID_UBRIDGE_CMD_MODULE_H
 #define _SID_UBRIDGE_CMD_MODULE_H
 
+#include "types.h"
+
 #include <stdint.h>
 #include <module.h>
-#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -18,15 +18,6 @@
 */
 
 #include "configure.h"
-
-#include <ctype.h>
-#include <libudev.h>
-#include <limits.h>
-#include <signal.h>
-#include <stdio.h>
-#include <sys/mman.h>
-#include <sys/signalfd.h>
-#include <unistd.h>
 #include "buffer.h"
 #include "comms.h"
 #include "kv-store.h"
@@ -37,6 +28,15 @@
 #include "resource.h"
 #include "ubridge-cmd-module.h"
 #include "util.h"
+
+#include <ctype.h>
+#include <libudev.h>
+#include <limits.h>
+#include <signal.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/signalfd.h>
+#include <unistd.h>
 
 #define UBRIDGE_PROTOCOL             1
 #define UBRIDGE_SOCKET_PATH          "@sid-ubridge.socket"

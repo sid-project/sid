@@ -18,6 +18,8 @@
 */
 
 #include "configure.h"
+#include "log.h"
+#include "resource.h"
 
 #include <errno.h>
 #include <getopt.h>
@@ -27,8 +29,6 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "log.h"
-#include "resource.h"
 
 #define SID_DEFAULT_UMASK 0077
 #define LOG_PREFIX "main"

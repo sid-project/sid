@@ -20,10 +20,11 @@
 #ifndef _SID_CONTEXT_H
 #define _SID_CONTEXT_H
 
+#include "types.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/timerfd.h>
-#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {

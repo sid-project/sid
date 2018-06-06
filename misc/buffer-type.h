@@ -20,9 +20,10 @@
 #ifndef _SID_BUFFER_TYPE_H
 #define _SID_BUFFER_TYPE_H
 
+#include "buffer-common.h"
+
 #include <stdbool.h>
 #include <sys/types.h>
-#include "buffer-common.h"
 
 struct buffer{
 	buffer_type_t type;
