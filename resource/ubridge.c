@@ -313,12 +313,22 @@ struct kv_overwrite_arg {
 
 static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_overwrite_arg *arg)
 {
+	const char *reason;
+
+	arg->ret_code = 0;
+
 	if (!arg->mod_name)
 		goto overwrite;
 
-	if (old->flags & KV_MOD_PROTECT) {
+	if (old->flags & KV_MOD_PRIVATIZE) {
 		if (strcmp(old->data, arg->mod_name)) {
-			log_debug(arg->mod_name, "Can't overwrite value with key %s which is protected and attached to module %s.", key, old->data);
+			reason = "private";
+			arg->ret_code = EACCES;
+		}
+	}
+	else if (old->flags & KV_MOD_PROTECT) {
+		if (strcmp(old->data, arg->mod_name)) {
+			reason = "protected";
 			arg->ret_code = EPERM;
 			goto keep_old;
 		}
@@ -328,6 +338,7 @@ overwrite:
 	arg->overwritten = 1;
 	return 1;
 keep_old:
+	log_debug(arg->mod_name, "Can't overwrite value with key %s which is %s and attached to module %s.", key, reason, old->data);
 	arg->overwritten = 0;
 	return 0;
 }
@@ -365,8 +376,12 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[i].iov_base = &flags;
 	iov[i].iov_len = sizeof(flags);
 
-	if (flags & KV_MOD_PROTECT) {
-		/* If protected, also save the module name so only this module can change (but others can still read). */
+	if (flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE)) {
+		/*
+		 * If protected or private, also save the module name so
+		 * only this module can change but other can still read (protected)
+		 * or can't access at all (private).
+		 */
 		i++;
 		iov[i].iov_base = (void *) mod_name;
 		iov[i].iov_len = strlen(mod_name) + 1;
@@ -379,6 +394,11 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	overwrite_arg.mod_name = mod_name;
 	if (!(kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, i + 1, 1,
 							      (kv_dup_key_resolver_t) _kv_overwrite, &overwrite_arg)))
+		return NULL;
+
+	errno = overwrite_arg.ret_code;
+
+	if (!overwrite_arg.overwritten && (errno == EACCES))
 		return NULL;
 
 	return kv_store_value->data;
@@ -399,6 +419,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	char buf[PATH_MAX];
 	const char *key_prefix;
 	struct kv_store_value *kv_store_value;
+	const char *mod_name;
 
 	if (!(key_prefix = _get_key_prefix(cmd, ns, buf, sizeof(buf)))) {
 		errno = ENOKEY;
@@ -415,10 +436,18 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	if (!kv_store_value)
 		return NULL;
 
+	if (kv_store_value->flags & KV_MOD_PRIVATIZE) {
+		mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : NULL;
+		if (strcmp(kv_store_value->data, mod_name)) {
+			errno = EACCES;
+			return NULL;
+		}
+	}
+
 	if (flags)
 		*flags = kv_store_value->flags;
 
-	if (kv_store_value->flags & KV_MOD_PROTECT)
+	if (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE))
 		/* skip the part where we store the module name */
 		return kv_store_value->data + strlen(kv_store_value->data) + 1;
 
