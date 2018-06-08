@@ -1265,7 +1265,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 {
 	struct ubridge *ubridge = sid_resource_get_data(sid_resource_get_parent(observer_res));
 
-	size_t msg_size, key_size, data_size;
+	size_t msg_size, key_size, data_size, aux_data_size;
 	char *key, *shm, *p, *end;
 	struct kv_store_value *data;
 	int unset;
@@ -1293,15 +1293,17 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 		data = (struct kv_store_value *) p;
 		p += data_size;
 
-		unset = (data_size == (sizeof(struct kv_store_value)));
-		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
-			  unset ? "NULL" : data->data, data->seqnum);
+		aux_data_size = (data->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE)) ? strlen(data->data) + 1 : 0;
+		unset = ((data_size - aux_data_size) == (sizeof(struct kv_store_value)));
 
-		if (data_size > (sizeof(struct kv_store_value)))
+		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
+			  unset ? "NULL" : aux_data_size ? data->data + aux_data_size : data->data, data->seqnum);
+
+		if (unset)
+			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key);
+		else
 			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1,
 					   (kv_dup_key_resolver_t) _master_kv_store_update, ubridge->main_kv_store_res);
-		else
-			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key);
 	}
 
 	if (munmap(shm, msg_size) < 0) {
