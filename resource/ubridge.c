@@ -333,6 +333,13 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 			goto keep_old;
 		}
 	}
+	else if (old->flags & KV_MOD_RESERVE) {
+		if (strcmp(old->data, arg->mod_name)) {
+			reason = "reserved";
+			arg->ret_code = EBUSY;
+			goto keep_old;
+		}
+	}
 
 overwrite:
 	arg->overwritten = 1;
@@ -376,11 +383,11 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[i].iov_base = &flags;
 	iov[i].iov_len = sizeof(flags);
 
-	if (flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE)) {
+	if (flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE)) {
 		/*
-		 * If protected or private, also save the module name so
+		 * If protected, private or reserved, also save the module name so
 		 * only this module can change but other can still read (protected)
-		 * or can't access at all (private).
+		 * or can't access at all (private) or prevent others to use the key (reserved).
 		 */
 		i++;
 		iov[i].iov_base = (void *) mod_name;
@@ -401,7 +408,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	if (!overwrite_arg.overwritten && (errno == EACCES))
 		return NULL;
 
-	if (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE))
+	if (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE))
 		return kv_store_value->data + strlen(kv_store_value->data) + 1;
 
 	return kv_store_value->data;
@@ -450,7 +457,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	if (flags)
 		*flags = kv_store_value->flags;
 
-	if (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE))
+	if (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE))
 		/* skip the part where we store the module name */
 		return kv_store_value->data + strlen(kv_store_value->data) + 1;
 
@@ -1026,7 +1033,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 		key = kv_store_iter_current_key(iter);
 		buffer_add(cmd->result_buf, (void *) key, strlen(key));
 		buffer_add(cmd->result_buf, KV_PAIR, 1);
-		aux_size = (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE)) ? strlen(kv_store_value->data) + 1 : 0;
+		aux_size = (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE)) ? strlen(kv_store_value->data) + 1 : 0;
 		buffer_add(cmd->result_buf, kv_store_value->data + aux_size, strlen(kv_store_value->data + aux_size));
 		buffer_add(cmd->result_buf, KV_END, 1);
 	}
@@ -1294,8 +1301,14 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 		data = (struct kv_store_value *) p;
 		p += data_size;
 
-		aux_data_size = (data->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE)) ? strlen(data->data) + 1 : 0;
-		unset = ((data_size - aux_data_size) == (sizeof(struct kv_store_value)));
+		aux_data_size = (data->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE)) ? strlen(data->data) + 1 : 0;
+		/*
+		 * Note: if we're reserving a value, then we keep it even if it's NULL.
+		 * This prevents others to use the same key. To unset the value,
+		 * one needs to drop the flag explicitly.
+		 */
+		unset = ((data->flags != KV_MOD_RESERVE) &&
+			 (data_size - aux_data_size) == (sizeof(struct kv_store_value)));
 
 		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
 			  unset ? "NULL" : aux_data_size ? data->data + aux_data_size : data->data, data->seqnum);
