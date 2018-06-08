@@ -1000,7 +1000,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	struct kv_store_value *kv_store_value;
 	kv_store_iter_t *iter;
 	const char *key;
-	size_t size, key_size;
+	size_t size, aux_size, key_size;
 	int export_fd = -1;
 	size_t bytes_written = 0;
 	ssize_t r;
@@ -1026,7 +1026,8 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 		key = kv_store_iter_current_key(iter);
 		buffer_add(cmd->result_buf, (void *) key, strlen(key));
 		buffer_add(cmd->result_buf, KV_PAIR, 1);
-		buffer_add(cmd->result_buf, kv_store_value->data, strlen(kv_store_value->data));
+		aux_size = (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE)) ? strlen(kv_store_value->data) + 1 : 0;
+		buffer_add(cmd->result_buf, kv_store_value->data + aux_size, strlen(kv_store_value->data + aux_size));
 		buffer_add(cmd->result_buf, KV_END, 1);
 	}
 
