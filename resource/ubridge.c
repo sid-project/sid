@@ -305,14 +305,31 @@ static const char *_get_key_prefix(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	return buf;
 }
 
-static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, const char *mod_name)
+struct kv_overwrite_arg {
+	const char *mod_name; /* in/out */
+	int overwritten;      /* out */
+	int ret_code;	      /* out */
+};
+
+static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_overwrite_arg *arg)
 {
-	if (mod_name && (old->flags & KV_MOD_PROTECT) && strcmp(old->data, mod_name)) {
-		log_debug(mod_name, "Can't overwrite value with key %s which is protected and attached to module %s.", key, old->data);
-		return 0;
+	if (!arg->mod_name)
+		goto overwrite;
+
+	if (old->flags & KV_MOD_PROTECT) {
+		if (strcmp(old->data, arg->mod_name)) {
+			log_debug(arg->mod_name, "Can't overwrite value with key %s which is protected and attached to module %s.", key, old->data);
+			arg->ret_code = EPERM;
+			goto keep_old;
+		}
 	}
 
+overwrite:
+	arg->overwritten = 1;
 	return 1;
+keep_old:
+	arg->overwritten = 0;
+	return 0;
 }
 
 
@@ -325,6 +342,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	const char *mod_name;
 	struct iovec iov[4];
 	struct kv_store_value *kv_store_value;
+	struct kv_overwrite_arg overwrite_arg;
 	unsigned i = 0;
 
 	if (!(key_prefix = _get_key_prefix(cmd, ns, buf, sizeof(buf)))) {
@@ -358,8 +376,9 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[i].iov_base = (void *) value;
 	iov[i].iov_len = value ? value_size : 0;
 
+	overwrite_arg.mod_name = mod_name;
 	if (!(kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, i + 1, 1,
-							      (kv_dup_key_resolver_t) _kv_overwrite, (void *) mod_name)))
+							      (kv_dup_key_resolver_t) _kv_overwrite, &overwrite_arg)))
 		return NULL;
 
 	return kv_store_value->data;
