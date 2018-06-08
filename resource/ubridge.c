@@ -401,6 +401,9 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	if (!overwrite_arg.overwritten && (errno == EACCES))
 		return NULL;
 
+	if (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE))
+		return kv_store_value->data + strlen(kv_store_value->data) + 1;
+
 	return kv_store_value->data;
 }
 
