@@ -350,6 +350,10 @@ keep_old:
 	return 0;
 }
 
+static size_t _get_kv_store_value_data_offset(struct kv_store_value *kv_store_value)
+{
+	return (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE)) ? strlen(kv_store_value->data) + 1 : 0;
+}
 
 static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
 					const char *key, uint64_t flags, const void *value, size_t value_size)
@@ -361,6 +365,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct iovec iov[4];
 	struct kv_store_value *kv_store_value;
 	struct kv_overwrite_arg overwrite_arg;
+	size_t data_offset;
 	unsigned i = 0;
 
 	if (!(key_prefix = _get_key_prefix(cmd, ns, buf, sizeof(buf)))) {
@@ -399,19 +404,22 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[i].iov_len = value ? value_size : 0;
 
 	overwrite_arg.mod_name = mod_name;
-	if (!(kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, i + 1, 1,
-							      (kv_dup_key_resolver_t) _kv_overwrite, &overwrite_arg)))
-		return NULL;
+	overwrite_arg.overwritten = 1;
+	overwrite_arg.ret_code = 0;
+
+	kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, i + 1, 1,
+							(kv_dup_key_resolver_t) _kv_overwrite, &overwrite_arg);
 
 	errno = overwrite_arg.ret_code;
-
-	if (!overwrite_arg.overwritten && (errno == EACCES))
+	if (!overwrite_arg.overwritten)
 		return NULL;
 
-	if (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE))
-		return kv_store_value->data + strlen(kv_store_value->data) + 1;
+	data_offset = _get_kv_store_value_data_offset(kv_store_value);
 
-	return kv_store_value->data;
+	if (value && value_size)
+		return kv_store_value->data + data_offset;
+	else
+		return NULL;
 }
 
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
@@ -430,6 +438,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	const char *key_prefix;
 	struct kv_store_value *kv_store_value;
 	const char *mod_name;
+	size_t size, data_offset;
 
 	if (!(key_prefix = _get_key_prefix(cmd, ns, buf, sizeof(buf)))) {
 		errno = ENOKEY;
@@ -437,10 +446,10 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	}
 
 	if (ns == KV_NS_UDEV)
-		kv_store_value = kv_store_get_value(cmd->udev_kv_store_res, key_prefix, key, value_size);
+		kv_store_value = kv_store_get_value(cmd->udev_kv_store_res, key_prefix, key, &size);
 	else {
-		if (!(kv_store_value = kv_store_get_value(cmd->temp_kv_store_res, key_prefix, key, value_size)))
-			kv_store_value = kv_store_get_value(cmd->main_kv_store_res, key_prefix, key, value_size);
+		if (!(kv_store_value = kv_store_get_value(cmd->temp_kv_store_res, key_prefix, key, &size)))
+			kv_store_value = kv_store_get_value(cmd->main_kv_store_res, key_prefix, key, &size);
 	}
 
 	if (!kv_store_value)
@@ -457,11 +466,16 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	if (flags)
 		*flags = kv_store_value->flags;
 
-	if (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE))
-		/* skip the part where we store the module name */
-		return kv_store_value->data + strlen(kv_store_value->data) + 1;
+	data_offset = _get_kv_store_value_data_offset(kv_store_value);
+	size -= (sizeof(*kv_store_value) + data_offset);
 
-	return kv_store_value->data;
+	if (value_size)
+		*value_size = size;
+
+	if (size)
+		return kv_store_value->data + data_offset;
+	else
+		return NULL;
 }
 
 static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
@@ -1007,7 +1021,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	struct kv_store_value *kv_store_value;
 	kv_store_iter_t *iter;
 	const char *key;
-	size_t size, aux_size, key_size;
+	size_t size, key_size, data_offset;
 	int export_fd = -1;
 	size_t bytes_written = 0;
 	ssize_t r;
@@ -1033,8 +1047,8 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 		key = kv_store_iter_current_key(iter);
 		buffer_add(cmd->result_buf, (void *) key, strlen(key));
 		buffer_add(cmd->result_buf, KV_PAIR, 1);
-		aux_size = (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE)) ? strlen(kv_store_value->data) + 1 : 0;
-		buffer_add(cmd->result_buf, kv_store_value->data + aux_size, strlen(kv_store_value->data + aux_size));
+		data_offset = _get_kv_store_value_data_offset(kv_store_value);
+		buffer_add(cmd->result_buf, kv_store_value->data + data_offset, strlen(kv_store_value->data + data_offset));
 		buffer_add(cmd->result_buf, KV_END, 1);
 	}
 
@@ -1273,7 +1287,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 {
 	struct ubridge *ubridge = sid_resource_get_data(sid_resource_get_parent(observer_res));
 
-	size_t msg_size, key_size, data_size, aux_data_size;
+	size_t msg_size, key_size, data_size, data_offset;
 	char *key, *shm, *p, *end;
 	struct kv_store_value *data;
 	int unset;
@@ -1301,17 +1315,17 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 		data = (struct kv_store_value *) p;
 		p += data_size;
 
-		aux_data_size = (data->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE)) ? strlen(data->data) + 1 : 0;
+		data_offset = _get_kv_store_value_data_offset(data);
 		/*
 		 * Note: if we're reserving a value, then we keep it even if it's NULL.
 		 * This prevents others to use the same key. To unset the value,
 		 * one needs to drop the flag explicitly.
 		 */
 		unset = ((data->flags != KV_MOD_RESERVE) &&
-			 (data_size - aux_data_size) == (sizeof(struct kv_store_value)));
+			 (data_size - data_offset) == (sizeof(struct kv_store_value)));
 
 		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
-			  unset ? "NULL" : aux_data_size ? data->data + aux_data_size : data->data, data->seqnum);
+			  unset ? "NULL" : data_offset ? data->data + data_offset : data->data, data->seqnum);
 
 		if (unset)
 			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key);
