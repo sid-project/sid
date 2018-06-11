@@ -306,8 +306,7 @@ static const char *_get_key_prefix(struct sid_ubridge_cmd_context *cmd, sid_ubri
 }
 
 struct kv_overwrite_arg {
-	const char *mod_name; /* in/out */
-	int overwritten;      /* out */
+	const char *mod_name; /* in */
 	int ret_code;	      /* out */
 };
 
@@ -343,11 +342,9 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 	}
 
 overwrite:
-	arg->overwritten = 1;
 	return 1;
 keep_old:
 	log_debug(arg->mod_name, "Can't overwrite value with key %s which is %s and attached to module %s.", key, reason, old->data);
-	arg->overwritten = 0;
 	return 0;
 }
 
@@ -366,7 +363,6 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct iovec iov[4];
 	struct kv_store_value *kv_store_value;
 	struct kv_overwrite_arg overwrite_arg;
-	size_t data_offset;
 	unsigned i = 0;
 
 	if (!(key_prefix = _get_key_prefix(cmd, ns, buf, sizeof(buf)))) {
@@ -405,22 +401,21 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[i].iov_len = value ? value_size : 0;
 
 	overwrite_arg.mod_name = mod_name;
-	overwrite_arg.overwritten = 1;
 	overwrite_arg.ret_code = 0;
 
 	kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, i + 1, 1,
 							(kv_dup_key_resolver_t) _kv_overwrite, &overwrite_arg);
 
-	errno = overwrite_arg.ret_code;
-	if (!overwrite_arg.overwritten)
+	if (!kv_store_value) {
+		if (errno == EADV)
+			errno = overwrite_arg.ret_code;
+		return NULL;
+	}
+
+	if (!value_size)
 		return NULL;
 
-	data_offset = _get_kv_store_value_data_offset(kv_store_value);
-
-	if (value && value_size)
-		return kv_store_value->data + data_offset;
-	else
-		return NULL;
+	return kv_store_value->data + _get_kv_store_value_data_offset(kv_store_value);
 }
 
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,

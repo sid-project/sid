@@ -49,6 +49,7 @@ struct dup_key_resolver_arg {
 	const char *key;
 	kv_dup_key_resolver_t dup_key_resolver;
 	void *dup_key_resolver_arg;
+	int written;
 };
 
 struct kv_store_iter {
@@ -84,6 +85,7 @@ static int _hash_dup_key_resolver(const char *key, uint32_t key_len, struct kv_s
 	item_to_free = (r = arg->dup_key_resolver(arg->key_prefix, arg->key, _get_data(old), _get_data(new), arg->dup_key_resolver_arg)) ? old : new;
 	free(item_to_free);
 
+	arg->written = r;
 	return r;
 }
 
@@ -137,7 +139,8 @@ void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_pref
 	struct dup_key_resolver_arg hash_dup_key_resolver_arg = {.key_prefix = key_prefix,
 								 .key = key,
 								 .dup_key_resolver = dup_key_resolver,
-								 .dup_key_resolver_arg = dup_key_resolver_arg};
+								 .dup_key_resolver_arg = dup_key_resolver_arg,
+								 .written = 1};
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];
 	const char *full_key;
@@ -152,9 +155,16 @@ void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_pref
 	if (!(item = _create_kv_store_item(&iov, 1, 1, copy)))
 		return NULL;
 
-	hash_update_binary(kv_store->ht, full_key, strlen(full_key) + 1, item,
-			   (hash_dup_key_resolver_t) _hash_dup_key_resolver,
-			   &hash_dup_key_resolver_arg);
+	if (hash_update_binary(kv_store->ht, full_key, strlen(full_key) + 1, item,
+			       (hash_dup_key_resolver_t) _hash_dup_key_resolver, &hash_dup_key_resolver_arg)) {
+		errno = EIO;
+		return NULL;
+	}
+
+	if (hash_dup_key_resolver_arg.written != 1) {
+		errno = EADV;
+		return NULL;
+	}
 
 	return item->data;
 }
@@ -166,7 +176,8 @@ void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const ch
 	struct dup_key_resolver_arg hash_dup_key_resolver_arg = {.key_prefix = key_prefix,
 								 .key = key,
 								 .dup_key_resolver = dup_key_resolver,
-								 .dup_key_resolver_arg = dup_key_resolver_arg};
+								 .dup_key_resolver_arg = dup_key_resolver_arg,
+								 .written = 1};
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];
 	const char *full_key;
@@ -180,9 +191,16 @@ void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const ch
 	if (!(item = _create_kv_store_item(iov, iov_cnt, 0, copy)))
 		return NULL;
 
-	hash_update_binary(kv_store->ht, full_key, strlen(full_key) + 1, item,
-			   (hash_dup_key_resolver_t) _hash_dup_key_resolver,
-			   &hash_dup_key_resolver_arg);
+	if (hash_update_binary(kv_store->ht, full_key, strlen(full_key) + 1, item,
+			       (hash_dup_key_resolver_t) _hash_dup_key_resolver, &hash_dup_key_resolver_arg)) {
+		errno = EIO;
+		return NULL;
+	}
+
+	if (hash_dup_key_resolver_arg.written != 1) {
+		errno = EADV;
+		return NULL;
+	}
 
 	return item->data;
 }
@@ -196,12 +214,12 @@ void *kv_store_get_value(struct sid_resource *kv_store_res, const char *key_pref
 
 	if (!(full_key = _get_full_key(buf, sizeof(buf), key_prefix, key))) {
 		errno = ENOKEY;
-		goto bad;
+		return NULL;
 	}
 
 	if (!(found = hash_lookup(kv_store->ht, full_key))) {
 		errno = ENODATA;
-		goto bad;
+		return NULL;
 	}
 
 	if (value_size)
@@ -209,10 +227,8 @@ void *kv_store_get_value(struct sid_resource *kv_store_res, const char *key_pref
 
 	if (found->is_copy)
 		return found->data;
-	else
-		return found->data_p;
-bad:
-	return NULL;
+
+	return found->data_p;
 }
 
 int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key)
@@ -224,7 +240,7 @@ int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_pref
 
 	if (!(full_key = _get_full_key(buf, sizeof(buf), key_prefix, key))) {
 		errno = ENOKEY;
-		goto bad;
+		return -1;
 	}
 
 	/*
@@ -233,7 +249,7 @@ int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_pref
 	 */
 	if (!(found = hash_lookup(kv_store->ht, full_key))) {
 		errno = ENODATA;
-		goto bad;
+		return -1;
 	}
 
 	if (found->is_copy)
@@ -242,8 +258,6 @@ int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_pref
 	hash_remove(kv_store->ht, full_key);
 
 	return 0;
-bad:
-	return -1;
 }
 
 kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res)
