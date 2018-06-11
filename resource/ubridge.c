@@ -324,6 +324,7 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 		if (strcmp(old->data, arg->mod_name)) {
 			reason = "private";
 			arg->ret_code = EACCES;
+			goto keep_old;
 		}
 	}
 	else if (old->flags & KV_MOD_PROTECT) {
