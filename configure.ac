@@ -46,6 +46,7 @@ AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile resource/Makefile daemon/Ma
 		 modules/ubridge-cmd/block/Makefile
 		 modules/ubridge-cmd/type/dummy_type/Makefile
 		 modules/ubridge-cmd/type/device_mapper/Makefile
+		 modules/ubridge-cmd/type/md/Makefile
 		 modules/ubridge-cmd/block/dummy_block/Makefile
 		 modules/ubridge-cmd/block/blkid/Makefile
 		 modules/ubridge-cmd/block/multipath_component/Makefile])
