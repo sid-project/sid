@@ -286,19 +286,21 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 	return cmd->dev.synth_uuid;
 }
 
-static const char *_get_key_prefix(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char *mod_name, int major, int minor,
 				   char *buf, size_t buf_size)
 {
 	switch (ns) {
 		case KV_NS_UDEV:
-			return "";
-		case KV_NS_GLOBAL:
-			return "*";
-		case KV_NS_MODULE:
-			snprintf(buf, buf_size, "M_%s", sid_module_get_name(sid_resource_get_data(cmd->mod_res)));
+			snprintf(buf, buf_size, "U%s%d_%d", KV_STORE_KEY_JOIN, major, minor);
 			break;
 		case KV_NS_DEVICE:
-			snprintf(buf, buf_size, "D_%d:%d", cmd->dev.major, cmd->dev.minor);
+			snprintf(buf, buf_size, "D%s%d_%d", KV_STORE_KEY_JOIN, major, minor);
+			break;
+		case KV_NS_MODULE:
+			snprintf(buf, buf_size, "M%s%s", KV_STORE_KEY_JOIN, mod_name);
+			break;
+		case KV_NS_GLOBAL:
+			snprintf(buf, buf_size, "*%s*", KV_STORE_KEY_JOIN);
 			break;
 	}
 
@@ -365,17 +367,18 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct kv_overwrite_arg overwrite_arg;
 	unsigned i = 0;
 
-	if (!(key_prefix = _get_key_prefix(cmd, ns, buf, sizeof(buf)))) {
-		errno = ENOKEY;
-		return NULL;
-	}
-
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : NULL;
 
-	if (ns == KV_NS_UDEV)
+	if (ns == KV_NS_UDEV) {
+		key_prefix = "";
 		kv_store_res = cmd->udev_kv_store_res;
-	else
+	} else {
+		if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->dev.major, cmd->dev.minor, buf, sizeof(buf)))) {
+			errno = ENOKEY;
+			return NULL;
+		}
 		kv_store_res = cmd->temp_kv_store_res;
+	}
 
 	i = 0;
 	iov[i].iov_base = &cmd->dev.seqnum;
@@ -436,14 +439,16 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	const char *mod_name;
 	size_t size, data_offset;
 
-	if (!(key_prefix = _get_key_prefix(cmd, ns, buf, sizeof(buf)))) {
-		errno = ENOKEY;
-		return NULL;
-	}
+	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : "";
 
-	if (ns == KV_NS_UDEV)
+	if (ns == KV_NS_UDEV) {
+		key_prefix = "";
 		kv_store_value = kv_store_get_value(cmd->udev_kv_store_res, key_prefix, key, &size);
-	else {
+	} else {
+		if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->dev.major, cmd->dev.minor, buf, sizeof(buf)))) {
+			errno = ENOKEY;
+			return NULL;
+		}
 		if (!(kv_store_value = kv_store_get_value(cmd->temp_kv_store_res, key_prefix, key, &size)))
 			kv_store_value = kv_store_get_value(cmd->main_kv_store_res, key_prefix, key, &size);
 	}
@@ -452,7 +457,6 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		return NULL;
 
 	if (kv_store_value->flags & KV_MOD_PRIVATE) {
-		mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : NULL;
 		if (strcmp(kv_store_value->data, mod_name)) {
 			errno = EACCES;
 			return NULL;

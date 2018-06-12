@@ -28,6 +28,8 @@
 extern "C" {
 #endif
 
+#define KV_STORE_KEY_JOIN ":"
+
 typedef enum {
 	KV_STORE_BACKEND_HASH,
 } kv_store_backend_t;

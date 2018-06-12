@@ -62,7 +62,7 @@ static const char *_get_full_key(char *buf, size_t buf_size, const char *key_pre
 	int size;
 
 	if (key_prefix && *key_prefix) {
-		size = snprintf(buf, buf_size, "%s/%s", key_prefix, key);
+		size = snprintf(buf, buf_size, "%s%s%s", key_prefix, KV_STORE_KEY_JOIN, key);
 		if (size < 0 || (size > buf_size))
 			return NULL;
 		return buf;
