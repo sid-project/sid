@@ -319,21 +319,21 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 	if (!arg->mod_name)
 		goto overwrite;
 
-	if (old->flags & KV_MOD_PRIVATIZE) {
+	if (old->flags & KV_MOD_PRIVATE) {
 		if (strcmp(old->data, arg->mod_name)) {
 			reason = "private";
 			arg->ret_code = EACCES;
 			goto keep_old;
 		}
 	}
-	else if (old->flags & KV_MOD_PROTECT) {
+	else if (old->flags & KV_MOD_PROTECTED) {
 		if (strcmp(old->data, arg->mod_name)) {
 			reason = "protected";
 			arg->ret_code = EPERM;
 			goto keep_old;
 		}
 	}
-	else if (old->flags & KV_MOD_RESERVE) {
+	else if (old->flags & KV_MOD_RESERVED) {
 		if (strcmp(old->data, arg->mod_name)) {
 			reason = "reserved";
 			arg->ret_code = EBUSY;
@@ -350,7 +350,7 @@ keep_old:
 
 static size_t _get_kv_store_value_data_offset(struct kv_store_value *kv_store_value)
 {
-	return (kv_store_value->flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE)) ? strlen(kv_store_value->data) + 1 : 0;
+	return (kv_store_value->flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED)) ? strlen(kv_store_value->data) + 1 : 0;
 }
 
 static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
@@ -385,7 +385,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[i].iov_base = &flags;
 	iov[i].iov_len = sizeof(flags);
 
-	if (flags & (KV_MOD_PROTECT | KV_MOD_PRIVATIZE | KV_MOD_RESERVE)) {
+	if (flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED)) {
 		/*
 		 * If protected, private or reserved, also save the module name so
 		 * only this module can change but other can still read (protected)
@@ -422,7 +422,7 @@ void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cm
 			     const char *key, const void *value, size_t value_size, uint64_t flags)
 {
 	if (ns == KV_NS_UDEV)
-		flags |= KV_PERSIST;
+		flags |= KV_PERSISTENT;
 
 	return _do_sid_ubridge_cmd_set_kv(cmd, ns, key, flags, value, value_size);
 }
@@ -451,7 +451,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	if (!kv_store_value)
 		return NULL;
 
-	if (kv_store_value->flags & KV_MOD_PRIVATIZE) {
+	if (kv_store_value->flags & KV_MOD_PRIVATE) {
 		mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : NULL;
 		if (strcmp(kv_store_value->data, mod_name)) {
 			errno = EACCES;
@@ -1029,7 +1029,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	 * as result of "sid identify" udev builtin command.
 	 *
 	 * We send only the key=value pairs that we have added during cmd processing,
-	 * that means the ones which have KV_PERSIST flag set (SID core sets this flag
+	 * that means the ones which have KV_PERSISTENT flag set (SID core sets this flag
 	 * automatically for all newly added/updated key=value pairs).
 	 */
 	if (!(iter = kv_store_iter_create(cmd->udev_kv_store_res))) {
@@ -1038,7 +1038,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	}
 
 	while ((kv_store_value = kv_store_iter_next(iter, &size))) {
-		if (!(kv_store_value->flags & KV_PERSIST))
+		if (!(kv_store_value->flags & KV_PERSISTENT))
 			continue;
 		key = kv_store_iter_current_key(iter);
 		buffer_add(cmd->result_buf, (void *) key, strlen(key));
@@ -1057,7 +1057,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	 * memfd_create. Then we pass the file FD over to observer that reads it and it
 	 * updates the "master" key-value store.
 	 *
-	 * We only send key=value pairs which are marked with KV_PERSIST flag.
+	 * We only send key=value pairs which are marked with KV_PERSISTENT flag.
 	 */
 	if (!(iter = kv_store_iter_create(cmd->temp_kv_store_res))) {
 		// TODO: Discard udev kv-store we've already appended to the output buffer!
@@ -1072,7 +1072,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 
 	// FIXME: maybe buffer first so there's only single write
 	while ((kv_store_value = kv_store_iter_next(iter, &size))) {
-		if (!(kv_store_value->flags & KV_PERSIST))
+		if (!(kv_store_value->flags & KV_PERSISTENT))
 			continue;
 		key = kv_store_iter_current_key(iter);
 		key_size = strlen(key) + 1;
@@ -1317,7 +1317,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 		 * This prevents others to use the same key. To unset the value,
 		 * one needs to drop the flag explicitly.
 		 */
-		unset = ((data->flags != KV_MOD_RESERVE) &&
+		unset = ((data->flags != KV_MOD_RESERVED) &&
 			 (data_size - data_offset) == (sizeof(struct kv_store_value)));
 
 		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
