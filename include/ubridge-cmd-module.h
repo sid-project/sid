@@ -40,24 +40,48 @@ typedef int sid_ubridge_cmd_mod_fn_t(struct sid_module *module, struct sid_ubrid
  */
 #define SID_UBRIDGE_CMD_MOD_FN(name, fn)           sid_ubridge_cmd_mod_fn_t *sid_ubridge_cmd_mod_ ## name = fn;
 
+#ifdef __GNUC__
+
+#define _SID_UBRIDGE_CMD_MOD_FN_TO_SID_MODULE_FN_SAFE_CAST(fn) \
+	(__builtin_choose_expr(__builtin_types_compatible_p(typeof(fn), sid_ubridge_cmd_mod_fn_t), (sid_module_fn_t *) fn, (void) 0))
+
+#define SID_UBRIDGE_CMD_MOD_INIT(fn)               SID_MODULE_INIT(_SID_UBRIDGE_CMD_MOD_FN_TO_SID_MODULE_FN_SAFE_CAST(fn))
+#define SID_UBRIDGE_CMD_MOD_RELOAD(fn)             SID_MODULE_RELOAD(_SID_UBRIDGE_CMD_MOD_FN_TO_SID_MODULE_FN_SAFE_CAST(fn))
+#define SID_UBRIDGE_CMD_MOD_EXIT(fn)               SID_MODULE_EXIT(_SID_UBRIDGE_CMD_MOD_FN_TO_SID_MODULE_FN_SAFE_CAST(fn))
+
+#else /* __GNUC__ */
+
 #define SID_UBRIDGE_CMD_MOD_INIT(fn)               SID_UBRIDGE_CMD_MOD_FN(mod_init, fn)   SID_MODULE_INIT((sid_module_fn_t *) fn)
 #define SID_UBRIDGE_CMD_MOD_RELOAD(fn)             SID_UBRIDGE_CMD_MOD_FN(mod_reload, fn) SID_MODULE_RELOAD((sid_module_fn_t *) fn)
 #define SID_UBRIDGE_CMD_MOD_EXIT(fn)               SID_UBRIDGE_CMD_MOD_FN(mod_exit, fn)   SID_MODULE_EXIT((sid_module_fn_t *) fn)
+
+#endif /* __GNUC__ */
 
 /*
  * Macros to register module's phase functions.
  */
 #define SID_UBRIDGE_CMD_FN(name, fn)               sid_ubridge_cmd_fn_t *sid_ubridge_cmd_ ## name = fn;
 
-#define SID_UBRIDGE_CMD_IDENT(fn)                  SID_UBRIDGE_CMD_FN(ident, fn)
-#define SID_UBRIDGE_CMD_SCAN_PRE(fn)               SID_UBRIDGE_CMD_FN(scan_pre, fn)
-#define SID_UBRIDGE_CMD_SCAN_CURRENT(fn)           SID_UBRIDGE_CMD_FN(scan_current, fn)
-#define SID_UBRIDGE_CMD_SCAN_NEXT(fn)              SID_UBRIDGE_CMD_FN(scan_next, fn)
-#define SID_UBRIDGE_CMD_SCAN_POST_CURRENT(fn)      SID_UBRIDGE_CMD_FN(scan_post_current, fn)
-#define SID_UBRIDGE_CMD_SCAN_POST_NEXT(fn)         SID_UBRIDGE_CMD_FN(scan_post_next, fn)
-#define SID_UBRIDGE_CMD_TRIGGER_ACTION_CURRENT(fn) SID_UBRIDGE_CMD_FN(trigger_action_current, fn)
-#define SID_UBRIDGE_CMD_TRIGGER_ACTION_NEXT(fn)    SID_UBRIDGE_CMD_FN(trigger_action_next, fn)
-#define SID_UBRIDGE_CMD_ERROR(fn)                  SID_UBRIDGE_CMD_FN(error, fn)
+#ifdef __GNUC__
+
+#define _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn) \
+	(__builtin_choose_expr(__builtin_types_compatible_p(typeof(fn), sid_ubridge_cmd_fn_t), fn, (void) 0))
+
+#else /* __GNUC__ */
+
+#define _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn) fn
+
+#endif /* __GNUC__ */
+
+#define SID_UBRIDGE_CMD_IDENT(fn)                  SID_UBRIDGE_CMD_FN(ident, _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn))
+#define SID_UBRIDGE_CMD_SCAN_PRE(fn)               SID_UBRIDGE_CMD_FN(scan_pre, _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn))
+#define SID_UBRIDGE_CMD_SCAN_CURRENT(fn)           SID_UBRIDGE_CMD_FN(scan_current, _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn))
+#define SID_UBRIDGE_CMD_SCAN_NEXT(fn)              SID_UBRIDGE_CMD_FN(scan_next, _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn))
+#define SID_UBRIDGE_CMD_SCAN_POST_CURRENT(fn)      SID_UBRIDGE_CMD_FN(scan_post_current, _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn))
+#define SID_UBRIDGE_CMD_SCAN_POST_NEXT(fn)         SID_UBRIDGE_CMD_FN(scan_post_next, _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn))
+#define SID_UBRIDGE_CMD_TRIGGER_ACTION_CURRENT(fn) SID_UBRIDGE_CMD_FN(trigger_action_current, _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn))
+#define SID_UBRIDGE_CMD_TRIGGER_ACTION_NEXT(fn)    SID_UBRIDGE_CMD_FN(trigger_action_next, _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn))
+#define SID_UBRIDGE_CMD_ERROR(fn)                  SID_UBRIDGE_CMD_FN(error, _SID_UBRIDGE_CMD_FN_CHECK_TYPE(fn))
 
 /*
  * Functions to retrieve device properties associated with given command context.
