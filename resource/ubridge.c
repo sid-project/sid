@@ -1792,9 +1792,11 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 	}
 }
 
-static const struct sid_module_registry_resource_params block_res_mod_params = {UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
-										SID_MODULE_REGISTRY_PRELOAD
-									{
+static const struct sid_module_registry_resource_params block_res_mod_params = {.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
+										.flags         = SID_MODULE_REGISTRY_PRELOAD,
+										.callback_arg  = NULL,
+										.symbol_params =
+										{
 										{
 											UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
 											SID_MODULE_SYMBOL_INDIRECT,
@@ -1833,11 +1835,13 @@ static const struct sid_module_registry_resource_params block_res_mod_params = {
 											SID_MODULE_SYMBOL_INDIRECT,
 										},
 										{NULL, 0}
-									}};
+										}};
 
-static const struct sid_module_registry_resource_params type_res_mod_params = {UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
-									       SID_MODULE_REGISTRY_PRELOAD
-									{
+static const struct sid_module_registry_resource_params type_res_mod_params = {.directory     = UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
+									       .flags         = SID_MODULE_REGISTRY_PRELOAD,
+									       .callback_arg  = NULL,
+									       .symbol_params =
+										{
 										{
 											UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
 											SID_MODULE_SYMBOL_FAIL_ON_MISSING |
@@ -1877,7 +1881,7 @@ static const struct sid_module_registry_resource_params type_res_mod_params = {U
 											SID_MODULE_SYMBOL_INDIRECT,
 										},
 										{NULL, 0}
-									}};
+										}};
 
 static const struct sid_kv_store_resource_params main_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,
 									     .hash.initial_size = 32};
