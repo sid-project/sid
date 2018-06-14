@@ -32,7 +32,6 @@ extern "C" {
 
 /* For use in struct sid_module_registry_resource_resource_module_params.flags field. */
 #define SID_MODULE_REGISTRY_PRELOAD            UINT64_C(0x0000000000000001)
-#define SID_MODULE_REGISTRY_INDIRECT_CALLBACKS UINT64_C(0x0000000000000002)
 
 /* For use in struct sid_module_symbol_params.flags field. */
 #define SID_MODULE_SYMBOL_WARN_ON_MISSING      UINT64_C(0x0000000000000001)

@@ -1793,8 +1793,7 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 }
 
 static const struct sid_module_registry_resource_params block_res_mod_params = {UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
-										SID_MODULE_REGISTRY_PRELOAD |
-										SID_MODULE_REGISTRY_INDIRECT_CALLBACKS,
+										SID_MODULE_REGISTRY_PRELOAD
 									{
 										{
 											UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
@@ -1837,8 +1836,7 @@ static const struct sid_module_registry_resource_params block_res_mod_params = {
 									}};
 
 static const struct sid_module_registry_resource_params type_res_mod_params = {UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
-									       SID_MODULE_REGISTRY_PRELOAD |
-									       SID_MODULE_REGISTRY_INDIRECT_CALLBACKS,
+									       SID_MODULE_REGISTRY_PRELOAD
 									{
 										{
 											UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
