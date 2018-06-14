@@ -22,26 +22,26 @@
 
 #define ID "md"
 
-static int _md_init(struct sid_module *module)
+static int _md_init(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "init");
 	return 0;
 }
-SID_MODULE_INIT(_md_init)
+SID_UBRIDGE_CMD_MOD_INIT(_md_init)
 
-static int _md_exit(struct sid_module *module)
+static int _md_exit(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "exit");
 	return 0;
 }
-SID_MODULE_EXIT(_md_exit)
+SID_UBRIDGE_CMD_MOD_EXIT(_md_exit)
 
-static int _md_reload(struct sid_module *module)
+static int _md_reload(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "reload");
 	return 0;
 }
-SID_MODULE_RELOAD(_md_reload)
+SID_UBRIDGE_CMD_MOD_RELOAD(_md_reload)
 
 static int _md_ident (struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {

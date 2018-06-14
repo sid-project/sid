@@ -22,26 +22,26 @@
 
 #define ID "dummy_type"
 
-static int _dummy_type_init(struct sid_module *module)
+static int _dummy_type_init(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "init");
 	return 0;
 }
-SID_MODULE_INIT(_dummy_type_init)
+SID_UBRIDGE_CMD_MOD_INIT(_dummy_type_init)
 
-static int _dummy_type_exit(struct sid_module *module)
+static int _dummy_type_exit(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "exit");
 	return 0;
 }
-SID_MODULE_EXIT(_dummy_type_exit)
+SID_UBRIDGE_CMD_MOD_EXIT(_dummy_type_exit)
 
-static int _dummy_type_reload(struct sid_module *module)
+static int _dummy_type_reload(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "reload");
 	return 0;
 }
-SID_MODULE_RELOAD(_dummy_type_reload)
+SID_UBRIDGE_CMD_MOD_RELOAD(_dummy_type_reload)
 
 static int _dummy_type_ident(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {

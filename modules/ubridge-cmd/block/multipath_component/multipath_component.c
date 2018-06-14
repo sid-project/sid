@@ -24,26 +24,26 @@
 
 #define ID "multipath_component"
 
-static int _multipath_component_init(struct sid_module *module)
+static int _multipath_component_init(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "init");
 	return 0;
 }
-SID_MODULE_INIT(_multipath_component_init)
+SID_UBRIDGE_CMD_MOD_INIT(_multipath_component_init)
 
-static int _multipath_component_exit(struct sid_module *module)
+static int _multipath_component_exit(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "exit");
 	return 0;
 }
-SID_MODULE_EXIT(_multipath_component_exit)
+SID_UBRIDGE_CMD_MOD_EXIT(_multipath_component_exit)
 
-static int _multipath_component_reload(struct sid_module *module)
+static int _multipath_component_reload(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "reload");
 	return 0;
 }
-SID_MODULE_RELOAD(_multipath_component_reload)
+SID_UBRIDGE_CMD_MOD_RELOAD(_multipath_component_reload)
 
 static int _multipath_component_scan_pre(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {

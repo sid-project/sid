@@ -22,26 +22,26 @@
 
 #define ID "dm"
 
-static int _device_mapper_init(struct sid_module *module)
+static int _device_mapper_init(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "init");
 	return 0;
 }
-SID_MODULE_INIT(_device_mapper_init)
+SID_UBRIDGE_CMD_MOD_INIT(_device_mapper_init)
 
-static int _device_mapper_exit(struct sid_module *module)
+static int _device_mapper_exit(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "exit");
 	return 0;
 }
-SID_MODULE_EXIT(_device_mapper_exit)
+SID_UBRIDGE_CMD_MOD_EXIT(_device_mapper_exit)
 
-static int _device_mapper_reload(struct sid_module *module)
+static int _device_mapper_reload(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "reload");
 	return 0;
 }
-SID_MODULE_RELOAD(_device_mapper_reload)
+SID_UBRIDGE_CMD_MOD_RELOAD(_device_mapper_reload)
 
 static int _device_mapper_ident (struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {

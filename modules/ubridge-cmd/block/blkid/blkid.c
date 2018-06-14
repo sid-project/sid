@@ -34,26 +34,26 @@
 
 #define ID "blkid"
 
-static int _blkid_init(struct sid_module *module)
+static int _blkid_init(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "init");
 	return 0;
 }
-SID_MODULE_INIT(_blkid_init)
+SID_UBRIDGE_CMD_MOD_INIT(_blkid_init)
 
-static int _blkid_exit(struct sid_module *module)
+static int _blkid_exit(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "exit");
 	return 0;
 }
-SID_MODULE_EXIT(_blkid_exit)
+SID_UBRIDGE_CMD_MOD_EXIT(_blkid_exit)
 
-static int _blkid_reload(struct sid_module *module)
+static int _blkid_reload(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "reload");
 	return 0;
 }
-SID_MODULE_RELOAD(_blkid_reload)
+SID_UBRIDGE_CMD_MOD_RELOAD(_blkid_reload)
 
 /* TODO: Also add ID_PART_GPT_AUTO_ROOT_UUID - see udev-builtin-blkid in systemd source tree. */
 static void _add_property(struct sid_ubridge_cmd_context *cmd, const char *name, const char *value) {

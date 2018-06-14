@@ -29,9 +29,20 @@
 extern "C" {
 #endif
 
+struct sid_ubridge_cmd_mod_context;
 struct sid_ubridge_cmd_context;
 
 typedef int sid_ubridge_cmd_fn_t(struct sid_module *module, struct sid_ubridge_cmd_context *cmd);
+typedef int sid_ubridge_cmd_mod_fn_t(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod);
+
+/*
+ * Macros to register module's management functions.
+ */
+#define SID_UBRIDGE_CMD_MOD_FN(name, fn)           sid_ubridge_cmd_mod_fn_t *sid_ubridge_cmd_mod_ ## name = fn;
+
+#define SID_UBRIDGE_CMD_MOD_INIT(fn)               SID_UBRIDGE_CMD_MOD_FN(mod_init, fn)   SID_MODULE_INIT((sid_module_fn_t *) fn)
+#define SID_UBRIDGE_CMD_MOD_RELOAD(fn)             SID_UBRIDGE_CMD_MOD_FN(mod_reload, fn) SID_MODULE_RELOAD((sid_module_fn_t *) fn)
+#define SID_UBRIDGE_CMD_MOD_EXIT(fn)               SID_UBRIDGE_CMD_MOD_FN(mod_exit, fn)   SID_MODULE_EXIT((sid_module_fn_t *) fn)
 
 /*
  * Macros to register module's phase functions.
