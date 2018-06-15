@@ -103,6 +103,10 @@ const sid_resource_reg_t sid_resource_reg_ubridge_observer;
 const sid_resource_reg_t sid_resource_reg_ubridge_worker;
 const sid_resource_reg_t sid_resource_reg_ubridge_command;
 
+struct sid_ubridge_cmd_mod_context {
+	sid_resource_t *kv_store_res;
+};
+
 struct ubridge {
 	int socket_fd;
 	sid_event_source *es;
@@ -110,6 +114,7 @@ struct ubridge {
 	sid_resource_t *modules_res;
 	sid_resource_t *observers_res;
 	sid_resource_t *main_kv_store_res;
+	struct sid_ubridge_cmd_mod_context cmd_mod;
 };
 
 struct kickstart {
@@ -1792,10 +1797,10 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 	}
 }
 
-static const struct sid_module_registry_resource_params block_res_mod_params = {.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
-										.flags         = SID_MODULE_REGISTRY_PRELOAD,
-										.callback_arg  = NULL,
-										.symbol_params =
+static struct sid_module_registry_resource_params block_res_mod_params = {.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
+									  .flags         = SID_MODULE_REGISTRY_PRELOAD,
+									  .callback_arg  = NULL,
+									  .symbol_params =
 										{
 										{
 											UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
@@ -1837,10 +1842,10 @@ static const struct sid_module_registry_resource_params block_res_mod_params = {
 										{NULL, 0}
 										}};
 
-static const struct sid_module_registry_resource_params type_res_mod_params = {.directory     = UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
-									       .flags         = SID_MODULE_REGISTRY_PRELOAD,
-									       .callback_arg  = NULL,
-									       .symbol_params =
+static struct sid_module_registry_resource_params type_res_mod_params = {.directory     = UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
+									 .flags         = SID_MODULE_REGISTRY_PRELOAD,
+									 .callback_arg  = NULL,
+									 .symbol_params =
 										{
 										{
 											UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
@@ -1907,6 +1912,15 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
+	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_kv_store, SID_RESOURCE_RESTRICT_WALK_UP,
+							       MAIN_KV_STORE_NAME, &main_kv_store_res_params))) {
+		log_error(ID(res), "Failed to create main key-value store.");
+		goto fail;
+	}
+
+	ubridge->cmd_mod.kv_store_res = ubridge->main_kv_store_res;
+	block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = &ubridge->cmd_mod;
+
 	if (!(ubridge->modules_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_aggregate, 0, MODULES_AGGREGATE_ID, NULL))) {
 		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
 		goto fail;
@@ -1915,12 +1929,6 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	if (!(sid_resource_create(ubridge->modules_res, &sid_resource_reg_module_registry, 0, MODULES_BLOCK_ID, &block_res_mod_params)) ||
 	    !(sid_resource_create(ubridge->modules_res, &sid_resource_reg_module_registry, 0, MODULES_TYPE_ID, &type_res_mod_params))) {
 		log_error(ID(res), "Failed to create module handler.");
-		goto fail;
-	}
-
-	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_kv_store, SID_RESOURCE_RESTRICT_WALK_UP,
-							       MAIN_KV_STORE_NAME, &main_kv_store_res_params))) {
-		log_error(ID(res), "Failed to create main key-value store.");
 		goto fail;
 	}
 
@@ -1934,12 +1942,14 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
+	block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = NULL;
 	sid_resource_dump_all_in_dot(sid_resource_get_top_level(res));
 
 	*data = ubridge;
 	return 0;
 fail:
 	if (ubridge) {
+		block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = NULL;
 		if (ubridge->socket_fd != -1)
 			(void) close(ubridge->socket_fd);
 		if (ubridge->es)
