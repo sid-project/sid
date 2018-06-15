@@ -110,6 +110,12 @@ void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cm
 			     const char *key, const void *value, size_t value_size, uint64_t flags);
 const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
 				   const char *key, size_t *value_size, uint64_t *flags);
+
+int sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
+				  sid_ubridge_cmd_kv_namespace_t ns, const char *key);
+int sid_ubridge_cmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
+				     sid_ubridge_cmd_kv_namespace_t ns, const char *key);
+
 #ifdef __cplusplus
 }
 #endif

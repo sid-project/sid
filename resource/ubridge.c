@@ -483,6 +483,82 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		return NULL;
 }
 
+static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
+{
+	if (strcmp(old->data, arg->mod_name)) {
+		log_debug(arg->mod_name, "Key %s%s already reserved by module %s.", key_prefix, key, old->data);
+		arg->ret_code = EBUSY;
+		return 0;
+	}
+
+	return 1;
+}
+
+int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
+				       sid_ubridge_cmd_kv_namespace_t ns, const char *key, int unset)
+{
+	char buf[PATH_MAX];
+	const char *key_prefix;
+	const char *mod_name;
+	struct iovec iov[3];
+	struct kv_store_value *kv_store_value;
+	static uint64_t null_int = 0;
+	uint64_t flags = unset ? KV_PERSISTENT : KV_PERSISTENT | KV_MOD_RESERVED;
+	struct kv_conflict_arg conflict_arg;
+
+	mod_name = sid_module_get_name(mod);
+
+	if (!(key_prefix = _get_key_prefix(ns, mod_name, 0, 0, buf, sizeof(buf)))) {
+		errno = ENOKEY;
+		return -1;
+	}
+
+	if (!(cmd_mod->kv_store_res)) {
+		errno = ENOMEDIUM;
+		return -1;
+	}
+
+	if (unset && !sid_resource_is_registered_by(sid_resource_get_top_level(cmd_mod->kv_store_res), &sid_resource_reg_ubridge_worker)) {
+		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key);
+	} else {
+		iov[0].iov_base = &null_int;
+		iov[0].iov_len = sizeof(null_int);
+
+		iov[1].iov_base = &flags;
+		iov[1].iov_len = sizeof(flags);
+
+		iov[2].iov_base = (void *) mod_name;
+		iov[2].iov_len = strlen(mod_name) + 1;
+
+		conflict_arg.mod_name = mod_name;
+		conflict_arg.ret_code = 0;
+
+		kv_store_value = kv_store_set_value_from_vector(cmd_mod->kv_store_res, key_prefix, key, iov, 3, 1,
+								(kv_dup_key_resolver_t) _kv_reserve, &conflict_arg);
+
+		if (!kv_store_value) {
+			if (errno == EADV)
+				errno = conflict_arg.ret_code;
+			return -1;
+		}
+	}
+
+	return 0;
+
+}
+
+int sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
+				   sid_ubridge_cmd_kv_namespace_t ns, const char *key)
+{
+	return _do_sid_ubridge_cmd_mod_reserve_kv(mod, cmd_mod, ns, key, 0);
+}
+
+int sid_ubridge_cmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
+				     sid_ubridge_cmd_kv_namespace_t ns, const char *key)
+{
+	return _do_sid_ubridge_cmd_mod_reserve_kv(mod, cmd_mod, ns, key, 1);
+}
+
 static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 {
 	char *value;
