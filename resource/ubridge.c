@@ -313,6 +313,7 @@ static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char
 }
 
 struct kv_conflict_arg {
+	sid_resource_t *res;
 	const char *mod_name; /* in */
 	int ret_code;	      /* out */
 };
@@ -351,7 +352,8 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 overwrite:
 	return 1;
 keep_old:
-	log_debug(arg->mod_name, "Can't overwrite value with key %s which is %s and attached to module %s.", key, reason, old->data);
+	log_debug(ID(arg->res), "Module %s can't overwrite value with key %s which is %s and attached to module %s.",
+		  arg->mod_name, key, reason, old->data);
 	return 0;
 }
 
@@ -411,6 +413,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[i].iov_base = (void *) value;
 	iov[i].iov_len = value ? value_size : 0;
 
+	conflict_arg.res = kv_store_res;
 	conflict_arg.mod_name = mod_name;
 	conflict_arg.ret_code = 0;
 
@@ -489,7 +492,8 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
 {
 	if (strcmp(old->data, arg->mod_name)) {
-		log_debug(arg->mod_name, "Key %s%s already reserved by module %s.", key_prefix, key, old->data);
+		log_debug(ID(arg->res), "Module %s can't reserve key %s%s which is already reserved by module %s.",
+			  arg->mod_name, key_prefix, key, old->data);
 		arg->ret_code = EBUSY;
 		return 0;
 	}
@@ -533,6 +537,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		iov[2].iov_base = (void *) mod_name;
 		iov[2].iov_len = strlen(mod_name) + 1;
 
+		conflict_arg.res = cmd_mod->kv_store_res;
 		conflict_arg.mod_name = mod_name;
 		conflict_arg.ret_code = 0;
 
@@ -1352,17 +1357,15 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 	return 0;
 }
 
-static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, void *arg)
+static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
 {
-	sid_resource_t *kv_store_res = arg;
-
 	if (new->seqnum >= old->seqnum) {
-		log_debug(ID(kv_store_res), "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
+		log_debug(ID(arg->res), "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
 			  key, new->seqnum, old->seqnum);
 		return 1;
 	}
 
-	log_debug(ID(kv_store_res), "Keeping old value for key %s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
+	log_debug(ID(arg->res), "Keeping old value for key %s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
 		  key, new->seqnum, old->seqnum);
 	return 0;
 }
@@ -1374,6 +1377,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	size_t msg_size, key_size, data_size, data_offset;
 	char *key, *shm, *p, *end;
 	struct kv_store_value *data;
+	struct kv_conflict_arg conflict_arg;
 	int unset;
 
 	if (read(fd, &msg_size, sizeof(msg_size)) != sizeof(msg_size)) {
@@ -1411,11 +1415,15 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
 			  unset ? "NULL" : data_offset ? data->data + data_offset : data->data, data->seqnum);
 
+		conflict_arg.res = ubridge->main_kv_store_res;
+		conflict_arg.mod_name = data_offset ? data->data : "";
+		conflict_arg.ret_code = 0;
+
 		if (unset)
 			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key, NULL, NULL);
 		else
 			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1,
-					   (kv_resolver_t) _master_kv_store_update, ubridge->main_kv_store_res);
+					   (kv_resolver_t) _master_kv_store_update, &conflict_arg);
 	}
 
 	if (munmap(shm, msg_size) < 0) {
