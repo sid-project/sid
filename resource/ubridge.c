@@ -506,6 +506,18 @@ static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_
 	return 1;
 }
 
+static int _kv_unreserve(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
+{
+	if (strcmp(old->data, arg->mod_name)) {
+		log_debug(ID(arg->res), "Module %s can't unreserve key %s%s which is reserved by module %s.",
+			  arg->mod_name, key_prefix, key, old->data);
+		arg->ret_code = EBUSY;
+		return 0;
+	}
+
+	return 1;
+}
+
 int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
 				       sid_ubridge_cmd_kv_namespace_t ns, const char *key, int unset)
 {
@@ -530,8 +542,17 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		return -1;
 	}
 
+	conflict_arg.res = cmd_mod->kv_store_res;
+	conflict_arg.mod_name = mod_name;
+	conflict_arg.ret_code = 0;
+
 	if (unset && !sid_resource_is_registered_by(sid_resource_get_top_level(cmd_mod->kv_store_res), &sid_resource_reg_ubridge_worker)) {
-		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key, NULL, NULL);
+		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key,
+				     (kv_resolver_t) _kv_unreserve, &conflict_arg);
+
+		if (errno = EADV)
+			errno = conflict_arg.ret_code;
+		return -1;
 	} else {
 		iov[0].iov_base = &null_int;
 		iov[0].iov_len = sizeof(null_int);
@@ -541,10 +562,6 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 
 		iov[2].iov_base = (void *) mod_name;
 		iov[2].iov_len = strlen(mod_name) + 1;
-
-		conflict_arg.res = cmd_mod->kv_store_res;
-		conflict_arg.mod_name = mod_name;
-		conflict_arg.ret_code = 0;
 
 		kv_store_value = kv_store_set_value_from_vector(cmd_mod->kv_store_res, key_prefix, key, iov, 3, 1,
 								(kv_resolver_t) _kv_reserve, &conflict_arg);
