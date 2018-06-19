@@ -312,12 +312,12 @@ static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char
 	return buf;
 }
 
-struct kv_overwrite_arg {
+struct kv_conflict_arg {
 	const char *mod_name; /* in */
 	int ret_code;	      /* out */
 };
 
-static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_overwrite_arg *arg)
+static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
 {
 	const char *reason;
 
@@ -369,7 +369,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	const char *mod_name;
 	struct iovec iov[4];
 	struct kv_store_value *kv_store_value;
-	struct kv_overwrite_arg overwrite_arg;
+	struct kv_conflict_arg conflict_arg;
 	unsigned i = 0;
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : NULL;
@@ -408,15 +408,15 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[i].iov_base = (void *) value;
 	iov[i].iov_len = value ? value_size : 0;
 
-	overwrite_arg.mod_name = mod_name;
-	overwrite_arg.ret_code = 0;
+	conflict_arg.mod_name = mod_name;
+	conflict_arg.ret_code = 0;
 
 	kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, i + 1, 1,
-							(kv_dup_key_resolver_t) _kv_overwrite, &overwrite_arg);
+							(kv_dup_key_resolver_t) _kv_overwrite, &conflict_arg);
 
 	if (!kv_store_value) {
 		if (errno == EADV)
-			errno = overwrite_arg.ret_code;
+			errno = conflict_arg.ret_code;
 		return NULL;
 	}
 
