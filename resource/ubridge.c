@@ -393,8 +393,11 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[i].iov_base = &flags;
 	iov[i].iov_len = sizeof(flags);
 
-	if (flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED)) {
+	if (!value || (flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED))) {
 		/*
+		 * If unsetting the value, also save the module name so it's possible
+		 * to check if this module has the right to unset existing value.
+		 *
 		 * If protected, private or reserved, also save the module name so
 		 * only this module can change but other can still read (protected)
 		 * or can't access at all (private) or prevent others to use the key (reserved).
