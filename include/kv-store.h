@@ -50,7 +50,7 @@ struct sid_kv_store_resource_params {
  *   0 to keep old_data
  *   1 to update old_data with new_data
  */
-typedef int (*kv_dup_key_resolver_t) (const char *key_prefix, const char *key, void *old_value, void *new_value, void *arg);
+typedef int (*kv_resolver_t) (const char *key_prefix, const char *key, void *old_value, void *new_value, void *arg);
 
 /*
  * Sets key-value pair:
@@ -63,7 +63,7 @@ typedef int (*kv_dup_key_resolver_t) (const char *key_prefix, const char *key, v
  */
 void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
 			 void *value, size_t value_size, int copy,
-			 kv_dup_key_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
+			 kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
 
 /*
  * Sets key-value pair, value components given by vector:
@@ -76,7 +76,7 @@ void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_pref
  */
 void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
 				     struct iovec *iov, int iov_cnt, int copy,
-				     kv_dup_key_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
+				     kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
 
 /*
  * Gets value for given key.

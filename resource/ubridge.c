@@ -415,7 +415,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	conflict_arg.ret_code = 0;
 
 	kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, i + 1, 1,
-							(kv_dup_key_resolver_t) _kv_overwrite, &conflict_arg);
+							(kv_resolver_t) _kv_overwrite, &conflict_arg);
 
 	if (!kv_store_value) {
 		if (errno == EADV)
@@ -537,7 +537,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		conflict_arg.ret_code = 0;
 
 		kv_store_value = kv_store_set_value_from_vector(cmd_mod->kv_store_res, key_prefix, key, iov, 3, 1,
-								(kv_dup_key_resolver_t) _kv_reserve, &conflict_arg);
+								(kv_resolver_t) _kv_reserve, &conflict_arg);
 
 		if (!kv_store_value) {
 			if (errno == EADV)
@@ -1415,7 +1415,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key);
 		else
 			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1,
-					   (kv_dup_key_resolver_t) _master_kv_store_update, ubridge->main_kv_store_res);
+					   (kv_resolver_t) _master_kv_store_update, ubridge->main_kv_store_res);
 	}
 
 	if (munmap(shm, msg_size) < 0) {

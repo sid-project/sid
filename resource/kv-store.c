@@ -47,7 +47,7 @@ struct kv_store_item {
 struct dup_key_resolver_arg {
 	const char *key_prefix;
 	const char *key;
-	kv_dup_key_resolver_t dup_key_resolver;
+	kv_resolver_t dup_key_resolver;
 	void *dup_key_resolver_arg;
 	int written;
 };
@@ -134,7 +134,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 
 void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
 			 void *value, size_t value_size, int copy,
-			 kv_dup_key_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
+			 kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
 {
 	struct dup_key_resolver_arg hash_dup_key_resolver_arg = {.key_prefix = key_prefix,
 								 .key = key,
@@ -171,7 +171,7 @@ void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_pref
 
 void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
 				     struct iovec *iov, int iov_cnt, int copy,
-				     kv_dup_key_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
+				     kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
 {
 	struct dup_key_resolver_arg hash_dup_key_resolver_arg = {.key_prefix = key_prefix,
 								 .key = key,
