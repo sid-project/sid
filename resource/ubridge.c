@@ -1357,6 +1357,18 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 	return 0;
 }
 
+static int _master_kv_store_unset(const char *key_prefix, const char *key, struct kv_store_value *old, void *null_value, struct kv_conflict_arg *arg)
+{
+	if ((old->flags & (KV_MOD_RESERVED | KV_MOD_PRIVATE | KV_MOD_PROTECTED)) && strcmp(old->data, arg->mod_name)) {
+		log_debug(ID(arg->res), "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
+					"which belongs to module %s.",  arg->mod_name, key, old->seqnum, old->data);
+		arg->ret_code = EBUSY;
+		return 0;
+	}
+
+	return 1;
+}
+
 static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
 {
 	if (new->seqnum >= old->seqnum) {
@@ -1420,7 +1432,8 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 		conflict_arg.ret_code = 0;
 
 		if (unset)
-			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key, NULL, NULL);
+			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key,
+					     (kv_resolver_t) _master_kv_store_unset, &conflict_arg);
 		else
 			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1,
 					   (kv_resolver_t) _master_kv_store_update, &conflict_arg);
