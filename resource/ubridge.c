@@ -1377,9 +1377,13 @@ static int _master_kv_store_unset(const char *key_prefix, const char *key, struc
 static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
 {
 	if (new->seqnum >= old->seqnum) {
-		log_debug(ID(arg->res), "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
-			  key, new->seqnum, old->seqnum);
-		return 1;
+		if (_kv_overwrite(key_prefix, key, old, new, arg)) {
+			log_debug(ID(arg->res), "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
+				  key, new->seqnum, old->seqnum);
+			return 1;
+		}
+
+		return 0;
 	}
 
 	log_debug(ID(arg->res), "Keeping old value for key %s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
