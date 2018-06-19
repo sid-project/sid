@@ -357,9 +357,14 @@ keep_old:
 	return 0;
 }
 
+static int _flags_indicate_mod_name_presence(uint64_t flags)
+{
+	return flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED);
+}
+
 static size_t _get_kv_store_value_data_offset(struct kv_store_value *kv_store_value)
 {
-	return (kv_store_value->flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED)) ? strlen(kv_store_value->data) + 1 : 0;
+	return _flags_indicate_mod_name_presence(kv_store_value->flags) ? strlen(kv_store_value->data) + 1 : 0;
 }
 
 static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
@@ -395,7 +400,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[i].iov_base = &flags;
 	iov[i].iov_len = sizeof(flags);
 
-	if (!value || (flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED))) {
+	if (!value || _flags_indicate_mod_name_presence(flags)) {
 		/*
 		 * If unsetting the value, also save the module name so it's possible
 		 * to check if this module has the right to unset existing value.
@@ -1359,7 +1364,7 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 
 static int _master_kv_store_unset(const char *key_prefix, const char *key, struct kv_store_value *old, void *null_value, struct kv_conflict_arg *arg)
 {
-	if ((old->flags & (KV_MOD_RESERVED | KV_MOD_PRIVATE | KV_MOD_PROTECTED)) && strcmp(old->data, arg->mod_name)) {
+	if (_flags_indicate_mod_name_presence(old->flags) && strcmp(old->data, arg->mod_name)) {
 		log_debug(ID(arg->res), "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
 					"which belongs to module %s.",  arg->mod_name, key, old->seqnum, old->data);
 		arg->ret_code = EBUSY;
