@@ -522,7 +522,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	}
 
 	if (unset && !sid_resource_is_registered_by(sid_resource_get_top_level(cmd_mod->kv_store_res), &sid_resource_reg_ubridge_worker)) {
-		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key);
+		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key, NULL, NULL);
 	} else {
 		iov[0].iov_base = &null_int;
 		iov[0].iov_len = sizeof(null_int);
@@ -1412,7 +1412,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			  unset ? "NULL" : data_offset ? data->data + data_offset : data->data, data->seqnum);
 
 		if (unset)
-			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key);
+			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key, NULL, NULL);
 		else
 			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1,
 					   (kv_resolver_t) _master_kv_store_update, ubridge->main_kv_store_res);

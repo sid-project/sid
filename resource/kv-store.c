@@ -231,7 +231,8 @@ void *kv_store_get_value(struct sid_resource *kv_store_res, const char *key_pref
 	return found->data_p;
 }
 
-int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key)
+int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
+			 kv_resolver_t unset_resolver, void *unset_resolver_arg)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];
@@ -249,6 +250,11 @@ int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_pref
 	 */
 	if (!(found = hash_lookup(kv_store->ht, full_key))) {
 		errno = ENODATA;
+		return -1;
+	}
+
+	if (unset_resolver && !unset_resolver(key_prefix, key, found->is_copy ? found->data : found->data_p, NULL, unset_resolver_arg)) {
+		errno = EADV;
 		return -1;
 	}
 

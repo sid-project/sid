@@ -85,7 +85,17 @@ void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const ch
  */
 void *kv_store_get_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key, size_t *value_size);
 
-int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key);
+/*
+ * Unsets value for given key.
+ *   - Final key is composed of key_prefix and key.
+ *   - Before the value is actually unset, unset_resolver with unset_resolver_arg is called to confirm the action.
+ *
+ * Returns:
+ *    0 if value unset
+ *   -1 if value not unset
+ */
+int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
+			 kv_resolver_t unset_resolver, void *unset_resolver_arg);
 
 typedef struct kv_store_iter kv_store_iter_t;
 
