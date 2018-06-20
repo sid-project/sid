@@ -859,7 +859,7 @@ static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 	if ((r = _lookup_module_name(exec_args->cmd_res, &cmd->dev, mod_name, sizeof(mod_name))) < 0)
 		return -1;
 
-	if (!(cmd->mod_res = exec_args->type_mod_res_current = sid_module_registry_load_module(exec_args->type_mod_registry_res, mod_name))) {
+	if (!(cmd->mod_res = exec_args->type_mod_res_current = sid_module_registry_get_module(exec_args->type_mod_registry_res, mod_name))) {
 		log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", mod_name);
 		return -1;
 	}
@@ -909,7 +909,7 @@ static int _cmd_execute_identify_scan_next(struct command_exec_args *exec_args)
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_SCAN_NEXT);
 
 	if ((next_mod_name = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, "SID_NEXT_MOD", NULL, NULL))) {
-		if (!(exec_args->type_mod_res_next = sid_module_registry_load_module(exec_args->type_mod_registry_res, next_mod_name))) {
+		if (!(exec_args->type_mod_res_next = sid_module_registry_get_module(exec_args->type_mod_registry_res, next_mod_name))) {
 			log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", next_mod_name);
 			return -1;
 		}
