@@ -367,6 +367,30 @@ static size_t _get_kv_store_value_data_offset(struct kv_store_value *kv_store_va
 	return _flags_indicate_mod_name_presence(kv_store_value->flags) ? strlen(kv_store_value->data) + 1 : 0;
 }
 
+static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const char *mod_name,
+					    sid_ubridge_cmd_kv_namespace_t ns, const char *key,
+					    char *buf, size_t buf_size)
+{
+	struct kv_store_value *found;
+	const char *key_prefix;
+
+	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
+		return 1;
+
+	if (!(key_prefix = _get_key_prefix(ns, mod_name, 0, 0, buf, buf_size))) {
+		errno = ENOKEY;
+		return 0;
+	}
+
+	if ((found = kv_store_get_value(kv_store_res, key_prefix, key, NULL)) && (found->flags & KV_MOD_RESERVED) && strcmp(found->data, mod_name)) {
+		log_debug(ID(kv_store_res), "Module %s can't overwrite value with key %s which is reserved and attached to module %s.",
+			  mod_name, key, found->data);
+		return 0;
+	}
+
+	return 1;
+}
+
 static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
 					const char *key, uint64_t flags, const void *value, size_t value_size)
 {
@@ -380,6 +404,22 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	unsigned i = 0;
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : NULL;
+
+	/*
+	 * First, we check if the KV is not reserved globally. This applies to reservations
+	 * where the namespace stores records with finer granularity than module scope.
+	 * This is the case of KV_NS_UDEV and KV_NS_DEVICE where the granularity is per-device
+	 * and the global reservation applies to all devices, hence the global reservation
+	 * record has 0:0 used instead of real major:minor.
+	 *
+	 * Also, check global reservation in KV_NS_UDEV only if KV is being set from a module.
+	 * If we're not in a module, we're importing values from udev environment where
+	 * we can't control any global reservation at the moment so it doesn't make sense
+	 * to do the check here.
+	 */
+	if (!((ns == KV_NS_UDEV) && !mod_name) &&
+	    !_passes_global_reservation_check(cmd->temp_kv_store_res, mod_name, ns, key, buf, sizeof(buf)))
+		return NULL;
 
 	if (ns == KV_NS_UDEV) {
 		key_prefix = "";
