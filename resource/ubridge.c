@@ -210,7 +210,6 @@ struct sid_ubridge_cmd_context {
 	sid_event_source *es;
 	struct device dev;
 	sid_resource_t *udev_kv_store_res;
-	sid_resource_t *main_kv_store_res;
 	sid_resource_t *temp_kv_store_res;
 	sid_resource_t *mod_res; /* the module that is processed at the moment */
 	struct buffer *result_buf;
@@ -505,8 +504,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 			errno = ENOKEY;
 			return NULL;
 		}
-		if (!(kv_store_value = kv_store_get_value(cmd->temp_kv_store_res, key_prefix, key, &size)))
-			kv_store_value = kv_store_get_value(cmd->main_kv_store_res, key_prefix, key, &size);
+		kv_store_value = kv_store_get_value(cmd->temp_kv_store_res, key_prefix, key, &size);
 	}
 
 	if (!kv_store_value)
@@ -1229,6 +1227,9 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	while ((kv_store_value = kv_store_iter_next(iter, &size))) {
 		if (!(kv_store_value->flags & KV_PERSISTENT))
 			continue;
+
+		kv_store_value->flags &= ~KV_PERSISTENT;
+
 		key = kv_store_iter_current_key(iter);
 		key_size = strlen(key) + 1;
 		/*
@@ -1319,9 +1320,6 @@ static int _cmd_handler(sid_event_source *es, void *data)
 static const struct sid_kv_store_resource_params udev_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,
 									     .hash.initial_size = 32};
 
-static const struct sid_kv_store_resource_params temp_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,
-									     .hash.initial_size = 32};
-
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct raw_command *raw_cmd = kickstart_data;
@@ -1347,12 +1345,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(cmd->temp_kv_store_res = sid_resource_create(res, &sid_resource_reg_kv_store, SID_RESOURCE_RESTRICT_WALK_UP, TEMP_KV_STORE_NAME, &temp_kv_store_res_params))) {
-		log_error(ID(res), "Failed to create temporary key-value store.");
-		goto fail;
-	}
-
-	if (!(cmd->main_kv_store_res = sid_resource_get_child(sid_resource_get_top_level(res), &sid_resource_reg_kv_store, MAIN_KV_STORE_NAME))) {
+	if (!(cmd->temp_kv_store_res = sid_resource_get_child(sid_resource_get_top_level(res), &sid_resource_reg_kv_store, MAIN_KV_STORE_NAME))) {
 		log_error(ID(res), INTERNAL_ERROR "Failed to find key-value store.");
 		goto fail;
 	}
