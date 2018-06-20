@@ -565,8 +565,9 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	struct iovec iov[3];
 	struct kv_store_value *kv_store_value;
 	static uint64_t null_int = 0;
-	uint64_t flags = unset ? KV_PERSISTENT : KV_PERSISTENT | KV_MOD_RESERVED;
+	uint64_t flags = unset ? 0 : KV_MOD_RESERVED;
 	struct kv_conflict_arg conflict_arg;
+	int is_worker;
 
 	mod_name = sid_module_get_name(mod);
 
@@ -584,7 +585,10 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	conflict_arg.mod_name = mod_name;
 	conflict_arg.ret_code = 0;
 
-	if (unset && !sid_resource_is_registered_by(sid_resource_get_top_level(cmd_mod->kv_store_res), &sid_resource_reg_ubridge_worker)) {
+	if ((is_worker = sid_resource_is_registered_by(sid_resource_get_top_level(cmd_mod->kv_store_res), &sid_resource_reg_ubridge_worker)))
+		flags |= KV_PERSISTENT;
+
+	if (unset && !is_worker) {
 		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key,
 				     (kv_resolver_t) _kv_unreserve, &conflict_arg);
 
