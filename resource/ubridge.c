@@ -84,11 +84,16 @@
 #define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ubridge_cmd_trigger_action_next"
 
 #define MAIN_KV_STORE_NAME  "main"
-#define UDEV_KV_STORE_NAME  "udev"
-#define TEMP_KV_STORE_NAME  "temp"
 
 #define KV_PAIR             "="
 #define KV_END              ""
+
+#define KV_NS_UDEV_KEY_PREFIX   "U" KV_STORE_KEY_JOIN
+#define KV_NS_DEVICE_KEY_PREFIX "D" KV_STORE_KEY_JOIN
+#define KV_NS_MODULE_KEY_PREFIX "M" KV_STORE_KEY_JOIN
+#define KV_NS_GLOBAL_KEY_PREFIX "G" KV_STORE_KEY_JOIN
+
+#define KV_KEY_NULL_DEV     "0_0"
 
 #define UDEV_KEY_ACTION     "ACTION"
 #define UDEV_KEY_DEVNAME    "DEVNAME"
@@ -209,8 +214,7 @@ struct sid_ubridge_cmd_context {
 	uint16_t status;
 	sid_event_source *es;
 	struct device dev;
-	sid_resource_t *udev_kv_store_res;
-	sid_resource_t *temp_kv_store_res;
+	sid_resource_t *kv_store_res;
 	sid_resource_t *mod_res; /* the module that is processed at the moment */
 	struct buffer *result_buf;
 
@@ -295,16 +299,16 @@ static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char
 {
 	switch (ns) {
 		case KV_NS_UDEV:
-			snprintf(buf, buf_size, "U%s%d_%d", KV_STORE_KEY_JOIN, major, minor);
+			snprintf(buf, buf_size, "%s%d_%d", KV_NS_UDEV_KEY_PREFIX, major, minor);
 			break;
 		case KV_NS_DEVICE:
-			snprintf(buf, buf_size, "D%s%d_%d", KV_STORE_KEY_JOIN, major, minor);
+			snprintf(buf, buf_size, "%s%d_%d", KV_NS_DEVICE_KEY_PREFIX, major, minor);
 			break;
 		case KV_NS_MODULE:
-			snprintf(buf, buf_size, "M%s%s", KV_STORE_KEY_JOIN, mod_name);
+			snprintf(buf, buf_size, "%s%s", KV_NS_MODULE_KEY_PREFIX, mod_name);
 			break;
 		case KV_NS_GLOBAL:
-			snprintf(buf, buf_size, "*%s*", KV_STORE_KEY_JOIN);
+			snprintf(buf, buf_size, "%s*", KV_NS_GLOBAL_KEY_PREFIX);
 			break;
 	}
 
@@ -321,49 +325,44 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 {
 	const char *reason;
 
-	arg->ret_code = 0;
-
-	if (!arg->mod_name)
-		goto overwrite;
-
 	if (old->flags & KV_MOD_PRIVATE) {
-		if (strcmp(old->data, arg->mod_name)) {
+		if (strcmp(old->data, new->data)) {
 			reason = "private";
 			arg->ret_code = EACCES;
 			goto keep_old;
 		}
 	}
 	else if (old->flags & KV_MOD_PROTECTED) {
-		if (strcmp(old->data, arg->mod_name)) {
+		if (strcmp(old->data, new->data)) {
 			reason = "protected";
 			arg->ret_code = EPERM;
 			goto keep_old;
 		}
 	}
 	else if (old->flags & KV_MOD_RESERVED) {
-		if (strcmp(old->data, arg->mod_name)) {
+		if (strcmp(old->data, new->data)) {
 			reason = "reserved";
 			arg->ret_code = EBUSY;
 			goto keep_old;
 		}
 	}
 
-overwrite:
+	arg->ret_code = 0;
 	return 1;
 keep_old:
 	log_debug(ID(arg->res), "Module %s can't overwrite value with key %s which is %s and attached to module %s.",
-		  arg->mod_name, key, reason, old->data);
+		  new->data, key, reason, old->data);
 	return 0;
 }
 
-static int _flags_indicate_mod_name_presence(uint64_t flags)
+static int _flags_indicate_mod_owned(uint64_t flags)
 {
 	return flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED);
 }
 
 static size_t _get_kv_store_value_data_offset(struct kv_store_value *kv_store_value)
 {
-	return _flags_indicate_mod_name_presence(kv_store_value->flags) ? strlen(kv_store_value->data) + 1 : 0;
+	return strlen(kv_store_value->data) + 1;
 }
 
 static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const char *mod_name,
@@ -395,14 +394,12 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 {
 	char buf[PATH_MAX];
 	const char *key_prefix;
-	sid_resource_t *kv_store_res;
 	const char *mod_name;
 	struct iovec iov[4];
 	struct kv_store_value *kv_store_value;
 	struct kv_conflict_arg conflict_arg;
-	unsigned i = 0;
 
-	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : NULL;
+	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : "";
 
 	/*
 	 * First, we check if the KV is not reserved globally. This applies to reservations
@@ -416,52 +413,32 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	 * we can't control any global reservation at the moment so it doesn't make sense
 	 * to do the check here.
 	 */
-	if (!((ns == KV_NS_UDEV) && !mod_name) &&
-	    !_passes_global_reservation_check(cmd->temp_kv_store_res, mod_name, ns, key, buf, sizeof(buf)))
+	if (!((ns == KV_NS_UDEV) && !*mod_name) &&
+	    !_passes_global_reservation_check(cmd->kv_store_res, mod_name, ns, key, buf, sizeof(buf)))
 		return NULL;
 
-	if (ns == KV_NS_UDEV) {
-		key_prefix = "";
-		kv_store_res = cmd->udev_kv_store_res;
-	} else {
-		if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->dev.major, cmd->dev.minor, buf, sizeof(buf)))) {
-			errno = ENOKEY;
-			return NULL;
-		}
-		kv_store_res = cmd->temp_kv_store_res;
+	if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->dev.major, cmd->dev.minor, buf, sizeof(buf)))) {
+		errno = ENOKEY;
+		return NULL;
 	}
 
-	i = 0;
-	iov[i].iov_base = &cmd->dev.seqnum;
-	iov[i].iov_len = sizeof(cmd->dev.seqnum);
+	iov[0].iov_base = &cmd->dev.seqnum;
+	iov[0].iov_len = sizeof(cmd->dev.seqnum);
 
-	i++;
-	iov[i].iov_base = &flags;
-	iov[i].iov_len = sizeof(flags);
+	iov[1].iov_base = &flags;
+	iov[1].iov_len = sizeof(flags);
 
-	if (!value || _flags_indicate_mod_name_presence(flags)) {
-		/*
-		 * If unsetting the value, also save the module name so it's possible
-		 * to check if this module has the right to unset existing value.
-		 *
-		 * If protected, private or reserved, also save the module name so
-		 * only this module can change but other can still read (protected)
-		 * or can't access at all (private) or prevent others to use the key (reserved).
-		 */
-		i++;
-		iov[i].iov_base = (void *) mod_name;
-		iov[i].iov_len = strlen(mod_name) + 1;
-	}
+	iov[2].iov_base = (void *) mod_name;
+	iov[2].iov_len = strlen(mod_name) + 1;
 
-	i++;
-	iov[i].iov_base = (void *) value;
-	iov[i].iov_len = value ? value_size : 0;
+	iov[3].iov_base = (void *) value;
+	iov[3].iov_len = value ? value_size : 0;
 
-	conflict_arg.res = kv_store_res;
+	conflict_arg.res = cmd->kv_store_res;
 	conflict_arg.mod_name = mod_name;
 	conflict_arg.ret_code = 0;
 
-	kv_store_value = kv_store_set_value_from_vector(kv_store_res, key_prefix, key, iov, i + 1, 1,
+	kv_store_value = kv_store_set_value_from_vector(cmd->kv_store_res, key_prefix, key, iov, 4, 1,
 							(kv_resolver_t) _kv_overwrite, &conflict_arg);
 
 	if (!kv_store_value) {
@@ -496,18 +473,12 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : "";
 
-	if (ns == KV_NS_UDEV) {
-		key_prefix = "";
-		kv_store_value = kv_store_get_value(cmd->udev_kv_store_res, key_prefix, key, &size);
-	} else {
-		if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->dev.major, cmd->dev.minor, buf, sizeof(buf)))) {
-			errno = ENOKEY;
-			return NULL;
-		}
-		kv_store_value = kv_store_get_value(cmd->temp_kv_store_res, key_prefix, key, &size);
+	if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->dev.major, cmd->dev.minor, buf, sizeof(buf)))) {
+		errno = ENOKEY;
+		return NULL;
 	}
 
-	if (!kv_store_value)
+	if (!(kv_store_value = kv_store_get_value(cmd->kv_store_res, key_prefix, key, &size)))
 		return NULL;
 
 	if (kv_store_value->flags & KV_MOD_PRIVATE) {
@@ -534,9 +505,9 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 
 static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
 {
-	if (strcmp(old->data, arg->mod_name)) {
+	if (strcmp(old->data, new->data)) {
 		log_debug(ID(arg->res), "Module %s can't reserve key %s%s which is already reserved by module %s.",
-			  arg->mod_name, key_prefix, key, old->data);
+			  new->data, key_prefix, key, old->data);
 		arg->ret_code = EBUSY;
 		return 0;
 	}
@@ -592,7 +563,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key,
 				     (kv_resolver_t) _kv_unreserve, &conflict_arg);
 
-		if (errno = EADV)
+		if (errno == EADV)
 			errno = conflict_arg.ret_code;
 		return -1;
 	} else {
@@ -672,6 +643,7 @@ bad:
 
 static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct sid_ubridge_cmd_context *cmd)
 {
+	dev_t devno;
 	size_t i = 0;
 	const char *delim;
 	char *str;
@@ -680,13 +652,22 @@ static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct
 	if (raw_cmd->header->cmd_number != CMD_IDENTIFY)
 		return 0;
 
+	if (raw_udev_env_len < sizeof(devno))
+		goto fail;
+
+	memcpy(&devno, raw_cmd->header->data, sizeof(devno));
+	raw_udev_env_len -= sizeof(devno);
+
+	cmd->dev.major = major(devno);
+	cmd->dev.minor = minor(devno);
+
 	/*
 	 * We have this on input:
 	 *
 	 *   key1=value1\0key2=value2\0...
 	 */
 	while (i < raw_udev_env_len) {
-		str = raw_cmd->header->data + i;
+		str = raw_cmd->header->data + sizeof(devno) + i;
 
 		if (!(delim = memchr(str, KV_END[0], raw_udev_env_len - i)))
 			goto fail;
@@ -1180,43 +1161,18 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	ssize_t r;
 
 	/*
-	 * Export udev key-value store.
+	 * Export key-value store to udev or for sync with master kv store.
 	 *
-	 * We append key=value pairs to the output buffer that is sent back to udev
-	 * as result of "sid identify" udev builtin command.
+	 * For udev, we append key=value pairs to the output buffer that is sent back
+	 * to udev as result of "sid identify" udev builtin command.
 	 *
-	 * We send only the key=value pairs that we have added during cmd processing,
-	 * that means the ones which have KV_PERSISTENT flag set (SID core sets this flag
-	 * automatically for all newly added/updated key=value pairs).
-	 */
-	if (!(iter = kv_store_iter_create(cmd->udev_kv_store_res))) {
-		log_error(ID(cmd_res), "Failed to create iterator for udev key-value store.");
-		return -1;
-	}
-
-	while ((kv_store_value = kv_store_iter_next(iter, &size))) {
-		if (!(kv_store_value->flags & KV_PERSISTENT))
-			continue;
-		key = kv_store_iter_current_key(iter);
-		buffer_add(cmd->result_buf, (void *) key, strlen(key));
-		buffer_add(cmd->result_buf, KV_PAIR, 1);
-		data_offset = _get_kv_store_value_data_offset(kv_store_value);
-		buffer_add(cmd->result_buf, kv_store_value->data + data_offset, strlen(kv_store_value->data + data_offset));
-		buffer_add(cmd->result_buf, KV_END, 1);
-	}
-
-	kv_store_iter_destroy(iter);
-
-	/*
-	 * Export temp key-value store.
-	 *
-	 * We serialize the temp key-value store to an anonymous file in memory created by
-	 * memfd_create. Then we pass the file FD over to observer that reads it and it
-	 * updates the "master" key-value store.
+	 * For others, we serialize the temp key-value store to an anonymous file in memory
+	 * created by memfd_create. Then we pass the file FD over to observer that reads it
+	 * and it updates the "master" key-value store.
 	 *
 	 * We only send key=value pairs which are marked with KV_PERSISTENT flag.
 	 */
-	if (!(iter = kv_store_iter_create(cmd->temp_kv_store_res))) {
+	if (!(iter = kv_store_iter_create(cmd->kv_store_res))) {
 		// TODO: Discard udev kv-store we've already appended to the output buffer!
 		log_error(ID(cmd_res), "Failed to create iterator for temp key-value store.");
 		return -1;
@@ -1236,7 +1192,22 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 
 		key = kv_store_iter_current_key(iter);
 		key_size = strlen(key) + 1;
+
+		if (!strncmp(key, KV_NS_UDEV_KEY_PREFIX, strlen(KV_NS_UDEV_KEY_PREFIX))) {
+			/* Export to udev. */
+			if (strcmp(key + sizeof(KV_NS_UDEV_KEY_PREFIX) - 1, KV_KEY_NULL_DEV)) {
+				buffer_add(cmd->result_buf, (void *) key, key_size - 1);
+				buffer_add(cmd->result_buf, KV_PAIR, 1);
+				data_offset = _get_kv_store_value_data_offset(kv_store_value);
+				buffer_add(cmd->result_buf, kv_store_value->data + data_offset, strlen(kv_store_value->data + data_offset));
+				buffer_add(cmd->result_buf, KV_END, 1);
+				continue;
+			}
+		} 
+
 		/*
+ 		 * Export to master process.
+ 		 *
 		 * Serialization format fields:
 		 *
 		 *  1) overall message size (size_t)
@@ -1321,9 +1292,6 @@ static int _cmd_handler(sid_event_source *es, void *data)
 	return r;
 }
 
-static const struct sid_kv_store_resource_params udev_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,
-									     .hash.initial_size = 32};
-
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct raw_command *raw_cmd = kickstart_data;
@@ -1344,12 +1312,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	cmd->type = raw_cmd->header->cmd_number;
 	cmd->status = raw_cmd->header->status;
 
-	if (!(cmd->udev_kv_store_res = sid_resource_create(res, &sid_resource_reg_kv_store, SID_RESOURCE_RESTRICT_WALK_UP, UDEV_KV_STORE_NAME, &udev_kv_store_res_params))) {
-		log_error(ID(res), "Failed to create udev key-value store.");
-		goto fail;
-	}
-
-	if (!(cmd->temp_kv_store_res = sid_resource_get_child(sid_resource_get_top_level(res), &sid_resource_reg_kv_store, MAIN_KV_STORE_NAME))) {
+	if (!(cmd->kv_store_res = sid_resource_get_child(sid_resource_get_top_level(res), &sid_resource_reg_kv_store, MAIN_KV_STORE_NAME))) {
 		log_error(ID(res), INTERNAL_ERROR "Failed to find key-value store.");
 		goto fail;
 	}
@@ -1418,7 +1381,7 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 
 static int _master_kv_store_unset(const char *key_prefix, const char *key, struct kv_store_value *old, void *null_value, struct kv_conflict_arg *arg)
 {
-	if (_flags_indicate_mod_name_presence(old->flags) && strcmp(old->data, arg->mod_name)) {
+	if (_flags_indicate_mod_owned(old->flags) && strcmp(old->data, arg->mod_name)) {
 		log_debug(ID(arg->res), "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
 					"which belongs to module %s.",  arg->mod_name, key, old->seqnum, old->data);
 		arg->ret_code = EBUSY;
@@ -1485,13 +1448,13 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 		 * one needs to drop the flag explicitly.
 		 */
 		unset = ((data->flags != KV_MOD_RESERVED) &&
-			 (data_size - data_offset) == (sizeof(struct kv_store_value)));
+			 ((data_size - data_offset) == (sizeof(struct kv_store_value) + _get_kv_store_value_data_offset(data))));
 
 		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
 			  unset ? "NULL" : data_offset ? data->data + data_offset : data->data, data->seqnum);
 
 		conflict_arg.res = ubridge->main_kv_store_res;
-		conflict_arg.mod_name = data_offset ? data->data : "";
+		conflict_arg.mod_name = data->data;
 		conflict_arg.ret_code = 0;
 
 		if (unset)
