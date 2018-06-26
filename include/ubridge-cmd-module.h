@@ -106,6 +106,8 @@ typedef enum {
 #define KV_MOD_PRIVATE   UINT64_C(0x0000000000000004)
 #define KV_MOD_RESERVED  UINT64_C(0x0000000000000008)
 
+#define SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD "SID_NEXT_MOD"
+
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
 			     const char *key, const void *value, size_t value_size, uint64_t flags);
 const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,

@@ -80,7 +80,7 @@ static const char *keys[_NUM_KEYS] = {
 	[ID_FS_PUBLISHER_ID]   = "ID_FS_PUBLISHER_ID",
 	[ID_FS_APPLICATION_ID] = "ID_FS_APPLICATION_ID",
 	[ID_FS_BOOT_SYSTEM_ID] = "ID_FS_BOOT_SYSTEM_ID",
-	[SID_NEXT_MOD]         = "SID_NEXT_MOD",
+	[SID_NEXT_MOD]         = SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD,
 };
 
 static int _blkid_init(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
@@ -151,7 +151,7 @@ static void _add_property(struct sid_ubridge_cmd_context *cmd, const char *name,
 		len = strlen(value);
 		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, keys[ID_FS_TYPE], value, len + 1, KV_MOD_PROTECTED);
 
-		/* Translate blkid type name to sid module name and save the result in SID_NEXT_MOD variable in KV_NS_DEVICE. */
+		/* Translate blkid type name to sid module name and save the result in SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD variable in KV_NS_DEVICE. */
 		if ((blkid_type = blkid_type_lookup(value, len)))
 			sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, keys[SID_NEXT_MOD], blkid_type->sid_module_name, strlen(blkid_type->sid_module_name) + 1, KV_PERSISTENT | KV_MOD_PROTECTED);
         }
