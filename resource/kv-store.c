@@ -132,7 +132,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 	return item;
 }
 
-void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
+void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
 			 void *value, size_t value_size, int copy,
 			 kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
 {
@@ -169,7 +169,7 @@ void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_pref
 	return item->data;
 }
 
-void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
+void *kv_store_set_value_from_vector(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
 				     struct iovec *iov, int iov_cnt, int copy,
 				     kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
 {
@@ -205,7 +205,7 @@ void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const ch
 	return item->data;
 }
 
-void *kv_store_get_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key, size_t *value_size)
+void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key, size_t *value_size)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];
@@ -231,7 +231,7 @@ void *kv_store_get_value(struct sid_resource *kv_store_res, const char *key_pref
 	return found->data_p;
 }
 
-int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
+int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
 			 kv_resolver_t unset_resolver, void *unset_resolver_arg)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);

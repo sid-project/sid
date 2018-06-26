@@ -61,7 +61,7 @@ typedef int (*kv_resolver_t) (const char *key_prefix, const char *key, void *old
  * Returns:
  *   The value that has been set.
  */
-void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
+void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
 			 void *value, size_t value_size, int copy,
 			 kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
 
@@ -74,7 +74,7 @@ void *kv_store_set_value(struct sid_resource *kv_store_res, const char *key_pref
  * Returns:
  *   The value that has been set.
  */
-void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
+void *kv_store_set_value_from_vector(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
 				     struct iovec *iov, int iov_cnt, int copy,
 				     kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
 
@@ -83,7 +83,7 @@ void *kv_store_set_value_from_vector(struct sid_resource *kv_store_res, const ch
  *   - Final key is composed of key_prefix and key.
  *   - If value_size is not NULL, the function returns the size of the value through this output argument.
  */
-void *kv_store_get_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key, size_t *value_size);
+void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key, size_t *value_size);
 
 /*
  * Unsets value for given key.
@@ -94,7 +94,7 @@ void *kv_store_get_value(struct sid_resource *kv_store_res, const char *key_pref
  *    0 if value unset
  *   -1 if value not unset
  */
-int kv_store_unset_value(struct sid_resource *kv_store_res, const char *key_prefix, const char *key,
+int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
 			 kv_resolver_t unset_resolver, void *unset_resolver_arg);
 
 typedef struct kv_store_iter kv_store_iter_t;
