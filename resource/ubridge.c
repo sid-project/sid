@@ -456,6 +456,11 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
 			     const char *key, const void *value, size_t value_size, uint64_t flags)
 {
+	if (!cmd || !key || !*key) {
+		errno = EINVAL;
+		return NULL;
+	}
+
 	if (ns == KV_NS_UDEV)
 		flags |= KV_PERSISTENT;
 
@@ -470,6 +475,11 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	struct kv_store_value *kv_store_value;
 	const char *mod_name;
 	size_t size, data_offset;
+
+	if (!cmd || !key || !*key) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : "";
 
@@ -540,7 +550,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	struct kv_conflict_arg conflict_arg;
 	int is_worker;
 
-	mod_name = sid_module_get_name(mod);
+	mod_name = mod ? sid_module_get_name(mod) : "";
 
 	if (!(key_prefix = _get_key_prefix(ns, mod_name, 0, 0, buf, sizeof(buf)))) {
 		errno = ENOKEY;
@@ -593,12 +603,22 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 int sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
 				   sid_ubridge_cmd_kv_namespace_t ns, const char *key)
 {
+	if (!mod || !cmd_mod || !key || !*key) {
+		errno = EINVAL;
+		return -1;
+	}
+
 	return _do_sid_ubridge_cmd_mod_reserve_kv(mod, cmd_mod, ns, key, 0);
 }
 
 int sid_ubridge_cmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
 				     sid_ubridge_cmd_kv_namespace_t ns, const char *key)
 {
+	if (!mod || !cmd_mod || !key || !*key) {
+		errno = EINVAL;
+		return -1;
+	}
+
 	return _do_sid_ubridge_cmd_mod_reserve_kv(mod, cmd_mod, ns, key, 1);
 }
 
