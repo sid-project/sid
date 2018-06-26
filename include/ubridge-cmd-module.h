@@ -118,6 +118,25 @@ int sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cm
 int sid_ubridge_cmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
 				     sid_ubridge_cmd_kv_namespace_t ns, const char *key);
 
+typedef enum {
+	DEV_NOT_READY_UNPROCESSED,  /* not ready and not yet processed by SID */
+	DEV_NOT_READY_INACCESSIBLE, /* not ready and not able to perform IO */
+	DEV_NOT_READY_ACCESSIBLE,   /* not ready and able to perform IO */
+	DEV_READY_PRIVATE,          /* ready and for private use of the module/subsystem */
+	DEV_READY_PUBLIC,           /* ready and publicly available for use */
+	DEV_READY_UNAVAILABLE,      /* ready but temporarily unavailable at the moment, e.g. suspended device */
+} dev_ready_t;
+
+typedef enum {
+	DEV_RES_UNPROCESSED,	    /* not yet processed by SID */
+	DEV_RES_FREE,               /* not yet reserved by a layer above */
+	DEV_RES_RESERVED,           /* reserved by a layer above */
+} dev_reserved_t;
+
+int sid_ubridge_cmd_dev_set_ready(struct sid_ubridge_cmd_context *cmd, dev_ready_t ready);
+dev_ready_t sid_ubridge_cmd_dev_get_ready(struct sid_ubridge_cmd_context *cmd);
+dev_reserved_t sid_ubridge_cmd_dev_get_reserved(struct sid_ubridge_cmd_context *cmd);
+
 #ifdef __cplusplus
 }
 #endif

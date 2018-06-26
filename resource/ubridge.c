@@ -93,7 +93,13 @@
 #define KV_NS_MODULE_KEY_PREFIX "M" KV_STORE_KEY_JOIN
 #define KV_NS_GLOBAL_KEY_PREFIX "G" KV_STORE_KEY_JOIN
 
-#define KV_KEY_NULL_DEV     "0_0"
+#define KV_KEY_NULL_DEV       "0_0"
+#define KV_KEY_DEV_READY      "SID_RDY"
+#define KV_KEY_DEV_RESERVED   "SID_RES"
+#define KV_KEY_DEV_LAYER_UP   "SID_LUP"
+#define KV_KEY_DEV_LAYER_DOWN "SID_LDW"
+
+#define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
 
 #define UDEV_KEY_ACTION     "ACTION"
 #define UDEV_KEY_DEVNAME    "DEVNAME"
@@ -622,6 +628,21 @@ int sid_ubridge_cmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ubridge_
 	return _do_sid_ubridge_cmd_mod_reserve_kv(mod, cmd_mod, ns, key, 1);
 }
 
+int sid_ubridge_cmd_dev_set_ready(struct sid_ubridge_cmd_context *cmd, dev_ready_t ready)
+{
+	return 0;
+}
+
+dev_ready_t sid_ubridge_cmd_dev_get_ready(struct sid_ubridge_cmd_context *cmd)
+{
+	return DEV_NOT_READY_UNPROCESSED;
+}
+
+dev_reserved_t sid_ubridge_cmd_dev_get_reserved(struct sid_ubridge_cmd_context *cmd)
+{
+	return DEV_RES_UNPROCESSED;
+}
+
 static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 {
 	char *value;
@@ -1091,6 +1112,24 @@ fail:
 	return -1;
 }
 
+static int _set_device_kv_records(sid_resource_t *cmd_res)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	dev_ready_t ready;
+	const dev_ready_t *p_ready;
+	dev_reserved_t reserved;
+
+	if (!(p_ready = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL))) {
+		ready = DEV_NOT_READY_UNPROCESSED;
+		reserved = DEV_RES_UNPROCESSED;
+
+		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, DEFAULT_CORE_KV_FLAGS, &ready, sizeof(ready));
+		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, DEFAULT_CORE_KV_FLAGS, &reserved, sizeof(reserved));
+	}
+
+	return 0;
+}
+
 static struct command_reg _cmd_ident_phase_regs[] =  {
 	{.name = "ident",              .execute = _cmd_execute_identify_ident},
 	{.name = "scan-pre",           .execute = _cmd_execute_identify_scan_pre},
@@ -1123,6 +1162,11 @@ static int _cmd_execute_identify(struct command_exec_args *exec_args)
 
 	if (!(exec_args->type_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_reg_module_registry, MODULES_TYPE_ID))) {
 		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find type module registry resource.");
+		goto out;
+	}
+
+	if (_set_device_kv_records(exec_args->cmd_res) < 0) {
+		log_error(ID(exec_args->cmd_res), "Failed to set device hierarchy.");
 		goto out;
 	}
 
@@ -1943,6 +1987,19 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 	}
 }
 
+static int _reserve_core_kvs(struct ubridge *ubridge)
+{
+	struct sid_ubridge_cmd_mod_context cmd_mod = {.kv_store_res = ubridge->main_kv_store_res};
+
+	if (_do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_READY, 0) < 0 ||
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, 0) < 0 ||
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP, 0) < 0 ||
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN, 0) < 0)
+		return -1;
+
+	return 0;
+}
+
 static struct sid_module_registry_resource_params block_res_mod_params = {.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
 									  .flags         = SID_MODULE_REGISTRY_PRELOAD,
 									  .callback_arg  = NULL,
@@ -2061,6 +2118,11 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_kv_store, SID_RESOURCE_RESTRICT_WALK_UP,
 							       MAIN_KV_STORE_NAME, &main_kv_store_res_params))) {
 		log_error(ID(res), "Failed to create main key-value store.");
+		goto fail;
+	}
+
+	if (_reserve_core_kvs(ubridge) < 0) {
+		log_error(ID(res), "Failed to reserve core key-value pairs.");
 		goto fail;
 	}
 
