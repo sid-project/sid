@@ -278,6 +278,7 @@ struct kv_store_value {
 };
 
 #define CMD_IDENT_CAP_RDY UINT32_C(0x000000001) /* can set ready state */
+#define CMD_IDENT_CAP_RES UINT32_C(0x000000002) /* can set reserved state */
 
 static struct command_reg _cmd_ident_phase_regs[];
 
@@ -646,17 +647,79 @@ int sid_ubridge_cmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ubridge_
 
 int sid_ubridge_cmd_dev_set_ready(struct sid_ubridge_cmd_context *cmd, dev_ready_t ready)
 {
+	sid_resource_t *orig_mod_res;
+
+	if (!_cmd_ident_phase_regs[cmd->ident_phase].flags & CMD_IDENT_CAP_RDY) {
+		errno = EPERM;
+		return -1;
+	}
+
+	if (ready == DEV_NOT_RDY_UNPROCESSED) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	orig_mod_res = cmd->mod_res;
+	cmd->mod_res = NULL;
+
+	_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, DEFAULT_CORE_KV_FLAGS, &ready, sizeof(ready));
+
+	cmd->mod_res = orig_mod_res;
 	return 0;
 }
 
 dev_ready_t sid_ubridge_cmd_dev_get_ready(struct sid_ubridge_cmd_context *cmd)
 {
-	return DEV_NOT_RDY_UNPROCESSED;
+	sid_resource_t *orig_mod_res;
+	const dev_ready_t *p_ready;
+	dev_ready_t result;
+
+	orig_mod_res = cmd->mod_res;
+	cmd->mod_res = NULL;
+
+	if (!(p_ready = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
+		result = DEV_NOT_RDY_UNPROCESSED;
+	else
+		result = *p_ready;
+
+	cmd->mod_res = orig_mod_res;
+	return result;
+}
+
+int sid_ubridge_cmd_dev_set_reserved(struct sid_ubridge_cmd_context *cmd, dev_reserved_t reserved)
+{
+	sid_resource_t *orig_mod_res;
+
+	if (!(_cmd_ident_phase_regs[cmd->ident_phase].flags & CMD_IDENT_CAP_RES)) {
+		errno = EPERM;
+		return -1;
+	}
+
+	orig_mod_res = cmd->mod_res;
+	cmd->mod_res = NULL;
+
+	_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, DEFAULT_CORE_KV_FLAGS, &reserved, sizeof(reserved));
+
+	cmd->mod_res = orig_mod_res;
+	return 0;
 }
 
 dev_reserved_t sid_ubridge_cmd_dev_get_reserved(struct sid_ubridge_cmd_context *cmd)
 {
-	return DEV_RES_UNPROCESSED;
+	sid_resource_t *orig_mod_res;
+	const dev_reserved_t *p_reserved;
+	dev_reserved_t result;
+
+	orig_mod_res = cmd->mod_res;
+	cmd->mod_res = NULL;
+
+	if (!(p_reserved = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
+		result = DEV_RES_UNPROCESSED;
+	else
+		result = *p_reserved;
+
+	cmd->mod_res = orig_mod_res;
+	return result;
 }
 
 static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
@@ -1152,7 +1215,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 
 static struct command_reg _cmd_ident_phase_regs[] = {
 	[CMD_IDENT_PHASE_A_INIT]                   = {.name = "init",
-                                                      .flags = CMD_IDENT_CAP_RDY,
+                                                      .flags = CMD_IDENT_CAP_RDY | CMD_IDENT_CAP_RES,
                                                       .execute = NULL},
 
 	[CMD_IDENT_PHASE_A_IDENT]                  = {.name = "ident",
@@ -1168,7 +1231,7 @@ static struct command_reg _cmd_ident_phase_regs[] = {
                                                       .execute = _cmd_execute_identify_scan_current},
 
 	[CMD_IDENT_PHASE_A_SCAN_NEXT]              = {.name = "scan-next",
-                                                      .flags = 0,
+                                                      .flags = CMD_IDENT_CAP_RES,
                                                       .execute = _cmd_execute_identify_scan_next},
 
 	[CMD_IDENT_PHASE_A_SCAN_POST_CURRENT]      = {.name = "scan-post-current",
@@ -1184,7 +1247,7 @@ static struct command_reg _cmd_ident_phase_regs[] = {
                                                       .execute = NULL},
 
 	[CMD_IDENT_PHASE_A_EXIT]                   = {.name = "exit",
-                                                      .flags = CMD_IDENT_CAP_RDY,
+                                                      .flags = CMD_IDENT_CAP_RDY | CMD_IDENT_CAP_RES,
                                                       .execute = NULL},
 
 	[CMD_IDENT_PHASE_B_TRIGGER_ACTION_CURRENT] = {.name = "trigger-action-current",
