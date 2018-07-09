@@ -635,7 +635,7 @@ int sid_ubridge_cmd_dev_set_ready(struct sid_ubridge_cmd_context *cmd, dev_ready
 
 dev_ready_t sid_ubridge_cmd_dev_get_ready(struct sid_ubridge_cmd_context *cmd)
 {
-	return DEV_NOT_READY_UNPROCESSED;
+	return DEV_NOT_RDY_UNPROCESSED;
 }
 
 dev_reserved_t sid_ubridge_cmd_dev_get_reserved(struct sid_ubridge_cmd_context *cmd)
@@ -1120,7 +1120,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	dev_reserved_t reserved;
 
 	if (!(p_ready = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL))) {
-		ready = DEV_NOT_READY_UNPROCESSED;
+		ready = DEV_NOT_RDY_UNPROCESSED;
 		reserved = DEV_RES_UNPROCESSED;
 
 		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, DEFAULT_CORE_KV_FLAGS, &ready, sizeof(ready));
