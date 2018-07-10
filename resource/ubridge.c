@@ -99,6 +99,7 @@
 #define KV_KEY_DEV_LAYER_UP   "SID_LUP"
 #define KV_KEY_DEV_LAYER_DOWN "SID_LDW"
 
+#define CORE_MOD_NAME         "core"
 #define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
 
 #define UDEV_KEY_ACTION     "ACTION"
@@ -422,7 +423,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct kv_store_value *kv_store_value;
 	struct kv_conflict_arg conflict_arg;
 
-	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : "";
+	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
 
 	/*
 	 * First, we check if the KV is not reserved globally. This applies to reservations
@@ -504,7 +505,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		return NULL;
 	}
 
-	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : "";
+	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
 
 	if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->dev.major, cmd->dev.minor, buf, sizeof(buf)))) {
 		errno = ENOKEY;
@@ -573,7 +574,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	struct kv_conflict_arg conflict_arg;
 	int is_worker;
 
-	mod_name = mod ? sid_module_get_name(mod) : "";
+	mod_name = mod ? sid_module_get_name(mod) : CORE_MOD_NAME;
 
 	if (!(key_prefix = _get_key_prefix(ns, mod_name, 0, 0, buf, sizeof(buf)))) {
 		errno = ENOKEY;
