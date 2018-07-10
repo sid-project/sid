@@ -98,6 +98,7 @@
 #define KV_KEY_DEV_RESERVED   "SID_RES"
 #define KV_KEY_DEV_LAYER_UP   "SID_LUP"
 #define KV_KEY_DEV_LAYER_DOWN "SID_LDW"
+#define KV_KEY_DEV_MOD        "SID_MOD"
 
 #define CORE_MOD_NAME         "core"
 #define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
@@ -818,15 +819,20 @@ static void _canonicalize_module_name(char *name)
 /*
  *  Module name is equal to the name as exposed in PROC_DEVICES_PATH + MODULE_NAME_SUFFIX.
  */
-static int _lookup_module_name(sid_resource_t *cmd_res, struct device *dev, char *buf, size_t buf_size)
+static const char *_lookup_module_name(sid_resource_t *cmd_res)
 {
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	char buf[PATH_MAX];
+	const char *mod_name = NULL;
 	FILE *f = NULL;
 	char line[80];
 	int in_block_section = 0;
 	char *p, *end, *found = NULL;
 	int major;
 	size_t len;
-	int r = -1;
+
+	if ((mod_name = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL)))
+		goto out;
 
 	if (!(f = fopen(PROC_DEVICES_PATH, "r"))) {
 		log_sys_error(ID(cmd_res), "fopen", PROC_DEVICES_PATH);
@@ -864,7 +870,7 @@ static int _lookup_module_name(sid_resource_t *cmd_res, struct device *dev, char
 			continue;
 
 		/* is it the major we're looking for? */
-		if (major == dev->major) {
+		if (major == cmd->dev.major) {
 			found = end + 1;
 			break;
 		}
@@ -872,7 +878,7 @@ static int _lookup_module_name(sid_resource_t *cmd_res, struct device *dev, char
 
 	if (!found) {
 		log_error(ID(cmd_res), "Unable to find major number %d for device %s in %s.",
-			  dev->major, dev->name, PROC_DEVICES_PATH);
+			  cmd->dev.major, cmd->dev.name, PROC_DEVICES_PATH);
 		goto out;
 	}
 
@@ -883,10 +889,10 @@ static int _lookup_module_name(sid_resource_t *cmd_res, struct device *dev, char
 
 	len = p - found;
 
-	if (len >= (buf_size - strlen(SID_MODULE_NAME_SUFFIX))) {
+	if (len >= (sizeof(buf) - strlen(SID_MODULE_NAME_SUFFIX))) {
 		log_error(ID(cmd_res), "Insufficient result buffer for device lookup in %s, "
 			  "found string \"%s\", buffer size is only %zu.", PROC_DEVICES_PATH,
-			  found, buf_size);
+			  found, sizeof(buf));
 		goto out;
 	}
 
@@ -895,11 +901,12 @@ static int _lookup_module_name(sid_resource_t *cmd_res, struct device *dev, char
 	buf[len + SID_MODULE_NAME_SUFFIX_LEN] = '\0';
 	_canonicalize_module_name(buf);
 
-	r = 0;
+	if (!(mod_name = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_MOD, DEFAULT_CORE_KV_FLAGS, buf, strlen(buf) + 1)))
+		log_error_errno(ID(cmd_res), errno, "Failed to store device %s (%d:%d) module name.", cmd->dev.name, cmd->dev.major, cmd->dev.minor);
 out:
 	if (f)
 		fclose(f);
-	return r;
+	return mod_name;
 }
 
 static int _cmd_execute_unknown(struct command_exec_args *exec_args)
@@ -997,20 +1004,10 @@ static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	const struct command_module_fns *mod_fns;
-	char mod_name[32];
-	int r;
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_A_IDENT);
 
 	sid_resource_dump_all_in_dot(sid_resource_get_top_level(exec_args->cmd_res));
-
-	if ((r = _lookup_module_name(exec_args->cmd_res, &cmd->dev, mod_name, sizeof(mod_name))) < 0)
-		return -1;
-
-	if (!(cmd->mod_res = exec_args->type_mod_res_current = sid_module_registry_get_module(exec_args->type_mod_registry_res, mod_name))) {
-		log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", mod_name);
-		return -1;
-	}
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->ident)
@@ -1268,6 +1265,7 @@ static int _cmd_execute_identify(struct command_exec_args *exec_args)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
 	sid_resource_t *modules_aggr_res, *block_mod_registry_res;
+	const char *mod_name;
 	cmd_ident_phase_t phase;
 	int r = -1;
 
@@ -1295,6 +1293,14 @@ static int _cmd_execute_identify(struct command_exec_args *exec_args)
 
 	if (_set_device_kv_records(exec_args->cmd_res) < 0) {
 		log_error(ID(exec_args->cmd_res), "Failed to set device hierarchy.");
+		goto out;
+	}
+
+	if (!(mod_name = _lookup_module_name(exec_args->cmd_res)))
+		goto out;
+
+	if (!(cmd->mod_res = exec_args->type_mod_res_current = sid_module_registry_get_module(exec_args->type_mod_registry_res, mod_name))) {
+		log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", mod_name);
 		goto out;
 	}
 
@@ -2121,7 +2127,8 @@ static int _reserve_core_kvs(struct ubridge *ubridge)
 	if (_do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_READY, 0) < 0 ||
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, 0) < 0 ||
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP, 0) < 0 ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN, 0) < 0)
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN, 0) < 0 ||
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_MOD, 0))
 		return -1;
 
 	return 0;
