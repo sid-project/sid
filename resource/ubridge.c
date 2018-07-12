@@ -464,8 +464,9 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	conflict_arg.mod_name = mod_name;
 	conflict_arg.ret_code = 0;
 
-	kv_store_value = kv_store_set_value_from_vector(cmd->kv_store_res, key_prefix, key, iov, 4, 1,
-							(kv_resolver_t) _kv_overwrite, &conflict_arg);
+	kv_store_value = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, 4,
+					    KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_MERGE,
+					    (kv_resolver_t) _kv_overwrite, &conflict_arg);
 
 	if (!kv_store_value) {
 		if (errno == EADV)
@@ -612,8 +613,9 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		iov[2].iov_base = (void *) mod_name;
 		iov[2].iov_len = strlen(mod_name) + 1;
 
-		kv_store_value = kv_store_set_value_from_vector(cmd_mod->kv_store_res, key_prefix, key, iov, 3, 1,
-								(kv_resolver_t) _kv_reserve, &conflict_arg);
+		kv_store_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, 3,
+						    KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_MERGE,
+						    (kv_resolver_t) _kv_reserve, &conflict_arg);
 
 		if (!kv_store_value) {
 			if (errno == EADV)
@@ -1382,7 +1384,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	lseek(export_fd, sizeof(bytes_written), SEEK_SET);
 
 	// FIXME: maybe buffer first so there's only single write
-	while ((kv_store_value = kv_store_iter_next(iter, &size))) {
+	while ((kv_store_value = kv_store_iter_next(iter, &size, NULL))) {
 		if (!(kv_store_value->flags & KV_PERSISTENT))
 			continue;
 

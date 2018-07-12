@@ -34,6 +34,10 @@ typedef enum {
 	KV_STORE_BACKEND_HASH,
 } kv_store_backend_t;
 
+#define KV_STORE_VALUE_VECTOR UINT32_C(0x00000001)
+#define KV_STORE_VALUE_REF    UINT32_C(0x00000002)
+#define KV_STORE_VALUE_MERGE  UINT32_C(0x00000004)
+
 struct kv_store_hash_backend_params {
 	size_t initial_size;
 };
@@ -55,29 +59,39 @@ typedef int (*kv_resolver_t) (const char *key_prefix, const char *key, void *old
 /*
  * Sets key-value pair:
  *   - Final key is composed of key_prefix and key.
- *   - If copy is set, the value is first copied and the copy is used as the value which is stored.
  *   - If the key exists already, dup_key_resolver with dup_key_resolver_arg argument is called for resolution.
+ *   - Value and size depend on flags with KV_STORE_VALUE_ prefix, see table below.
+ *     INPUT VALUE:  value as provided via kv_store_set_value's "value" argument.
+ *     INPUT SIZE:   value size as provided via kv_store_set_value's "value_size" argument.
+ *     OUTPUT VALUE: value as returned by kv_store_{set,get}_value.
+ *     OUTPUT SIZE:  value size as returned by kv_store_get_value.
+ *
+ *  - Flag support depends on used backend.
+ *
+ *
+ **
+ *           flag
+ *       KV_STORE_VALUE_           INPUT                        OUTPUT
+ *             |                     |                            |
+ *     ----------------    ---------------------    --------------------------------
+ *    /                \  /                     \  /                                \
+ * #  VECTOR  REF  MERGE  INPUT_VALUE  INPUT_SIZE  OUTPUT_VALUE           OUTPUT_SIZE  NOTE
+ * ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+ * A    0      0     0    value ref    value size  value copy ref         value size
+ * B    0      0     1    value ref    value size  value copy ref         value size   merge flag has no effect: B == A
+ * C    0      1     0    value ref    value size  value ref              value size
+ * D    0      1     1    value ref    value size  value ref              value size   merge flag has no effect: D == C
+ * E    1      0     0    iovec ref    iovec size  iovec deep copy ref    iovec size
+ * F    1      0     1    iovec ref    iovec size  value merger ref       value size   iovec members merged into single value
+ * G    1      1     0    iovec ref    iovec size  iovec ref              iovec size
+ * H    1      1     1    iovec ref    iovec size  value merger iovec ref iovec size   iovec members merged into single value, iovec has refs to merged value parts
  *
  * Returns:
  *   The value that has been set.
  */
 void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
-			 void *value, size_t value_size, int copy,
+			 void *value, size_t value_size, uint32_t flags,
 			 kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
-
-/*
- * Sets key-value pair, value components given by vector:
- *   - Final key is composed of key_prefix and key.
- *   - If copy is set, the vector items are merged together and copied as a single value which is then stored.
- *   - If the key existst already, dup_key_resolver with dup_key_resolver_arg argument is called for resolution.
- *
- * Returns:
- *   The value that has been set.
- */
-void *kv_store_set_value_from_vector(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
-				     struct iovec *iov, int iov_cnt, int copy,
-				     kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
-
 /*
  * Gets value for given key.
  *   - Final key is composed of key_prefix and key.
@@ -101,8 +115,8 @@ typedef struct kv_store_iter kv_store_iter_t;
 
 kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res);
 const char *kv_store_iter_current_key(kv_store_iter_t *iter);
-void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size);
-void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size);
+void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, uint32_t *flags);
+void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, uint32_t *flags);
 void kv_store_iter_reset(kv_store_iter_t *iter);
 void kv_store_iter_destroy(kv_store_iter_t *iter);
 
