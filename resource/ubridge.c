@@ -93,13 +93,14 @@
 #define KV_NS_MODULE_KEY_PREFIX "M" KV_STORE_KEY_JOIN
 #define KV_NS_GLOBAL_KEY_PREFIX "G" KV_STORE_KEY_JOIN
 
-#define KV_KEY_NULL_DEV       "0_0"
-#define KV_KEY_DEV_READY      "SID_RDY"
-#define KV_KEY_DEV_RESERVED   "SID_RES"
-#define KV_KEY_DEV_LAYER_UP   "SID_LUP"
-#define KV_KEY_DEV_LAYER_DOWN "SID_LDW"
-#define KV_KEY_DEV_MOD        "SID_MOD"
-#define KV_KEY_DEV_NEXT_MOD   SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
+#define KV_KEY_DEV_PREFIX_NULL "0_0"
+
+#define KV_KEY_DEV_READY       "SID_RDY"
+#define KV_KEY_DEV_RESERVED    "SID_RES"
+#define KV_KEY_DEV_LAYER_UP    "SID_LUP"
+#define KV_KEY_DEV_LAYER_DOWN  "SID_LDW"
+#define KV_KEY_DEV_MOD         "SID_MOD"
+#define KV_KEY_DEV_NEXT_MOD    SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
 
 #define CORE_MOD_NAME         "core"
 #define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
@@ -1395,7 +1396,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 
 		if (!strncmp(key, KV_NS_UDEV_KEY_PREFIX, strlen(KV_NS_UDEV_KEY_PREFIX))) {
 			/* Export to udev. */
-			if (strcmp(key + sizeof(KV_NS_UDEV_KEY_PREFIX) - 1, KV_KEY_NULL_DEV)) {
+			if (strcmp(key + sizeof(KV_NS_UDEV_KEY_PREFIX) - 1, KV_KEY_DEV_PREFIX_NULL)) {
 				buffer_add(cmd->result_buf, (void *) key, key_size - 1);
 				buffer_add(cmd->result_buf, KV_PAIR, 1);
 				data_offset = _get_kv_store_value_data_offset(kv_store_value);
