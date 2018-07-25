@@ -401,16 +401,16 @@ struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n)
  * THE FUNCTIONS BELOW ARE EXTRA TO ORIGINAL CODE TAKEN FROM LVM2 SOURCETREE AND ITS dm_hash_table IMPLEMENTATION.
  */
 
-int hash_update_binary(struct hash_table *t, const void *key, uint32_t len, void *data,
+int hash_update_binary(struct hash_table *t, const void *key, uint32_t len, void **data,
 		       hash_dup_key_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
 {
 	struct hash_node **c = _find(t, key, len);
 
 	if (*c) {
 		if (!dup_key_resolver || dup_key_resolver(key, len, (*c)->data, data, dup_key_resolver_arg))
-			(*c)->data = data;
+			(*c)->data = *data;
 		return 0;
 	}
 
-	return _do_hash_insert_binary(t, c, key, len, data);
+	return _do_hash_insert_binary(t, c, key, len, *data);
 }

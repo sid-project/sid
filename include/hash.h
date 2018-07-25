@@ -117,14 +117,14 @@ void *hash_lookup_with_count(struct hash_table *t, const char *key, int *count);
  * 	0 for hash table to keep old_data
  * 	1 for hash table to update old_data with new_data
  */
-typedef int (* hash_dup_key_resolver_t) (const void *key, uint32_t key_len, void *old_data, void *new_data, void *arg);
+typedef int (* hash_dup_key_resolver_t) (const void *key, uint32_t key_len, void *old_data, void **new_data, void *arg);
 
 /*
  * hash_update_binary:
  *   - If key is not in the hash table, it creates a new node the same way as hash_insert_binary.
  *   - If key is in the hash table, it calls dup_key_resolver and based on its return value, it either keeps old data or updates with new data.
  */
-int hash_update_binary(struct hash_table *t, const void *key, uint32_t len, void *data,
+int hash_update_binary(struct hash_table *t, const void *key, uint32_t len, void **data,
 		       hash_dup_key_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
 
 #ifdef __cplusplus

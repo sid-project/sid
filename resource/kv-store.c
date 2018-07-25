@@ -123,13 +123,13 @@ static void _destroy_kv_store_item(struct kv_store_item *item)
 	free(item);
 }
 
-static int _hash_dup_key_resolver(const char *key, uint32_t key_len, struct kv_store_item *old, struct kv_store_item *new,
+static int _hash_dup_key_resolver(const char *key, uint32_t key_len, struct kv_store_item *old, struct kv_store_item **new,
 				  struct dup_key_resolver_arg *arg)
 {
 	struct kv_store_item *item_to_free;
 	int r;
 
-	item_to_free = (r = arg->dup_key_resolver(arg->key_prefix, arg->key, _get_data(old), _get_data(new), arg->dup_key_resolver_arg)) ? old : new;
+	item_to_free = (r = arg->dup_key_resolver(arg->key_prefix, arg->key, _get_data(old), _get_data(*new), arg->dup_key_resolver_arg)) ? old : *new;
 	_destroy_kv_store_item(item_to_free);
 
 	arg->written = r;
@@ -289,7 +289,7 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 	if (!(item = _create_kv_store_item(iov, iov_cnt, flags, op_flags)))
 		return NULL;
 
-	if (hash_update_binary(kv_store->ht, full_key, strlen(full_key) + 1, item,
+	if (hash_update_binary(kv_store->ht, full_key, strlen(full_key) + 1, (void **) &item,
 			       (hash_dup_key_resolver_t) _hash_dup_key_resolver, &hash_dup_key_resolver_arg)) {
 		errno = EIO;
 		return NULL;
