@@ -215,7 +215,7 @@ struct version {
 	uint16_t release;
 } __attribute__((packed));
 
-struct device {
+struct udevice {
 	udev_action_t action;
 	int major;
 	int minor;
@@ -233,7 +233,7 @@ struct sid_ubridge_cmd_context {
 	};
 	uint16_t status;
 	sid_event_source *es;
-	struct device dev;
+	struct udevice udev_dev;
 	sid_resource_t *kv_store_res;
 	sid_resource_t *mod_res; /* the module that is processed at the moment */
 	struct buffer *result_buf;
@@ -287,37 +287,37 @@ static struct command_reg _cmd_ident_phase_regs[];
 
 udev_action_t sid_ubridge_cmd_dev_get_action(struct sid_ubridge_cmd_context *cmd)
 {
-	return cmd->dev.action;
+	return cmd->udev_dev.action;
 }
 
 int sid_ubridge_cmd_cmd_dev_get_major(struct sid_ubridge_cmd_context *cmd)
 {
-	return cmd->dev.major;
+	return cmd->udev_dev.major;
 }
 
 int sid_ubridge_cmd_cmd_dev_get_minor(struct sid_ubridge_cmd_context *cmd)
 {
-	return cmd->dev.minor;
+	return cmd->udev_dev.minor;
 }
 
 const char *sid_ubridge_cmd_dev_get_name(struct sid_ubridge_cmd_context *cmd)
 {
-	return cmd->dev.name;
+	return cmd->udev_dev.name;
 }
 
 const char *sid_ubridge_cmd_dev_get_type(struct sid_ubridge_cmd_context *cmd)
 {
-	return cmd->dev.type;
+	return cmd->udev_dev.type;
 }
 
 uint64_t sid_ubridge_cmd_dev_get_seqnum(struct sid_ubridge_cmd_context *cmd)
 {
-	return cmd->dev.seqnum;
+	return cmd->udev_dev.seqnum;
 }
 
 const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *cmd)
 {
-	return cmd->dev.synth_uuid;
+	return cmd->udev_dev.synth_uuid;
 }
 
 static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char *mod_name, int major, int minor,
@@ -443,13 +443,13 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	    !_passes_global_reservation_check(cmd->kv_store_res, mod_name, ns, key, buf, sizeof(buf)))
 		return NULL;
 
-	if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->dev.major, cmd->dev.minor, buf, sizeof(buf)))) {
+	if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
 		errno = ENOKEY;
 		return NULL;
 	}
 
-	iov[0].iov_base = &cmd->dev.seqnum;
-	iov[0].iov_len = sizeof(cmd->dev.seqnum);
+	iov[0].iov_base = &cmd->udev_dev.seqnum;
+	iov[0].iov_len = sizeof(cmd->udev_dev.seqnum);
 
 	iov[1].iov_base = &flags;
 	iov[1].iov_len = sizeof(flags);
@@ -510,7 +510,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
 
-	if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->dev.major, cmd->dev.minor, buf, sizeof(buf)))) {
+	if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
 		errno = ENOKEY;
 		return NULL;
 	}
@@ -741,21 +741,21 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 	if (!(value = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, key, 0, value, strlen(value) + 1)))
 		goto bad;
 
-	/* Common key=value pairs are also directly in the cmd->dev structure. */
+	/* Common key=value pairs are also directly in the cmd->udev_dev structure. */
 	if (!strncmp(key, UDEV_KEY_ACTION, key_len))
-		cmd->dev.action = util_get_udev_action_from_string(value);
+		cmd->udev_dev.action = util_get_udev_action_from_string(value);
 	else if (!strncmp(key, UDEV_KEY_DEVNAME, key_len))
-		cmd->dev.name = value;
+		cmd->udev_dev.name = value;
 	else if (!strncmp(key, UDEV_KEY_DEVTYPE, key_len))
-		cmd->dev.type = value;
+		cmd->udev_dev.type = value;
 	else if (!strncmp(key, UDEV_KEY_MAJOR, key_len))
-		cmd->dev.major = atoi(value);
+		cmd->udev_dev.major = atoi(value);
 	else if (!strncmp(key, UDEV_KEY_MINOR, key_len))
-		cmd->dev.minor = atoi(value);
+		cmd->udev_dev.minor = atoi(value);
 	else if (!strncmp(key, UDEV_KEY_SEQNUM, key_len))
-		cmd->dev.seqnum = strtoull(value, NULL, 10);
+		cmd->udev_dev.seqnum = strtoull(value, NULL, 10);
 	else if (!strncmp(key, UDEV_KEY_SYNTH_UUID, key_len))
-		cmd->dev.synth_uuid = value;
+		cmd->udev_dev.synth_uuid = value;
 
 	key[key_len] = KV_PAIR[0];
 
@@ -783,8 +783,8 @@ static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct
 	memcpy(&devno, raw_cmd->header->data, sizeof(devno));
 	raw_udev_env_len -= sizeof(devno);
 
-	cmd->dev.major = major(devno);
-	cmd->dev.minor = minor(devno);
+	cmd->udev_dev.major = major(devno);
+	cmd->udev_dev.minor = minor(devno);
 
 	/*
 	 * We have this on input:
@@ -873,7 +873,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 			continue;
 
 		/* is it the major we're looking for? */
-		if (major == cmd->dev.major) {
+		if (major == cmd->udev_dev.major) {
 			found = end + 1;
 			break;
 		}
@@ -881,7 +881,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 
 	if (!found) {
 		log_error(ID(cmd_res), "Unable to find major number %d for device %s in %s.",
-			  cmd->dev.major, cmd->dev.name, PROC_DEVICES_PATH);
+			  cmd->udev_dev.major, cmd->udev_dev.name, PROC_DEVICES_PATH);
 		goto out;
 	}
 
@@ -905,7 +905,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	_canonicalize_module_name(buf);
 
 	if (!(mod_name = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_MOD, DEFAULT_CORE_KV_FLAGS, buf, strlen(buf) + 1)))
-		log_error_errno(ID(cmd_res), errno, "Failed to store device %s (%d:%d) module name.", cmd->dev.name, cmd->dev.major, cmd->dev.minor);
+		log_error_errno(ID(cmd_res), errno, "Failed to store device %s (%d:%d) module name.", cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 out:
 	if (f)
 		fclose(f);
@@ -1164,7 +1164,7 @@ static int _set_up_udev_monitor(struct command_exec_args *exec_args)
 		goto fail;
 	}
 
-	snprintf(umonitor->tag, sizeof(umonitor->tag), "sid_%" PRIu64, cmd->dev.seqnum);
+	snprintf(umonitor->tag, sizeof(umonitor->tag), "sid_%" PRIu64, cmd->udev_dev.seqnum);
 
 	if (udev_monitor_filter_add_match_tag(umonitor->monitor, umonitor->tag) < 0) {
 		log_error(ID(exec_args->cmd_res), "Failed to create tag filter.");
