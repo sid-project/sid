@@ -29,6 +29,8 @@
 
 #define KV_STORE_NAME "kv-store"
 
+#define KV_STORE_VALUE_INT_MERGED UINT32_C(0x00000001)
+
 const sid_resource_reg_t sid_resource_reg_kv_store_hash;
 
 struct kv_store {
@@ -37,7 +39,8 @@ struct kv_store {
 
 struct kv_store_item {
 	size_t size;
-	uint32_t flags;
+	uint32_t int_flags;
+	uint32_t ext_flags;
 	union {
 		void *data_p;
 		char data[0];
@@ -73,7 +76,51 @@ static const char *_get_full_key(char *buf, size_t buf_size, const char *key_pre
 
 static void *_get_data(struct kv_store_item *item)
 {
-	return item->flags & KV_STORE_VALUE_REF ? item->data_p : item->data;
+	return item->ext_flags & KV_STORE_VALUE_REF ? item->data_p : item->data;
+}
+
+static void _destroy_kv_store_item(struct kv_store_item *item)
+{
+	struct iovec *iov;
+	size_t i;
+
+	/* Take extra care of situations where we store reference to a value. */
+	if (item->ext_flags & KV_STORE_VALUE_REF) {
+		if (item->ext_flags & KV_STORE_VALUE_VECTOR) {
+			/* vector value */
+			iov = item->data_p;
+
+			if (item->int_flags & KV_STORE_VALUE_INT_MERGED)
+				/* vector value has been merged */
+				free(iov[0].iov_base);
+
+			if (item->ext_flags & KV_STORE_VALUE_AUTOFREE)
+				free(item->data_p);
+			else {
+				/*
+				 * If not autofreeing, at least zero out the vector content
+				 * so it doesn't point to non-existent records.
+				 */
+				for (i = 0; i < item->size; i++) {
+					iov[0].iov_base = NULL;
+					iov[0].iov_len = 0;
+				}
+			}
+		} else {
+			/* single value */
+			if (item->ext_flags & KV_STORE_VALUE_AUTOFREE)
+				/* autofree requested */
+				free(item->data_p);
+		}
+	}
+
+	/*
+	 * If the value stored is not a reference, it's stored as copy and
+	 * part of item->data[] field allocated together with the item itself.
+	 * Then it's freed just by calling free(item).
+	 */
+
+	free(item);
 }
 
 static int _hash_dup_key_resolver(const char *key, uint32_t key_len, struct kv_store_item *old, struct kv_store_item *new,
@@ -83,18 +130,17 @@ static int _hash_dup_key_resolver(const char *key, uint32_t key_len, struct kv_s
 	int r;
 
 	item_to_free = (r = arg->dup_key_resolver(arg->key_prefix, arg->key, _get_data(old), _get_data(new), arg->dup_key_resolver_arg)) ? old : new;
-	free(item_to_free);
+	_destroy_kv_store_item(item_to_free);
 
 	arg->written = r;
 	return r;
 }
 
 /*
- *           flag
- *       KV_STORE_VALUE_           INPUT                        OUTPUT
- *             |                     |                            |
- *     ----------------    ---------------------    --------------------------------
- *    /                \  /                     \  /                                \
+ *       FLAG     OP_FLAG         INPUT                        OUTPUT
+ *         |         |              |                            |
+ *     ---------    ---    ---------------------    -------------------------------
+ *    /         \  /   \  /                     \  /                               \
  * #  VECTOR  REF  MERGE  INPUT_VALUE  INPUT_SIZE  OUTPUT_VALUE           OUTPUT_SIZE  NOTE
  * ---------------------------------------------------------------------------------------------------------------------------------------------------------------
  * A    0      0     0    value ref    value size  value copy ref         value size
@@ -106,7 +152,7 @@ static int _hash_dup_key_resolver(const char *key, uint32_t key_len, struct kv_s
  * G    1      1     0    iovec ref    iovec size  iovec ref              iovec size
  * H    1      1     1    iovec ref    iovec size  value merger iovec ref iovec size   iovec members merged into single value, iovec has refs to merged value parts
  */
-static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cnt, uint32_t flags)
+static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cnt, uint32_t flags, uint64_t op_flags)
 {
 	struct kv_store_item *item;
 	size_t data_size;
@@ -121,7 +167,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 				return NULL;
 			}
 
-			if (flags & KV_STORE_VALUE_MERGE) {
+			if (op_flags & KV_STORE_VALUE_OP_MERGE) {
 				/* H */
 				for (i = 0, data_size = 0; i < iov_cnt; i++)
 					data_size += iov[i].iov_len;
@@ -140,6 +186,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 
 				item->data_p = iov;
 				item->size = iov_cnt;
+				item->int_flags = KV_STORE_VALUE_INT_MERGED;
 			} else {
 				/* G */
 				item->data_p = iov;
@@ -149,7 +196,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 			for (i = 0, data_size = 0; i < iov_cnt; i++)
 				data_size += iov[i].iov_len;
 
-			if (flags & KV_STORE_VALUE_MERGE) {
+			if (flags & KV_STORE_VALUE_OP_MERGE) {
 				/* F */
 				if (!(item = malloc(sizeof(*item) + data_size))) {
 					errno = ENOMEM;
@@ -163,6 +210,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 
 				item->size = data_size;
 				flags &= ~KV_STORE_VALUE_VECTOR;
+				item->int_flags = KV_STORE_VALUE_INT_MERGED;
 			} else {
 				/* E */
 				if (!(item = malloc(sizeof(*item) + iov_cnt * sizeof(struct iovec) + data_size))) {
@@ -181,6 +229,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 				}
 
 				item->size = iov_cnt;
+				item->int_flags = KV_STORE_VALUE_INT_MERGED;
 			}
 		}
 	} else {
@@ -203,12 +252,12 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 		item->size = iov[0].iov_len;
 	}
 
-	item->flags = flags;
+	item->ext_flags = flags;
 	return item;
 }
 
 void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
-			 void *value, size_t value_size, uint32_t flags,
+			 void *value, size_t value_size, uint32_t flags, uint64_t op_flags,
 			 kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
 {
 	struct dup_key_resolver_arg hash_dup_key_resolver_arg = {.key_prefix = key_prefix,
@@ -237,7 +286,7 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 		iov_cnt = 1;
 	}
 
-	if (!(item = _create_kv_store_item(iov, iov_cnt, flags)))
+	if (!(item = _create_kv_store_item(iov, iov_cnt, flags, op_flags)))
 		return NULL;
 
 	if (hash_update_binary(kv_store->ht, full_key, strlen(full_key) + 1, item,
@@ -274,7 +323,7 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 	if (value_size)
 		*value_size = found->size;
 
-	return found->flags & KV_STORE_VALUE_REF ? found->data_p : found->data;
+	return found->ext_flags & KV_STORE_VALUE_REF ? found->data_p : found->data;
 }
 
 int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
@@ -299,14 +348,12 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 		return -1;
 	}
 
-	if (unset_resolver && !unset_resolver(key_prefix, key, found->flags & KV_STORE_VALUE_REF ? found->data_p : found->data, NULL, unset_resolver_arg)) {
+	if (unset_resolver && !unset_resolver(key_prefix, key, found->ext_flags & KV_STORE_VALUE_REF ? found->data_p : found->data, NULL, unset_resolver_arg)) {
 		errno = EADV;
 		return -1;
 	}
 
-	if (!(found->flags & KV_STORE_VALUE_REF))
-		free(found);
-
+	_destroy_kv_store_item(found);
 	hash_remove(kv_store->ht, full_key);
 
 	return 0;
@@ -336,7 +383,7 @@ void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, uint32_t *flags
 		*size = item->size;
 
 	if (flags)
-		*flags = item->flags;
+		*flags = item->ext_flags;
 
 	return item->data;
 }
@@ -394,7 +441,7 @@ static int _destroy_kv_store(sid_resource_t *kv_store_res)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 
-	hash_iter(kv_store->ht, (hash_iterate_fn) free);
+	hash_iter(kv_store->ht, (hash_iterate_fn) _destroy_kv_store_item);
 	hash_destroy(kv_store->ht);
 	free(kv_store);
 

@@ -34,9 +34,11 @@ typedef enum {
 	KV_STORE_BACKEND_HASH,
 } kv_store_backend_t;
 
-#define KV_STORE_VALUE_VECTOR UINT32_C(0x00000001)
-#define KV_STORE_VALUE_REF    UINT32_C(0x00000002)
-#define KV_STORE_VALUE_MERGE  UINT32_C(0x00000004)
+#define KV_STORE_VALUE_VECTOR    UINT32_C(0x00000001)
+#define KV_STORE_VALUE_REF       UINT32_C(0x00000002)
+#define KV_STORE_VALUE_AUTOFREE  UINT32_C(0x00000004)
+
+#define KV_STORE_VALUE_OP_MERGE  UINT32_C(0x00000001)
 
 struct kv_store_hash_backend_params {
 	size_t initial_size;
@@ -68,13 +70,10 @@ typedef int (*kv_resolver_t) (const char *key_prefix, const char *key, void *old
  *
  *  - Flag support depends on used backend.
  *
- *
- **
- *           flag
- *       KV_STORE_VALUE_           INPUT                        OUTPUT
- *             |                     |                            |
- *     ----------------    ---------------------    --------------------------------
- *    /                \  /                     \  /                                \
+ *       FLAG     OP_FLAG         INPUT                        OUTPUT
+ *         |         |              |                            |
+ *     ---------    ---    ---------------------    -------------------------------
+ *    /         \  /   \  /                     \  /                               \
  * #  VECTOR  REF  MERGE  INPUT_VALUE  INPUT_SIZE  OUTPUT_VALUE           OUTPUT_SIZE  NOTE
  * ---------------------------------------------------------------------------------------------------------------------------------------------------------------
  * A    0      0     0    value ref    value size  value copy ref         value size
@@ -90,7 +89,7 @@ typedef int (*kv_resolver_t) (const char *key_prefix, const char *key, void *old
  *   The value that has been set.
  */
 void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
-			 void *value, size_t value_size, uint32_t flags,
+			 void *value, size_t value_size, uint32_t flags, uint64_t op_flags,
 			 kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
 /*
  * Gets value for given key.

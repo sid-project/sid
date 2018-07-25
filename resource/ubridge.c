@@ -465,7 +465,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	conflict_arg.ret_code = 0;
 
 	kv_store_value = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, 4,
-					    KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_MERGE,
+					    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
 					    (kv_resolver_t) _kv_overwrite, &conflict_arg);
 
 	if (!kv_store_value) {
@@ -614,7 +614,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		iov[2].iov_len = strlen(mod_name) + 1;
 
 		kv_store_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, 3,
-						    KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_MERGE,
+						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
 						    (kv_resolver_t) _kv_reserve, &conflict_arg);
 
 		if (!kv_store_value) {
@@ -1661,7 +1661,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key,
 					     (kv_resolver_t) _master_kv_store_unset, &conflict_arg);
 		else
-			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 1,
+			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 0, 0,
 					   (kv_resolver_t) _master_kv_store_update, &conflict_arg);
 	}
 
