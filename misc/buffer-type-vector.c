@@ -67,9 +67,13 @@ int _buffer_vector_destroy(struct buffer *buf)
 static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
 {
 	char *p;
+	size_t align;
 
 	if (!force && buf->allocated >= needed)
 		return 0;
+
+	if ((align = (needed % buf->alloc_step)))
+		needed += buf->alloc_step - align;
 
 	if (!(p = realloc(buf->mem, needed * VECTOR_ITEM_SIZE)))
 		return -errno;

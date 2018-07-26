@@ -27,7 +27,7 @@ static const struct buffer_type *_buffer_type_registry[] =
 	[BUFFER_TYPE_VECTOR] = &buffer_type_vector
 };
 
-struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t initial_size)
+struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t initial_size, size_t alloc_step)
 {
 	struct buffer *buf;
 
@@ -36,6 +36,7 @@ struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t init
 
 	buf->type = type;
 	buf->mode = mode;
+	buf->alloc_step = alloc_step;
 
 	if (_buffer_type_registry[type]->create(buf, initial_size) < 0)
 		goto fail;
@@ -52,8 +53,9 @@ void buffer_destroy(struct buffer *buf)
 	free(buf);
 }
 
-int buffer_reset(struct buffer *buf, size_t initial_size)
+int buffer_reset(struct buffer *buf, size_t initial_size, size_t alloc_step)
 {
+	buf->alloc_step = alloc_step;
 	return _buffer_type_registry[buf->type]->reset(buf, initial_size);
 }
 

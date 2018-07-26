@@ -47,9 +47,16 @@ static int _buffer_linear_destroy(struct buffer *buf)
 static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 {
 	char *p;
+	size_t align;
 
 	if (!force && buf->allocated >= needed)
 		return 0;
+
+	if (!buf->alloc_step)
+		return -ENOMEM;
+
+	if ((align = (needed % buf->alloc_step)))
+		needed += buf->alloc_step - align;
 
 	if (!(p = realloc(buf->mem, needed)))
 		return -errno;

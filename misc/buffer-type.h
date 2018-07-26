@@ -29,12 +29,13 @@ struct buffer{
 	buffer_type_t type;
         buffer_mode_t mode;
 	void *mem;
+	size_t alloc_step;
         size_t allocated;          /* bytes allocated */
         size_t used;               /* bytes used */
 };
 
 struct buffer_type {
-	int (*create) (struct buffer *buf, size_t initial_size);	
+	int (*create) (struct buffer *buf, size_t initial_size);
 	int (*destroy) (struct buffer *buf);
 	int (*reset) (struct buffer *buf, size_t initial_size);
 	int (*add) (struct buffer *buf, void *data, size_t len);

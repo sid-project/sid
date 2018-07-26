@@ -1523,7 +1523,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		return -1;
 	}
 
-	if (!(cmd->result_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 0))) {
+	if (!(cmd->result_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {
 		log_error(ID(res), "Failed to create response buffer.");
 		goto fail;
 	}
@@ -1582,7 +1582,7 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 	sid_resource_iter_destroy(iter);
 
 	(void) sid_resource_destroy_event_source(worker_res, &worker->conn_es);
-	(void) buffer_reset(worker->buf, 0);
+	(void) buffer_reset(worker->buf, 0, 1);
 
 	/*
 	 *  FIXME: Either send INTERNAL_COMMS_CMD_IDLE or EXIT based on configuration,
@@ -1743,7 +1743,7 @@ static int _on_worker_conn_event(sid_event_source *es, int fd, uint32_t revents,
 			if (!sid_resource_create(worker_res, &sid_resource_reg_ubridge_command, 0, id, &raw_cmd))
 				log_error(ID(worker_res), "Failed to register command for processing.");
 
-			(void) buffer_reset(worker->buf, 0);
+			(void) buffer_reset(worker->buf, 0, 1);
 		}
 	} else {
 		if (n < 0) {
@@ -1952,7 +1952,7 @@ static int _init_worker(sid_resource_t *res, const void *kickstart_data, void **
 		goto fail;
 	}
 
-	if (!(worker->buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0))) {
+	if (!(worker->buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {
 		log_error(ID(res), "Failed to create buffer for connection.");
 		goto fail;
 	}
