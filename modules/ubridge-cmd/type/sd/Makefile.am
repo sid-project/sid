@@ -17,4 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = dummy_type device_mapper md sd
+sddir = $(pkglibdir)/modules/ubridge-cmd/type
+sd_LTLIBRARIES = sd.la
+sd_la_SOURCES = sd.c
+sd_la_LDFLAGS = -module -avoid-version
+sd_la_LIBADD = $(top_builddir)/log/libsidlog.la
