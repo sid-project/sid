@@ -402,15 +402,18 @@ struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n)
  */
 
 int hash_update_binary(struct hash_table *t, const void *key, uint32_t len, void **data,
-		       hash_dup_key_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
+		       hash_update_fn_t hash_update_fn, void *hash_update_fn_arg)
 {
 	struct hash_node **c = _find(t, key, len);
 
 	if (*c) {
-		if (!dup_key_resolver || dup_key_resolver(key, len, (*c)->data, data, dup_key_resolver_arg))
-			(*c)->data = *data;
+		if (!hash_update_fn || hash_update_fn(key, len, (*c)->data, data, hash_update_fn_arg))
+			(*c)->data = data ? *data : NULL;
 		return 0;
+	} else {
+		if (!hash_update_fn || hash_update_fn(key, len, NULL, data, hash_update_fn_arg))
+			return _do_hash_insert_binary(t, c, key, len, *data);
 	}
 
-	return _do_hash_insert_binary(t, c, key, len, *data);
+	return 0;
 }

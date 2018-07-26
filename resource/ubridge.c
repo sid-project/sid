@@ -352,6 +352,9 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 {
 	const char *reason;
 
+	if (!old)
+		return 1;
+
 	if (old->flags & KV_MOD_PRIVATE) {
 		if (strcmp(old->data, new->data)) {
 			reason = "private";
@@ -467,7 +470,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 
 	kv_store_value = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, 4,
 					    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-					    (kv_resolver_t) _kv_overwrite, &conflict_arg);
+					    (kv_store_update_fn_t) _kv_overwrite, &conflict_arg);
 
 	if (!kv_store_value) {
 		if (errno == EADV)
@@ -543,6 +546,9 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 
 static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
 {
+	if (!old)
+		return 1;
+
 	if (strcmp(old->data, new->data)) {
 		log_debug(ID(arg->res), "Module %s can't reserve key %s%s%s which is already reserved by %s module.",
 			  new->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, *old->data ? old->data : "core");
@@ -555,6 +561,9 @@ static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_
 
 static int _kv_unreserve(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
 {
+	if (!old)
+		return 1;
+
 	if (strcmp(old->data, arg->mod_name)) {
 		log_debug(ID(arg->res), "Module %s can't unreserve key %s%s%s which is reserved by %s module.",
 			  arg->mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, *old->data ? old->data : "core");
@@ -599,7 +608,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 
 	if (unset && !is_worker) {
 		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key,
-				     (kv_resolver_t) _kv_unreserve, &conflict_arg);
+				     (kv_store_update_fn_t) _kv_unreserve, &conflict_arg);
 
 		if (errno == EADV)
 			errno = conflict_arg.ret_code;
@@ -616,7 +625,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 
 		kv_store_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, 3,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-						    (kv_resolver_t) _kv_reserve, &conflict_arg);
+						    (kv_store_update_fn_t) _kv_reserve, &conflict_arg);
 
 		if (!kv_store_value) {
 			if (errno == EADV)
@@ -1582,6 +1591,9 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 
 static int _master_kv_store_unset(const char *key_prefix, const char *key, struct kv_store_value *old, void *null_value, struct kv_conflict_arg *arg)
 {
+	if (!old)
+		return 1;
+
 	if (_flags_indicate_mod_owned(old->flags) && strcmp(old->data, arg->mod_name)) {
 		log_debug(ID(arg->res), "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
 					"which belongs to module %s.",  arg->mod_name, key, old->seqnum, old->data);
@@ -1594,6 +1606,9 @@ static int _master_kv_store_unset(const char *key_prefix, const char *key, struc
 
 static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
 {
+	if (!old)
+		return 1;
+
 	if (new->seqnum >= old->seqnum) {
 		if (_kv_overwrite(key_prefix, key, old, new, arg)) {
 			log_debug(ID(arg->res), "Updating value for key %s%s%s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
@@ -1660,10 +1675,10 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 
 		if (unset)
 			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key,
-					     (kv_resolver_t) _master_kv_store_unset, &conflict_arg);
+					     (kv_store_update_fn_t) _master_kv_store_unset, &conflict_arg);
 		else
 			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 0, 0,
-					   (kv_resolver_t) _master_kv_store_update, &conflict_arg);
+					   (kv_store_update_fn_t) _master_kv_store_update, &conflict_arg);
 	}
 
 	if (munmap(shm, msg_size) < 0) {

@@ -47,11 +47,11 @@ struct kv_store_item {
 	};
 };
 
-struct dup_key_resolver_arg {
+struct kv_update_fn_relay {
 	const char *key_prefix;
 	const char *key;
-	kv_resolver_t dup_key_resolver;
-	void *dup_key_resolver_arg;
+	kv_store_update_fn_t kv_update_fn;
+	void *kv_update_fn_arg;
 	int written;
 };
 
@@ -76,6 +76,9 @@ static const char *_get_full_key(char *buf, size_t buf_size, const char *key_pre
 
 static void *_get_data(struct kv_store_item *item)
 {
+	if (!item)
+		return NULL;
+
 	return item->ext_flags & KV_STORE_VALUE_REF ? item->data_p : item->data;
 }
 
@@ -123,16 +126,19 @@ static void _destroy_kv_store_item(struct kv_store_item *item)
 	free(item);
 }
 
-static int _hash_dup_key_resolver(const char *key, uint32_t key_len, struct kv_store_item *old, struct kv_store_item **new,
-				  struct dup_key_resolver_arg *arg)
+static int _hash_update_fn(const char *key, uint32_t key_len, struct kv_store_item *old, struct kv_store_item **new,
+				  struct kv_update_fn_relay *relay)
 {
-	struct kv_store_item *item_to_free;
-	int r;
+	struct kv_store_item *item_to_free = NULL;
+	int r = 1;
 
-	item_to_free = (r = arg->dup_key_resolver(arg->key_prefix, arg->key, _get_data(old), _get_data(*new), arg->dup_key_resolver_arg)) ? old : *new;
-	_destroy_kv_store_item(item_to_free);
+	if (relay->kv_update_fn)
+		item_to_free = (r = relay->kv_update_fn(relay->key_prefix, relay->key, _get_data(old), _get_data(*new), relay->kv_update_fn_arg)) ? old : *new;
 
-	arg->written = r;
+	if (item_to_free)
+		_destroy_kv_store_item(item_to_free);
+
+	relay->written = r;
 	return r;
 }
 
@@ -258,13 +264,13 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 
 void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
 			 void *value, size_t value_size, uint32_t flags, uint64_t op_flags,
-			 kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg)
+			 kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg)
 {
-	struct dup_key_resolver_arg hash_dup_key_resolver_arg = {.key_prefix = key_prefix,
-								 .key = key,
-								 .dup_key_resolver = dup_key_resolver,
-								 .dup_key_resolver_arg = dup_key_resolver_arg,
-								 .written = 1};
+	struct kv_update_fn_relay relay = {.key_prefix = key_prefix,
+					   .key = key,
+					   .kv_update_fn = kv_update_fn,
+					   .kv_update_fn_arg = kv_update_fn_arg,
+					   .written = 1};
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];
 	const char *full_key;
@@ -290,12 +296,12 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 		return NULL;
 
 	if (hash_update_binary(kv_store->ht, full_key, strlen(full_key) + 1, (void **) &item,
-			       (hash_dup_key_resolver_t) _hash_dup_key_resolver, &hash_dup_key_resolver_arg)) {
+			       (hash_update_fn_t) _hash_update_fn, &relay)) {
 		errno = EIO;
 		return NULL;
 	}
 
-	if (hash_dup_key_resolver_arg.written != 1) {
+	if (relay.written != 1) {
 		errno = EADV;
 		return NULL;
 	}
@@ -327,7 +333,7 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 }
 
 int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
-			 kv_resolver_t unset_resolver, void *unset_resolver_arg)
+			 kv_store_update_fn_t unset_callback, void *unset_callback_arg)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];
@@ -348,7 +354,7 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 		return -1;
 	}
 
-	if (unset_resolver && !unset_resolver(key_prefix, key, found->ext_flags & KV_STORE_VALUE_REF ? found->data_p : found->data, NULL, unset_resolver_arg)) {
+	if (unset_callback && !unset_callback(key_prefix, key, found->ext_flags & KV_STORE_VALUE_REF ? found->data_p : found->data, NULL, unset_callback_arg)) {
 		errno = EADV;
 		return -1;
 	}

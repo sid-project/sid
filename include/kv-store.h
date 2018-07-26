@@ -56,12 +56,12 @@ struct sid_kv_store_resource_params {
  *   0 to keep old_data
  *   1 to update old_data with new_data
  */
-typedef int (*kv_resolver_t) (const char *key_prefix, const char *key, void *old_value, void *new_value, void *arg);
+typedef int (*kv_store_update_fn_t) (const char *key_prefix, const char *key, void *old_value, void *new_value, void *arg);
 
 /*
  * Sets key-value pair:
  *   - Final key is composed of key_prefix and key.
- *   - If the key exists already, dup_key_resolver with dup_key_resolver_arg argument is called for resolution.
+ *   - kv_update_fn callback with kv_update_fn_arg is called before updating the value.
  *   - Value and size depend on flags with KV_STORE_VALUE_ prefix, see table below.
  *     INPUT VALUE:  value as provided via kv_store_set_value's "value" argument.
  *     INPUT SIZE:   value size as provided via kv_store_set_value's "value_size" argument.
@@ -90,7 +90,7 @@ typedef int (*kv_resolver_t) (const char *key_prefix, const char *key, void *old
  */
 void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
 			 void *value, size_t value_size, uint32_t flags, uint64_t op_flags,
-			 kv_resolver_t dup_key_resolver, void *dup_key_resolver_arg);
+			 kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg);
 /*
  * Gets value for given key.
  *   - Final key is composed of key_prefix and key.
@@ -108,7 +108,7 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, c
  *   -1 if value not unset
  */
 int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
-			 kv_resolver_t unset_resolver, void *unset_resolver_arg);
+			 kv_store_update_fn_t unset_callback, void *unset_callback_arg);
 
 typedef struct kv_store_iter kv_store_iter_t;
 
