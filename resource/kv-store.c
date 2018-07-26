@@ -173,6 +173,8 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 
 				for (i = 0, p2 = p1; i < iov_cnt; i++) {
 					memcpy(p2, iov[i].iov_base, iov[i].iov_len);
+					if (flags & KV_STORE_VALUE_AUTOFREE)
+						free(iov[i].iov_base);
 					iov[i].iov_base = p2;
 					p2 += iov[i].iov_len;
 				}
