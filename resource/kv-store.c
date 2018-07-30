@@ -353,7 +353,7 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 		return NULL;
 	}
 
-	return item->data;
+	return _get_data(item);
 }
 
 void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key, size_t *value_size)
@@ -376,7 +376,7 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 	if (value_size)
 		*value_size = found->size;
 
-	return found->ext_flags & KV_STORE_VALUE_REF ? found->data_p : found->data;
+	return _get_data(found);
 }
 
 int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
