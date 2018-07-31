@@ -56,7 +56,10 @@ struct sid_kv_store_resource_params {
  *   0 to keep old_data
  *   1 to update old_data with new_data
  */
-typedef int (*kv_store_update_fn_t) (const char *key_prefix, const char *key, void *old_value, void *new_value, void *arg);
+typedef int (*kv_store_update_fn_t) (const char *key_prefix, const char *key,
+				     void *old_value, size_t old_value_size,
+				     void *new_value, size_t new_value_size,
+				     void *arg);
 
 /*
  * Sets key-value pair:

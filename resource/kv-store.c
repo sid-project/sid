@@ -133,7 +133,10 @@ static int _hash_update_fn(const char *key, uint32_t key_len, struct kv_store_it
 	int r = 1;
 
 	if (relay->kv_update_fn)
-		item_to_free = (r = relay->kv_update_fn(relay->key_prefix, relay->key, _get_data(old), _get_data(*new), relay->kv_update_fn_arg)) ? old : *new;
+		item_to_free = (r = relay->kv_update_fn(relay->key_prefix, relay->key,
+							_get_data(old), old ? old->size : 0,
+							_get_data(*new), (*new)->size,
+							relay->kv_update_fn_arg)) ? old : *new;
 
 	if (item_to_free)
 		_destroy_kv_store_item(item_to_free);
@@ -354,7 +357,7 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 		return -1;
 	}
 
-	if (unset_callback && !unset_callback(key_prefix, key, found->ext_flags & KV_STORE_VALUE_REF ? found->data_p : found->data, NULL, unset_callback_arg)) {
+	if (unset_callback && !unset_callback(key_prefix, key, _get_data(found), found->size, NULL, 0, unset_callback_arg)) {
 		errno = EADV;
 		return -1;
 	}
