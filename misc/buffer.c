@@ -20,6 +20,7 @@
 #include "buffer.h"
 #include "buffer-type.h"
 #include "mem.h"
+#include <errno.h>
 
 static const struct buffer_type *_buffer_type_registry[] =
 {
@@ -61,6 +62,9 @@ int buffer_reset(struct buffer *buf, size_t initial_size, size_t alloc_step)
 
 int buffer_add(struct buffer *buf, void *data, size_t len)
 {
+	if (!data || !len)
+		return -EINVAL;
+
 	return _buffer_type_registry[buf->type]->add(buf, data, len);
 }
 
