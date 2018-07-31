@@ -155,7 +155,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		if (flags & KV_STORE_VALUE_REF) {
-			if (!(item = malloc(sizeof(*item)))) {
+			if (!(item = zalloc(sizeof(*item)))) {
 				errno = ENOMEM;
 				return NULL;
 			}
@@ -193,7 +193,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 
 			if (flags & KV_STORE_VALUE_OP_MERGE) {
 				/* F */
-				if (!(item = malloc(sizeof(*item) + data_size))) {
+				if (!(item = zalloc(sizeof(*item) + data_size))) {
 					errno = ENOMEM;
 					return NULL;
 				}
@@ -208,7 +208,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 				item->int_flags = KV_STORE_VALUE_INT_MERGED;
 			} else {
 				/* E */
-				if (!(item = malloc(sizeof(*item) + iov_cnt * sizeof(struct iovec) + data_size))) {
+				if (!(item = zalloc(sizeof(*item) + iov_cnt * sizeof(struct iovec) + data_size))) {
 					errno = ENOMEM;
 					return NULL;
 				}
@@ -230,14 +230,14 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 	} else {
 		if (flags & KV_STORE_VALUE_REF) {
 			/* C,D */
-			if (!(item = malloc(sizeof(*item)))) {
+			if (!(item = zalloc(sizeof(*item)))) {
 				errno = ENOMEM;
 				return NULL;
 			}
 			item->data_p = iov[0].iov_base;
 		} else {
 			/* A,B */
-			if (!(item = malloc(sizeof(*item) + iov[0].iov_len))) {
+			if (!(item = zalloc(sizeof(*item) + iov[0].iov_len))) {
 				errno = ENOMEM;
 				return NULL;
 			}
