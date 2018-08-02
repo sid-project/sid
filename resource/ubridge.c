@@ -348,7 +348,10 @@ struct kv_conflict_arg {
 	int ret_code;	      /* out */
 };
 
-static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
+static int _kv_overwrite(const char *key_prefix, const char *key,
+			 struct kv_store_value *old, size_t old_value_size,
+			 struct kv_store_value **new, size_t *new_value_size,
+			 struct kv_conflict_arg *arg)
 {
 	const char *reason;
 
@@ -356,21 +359,21 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 		return 1;
 
 	if (old->flags & KV_MOD_PRIVATE) {
-		if (strcmp(old->data, new->data)) {
+		if (strcmp(old->data, (*new)->data)) {
 			reason = "private";
 			arg->ret_code = EACCES;
 			goto keep_old;
 		}
 	}
 	else if (old->flags & KV_MOD_PROTECTED) {
-		if (strcmp(old->data, new->data)) {
+		if (strcmp(old->data, (*new)->data)) {
 			reason = "protected";
 			arg->ret_code = EPERM;
 			goto keep_old;
 		}
 	}
 	else if (old->flags & KV_MOD_RESERVED) {
-		if (strcmp(old->data, new->data)) {
+		if (strcmp(old->data, (*new)->data)) {
 			reason = "reserved";
 			arg->ret_code = EBUSY;
 			goto keep_old;
@@ -381,7 +384,7 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 	return 1;
 keep_old:
 	log_debug(ID(arg->res), "Module %s can't overwrite value with key %s%s%s which is %s and attached to %s module.",
-		  new->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, reason, *old->data ? old->data : "core");
+		  (*new)->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, reason, *old->data ? old->data : "core");
 	return 0;
 }
 
@@ -544,14 +547,17 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		return NULL;
 }
 
-static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
+static int _kv_reserve(const char *key_prefix, const char *key,
+		       struct kv_store_value *old, size_t old_size,
+		       struct kv_store_value **new, size_t *new_size,
+		       struct kv_conflict_arg *arg)
 {
 	if (!old)
 		return 1;
 
-	if (strcmp(old->data, new->data)) {
+	if (strcmp(old->data, (*new)->data)) {
 		log_debug(ID(arg->res), "Module %s can't reserve key %s%s%s which is already reserved by %s module.",
-			  new->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, *old->data ? old->data : "core");
+			  (*new)->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, *old->data ? old->data : "core");
 		arg->ret_code = EBUSY;
 		return 0;
 	}
@@ -559,7 +565,11 @@ static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_
 	return 1;
 }
 
-static int _kv_unreserve(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
+static int _kv_unreserve(const char *key_prefix, const char *key,
+			 struct kv_store_value *old, size_t old_size,
+			 void **null_value __attribute__ ((unused)),
+			 size_t *null_size __attribute__ ((unused)),
+			 struct kv_conflict_arg *arg)
 {
 	if (!old)
 		return 1;
@@ -1589,7 +1599,11 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 	return 0;
 }
 
-static int _master_kv_store_unset(const char *key_prefix, const char *key, struct kv_store_value *old, void *null_value, struct kv_conflict_arg *arg)
+static int _master_kv_store_unset(const char *key_prefix, const char *key,
+				  struct kv_store_value *old, size_t old_size,
+				  void *null_value __attribute__ ((unused)),
+				  size_t *null_size __attribute__ ((unused)),
+				  struct kv_conflict_arg *arg)
 {
 	if (!old)
 		return 1;
@@ -1604,15 +1618,18 @@ static int _master_kv_store_unset(const char *key_prefix, const char *key, struc
 	return 1;
 }
 
-static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_value *old, struct kv_store_value *new, struct kv_conflict_arg *arg)
+static int _master_kv_store_update(const char *key_prefix, const char *key,
+				   struct kv_store_value *old, size_t old_size,
+				   struct kv_store_value **new, size_t *new_size,
+				   struct kv_conflict_arg *arg)
 {
 	if (!old)
 		return 1;
 
-	if (new->seqnum >= old->seqnum) {
-		if (_kv_overwrite(key_prefix, key, old, new, arg)) {
+	if ((*new)->seqnum >= old->seqnum) {
+		if (_kv_overwrite(key_prefix, key, old, old_size, new, new_size, arg)) {
 			log_debug(ID(arg->res), "Updating value for key %s%s%s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
-				  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, new->seqnum, old->seqnum);
+				  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, (*new)->seqnum, old->seqnum);
 			return 1;
 		}
 
@@ -1620,7 +1637,7 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 	}
 
 	log_debug(ID(arg->res), "Keeping old value for key %s%s%s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
-		  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, new->seqnum, old->seqnum);
+		  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, (*new)->seqnum, old->seqnum);
 	return 0;
 }
 

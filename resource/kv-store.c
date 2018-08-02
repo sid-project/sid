@@ -52,7 +52,7 @@ struct kv_update_fn_relay {
 	const char *key;
 	kv_store_update_fn_t kv_update_fn;
 	void *kv_update_fn_arg;
-	int written;
+	int updated;
 };
 
 struct kv_store_iter {
@@ -86,6 +86,9 @@ static void _destroy_kv_store_item(struct kv_store_item *item)
 {
 	struct iovec *iov;
 	size_t i;
+
+	if (!item)
+		return;
 
 	/* Take extra care of situations where we store reference to a value. */
 	if (item->ext_flags & KV_STORE_VALUE_REF) {
@@ -124,25 +127,6 @@ static void _destroy_kv_store_item(struct kv_store_item *item)
 	 */
 
 	free(item);
-}
-
-static int _hash_update_fn(const char *key, uint32_t key_len, struct kv_store_item *old, struct kv_store_item **new,
-				  struct kv_update_fn_relay *relay)
-{
-	struct kv_store_item *item_to_free = NULL;
-	int r = 1;
-
-	if (relay->kv_update_fn)
-		item_to_free = (r = relay->kv_update_fn(relay->key_prefix, relay->key,
-							_get_data(old), old ? old->size : 0,
-							_get_data(*new), (*new)->size,
-							relay->kv_update_fn_arg)) ? old : *new;
-
-	if (item_to_free)
-		_destroy_kv_store_item(item_to_free);
-
-	relay->written = r;
-	return r;
 }
 
 /*
@@ -265,6 +249,64 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 	return item;
 }
 
+static int _hash_update_fn(const char *key, uint32_t key_len, struct kv_store_item *old, struct kv_store_item **new,
+				  struct kv_update_fn_relay *relay)
+{
+	struct kv_store_item *orig_new_item;
+	void *orig_new_value, *new_value;
+	size_t orig_new_size, new_size;
+	struct iovec iov_internal;
+	int r = 1;
+
+	if (relay->kv_update_fn) {
+		orig_new_value = new_value = (new ? _get_data(*new) : NULL);
+		orig_new_size = new_size = (new ? (*new) ? (*new)->size : 0 : 0);
+
+		r = relay->kv_update_fn(relay->key_prefix, relay->key,
+					_get_data(old), old ? old->size : 0,
+					&new_value, &new_size,
+					relay->kv_update_fn_arg);
+
+		/* The kv_update_fn can modify/reallocate the new value, check if this is the case! */
+		if ((r > 0) && ((new_value != orig_new_value) || (new_size != orig_new_size))) {
+			/* new value has been modified/reallocated by kv_update_fn */
+			if ((*new)->ext_flags & KV_STORE_VALUE_REF) {
+				/*
+				 * If kv_store_item stores value as reference, we only need to rewrite
+				 * the data_p pointer and size, no need to recreate the whole kv_store_item.
+				 */
+				(*new)->data_p = new_value;
+				(*new)->size = new_size;
+			} else {
+				/*
+				 * If kv_store_item stores value directly, we need to recreate
+				 * the kv_store_item with new_value and new_size and copy across the flags.
+				 * Then, destroy the original new kv_store_item.
+				 */
+				orig_new_item = *new;
+				iov_internal.iov_base = new_value;
+				iov_internal.iov_len = new_size;
+				if (!(*new = _create_kv_store_item(&iov_internal, 1, orig_new_item->ext_flags, 0))) {
+					relay->updated = -1;
+					return 0;
+				}
+				_destroy_kv_store_item(orig_new_item);
+			}
+		}
+	}
+
+	if (r) {
+		if (old)
+			_destroy_kv_store_item(old);
+	} else {
+		_destroy_kv_store_item(*new);
+		*new = NULL;
+	}
+
+	relay->updated = r;
+	return r;
+}
+
 void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
 			 void *value, size_t value_size, uint32_t flags, uint64_t op_flags,
 			 kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg)
@@ -273,7 +315,7 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 					   .key = key,
 					   .kv_update_fn = kv_update_fn,
 					   .kv_update_fn_arg = kv_update_fn_arg,
-					   .written = 1};
+					   .updated = 0};
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];
 	const char *full_key;
@@ -304,7 +346,7 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 		return NULL;
 	}
 
-	if (relay.written != 1) {
+	if (relay.updated < 0) {
 		errno = EADV;
 		return NULL;
 	}
@@ -336,7 +378,7 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 }
 
 int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
-			 kv_store_update_fn_t unset_callback, void *unset_callback_arg)
+			 kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];
@@ -357,7 +399,7 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 		return -1;
 	}
 
-	if (unset_callback && !unset_callback(key_prefix, key, _get_data(found), found->size, NULL, 0, unset_callback_arg)) {
+	if (kv_unset_fn && !kv_unset_fn(key_prefix, key, _get_data(found), found->size, NULL, 0, kv_unset_fn_arg)) {
 		errno = EADV;
 		return -1;
 	}

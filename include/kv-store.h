@@ -58,7 +58,7 @@ struct sid_kv_store_resource_params {
  */
 typedef int (*kv_store_update_fn_t) (const char *key_prefix, const char *key,
 				     void *old_value, size_t old_value_size,
-				     void *new_value, size_t new_value_size,
+				     void **new_value, size_t *new_value_size,
 				     void *arg);
 
 /*
@@ -111,7 +111,7 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, c
  *   -1 if value not unset
  */
 int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
-			 kv_store_update_fn_t unset_callback, void *unset_callback_arg);
+			 kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg);
 
 typedef struct kv_store_iter kv_store_iter_t;
 
