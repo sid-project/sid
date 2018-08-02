@@ -274,6 +274,8 @@ static int _hash_update_fn(const char *key, uint32_t key_len, struct kv_store_it
 					relay->kv_update_fn_arg);
 
 		/* The kv_update_fn can modify/reallocate the new value, check if this is the case! */
+		// TODO: add better check for change
+		// TODO: make it possible to pass ext_flags and op_flags to kv_update_fn?
 		if ((r > 0) && ((new_value != orig_new_value) || (new_size != orig_new_size))) {
 			/* new value has been modified/reallocated by kv_update_fn */
 			if ((*new)->ext_flags & KV_STORE_VALUE_REF) {

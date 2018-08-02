@@ -30,6 +30,7 @@
 #include "util.h"
 
 #include <ctype.h>
+#include <dirent.h>
 #include <libudev.h>
 #include <limits.h>
 #include <signal.h>
@@ -95,12 +96,16 @@
 
 #define KV_KEY_DEV_PREFIX_NULL "0_0"
 
-#define KV_KEY_DEV_READY       "SID_RDY"
-#define KV_KEY_DEV_RESERVED    "SID_RES"
-#define KV_KEY_DEV_LAYER_UP    "SID_LUP"
-#define KV_KEY_DEV_LAYER_DOWN  "SID_LDW"
-#define KV_KEY_DEV_MOD         "SID_MOD"
-#define KV_KEY_DEV_NEXT_MOD    SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
+#define KV_KEY_DEV_READY                  "SID_RDY"
+#define KV_KEY_DEV_RESERVED               "SID_RES"
+#define KV_KEY_DEV_LAYER_UP               "SID_LUP"
+#define KV_KEY_DEV_LAYER_DOWN             "SID_LDW"
+#define KV_KEY_DEV_LAYER_UP_DELTA_PLUS    "SID_LUP+"
+#define KV_KEY_DEV_LAYER_UP_DELTA_MINUS   "SID_LUP-"
+#define KV_KEY_DEV_LAYER_DOWN_DELTA_PLUS  "SID_LDW+"
+#define KV_KEY_DEV_LAYER_DOWN_DELTA_MINUS "SID_LDW-"
+#define KV_KEY_DEV_MOD                    "SID_MOD"
+#define KV_KEY_DEV_NEXT_MOD               SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
 
 #define CORE_MOD_NAME         "core"
 #define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
@@ -281,6 +286,11 @@ struct kv_store_value {
 	char data[0];
 };
 
+struct delta_buffer {
+	struct buffer *plus;
+	struct buffer *minus;
+};
+
 #define CMD_IDENT_CAP_RDY UINT32_C(0x000000001) /* can set ready state */
 #define CMD_IDENT_CAP_RES UINT32_C(0x000000002) /* can set reserved state */
 
@@ -345,6 +355,7 @@ static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char
 struct kv_update_arg {
 	sid_resource_t *res;
 	const char *mod_name; /* in */
+	void *custom;	      /* in/out */
 	int ret_code;	      /* out */
 };
 
@@ -1216,6 +1227,293 @@ fail:
 	return -1;
 }
 
+static int _get_sysfs_value(sid_resource_t *res, const char *path, char *buf, size_t buf_size)
+{
+	FILE *fp;
+	size_t len;
+	int r = -1;
+
+	if (!(fp = fopen(path, "r"))) {
+		log_sys_error(ID(res), "fopen", path);
+		goto out;
+	}
+
+	if (!(fgets(buf, buf_size, fp))) {
+		log_sys_error(ID(res), "fgets", path);
+		goto out;
+	}
+
+	if ((len = strlen(buf)) && buf[len-1] == '\n')
+		buf[--len] = '\0';
+
+	if (!len)
+		log_error(ID(res), "No value found in %s.", path);
+	else
+		r = 0;
+out:
+	if (fp)
+		fclose(fp);
+
+	return r;
+}
+
+/*
+ * Compares sorted old vector with sorted new vector and writes output vectors:
+ *   - if the new vector has item the old vector doesn't have, add the item to delta plus vector and also add it to result vector
+ *   - if the old vector has item the new vector doesn't have, add the item to delta minus vector
+ *   - if both the old and the new vector has item, add the item to result vector
+ *
+ * Output vectors are also sorted.
+ */
+static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *key,
+					   struct iovec *old, size_t old_size,
+					   struct iovec **p_new, size_t *p_new_size,
+					   struct kv_update_arg *arg)
+{
+	struct iovec *new = *p_new;
+	size_t new_size = *p_new_size;
+	struct iovec *iov;
+	size_t size;
+	unsigned i, i_old, i_new;
+	int cmp_result;
+	struct delta_buffer *delta = arg->custom;
+
+	/*
+	 * Result vector is "iov".
+	 * Delta plus vector is "delta->plus".
+	 * Delta minus vector is "delta->minus".
+	 */
+
+	size = (old_size ? old_size - 3 : 0) + new_size;
+
+	if (!(iov = malloc(size * sizeof(struct iovec)))) {
+		arg->ret_code = ENOMEM;
+		return 0;
+	}
+
+	/* copy the header completely from new vector to result vector */
+	iov[0] = new[0]; /* seqnum */
+	iov[1] = new[1]; /* flags */
+	iov[2] = new[2]; /* mod_name */
+
+	if (!old_size)
+		old_size = 3;
+
+	if (!new_size)
+		new_size = 3;
+
+	/* start right beyond the header */
+	i = i_old = i_new = 3;
+
+	while (1) {
+		if ((i_old < old_size) && (i_new < new_size)) {
+			/* both vectors still still have items to handle */
+			cmp_result = strcmp(old[i_old].iov_base, new[i_new].iov_base);
+			if (cmp_result < 0) {
+				/* old vector has item the new one doesn't have: don't add it to iov but add it to delta->minus */
+				buffer_add(delta->minus, old[i_old].iov_base, old[i_old].iov_len);
+				i_old++;
+			} else if (cmp_result > 0) {
+				/* new one has the item the old one doesn't have: add it to iov and add it to delta->plus */
+				buffer_add(delta->plus, new[i_new].iov_base, new[i_new].iov_len);
+				iov[i] = new[i_new];
+				i_new++;
+				i++;
+			} else {
+				/* both old and new has the item - no change: add it to iov but don't add it to any delta */
+				iov[i] = new[i_new];
+				i_old++;
+				i_new++;
+				i++;
+			}
+			continue;
+		} else if (i_old == old_size) {
+			/* only new vector still has items to handle: add them to delta->plus and add them to iov */
+			while (i_new < new_size) {
+				buffer_add(delta->plus, new[i_new].iov_base, new[i_new].iov_len);
+				iov[i] = new[i_new];
+				i_new++;
+				i++;
+			}
+		} else if (i_new == new_size) {
+			/* only old vector still has items to handle: add them to delta->minus and don't add them to iov */
+			while (i_old < old_size) {
+				buffer_add(delta->minus, old[i_old].iov_base, old[i_old].iov_len);
+				i_old++;
+			}
+		}
+		/* no more items to process in both old and new vector: exit */
+		break;
+	}
+
+	*p_new_size = i;
+	*p_new = iov;
+
+	return 1;
+}
+
+static int _iov_str_item_cmp(const void *a, const void *b)
+{
+	const struct iovec *iovec_item_a = (struct iovec *) a;
+	const struct iovec *iovec_item_b = (struct iovec *) b;
+
+	return strcmp((const char *) iovec_item_a->iov_base, (const char *) iovec_item_b->iov_base);
+}
+
+struct layer_keys {
+	const char *sysfs;
+	const char *link;
+	const char *link_delta_plus;
+	const char *link_delta_minus;
+};
+
+static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, struct layer_keys keys)
+{
+	static uint64_t kv_flags = (DEFAULT_CORE_KV_FLAGS) & ~KV_PERSISTENT;
+	static uint64_t kv_flags_for_delta = DEFAULT_CORE_KV_FLAGS;
+	static char *core_mod_name = CORE_MOD_NAME;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	struct dirent **dirent = NULL;
+	char buf[PATH_MAX];
+	char devno_buf[16];
+	const char *s;
+	int count, i;
+	struct buffer *vec_buf = NULL;
+	struct delta_buffer delta_vec_buf = {NULL, NULL};
+	struct iovec *iov;
+	size_t iov_cnt;
+	struct kv_update_arg update_arg;
+	int r = -1;
+
+	if (snprintf(buf, sizeof(buf), "/sys/dev/block/%d:%d/%s", cmd->udev_dev.major, cmd->udev_dev.minor, keys.sysfs) < 0) {
+		log_error(ID(cmd_res), "Failed to compose sysfs %s path for device %s (%d:%d).",
+			  keys.sysfs, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		goto out;
+	}
+
+	if ((count = scandir(buf, &dirent, NULL, NULL)) < 0) {
+		log_sys_error(ID(cmd_res), "scandir", buf);
+		goto out;
+	}
+
+	/*
+	 * (count - 2 + 3) == (count + 1)
+	 * -2 to subtract "." and ".." directory which we're not interested in
+	 * +3 for "seqnum|flags|mod_name" header
+	 */
+	if (!(vec_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0))) {
+		log_error(ID(cmd_res), "Failed to create buffer to record hierarchy for device %s (%d:%d).",
+			     cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		goto out;
+	}
+
+	/* FIXME: We take "count + 1" here to accomodate the maximum possible change. But this is not necessary all the time. */
+	if (!(delta_vec_buf.plus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0)) ||
+	    !(delta_vec_buf.minus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0))) {
+		log_error(ID(cmd_res), "Failed to create delta buffer to record change in hierarchy for device %s (%d:%d).",
+			  cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		goto out;
+	}
+
+	/*
+	 * Set up headers: "seqnum | flags | mod_name".
+	 */
+
+	/* Header for final list. */
+	buffer_add(vec_buf, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
+	buffer_add(vec_buf, &kv_flags, sizeof(kv_flags));
+	buffer_add(vec_buf, core_mod_name, strlen(core_mod_name) + 1);
+
+	/* Header for delta plus list. */
+	buffer_add(delta_vec_buf.plus, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
+	buffer_add(delta_vec_buf.plus, &kv_flags_for_delta, sizeof(kv_flags_for_delta));
+	buffer_add(delta_vec_buf.plus, core_mod_name, strlen(core_mod_name) + 1);
+
+	/* Header for delta minus list. */
+	buffer_add(delta_vec_buf.minus, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
+	buffer_add(delta_vec_buf.minus, &kv_flags_for_delta, sizeof(kv_flags_for_delta));
+	buffer_add(delta_vec_buf.minus, core_mod_name, strlen(core_mod_name) + 1);
+
+	for (i = 0; i < count; i++) {
+		if (dirent[i]->d_name[0] == '.')
+			continue;
+
+		if (snprintf(buf, sizeof(buf), "/sys/block/%s/dev", dirent[i]->d_name) > 0) {
+			_get_sysfs_value(cmd_res, buf, devno_buf, sizeof(devno_buf));
+			s = strdup(devno_buf);
+			buffer_add(vec_buf, (void *) s, strlen(s) + 1);
+		} else
+			log_error(ID(cmd_res), "Failed to compose sysfs path for device %s that is holder of device  %s (%d:%d).",
+				  dirent[i]->d_name, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		free(dirent[i]);
+	}
+
+	if (!(s = _get_key_prefix(KV_NS_DEVICE, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
+		log_error(ID(cmd_res), "Failed to get key prefix to store hierarchy for device %s (%d:%d).",
+			  cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		goto out;
+	}
+
+	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
+	qsort(iov + 3, iov_cnt - 3, sizeof(struct iovec), _iov_str_item_cmp);
+
+	update_arg.res = cmd->kv_store_res;
+	update_arg.mod_name = core_mod_name;
+	update_arg.custom = &delta_vec_buf;
+	update_arg.ret_code = 0;
+
+	/* Store final list. */
+	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link, iov, iov_cnt,
+				 KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
+				 (kv_store_update_fn_t) _kv_sorted_id_set_delta_resolve, &update_arg);
+
+	/* Store delta plus. */
+	update_arg.ret_code = 0;
+	buffer_get_data(delta_vec_buf.plus, (const void **) (&iov), &iov_cnt);
+	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link_delta_plus, iov, iov_cnt,
+				 KV_STORE_VALUE_VECTOR, 0,
+				 (kv_store_update_fn_t) _kv_overwrite, &update_arg);
+
+	/* Store delta minus. */
+	update_arg.ret_code = 0;
+	buffer_get_data(delta_vec_buf.minus, (const void **) (&iov), &iov_cnt);
+	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link_delta_minus, iov, iov_cnt,
+				 KV_STORE_VALUE_VECTOR, 0,
+				 (kv_store_update_fn_t) _kv_overwrite, &update_arg);
+
+	r = 0;
+out:
+	if (dirent)
+		free(dirent);
+	if (vec_buf)
+		buffer_destroy(vec_buf);
+	if (delta_vec_buf.plus)
+		buffer_destroy(delta_vec_buf.plus);
+	if (delta_vec_buf.minus)
+		buffer_destroy(delta_vec_buf.minus);
+	return r;
+}
+
+static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
+{
+	if ((_do_refresh_device_hierarchy_from_sysfs(cmd_res, (struct layer_keys)
+								{
+									"holders",
+									KV_KEY_DEV_LAYER_UP,
+									KV_KEY_DEV_LAYER_UP_DELTA_PLUS,
+									KV_KEY_DEV_LAYER_UP_DELTA_MINUS
+								}) < 0) ||
+	    (_do_refresh_device_hierarchy_from_sysfs(cmd_res, (struct layer_keys)
+								{
+									"slaves",
+									KV_KEY_DEV_LAYER_DOWN,
+									KV_KEY_DEV_LAYER_DOWN_DELTA_PLUS,
+									KV_KEY_DEV_LAYER_DOWN_DELTA_MINUS
+								}) < 0));
+
+	return 0;
+}
+
 static int _set_device_kv_records(sid_resource_t *cmd_res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
@@ -1230,6 +1528,8 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, DEFAULT_CORE_KV_FLAGS, &ready, sizeof(ready));
 		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, DEFAULT_CORE_KV_FLAGS, &reserved, sizeof(reserved));
 	}
+
+	_refresh_device_hierarchy_from_sysfs(cmd_res);
 
 	return 0;
 }
@@ -1375,9 +1675,14 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	struct kv_store_value *kv_store_value;
 	kv_store_iter_t *iter;
 	const char *key;
-	size_t size, key_size, data_offset;
+	void *value;
+	size_t size, iov_size, key_size, data_offset;
+	uint32_t flags;
+	uint64_t *value_flags;
+	struct iovec *iov;
 	int export_fd = -1;
 	size_t bytes_written = 0;
+	unsigned i;
 	ssize_t r;
 
 	/*
@@ -1404,15 +1709,28 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	lseek(export_fd, sizeof(bytes_written), SEEK_SET);
 
 	// FIXME: maybe buffer first so there's only single write
-	while ((kv_store_value = kv_store_iter_next(iter, &size, NULL))) {
-		if (!(kv_store_value->flags & KV_PERSISTENT))
+	while ((value = kv_store_iter_next(iter, &size, &flags))) {
+		key = kv_store_iter_current_key(iter);
+
+		if (flags & KV_STORE_VALUE_VECTOR) {
+			iov = value;
+			iov_size = size;
+			kv_store_value = NULL;
+			value_flags = (uint64_t *) iov[1].iov_base;
+		} else {
+			iov = NULL;
+			kv_store_value = value;
+			value_flags = &kv_store_value->flags;
+		}
+
+		if (!(*value_flags & KV_PERSISTENT))
 			continue;
 
-		kv_store_value->flags &= ~KV_PERSISTENT;
+		*value_flags &= ~KV_PERSISTENT;
 
-		key = kv_store_iter_current_key(iter);
 		key_size = strlen(key) + 1;
 
+		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (!strncmp(key, KV_NS_UDEV_KEY_PREFIX, strlen(KV_NS_UDEV_KEY_PREFIX))) {
 			/* Export to udev. */
 			if (strcmp(key + sizeof(KV_NS_UDEV_KEY_PREFIX) - 1, KV_KEY_DEV_PREFIX_NULL)) {
@@ -1426,19 +1744,34 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 		} 
 
 		/*
- 		 * Export to master process.
+		 * Export keys with data to master process.
  		 *
 		 * Serialization format fields:
 		 *
 		 *  1) overall message size (size_t)
-		 *  2) key size             (size_t)
-		 *  3) data size            (size_t)
-		 *  4) key                  (key_size)
-		 *  5) data                 (data_size)
+		 *  2) flags                (uint32_t)
+		 *  3) key size             (size_t)
+		 *  4) data size            (size_t)
+		 *  5) key                  (key_size)
+		 *  6) data                 (data_size)
 		 *
-		 *  Repeat 2) - 5) as long as there are items to send.
+		 * If "data" is a vector, then "data size" denotes vector
+		 * item count and "data" is split into these fields repeated
+		 * for each vector item:
+		 *
+		 *  6a) vector item size
+		 *  6b) vector item data
+		 *
+		 * Repeat 2) - 7) as long as there are keys to send.
 		 */
-		// TODO: Clean up this code!
+
+		/* FIXME: Try to reduce the "write" calls. */
+		if ((r = write(export_fd, &flags, sizeof(flags))) == sizeof(flags))
+			bytes_written += r;
+		else
+			goto bad;
+
+
 		if ((r = write(export_fd, &key_size, sizeof(key_size))) == sizeof(key_size))
 			bytes_written += r;
 		else
@@ -1454,10 +1787,28 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 		else
 			goto bad;
 
-		if ((r = write(export_fd, kv_store_value, size)) == size)
-			bytes_written += r;
-		else
-			goto bad;
+		if (flags & KV_STORE_VALUE_VECTOR) {
+			for (i = 0, size = 0; i < iov_size; i++) {
+				size += iov[i].iov_len;
+
+				if ((r = write(export_fd, &iov[i].iov_len, sizeof(iov->iov_len))) == sizeof(iov->iov_len))
+					bytes_written += r;
+				else
+					goto bad;
+
+				if ((r = write(export_fd, iov[i].iov_base, iov[i].iov_len)) == iov[i].iov_len)
+					bytes_written += r;
+				else
+					goto bad;
+			}
+		} else {
+			if ((r = write(export_fd, kv_store_value, size)) == size)
+				bytes_written += r;
+			else
+				goto bad;
+		}
+
+
 	}
 
 	lseek(export_fd, 0, SEEK_SET);
@@ -1644,66 +1995,109 @@ static int _master_kv_store_update(const char *key_prefix, const char *key,
 static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 {
 	struct ubridge *ubridge = sid_resource_get_data(sid_resource_get_parent(observer_res));
-
-	size_t msg_size, key_size, data_size, data_offset;
-	char *key, *shm, *p, *end;
-	struct kv_store_value *data;
+	uint32_t flags;
+	size_t msg_size, key_size, data_size, data_offset, i;
+	char *key, *shm = NULL, *p, *end;
+	struct kv_store_value *data = NULL;
+	struct iovec *iov = NULL;
+	uint64_t value_flags;
 	struct kv_update_arg update_arg;
 	int unset;
+	int r = -1;
 
 	if (read(fd, &msg_size, sizeof(msg_size)) != sizeof(msg_size)) {
 		log_error_errno(ID(observer_res), errno, "Failed to read shared memory size");
-		return -1;
+		goto out;
 	}
 
 	if ((p = shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
 		log_error_errno(ID(observer_res), errno, "Failed to map memory with key-value store");
-		return -1;
+		goto out;
 	}
 
 	p += sizeof(msg_size);
 	end = p + msg_size;
 
 	while (p < end) {
+		flags = *((uint32_t *) p);
+		p+= sizeof(flags);
+
 		key_size = *((size_t *) p);
 		p += sizeof(key_size);
+
 		data_size = *((size_t *) p);
 		p += sizeof(data_size);
+
 		key = p;
 		p += key_size;
-		data = (struct kv_store_value *) p;
-		p += data_size;
 
-		data_offset = _get_kv_store_value_data_offset(data);
 		/*
 		 * Note: if we're reserving a value, then we keep it even if it's NULL.
 		 * This prevents others to use the same key. To unset the value,
 		 * one needs to drop the flag explicitly.
 		 */
-		unset = ((data->flags != KV_MOD_RESERVED) &&
-			 ((data_size - data_offset) == (sizeof(struct kv_store_value) + _get_kv_store_value_data_offset(data))));
 
-		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
-			  unset ? "NULL" : data_offset ? data->data + data_offset : data->data, data->seqnum);
+		if (flags & KV_STORE_VALUE_VECTOR) {
+			if (!(iov = malloc(data_size * sizeof(struct iovec)))) {
+				log_error(ID(observer_res), "Failed to allocate vector to sync master key-value store.");
+				goto out;
+			}
 
-		update_arg.res = ubridge->main_kv_store_res;
-		update_arg.mod_name = data->data;
-		update_arg.ret_code = 0;
+			for (i = 0; i < data_size; i++) {
+				iov[i].iov_len = *((size_t *) p);
+				p += sizeof(size_t);
+				iov[i].iov_base = p;
+				p += iov[i].iov_len;
+			}
 
-		if (unset)
-			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key,
-					     (kv_store_update_fn_t) _master_kv_store_unset, &update_arg);
-		else
-			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 0, 0,
-					   (kv_store_update_fn_t) _master_kv_store_update, &update_arg);
+			data_offset = 3;
+			value_flags = *((uint64_t *) iov[1].iov_base);
+			unset = (value_flags != KV_MOD_RESERVED) && (data_size == data_offset);
+
+			update_arg.mod_name = iov[2].iov_base;
+			update_arg.res = ubridge->main_kv_store_res;
+			update_arg.ret_code = 0;
+
+			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
+				  unset ? "NULL" : "[vector]", *((uint64_t *) iov[0].iov_base));
+
+		} else {
+			data = (struct kv_store_value *) p;
+			p += data_size;
+
+			data_offset = _get_kv_store_value_data_offset(data);
+			unset = ((data->flags != KV_MOD_RESERVED) &&
+				 ((data_size - data_offset) == (sizeof(struct kv_store_value) + data_offset)));
+
+			update_arg.mod_name = data->data;
+			update_arg.res = ubridge->main_kv_store_res;
+			update_arg.ret_code = 0;
+
+			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
+				  unset ? "NULL" : data_offset ? data->data + data_offset : data->data, data->seqnum);
+
+			if (unset)
+				kv_store_unset_value(ubridge->main_kv_store_res, NULL, key,
+						     (kv_store_update_fn_t) _master_kv_store_unset, &update_arg);
+			else
+				kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 0, 0,
+						   (kv_store_update_fn_t) _master_kv_store_update, &update_arg);
+		}
+
+
 	}
 
-	if (munmap(shm, msg_size) < 0) {
+	r = 0;
+out:
+	if (iov)
+		free(iov);
+
+	if (shm && munmap(shm, msg_size) < 0) {
 		log_error_errno(ID(observer_res), errno, "Failed to unmap memory with key-value store");
-		return -1;
+		r = -1;
 	}
 
-	return 0;
+	return r;
 }
 
 static int _on_worker_conn_event(sid_event_source *es, int fd, uint32_t revents, void *data)
@@ -2164,7 +2558,11 @@ static int _reserve_core_kvs(struct ubridge *ubridge)
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, 0) < 0 ||
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP, 0) < 0 ||
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN, 0) < 0 ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_MOD, 0))
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_MOD, 0) ||
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP_DELTA_PLUS, 0) ||
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP_DELTA_MINUS, 0) ||
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN_DELTA_PLUS, 0) ||
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN_DELTA_MINUS, 0))
 		return -1;
 
 	return 0;
