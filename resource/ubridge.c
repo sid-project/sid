@@ -342,7 +342,7 @@ static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char
 	return buf;
 }
 
-struct kv_conflict_arg {
+struct kv_update_arg {
 	sid_resource_t *res;
 	const char *mod_name; /* in */
 	int ret_code;	      /* out */
@@ -351,7 +351,7 @@ struct kv_conflict_arg {
 static int _kv_overwrite(const char *key_prefix, const char *key,
 			 struct kv_store_value *old, size_t old_value_size,
 			 struct kv_store_value **new, size_t *new_value_size,
-			 struct kv_conflict_arg *arg)
+			 struct kv_update_arg *arg)
 {
 	const char *reason;
 
@@ -430,7 +430,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	const char *mod_name;
 	struct iovec iov[4];
 	struct kv_store_value *kv_store_value;
-	struct kv_conflict_arg conflict_arg;
+	struct kv_update_arg update_arg;
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
 
@@ -467,17 +467,17 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	iov[3].iov_base = (void *) value;
 	iov[3].iov_len = value ? value_size : 0;
 
-	conflict_arg.res = cmd->kv_store_res;
-	conflict_arg.mod_name = mod_name;
-	conflict_arg.ret_code = 0;
+	update_arg.res = cmd->kv_store_res;
+	update_arg.mod_name = mod_name;
+	update_arg.ret_code = 0;
 
 	kv_store_value = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, 4,
 					    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-					    (kv_store_update_fn_t) _kv_overwrite, &conflict_arg);
+					    (kv_store_update_fn_t) _kv_overwrite, &update_arg);
 
 	if (!kv_store_value) {
 		if (errno == EADV)
-			errno = conflict_arg.ret_code;
+			errno = update_arg.ret_code;
 		return NULL;
 	}
 
@@ -550,7 +550,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 static int _kv_reserve(const char *key_prefix, const char *key,
 		       struct kv_store_value *old, size_t old_size,
 		       struct kv_store_value **new, size_t *new_size,
-		       struct kv_conflict_arg *arg)
+		       struct kv_update_arg *arg)
 {
 	if (!old)
 		return 1;
@@ -569,7 +569,7 @@ static int _kv_unreserve(const char *key_prefix, const char *key,
 			 struct kv_store_value *old, size_t old_size,
 			 void **null_value __attribute__ ((unused)),
 			 size_t *null_size __attribute__ ((unused)),
-			 struct kv_conflict_arg *arg)
+			 struct kv_update_arg *arg)
 {
 	if (!old)
 		return 1;
@@ -594,7 +594,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	struct kv_store_value *kv_store_value;
 	static uint64_t null_int = 0;
 	uint64_t flags = unset ? 0 : KV_MOD_RESERVED;
-	struct kv_conflict_arg conflict_arg;
+	struct kv_update_arg update_arg;
 	int is_worker;
 
 	mod_name = mod ? sid_module_get_name(mod) : CORE_MOD_NAME;
@@ -609,19 +609,19 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		return -1;
 	}
 
-	conflict_arg.res = cmd_mod->kv_store_res;
-	conflict_arg.mod_name = mod_name;
-	conflict_arg.ret_code = 0;
+	update_arg.res = cmd_mod->kv_store_res;
+	update_arg.mod_name = mod_name;
+	update_arg.ret_code = 0;
 
 	if ((is_worker = sid_resource_is_registered_by(sid_resource_get_top_level(cmd_mod->kv_store_res), &sid_resource_reg_ubridge_worker)))
 		flags |= KV_PERSISTENT;
 
 	if (unset && !is_worker) {
 		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key,
-				     (kv_store_update_fn_t) _kv_unreserve, &conflict_arg);
+				     (kv_store_update_fn_t) _kv_unreserve, &update_arg);
 
 		if (errno == EADV)
-			errno = conflict_arg.ret_code;
+			errno = update_arg.ret_code;
 		return -1;
 	} else {
 		iov[0].iov_base = &null_int;
@@ -635,11 +635,11 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 
 		kv_store_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, 3,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-						    (kv_store_update_fn_t) _kv_reserve, &conflict_arg);
+						    (kv_store_update_fn_t) _kv_reserve, &update_arg);
 
 		if (!kv_store_value) {
 			if (errno == EADV)
-				errno = conflict_arg.ret_code;
+				errno = update_arg.ret_code;
 			return -1;
 		}
 	}
@@ -1603,7 +1603,7 @@ static int _master_kv_store_unset(const char *key_prefix, const char *key,
 				  struct kv_store_value *old, size_t old_size,
 				  void *null_value __attribute__ ((unused)),
 				  size_t *null_size __attribute__ ((unused)),
-				  struct kv_conflict_arg *arg)
+				  struct kv_update_arg *arg)
 {
 	if (!old)
 		return 1;
@@ -1621,7 +1621,7 @@ static int _master_kv_store_unset(const char *key_prefix, const char *key,
 static int _master_kv_store_update(const char *key_prefix, const char *key,
 				   struct kv_store_value *old, size_t old_size,
 				   struct kv_store_value **new, size_t *new_size,
-				   struct kv_conflict_arg *arg)
+				   struct kv_update_arg *arg)
 {
 	if (!old)
 		return 1;
@@ -1648,7 +1648,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	size_t msg_size, key_size, data_size, data_offset;
 	char *key, *shm, *p, *end;
 	struct kv_store_value *data;
-	struct kv_conflict_arg conflict_arg;
+	struct kv_update_arg update_arg;
 	int unset;
 
 	if (read(fd, &msg_size, sizeof(msg_size)) != sizeof(msg_size)) {
@@ -1686,16 +1686,16 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 		log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
 			  unset ? "NULL" : data_offset ? data->data + data_offset : data->data, data->seqnum);
 
-		conflict_arg.res = ubridge->main_kv_store_res;
-		conflict_arg.mod_name = data->data;
-		conflict_arg.ret_code = 0;
+		update_arg.res = ubridge->main_kv_store_res;
+		update_arg.mod_name = data->data;
+		update_arg.ret_code = 0;
 
 		if (unset)
 			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key,
-					     (kv_store_update_fn_t) _master_kv_store_unset, &conflict_arg);
+					     (kv_store_update_fn_t) _master_kv_store_unset, &update_arg);
 		else
 			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 0, 0,
-					   (kv_store_update_fn_t) _master_kv_store_update, &conflict_arg);
+					   (kv_store_update_fn_t) _master_kv_store_update, &update_arg);
 	}
 
 	if (munmap(shm, msg_size) < 0) {
