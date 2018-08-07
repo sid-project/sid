@@ -191,7 +191,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 			for (i = 0, data_size = 0; i < iov_cnt; i++)
 				data_size += iov[i].iov_len;
 
-			if (flags & KV_STORE_VALUE_OP_MERGE) {
+			if (op_flags & KV_STORE_VALUE_OP_MERGE) {
 				/* F */
 				if (!(item = zalloc(sizeof(*item) + data_size))) {
 					errno = ENOMEM;
