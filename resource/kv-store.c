@@ -438,7 +438,7 @@ void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, uint32_t *flags
 	if (flags)
 		*flags = item->ext_flags;
 
-	return item->data;
+	return (item->ext_flags & KV_STORE_VALUE_REF) ? item->data_p : item->data;
 }
 
 const char *kv_store_iter_current_key(kv_store_iter_t *iter)
