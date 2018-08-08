@@ -360,9 +360,9 @@ struct kv_update_arg {
 };
 
 static int _kv_overwrite(const char *key_prefix, const char *key,
-			 struct kv_store_value *old, size_t old_value_size,
-			 struct kv_store_value **new, size_t *new_value_size,
-			 struct kv_update_arg *arg)
+			 struct kv_store_value *old, size_t old_value_size, uint32_t old_flags,
+			 struct kv_store_value **new, size_t *new_value_size, uint32_t *new_flags,
+			 uint64_t *op_flags, struct kv_update_arg *arg)
 {
 	const char *reason;
 
@@ -559,9 +559,9 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 }
 
 static int _kv_reserve(const char *key_prefix, const char *key,
-		       struct kv_store_value *old, size_t old_size,
-		       struct kv_store_value **new, size_t *new_size,
-		       struct kv_update_arg *arg)
+		       struct kv_store_value *old, size_t old_size, uint32_t old_flags,
+		       struct kv_store_value **new, size_t *new_size, uint32_t *new_flags,
+		       uint64_t *op_flags, struct kv_update_arg *arg)
 {
 	if (!old)
 		return 1;
@@ -577,9 +577,11 @@ static int _kv_reserve(const char *key_prefix, const char *key,
 }
 
 static int _kv_unreserve(const char *key_prefix, const char *key,
-			 struct kv_store_value *old, size_t old_size,
+			 struct kv_store_value *old, size_t old_size, uint32_t old_flags,
 			 void **null_value __attribute__ ((unused)),
 			 size_t *null_size __attribute__ ((unused)),
+			 uint32_t *null_flags __attribute__ ((unused)),
+			 uint64_t *null_op_flags __attribute__ ((unused)),
 			 struct kv_update_arg *arg)
 {
 	if (!old)
@@ -1266,9 +1268,9 @@ out:
  * Output vectors are also sorted.
  */
 static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *key,
-					   struct iovec *old, size_t old_size,
-					   struct iovec **p_new, size_t *p_new_size,
-					   struct kv_update_arg *arg)
+					   struct iovec *old, size_t old_size, uint32_t old_flags,
+					   struct iovec **p_new, size_t *p_new_size, uint32_t *new_flags,
+					   uint64_t *op_flags, struct kv_update_arg *arg)
 {
 	struct iovec *new = *p_new;
 	size_t new_size = *p_new_size;
@@ -1951,10 +1953,11 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 }
 
 static int _master_kv_store_unset(const char *key_prefix, const char *key,
-				  struct kv_store_value *old, size_t old_size,
+				  struct kv_store_value *old, size_t old_size, uint32_t old_flags,
 				  void *null_value __attribute__ ((unused)),
 				  size_t *null_size __attribute__ ((unused)),
-				  struct kv_update_arg *arg)
+				  uint32_t *null_flags __attribute__ ((unused)),
+				  uint64_t *op_flags, struct kv_update_arg *arg)
 {
 	if (!old)
 		return 1;
@@ -1970,15 +1973,15 @@ static int _master_kv_store_unset(const char *key_prefix, const char *key,
 }
 
 static int _master_kv_store_update(const char *key_prefix, const char *key,
-				   struct kv_store_value *old, size_t old_size,
-				   struct kv_store_value **new, size_t *new_size,
-				   struct kv_update_arg *arg)
+				   struct kv_store_value *old, size_t old_size, uint32_t old_flags,
+				   struct kv_store_value **new, size_t *new_size, uint32_t *new_flags,
+				   uint64_t *op_flags, struct kv_update_arg *arg)
 {
 	if (!old)
 		return 1;
 
 	if ((*new)->seqnum >= old->seqnum) {
-		if (_kv_overwrite(key_prefix, key, old, old_size, new, new_size, arg)) {
+		if (_kv_overwrite(key_prefix, key, old, old_size, old_flags, new, new_size, new_flags, op_flags, arg)) {
 			log_debug(ID(arg->res), "Updating value for key %s%s%s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
 				  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, (*new)->seqnum, old->seqnum);
 			return 1;

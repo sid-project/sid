@@ -262,16 +262,20 @@ static int _hash_update_fn(const char *key, uint32_t key_len, struct kv_store_it
 	void *orig_new_value, *new_value;
 	size_t orig_new_size, new_size;
 	struct iovec iov_internal;
+	uint32_t new_ext_flags;
+	uint64_t op_flags = 0;
 	int r = 1;
 
 	if (relay->kv_update_fn) {
 		orig_new_value = new_value = (new ? _get_data(*new) : NULL);
 		orig_new_size = new_size = (new ? (*new) ? (*new)->size : 0 : 0);
 
+		new_ext_flags = old ? old->ext_flags : 0;
+
 		r = relay->kv_update_fn(relay->key_prefix, relay->key,
-					_get_data(old), old ? old->size : 0,
-					&new_value, &new_size,
-					relay->kv_update_fn_arg);
+					_get_data(old), old ? old->size : 0, old ? old->ext_flags : 0,
+					&new_value, &new_size, &new_ext_flags,
+					&op_flags, relay->kv_update_fn_arg);
 
 		/* The kv_update_fn can modify/reallocate the new value, check if this is the case! */
 		// TODO: add better check for change
@@ -407,7 +411,10 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 		return -1;
 	}
 
-	if (kv_unset_fn && !kv_unset_fn(key_prefix, key, _get_data(found), found->size, NULL, 0, kv_unset_fn_arg)) {
+	if (kv_unset_fn && !kv_unset_fn(key_prefix, key,
+					_get_data(found), found->size, found->ext_flags,
+					NULL, 0, NULL, NULL,
+					kv_unset_fn_arg)) {
 		errno = EADV;
 		return -1;
 	}
