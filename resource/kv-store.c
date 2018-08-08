@@ -29,7 +29,7 @@
 
 #define KV_STORE_NAME "kv-store"
 
-#define KV_STORE_VALUE_INT_MERGED UINT32_C(0x00000001)
+#define KV_STORE_VALUE_INT_ALLOC UINT32_C(0x00000001)
 
 const sid_resource_reg_t sid_resource_reg_kv_store_hash;
 
@@ -93,29 +93,31 @@ static void _destroy_kv_store_item(struct kv_store_item *item)
 	/* Take extra care of situations where we store reference to a value. */
 	if (item->ext_flags & KV_STORE_VALUE_REF) {
 		if (item->ext_flags & KV_STORE_VALUE_VECTOR) {
-			/* vector value */
 			iov = item->data_p;
 
-			if (item->int_flags & KV_STORE_VALUE_INT_MERGED)
-				/* vector value has been merged */
+			if (item->int_flags & KV_STORE_VALUE_INT_ALLOC)
+				/* H */
 				free(iov[0].iov_base);
 
-			if (item->ext_flags & KV_STORE_VALUE_AUTOFREE)
+			if (item->ext_flags & KV_STORE_VALUE_AUTOFREE) {
+				/* G */
+				for (i = 0; i < item->size; i++)
+					free(iov[i].iov_base);
 				free(item->data_p);
-			else {
+			} else {
 				/*
 				 * If not autofreeing, at least zero out the vector content
 				 * so it doesn't point to non-existent records.
 				 */
+				/* H */
 				for (i = 0; i < item->size; i++) {
-					iov[0].iov_base = NULL;
-					iov[0].iov_len = 0;
+					iov[i].iov_base = NULL;
+					iov[i].iov_len = 0;
 				}
 			}
 		} else {
-			/* single value */
+			/* C, D */
 			if (item->ext_flags & KV_STORE_VALUE_AUTOFREE)
-				/* autofree requested */
 				free(item->data_p);
 		}
 	}
@@ -126,6 +128,7 @@ static void _destroy_kv_store_item(struct kv_store_item *item)
 	 * Then it's freed just by calling free(item).
 	 */
 
+	/* A, B, C, D, E, F */
 	free(item);
 }
 
@@ -181,7 +184,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 
 				item->data_p = iov;
 				item->size = iov_cnt;
-				item->int_flags = KV_STORE_VALUE_INT_MERGED;
+				item->int_flags = KV_STORE_VALUE_INT_ALLOC;
 			} else {
 				/* G */
 				item->data_p = iov;
@@ -205,7 +208,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 
 				item->size = data_size;
 				flags &= ~KV_STORE_VALUE_VECTOR;
-				item->int_flags = KV_STORE_VALUE_INT_MERGED;
+				item->int_flags = KV_STORE_VALUE_INT_ALLOC;
 			} else {
 				/* E */
 				if (!(item = zalloc(sizeof(*item) + iov_cnt * sizeof(struct iovec) + data_size))) {
@@ -224,7 +227,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 				}
 
 				item->size = iov_cnt;
-				item->int_flags = KV_STORE_VALUE_INT_MERGED;
+				item->int_flags = KV_STORE_VALUE_INT_ALLOC;
 			}
 		}
 	} else {
@@ -242,6 +245,7 @@ static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cn
 				return NULL;
 			}
 			memcpy(item->data, iov[0].iov_base, iov[0].iov_len);
+			item->int_flags = KV_STORE_VALUE_INT_ALLOC;
 		}
 
 		item->size = iov[0].iov_len;
