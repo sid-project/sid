@@ -280,7 +280,7 @@ struct command_reg {
 	int (*execute) (struct command_exec_args *exec_arg);
 };
 
-struct kv_store_value {
+struct ubridge_kv_value {
 	uint64_t seqnum;
 	uint64_t flags;
 	char data[0];
@@ -360,8 +360,8 @@ struct kv_update_arg {
 };
 
 static int _kv_overwrite(const char *key_prefix, const char *key,
-			 struct kv_store_value *old, size_t old_value_size, kv_store_value_flags_t old_flags,
-			 struct kv_store_value **new, size_t *new_value_size, kv_store_value_flags_t *new_flags,
+			 struct ubridge_kv_value *old, size_t old_value_size, kv_store_value_flags_t old_flags,
+			 struct ubridge_kv_value **new, size_t *new_value_size, kv_store_value_flags_t *new_flags,
 			 kv_store_value_op_flags_t *op_flags, struct kv_update_arg *arg)
 {
 	const char *reason;
@@ -404,16 +404,16 @@ static int _flags_indicate_mod_owned(uint64_t flags)
 	return flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED);
 }
 
-static size_t _get_kv_store_value_data_offset(struct kv_store_value *kv_store_value)
+static size_t _get_ubridge_kv_value_data_offset(struct ubridge_kv_value *ubridge_kv_value)
 {
-	return strlen(kv_store_value->data) + 1;
+	return strlen(ubridge_kv_value->data) + 1;
 }
 
 static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const char *mod_name,
 					    sid_ubridge_cmd_kv_namespace_t ns, const char *key,
 					    char *buf, size_t buf_size)
 {
-	struct kv_store_value *found;
+	struct ubridge_kv_value *found;
 	const char *key_prefix;
 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
@@ -440,7 +440,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	const char *key_prefix;
 	const char *mod_name;
 	struct iovec iov[4];
-	struct kv_store_value *kv_store_value;
+	struct ubridge_kv_value *ubridge_kv_value;
 	struct kv_update_arg update_arg;
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
@@ -482,11 +482,11 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	update_arg.mod_name = mod_name;
 	update_arg.ret_code = 0;
 
-	kv_store_value = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, 4,
-					    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-					    (kv_store_update_fn_t) _kv_overwrite, &update_arg);
+	ubridge_kv_value = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, 4,
+					      KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
+					      (kv_store_update_fn_t) _kv_overwrite, &update_arg);
 
-	if (!kv_store_value) {
+	if (!ubridge_kv_value) {
 		if (errno == EADV)
 			errno = update_arg.ret_code;
 		return NULL;
@@ -495,7 +495,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	if (!value_size)
 		return NULL;
 
-	return kv_store_value->data + _get_kv_store_value_data_offset(kv_store_value);
+	return ubridge_kv_value->data + _get_ubridge_kv_value_data_offset(ubridge_kv_value);
 }
 
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
@@ -517,7 +517,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 {
 	char buf[PATH_MAX];
 	const char *key_prefix;
-	struct kv_store_value *kv_store_value;
+	struct ubridge_kv_value *ubridge_kv_value;
 	const char *mod_name;
 	size_t size, data_offset;
 
@@ -533,34 +533,34 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		return NULL;
 	}
 
-	if (!(kv_store_value = kv_store_get_value(cmd->kv_store_res, key_prefix, key, &size)))
+	if (!(ubridge_kv_value = kv_store_get_value(cmd->kv_store_res, key_prefix, key, &size)))
 		return NULL;
 
-	if (kv_store_value->flags & KV_MOD_PRIVATE) {
-		if (strcmp(kv_store_value->data, mod_name)) {
+	if (ubridge_kv_value->flags & KV_MOD_PRIVATE) {
+		if (strcmp(ubridge_kv_value->data, mod_name)) {
 			errno = EACCES;
 			return NULL;
 		}
 	}
 
 	if (flags)
-		*flags = kv_store_value->flags;
+		*flags = ubridge_kv_value->flags;
 
-	data_offset = _get_kv_store_value_data_offset(kv_store_value);
-	size -= (sizeof(*kv_store_value) + data_offset);
+	data_offset = _get_ubridge_kv_value_data_offset(ubridge_kv_value);
+	size -= (sizeof(*ubridge_kv_value) + data_offset);
 
 	if (value_size)
 		*value_size = size;
 
 	if (size)
-		return kv_store_value->data + data_offset;
+		return ubridge_kv_value->data + data_offset;
 	else
 		return NULL;
 }
 
 static int _kv_reserve(const char *key_prefix, const char *key,
-		       struct kv_store_value *old, size_t old_size, kv_store_value_flags_t old_flags,
-		       struct kv_store_value **new, size_t *new_size, kv_store_value_flags_t *new_flags,
+		       struct ubridge_kv_value *old, size_t old_size, kv_store_value_flags_t old_flags,
+		       struct ubridge_kv_value **new, size_t *new_size, kv_store_value_flags_t *new_flags,
 		       kv_store_value_op_flags_t *op_flags, struct kv_update_arg *arg)
 {
 	if (!old)
@@ -577,7 +577,7 @@ static int _kv_reserve(const char *key_prefix, const char *key,
 }
 
 static int _kv_unreserve(const char *key_prefix, const char *key,
-			 struct kv_store_value *old, size_t old_size, kv_store_value_flags_t old_flags,
+			 struct ubridge_kv_value *old, size_t old_size, kv_store_value_flags_t old_flags,
 			 void **null_value __attribute__ ((unused)),
 			 size_t *null_size __attribute__ ((unused)),
 			 kv_store_value_flags_t *null_flags __attribute__ ((unused)),
@@ -604,7 +604,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	const char *key_prefix;
 	const char *mod_name;
 	struct iovec iov[3];
-	struct kv_store_value *kv_store_value;
+	struct ubridge_kv_value *ubridge_kv_value;
 	static uint64_t null_int = 0;
 	uint64_t flags = unset ? 0 : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
@@ -646,11 +646,11 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		iov[2].iov_base = (void *) mod_name;
 		iov[2].iov_len = strlen(mod_name) + 1;
 
-		kv_store_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, 3,
+		ubridge_kv_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, 3,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
 						    (kv_store_update_fn_t) _kv_reserve, &update_arg);
 
-		if (!kv_store_value) {
+		if (!ubridge_kv_value) {
 			if (errno == EADV)
 				errno = update_arg.ret_code;
 			return -1;
@@ -1674,7 +1674,7 @@ static int _send_export_fd_to_observer(sid_resource_t *cmd_res, int export_fd)
 static int _export_kv_stores(sid_resource_t *cmd_res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
-	struct kv_store_value *kv_store_value;
+	struct ubridge_kv_value *ubridge_kv_value;
 	kv_store_iter_t *iter;
 	const char *key;
 	void *value;
@@ -1717,12 +1717,12 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 		if (flags & KV_STORE_VALUE_VECTOR) {
 			iov = value;
 			iov_size = size;
-			kv_store_value = NULL;
+			ubridge_kv_value = NULL;
 			value_flags = (uint64_t *) iov[1].iov_base;
 		} else {
 			iov = NULL;
-			kv_store_value = value;
-			value_flags = &kv_store_value->flags;
+			ubridge_kv_value = value;
+			value_flags = &ubridge_kv_value->flags;
 		}
 
 		if (!(*value_flags & KV_PERSISTENT))
@@ -1738,8 +1738,8 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 			if (strcmp(key + sizeof(KV_NS_UDEV_KEY_PREFIX) - 1, KV_KEY_DEV_PREFIX_NULL)) {
 				buffer_add(cmd->result_buf, (void *) key, key_size - 1);
 				buffer_add(cmd->result_buf, KV_PAIR, 1);
-				data_offset = _get_kv_store_value_data_offset(kv_store_value);
-				buffer_add(cmd->result_buf, kv_store_value->data + data_offset, strlen(kv_store_value->data + data_offset));
+				data_offset = _get_ubridge_kv_value_data_offset(ubridge_kv_value);
+				buffer_add(cmd->result_buf, ubridge_kv_value->data + data_offset, strlen(ubridge_kv_value->data + data_offset));
 				buffer_add(cmd->result_buf, KV_END, 1);
 				continue;
 			}
@@ -1804,7 +1804,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 					goto bad;
 			}
 		} else {
-			if ((r = write(export_fd, kv_store_value, size)) == size)
+			if ((r = write(export_fd, ubridge_kv_value, size)) == size)
 				bytes_written += r;
 			else
 				goto bad;
@@ -1953,7 +1953,7 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 }
 
 static int _master_kv_store_unset(const char *key_prefix, const char *key,
-				  struct kv_store_value *old, size_t old_size, kv_store_value_flags_t old_flags,
+				  struct ubridge_kv_value *old, size_t old_size, kv_store_value_flags_t old_flags,
 				  void *null_value __attribute__ ((unused)),
 				  size_t *null_size __attribute__ ((unused)),
 				  kv_store_value_flags_t *null_flags __attribute__ ((unused)),
@@ -1973,8 +1973,8 @@ static int _master_kv_store_unset(const char *key_prefix, const char *key,
 }
 
 static int _master_kv_store_update(const char *key_prefix, const char *key,
-				   struct kv_store_value *old, size_t old_size, kv_store_value_flags_t old_flags,
-				   struct kv_store_value **new, size_t *new_size, kv_store_value_flags_t *new_flags,
+				   struct ubridge_kv_value *old, size_t old_size, kv_store_value_flags_t old_flags,
+				   struct ubridge_kv_value **new, size_t *new_size, kv_store_value_flags_t *new_flags,
 				   kv_store_value_op_flags_t *op_flags, struct kv_update_arg *arg)
 {
 	if (!old)
@@ -2001,7 +2001,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	kv_store_value_flags_t flags;
 	size_t msg_size, key_size, data_size, data_offset, i;
 	char *key, *shm = NULL, *p, *end;
-	struct kv_store_value *data = NULL;
+	struct ubridge_kv_value *data = NULL;
 	struct iovec *iov = NULL;
 	uint64_t value_flags;
 	struct kv_update_arg update_arg;
@@ -2065,12 +2065,12 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 				  unset ? "NULL" : "[vector]", *((uint64_t *) iov[0].iov_base));
 
 		} else {
-			data = (struct kv_store_value *) p;
+			data = (struct ubridge_kv_value *) p;
 			p += data_size;
 
-			data_offset = _get_kv_store_value_data_offset(data);
+			data_offset = _get_ubridge_kv_value_data_offset(data);
 			unset = ((data->flags != KV_MOD_RESERVED) &&
-				 ((data_size - data_offset) == (sizeof(struct kv_store_value) + data_offset)));
+				 ((data_size - data_offset) == (sizeof(struct ubridge_kv_value) + data_offset)));
 
 			update_arg.mod_name = data->data;
 			update_arg.res = ubridge->main_kv_store_res;
