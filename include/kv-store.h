@@ -73,20 +73,33 @@ typedef int (*kv_store_update_fn_t) (const char *key_prefix, const char *key,
  *
  *  - Flag support depends on used backend.
  *
- *       FLAG     OP_FLAG         INPUT                        OUTPUT
- *         |         |              |                            |
- *     ---------    ---    ---------------------    -------------------------------
- *    /         \  /   \  /                     \  /                               \
- * #  VECTOR  REF  MERGE  INPUT_VALUE  INPUT_SIZE  OUTPUT_VALUE           OUTPUT_SIZE  NOTE
+ *
+ *                     INPUT                               OUTPUT (DB RECORD)                                  NOTES
+ *                       |                                         |
+ *           -------------------------                     -------------------
+ *          /        |                \                   /                   \
+ *        FLAGS   OP_FLAG            VALUE             FLAGS                 VALUE
+ *          |        |                 |                 |                     |
+ *        ----       |            ------------         -----          --------------------
+ *       /    \      |           /            \       /     \        /                    \
+ * #  VECTOR  REF  MERGE      VALUE        SIZE    VECTOR  REF     VALUE                  SIZE
  * ---------------------------------------------------------------------------------------------------------------------------------------------------------------
- * A    0      0     0    value ref    value size  value copy ref         value size
- * B    0      0     1    value ref    value size  value copy ref         value size   merge flag has no effect: B == A
- * C    0      1     0    value ref    value size  value ref              value size
- * D    0      1     1    value ref    value size  value ref              value size   merge flag has no effect: D == C
- * E    1      0     0    iovec ref    iovec size  iovec deep copy ref    iovec size
- * F    1      0     1    iovec ref    iovec size  value merger ref       value size   iovec members merged into single value
- * G    1      1     0    iovec ref    iovec size  iovec ref              iovec size
- * H    1      1     1    iovec ref    iovec size  value merger iovec ref iovec size   iovec members merged into single value, iovec has refs to merged value parts
+ * A     0     0     0     value ref    value size    0     0    value copy ref         value size
+ * B     0     0     1     value ref    value size    0     0    value copy ref         value size   merge flag has no effect: B == A
+ * C     0     1     0     value ref    value size    0     1    value ref              value size
+ * D     0     1     1     value ref    value size    0     1    value ref              value size   merge flag has no effect: D == C
+ * E     1     0     0     iovec ref    iovec size    1     0    iovec deep copy ref    iovec size   allocated both iovec copy and value parts
+ * F     1     0     1     iovec ref    iovec size    0     0    value merger ref       value size   iovec members merged into single value
+ * G     1     1     0     iovec ref    iovec size    1     1    iovec ref              iovec size
+ * H     1     1     1     iovec ref    iovec size    1     1    value merger iovec ref iovec size   iovec members merged into single value, iovec has refs to merged value parts
+ *
+ *
+ * The AUTOFREE flag may be used together with REF flag (it has no effect otherwise). Then, if the reference to the
+ * value is not needed anymore due to an update or edit, there's "free" called automatically on such a reference.
+ * Of course, this assumes that caller allocated the value (for which there's the reference) by "malloc".
+ * For vectors, this also means that both the struct iovec and values reference by iovec.iov_base have
+ * been allocated by "malloc" too.
+ *
  *
  * Returns:
  *   The value that has been set.
