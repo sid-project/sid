@@ -29,7 +29,9 @@
 
 #define KV_STORE_NAME "kv-store"
 
-#define KV_STORE_VALUE_INT_ALLOC UINT32_C(0x00000001)
+typedef enum {
+	KV_STORE_VALUE_INT_ALLOC = UINT32_C(0x00000001),
+} kv_store_value_int_flags_t;
 
 const sid_resource_reg_t sid_resource_reg_kv_store_hash;
 
@@ -39,8 +41,8 @@ struct kv_store {
 
 struct kv_store_item {
 	size_t size;
-	uint32_t int_flags;
-	uint32_t ext_flags;
+	kv_store_value_int_flags_t int_flags;
+	kv_store_value_flags_t ext_flags;
 	union {
 		void *data_p;
 		char data[0];
@@ -159,7 +161,7 @@ static void _destroy_kv_store_item(struct kv_store_item *item)
  * For vectors, this also means that both the struct iovec and values reference by iovec.iov_base have
  * been allocated by "malloc" too.
  */
-static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cnt, uint32_t flags, uint64_t op_flags)
+static struct kv_store_item *_create_kv_store_item(struct iovec *iov, int iov_cnt, kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags)
 {
 	struct kv_store_item *item;
 	size_t data_size;
@@ -273,8 +275,8 @@ static int _hash_update_fn(const char *key, uint32_t key_len, struct kv_store_it
 	void *orig_new_value, *new_value;
 	size_t orig_new_size, new_size;
 	struct iovec iov_internal;
-	uint32_t new_ext_flags;
-	uint64_t op_flags = 0;
+	kv_store_value_flags_t new_ext_flags;
+	kv_store_value_op_flags_t op_flags = 0;
 	int r = 1;
 
 	if (relay->kv_update_fn) {
@@ -331,7 +333,8 @@ static int _hash_update_fn(const char *key, uint32_t key_len, struct kv_store_it
 }
 
 void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
-			 void *value, size_t value_size, uint32_t flags, uint64_t op_flags,
+			 void *value, size_t value_size,
+			 kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags,
 			 kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg)
 {
 	struct kv_update_fn_relay relay = {.key_prefix = key_prefix,
@@ -449,7 +452,7 @@ kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res)
 	return iter;
 }
 
-void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, uint32_t *flags)
+void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags)
 {
 	struct kv_store_item *item;
 
@@ -470,7 +473,7 @@ const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 	return iter->current ? hash_get_key(iter->store->ht, iter->current) : NULL;
 }
 
-void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, uint32_t *flags)
+void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags)
 {
 	iter->current = iter->current ? hash_get_next(iter->store->ht, iter->current)
 				      : hash_get_first(iter->store->ht);

@@ -34,11 +34,15 @@ typedef enum {
 	KV_STORE_BACKEND_HASH,
 } kv_store_backend_t;
 
-#define KV_STORE_VALUE_VECTOR    UINT32_C(0x00000001)
-#define KV_STORE_VALUE_REF       UINT32_C(0x00000002)
-#define KV_STORE_VALUE_AUTOFREE  UINT32_C(0x00000004)
+typedef enum {
+	KV_STORE_VALUE_VECTOR   = UINT32_C(0x00000001),
+	KV_STORE_VALUE_REF      = UINT32_C(0x00000002),
+	KV_STORE_VALUE_AUTOFREE = UINT32_C(0x00000004),
+} kv_store_value_flags_t;
 
-#define KV_STORE_VALUE_OP_MERGE  UINT32_C(0x00000001)
+typedef enum {
+	KV_STORE_VALUE_OP_MERGE = UINT32_C(0x00000001),
+} kv_store_value_op_flags_t;
 
 struct kv_store_hash_backend_params {
 	size_t initial_size;
@@ -57,9 +61,9 @@ struct sid_kv_store_resource_params {
  *   1 to update old_data with new_data
  */
 typedef int (*kv_store_update_fn_t) (const char *key_prefix, const char *key,
-				     void *old_value, size_t old_value_size, uint32_t old_flags,
-				     void **new_value, size_t *new_value_size, uint32_t *new_flags,
-				     uint64_t *op_flags, void *arg);
+				     void *old_value, size_t old_value_size, kv_store_value_flags_t old_flags,
+				     void **new_value, size_t *new_value_size, kv_store_value_flags_t *new_flags,
+				     kv_store_value_op_flags_t *op_flags, void *arg);
 
 /*
  * Sets key-value pair:
@@ -105,7 +109,8 @@ typedef int (*kv_store_update_fn_t) (const char *key_prefix, const char *key,
  *   The value that has been set.
  */
 void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
-			 void *value, size_t value_size, uint32_t flags, uint64_t op_flags,
+			 void *value, size_t value_size,
+			 kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags,
 			 kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg);
 /*
  * Gets value for given key.
@@ -130,8 +135,8 @@ typedef struct kv_store_iter kv_store_iter_t;
 
 kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res);
 const char *kv_store_iter_current_key(kv_store_iter_t *iter);
-void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, uint32_t *flags);
-void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, uint32_t *flags);
+void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags);
+void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags);
 void kv_store_iter_reset(kv_store_iter_t *iter);
 void kv_store_iter_destroy(kv_store_iter_t *iter);
 
