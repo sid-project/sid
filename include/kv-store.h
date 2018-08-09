@@ -55,15 +55,24 @@ struct sid_kv_store_resource_params {
 	};
 };
 
+struct kv_store_update_spec {
+	void *old_data;
+	size_t old_data_size;
+	kv_store_value_flags_t old_flags;
+	void *new_data;
+	size_t new_data_size;
+	kv_store_value_flags_t new_flags;
+	kv_store_value_op_flags_t op_flags;
+};
+
 /*
  * Returns:
  *   0 to keep old_data
  *   1 to update old_data with new_data
  */
 typedef int (*kv_store_update_fn_t) (const char *key_prefix, const char *key,
-				     void *old_value, size_t old_value_size, kv_store_value_flags_t old_flags,
-				     void **new_value, size_t *new_value_size, kv_store_value_flags_t *new_flags,
-				     kv_store_value_op_flags_t *op_flags, void *arg);
+				     struct kv_store_update_spec *update_spec,
+				     void *arg);
 
 /*
  * Sets key-value pair:

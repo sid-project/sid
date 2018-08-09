@@ -268,64 +268,82 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 	return value;
 }
 
-static int _hash_update_fn(const char *key, uint32_t key_len, struct kv_store_value *old, struct kv_store_value **new,
-				  struct kv_update_fn_relay *relay)
+static int _hash_update_fn(const char *key, uint32_t key_len,
+			   struct kv_store_value *old_value, struct kv_store_value **new_value,
+			   struct kv_update_fn_relay *relay)
 {
-	struct kv_store_value *orig_new_value;
-	void *orig_new_data, *new_data;
-	size_t orig_new_size, new_size;
-	struct iovec iov_internal;
-	kv_store_value_flags_t new_ext_flags;
-	kv_store_value_op_flags_t op_flags = 0;
+	struct kv_store_value *orig_new_value = new_value ? *new_value : NULL;
+	struct kv_store_value *edited_new_value;
+	void *orig_new_data = NULL;
+	size_t orig_new_data_size = 0;
+	kv_store_value_flags_t orig_new_flags = 0;
+	struct kv_store_update_spec update_spec = {0};
+	struct iovec tmp_iov[1];
+	struct iovec *iov;
+	size_t iov_cnt;
 	int r = 1;
 
 	if (relay->kv_update_fn) {
-		orig_new_data = new_data = (new ? _get_data(*new) : NULL);
-		orig_new_size = new_size = (new ? (*new) ? (*new)->size : 0 : 0);
+		if (old_value) {
+			update_spec.old_data = _get_data(old_value);
+			update_spec.old_data_size = old_value->size;
+			update_spec.old_flags = old_value->ext_flags;
+		}
 
-		new_ext_flags = old ? old->ext_flags : 0;
+		if (orig_new_value) {
+			update_spec.new_data = orig_new_data = _get_data(orig_new_value);
+			update_spec.new_data_size = orig_new_data_size = orig_new_value->size;
+			update_spec.new_flags = orig_new_flags = orig_new_value->ext_flags;
+		}
 
-		r = relay->kv_update_fn(relay->key_prefix, relay->key,
-					_get_data(old), old ? old->size : 0, old ? old->ext_flags : 0,
-					&new_data, &new_size, &new_ext_flags,
-					&op_flags, relay->kv_update_fn_arg);
+		r = relay->kv_update_fn(relay->key_prefix, relay->key, &update_spec, relay->kv_update_fn_arg);
 
-		/* The kv_update_fn can modify/reallocate the new value, check if this is the case! */
-		// TODO: add better check for change
-		// TODO: make it possible to pass ext_flags and op_flags to kv_update_fn?
-		if ((r > 0) && ((new_data != orig_new_data) || (new_size != orig_new_size))) {
-			/* new value has been modified/reallocated by kv_update_fn */
-			if ((*new)->ext_flags & KV_STORE_VALUE_REF) {
+		/* Check if there has been any change... */
+		if ((r > 0) &&
+		    ((update_spec.new_data != orig_new_data) ||
+		     (update_spec.new_data_size != orig_new_data_size) ||
+		     (update_spec.new_flags != orig_new_flags) ||
+		     update_spec.op_flags)) {
+			if ((update_spec.new_flags == orig_new_flags) &&
+			    (update_spec.new_flags & KV_STORE_VALUE_REF) &&
+			    !update_spec.op_flags) {
 				/*
-				 * If kv_store_value stores value as reference, we only need to rewrite
-				 * the data_p pointer and size, no need to recreate the whole kv_store_value.
+				 * If kv_store_value stores value as reference and we haven't changed the ext_flags
+				 * nor op_flags, we just need to rewrite the the data_p pointer and size, no need
+				 * to recreate the whole kv_store_value...
 				 */
-				(*new)->data_p = new_data;
-				(*new)->size = new_size;
+				orig_new_value->data_p = update_spec.new_data;
+				orig_new_value->size = update_spec.new_data_size;
+				orig_new_value->ext_flags = update_spec.new_flags;
 			} else {
-				/*
-				 * If kv_store_value stores value directly, we need to recreate
-				 * the kv_store_value with new_data and new_size and copy across the flags.
-				 * Then, destroy the original new kv_store_value.
-				 */
-				orig_new_value = *new;
-				iov_internal.iov_base = new_data;
-				iov_internal.iov_len = new_size;
-				if (!(*new = _create_kv_store_value(&iov_internal, 1, orig_new_value->ext_flags, 0))) {
+				/* ...otherwise we need to recreate the whole kv_store_value container with data. */
+				if (update_spec.new_flags & KV_STORE_VALUE_VECTOR) {
+					iov = update_spec.new_data;
+					iov_cnt = update_spec.new_data_size;
+				} else {
+					tmp_iov[0].iov_base = update_spec.new_data;
+					tmp_iov[0].iov_len = update_spec.new_data_size;
+					iov_cnt = 1;
+					iov = tmp_iov;
+				}
+
+				if (!(edited_new_value = _create_kv_store_value(iov, iov_cnt, update_spec.new_flags, update_spec.op_flags))) {
 					relay->updated = -1;
 					return 0;
 				}
+
 				_destroy_kv_store_value(orig_new_value);
+				*new_value = edited_new_value;
 			}
 		}
 	}
 
 	if (r) {
-		if (old)
-			_destroy_kv_store_value(old);
+		if (old_value)
+			_destroy_kv_store_value(old_value);
 	} else {
-		_destroy_kv_store_value(*new);
-		*new = NULL;
+		_destroy_kv_store_value(*new_value);
+		*new_value = NULL;
 	}
 
 	relay->updated = r;
@@ -410,6 +428,7 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 	char buf[PATH_MAX];
 	const char *full_key;
 	struct kv_store_value *found;
+	struct kv_store_update_spec update_spec = {0};
 
 	if (!(full_key = _get_full_key(buf, sizeof(buf), key_prefix, key))) {
 		errno = ENOKEY;
@@ -425,10 +444,11 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 		return -1;
 	}
 
-	if (kv_unset_fn && !kv_unset_fn(key_prefix, key,
-					_get_data(found), found->size, found->ext_flags,
-					NULL, 0, NULL, NULL,
-					kv_unset_fn_arg)) {
+	update_spec.old_data = _get_data(found);
+	update_spec.old_data_size = found->size;
+	update_spec.old_flags = found->ext_flags;
+
+	if (kv_unset_fn && !kv_unset_fn(key_prefix, key, &update_spec, kv_unset_fn_arg)) {
 		errno = EADV;
 		return -1;
 	}

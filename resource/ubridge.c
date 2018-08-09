@@ -359,32 +359,31 @@ struct kv_update_arg {
 	int ret_code;	      /* out */
 };
 
-static int _kv_overwrite(const char *key_prefix, const char *key,
-			 struct ubridge_kv_value *old, size_t old_value_size, kv_store_value_flags_t old_flags,
-			 struct ubridge_kv_value **new, size_t *new_value_size, kv_store_value_flags_t *new_flags,
-			 kv_store_value_op_flags_t *op_flags, struct kv_update_arg *arg)
+static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
 {
+	struct ubridge_kv_value *old_value = spec->old_data;
+	struct ubridge_kv_value *new_value = spec->new_data;
 	const char *reason;
 
-	if (!old)
+	if (!old_value)
 		return 1;
 
-	if (old->flags & KV_MOD_PRIVATE) {
-		if (strcmp(old->data, (*new)->data)) {
+	if (old_value->flags & KV_MOD_PRIVATE) {
+		if (strcmp(old_value->data, new_value->data)) {
 			reason = "private";
 			arg->ret_code = EACCES;
 			goto keep_old;
 		}
 	}
-	else if (old->flags & KV_MOD_PROTECTED) {
-		if (strcmp(old->data, (*new)->data)) {
+	else if (old_value->flags & KV_MOD_PROTECTED) {
+		if (strcmp(old_value->data, new_value->data)) {
 			reason = "protected";
 			arg->ret_code = EPERM;
 			goto keep_old;
 		}
 	}
-	else if (old->flags & KV_MOD_RESERVED) {
-		if (strcmp(old->data, (*new)->data)) {
+	else if (old_value->flags & KV_MOD_RESERVED) {
+		if (strcmp(old_value->data, new_value->data)) {
 			reason = "reserved";
 			arg->ret_code = EBUSY;
 			goto keep_old;
@@ -395,7 +394,8 @@ static int _kv_overwrite(const char *key_prefix, const char *key,
 	return 1;
 keep_old:
 	log_debug(ID(arg->res), "Module %s can't overwrite value with key %s%s%s which is %s and attached to %s module.",
-		  (*new)->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, reason, *old->data ? old->data : "core");
+		  new_value->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, reason,
+		  *old_value->data ? old_value->data : "core");
 	return 0;
 }
 
@@ -558,17 +558,18 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		return NULL;
 }
 
-static int _kv_reserve(const char *key_prefix, const char *key,
-		       struct ubridge_kv_value *old, size_t old_size, kv_store_value_flags_t old_flags,
-		       struct ubridge_kv_value **new, size_t *new_size, kv_store_value_flags_t *new_flags,
-		       kv_store_value_op_flags_t *op_flags, struct kv_update_arg *arg)
+static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
 {
-	if (!old)
+	struct ubridge_kv_value *old_value = spec->old_data;
+	struct ubridge_kv_value *new_value = spec->new_data;
+
+	if (!old_value)
 		return 1;
 
-	if (strcmp(old->data, (*new)->data)) {
+	if (strcmp(old_value->data, new_value->data)) {
 		log_debug(ID(arg->res), "Module %s can't reserve key %s%s%s which is already reserved by %s module.",
-			  (*new)->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, *old->data ? old->data : "core");
+			  new_value->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
+			  *old_value->data ? old_value->data : "core");
 		arg->ret_code = EBUSY;
 		return 0;
 	}
@@ -576,20 +577,17 @@ static int _kv_reserve(const char *key_prefix, const char *key,
 	return 1;
 }
 
-static int _kv_unreserve(const char *key_prefix, const char *key,
-			 struct ubridge_kv_value *old, size_t old_size, kv_store_value_flags_t old_flags,
-			 void **null_value __attribute__ ((unused)),
-			 size_t *null_size __attribute__ ((unused)),
-			 kv_store_value_flags_t *null_flags __attribute__ ((unused)),
-			 kv_store_value_op_flags_t *null_op_flags __attribute__ ((unused)),
-			 struct kv_update_arg *arg)
+static int _kv_unreserve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
 {
-	if (!old)
+	struct ubridge_kv_value *old_value = spec->old_data;
+
+	if (!old_value)
 		return 1;
 
-	if (strcmp(old->data, arg->mod_name)) {
+	if (strcmp(old_value->data, arg->mod_name)) {
 		log_debug(ID(arg->res), "Module %s can't unreserve key %s%s%s which is reserved by %s module.",
-			  arg->mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, *old->data ? old->data : "core");
+			  arg->mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
+			  *old_value->data ? old_value->data : "core");
 		arg->ret_code = EBUSY;
 		return 0;
 	}
@@ -1267,13 +1265,12 @@ out:
  *
  * Output vectors are also sorted.
  */
-static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *key,
-					   struct iovec *old, size_t old_size, kv_store_value_flags_t old_flags,
-					   struct iovec **p_new, size_t *p_new_size, kv_store_value_flags_t *new_flags,
-					   kv_store_value_op_flags_t *op_flags, struct kv_update_arg *arg)
+static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
 {
-	struct iovec *new = *p_new;
-	size_t new_size = *p_new_size;
+	struct iovec *old_value = spec->old_data;
+	size_t old_size = spec->old_data_size;
+	struct iovec *new_value = spec->new_data;
+	size_t new_size = spec->new_data_size;
 	struct iovec *iov;
 	size_t size;
 	unsigned i, i_old, i_new;
@@ -1294,9 +1291,9 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 	}
 
 	/* copy the header completely from new vector to result vector */
-	iov[0] = new[0]; /* seqnum */
-	iov[1] = new[1]; /* flags */
-	iov[2] = new[2]; /* mod_name */
+	iov[0] = new_value[0]; /* seqnum */
+	iov[1] = new_value[1]; /* flags */
+	iov[2] = new_value[2]; /* mod_name */
 
 	if (!old_size)
 		old_size = 3;
@@ -1310,20 +1307,20 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 	while (1) {
 		if ((i_old < old_size) && (i_new < new_size)) {
 			/* both vectors still still have items to handle */
-			cmp_result = strcmp(old[i_old].iov_base, new[i_new].iov_base);
+			cmp_result = strcmp(old_value[i_old].iov_base, new_value[i_new].iov_base);
 			if (cmp_result < 0) {
 				/* old vector has item the new one doesn't have: don't add it to iov but add it to delta->minus */
-				buffer_add(delta->minus, old[i_old].iov_base, old[i_old].iov_len);
+				buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
 				i_old++;
 			} else if (cmp_result > 0) {
 				/* new one has the item the old one doesn't have: add it to iov and add it to delta->plus */
-				buffer_add(delta->plus, new[i_new].iov_base, new[i_new].iov_len);
-				iov[i] = new[i_new];
+				buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
+				iov[i] = new_value[i_new];
 				i_new++;
 				i++;
 			} else {
 				/* both old and new has the item - no change: add it to iov but don't add it to any delta */
-				iov[i] = new[i_new];
+				iov[i] = new_value[i_new];
 				i_old++;
 				i_new++;
 				i++;
@@ -1332,15 +1329,15 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 		} else if (i_old == old_size) {
 			/* only new vector still has items to handle: add them to delta->plus and add them to iov */
 			while (i_new < new_size) {
-				buffer_add(delta->plus, new[i_new].iov_base, new[i_new].iov_len);
-				iov[i] = new[i_new];
+				buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
+				iov[i] = new_value[i_new];
 				i_new++;
 				i++;
 			}
 		} else if (i_new == new_size) {
 			/* only old vector still has items to handle: add them to delta->minus and don't add them to iov */
 			while (i_old < old_size) {
-				buffer_add(delta->minus, old[i_old].iov_base, old[i_old].iov_len);
+				buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
 				i_old++;
 			}
 		}
@@ -1348,8 +1345,9 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 		break;
 	}
 
-	*p_new_size = i;
-	*p_new = iov;
+	spec->new_data_size = i;
+	spec->new_data = iov;
+	spec->new_flags &= ~KV_STORE_VALUE_REF;
 
 	return 1;
 }
@@ -1442,6 +1440,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 
 		if (snprintf(buf, sizeof(buf), "/sys/block/%s/dev", dirent[i]->d_name) > 0) {
 			_get_sysfs_value(cmd_res, buf, devno_buf, sizeof(devno_buf));
+			/* Don't forget to free these strdup-ed strings! */
 			s = strdup(devno_buf);
 			buffer_add(vec_buf, (void *) s, strlen(s) + 1);
 		} else
@@ -1485,10 +1484,14 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 
 	r = 0;
 out:
-	if (dirent)
-		free(dirent);
-	if (vec_buf)
+	free(dirent);
+	if (vec_buf) {
+		buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
+		/* Free all the strdup-ed strings! */
+		for (i = 3; i < iov_cnt; i++)
+			free(iov[i].iov_base);
 		buffer_destroy(vec_buf);
+	}
 	if (delta_vec_buf.plus)
 		buffer_destroy(delta_vec_buf.plus);
 	if (delta_vec_buf.minus)
@@ -1952,19 +1955,16 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 	return 0;
 }
 
-static int _master_kv_store_unset(const char *key_prefix, const char *key,
-				  struct ubridge_kv_value *old, size_t old_size, kv_store_value_flags_t old_flags,
-				  void *null_value __attribute__ ((unused)),
-				  size_t *null_size __attribute__ ((unused)),
-				  kv_store_value_flags_t *null_flags __attribute__ ((unused)),
-				  kv_store_value_op_flags_t *op_flags, struct kv_update_arg *arg)
+static int _master_kv_store_unset(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
 {
-	if (!old)
+	struct ubridge_kv_value *old_value = spec->old_data;
+
+	if (!old_value)
 		return 1;
 
-	if (_flags_indicate_mod_owned(old->flags) && strcmp(old->data, arg->mod_name)) {
+	if (_flags_indicate_mod_owned(old_value->flags) && strcmp(old_value->data, arg->mod_name)) {
 		log_debug(ID(arg->res), "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
-					"which belongs to module %s.",  arg->mod_name, key, old->seqnum, old->data);
+					"which belongs to module %s.",  arg->mod_name, key, old_value->seqnum, old_value->data);
 		arg->ret_code = EBUSY;
 		return 0;
 	}
@@ -1972,18 +1972,18 @@ static int _master_kv_store_unset(const char *key_prefix, const char *key,
 	return 1;
 }
 
-static int _master_kv_store_update(const char *key_prefix, const char *key,
-				   struct ubridge_kv_value *old, size_t old_size, kv_store_value_flags_t old_flags,
-				   struct ubridge_kv_value **new, size_t *new_size, kv_store_value_flags_t *new_flags,
-				   kv_store_value_op_flags_t *op_flags, struct kv_update_arg *arg)
+static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
 {
-	if (!old)
+	struct ubridge_kv_value *old_value = spec->old_data;
+	struct ubridge_kv_value *new_value = spec->new_data;
+
+	if (!old_value)
 		return 1;
 
-	if ((*new)->seqnum >= old->seqnum) {
-		if (_kv_overwrite(key_prefix, key, old, old_size, old_flags, new, new_size, new_flags, op_flags, arg)) {
+	if (new_value->seqnum >= old_value->seqnum) {
+		if (_kv_overwrite(key_prefix, key, spec, arg)) {
 			log_debug(ID(arg->res), "Updating value for key %s%s%s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
-				  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, (*new)->seqnum, old->seqnum);
+				  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, new_value->seqnum, old_value->seqnum);
 			return 1;
 		}
 
@@ -1991,7 +1991,7 @@ static int _master_kv_store_update(const char *key_prefix, const char *key,
 	}
 
 	log_debug(ID(arg->res), "Keeping old value for key %s%s%s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
-		  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, (*new)->seqnum, old->seqnum);
+		  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, new_value->seqnum, old_value->seqnum);
 	return 0;
 }
 
