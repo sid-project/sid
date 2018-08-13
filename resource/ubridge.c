@@ -1381,7 +1381,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	char devno_buf[16];
 	const char *s;
 	int count, i;
-	struct buffer *vec_buf = NULL;
+	struct buffer *input_vec_buf = NULL;
 	struct delta_buffer delta_vec_buf = {NULL, NULL, NULL};
 	struct iovec *iov;
 	size_t iov_cnt;
@@ -1404,7 +1404,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	 * -2 to subtract "." and ".." directory which we're not interested in
 	 * +3 for "seqnum|flags|mod_name" header
 	 */
-	if (!(vec_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0))) {
+	if (!(input_vec_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0))) {
 		log_error(ID(cmd_res), "Failed to create buffer to record hierarchy for device %s (%d:%d).",
 			     cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
@@ -1423,9 +1423,9 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	 */
 
 	/* Header for final list. */
-	buffer_add(vec_buf, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
-	buffer_add(vec_buf, &kv_flags, sizeof(kv_flags));
-	buffer_add(vec_buf, core_mod_name, strlen(core_mod_name) + 1);
+	buffer_add(input_vec_buf, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
+	buffer_add(input_vec_buf, &kv_flags, sizeof(kv_flags));
+	buffer_add(input_vec_buf, core_mod_name, strlen(core_mod_name) + 1);
 
 	/* Header for delta plus list. */
 	buffer_add(delta_vec_buf.plus, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
@@ -1445,7 +1445,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 			_get_sysfs_value(cmd_res, buf, devno_buf, sizeof(devno_buf));
 			/* Don't forget to free these strdup-ed strings! */
 			s = strdup(devno_buf);
-			buffer_add(vec_buf, (void *) s, strlen(s) + 1);
+			buffer_add(input_vec_buf, (void *) s, strlen(s) + 1);
 		} else
 			log_error(ID(cmd_res), "Failed to compose sysfs path for device %s that is holder of device  %s (%d:%d).",
 				  dirent[i]->d_name, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
@@ -1458,7 +1458,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 		goto out;
 	}
 
-	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
+	buffer_get_data(input_vec_buf, (const void **) (&iov), &iov_cnt);
 	qsort(iov + 3, iov_cnt - 3, sizeof(struct iovec), _iov_str_item_cmp);
 
 	update_arg.res = cmd->kv_store_res;
@@ -1487,12 +1487,12 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 
 	r = 0;
 out:
-	if (vec_buf) {
-		buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
+	if (input_vec_buf) {
+		buffer_get_data(input_vec_buf, (const void **) (&iov), &iov_cnt);
 		/* Free all the strdup-ed strings! */
 		for (i = 3; i < iov_cnt; i++)
 			free(iov[i].iov_base);
-		buffer_destroy(vec_buf);
+		buffer_destroy(input_vec_buf);
 	}
 	if (delta_vec_buf.plus)
 		buffer_destroy(delta_vec_buf.plus);
