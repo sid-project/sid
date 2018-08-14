@@ -360,8 +360,9 @@ struct kv_update_arg {
 	int ret_code;	      /* out */
 };
 
-static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
+static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
+	struct kv_update_arg *arg = garg;
 	struct ubridge_kv_value *old_value = spec->old_data;
 	struct ubridge_kv_value *new_value = spec->new_data;
 	const char *reason;
@@ -485,7 +486,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 
 	ubridge_kv_value = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, 4,
 					      KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-					      (kv_store_update_fn_t) _kv_overwrite, &update_arg);
+					      _kv_overwrite, &update_arg);
 
 	if (!ubridge_kv_value) {
 		if (errno == EADV)
@@ -559,8 +560,9 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		return NULL;
 }
 
-static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
+static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
+	struct kv_update_arg *arg = garg;
 	struct ubridge_kv_value *old_value = spec->old_data;
 	struct ubridge_kv_value *new_value = spec->new_data;
 
@@ -578,8 +580,9 @@ static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_
 	return 1;
 }
 
-static int _kv_unreserve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
+static int _kv_unreserve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
+	struct kv_update_arg *arg = garg;
 	struct ubridge_kv_value *old_value = spec->old_data;
 
 	if (!old_value)
@@ -629,8 +632,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		flags |= KV_PERSISTENT;
 
 	if (unset && !is_worker) {
-		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key,
-				     (kv_store_update_fn_t) _kv_unreserve, &update_arg);
+		kv_store_unset_value(cmd_mod->kv_store_res, key_prefix, key, _kv_unreserve, &update_arg);
 
 		if (errno == EADV)
 			errno = update_arg.ret_code;
@@ -647,7 +649,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 
 		ubridge_kv_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, 3,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-						    (kv_store_update_fn_t) _kv_reserve, &update_arg);
+						    _kv_reserve, &update_arg);
 
 		if (!ubridge_kv_value) {
 			if (errno == EADV)
@@ -1266,8 +1268,9 @@ out:
  *
  * Output vectors are also sorted.
  */
-static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
+static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
+	struct kv_update_arg *arg = garg;
 	struct iovec *old_value = spec->old_data;
 	size_t old_size = spec->old_data_size;
 	struct iovec *new_value = spec->new_data;
@@ -1473,21 +1476,21 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	/* Store final list. */
 	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link, iov, iov_cnt,
 				 KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
-				 (kv_store_update_fn_t) _kv_sorted_id_set_delta_resolve, &update_arg);
+				 _kv_sorted_id_set_delta_resolve, &update_arg);
 
 	/* Store delta plus. */
 	update_arg.ret_code = 0;
 	buffer_get_data(delta_vec_buf.plus, (const void **) (&iov), &iov_cnt);
 	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link_delta_plus, iov, iov_cnt,
 				 KV_STORE_VALUE_VECTOR, 0,
-				 (kv_store_update_fn_t) _kv_overwrite, &update_arg);
+				 _kv_overwrite, &update_arg);
 
 	/* Store delta minus. */
 	update_arg.ret_code = 0;
 	buffer_get_data(delta_vec_buf.minus, (const void **) (&iov), &iov_cnt);
 	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link_delta_minus, iov, iov_cnt,
 				 KV_STORE_VALUE_VECTOR, 0,
-				 (kv_store_update_fn_t) _kv_overwrite, &update_arg);
+				 _kv_overwrite, &update_arg);
 
 	r = 0;
 out:
@@ -1963,8 +1966,9 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 	return 0;
 }
 
-static int _master_kv_store_unset(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
+static int _master_kv_store_unset(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
+	struct kv_update_arg *arg = garg;
 	struct ubridge_kv_value *old_value = spec->old_data;
 
 	if (!old_value)
@@ -1980,8 +1984,9 @@ static int _master_kv_store_unset(const char *key_prefix, const char *key, struc
 	return 1;
 }
 
-static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, struct kv_update_arg *arg)
+static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
+	struct kv_update_arg *arg = garg;
 	struct ubridge_kv_value *old_value = spec->old_data;
 	struct ubridge_kv_value *new_value = spec->new_data;
 
@@ -2089,10 +2094,10 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 
 			if (unset)
 				kv_store_unset_value(ubridge->main_kv_store_res, NULL, key,
-						     (kv_store_update_fn_t) _master_kv_store_unset, &update_arg);
+						     _master_kv_store_unset, &update_arg);
 			else
 				kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 0, 0,
-						   (kv_store_update_fn_t) _master_kv_store_update, &update_arg);
+						   _master_kv_store_update, &update_arg);
 		}
 
 
