@@ -106,16 +106,6 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 				for (i = 0; i < value->size; i++)
 					free(iov[i].iov_base);
 				free(value->data_p);
-			} else {
-				/*
-				 * If not autofreeing, at least zero out the vector content
-				 * so it doesn't point to non-existent records.
-				 */
-				/* H */
-				for (i = 0; i < value->size; i++) {
-					iov[i].iov_base = NULL;
-					iov[i].iov_len = 0;
-				}
 			}
 		} else {
 			/* C, D */
