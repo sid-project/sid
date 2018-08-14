@@ -1438,8 +1438,10 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	buffer_add(delta_vec_buf.minus, core_mod_name, strlen(core_mod_name) + 1);
 
 	for (i = 0; i < count; i++) {
-		if (dirent[i]->d_name[0] == '.')
+		if (dirent[i]->d_name[0] == '.') {
+			free(dirent[i]);
 			continue;
+		}
 
 		if (snprintf(buf, sizeof(buf), "/sys/block/%s/dev", dirent[i]->d_name) > 0) {
 			_get_sysfs_value(cmd_res, buf, devno_buf, sizeof(devno_buf));
@@ -1449,8 +1451,10 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 		} else
 			log_error(ID(cmd_res), "Failed to compose sysfs path for device %s that is holder of device  %s (%d:%d).",
 				  dirent[i]->d_name, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+
 		free(dirent[i]);
 	}
+	free(dirent);
 
 	if (!(s = _get_key_prefix(KV_NS_DEVICE, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
 		log_error(ID(cmd_res), "Failed to get key prefix to store hierarchy for device %s (%d:%d).",
