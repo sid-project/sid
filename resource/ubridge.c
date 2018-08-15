@@ -282,7 +282,7 @@ struct command_reg {
 
 struct ubridge_kv_value {
 	uint64_t seqnum;
-	uint64_t flags;
+	sid_ubridge_kv_flags_t flags;
 	char data[0];
 };
 
@@ -401,7 +401,7 @@ keep_old:
 	return 0;
 }
 
-static int _flags_indicate_mod_owned(uint64_t flags)
+static int _flags_indicate_mod_owned(sid_ubridge_kv_flags_t flags)
 {
 	return flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED);
 }
@@ -436,7 +436,7 @@ static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const 
 }
 
 static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-					const char *key, uint64_t flags, const void *value, size_t value_size)
+					const char *key, sid_ubridge_kv_flags_t flags, const void *value, size_t value_size)
 {
 	char buf[PATH_MAX];
 	const char *key_prefix;
@@ -501,7 +501,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 }
 
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-			     const char *key, const void *value, size_t value_size, uint64_t flags)
+			     const char *key, const void *value, size_t value_size, sid_ubridge_kv_flags_t flags)
 {
 	if (!cmd || !key || !*key) {
 		errno = EINVAL;
@@ -515,7 +515,7 @@ void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cm
 }
 
 const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-				   const char *key, size_t *value_size, uint64_t *flags)
+				   const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
 {
 	char buf[PATH_MAX];
 	const char *key_prefix;
@@ -608,7 +608,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	struct iovec iov[3];
 	struct ubridge_kv_value *ubridge_kv_value;
 	static uint64_t null_int = 0;
-	uint64_t flags = unset ? 0 : KV_MOD_RESERVED;
+	sid_ubridge_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
 	int is_worker;
 
@@ -1694,7 +1694,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	void *value;
 	size_t size, iov_size, key_size, data_offset;
 	kv_store_value_flags_t flags;
-	uint64_t *value_flags;
+	sid_ubridge_kv_flags_t *value_flags;
 	struct iovec *iov;
 	int export_fd = -1;
 	size_t bytes_written = 0;
@@ -1732,7 +1732,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 			iov = value;
 			iov_size = size;
 			ubridge_kv_value = NULL;
-			value_flags = (uint64_t *) iov[1].iov_base;
+			value_flags = (sid_ubridge_kv_flags_t *) iov[1].iov_base;
 		} else {
 			iov = NULL;
 			ubridge_kv_value = value;
