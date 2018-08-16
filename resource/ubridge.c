@@ -286,6 +286,13 @@ struct ubridge_kv_value {
 	char data[0];
 };
 
+struct kv_update_arg {
+	sid_resource_t *res;
+	const char *mod_name; /* in */
+	void *custom;	      /* in/out */
+	int ret_code;	      /* out */
+};
+
 struct delta_buffer {
 	struct buffer *plus;
 	struct buffer *minus;
@@ -352,13 +359,6 @@ static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char
 
 	return buf;
 }
-
-struct kv_update_arg {
-	sid_resource_t *res;
-	const char *mod_name; /* in */
-	void *custom;	      /* in/out */
-	int ret_code;	      /* out */
-};
 
 static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
