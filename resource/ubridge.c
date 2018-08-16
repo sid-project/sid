@@ -482,6 +482,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 
 	update_arg.res = cmd->kv_store_res;
 	update_arg.mod_name = mod_name;
+	update_arg.custom = NULL;
 	update_arg.ret_code = 0;
 
 	ubridge_kv_value = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, 4,
@@ -626,6 +627,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 
 	update_arg.res = cmd_mod->kv_store_res;
 	update_arg.mod_name = mod_name;
+	update_arg.custom = NULL;
 	update_arg.ret_code = 0;
 
 	if ((is_worker = sid_resource_is_registered_by(sid_resource_get_top_level(cmd_mod->kv_store_res), &sid_resource_reg_ubridge_worker)))
@@ -1478,6 +1480,8 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 				 KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
 				 _kv_sorted_id_set_delta_resolve, &update_arg);
 
+	update_arg.custom = NULL;
+
 	/* Store delta plus. */
 	update_arg.ret_code = 0;
 	buffer_get_data(delta_vec_buf.plus, (const void **) (&iov), &iov_cnt);
@@ -2072,6 +2076,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 
 			update_arg.mod_name = iov[2].iov_base;
 			update_arg.res = ubridge->main_kv_store_res;
+			update_arg.custom = NULL;
 			update_arg.ret_code = 0;
 
 			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
@@ -2087,6 +2092,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 
 			update_arg.mod_name = data->data;
 			update_arg.res = ubridge->main_kv_store_res;
+			update_arg.custom = NULL;
 			update_arg.ret_code = 0;
 
 			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
