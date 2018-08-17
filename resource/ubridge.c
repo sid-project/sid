@@ -436,7 +436,7 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 keep_old:
 	log_debug(ID(arg->res), "Module %s can't overwrite value with key %s%s%s which is %s and attached to %s module.",
 		  VALUE_VECTOR_MOD_NAME(iov_new), key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, reason,
-		  *VALUE_VECTOR_MOD_NAME(iov_old) ? VALUE_VECTOR_MOD_NAME(iov_old) : "core");
+		  *VALUE_VECTOR_MOD_NAME(iov_old) ? VALUE_VECTOR_MOD_NAME(iov_old) : CORE_MOD_NAME);
 	return 0;
 }
 
@@ -467,7 +467,7 @@ static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const 
 
 	if ((found = kv_store_get_value(kv_store_res, key_prefix, key, NULL)) && (found->flags & KV_MOD_RESERVED) && strcmp(found->data, mod_name)) {
 		log_debug(ID(kv_store_res), "Module %s can't overwrite value with key %s%s%s which is reserved and attached to %s module.",
-			  mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, *found->data ? found->data : "core");
+			  mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, *found->data ? found->data : CORE_MOD_NAME);
 		return 0;
 	}
 
@@ -609,7 +609,7 @@ static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_
 	if (strcmp(VALUE_VECTOR_MOD_NAME(iov_old), VALUE_VECTOR_MOD_NAME(iov_new))) {
 		log_debug(ID(arg->res), "Module %s can't reserve key %s%s%s which is already reserved by %s module.",
 			  VALUE_VECTOR_MOD_NAME(iov_new), key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
-			  *VALUE_VECTOR_MOD_NAME(iov_old) ? VALUE_VECTOR_MOD_NAME(iov_old) : "core");
+			  *VALUE_VECTOR_MOD_NAME(iov_old) ? VALUE_VECTOR_MOD_NAME(iov_old) : CORE_MOD_NAME);
 		arg->ret_code = EBUSY;
 		return 0;
 	}
@@ -631,7 +631,7 @@ static int _kv_unreserve(const char *key_prefix, const char *key, struct kv_stor
 	if (strcmp(VALUE_VECTOR_MOD_NAME(iov_old), arg->mod_name)) {
 		log_debug(ID(arg->res), "Module %s can't unreserve key %s%s%s which is reserved by %s module.",
 			  arg->mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
-			  *VALUE_VECTOR_MOD_NAME(iov_old) ? VALUE_VECTOR_MOD_NAME(iov_old) : "core");
+			  *VALUE_VECTOR_MOD_NAME(iov_old) ? VALUE_VECTOR_MOD_NAME(iov_old) : CORE_MOD_NAME);
 		arg->ret_code = EBUSY;
 		return 0;
 	}
