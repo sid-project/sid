@@ -284,7 +284,7 @@ struct ubridge_kv_value {
 	uint64_t seqnum;
 	sid_ubridge_kv_flags_t flags;
 	char data[0];
-};
+} __attribute__((packed));
 
 struct kv_update_arg {
 	sid_resource_t *res;
