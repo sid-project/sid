@@ -286,6 +286,19 @@ struct ubridge_kv_value {
 	char data[0];
 } __attribute__((packed));
 
+enum {
+	VALUE_VECTOR_IDX_SEQNUM,
+	VALUE_VECTOR_IDX_FLAGS,
+	VALUE_VECTOR_IDX_MOD_NAME,
+	VALUE_VECTOR_IDX_DATA,
+	_VALUE_VECTOR_IDX_COUNT,
+};
+
+#define VALUE_VECTOR_SEQNUM(iov) (*((uint64_t *) iov[VALUE_VECTOR_IDX_SEQNUM].iov_base))
+#define VALUE_VECTOR_FLAGS(iov) (*((sid_ubridge_kv_flags_t *) iov[VALUE_VECTOR_IDX_FLAGS].iov_base))
+#define VALUE_VECTOR_MOD_NAME(iov) ((char *) iov[VALUE_VECTOR_IDX_MOD_NAME].iov_base)
+#define VALUE_VECTOR_DATA(iov) (iov[VALUE_VECOTR_DATA].iov_base)
+
 struct kv_update_arg {
 	sid_resource_t *res;
 	const char *mod_name; /* in */
@@ -360,32 +373,58 @@ static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char
 	return buf;
 }
 
+static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value, size_t value_size, struct iovec *iov)
+{
+	size_t mod_name_size;
+	struct ubridge_kv_value *ubridge_kv_value;
+
+	if (!value)
+		return NULL;
+
+	if (flags & KV_STORE_VALUE_VECTOR)
+		return value;
+
+	ubridge_kv_value = value;
+	mod_name_size = strlen(ubridge_kv_value->data) + 1;
+
+	iov[VALUE_VECTOR_IDX_SEQNUM] = (struct iovec) {&ubridge_kv_value->seqnum, sizeof(ubridge_kv_value->seqnum)};
+	iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&ubridge_kv_value->flags, sizeof(ubridge_kv_value->flags)};
+	iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {ubridge_kv_value->data, mod_name_size};
+	iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {ubridge_kv_value->data + mod_name_size, value_size - sizeof(*ubridge_kv_value) - mod_name_size};
+
+	return iov;
+}
+
 static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
-	struct ubridge_kv_value *old_value = spec->old_data;
-	struct ubridge_kv_value *new_value = spec->new_data;
+	struct iovec tmp_iov_old[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec tmp_iov_new[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec *iov_old, *iov_new;
 	const char *reason;
 
-	if (!old_value)
+	if (!spec->old_data)
 		return 1;
 
-	if (old_value->flags & KV_MOD_PRIVATE) {
-		if (strcmp(old_value->data, new_value->data)) {
+	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
+	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
+
+	if (VALUE_VECTOR_FLAGS(iov_old) & KV_MOD_PRIVATE) {
+		if (strcmp(VALUE_VECTOR_MOD_NAME(iov_old), VALUE_VECTOR_MOD_NAME(iov_new))) {
 			reason = "private";
 			arg->ret_code = EACCES;
 			goto keep_old;
 		}
 	}
-	else if (old_value->flags & KV_MOD_PROTECTED) {
-		if (strcmp(old_value->data, new_value->data)) {
+	else if (VALUE_VECTOR_FLAGS(iov_old) & KV_MOD_PROTECTED) {
+		if (strcmp(VALUE_VECTOR_MOD_NAME(iov_old), VALUE_VECTOR_MOD_NAME(iov_new))) {
 			reason = "protected";
 			arg->ret_code = EPERM;
 			goto keep_old;
 		}
 	}
-	else if (old_value->flags & KV_MOD_RESERVED) {
-		if (strcmp(old_value->data, new_value->data)) {
+	else if (VALUE_VECTOR_FLAGS(iov_old) & KV_MOD_RESERVED) {
+		if (strcmp(VALUE_VECTOR_MOD_NAME(iov_old), VALUE_VECTOR_MOD_NAME(iov_new))) {
 			reason = "reserved";
 			arg->ret_code = EBUSY;
 			goto keep_old;
@@ -396,8 +435,8 @@ static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_stor
 	return 1;
 keep_old:
 	log_debug(ID(arg->res), "Module %s can't overwrite value with key %s%s%s which is %s and attached to %s module.",
-		  new_value->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, reason,
-		  *old_value->data ? old_value->data : "core");
+		  VALUE_VECTOR_MOD_NAME(iov_new), key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, reason,
+		  *VALUE_VECTOR_MOD_NAME(iov_old) ? VALUE_VECTOR_MOD_NAME(iov_old) : "core");
 	return 0;
 }
 
@@ -468,17 +507,10 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 		return NULL;
 	}
 
-	iov[0].iov_base = &cmd->udev_dev.seqnum;
-	iov[0].iov_len = sizeof(cmd->udev_dev.seqnum);
-
-	iov[1].iov_base = &flags;
-	iov[1].iov_len = sizeof(flags);
-
-	iov[2].iov_base = (void *) mod_name;
-	iov[2].iov_len = strlen(mod_name) + 1;
-
-	iov[3].iov_base = (void *) value;
-	iov[3].iov_len = value ? value_size : 0;
+	iov[VALUE_VECTOR_IDX_SEQNUM] = (struct iovec) {&cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum)};
+	iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&flags, sizeof(flags)};
+	iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {(void *) mod_name, strlen(mod_name) + 1};
+	iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {(void *) value, value ? value_size : 0};
 
 	update_arg.res = cmd->kv_store_res;
 	update_arg.mod_name = mod_name;
@@ -564,16 +596,20 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
-	struct ubridge_kv_value *old_value = spec->old_data;
-	struct ubridge_kv_value *new_value = spec->new_data;
+	struct iovec tmp_iov_old[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec tmp_iov_new[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec *iov_old, *iov_new;
 
-	if (!old_value)
+	if (!spec->old_data)
 		return 1;
 
-	if (strcmp(old_value->data, new_value->data)) {
+	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
+	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
+
+	if (strcmp(VALUE_VECTOR_MOD_NAME(iov_old), VALUE_VECTOR_MOD_NAME(iov_new))) {
 		log_debug(ID(arg->res), "Module %s can't reserve key %s%s%s which is already reserved by %s module.",
-			  new_value->data, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
-			  *old_value->data ? old_value->data : "core");
+			  VALUE_VECTOR_MOD_NAME(iov_new), key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
+			  *VALUE_VECTOR_MOD_NAME(iov_old) ? VALUE_VECTOR_MOD_NAME(iov_old) : "core");
 		arg->ret_code = EBUSY;
 		return 0;
 	}
@@ -584,15 +620,18 @@ static int _kv_reserve(const char *key_prefix, const char *key, struct kv_store_
 static int _kv_unreserve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
-	struct ubridge_kv_value *old_value = spec->old_data;
+	struct iovec tmp_iov_old[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec *iov_old;
 
-	if (!old_value)
+	if (!spec->old_data)
 		return 1;
 
-	if (strcmp(old_value->data, arg->mod_name)) {
+	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
+
+	if (strcmp(VALUE_VECTOR_MOD_NAME(iov_old), arg->mod_name)) {
 		log_debug(ID(arg->res), "Module %s can't unreserve key %s%s%s which is reserved by %s module.",
 			  arg->mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
-			  *old_value->data ? old_value->data : "core");
+			  *VALUE_VECTOR_MOD_NAME(iov_old) ? VALUE_VECTOR_MOD_NAME(iov_old) : "core");
 		arg->ret_code = EBUSY;
 		return 0;
 	}
@@ -640,14 +679,9 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 			errno = update_arg.ret_code;
 		return -1;
 	} else {
-		iov[0].iov_base = &null_int;
-		iov[0].iov_len = sizeof(null_int);
-
-		iov[1].iov_base = &flags;
-		iov[1].iov_len = sizeof(flags);
-
-		iov[2].iov_base = (void *) mod_name;
-		iov[2].iov_len = strlen(mod_name) + 1;
+		iov[VALUE_VECTOR_IDX_SEQNUM] = (struct iovec) {&null_int, sizeof(null_int)};
+		iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&flags, sizeof(flags)};
+		iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {(void *) mod_name, strlen(mod_name) + 1};
 
 		ubridge_kv_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, 3,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
@@ -1297,9 +1331,9 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 	}
 
 	/* copy the header completely from new vector to result vector */
-	buffer_add(delta->merged, new_value[0].iov_base, new_value[0].iov_len); /* seqnum */
-	buffer_add(delta->merged, new_value[1].iov_base, new_value[1].iov_len); /* flags */
-	buffer_add(delta->merged, new_value[2].iov_base, new_value[2].iov_len); /* mod_name */
+	buffer_add(delta->merged, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_base, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_len);
+	buffer_add(delta->merged, new_value[VALUE_VECTOR_IDX_FLAGS].iov_base, new_value[VALUE_VECTOR_IDX_FLAGS].iov_len);
+	buffer_add(delta->merged, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
 
 	if (!old_size)
 		old_size = 3;
@@ -1973,14 +2007,18 @@ static int _worker_cleanup(sid_resource_t *worker_res)
 static int _master_kv_store_unset(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
-	struct ubridge_kv_value *old_value = spec->old_data;
+	struct iovec tmp_iov_old[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec *iov_old;
 
-	if (!old_value)
+	if (!spec->old_data)
 		return 1;
 
-	if (_flags_indicate_mod_owned(old_value->flags) && strcmp(old_value->data, arg->mod_name)) {
+	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
+
+	if (_flags_indicate_mod_owned(VALUE_VECTOR_FLAGS(iov_old)) && strcmp(VALUE_VECTOR_MOD_NAME(iov_old), arg->mod_name)) {
 		log_debug(ID(arg->res), "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
-					"which belongs to module %s.",  arg->mod_name, key, old_value->seqnum, old_value->data);
+					"which belongs to module %s.",  arg->mod_name, key, VALUE_VECTOR_SEQNUM(iov_old),
+					VALUE_VECTOR_MOD_NAME(iov_old));
 		arg->ret_code = EBUSY;
 		return 0;
 	}
@@ -1991,16 +2029,21 @@ static int _master_kv_store_unset(const char *key_prefix, const char *key, struc
 static int _master_kv_store_update(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
-	struct ubridge_kv_value *old_value = spec->old_data;
-	struct ubridge_kv_value *new_value = spec->new_data;
+	struct iovec tmp_iov_old[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec tmp_iov_new[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec *iov_old, *iov_new;
 
-	if (!old_value)
+	if (!spec->old_data)
 		return 1;
 
-	if (new_value->seqnum >= old_value->seqnum) {
+	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
+	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
+
+	if (VALUE_VECTOR_SEQNUM(iov_new) >= VALUE_VECTOR_SEQNUM(iov_old)) {
 		if (_kv_overwrite(key_prefix, key, spec, arg)) {
 			log_debug(ID(arg->res), "Updating value for key %s%s%s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
-				  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, new_value->seqnum, old_value->seqnum);
+				  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
+				  VALUE_VECTOR_SEQNUM(iov_new), VALUE_VECTOR_SEQNUM(iov_old));
 			return 1;
 		}
 
@@ -2008,7 +2051,8 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 	}
 
 	log_debug(ID(arg->res), "Keeping old value for key %s%s%s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
-		  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, new_value->seqnum, old_value->seqnum);
+		  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
+		  VALUE_VECTOR_SEQNUM(iov_new), VALUE_VECTOR_SEQNUM(iov_old));
 	return 0;
 }
 
@@ -2080,7 +2124,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			update_arg.ret_code = 0;
 
 			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
-				  unset ? "NULL" : "[vector]", *((uint64_t *) iov[0].iov_base));
+				  unset ? "NULL" : "[vector]", *((uint64_t *) iov[VALUE_VECTOR_IDX_SEQNUM].iov_base));
 
 		} else {
 			data = (struct ubridge_kv_value *) p;
