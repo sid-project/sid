@@ -89,6 +89,9 @@
 #define KV_PAIR             "="
 #define KV_END              ""
 
+#define KV_NS_DELTA_PLUS_KEY_PREFIX  "+" KV_STORE_KEY_JOIN
+#define KV_NS_DELTA_MINUS_KEY_PREFIX "-" KV_STORE_KEY_JOIN
+
 #define KV_NS_UDEV_KEY_PREFIX   "U" KV_STORE_KEY_JOIN
 #define KV_NS_DEVICE_KEY_PREFIX "D" KV_STORE_KEY_JOIN
 #define KV_NS_MODULE_KEY_PREFIX "M" KV_STORE_KEY_JOIN
@@ -100,10 +103,6 @@
 #define KV_KEY_DEV_RESERVED               "SID_RES"
 #define KV_KEY_DEV_LAYER_UP               "SID_LUP"
 #define KV_KEY_DEV_LAYER_DOWN             "SID_LDW"
-#define KV_KEY_DEV_LAYER_UP_DELTA_PLUS    "SID_LUP+"
-#define KV_KEY_DEV_LAYER_UP_DELTA_MINUS   "SID_LUP-"
-#define KV_KEY_DEV_LAYER_DOWN_DELTA_PLUS  "SID_LDW+"
-#define KV_KEY_DEV_LAYER_DOWN_DELTA_MINUS "SID_LDW-"
 #define KV_KEY_DEV_MOD                    "SID_MOD"
 #define KV_KEY_DEV_NEXT_MOD               SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
 
@@ -353,21 +352,21 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 	return cmd->udev_dev.synth_uuid;
 }
 
-static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char *mod_name, int major, int minor,
-				   char *buf, size_t buf_size)
+static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char *prefix,
+				   const char *mod_name, int major, int minor, char *buf, size_t buf_size)
 {
 	switch (ns) {
 		case KV_NS_UDEV:
-			snprintf(buf, buf_size, "%s%d_%d", KV_NS_UDEV_KEY_PREFIX, major, minor);
+			snprintf(buf, buf_size, "%s%s%d_%d", prefix ? : "", KV_NS_UDEV_KEY_PREFIX, major, minor);
 			break;
 		case KV_NS_DEVICE:
-			snprintf(buf, buf_size, "%s%d_%d", KV_NS_DEVICE_KEY_PREFIX, major, minor);
+			snprintf(buf, buf_size, "%s%s%d_%d", prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, major, minor);
 			break;
 		case KV_NS_MODULE:
-			snprintf(buf, buf_size, "%s%s", KV_NS_MODULE_KEY_PREFIX, mod_name);
+			snprintf(buf, buf_size, "%s%s%s", prefix ? : "", KV_NS_MODULE_KEY_PREFIX, mod_name);
 			break;
 		case KV_NS_GLOBAL:
-			snprintf(buf, buf_size, "%s*", KV_NS_GLOBAL_KEY_PREFIX);
+			snprintf(buf, buf_size, "%s%s*", prefix ? : "", KV_NS_GLOBAL_KEY_PREFIX);
 			break;
 	}
 
@@ -466,7 +465,7 @@ static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
 		return 1;
 
-	if (!(key_prefix = _get_key_prefix(ns, mod_name, 0, 0, buf, buf_size))) {
+	if (!(key_prefix = _get_key_prefix(ns, NULL, mod_name, 0, 0, buf, buf_size))) {
 		errno = ENOKEY;
 		return 0;
 	}
@@ -512,7 +511,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	    !_passes_global_reservation_check(cmd->kv_store_res, mod_name, ns, key, buf, sizeof(buf)))
 		return NULL;
 
-	if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
+	if (!(key_prefix = _get_key_prefix(ns, NULL, mod_name, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
 		errno = ENOKEY;
 		return NULL;
 	}
@@ -573,7 +572,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
 
-	if (!(key_prefix = _get_key_prefix(ns, mod_name, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
+	if (!(key_prefix = _get_key_prefix(ns, NULL, mod_name, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
 		errno = ENOKEY;
 		return NULL;
 	}
@@ -664,7 +663,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 
 	mod_name = mod ? sid_module_get_name(mod) : CORE_MOD_NAME;
 
-	if (!(key_prefix = _get_key_prefix(ns, mod_name, 0, 0, buf, sizeof(buf)))) {
+	if (!(key_prefix = _get_key_prefix(ns, NULL, mod_name, 0, 0, buf, sizeof(buf)))) {
 		errno = ENOKEY;
 		return -1;
 	}
@@ -1360,11 +1359,13 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 			cmp_result = strcmp(old_value[i_old].iov_base, new_value[i_new].iov_base);
 			if (cmp_result < 0) {
 				/* old vector has item the new one doesn't have: don't add it to iov but add it to delta->minus */
-				buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
+				if (delta->minus)
+					buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
 				i_old++;
 			} else if (cmp_result > 0) {
 				/* new one has the item the old one doesn't have: add it to iov and add it to delta->plus */
-				buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
+				if (delta->plus)
+					buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 				buffer_add(delta->merged, new_value[i_new].iov_base, new_value[i_new].iov_len);
 				i_new++;
 				i++;
@@ -1379,7 +1380,8 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 		} else if (i_old == old_size) {
 			/* only new vector still has items to handle: add them to delta->plus and add them to iov */
 			while (i_new < new_size) {
-				buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
+				if (delta->plus)
+					buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 				buffer_add(delta->merged, new_value[i_new].iov_base, new_value[i_new].iov_len);
 				i_new++;
 				i++;
@@ -1387,7 +1389,8 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 		} else if (i_new == new_size) {
 			/* only old vector still has items to handle: add them to delta->minus and don't add them to iov */
 			while (i_old < old_size) {
-				buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
+				if (delta->minus)
+					buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
 				i_old++;
 			}
 		}
@@ -1412,15 +1415,9 @@ static int _iov_str_item_cmp(const void *a, const void *b)
 	return strcmp((const char *) iovec_item_a->iov_base, (const char *) iovec_item_b->iov_base);
 }
 
-struct layer_keys {
-	const char *sysfs;
-	const char *link;
-	const char *link_delta_plus;
-	const char *link_delta_minus;
-};
-
-static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, struct layer_keys keys)
+static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *sysfs_item, const char *key)
 {
+	static const char key_prefix_err_msg[] = "Failed to get ke prefix to store hierarchy records for device %s (%d:%d).";
 	static uint64_t kv_flags = (DEFAULT_CORE_KV_FLAGS) & ~KV_PERSISTENT;
 	static uint64_t kv_flags_for_delta = DEFAULT_CORE_KV_FLAGS;
 	static char *core_mod_name = CORE_MOD_NAME;
@@ -1437,9 +1434,9 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	struct kv_update_arg update_arg;
 	int r = -1;
 
-	if (snprintf(buf, sizeof(buf), "/sys/dev/block/%d:%d/%s", cmd->udev_dev.major, cmd->udev_dev.minor, keys.sysfs) < 0) {
+	if (snprintf(buf, sizeof(buf), "/sys/dev/block/%d:%d/%s", cmd->udev_dev.major, cmd->udev_dev.minor, sysfs_item) < 0) {
 		log_error(ID(cmd_res), "Failed to compose sysfs %s path for device %s (%d:%d).",
-			  keys.sysfs, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+			  sysfs_item, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
 	}
 
@@ -1505,9 +1502,8 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	}
 	free(dirent);
 
-	if (!(s = _get_key_prefix(KV_NS_DEVICE, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
-		log_error(ID(cmd_res), "Failed to get key prefix to store hierarchy for device %s (%d:%d).",
-			  cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+	if (!(s = _get_key_prefix(KV_NS_DEVICE, NULL, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
+		log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
 	}
 
@@ -1520,25 +1516,31 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	update_arg.ret_code = 0;
 
 	/* Store final list. */
-	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link, iov, iov_cnt,
+	iov = kv_store_set_value(cmd->kv_store_res, s, key, iov, iov_cnt,
 				 KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
 				 _kv_sorted_id_set_delta_resolve, &update_arg);
 
 	update_arg.custom = NULL;
 
 	/* Store delta plus. */
+	if (!(s = _get_key_prefix(KV_NS_DEVICE, KV_NS_DELTA_PLUS_KEY_PREFIX, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
+		log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		goto out;
+	}
+
 	update_arg.ret_code = 0;
 	buffer_get_data(delta.plus, (const void **) (&iov), &iov_cnt);
-	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link_delta_plus, iov, iov_cnt,
-				 KV_STORE_VALUE_VECTOR, 0,
-				 _kv_overwrite, &update_arg);
+	iov = kv_store_set_value(cmd->kv_store_res, s, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
 
 	/* Store delta minus. */
+	if (!(s = _get_key_prefix(KV_NS_DEVICE, KV_NS_DELTA_MINUS_KEY_PREFIX, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
+		log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		goto out;
+	}
+
 	update_arg.ret_code = 0;
 	buffer_get_data(delta.minus, (const void **) (&iov), &iov_cnt);
-	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link_delta_minus, iov, iov_cnt,
-				 KV_STORE_VALUE_VECTOR, 0,
-				 _kv_overwrite, &update_arg);
+	iov = kv_store_set_value(cmd->kv_store_res, s, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
 
 	r = 0;
 out:
@@ -1560,20 +1562,9 @@ out:
 
 static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
-	if ((_do_refresh_device_hierarchy_from_sysfs(cmd_res, (struct layer_keys)
-								{
-									"holders",
-									KV_KEY_DEV_LAYER_UP,
-									KV_KEY_DEV_LAYER_UP_DELTA_PLUS,
-									KV_KEY_DEV_LAYER_UP_DELTA_MINUS
-								}) < 0) ||
-	    (_do_refresh_device_hierarchy_from_sysfs(cmd_res, (struct layer_keys)
-								{
-									"slaves",
-									KV_KEY_DEV_LAYER_DOWN,
-									KV_KEY_DEV_LAYER_DOWN_DELTA_PLUS,
-									KV_KEY_DEV_LAYER_DOWN_DELTA_MINUS
-								}) < 0));
+	if ((_do_refresh_device_hierarchy_from_sysfs(cmd_res, "holders", KV_KEY_DEV_LAYER_UP) < 0) ||
+	    (_do_refresh_device_hierarchy_from_sysfs(cmd_res, "slaves", KV_KEY_DEV_LAYER_DOWN) < 0))
+		return -1;
 
 	return 0;
 }
@@ -2042,28 +2033,41 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 	struct iovec tmp_iov_old[_VALUE_VECTOR_IDX_COUNT];
 	struct iovec tmp_iov_new[_VALUE_VECTOR_IDX_COUNT];
 	struct iovec *iov_old, *iov_new;
-
-	if (!spec->old_data)
-		return 1;
+	struct delta_args delta = {0};
+	int r = 1;
 
 	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
 	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 
-	if (VALUE_VECTOR_SEQNUM(iov_new) >= VALUE_VECTOR_SEQNUM(iov_old)) {
-		if (_kv_overwrite(key_prefix, key, spec, arg)) {
-			log_debug(ID(arg->res), "Updating value for key %s%s%s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
-				  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
-				  VALUE_VECTOR_SEQNUM(iov_new), VALUE_VECTOR_SEQNUM(iov_old));
-			return 1;
-		}
+	delta.op = *((int *) arg->custom);
 
-		return 0;
+	if (delta.op) {
+		/* resolve delta */
+		arg->custom = &delta;
+		r = _kv_sorted_id_set_delta_resolve(key_prefix, key, spec, garg);
+		arg->custom = NULL;
+		buffer_destroy(delta.merged);
+	} else {
+		/* overwrite whole value */
+		if (!spec->old_data)
+			goto out;
+		if (VALUE_VECTOR_SEQNUM(iov_new) >= VALUE_VECTOR_SEQNUM(iov_old) &&
+		    _kv_overwrite(key_prefix, key, spec, arg))
+			goto out;
+
+		r = 0;
 	}
+out:
+	if (r)
+		log_debug(ID(arg->res), "Updating value for key %s%s%s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
+			  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
+			  VALUE_VECTOR_SEQNUM(iov_new), VALUE_VECTOR_SEQNUM(iov_old));
+	else
+		log_debug(ID(arg->res), "Keeping old value for key %s%s%s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
+			  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
+			  VALUE_VECTOR_SEQNUM(iov_new), VALUE_VECTOR_SEQNUM(iov_old));
 
-	log_debug(ID(arg->res), "Keeping old value for key %s%s%s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
-		  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
-		  VALUE_VECTOR_SEQNUM(iov_new), VALUE_VECTOR_SEQNUM(iov_old));
-	return 0;
+	return r;
 }
 
 static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
@@ -2075,6 +2079,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	struct ubridge_kv_value *data = NULL;
 	struct iovec *iov = NULL;
 	uint64_t value_flags;
+	int delta_op;
 	struct kv_update_arg update_arg;
 	int unset;
 	int r = -1;
@@ -2130,11 +2135,20 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 
 			update_arg.mod_name = VALUE_VECTOR_MOD_NAME(iov);
 			update_arg.res = ubridge->main_kv_store_res;
-			update_arg.custom = NULL;
+			update_arg.custom = &delta_op;
 			update_arg.ret_code = 0;
 
 			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
 				  unset ? "NULL" : "[vector]", VALUE_VECTOR_SEQNUM(iov));
+
+			if (!strncmp(key, KV_NS_DELTA_PLUS_KEY_PREFIX, sizeof(KV_NS_DELTA_PLUS_KEY_PREFIX) - 1)) {
+				key = key + sizeof(KV_NS_DELTA_PLUS_KEY_PREFIX) - 1;
+				delta_op = 1;
+			} else if (!strncmp(key, KV_NS_DELTA_MINUS_KEY_PREFIX, sizeof(KV_NS_DELTA_MINUS_KEY_PREFIX) - 1)) {
+				key = key + sizeof(KV_NS_DELTA_MINUS_KEY_PREFIX) - 1;
+				delta_op = 1;
+			} else
+				delta_op = 0;
 
 		} else {
 			data = (struct ubridge_kv_value *) p;
@@ -2151,16 +2165,14 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 
 			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
 				  unset ? "NULL" : data_offset ? data->data + data_offset : data->data, data->seqnum);
-
-			if (unset)
-				kv_store_unset_value(ubridge->main_kv_store_res, NULL, key,
-						     _master_kv_store_unset, &update_arg);
-			else
-				kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data, data_size, 0, 0,
-						   _master_kv_store_update, &update_arg);
 		}
 
-
+		if (unset)
+			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key, _master_kv_store_unset, &update_arg);
+		else
+			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, iov, data_size, KV_STORE_VALUE_VECTOR, 0,
+					   _master_kv_store_update, &update_arg);
+		free(iov);
 	}
 
 	r = 0;
@@ -2634,11 +2646,7 @@ static int _reserve_core_kvs(struct ubridge *ubridge)
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, 0) < 0 ||
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP, 0) < 0 ||
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN, 0) < 0 ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_MOD, 0) ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP_DELTA_PLUS, 0) ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP_DELTA_MINUS, 0) ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN_DELTA_PLUS, 0) ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN_DELTA_MINUS, 0))
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_MOD, 0))
 		return -1;
 
 	return 0;
