@@ -654,7 +654,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	char buf[PATH_MAX];
 	const char *key_prefix;
 	const char *mod_name;
-	struct iovec iov[3];
+	struct iovec iov[_VALUE_VECTOR_IDX_COUNT - 1]; /* without VALUE_VECTOR_IDX_DATA */
 	struct ubridge_kv_value *ubridge_kv_value;
 	static uint64_t null_int = 0;
 	sid_ubridge_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
@@ -692,7 +692,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&flags, sizeof(flags)};
 		iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {(void *) mod_name, strlen(mod_name) + 1};
 
-		ubridge_kv_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, 3,
+		ubridge_kv_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, _VALUE_VECTOR_IDX_COUNT - 1,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
 						    _kv_reserve, &update_arg);
 
@@ -1779,7 +1779,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 			iov = value;
 			iov_size = size;
 			ubridge_kv_value = NULL;
-			value_flags = (sid_ubridge_kv_flags_t *) iov[1].iov_base;
+			value_flags = (sid_ubridge_kv_flags_t *) iov[VALUE_VECTOR_IDX_FLAGS].iov_base;
 		} else {
 			iov = NULL;
 			ubridge_kv_value = value;
@@ -2124,16 +2124,16 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			}
 
 			data_offset = 3;
-			value_flags = *((uint64_t *) iov[1].iov_base);
+			value_flags = VALUE_VECTOR_FLAGS(iov);
 			unset = (value_flags != KV_MOD_RESERVED) && (data_size == data_offset);
 
-			update_arg.mod_name = iov[2].iov_base;
+			update_arg.mod_name = VALUE_VECTOR_MOD_NAME(iov);
 			update_arg.res = ubridge->main_kv_store_res;
 			update_arg.custom = NULL;
 			update_arg.ret_code = 0;
 
 			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
-				  unset ? "NULL" : "[vector]", *((uint64_t *) iov[VALUE_VECTOR_IDX_SEQNUM].iov_base));
+				  unset ? "NULL" : "[vector]", VALUE_VECTOR_SEQNUM(iov));
 
 		} else {
 			data = (struct ubridge_kv_value *) p;
