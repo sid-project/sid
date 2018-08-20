@@ -306,7 +306,8 @@ struct kv_update_arg {
 	int ret_code;	      /* out */
 };
 
-struct delta_buffer {
+struct delta_args {
+	int op;
 	struct buffer *plus;
 	struct buffer *minus;
 	struct buffer *merged;
@@ -1324,7 +1325,7 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 	size_t size;
 	unsigned i, i_old, i_new;
 	int cmp_result;
-	struct delta_buffer *delta = arg->custom;
+	struct delta_args *delta = arg->custom;
 
 	/*
 	 * Result vector is "iov".
@@ -1430,7 +1431,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	const char *s;
 	int count, i;
 	struct buffer *input_vec_buf = NULL;
-	struct delta_buffer delta_vec_buf = {NULL, NULL, NULL};
+	struct delta_args delta = {0};
 	struct iovec *iov;
 	size_t iov_cnt;
 	struct kv_update_arg update_arg;
@@ -1459,8 +1460,8 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	}
 
 	/* FIXME: We take "count + 1" here to accomodate the maximum possible change. But this is not necessary all the time. */
-	if (!(delta_vec_buf.plus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0)) ||
-	    !(delta_vec_buf.minus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0))) {
+	if (!(delta.plus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0)) ||
+	    !(delta.minus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0))) {
 		log_error(ID(cmd_res), "Failed to create delta buffer to record change in hierarchy for device %s (%d:%d).",
 			  cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
@@ -1476,14 +1477,14 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 	buffer_add(input_vec_buf, core_mod_name, strlen(core_mod_name) + 1);
 
 	/* Header for delta plus list. */
-	buffer_add(delta_vec_buf.plus, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
-	buffer_add(delta_vec_buf.plus, &kv_flags_for_delta, sizeof(kv_flags_for_delta));
-	buffer_add(delta_vec_buf.plus, core_mod_name, strlen(core_mod_name) + 1);
+	buffer_add(delta.plus, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
+	buffer_add(delta.plus, &kv_flags_for_delta, sizeof(kv_flags_for_delta));
+	buffer_add(delta.plus, core_mod_name, strlen(core_mod_name) + 1);
 
 	/* Header for delta minus list. */
-	buffer_add(delta_vec_buf.minus, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
-	buffer_add(delta_vec_buf.minus, &kv_flags_for_delta, sizeof(kv_flags_for_delta));
-	buffer_add(delta_vec_buf.minus, core_mod_name, strlen(core_mod_name) + 1);
+	buffer_add(delta.minus, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
+	buffer_add(delta.minus, &kv_flags_for_delta, sizeof(kv_flags_for_delta));
+	buffer_add(delta.minus, core_mod_name, strlen(core_mod_name) + 1);
 
 	for (i = 0; i < count; i++) {
 		if (dirent[i]->d_name[0] == '.') {
@@ -1515,7 +1516,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 
 	update_arg.res = cmd->kv_store_res;
 	update_arg.mod_name = core_mod_name;
-	update_arg.custom = &delta_vec_buf;
+	update_arg.custom = &delta;
 	update_arg.ret_code = 0;
 
 	/* Store final list. */
@@ -1527,14 +1528,14 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, stru
 
 	/* Store delta plus. */
 	update_arg.ret_code = 0;
-	buffer_get_data(delta_vec_buf.plus, (const void **) (&iov), &iov_cnt);
+	buffer_get_data(delta.plus, (const void **) (&iov), &iov_cnt);
 	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link_delta_plus, iov, iov_cnt,
 				 KV_STORE_VALUE_VECTOR, 0,
 				 _kv_overwrite, &update_arg);
 
 	/* Store delta minus. */
 	update_arg.ret_code = 0;
-	buffer_get_data(delta_vec_buf.minus, (const void **) (&iov), &iov_cnt);
+	buffer_get_data(delta.minus, (const void **) (&iov), &iov_cnt);
 	iov = kv_store_set_value(cmd->kv_store_res, s, keys.link_delta_minus, iov, iov_cnt,
 				 KV_STORE_VALUE_VECTOR, 0,
 				 _kv_overwrite, &update_arg);
@@ -1548,12 +1549,12 @@ out:
 			free(iov[i].iov_base);
 		buffer_destroy(input_vec_buf);
 	}
-	if (delta_vec_buf.plus)
-		buffer_destroy(delta_vec_buf.plus);
-	if (delta_vec_buf.minus)
-		buffer_destroy(delta_vec_buf.minus);
-	if (delta_vec_buf.merged)
-		buffer_destroy(delta_vec_buf.merged);
+	if (delta.plus)
+		buffer_destroy(delta.plus);
+	if (delta.minus)
+		buffer_destroy(delta.minus);
+	if (delta.merged)
+		buffer_destroy(delta.merged);
 	return r;
 }
 
