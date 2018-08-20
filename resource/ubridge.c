@@ -465,7 +465,7 @@ static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const 
 		return 0;
 	}
 
-	if ((found = kv_store_get_value(kv_store_res, key_prefix, key, NULL)) && (found->flags & KV_MOD_RESERVED) && strcmp(found->data, mod_name)) {
+	if ((found = kv_store_get_value(kv_store_res, key_prefix, key, NULL, NULL)) && (found->flags & KV_MOD_RESERVED) && strcmp(found->data, mod_name)) {
 		log_debug(ID(kv_store_res), "Module %s can't overwrite value with key %s%s%s which is reserved and attached to %s module.",
 			  mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, *found->data ? found->data : CORE_MOD_NAME);
 		return 0;
@@ -568,7 +568,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		return NULL;
 	}
 
-	if (!(ubridge_kv_value = kv_store_get_value(cmd->kv_store_res, key_prefix, key, &size)))
+	if (!(ubridge_kv_value = kv_store_get_value(cmd->kv_store_res, key_prefix, key, &size, NULL)))
 		return NULL;
 
 	if (ubridge_kv_value->flags & KV_MOD_PRIVATE) {

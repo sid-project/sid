@@ -126,8 +126,10 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, c
  * Gets value for given key.
  *   - Final key is composed of key_prefix and key.
  *   - If value_size is not NULL, the function returns the size of the value through this output argument.
+ *   - If flags is not NULL, the function returns the flags attached to the value through this output argument.
  */
-void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key, size_t *value_size);
+void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key, size_t *value_size, kv_store_value_flags_t *flags);
+
 
 /*
  * Unsets value for given key.

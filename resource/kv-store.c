@@ -388,7 +388,8 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 	return _get_data(kv_store_value);
 }
 
-void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key, size_t *value_size)
+void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
+			 size_t *value_size, kv_store_value_flags_t *flags)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	char buf[PATH_MAX];
@@ -407,6 +408,9 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 
 	if (value_size)
 		*value_size = found->size;
+
+	if (flags)
+		*flags = found->ext_flags;
 
 	return _get_data(found);
 }
