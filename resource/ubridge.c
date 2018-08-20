@@ -450,12 +450,17 @@ static size_t _get_ubridge_kv_value_data_offset(struct ubridge_kv_value *ubridge
 	return strlen(ubridge_kv_value->data) + 1;
 }
 
+
 static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const char *mod_name,
 					    sid_ubridge_cmd_kv_namespace_t ns, const char *key,
 					    char *buf, size_t buf_size)
 {
-	struct ubridge_kv_value *found;
+	struct iovec tmp_iov[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec *iov;
 	const char *key_prefix;
+	void *found;
+	size_t value_size;
+	kv_store_value_flags_t value_flags;
 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
 		return 1;
@@ -465,13 +470,18 @@ static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const 
 		return 0;
 	}
 
-	if ((found = kv_store_get_value(kv_store_res, key_prefix, key, NULL, NULL)) && (found->flags & KV_MOD_RESERVED) && strcmp(found->data, mod_name)) {
-		log_debug(ID(kv_store_res), "Module %s can't overwrite value with key %s%s%s which is reserved and attached to %s module.",
-			  mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, *found->data ? found->data : CORE_MOD_NAME);
-		return 0;
-	}
+	if (!(found = kv_store_get_value(kv_store_res, key_prefix, key, &value_size, &value_flags)))
+		return 1;
 
-	return 1;
+	iov = _get_value_vector(value_flags, found, value_size, tmp_iov);
+
+	if ((VALUE_VECTOR_FLAGS(iov) & KV_MOD_RESERVED) && (!strcmp(VALUE_VECTOR_MOD_NAME(iov), mod_name)))
+		return 1;
+
+	log_debug(ID(kv_store_res), "Module %s can't overwrite value with key %s%s%s which is reserved and attached to %s module.",
+		  mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
+		  *VALUE_VECTOR_MOD_NAME(iov)? VALUE_VECTOR_MOD_NAME(iov) : CORE_MOD_NAME);
+	return 0;
 }
 
 static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
