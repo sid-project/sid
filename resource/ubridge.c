@@ -1311,14 +1311,6 @@ out:
 	return r;
 }
 
-/*
- * Compares sorted old vector with sorted new vector and writes output vectors:
- *   - if the new vector has item the old vector doesn't have, add the item to delta plus vector and also add it to result vector
- *   - if the old vector has item the new vector doesn't have, add the item to delta minus vector
- *   - if both the old and the new vector has item, add the item to result vector
- *
- * Output vectors are also sorted.
- */
 static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
@@ -1333,9 +1325,15 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 	struct delta_args *delta = arg->custom;
 
 	/*
-	 * Result vector is "iov".
-	 * Delta plus vector is "delta->plus".
-	 * Delta minus vector is "delta->minus".
+	 * Result vector is "delta->final".
+	 * Delta plus vector is "delta->plus" (items which are detected as added).
+	 * Delta minus vector is "delta->minus" (items which are detected as removed).
+	 *
+	 * Note that delta->plus and/or delta->minus doesn't need to be initialized - this depends
+	 * on the caller if it's interested in delta->plus/minus or just the delta->final. The caller
+	 * initializes delta->plus/minus, the delta->final is always initialized here in this function.
+	 * Therefore, we always need to check if delta->plus and/or delta->minus is set or not before
+	 * use here in this function.
 	 */
 
 	size = (old_size ? old_size - 3 : 0) + new_size;
@@ -1351,52 +1349,106 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
 
 	if (!old_size)
-		old_size = 3;
+		old_size = VALUE_VECTOR_IDX_DATA;
 
 	if (!new_size)
-		new_size = 3;
+		new_size = VALUE_VECTOR_IDX_DATA;
 
 	/* start right beyond the header */
-	i = i_old = i_new = 3;
+	i = i_old = i_new = VALUE_VECTOR_IDX_DATA;
 
 	while (1) {
 		if ((i_old < old_size) && (i_new < new_size)) {
 			/* both vectors still still have items to handle */
 			cmp_result = strcmp(old_value[i_old].iov_base, new_value[i_new].iov_base);
 			if (cmp_result < 0) {
-				/* old vector has item the new one doesn't have: don't add it to iov but add it to delta->minus */
-				if (delta->minus)
-					buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
+				/* the old vector has item the new one doesn't have */
+				switch (delta->op) {
+					case DELTA_OP_DETECT:
+						/* we have detected removed item: add it to delta->minus */
+						if (delta->minus)
+							buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
+						break;
+					case DELTA_OP_PLUS:
+						/* we're not changing the old item: add it to delta->final */
+					case DELTA_OP_MINUS:
+						/* we're not changing the old item: add it to delta->final */
+						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
+						break;
+				}
 				i_old++;
 			} else if (cmp_result > 0) {
-				/* new one has the item the old one doesn't have: add it to iov and add it to delta->plus */
-				if (delta->plus)
-					buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
-				buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
+				/* the new vector has item the old one doesn't have */
+				switch (delta->op) {
+					case DELTA_OP_DETECT:
+						/* we have detected new item: add it to delta->plus and add it to delta->final */
+						if (delta->plus)
+							buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						/* no break here intentionally! */
+					case DELTA_OP_PLUS:
+						/* we're adding new item: add it to delta->final */
+						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						break;
+					case DELTA_OP_MINUS:
+						/* we're removing item: don't add it to delta->final */
+						break;
+				}
 				i_new++;
 				i++;
 			} else {
-				/* both old and new has the item - no change: add it to iov but don't add it to any delta */
-				buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
+				/* both old and new has the item */
+				switch (delta->op) {
+					case DELTA_OP_DETECT:
+						/* we have detected no change for this item: add it to delta->final */
+					case DELTA_OP_PLUS:
+						/* we're adding new item: add it to delta->final */
+						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						break;
+					case DELTA_OP_MINUS:
+						/* we're removing item: don't add it to delta->final */
+						break;
+				}
 				i_old++;
 				i_new++;
 				i++;
 			}
 			continue;
 		} else if (i_old == old_size) {
-			/* only new vector still has items to handle: add them to delta->plus and add them to iov */
+			/* only new vector still has items to handle */
 			while (i_new < new_size) {
-				if (delta->plus)
-					buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
-				buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
+				switch (delta->op) {
+					case DELTA_OP_DETECT:
+						/* we have detected new item: add it to delta->final */
+						if (delta->plus)
+							buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						/* no break here intentionally! */
+					case DELTA_OP_PLUS:
+						/* we're adding new item: add it to delta->final */
+						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						break;
+					case DELTA_OP_MINUS:
+						/* we're removing item: don't add to delta->final */
+						break;
+				}
 				i_new++;
 				i++;
 			}
 		} else if (i_new == new_size) {
-			/* only old vector still has items to handle: add them to delta->minus and don't add them to iov */
+			/* only old vector still has items to handle */
 			while (i_old < old_size) {
-				if (delta->minus)
-					buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
+				switch (delta->op) {
+					case DELTA_OP_DETECT:
+						/* we have detected removed item so add it to delta->minus */
+						if (delta->minus)
+							buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
+						break;
+					case DELTA_OP_PLUS:
+						/* we're not changing the old item so add it to delta->final */
+					case DELTA_OP_MINUS:
+						/* we're not changing the old item so add it to delta->final */
+						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
+						break;
+				}
 				i_old++;
 			}
 		}
@@ -2042,34 +2094,39 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 	struct delta_args delta = {0};
 	int r;
 
-	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
-	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
-
 	delta.op = *((delta_op_t *) arg->custom);
 
 	if (delta.op == DELTA_OP_DETECT) {
 		/* overwrite whole value */
 		if (!spec->old_data)
 			r = 1;
-		else
+		else {
+			iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
+			iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
+
 			r = ((VALUE_VECTOR_SEQNUM(iov_new) >= VALUE_VECTOR_SEQNUM(iov_old)) &&
 			     _kv_overwrite(key_prefix, key, spec, arg));
+		}
 	} else {
 		/* resolve delta */
 		arg->custom = &delta;
 		r = _kv_sorted_id_set_delta_resolve(key_prefix, key, spec, garg);
 		arg->custom = NULL;
-		buffer_destroy(delta.final);
+
+		iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
+		iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
+		// TODO: this needs fixing, I can't destroy the buffer here because it's not yet copied to kv_store_value
+		//buffer_destroy(delta.final);
 	}
 
 	if (r)
 		log_debug(ID(arg->res), "Updating value for key %s%s%s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
 			  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
-			  VALUE_VECTOR_SEQNUM(iov_new), VALUE_VECTOR_SEQNUM(iov_old));
+			  VALUE_VECTOR_SEQNUM(iov_new), iov_old ? VALUE_VECTOR_SEQNUM(iov_old) : 0);
 	else
 		log_debug(ID(arg->res), "Keeping old value for key %s%s%s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
 			  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
-			  VALUE_VECTOR_SEQNUM(iov_new), VALUE_VECTOR_SEQNUM(iov_old));
+			  VALUE_VECTOR_SEQNUM(iov_new), iov_old ? VALUE_VECTOR_SEQNUM(iov_old) : 0);
 
 	return r;
 }
@@ -2174,12 +2231,12 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, iov, data_size, KV_STORE_VALUE_VECTOR, 0,
 					   _master_kv_store_update, &update_arg);
 		free(iov);
+		iov = NULL;
 	}
 
 	r = 0;
 out:
-	if (iov)
-		free(iov);
+	free(iov);
 
 	if (shm && munmap(shm, msg_size) < 0) {
 		log_error_errno(ID(observer_res), errno, "Failed to unmap memory with key-value store");
