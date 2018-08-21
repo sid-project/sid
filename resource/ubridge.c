@@ -315,7 +315,7 @@ struct delta_args {
 	delta_op_t op;
 	struct buffer *plus;
 	struct buffer *minus;
-	struct buffer *merged;
+	struct buffer *final;
 };
 
 #define CMD_IDENT_CAP_RDY UINT32_C(0x000000001) /* can set ready state */
@@ -1340,15 +1340,15 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 
 	size = (old_size ? old_size - 3 : 0) + new_size;
 
-	if (!(delta->merged = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, size, 0))) {
+	if (!(delta->final = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, size, 0))) {
 		arg->ret_code = ENOMEM;
 		return 0;
 	}
 
 	/* copy the header completely from new vector to result vector */
-	buffer_add(delta->merged, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_base, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_len);
-	buffer_add(delta->merged, new_value[VALUE_VECTOR_IDX_FLAGS].iov_base, new_value[VALUE_VECTOR_IDX_FLAGS].iov_len);
-	buffer_add(delta->merged, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
+	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_base, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_len);
+	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_FLAGS].iov_base, new_value[VALUE_VECTOR_IDX_FLAGS].iov_len);
+	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
 
 	if (!old_size)
 		old_size = 3;
@@ -1372,12 +1372,12 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 				/* new one has the item the old one doesn't have: add it to iov and add it to delta->plus */
 				if (delta->plus)
 					buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
-				buffer_add(delta->merged, new_value[i_new].iov_base, new_value[i_new].iov_len);
+				buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
 				i_new++;
 				i++;
 			} else {
 				/* both old and new has the item - no change: add it to iov but don't add it to any delta */
-				buffer_add(delta->merged, new_value[i_new].iov_base, new_value[i_new].iov_len);
+				buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
 				i_old++;
 				i_new++;
 				i++;
@@ -1388,7 +1388,7 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 			while (i_new < new_size) {
 				if (delta->plus)
 					buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
-				buffer_add(delta->merged, new_value[i_new].iov_base, new_value[i_new].iov_len);
+				buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
 				i_new++;
 				i++;
 			}
@@ -1404,7 +1404,7 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 		break;
 	}
 
-	buffer_get_data(delta->merged, (const void **) &iov, &size);
+	buffer_get_data(delta->final, (const void **) &iov, &size);
 
 	spec->new_data_size = i;
 	spec->new_data = iov;
@@ -1561,8 +1561,8 @@ out:
 		buffer_destroy(delta.plus);
 	if (delta.minus)
 		buffer_destroy(delta.minus);
-	if (delta.merged)
-		buffer_destroy(delta.merged);
+	if (delta.final)
+		buffer_destroy(delta.final);
 	return r;
 }
 
@@ -2059,7 +2059,7 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 		arg->custom = &delta;
 		r = _kv_sorted_id_set_delta_resolve(key_prefix, key, spec, garg);
 		arg->custom = NULL;
-		buffer_destroy(delta.merged);
+		buffer_destroy(delta.final);
 	}
 
 	if (r)
