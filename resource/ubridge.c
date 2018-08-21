@@ -305,8 +305,14 @@ struct kv_update_arg {
 	int ret_code;	      /* out */
 };
 
+typedef enum {
+	DELTA_OP_DETECT,
+	DELTA_OP_PLUS,
+	DELTA_OP_MINUS,
+} delta_op_t;
+
 struct delta_args {
-	int op;
+	delta_op_t op;
 	struct buffer *plus;
 	struct buffer *minus;
 	struct buffer *merged;
@@ -2034,30 +2040,28 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 	struct iovec tmp_iov_new[_VALUE_VECTOR_IDX_COUNT];
 	struct iovec *iov_old, *iov_new;
 	struct delta_args delta = {0};
-	int r = 1;
+	int r;
 
 	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
 	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 
-	delta.op = *((int *) arg->custom);
+	delta.op = *((delta_op_t *) arg->custom);
 
-	if (delta.op) {
+	if (delta.op == DELTA_OP_DETECT) {
+		/* overwrite whole value */
+		if (!spec->old_data)
+			r = 1;
+		else
+			r = ((VALUE_VECTOR_SEQNUM(iov_new) >= VALUE_VECTOR_SEQNUM(iov_old)) &&
+			     _kv_overwrite(key_prefix, key, spec, arg));
+	} else {
 		/* resolve delta */
 		arg->custom = &delta;
 		r = _kv_sorted_id_set_delta_resolve(key_prefix, key, spec, garg);
 		arg->custom = NULL;
 		buffer_destroy(delta.merged);
-	} else {
-		/* overwrite whole value */
-		if (!spec->old_data)
-			goto out;
-		if (VALUE_VECTOR_SEQNUM(iov_new) >= VALUE_VECTOR_SEQNUM(iov_old) &&
-		    _kv_overwrite(key_prefix, key, spec, arg))
-			goto out;
-
-		r = 0;
 	}
-out:
+
 	if (r)
 		log_debug(ID(arg->res), "Updating value for key %s%s%s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
 			  key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key,
@@ -2078,7 +2082,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	char *key, *shm = NULL, *p, *end;
 	struct ubridge_kv_value *data = NULL;
 	struct iovec *iov = NULL;
-	int delta_op;
+	delta_op_t delta_op;
 	struct kv_update_arg update_arg;
 	int unset;
 	int r = -1;
@@ -2140,12 +2144,12 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 
 			if (!strncmp(key, KV_NS_DELTA_PLUS_KEY_PREFIX, sizeof(KV_NS_DELTA_PLUS_KEY_PREFIX) - 1)) {
 				key = key + sizeof(KV_NS_DELTA_PLUS_KEY_PREFIX) - 1;
-				delta_op = 1;
+				delta_op = DELTA_OP_PLUS;
 			} else if (!strncmp(key, KV_NS_DELTA_MINUS_KEY_PREFIX, sizeof(KV_NS_DELTA_MINUS_KEY_PREFIX) - 1)) {
 				key = key + sizeof(KV_NS_DELTA_MINUS_KEY_PREFIX) - 1;
-				delta_op = 1;
+				delta_op = DELTA_OP_MINUS;
 			} else
-				delta_op = 0;
+				delta_op = DELTA_OP_DETECT;
 
 		} else {
 			data = (struct ubridge_kv_value *) p;
