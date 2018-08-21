@@ -2078,7 +2078,6 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	char *key, *shm = NULL, *p, *end;
 	struct ubridge_kv_value *data = NULL;
 	struct iovec *iov = NULL;
-	uint64_t value_flags;
 	int delta_op;
 	struct kv_update_arg update_arg;
 	int unset;
@@ -2129,9 +2128,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 				p += iov[i].iov_len;
 			}
 
-			data_offset = 3;
-			value_flags = VALUE_VECTOR_FLAGS(iov);
-			unset = (value_flags != KV_MOD_RESERVED) && (data_size == data_offset);
+			unset = !(VALUE_VECTOR_FLAGS(iov) & KV_MOD_RESERVED) && (data_size == VALUE_VECTOR_IDX_DATA);
 
 			update_arg.mod_name = VALUE_VECTOR_MOD_NAME(iov);
 			update_arg.res = ubridge->main_kv_store_res;
