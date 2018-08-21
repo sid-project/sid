@@ -42,6 +42,7 @@ typedef enum {
 } kv_store_value_flags_t;
 
 typedef enum {
+	KV_STORE_VALUE_NO_OP    = UINT32_C(0x00000000),
 	KV_STORE_VALUE_OP_MERGE = UINT32_C(0x00000001),
 } kv_store_value_op_flags_t;
 
