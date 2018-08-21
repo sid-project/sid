@@ -2095,25 +2095,19 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 	int r;
 
 	delta.op = *((delta_op_t *) arg->custom);
+	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
+	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 
-	if (delta.op == DELTA_OP_DETECT) {
+	if (delta.op == DELTA_OP_DETECT)
 		/* overwrite whole value */
-		if (!spec->old_data)
-			r = 1;
-		else {
-			iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
-			iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
-
-			r = ((VALUE_VECTOR_SEQNUM(iov_new) >= VALUE_VECTOR_SEQNUM(iov_old)) &&
-			     _kv_overwrite(key_prefix, key, spec, arg));
-		}
-	} else {
+		r = (!iov_old ||
+		     ((VALUE_VECTOR_SEQNUM(iov_new) >= VALUE_VECTOR_SEQNUM(iov_old)) &&
+		      _kv_overwrite(key_prefix, key, spec, arg)));
+	else {
 		/* resolve delta */
 		arg->custom = &delta;
 		r = _kv_sorted_id_set_delta_resolve(key_prefix, key, spec, garg);
 		arg->custom = NULL;
-
-		iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
 		iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 		// TODO: this needs fixing, I can't destroy the buffer here because it's not yet copied to kv_store_value
 		//buffer_destroy(delta.final);
@@ -2137,8 +2131,9 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	kv_store_value_flags_t flags;
 	size_t msg_size, key_size, data_size, data_offset, i;
 	char *key, *shm = NULL, *p, *end;
-	struct ubridge_kv_value *data = NULL;
+	struct ubridge_kv_value *value = NULL;
 	struct iovec *iov = NULL;
+	void *data_to_store;
 	delta_op_t delta_op;
 	struct kv_update_arg update_arg;
 	int unset;
@@ -2208,28 +2203,34 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			} else
 				delta_op = DELTA_OP_DETECT;
 
+			data_to_store = iov;
 		} else {
-			data = (struct ubridge_kv_value *) p;
+			value = (struct ubridge_kv_value *) p;
 			p += data_size;
 
-			data_offset = _get_ubridge_kv_value_data_offset(data);
-			unset = ((data->flags != KV_MOD_RESERVED) &&
+			data_offset = _get_ubridge_kv_value_data_offset(value);
+			unset = ((value->flags != KV_MOD_RESERVED) &&
 				 ((data_size - data_offset) == (sizeof(struct ubridge_kv_value) + data_offset)));
 
-			update_arg.mod_name = data->data;
+			update_arg.mod_name = value->data;
 			update_arg.res = ubridge->main_kv_store_res;
-			update_arg.custom = NULL;
+			update_arg.custom = &delta_op;
 			update_arg.ret_code = 0;
 
+			delta_op = DELTA_OP_DETECT;
+
 			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
-				  unset ? "NULL" : data_offset ? data->data + data_offset : data->data, data->seqnum);
+				  unset ? "NULL" : data_offset ? value->data + data_offset : value->data, value->seqnum);
+
+			data_to_store = value;
 		}
 
 		if (unset)
 			kv_store_unset_value(ubridge->main_kv_store_res, NULL, key, _master_kv_store_unset, &update_arg);
 		else
-			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, iov, data_size, KV_STORE_VALUE_VECTOR, 0,
+			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data_to_store, data_size, flags, 0,
 					   _master_kv_store_update, &update_arg);
+
 		free(iov);
 		iov = NULL;
 	}
