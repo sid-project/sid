@@ -72,7 +72,7 @@ ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_sen
 	union {
 		char control[CMSG_SPACE(sizeof(int))];
 		struct cmsghdr alignment;
-	} u;
+	} u = {0};
 
 	iov.iov_base = buf;
 	iov.iov_len = buf_len;
