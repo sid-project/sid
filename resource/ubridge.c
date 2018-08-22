@@ -2127,6 +2127,7 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 
 static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 {
+	static const char syncing_msg[] = "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")";
 	struct ubridge *ubridge = sid_resource_get_data(sid_resource_get_parent(observer_res));
 	kv_store_value_flags_t flags;
 	size_t msg_size, key_size, data_size, data_offset, i;
@@ -2191,8 +2192,8 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			update_arg.custom = &delta_op;
 			update_arg.ret_code = 0;
 
-			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
-				  unset ? "NULL" : "[vector]", VALUE_VECTOR_SEQNUM(iov));
+			log_debug(ID(observer_res), syncing_msg, key, unset ? "NULL"
+									    : "[vector]", VALUE_VECTOR_SEQNUM(iov));
 
 			if (!strncmp(key, KV_NS_DELTA_PLUS_KEY_PREFIX, sizeof(KV_NS_DELTA_PLUS_KEY_PREFIX) - 1)) {
 				key = key + sizeof(KV_NS_DELTA_PLUS_KEY_PREFIX) - 1;
@@ -2217,11 +2218,11 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			update_arg.custom = &delta_op;
 			update_arg.ret_code = 0;
 
+			log_debug(ID(observer_res), syncing_msg, key, unset ? "NULL"
+									    : data_offset ? value->data + data_offset
+											  : value->data, value->seqnum);
+
 			delta_op = DELTA_OP_DETECT;
-
-			log_debug(ID(observer_res), "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")", key,
-				  unset ? "NULL" : data_offset ? value->data + data_offset : value->data, value->seqnum);
-
 			data_to_store = value;
 		}
 
