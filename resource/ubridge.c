@@ -1473,6 +1473,24 @@ static int _iov_str_item_cmp(const void *a, const void *b)
 	return strcmp((const char *) iovec_item_a->iov_base, (const char *) iovec_item_b->iov_base);
 }
 
+static void _destroy_delta(struct delta_args *delta)
+{
+	if (delta->plus) {
+		buffer_destroy(delta->plus);
+		delta->plus = NULL;
+	}
+
+	if (delta->minus) {
+		buffer_destroy(delta->minus);
+		delta->minus = NULL;
+	}
+
+	if (delta->final) {
+		buffer_destroy(delta->final);
+		delta->final = NULL;
+	}
+}
+
 static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *sysfs_item, const char *key)
 {
 	static const char key_prefix_err_msg[] = "Failed to get ke prefix to store hierarchy records for device %s (%d:%d).";
@@ -1609,12 +1627,8 @@ out:
 			free(iov[i].iov_base);
 		buffer_destroy(input_vec_buf);
 	}
-	if (delta.plus)
-		buffer_destroy(delta.plus);
-	if (delta.minus)
-		buffer_destroy(delta.minus);
-	if (delta.final)
-		buffer_destroy(delta.final);
+
+	_destroy_delta(&delta);
 	return r;
 }
 
@@ -2229,9 +2243,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data_to_store, data_size, flags, 0,
 					   _master_kv_store_update, &update_arg);
 
-		if (delta.final)
-			buffer_destroy(delta.final);
-
+		_destroy_delta(&delta);
 		free(iov);
 		iov = NULL;
 	}
