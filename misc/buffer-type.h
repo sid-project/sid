@@ -38,7 +38,7 @@ struct buffer_type {
 	int (*create) (struct buffer *buf, size_t initial_size);
 	int (*destroy) (struct buffer *buf);
 	int (*reset) (struct buffer *buf, size_t initial_size);
-	int (*add) (struct buffer *buf, void *data, size_t len);
+	const void *(*add) (struct buffer *buf, void *data, size_t len);
 	bool (*is_complete) (struct buffer *buf);
 	int (*get_data) (struct buffer *buf, const void **data, size_t *data_len);
 	ssize_t (*read) (struct buffer *buf, int fd);

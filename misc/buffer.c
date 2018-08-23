@@ -60,10 +60,12 @@ int buffer_reset(struct buffer *buf, size_t initial_size, size_t alloc_step)
 	return _buffer_type_registry[buf->type]->reset(buf, initial_size);
 }
 
-int buffer_add(struct buffer *buf, void *data, size_t len)
+const void *buffer_add(struct buffer *buf, void *data, size_t len)
 {
-	if (!data || !len)
-		return -EINVAL;
+	if (!data || !len) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	return _buffer_type_registry[buf->type]->add(buf, data, len);
 }

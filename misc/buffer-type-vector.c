@@ -102,7 +102,7 @@ int _buffer_vector_reset(struct buffer *buf, size_t initial_size)
 	return _buffer_vector_realloc(buf, initial_size, 1);
 }
 
-int _buffer_vector_add(struct buffer *buf, void *data, size_t len)
+const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len)
 {
 	size_t used = buf->used;
 	struct iovec *iov;
@@ -111,15 +111,17 @@ int _buffer_vector_add(struct buffer *buf, void *data, size_t len)
 	if (!used && buf->mode == BUFFER_MODE_SIZE_PREFIX)
 		used = 1;
 
-	if ((r = _buffer_vector_realloc(buf, used + 1, 0)) < 0)
-		return r;
+	if ((r = _buffer_vector_realloc(buf, used + 1, 0)) < 0) {
+		errno = -r;
+		return NULL;
+	}
 
 	iov = buf->mem;
 	iov[used].iov_base = data;
 	iov[used].iov_len = len;
 	buf->used = used + 1;
 
-	return 0;
+	return &iov[buf->used - 1];
 }
 
 bool _buffer_vector_is_complete(struct buffer *buf)

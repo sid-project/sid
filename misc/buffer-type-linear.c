@@ -85,21 +85,25 @@ static int _buffer_linear_reset(struct buffer *buf, size_t initial_size)
 	return _buffer_linear_realloc(buf, initial_size, 1);
 }
 
-static int _buffer_linear_add(struct buffer *buf, void *data, size_t len)
+static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len)
 {
 	size_t used = buf->used;
+	void *start;
 	int r;
 
 	if (!used && buf->mode == BUFFER_MODE_SIZE_PREFIX)
 		used = MSG_SIZE_PREFIX_LEN;
 
-	if ((r = _buffer_linear_realloc(buf, used + len, 0)) < 0)
-		return r;
+	if ((r = _buffer_linear_realloc(buf, used + len, 0)) < 0) {
+		errno = -r;
+		return NULL;
+	}
 
-	memcpy(buf->mem + used, data, len);
+	start = buf->mem + used;
+	memcpy(start, data, len);
 	buf->used = used + len;
 
-	return 0;
+	return start;
 }
 
 #define EXPECTED(buf) (buf->used >= MSG_SIZE_PREFIX_LEN ? *((MSG_SIZE_PREFIX_TYPE *) buf->mem) : 0)
