@@ -1596,24 +1596,26 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	update_arg.custom = NULL;
 
 	/* Store delta plus. */
-	if (!(s = _get_key_prefix(KV_NS_DEVICE, KV_NS_DELTA_PLUS_KEY_PREFIX, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
-		log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
-		goto out;
-	}
-
-	update_arg.ret_code = 0;
 	buffer_get_data(delta.plus, (const void **) (&iov), &iov_cnt);
-	iov = kv_store_set_value(cmd->kv_store_res, s, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
+	if (iov_cnt > VALUE_VECTOR_IDX_DATA) {
+		if (!(s = _get_key_prefix(KV_NS_DEVICE, KV_NS_DELTA_PLUS_KEY_PREFIX, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
+			log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+			goto out;
+		}
+		update_arg.ret_code = 0;
+		iov = kv_store_set_value(cmd->kv_store_res, s, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
+	}
 
 	/* Store delta minus. */
-	if (!(s = _get_key_prefix(KV_NS_DEVICE, KV_NS_DELTA_MINUS_KEY_PREFIX, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
-		log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
-		goto out;
-	}
-
-	update_arg.ret_code = 0;
 	buffer_get_data(delta.minus, (const void **) (&iov), &iov_cnt);
-	iov = kv_store_set_value(cmd->kv_store_res, s, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
+	if (iov_cnt > VALUE_VECTOR_IDX_DATA) {
+		if (!(s = _get_key_prefix(KV_NS_DEVICE, KV_NS_DELTA_MINUS_KEY_PREFIX, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
+			log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+			goto out;
+		}
+		update_arg.ret_code = 0;
+		iov = kv_store_set_value(cmd->kv_store_res, s, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
+	}
 
 	r = 0;
 out:
