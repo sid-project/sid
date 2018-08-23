@@ -1320,7 +1320,7 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 	size_t new_size = spec->new_data_size;
 	struct iovec *iov;
 	size_t size;
-	unsigned i, i_old, i_new;
+	unsigned i_old, i_new;
 	int cmp_result;
 	struct delta_args *delta = arg->custom;
 
@@ -1355,7 +1355,7 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 		new_size = VALUE_VECTOR_IDX_DATA;
 
 	/* start right beyond the header */
-	i = i_old = i_new = VALUE_VECTOR_IDX_DATA;
+	i_old = i_new = VALUE_VECTOR_IDX_DATA;
 
 	while (1) {
 		if ((i_old < old_size) && (i_new < new_size)) {
@@ -1394,7 +1394,6 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 						break;
 				}
 				i_new++;
-				i++;
 			} else {
 				/* both old and new has the item */
 				switch (delta->op) {
@@ -1410,7 +1409,6 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 				}
 				i_old++;
 				i_new++;
-				i++;
 			}
 			continue;
 		} else if (i_old == old_size) {
@@ -1431,7 +1429,6 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 						break;
 				}
 				i_new++;
-				i++;
 			}
 		} else if (i_new == new_size) {
 			/* only old vector still has items to handle */
@@ -1458,7 +1455,7 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 
 	buffer_get_data(delta->final, (const void **) &iov, &size);
 
-	spec->new_data_size = i;
+	spec->new_data_size = size;
 	spec->new_data = iov;
 	spec->new_flags &= ~KV_STORE_VALUE_REF;
 
