@@ -1076,8 +1076,8 @@ static int _execute_block_modules(struct command_exec_args *exec_args, cmd_ident
 					goto out;
 				break;
 			default:
-				log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Trying illegal execution of block modules in %s state.",
-					  _cmd_ident_phase_regs[phase].name);
+				log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
+					  __func__, _cmd_ident_phase_regs[phase].name);
 				break;
 		}
 	}
@@ -1721,12 +1721,12 @@ static int _cmd_execute_identify(struct command_exec_args *exec_args)
 	cmd->ident_phase = CMD_IDENT_PHASE_A_INIT;
 
 	if (!(modules_aggr_res = sid_resource_get_child(sid_resource_get_top_level(exec_args->cmd_res), &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID))) {
-		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find modules aggregate resource.");
+		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "%s: Failed to find modules aggregate resource.", __func__);
 		goto out;
 	}
 
 	if (!(block_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_reg_module_registry, MODULES_BLOCK_ID))) {
-		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find block module registry resource.");
+		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
 		goto out;
 	}
 
@@ -1736,7 +1736,7 @@ static int _cmd_execute_identify(struct command_exec_args *exec_args)
 	}
 
 	if (!(exec_args->type_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_reg_module_registry, MODULES_TYPE_ID))) {
-		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "Failed to find type module registry resource.");
+		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
 		goto out;
 	}
 
@@ -2010,7 +2010,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	cmd->status = raw_cmd->header->status;
 
 	if (!(cmd->kv_store_res = sid_resource_get_child(sid_resource_get_top_level(res), &sid_resource_reg_kv_store, MAIN_KV_STORE_NAME))) {
-		log_error(ID(res), INTERNAL_ERROR "Failed to find key-value store.");
+		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find key-value store.", __func__);
 		goto fail;
 	}
 

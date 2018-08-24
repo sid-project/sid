@@ -171,7 +171,7 @@ sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_
 	} while (tmp_res);
 
 	if (error_if_not_found)
-		log_error(res->id, INTERNAL_ERROR "No event loop found.");
+		log_error(res->id, INTERNAL_ERROR "%s: No event loop found.", __func__);
 
 	return NULL;
 }

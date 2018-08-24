@@ -68,7 +68,7 @@ void log_syslog_output(int level_id,
 	prefix_len = strlen(prefix) + 3;
 
 	if (prefix_len >= sizeof(msg)) {
-		syslog(level_id, INTERNAL_ERROR "(log prefix too long)");
+		syslog(level_id, INTERNAL_ERROR "%s: (log prefix too long)", __func__);
 		vsyslog(level_id, format, ap);
 		return;
 	}
@@ -79,7 +79,7 @@ void log_syslog_output(int level_id,
 	r = vsnprintf(msg + prefix_len, remaining_len, format, ap);
 
 	if (r < 0 || r >= remaining_len)
-		syslog(level_id, INTERNAL_ERROR "(log message truncated)");
+		syslog(level_id, INTERNAL_ERROR "%s: (log message truncated)", __func__);
 
 	if (r > 0)
 		syslog(level_id, msg);	
