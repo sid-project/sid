@@ -22,6 +22,7 @@
 
 #include "buffer-common.h"
 
+#include <stdarg.h>
 #include <stdbool.h>
 #include <sys/types.h>
 
@@ -39,6 +40,7 @@ struct buffer_type {
 	int (*destroy) (struct buffer *buf);
 	int (*reset) (struct buffer *buf, size_t initial_size);
 	const void *(*add) (struct buffer *buf, void *data, size_t len);
+	const void *(*fmt_add) (struct buffer *buf, const char *fmt, va_list ap);
 	int (*rewind) (struct buffer *buf, size_t pos);
 	bool (*is_complete) (struct buffer *buf);
 	int (*get_data) (struct buffer *buf, const void **data, size_t *data_len);

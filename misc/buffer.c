@@ -70,6 +70,18 @@ const void *buffer_add(struct buffer *buf, void *data, size_t len)
 	return _buffer_type_registry[buf->type]->add(buf, data, len);
 }
 
+const void *buffer_fmt_add(struct buffer *buf, const char *fmt, ...)
+{
+	va_list ap;
+	const void *r;
+
+	va_start(ap, fmt);
+	r = _buffer_type_registry[buf->type]->fmt_add(buf, fmt, ap);
+	va_end(ap);
+
+	return r;
+}
+
 int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
 {
 	if (whence == BUFFER_POS_REL) {

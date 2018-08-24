@@ -21,6 +21,7 @@
 #include "mem.h"
 
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -102,6 +103,40 @@ static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len
 	start = buf->mem + used;
 	memcpy(start, data, len);
 	buf->used = used + len;
+
+	return start;
+}
+
+static const void *_buffer_linear_fmt_add(struct buffer *buf, const char *fmt, va_list ap)
+{
+	size_t used = buf->used;
+	size_t available;
+	int printed;
+	const void *start;
+	int r;
+
+	if (!used && buf->mode == BUFFER_MODE_SIZE_PREFIX)
+		used = MSG_SIZE_PREFIX_LEN;
+
+	available = buf->allocated - used;
+	printed = vsnprintf(buf->mem + used, available, fmt, ap);
+
+	if (printed < 0) {
+		errno = EIO;
+		return NULL;
+	} else if ((printed > available)) {
+		if ((r = _buffer_linear_realloc(buf, used + printed, 0)) < 0) {
+			errno = -r;
+			return NULL;
+		}
+		if ((printed = vsnprintf(buf->mem + used, available, fmt, ap)) < 0) {
+			errno = EIO;
+			return NULL;
+		}
+	}
+
+	start = buf->mem + used;
+	buf->used = used + printed + 1;
 
 	return start;
 }
@@ -228,6 +263,7 @@ const struct buffer_type buffer_type_linear = {
 	.destroy = _buffer_linear_destroy,
 	.reset = _buffer_linear_reset,
 	.add = _buffer_linear_add,
+	.fmt_add = _buffer_linear_fmt_add,
 	.rewind = _buffer_linear_rewind,
 	.is_complete = _buffer_linear_is_complete,
 	.get_data = _buffer_linear_get_data,

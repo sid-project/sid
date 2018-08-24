@@ -124,6 +124,12 @@ const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len)
 	return &iov[buf->used - 1];
 }
 
+const void *_buffer_vector_fmt_add(struct buffer *buf, const char *fmt, va_list ap)
+{
+	errno = ENOTSUP;
+	return NULL;
+}
+
 int _buffer_vector_rewind(struct buffer *buf, size_t pos)
 {
 	size_t min_pos = (buf->mode == BUFFER_MODE_SIZE_PREFIX) ? 1 : 0;
@@ -216,6 +222,7 @@ const struct buffer_type buffer_type_vector = {
 	.destroy = _buffer_vector_destroy,
 	.reset = _buffer_vector_reset,
 	.add = _buffer_vector_add,
+	.fmt_add = _buffer_vector_fmt_add,
 	.rewind = _buffer_vector_rewind,
 	.is_complete = _buffer_vector_is_complete,
 	.get_data = _buffer_vector_get_data,
