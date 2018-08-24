@@ -31,10 +31,16 @@ extern "C" {
 
 struct buffer;
 
+typedef enum {
+	BUFFER_POS_ABS,
+	BUFFER_POS_REL,
+} buffer_pos_t;
+
 struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t initial_size, size_t alloc_step);
 void buffer_destroy(struct buffer *buf);
 int buffer_reset(struct buffer *buf, size_t intial_size, size_t alloc_step);
 const void *buffer_add(struct buffer *buf, void *data, size_t len);
+int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence);
 bool buffer_is_complete(struct buffer *buf);
 ssize_t buffer_read(struct buffer *buf, int fd);
 ssize_t buffer_write(struct buffer *buf, int fd);

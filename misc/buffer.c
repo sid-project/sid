@@ -70,6 +70,20 @@ const void *buffer_add(struct buffer *buf, void *data, size_t len)
 	return _buffer_type_registry[buf->type]->add(buf, data, len);
 }
 
+int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
+{
+	if (whence == BUFFER_POS_REL) {
+		if (pos > buf->used) {
+			errno = EINVAL;
+			return -1;
+		}
+
+		pos = buf->used - pos;
+	}
+
+	return _buffer_type_registry[buf->type]->rewind(buf, pos);
+}
+
 bool buffer_is_complete(struct buffer *buf)
 {
 	return _buffer_type_registry[buf->type]->is_complete(buf);

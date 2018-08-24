@@ -106,6 +106,19 @@ static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len
 	return start;
 }
 
+static int _buffer_linear_rewind(struct buffer *buf, size_t pos)
+{
+	size_t min_pos = (buf->mode == BUFFER_MODE_SIZE_PREFIX) ? MSG_SIZE_PREFIX_LEN : 0;
+
+	if (pos > buf->used || pos < min_pos) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	buf->used = pos;
+	return 0;
+}
+
 #define EXPECTED(buf) (buf->used >= MSG_SIZE_PREFIX_LEN ? *((MSG_SIZE_PREFIX_TYPE *) buf->mem) : 0)
 
 static bool _buffer_linear_is_complete(struct buffer *buf)
@@ -215,6 +228,7 @@ const struct buffer_type buffer_type_linear = {
 	.destroy = _buffer_linear_destroy,
 	.reset = _buffer_linear_reset,
 	.add = _buffer_linear_add,
+	.rewind = _buffer_linear_rewind,
 	.is_complete = _buffer_linear_is_complete,
 	.get_data = _buffer_linear_get_data,
 	.read = _buffer_linear_read,

@@ -39,6 +39,7 @@ struct buffer_type {
 	int (*destroy) (struct buffer *buf);
 	int (*reset) (struct buffer *buf, size_t initial_size);
 	const void *(*add) (struct buffer *buf, void *data, size_t len);
+	int (*rewind) (struct buffer *buf, size_t pos);
 	bool (*is_complete) (struct buffer *buf);
 	int (*get_data) (struct buffer *buf, const void **data, size_t *data_len);
 	ssize_t (*read) (struct buffer *buf, int fd);
