@@ -68,12 +68,19 @@ static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
 {
 	char *p;
 	size_t align;
+	size_t alloc_step;
 
-	if (!force && buf->allocated >= needed)
-		return 0;
+	if (!force) {
+		if (buf->allocated >= needed)
+			return 0;
 
-	if ((align = (needed % buf->alloc_step)))
-		needed += buf->alloc_step - align;
+		if (!(alloc_step = buf->alloc_step))
+			return -ENOMEM;
+	} else
+		alloc_step = 1;
+
+	if ((align = (needed % alloc_step)))
+		needed += alloc_step - align;
 
 	if (!(p = realloc(buf->mem, needed * VECTOR_ITEM_SIZE)))
 		return -errno;
