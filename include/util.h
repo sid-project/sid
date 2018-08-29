@@ -34,6 +34,7 @@ extern "C" {
 int util_pid_to_string(pid_t pid, char *buf, size_t buf_size);
 int util_create_full_dir_path(const char *path);
 udev_action_t util_get_udev_action_from_string(const char *str);
+const char *util_get_string_from_udev_action(udev_action_t udev_action);
 uint64_t util_get_now_usec(clockid_t clock_id);
 
 #ifdef __cplusplus

@@ -82,26 +82,41 @@ out:
 	return r;
 }
 
+static const char *udev_action_str[] = {[UDEV_ACTION_ADD]     = "add",
+					[UDEV_ACTION_CHANGE]  = "change",
+					[UDEV_ACTION_REMOVE]  = "remove",
+					[UDEV_ACTION_MOVE]    = "move",
+					[UDEV_ACTION_ONLINE]  = "online",
+					[UDEV_ACTION_OFFLINE] = "offline",
+					[UDEV_ACTION_BIND]    = "bind",
+					[UDEV_ACTION_UNBIND]  = "unbind",
+					[UDEV_ACTION_UNKNOWN] = "unknown"};
+
 udev_action_t util_get_udev_action_from_string(const char *str)
 {
-	if (!strcasecmp(str, "add"))
+	if (!strcasecmp(str, udev_action_str[UDEV_ACTION_ADD]))
 		return UDEV_ACTION_ADD;
-	else if (!strcasecmp(str, "change"))
+	else if (!strcasecmp(str, udev_action_str[UDEV_ACTION_CHANGE]))
 		return UDEV_ACTION_CHANGE;
-	else if (!strcasecmp(str, "remove"))
+	else if (!strcasecmp(str, udev_action_str[UDEV_ACTION_REMOVE]))
 		return UDEV_ACTION_REMOVE;
-	else if (!strcasecmp(str, "move"))
+	else if (!strcasecmp(str, udev_action_str[UDEV_ACTION_MOVE]))
 		return UDEV_ACTION_MOVE;
-	else if (!strcasecmp(str, "online"))
+	else if (!strcasecmp(str, udev_action_str[UDEV_ACTION_ONLINE]))
 		return UDEV_ACTION_ONLINE;
-	else if (!strcasecmp(str, "offline"))
+	else if (!strcasecmp(str, udev_action_str[UDEV_ACTION_OFFLINE]))
 		return UDEV_ACTION_OFFLINE;
-	else if (!strcasecmp(str, "bind"))
+	else if (!strcasecmp(str, udev_action_str[UDEV_ACTION_BIND]))
 		return UDEV_ACTION_BIND;
-	else if (!strcasecmp(str, "unbind"))
+	else if (!strcasecmp(str, udev_action_str[UDEV_ACTION_UNBIND]))
 		return UDEV_ACTION_UNBIND;
 	else
 		return UDEV_ACTION_UNKNOWN;
+}
+
+const char *util_get_string_from_udev_action(udev_action_t udev_action)
+{
+	return udev_action_str[udev_action];
 }
 
 uint64_t util_get_now_usec(clockid_t clock_id)
