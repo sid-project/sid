@@ -1512,6 +1512,60 @@ static void _destroy_delta(struct delta_args *delta)
 	}
 }
 
+static int _do_refresh_device_rel_hierarchy_from_sysfs(sid_resource_t *cmd_res, struct buffer *delta_vec_buf, struct buffer *str_buf,
+						       struct buffer *vec_buf, const char *key_prefix, const char *key, const char *antikey,
+						       const char *key_prefix_err_msg)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	const char *final_key_prefix;
+	struct iovec *delta_iov, *iov;
+	size_t delta_iov_cnt, iov_cnt, i;
+	int rel_major, rel_minor;
+	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
+					   .mod_name = CORE_MOD_NAME,
+					   .custom = NULL};
+	int r = -1;
+
+	if (!(final_key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, key_prefix, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
+		log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		goto out;
+	}
+
+	buffer_get_data(delta_vec_buf, (const void **) (&delta_iov), &delta_iov_cnt);
+	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
+
+	if (delta_iov_cnt > VALUE_VECTOR_IDX_DATA) {
+		update_arg.ret_code = 0;
+
+		/* Store delta vector for this device. */
+		delta_iov = kv_store_set_value(cmd->kv_store_res, final_key_prefix, key, delta_iov, delta_iov_cnt, KV_STORE_VALUE_VECTOR, 0,
+					       _kv_overwrite, &update_arg);
+
+		/* Store this device as relative for all devices from delta vector. */
+		for (i = VALUE_VECTOR_IDX_DATA; i < delta_iov_cnt; i++) {
+			if (sscanf(delta_iov[i].iov_base, "%d:%d", &rel_major, &rel_minor) != 2) {
+				log_error(ID(cmd_res), INTERNAL_ERROR "%s: Unable to get major and minor number for relative %s of device %s (%d:%d).",
+					  __func__, (const char *) delta_iov[i].iov_base, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+				continue;
+			}
+
+			if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, key_prefix, CORE_MOD_NAME, rel_major, rel_minor))) {
+				log_error(ID(cmd_res), key_prefix_err_msg, "", rel_major, rel_minor);
+				continue;
+			}
+
+			update_arg.ret_code = 0;
+			kv_store_set_value(cmd->kv_store_res, key_prefix, antikey, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
+
+			buffer_rewind(str_buf, strlen(key_prefix) + 1, BUFFER_POS_REL);
+		}
+	}
+
+	r = 0;
+out:
+	return r;
+}
+
 static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *sysfs_item, const char *key)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
@@ -1522,12 +1576,12 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 	struct dirent **dirent = NULL;
 	char devno_buf[16];
-	const char *key_prefix, *key_prefix_plus, *key_prefix_minus, *s, *antikey;
+	const char *key_prefix, *s, *antikey;
 	struct buffer *str_buf = NULL, *vec_buf = NULL;
-	int count, i, rel_major, rel_minor;
+	int count, i;
 	struct delta_args delta = {0};
-	struct iovec *iov, *tmp_iov;
-	size_t iov_cnt, tmp_iov_cnt;
+	struct iovec *iov;
+	size_t iov_cnt;
 	struct kv_update_arg update_arg;
 	int r = -1;
 
@@ -1564,16 +1618,6 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 		goto out;
 	}
 
-	if (!(key_prefix_plus = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, KV_NS_DELTA_PLUS_KEY_PREFIX, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
-		log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
-		goto out;
-	}
-
-	if (!(key_prefix_minus = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, KV_NS_DELTA_MINUS_KEY_PREFIX, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
-		log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
-		goto out;
-	}
-
 	/*
 	 * (count - 2 + 3) == (count + 1)
 	 * -2 to subtract "." and ".." directory which we're not interested in
@@ -1597,7 +1641,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	 * Set up headers: "seqnum | flags | mod_name".
 	 */
 
-	/* Header for input vector. */
+	/* Header for final vector. */
 	buffer_add(vec_buf, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
 	buffer_add(vec_buf, &kv_flags_no_persist, sizeof(kv_flags_no_persist));
 	buffer_add(vec_buf, core_mod_name, strlen(core_mod_name) + 1);
@@ -1632,8 +1676,8 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	}
 	free(dirent);
 
-	buffer_get_data(vec_buf, (const void **) (&tmp_iov), &tmp_iov_cnt);
-	qsort(tmp_iov + 3, tmp_iov_cnt - 3, sizeof(struct iovec), _iov_str_item_cmp);
+	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
+	qsort(iov + 3, iov_cnt - 3, sizeof(struct iovec), _iov_str_item_cmp);
 
 	update_arg.res = cmd->kv_store_res;
 	update_arg.mod_name = core_mod_name;
@@ -1641,75 +1685,22 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	update_arg.ret_code = 0;
 
 	/* Store delta.final vector (computed inside _kv_sorted_id_set_delta_resolve from vec_buf). */
-	iov = kv_store_set_value(cmd->kv_store_res, key_prefix, key, tmp_iov, tmp_iov_cnt,
-				 KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
+	iov = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
 				 _kv_sorted_id_set_delta_resolve, &update_arg);
 
-	update_arg.custom = NULL;
-	snprintf(devno_buf, sizeof(devno_buf), "%d:%d", cmd->udev_dev.major, cmd->udev_dev.minor);
-
-	/* Prepare vector with this device - we'll use this if we want to add this device as relative to other devices. */
+	/* Prepare vector with this device - we'll use this for adding this device as relative to other devices from delta vectors. */
 	buffer_rewind(vec_buf, VALUE_VECTOR_IDX_FLAGS, BUFFER_POS_ABS);
 	buffer_add(vec_buf, &kv_flags_persist, sizeof(kv_flags_persist));
 	buffer_add(vec_buf, core_mod_name, strlen(core_mod_name) + 1);
+	snprintf(devno_buf, sizeof(devno_buf), "%d:%d", cmd->udev_dev.major, cmd->udev_dev.minor);
 	buffer_add(vec_buf, devno_buf, strlen(devno_buf) + 1);
-	buffer_get_data(vec_buf, (const void **) (&tmp_iov), &tmp_iov_cnt);
 
-	/* Handle delta.plus vector. */
-	buffer_get_data(delta.plus, (const void **) (&iov), &iov_cnt);
-	if (iov_cnt > VALUE_VECTOR_IDX_DATA) {
-		update_arg.ret_code = 0;
-
-		/* Store delta.plus vector for this device. */
-		iov = kv_store_set_value(cmd->kv_store_res, key_prefix_plus, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
-
-		/* Store this device as relative for all devices from delta.plus vector. */
-		for (i = VALUE_VECTOR_IDX_DATA; i < iov_cnt; i++) {
-			if (sscanf(iov[i].iov_base, "%d:%d", &rel_major, &rel_minor) != 2) {
-				log_error(ID(cmd_res), INTERNAL_ERROR "%s: Unable to get major and minor number for relative %s of device %s (%d:%d).",
-					  __func__, (const char *) iov[i].iov_base, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
-				continue;
-			}
-
-			if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, KV_NS_DELTA_PLUS_KEY_PREFIX, CORE_MOD_NAME, rel_major, rel_minor))) {
-				log_error(ID(cmd_res), key_prefix_err_msg, "", rel_major, rel_minor);
-				continue;
-			}
-
-			update_arg.ret_code = 0;
-			kv_store_set_value(cmd->kv_store_res, key_prefix, antikey, tmp_iov, tmp_iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
-
-			buffer_rewind(str_buf, strlen(key_prefix) + 1, BUFFER_POS_REL);
-		}
-	}
-
-	/* Handle delta.minus vector. */
-	buffer_get_data(delta.minus, (const void **) (&iov), &iov_cnt);
-	if (iov_cnt > VALUE_VECTOR_IDX_DATA) {
-		update_arg.ret_code = 0;
-
-		/* Store delta.minus vector for this device. */
-		iov = kv_store_set_value(cmd->kv_store_res, key_prefix_minus, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
-
-		/* Store this device as relative for all devices from delta.minus vector. */
-		for (i = VALUE_VECTOR_IDX_DATA; i < iov_cnt; i++) {
-			if (sscanf(iov[i].iov_base, "%d:%d", &rel_major, &rel_minor) != 2) {
-				log_error(ID(cmd_res), INTERNAL_ERROR "%s: Unable to get major and minor number for relative %s of device %s (%d:%d).",
-					  __func__, (const char *) iov[i].iov_base, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
-				continue;
-			}
-
-			if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, KV_NS_DELTA_MINUS_KEY_PREFIX, CORE_MOD_NAME, rel_major, rel_minor))) {
-				log_error(ID(cmd_res), key_prefix_err_msg, "", rel_major, rel_minor);
-				continue;
-			}
-
-			update_arg.ret_code = 0;
-			kv_store_set_value(cmd->kv_store_res, key_prefix, antikey, tmp_iov, tmp_iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
-
-			buffer_rewind(str_buf, strlen(key_prefix) + 1, BUFFER_POS_REL);
-		}
-	}
+	/* Handle delta vectors. */
+	if ((_do_refresh_device_rel_hierarchy_from_sysfs(cmd_res, delta.plus, str_buf, vec_buf, KV_NS_DELTA_PLUS_KEY_PREFIX,
+							 key, antikey, key_prefix_err_msg) < 0) ||
+	    (_do_refresh_device_rel_hierarchy_from_sysfs(cmd_res, delta.minus, str_buf, vec_buf, KV_NS_DELTA_MINUS_KEY_PREFIX,
+							 key, antikey, key_prefix_err_msg) < 0))
+		goto out;
 
 	r = 0;
 out:
