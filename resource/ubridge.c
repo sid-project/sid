@@ -117,6 +117,9 @@
 #define UDEV_KEY_SEQNUM     "SEQNUM"
 #define UDEV_KEY_SYNTH_UUID "SYNTH_UUID"
 
+#define CMD_DEV_ID_FMT  "%s (%d:%d)"
+#define CMD_DEV_ID(cmd) cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor
+
 /* internal resources */
 const sid_resource_reg_t sid_resource_reg_ubridge_observer;
 const sid_resource_reg_t sid_resource_reg_ubridge_worker;
@@ -1014,7 +1017,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	_canonicalize_module_name(buf);
 
 	if (!(mod_name = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_MOD, DEFAULT_CORE_KV_FLAGS, buf, strlen(buf) + 1)))
-		log_error_errno(ID(cmd_res), errno, "Failed to store device %s (%d:%d) module name.", cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		log_error_errno(ID(cmd_res), errno, "Failed to store device " CMD_DEV_ID_FMT " module name.", CMD_DEV_ID(cmd));
 out:
 	if (f)
 		fclose(f);
@@ -1544,8 +1547,9 @@ static int _do_refresh_device_rel_hierarchy_from_sysfs(sid_resource_t *cmd_res, 
 		/* Store this device as relative for all devices from delta vector. */
 		for (i = VALUE_VECTOR_IDX_DATA; i < delta_iov_cnt; i++) {
 			if (sscanf(delta_iov[i].iov_base, "%d:%d", &rel_major, &rel_minor) != 2) {
-				log_error(ID(cmd_res), INTERNAL_ERROR "%s: Unable to get major and minor number for relative %s of device %s (%d:%d).",
-					  __func__, (const char *) delta_iov[i].iov_base, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+				log_error(ID(cmd_res), INTERNAL_ERROR "%s: Unable to get major and minor number "
+					  "for relative %s of device " CMD_DEV_ID_FMT ".",
+					  __func__, (const char *) delta_iov[i].iov_base, CMD_DEV_ID(cmd));
 				continue;
 			}
 
@@ -1569,7 +1573,7 @@ out:
 static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *sysfs_item, const char *key)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
-	static const char key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device %s (%d:%d).";
+	static const char key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
 	static sid_ubridge_kv_flags_t kv_flags_no_persist = (DEFAULT_CORE_KV_FLAGS) & ~KV_PERSISTENT;
 	static sid_ubridge_kv_flags_t kv_flags_persist = DEFAULT_CORE_KV_FLAGS;
 	static char *core_mod_name = CORE_MOD_NAME;
@@ -1595,14 +1599,12 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	}
 
 	if (!(str_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, PATH_MAX, PATH_MAX))) {
-		log_error(ID(cmd_res), "Failed to create string buffer to handle hierarchy for device %s (%d:%d).",
-			  cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		log_error(ID(cmd_res), "Failed to create string buffer to handle hierarchy for device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
 		goto out;
 	}
 
 	if (!(s = buffer_fmt_add(str_buf, "/sys/dev/block/%d:%d/%s", cmd->udev_dev.major, cmd->udev_dev.minor, sysfs_item))) {
-		log_error(ID(cmd_res), "Failed to compose sysfs %s path for device %s (%d:%d).",
-			  sysfs_item, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		log_error(ID(cmd_res), "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT ".", sysfs_item, CMD_DEV_ID(cmd));
 		goto out;
 	}
 
@@ -1624,16 +1626,14 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	 * +3 for "seqnum|flags|mod_name" header
 	 */
 	if (!(vec_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 1))) {
-		log_error(ID(cmd_res), "Failed to create buffer to record hierarchy for device %s (%d:%d).",
-			     cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		log_error(ID(cmd_res), "Failed to create buffer to record hierarchy for device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
 		goto out;
 	}
 
 	/* FIXME: We take "count + 1" here to accomodate the maximum possible change. But this is not necessary all the time. */
 	if (!(delta.plus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0)) ||
 	    !(delta.minus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0))) {
-		log_error(ID(cmd_res), "Failed to create delta buffer to record change in hierarchy for device %s (%d:%d).",
-			  cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		log_error(ID(cmd_res), "Failed to create delta buffer to record change in hierarchy for device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
 		goto out;
 	}
 
@@ -1669,8 +1669,8 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 			s = buffer_fmt_add(str_buf, devno_buf);
 			buffer_add(vec_buf, (void *) s, strlen(s) + 1);
 		} else
-			log_error(ID(cmd_res), "Failed to compose sysfs path for device %s that is holder of device  %s (%d:%d).",
-				  dirent[i]->d_name, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+			log_error(ID(cmd_res), "Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT ".",
+				  dirent[i]->d_name, CMD_DEV_ID(cmd));
 
 		free(dirent[i]);
 	}
