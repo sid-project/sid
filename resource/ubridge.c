@@ -325,6 +325,9 @@ struct delta_args {
 #define CMD_IDENT_CAP_RES UINT32_C(0x000000002) /* can set reserved state */
 
 static struct command_reg _cmd_ident_phase_regs[];
+static sid_ubridge_kv_flags_t kv_flags_no_persist = (DEFAULT_CORE_KV_FLAGS) & ~KV_PERSISTENT;
+static sid_ubridge_kv_flags_t kv_flags_persist = DEFAULT_CORE_KV_FLAGS;
+static char *core_mod_name = CORE_MOD_NAME;
 
 udev_action_t sid_ubridge_cmd_dev_get_action(struct sid_ubridge_cmd_context *cmd)
 {
@@ -404,6 +407,11 @@ static const char *_buffer_get_key_prefix(struct buffer *buf, sid_ubridge_cmd_kv
 	}
 
 	return s;
+}
+
+static const char *_buffer_get_dev_key_prefix(struct buffer *buf, const char *prefix, const char *devno_str)
+{
+	return buffer_fmt_add(buf, "%s%s%s", prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, devno_str);
 }
 
 static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value, size_t value_size, struct iovec *iov)
@@ -931,6 +939,17 @@ static void _canonicalize_module_name(char *name)
 	}
 }
 
+static void _canonicalize_kv_key(char *id)
+{
+	char *p = id;
+
+	while (*p) {
+		if (*p == ':')
+			*p = '_';
+		p++;
+	}
+}
+
 /*
  *  Module name is equal to the name as exposed in PROC_DEVICES_PATH + MODULE_NAME_SUFFIX.
  */
@@ -1338,6 +1357,24 @@ out:
 	return r;
 }
 
+static void _destroy_delta(struct delta_args *delta)
+{
+	if (delta->plus) {
+		buffer_destroy(delta->plus);
+		delta->plus = NULL;
+	}
+
+	if (delta->minus) {
+		buffer_destroy(delta->minus);
+		delta->minus = NULL;
+	}
+
+	if (delta->final) {
+		buffer_destroy(delta->final);
+		delta->final = NULL;
+	}
+}
+
 static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
@@ -1350,30 +1387,13 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 	unsigned i_old, i_new;
 	int cmp_result;
 	struct delta_args *delta = arg->custom;
+	int r = 0; /* no change by default */
 
 	/*
 	 * Result vector is "delta->final".
 	 * Delta plus vector is "delta->plus" (items which are detected as added).
 	 * Delta minus vector is "delta->minus" (items which are detected as removed).
-	 *
-	 * Note that delta->plus and/or delta->minus doesn't need to be initialized - this depends
-	 * on the caller if it's interested in delta->plus/minus or just the delta->final. The caller
-	 * initializes delta->plus/minus, the delta->final is always initialized here in this function.
-	 * Therefore, we always need to check if delta->plus and/or delta->minus is set or not before
-	 * use here in this function.
 	 */
-
-	size = (old_size ? old_size - 3 : 0) + new_size;
-
-	if (!(delta->final = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, size, 0))) {
-		arg->ret_code = ENOMEM;
-		return 0;
-	}
-
-	/* copy the header completely from new vector to result vector */
-	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_base, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_len);
-	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_FLAGS].iov_base, new_value[VALUE_VECTOR_IDX_FLAGS].iov_len);
-	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
 
 	if (!old_size)
 		old_size = VALUE_VECTOR_IDX_DATA;
@@ -1381,9 +1401,35 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 	if (!new_size)
 		new_size = VALUE_VECTOR_IDX_DATA;
 
+	if (!(delta->final = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, old_size + new_size, 0))) {
+		arg->ret_code = ENOMEM;
+		goto out;
+	}
+	/* copy the record header completely from new_value vector */
+	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_base, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_len);
+	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_FLAGS].iov_base, new_value[VALUE_VECTOR_IDX_FLAGS].iov_len);
+	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
+
+	if (delta->op == DELTA_OP_DETECT) {
+		if (!(delta->plus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, new_size, 0)) ||
+		    !(delta->minus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, old_size, 0))) {
+			arg->ret_code = ENOMEM;
+			goto out;
+		}
+
+		buffer_add(delta->plus, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_base, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_len);
+		buffer_add(delta->plus, new_value[VALUE_VECTOR_IDX_FLAGS].iov_base, new_value[VALUE_VECTOR_IDX_FLAGS].iov_len);
+		buffer_add(delta->plus, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
+
+		buffer_add(delta->minus, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_base, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_len);
+		buffer_add(delta->minus, new_value[VALUE_VECTOR_IDX_FLAGS].iov_base, new_value[VALUE_VECTOR_IDX_FLAGS].iov_len);
+		buffer_add(delta->minus, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
+	}
+
 	/* start right beyond the header */
 	i_old = i_new = VALUE_VECTOR_IDX_DATA;
 
+	/* look for differences between old_value and new_value vector */
 	while (1) {
 		if ((i_old < old_size) && (i_new < new_size)) {
 			/* both vectors still still have items to handle */
@@ -1398,6 +1444,7 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 						break;
 					case DELTA_OP_PLUS:
 						/* we're not changing the old item: add it to delta->final */
+						/* no break here intentionally! */
 					case DELTA_OP_MINUS:
 						/* we're not changing the old item: add it to delta->final */
 						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
@@ -1426,6 +1473,7 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 				switch (delta->op) {
 					case DELTA_OP_DETECT:
 						/* we have detected no change for this item: add it to delta->final */
+						/* no break here intentionally! */
 					case DELTA_OP_PLUS:
 						/* we're adding new item: add it to delta->final */
 						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
@@ -1468,6 +1516,7 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 						break;
 					case DELTA_OP_PLUS:
 						/* we're not changing the old item so add it to delta->final */
+						/* no break here intentionally! */
 					case DELTA_OP_MINUS:
 						/* we're not changing the old item so add it to delta->final */
 						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
@@ -1480,13 +1529,19 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 		break;
 	}
 
+	/* get the actual vector out of delta->final buffer and assign rewrite spec->new_data with this one */
 	buffer_get_data(delta->final, (const void **) &iov, &size);
-
 	spec->new_data_size = size;
 	spec->new_data = iov;
+
+	/* make the vector to be copied instead of referenced only because we will destroy the delta buffer completely */
 	spec->new_flags &= ~KV_STORE_VALUE_REF;
 
-	return 1;
+	r = 1;
+out:
+	if (arg->ret_code)
+		_destroy_delta(delta);
+	return r;
 }
 
 static int _iov_str_item_cmp(const void *a, const void *b)
@@ -1497,90 +1552,87 @@ static int _iov_str_item_cmp(const void *a, const void *b)
 	return strcmp((const char *) iovec_item_a->iov_base, (const char *) iovec_item_b->iov_base);
 }
 
-static void _destroy_delta(struct delta_args *delta)
+static void _value_vector_mark_persist(struct iovec *iov, int persist)
 {
-	if (delta->plus) {
-		buffer_destroy(delta->plus);
-		delta->plus = NULL;
-	}
-
-	if (delta->minus) {
-		buffer_destroy(delta->minus);
-		delta->minus = NULL;
-	}
-
-	if (delta->final) {
-		buffer_destroy(delta->final);
-		delta->final = NULL;
-	}
+	if (persist)
+		iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&kv_flags_persist, sizeof(kv_flags_persist)};
+	else
+		iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&kv_flags_no_persist, sizeof(kv_flags_no_persist)};
 }
 
-static int _do_refresh_device_rel_hierarchy_from_sysfs(sid_resource_t *cmd_res, struct buffer *delta_vec_buf, struct buffer *str_buf,
-						       struct buffer *vec_buf, const char *key_prefix, const char *key, const char *antikey,
-						       const char *key_prefix_err_msg)
+static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
+
+static int _refresh_device_hierarchy_from_delta(sid_resource_t *cmd_res, delta_op_t op, struct buffer *delta_vec_buf,
+						struct buffer *current_dev_vec_buf, struct buffer *str_buf,
+						const char *key, const char *antikey)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
-	const char *final_key_prefix;
-	struct iovec *delta_iov, *iov;
-	size_t delta_iov_cnt, iov_cnt, i;
-	int rel_major, rel_minor;
+	const char *delta_key_prefix, *key_prefix;
+	struct iovec *delta_iov, *current_dev_iov;
+	size_t delta_iov_cnt, current_dev_iov_cnt, i;
+	struct delta_args delta = {.op = op};
 	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
 					   .mod_name = CORE_MOD_NAME,
 					   .custom = NULL};
-	int r = -1;
-
-	if (!(final_key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, key_prefix, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
-		log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
-		goto out;
-	}
 
 	buffer_get_data(delta_vec_buf, (const void **) (&delta_iov), &delta_iov_cnt);
-	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
 
-	if (delta_iov_cnt > VALUE_VECTOR_IDX_DATA) {
-		update_arg.ret_code = 0;
+	/* no relatives recorded in delta buffer so there's nothing to do */
+	if (delta_iov_cnt <= VALUE_VECTOR_IDX_DATA)
+		return 0;
 
-		/* Store delta vector for this device. */
-		delta_iov = kv_store_set_value(cmd->kv_store_res, final_key_prefix, key, delta_iov, delta_iov_cnt, KV_STORE_VALUE_VECTOR, 0,
-					       _kv_overwrite, &update_arg);
-
-		/* Store this device as relative for all devices from delta vector. */
-		for (i = VALUE_VECTOR_IDX_DATA; i < delta_iov_cnt; i++) {
-			if (sscanf(delta_iov[i].iov_base, "%d:%d", &rel_major, &rel_minor) != 2) {
-				log_error(ID(cmd_res), INTERNAL_ERROR "%s: Unable to get major and minor number "
-					  "for relative %s of device " CMD_DEV_ID_FMT ".",
-					  __func__, (const char *) delta_iov[i].iov_base, CMD_DEV_ID(cmd));
-				continue;
-			}
-
-			if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, key_prefix, CORE_MOD_NAME, rel_major, rel_minor))) {
-				log_error(ID(cmd_res), key_prefix_err_msg, "", rel_major, rel_minor);
-				continue;
-			}
-
-			update_arg.ret_code = 0;
-			kv_store_set_value(cmd->kv_store_res, key_prefix, antikey, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
-
-			buffer_rewind_mem(str_buf, key_prefix);
-		}
+	if (op == DELTA_OP_PLUS)
+		delta_key_prefix = KV_NS_DELTA_PLUS_KEY_PREFIX;
+	else if (op == DELTA_OP_MINUS)
+		delta_key_prefix = KV_NS_DELTA_MINUS_KEY_PREFIX;
+	else {
+		log_error(ID(cmd_res), INTERNAL_ERROR "%s: incorrect delta operation requested.", __func__);
+		return -1;
 	}
 
-	r = 0;
-out:
-	return r;
+	/* store delta vector for current device */
+	if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, delta_key_prefix, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
+		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		return -1;
+	}
+	update_arg.ret_code = 0;
+	_value_vector_mark_persist(delta_iov, 1);
+	kv_store_set_value(cmd->kv_store_res, key_prefix, key, delta_iov, delta_iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
+	_value_vector_mark_persist(delta_iov, 0);
+	buffer_rewind_mem(str_buf, key_prefix);
+
+	/* handle relatives with respect to delta vector */
+	buffer_get_data(current_dev_vec_buf, (const void **) (&current_dev_iov), &current_dev_iov_cnt);
+	for (i = VALUE_VECTOR_IDX_DATA; i < delta_iov_cnt; i++) {
+		key_prefix = _buffer_get_dev_key_prefix(str_buf, NULL, delta_iov[i].iov_base);
+		update_arg.ret_code = 0;
+		update_arg.custom = &delta;
+		kv_store_set_value(cmd->kv_store_res, key_prefix, antikey, current_dev_iov, current_dev_iov_cnt,
+				   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0, _kv_sorted_id_set_delta_resolve, &update_arg);
+		_destroy_delta(&delta);
+		buffer_rewind_mem(str_buf, key_prefix);
+
+		key_prefix = _buffer_get_dev_key_prefix(str_buf, delta_key_prefix, delta_iov[i].iov_base);
+		update_arg.ret_code = 0;
+		_value_vector_mark_persist(current_dev_iov, 1);
+		kv_store_set_value(cmd->kv_store_res, key_prefix, antikey, current_dev_iov, current_dev_iov_cnt,
+				   KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
+		_value_vector_mark_persist(current_dev_iov, 0);
+		buffer_rewind_mem(str_buf, key_prefix);
+
+	}
+
+	return 0;
 }
 
 static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *sysfs_item, const char *key)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
-	static const char key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
-	static sid_ubridge_kv_flags_t kv_flags_no_persist = (DEFAULT_CORE_KV_FLAGS) & ~KV_PERSISTENT;
-	static sid_ubridge_kv_flags_t kv_flags_persist = DEFAULT_CORE_KV_FLAGS;
-	static char *core_mod_name = CORE_MOD_NAME;
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 	struct dirent **dirent = NULL;
 	char devno_buf[16];
 	const char *key_prefix, *s, *antikey;
+	char *p;
 	struct buffer *str_buf = NULL, *vec_buf = NULL;
 	int count, i;
 	struct delta_args delta = {0};
@@ -1616,7 +1668,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	buffer_rewind(str_buf, 0, BUFFER_POS_ABS);
 
 	if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, NULL, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
-		log_error(ID(cmd_res), key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
 	}
 
@@ -1630,33 +1682,12 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 		goto out;
 	}
 
-	/* FIXME: We take "count + 1" here to accomodate the maximum possible change. But this is not necessary all the time. */
-	if (!(delta.plus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0)) ||
-	    !(delta.minus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 0))) {
-		log_error(ID(cmd_res), "Failed to create delta buffer to record change in hierarchy for device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
-		goto out;
-	}
-
-	/*
-	 * Set up headers: "seqnum | flags | mod_name".
-	 */
-
-	/* Header for final vector. */
+	/* Add record header to vec_buf: seqnum | flags | mod_name. */
 	buffer_add(vec_buf, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
 	buffer_add(vec_buf, &kv_flags_no_persist, sizeof(kv_flags_no_persist));
 	buffer_add(vec_buf, core_mod_name, strlen(core_mod_name) + 1);
 
-	/* Header for delta plus vector. */
-	buffer_add(delta.plus, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
-	buffer_add(delta.plus, &kv_flags_persist, sizeof(kv_flags_persist));
-	buffer_add(delta.plus, core_mod_name, strlen(core_mod_name) + 1);
-
-	/* Header for delta minus vector. */
-	buffer_add(delta.minus, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
-	buffer_add(delta.minus, &kv_flags_persist, sizeof(kv_flags_persist));
-	buffer_add(delta.minus, core_mod_name, strlen(core_mod_name) + 1);
-
-	/* Read relatives from sysfs. */
+	/* Read relatives from sysfs into vec_buf. */
 	for (i = 0; i < count; i++) {
 		if (dirent[i]->d_name[0] == '.') {
 			free(dirent[i]);
@@ -1666,6 +1697,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 		if ((s = buffer_fmt_add(str_buf, "/sys/block/%s/dev", dirent[i]->d_name))) {
 			_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf));
 			buffer_rewind_mem(str_buf, s);
+			_canonicalize_kv_key(devno_buf);
 			s = buffer_fmt_add(str_buf, devno_buf);
 			buffer_add(vec_buf, (void *) s, strlen(s) + 1);
 		} else
@@ -1676,6 +1708,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	}
 	free(dirent);
 
+	/* Get the actual vector with relatives and sort it. */
 	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
 	qsort(iov + 3, iov_cnt - 3, sizeof(struct iovec), _iov_str_item_cmp);
 
@@ -1688,18 +1721,17 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	iov = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
 				 _kv_sorted_id_set_delta_resolve, &update_arg);
 
-	/* Prepare vector with this device - we'll use this for adding this device as relative to other devices from delta vectors. */
-	buffer_rewind(vec_buf, VALUE_VECTOR_IDX_FLAGS, BUFFER_POS_ABS);
-	buffer_add(vec_buf, &kv_flags_persist, sizeof(kv_flags_persist));
-	buffer_add(vec_buf, core_mod_name, strlen(core_mod_name) + 1);
-	snprintf(devno_buf, sizeof(devno_buf), "%d:%d", cmd->udev_dev.major, cmd->udev_dev.minor);
+	/*
+	 * Prepare new vec_buf with this device as item inside.
+	 * We'll use this for adding this device as relative to other devices from delta vectors.
+	 */
+	snprintf(devno_buf, sizeof(devno_buf), "%d_%d", cmd->udev_dev.major, cmd->udev_dev.minor);
+	buffer_rewind(vec_buf, VALUE_VECTOR_IDX_DATA, BUFFER_POS_ABS);
 	buffer_add(vec_buf, devno_buf, strlen(devno_buf) + 1);
 
 	/* Handle delta vectors. */
-	if ((_do_refresh_device_rel_hierarchy_from_sysfs(cmd_res, delta.plus, str_buf, vec_buf, KV_NS_DELTA_PLUS_KEY_PREFIX,
-							 key, antikey, key_prefix_err_msg) < 0) ||
-	    (_do_refresh_device_rel_hierarchy_from_sysfs(cmd_res, delta.minus, str_buf, vec_buf, KV_NS_DELTA_MINUS_KEY_PREFIX,
-							 key, antikey, key_prefix_err_msg) < 0))
+	if ((_refresh_device_hierarchy_from_delta(cmd_res, DELTA_OP_PLUS, delta.plus, vec_buf, str_buf, key, antikey) < 0) ||
+	    (_refresh_device_hierarchy_from_delta(cmd_res, DELTA_OP_MINUS, delta.minus, vec_buf, str_buf, key, antikey) < 0))
 		goto out;
 
 	r = 0;
