@@ -96,6 +96,20 @@ int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
 	return _buffer_type_registry[buf->type]->rewind(buf, pos);
 }
 
+int buffer_rewind_mem(struct buffer *buf, const void *mem)
+{
+	size_t pos;
+
+	if (mem < buf->mem || mem >= (buf->mem + buf->used)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	pos = mem - buf->mem;
+
+	return _buffer_type_registry[buf->type]->rewind(buf, pos);
+}
+
 bool buffer_is_complete(struct buffer *buf)
 {
 	return _buffer_type_registry[buf->type]->is_complete(buf);
