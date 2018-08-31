@@ -1561,7 +1561,7 @@ static int _do_refresh_device_rel_hierarchy_from_sysfs(sid_resource_t *cmd_res, 
 			update_arg.ret_code = 0;
 			kv_store_set_value(cmd->kv_store_res, key_prefix, antikey, iov, iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, &update_arg);
 
-			buffer_rewind(str_buf, strlen(key_prefix) + 1, BUFFER_POS_REL);
+			buffer_rewind_mem(str_buf, key_prefix);
 		}
 	}
 
@@ -1665,7 +1665,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 
 		if ((s = buffer_fmt_add(str_buf, "/sys/block/%s/dev", dirent[i]->d_name))) {
 			_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf));
-			buffer_rewind(str_buf, strlen(s) + 1, BUFFER_POS_REL);
+			buffer_rewind_mem(str_buf, s);
 			s = buffer_fmt_add(str_buf, devno_buf);
 			buffer_add(vec_buf, (void *) s, strlen(s) + 1);
 		} else
