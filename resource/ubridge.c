@@ -436,6 +436,40 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 	return iov;
 }
 
+static void _dump_kv_store(sid_resource_t *kv_store_res)
+{
+	kv_store_iter_t *iter = kv_store_iter_create(kv_store_res);
+	size_t size;
+	kv_store_value_flags_t flags;
+	void *value;
+	struct iovec tmp_iov[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec *iov;
+	unsigned int i = 0, j;
+
+	log_print(ID(kv_store_res), "\n======= KV STORE DUMP BEGIN =======");
+	while ((value = kv_store_iter_next(iter, &size, &flags))) {
+		iov = _get_value_vector(flags, value, size, tmp_iov);
+		log_print(ID(kv_store_res), "  --- RECORD %u", i);
+		log_print(ID(kv_store_res), "      key: %s", kv_store_iter_current_key(iter));
+		log_print(ID(kv_store_res), "      seqnum: %" PRIu64 "  flags: %s%s%s%s  mod_name: %s",
+			  VALUE_VECTOR_SEQNUM(iov),
+			  VALUE_VECTOR_FLAGS(iov) & KV_PERSISTENT ? "KV_PERSISTENT " : "",
+			  VALUE_VECTOR_FLAGS(iov) & KV_MOD_PROTECTED ? "KV_MOD_PROTECTED " : "",
+			  VALUE_VECTOR_FLAGS(iov) & KV_MOD_PRIVATE ? "KV_MOD_PRIVATE " : "",
+			  VALUE_VECTOR_FLAGS(iov) & KV_MOD_RESERVED ? "KV_MOD_RESERVED ": "",
+			  VALUE_VECTOR_MOD_NAME(iov));
+		log_print(ID(kv_store_res), "      value: %s", flags & KV_STORE_VALUE_VECTOR ? "vector" : (const char *) VALUE_VECTOR_DATA(iov));
+		if (flags & KV_STORE_VALUE_VECTOR) {
+			for (j = VALUE_VECTOR_IDX_DATA; j < size; j++)
+				log_print(ID(kv_store_res), "        [%u] = %s", j - VALUE_VECTOR_IDX_DATA, (const char *) iov[j].iov_base);
+		}
+		log_print(ID(kv_store_res), " ");
+		i++;
+	}
+	log_print(ID(kv_store_res), "======= KV STORE DUMP END =========\n");
+
+}
+
 static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
