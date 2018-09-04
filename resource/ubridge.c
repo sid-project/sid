@@ -1689,17 +1689,25 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 		goto out;
 	}
 
-	if (!(s = buffer_fmt_add(str_buf, "/sys/dev/block/%d:%d/%s", cmd->udev_dev.major, cmd->udev_dev.minor, sysfs_item))) {
-		log_error(ID(cmd_res), "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT ".", sysfs_item, CMD_DEV_ID(cmd));
-		goto out;
-	}
+	if (cmd->udev_dev.action != UDEV_ACTION_REMOVE) {
+		if (!(s = buffer_fmt_add(str_buf, "/sys/dev/block/%d:%d/%s", cmd->udev_dev.major, cmd->udev_dev.minor, sysfs_item))) {
+			log_error(ID(cmd_res), "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT ".", sysfs_item, CMD_DEV_ID(cmd));
+			goto out;
+		}
 
-	if ((count = scandir(s, &dirent, NULL, NULL)) < 0) {
-		log_sys_error(ID(cmd_res), "scandir", s);
-		goto out;
-	}
+		if ((count = scandir(s, &dirent, NULL, NULL)) < 0) {
+			/*
+			 * FIXME: Add code to deal with/warn about: (errno == ENOENT) && (cmd->udev_dev.action != UDEV_ACTION_REMOVE).
+			 *        That means we don't have REMOVE uevent, but at the same time, we don't have sysfs content, e.g. because
+			 *        we're processing this uevent too late: the device has already been removed right after this uevent
+			 *        was triggered. For now, error out even in this case.
+			 */
+			log_sys_error(ID(cmd_res), "scandir", s);
+			goto out;
+		}
 
-	buffer_rewind(str_buf, 0, BUFFER_POS_ABS);
+		buffer_rewind(str_buf, 0, BUFFER_POS_ABS);
+	}
 
 	if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, NULL, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
 		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
@@ -1722,25 +1730,27 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	buffer_add(vec_buf, core_mod_name, strlen(core_mod_name) + 1);
 
 	/* Read relatives from sysfs into vec_buf. */
-	for (i = 0; i < count; i++) {
-		if (dirent[i]->d_name[0] == '.') {
+	if (cmd->udev_dev.action != UDEV_ACTION_REMOVE) {
+		for (i = 0; i < count; i++) {
+			if (dirent[i]->d_name[0] == '.') {
+				free(dirent[i]);
+				continue;
+			}
+
+			if ((s = buffer_fmt_add(str_buf, "/sys/block/%s/dev", dirent[i]->d_name))) {
+				_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf));
+				buffer_rewind_mem(str_buf, s);
+				_canonicalize_kv_key(devno_buf);
+				s = buffer_fmt_add(str_buf, devno_buf);
+				buffer_add(vec_buf, (void *) s, strlen(s) + 1);
+			} else
+				log_error(ID(cmd_res), "Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT ".",
+					  dirent[i]->d_name, CMD_DEV_ID(cmd));
+
 			free(dirent[i]);
-			continue;
 		}
-
-		if ((s = buffer_fmt_add(str_buf, "/sys/block/%s/dev", dirent[i]->d_name))) {
-			_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf));
-			buffer_rewind_mem(str_buf, s);
-			_canonicalize_kv_key(devno_buf);
-			s = buffer_fmt_add(str_buf, devno_buf);
-			buffer_add(vec_buf, (void *) s, strlen(s) + 1);
-		} else
-			log_error(ID(cmd_res), "Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT ".",
-				  dirent[i]->d_name, CMD_DEV_ID(cmd));
-
-		free(dirent[i]);
+		free(dirent);
 	}
-	free(dirent);
 
 	/* Get the actual vector with relatives and sort it. */
 	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
