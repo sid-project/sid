@@ -1675,6 +1675,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	struct kv_update_arg update_arg;
 	int r = -1;
 
+	/* get antikey to set reciprocal relations */
 	if (!strcmp(key, KV_KEY_DEV_LAYER_UP))
 		antikey = KV_KEY_DEV_LAYER_DOWN;
 	else if (!strcmp(key, KV_KEY_DEV_LAYER_DOWN))
@@ -1706,15 +1707,11 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 			goto out;
 		}
 
-		buffer_rewind(str_buf, 0, BUFFER_POS_ABS);
-	}
-
-	if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, NULL, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
-		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
-		goto out;
+		buffer_rewind_mem(str_buf, s);
 	}
 
 	/*
+	 * Create vec_buf used to set up database records.
 	 * (count - 2 + 3) == (count + 1)
 	 * -2 to subtract "." and ".." directory which we're not interested in
 	 * +3 for "seqnum|flags|mod_name" header
@@ -1761,19 +1758,37 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	update_arg.custom = &delta;
 	update_arg.ret_code = 0;
 
-	/* Store delta.final vector (computed inside _kv_sorted_id_set_delta_resolve from vec_buf). */
+	if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, NULL, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
+		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		goto out;
+	}
+
+	/*
+	 * Handle delta.final vector for this device.
+	 * The delta.final is computed inside _kv_sorted_id_set_delta_resolve out of vec_buf.
+	 * The _kv_sorted_id_set_delta_resolve also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
+	 *
+	 * Here, we set:
+	 *	SID_{LUP,LDW} for current device
+	 */
 	iov = kv_store_set_value(cmd->kv_store_res, key_prefix, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
 				 _kv_sorted_id_set_delta_resolve, &update_arg);
 
 	/*
 	 * Prepare new vec_buf with this device as item inside.
-	 * We'll use this for adding this device as relative to other devices from delta vectors.
+	 * We'll use this for adding this device as reciprocal relative to devices from delta vectors.
 	 */
 	snprintf(devno_buf, sizeof(devno_buf), "%d_%d", cmd->udev_dev.major, cmd->udev_dev.minor);
 	buffer_rewind(vec_buf, VALUE_VECTOR_IDX_DATA, BUFFER_POS_ABS);
 	buffer_add(vec_buf, devno_buf, strlen(devno_buf) + 1);
 
-	/* Handle delta vectors. */
+	/*
+	 * Handle delta.{plus,minus} vector for this device and relatives.
+	 *
+	 * Here, we set:
+	 * 	{+,-}SID_{LUP,LDW} here for current device to add/remove relatives
+	 * 	{+,-}SID_{LWD,LUP} here reciprocally for relatives to add/remove current device
+	 */
 	if ((_refresh_device_hierarchy_from_delta(cmd_res, DELTA_OP_PLUS, delta.plus, vec_buf, str_buf, key, antikey) < 0) ||
 	    (_refresh_device_hierarchy_from_delta(cmd_res, DELTA_OP_MINUS, delta.minus, vec_buf, str_buf, key, antikey) < 0))
 		goto out;
