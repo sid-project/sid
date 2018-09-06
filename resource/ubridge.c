@@ -297,10 +297,10 @@ enum {
 	_VALUE_VECTOR_IDX_COUNT,
 };
 
-#define VALUE_VECTOR_SEQNUM(iov) (*((uint64_t *) iov[VALUE_VECTOR_IDX_SEQNUM].iov_base))
-#define VALUE_VECTOR_FLAGS(iov) (*((sid_ubridge_kv_flags_t *) iov[VALUE_VECTOR_IDX_FLAGS].iov_base))
-#define VALUE_VECTOR_MOD_NAME(iov) ((char *) iov[VALUE_VECTOR_IDX_MOD_NAME].iov_base)
-#define VALUE_VECTOR_DATA(iov) (iov[VALUE_VECTOR_IDX_DATA].iov_base)
+#define VALUE_VECTOR_SEQNUM(iov) (*((uint64_t *) ((struct iovec *) iov)[VALUE_VECTOR_IDX_SEQNUM].iov_base))
+#define VALUE_VECTOR_FLAGS(iov) (*((sid_ubridge_kv_flags_t *) ((struct iovec *) iov)[VALUE_VECTOR_IDX_FLAGS].iov_base))
+#define VALUE_VECTOR_MOD_NAME(iov) ((char *) ((struct iovec *) iov)[VALUE_VECTOR_IDX_MOD_NAME].iov_base)
+#define VALUE_VECTOR_DATA(iov) (((struct iovec *) iov)[VALUE_VECTOR_IDX_DATA].iov_base)
 
 struct key_prefix_spec {
 	sid_ubridge_cmd_kv_namespace_t ns;
