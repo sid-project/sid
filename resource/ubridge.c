@@ -301,6 +301,14 @@ enum {
 #define VALUE_VECTOR_MOD_NAME(iov) ((char *) iov[VALUE_VECTOR_IDX_MOD_NAME].iov_base)
 #define VALUE_VECTOR_DATA(iov) (iov[VALUE_VECTOR_IDX_DATA].iov_base)
 
+struct key_prefix_spec {
+	sid_ubridge_cmd_kv_namespace_t ns;
+	const char *prefix;
+	const char *mod_name;
+	int major;
+	int minor;
+};
+
 struct kv_update_arg {
 	sid_resource_t *res;
 	const char *mod_name; /* in */
@@ -365,44 +373,42 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 }
 
 /* FIXME: factor out and cleanup _get_key_prefix and _buffer_get_key_prefix functions */
-static const char *_get_key_prefix(sid_ubridge_cmd_kv_namespace_t ns, const char *prefix,
-				   const char *mod_name, int major, int minor, char *buf, size_t buf_size)
+static const char *_get_key_prefix(struct key_prefix_spec *spec, char *buf, size_t buf_size)
 {
-	switch (ns) {
+	switch (spec->ns) {
 		case KV_NS_UDEV:
-			snprintf(buf, buf_size, "%s%s%d_%d", prefix ? : "", KV_NS_UDEV_KEY_PREFIX, major, minor);
+			snprintf(buf, buf_size, "%s%s%d_%d", spec->prefix ? : "", KV_NS_UDEV_KEY_PREFIX, spec->major, spec->minor);
 			break;
 		case KV_NS_DEVICE:
-			snprintf(buf, buf_size, "%s%s%d_%d", prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, major, minor);
+			snprintf(buf, buf_size, "%s%s%d_%d", spec->prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, spec->major, spec->minor);
 			break;
 		case KV_NS_MODULE:
-			snprintf(buf, buf_size, "%s%s%s", prefix ? : "", KV_NS_MODULE_KEY_PREFIX, mod_name);
+			snprintf(buf, buf_size, "%s%s%s", spec->prefix ? : "", KV_NS_MODULE_KEY_PREFIX, spec->mod_name);
 			break;
 		case KV_NS_GLOBAL:
-			snprintf(buf, buf_size, "%s%s*", prefix ? : "", KV_NS_GLOBAL_KEY_PREFIX);
+			snprintf(buf, buf_size, "%s%s*", spec->prefix ? : "", KV_NS_GLOBAL_KEY_PREFIX);
 			break;
 	}
 
 	return buf;
 }
 
-static const char *_buffer_get_key_prefix(struct buffer *buf, sid_ubridge_cmd_kv_namespace_t ns, const char *prefix,
-					  const char *mod_name, int major, int minor)
+static const char *_buffer_get_key_prefix(struct key_prefix_spec *spec, struct buffer *buf)
 {
 	const char *s = NULL;
 
-	switch (ns) {
+	switch (spec->ns) {
 		case KV_NS_UDEV:
-			s = buffer_fmt_add(buf, "%s%s%d_%d", prefix ? : "", KV_NS_UDEV_KEY_PREFIX, major, minor);
+			s = buffer_fmt_add(buf, "%s%s%d_%d", spec->prefix ? : "", KV_NS_UDEV_KEY_PREFIX, spec->major, spec->minor);
 			break;
 		case KV_NS_DEVICE:
-			s = buffer_fmt_add(buf, "%s%s%d_%d", prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, major, minor);
+			s = buffer_fmt_add(buf, "%s%s%d_%d", spec->prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, spec->major, spec->minor);
 			break;
 		case KV_NS_MODULE:
-			s = buffer_fmt_add(buf, "%s%s%s", prefix ? : "", KV_NS_MODULE_KEY_PREFIX, mod_name);
+			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix ? : "", KV_NS_MODULE_KEY_PREFIX, spec->mod_name);
 			break;
 		case KV_NS_GLOBAL:
-			s = buffer_fmt_add(buf, "%s%s*", prefix ? : "", KV_NS_GLOBAL_KEY_PREFIX);
+			s = buffer_fmt_add(buf, "%s%s*", spec->prefix ? : "", KV_NS_GLOBAL_KEY_PREFIX);
 			break;
 	}
 
@@ -536,11 +542,16 @@ static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const 
 	void *found;
 	size_t value_size;
 	kv_store_value_flags_t value_flags;
+	struct key_prefix_spec key_prefix_spec = {.ns = ns,
+						  .prefix = NULL,
+						  .mod_name = mod_name,
+						  .major = 0,
+						  .minor = 0};
 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
 		return 1;
 
-	if (!(key_prefix = _get_key_prefix(ns, NULL, mod_name, 0, 0, buf, buf_size))) {
+	if (!(key_prefix = _get_key_prefix(&key_prefix_spec, buf, buf_size))) {
 		errno = ENOKEY;
 		return 0;
 	}
@@ -567,6 +578,11 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct iovec iov[4];
 	struct ubridge_kv_value *ubridge_kv_value;
 	struct kv_update_arg update_arg;
+	struct key_prefix_spec key_prefix_spec = {.ns = ns,
+						  .prefix = NULL,
+						  .mod_name = mod_name,
+						  .major = cmd->udev_dev.major,
+						  .minor = cmd->udev_dev.minor};
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
 
@@ -586,7 +602,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	    !_passes_global_reservation_check(cmd->kv_store_res, mod_name, ns, key, buf, sizeof(buf)))
 		return NULL;
 
-	if (!(key_prefix = _get_key_prefix(ns, NULL, mod_name, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
+	if (!(key_prefix = _get_key_prefix(&key_prefix_spec, buf, sizeof(buf)))) {
 		errno = ENOKEY;
 		return NULL;
 	}
@@ -639,6 +655,11 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	struct ubridge_kv_value *ubridge_kv_value;
 	const char *mod_name;
 	size_t size, data_offset;
+	struct key_prefix_spec key_prefix_spec = {.ns = ns,
+						  .prefix = NULL,
+						  .mod_name = mod_name,
+						  .major = cmd->udev_dev.major,
+						  .minor = cmd->udev_dev.minor};
 
 	if (!cmd || !key || !*key) {
 		errno = EINVAL;
@@ -647,7 +668,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
 
-	if (!(key_prefix = _get_key_prefix(ns, NULL, mod_name, cmd->udev_dev.major, cmd->udev_dev.minor, buf, sizeof(buf)))) {
+	if (!(key_prefix = _get_key_prefix(&key_prefix_spec, buf, sizeof(buf)))) {
 		errno = ENOKEY;
 		return NULL;
 	}
@@ -735,10 +756,15 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	sid_ubridge_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
 	int is_worker;
+	struct key_prefix_spec key_prefix_spec = {.ns = ns,
+						  .prefix = NULL,
+						  .mod_name = mod_name,
+						  .major = 0,
+						  .minor = 0};
 
 	mod_name = mod ? sid_module_get_name(mod) : CORE_MOD_NAME;
 
-	if (!(key_prefix = _get_key_prefix(ns, NULL, mod_name, 0, 0, buf, sizeof(buf)))) {
+	if (!(key_prefix = _get_key_prefix(&key_prefix_spec, buf, sizeof(buf)))) {
 		errno = ENOKEY;
 		return -1;
 	}
@@ -1608,6 +1634,11 @@ static int _refresh_device_hierarchy_from_delta(sid_resource_t *cmd_res, delta_o
 	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
 					   .mod_name = CORE_MOD_NAME,
 					   .custom = NULL};
+	struct key_prefix_spec key_prefix_spec = {.ns = KV_NS_DEVICE,
+						  .prefix = delta_key_prefix,
+						  .mod_name = CORE_MOD_NAME,
+						  .major = cmd->udev_dev.major,
+						  .minor = cmd->udev_dev.minor};
 
 	buffer_get_data(delta_vec_buf, (const void **) (&delta_iov), &delta_iov_cnt);
 
@@ -1625,7 +1656,7 @@ static int _refresh_device_hierarchy_from_delta(sid_resource_t *cmd_res, delta_o
 	}
 
 	/* store delta vector for current device */
-	if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, delta_key_prefix, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
+	if (!(key_prefix = _buffer_get_key_prefix(&key_prefix_spec, str_buf))) {
 		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		return -1;
 	}
@@ -1673,6 +1704,11 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	struct iovec *iov;
 	size_t iov_cnt;
 	struct kv_update_arg update_arg;
+	struct key_prefix_spec key_prefix_spec = {.ns = KV_NS_DEVICE,
+						  .prefix = NULL,
+						  .mod_name = CORE_MOD_NAME,
+						  .major = cmd->udev_dev.major,
+						  .minor = cmd->udev_dev.minor};
 	int r = -1;
 
 	/* get antikey to set reciprocal relations */
@@ -1758,7 +1794,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	update_arg.custom = &delta;
 	update_arg.ret_code = 0;
 
-	if (!(key_prefix = _buffer_get_key_prefix(str_buf, KV_NS_DEVICE, NULL, CORE_MOD_NAME, cmd->udev_dev.major, cmd->udev_dev.minor))) {
+	if (!(key_prefix = _buffer_get_key_prefix(&key_prefix_spec, str_buf))) {
 		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
 	}
