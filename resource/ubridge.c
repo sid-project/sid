@@ -97,14 +97,14 @@
 #define KV_NS_MODULE_KEY_PREFIX "M" KV_STORE_KEY_JOIN
 #define KV_NS_GLOBAL_KEY_PREFIX "G" KV_STORE_KEY_JOIN
 
-#define KV_KEY_DEV_PREFIX_NULL "0_0"
-
 #define KV_KEY_DEV_READY                  "SID_RDY"
 #define KV_KEY_DEV_RESERVED               "SID_RES"
 #define KV_KEY_DEV_LAYER_UP               "SID_LUP"
 #define KV_KEY_DEV_LAYER_DOWN             "SID_LDW"
 #define KV_KEY_DEV_MOD                    "SID_MOD"
 #define KV_KEY_DEV_NEXT_MOD               SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
+
+#define NULL_DEV_ID "0_0"
 
 #define CORE_MOD_NAME         "core"
 #define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
@@ -241,6 +241,7 @@ struct sid_ubridge_cmd_context {
 	};
 	uint16_t status;
 	sid_event_source *es;
+	char *dev_id;
 	struct udevice udev_dev;
 	sid_resource_t *kv_store_res;
 	sid_resource_t *mod_res; /* the module that is processed at the moment */
@@ -305,8 +306,7 @@ struct key_prefix_spec {
 	sid_ubridge_cmd_kv_namespace_t ns;
 	const char *prefix;
 	const char *mod_name;
-	int major;
-	int minor;
+	const char *dev_id;
 };
 
 struct kv_update_arg {
@@ -377,10 +377,10 @@ static const char *_get_key_prefix(struct key_prefix_spec *spec, char *buf, size
 {
 	switch (spec->ns) {
 		case KV_NS_UDEV:
-			snprintf(buf, buf_size, "%s%s%d_%d", spec->prefix ? : "", KV_NS_UDEV_KEY_PREFIX, spec->major, spec->minor);
+			snprintf(buf, buf_size, "%s%s%s", spec->prefix ? : "", KV_NS_UDEV_KEY_PREFIX, spec->dev_id);
 			break;
 		case KV_NS_DEVICE:
-			snprintf(buf, buf_size, "%s%s%d_%d", spec->prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, spec->major, spec->minor);
+			snprintf(buf, buf_size, "%s%s%s", spec->prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, spec->dev_id);
 			break;
 		case KV_NS_MODULE:
 			snprintf(buf, buf_size, "%s%s%s", spec->prefix ? : "", KV_NS_MODULE_KEY_PREFIX, spec->mod_name);
@@ -399,10 +399,10 @@ static const char *_buffer_get_key_prefix(struct key_prefix_spec *spec, struct b
 
 	switch (spec->ns) {
 		case KV_NS_UDEV:
-			s = buffer_fmt_add(buf, "%s%s%d_%d", spec->prefix ? : "", KV_NS_UDEV_KEY_PREFIX, spec->major, spec->minor);
+			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix ? : "", KV_NS_UDEV_KEY_PREFIX, spec->dev_id);
 			break;
 		case KV_NS_DEVICE:
-			s = buffer_fmt_add(buf, "%s%s%d_%d", spec->prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, spec->major, spec->minor);
+			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, spec->dev_id);
 			break;
 		case KV_NS_MODULE:
 			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix ? : "", KV_NS_MODULE_KEY_PREFIX, spec->mod_name);
@@ -545,8 +545,7 @@ static int _passes_global_reservation_check(sid_resource_t *kv_store_res, const 
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
 						  .prefix = NULL,
 						  .mod_name = mod_name,
-						  .major = 0,
-						  .minor = 0};
+						  .dev_id = NULL_DEV_ID};
 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
 		return 1;
@@ -581,8 +580,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
 						  .prefix = NULL,
 						  .mod_name = mod_name,
-						  .major = cmd->udev_dev.major,
-						  .minor = cmd->udev_dev.minor};
+						  .dev_id = cmd->dev_id};
 
 	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
 
@@ -658,8 +656,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
 						  .prefix = NULL,
 						  .mod_name = mod_name,
-						  .major = cmd->udev_dev.major,
-						  .minor = cmd->udev_dev.minor};
+						  .dev_id = cmd->dev_id};
 
 	if (!cmd || !key || !*key) {
 		errno = EINVAL;
@@ -759,8 +756,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
 						  .prefix = NULL,
 						  .mod_name = mod_name,
-						  .major = 0,
-						  .minor = 0};
+						  .dev_id = NULL_DEV_ID};
 
 	mod_name = mod ? sid_module_get_name(mod) : CORE_MOD_NAME;
 
@@ -948,6 +944,7 @@ bad:
 
 static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct sid_ubridge_cmd_context *cmd)
 {
+	char buf[32];
 	dev_t devno;
 	size_t i = 0;
 	const char *delim;
@@ -965,6 +962,9 @@ static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct
 
 	cmd->udev_dev.major = major(devno);
 	cmd->udev_dev.minor = minor(devno);
+
+	snprintf(buf, sizeof(buf), "%d_%d", cmd->udev_dev.major, cmd->udev_dev.minor);
+	cmd->dev_id = strdup(buf);
 
 	/*
 	 * We have this on input:
@@ -1637,8 +1637,7 @@ static int _refresh_device_hierarchy_from_delta(sid_resource_t *cmd_res, delta_o
 	struct key_prefix_spec key_prefix_spec = {.ns = KV_NS_DEVICE,
 						  .prefix = delta_key_prefix,
 						  .mod_name = CORE_MOD_NAME,
-						  .major = cmd->udev_dev.major,
-						  .minor = cmd->udev_dev.minor};
+						  .dev_id = cmd->dev_id};
 
 	buffer_get_data(delta_vec_buf, (const void **) (&delta_iov), &delta_iov_cnt);
 
@@ -1707,8 +1706,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	struct key_prefix_spec key_prefix_spec = {.ns = KV_NS_DEVICE,
 						  .prefix = NULL,
 						  .mod_name = CORE_MOD_NAME,
-						  .major = cmd->udev_dev.major,
-						  .minor = cmd->udev_dev.minor};
+						  .dev_id = cmd->dev_id};
 	int r = -1;
 
 	/* get antikey to set reciprocal relations */
@@ -1814,9 +1812,8 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	 * Prepare new vec_buf with this device as item inside.
 	 * We'll use this for adding this device as reciprocal relative to devices from delta vectors.
 	 */
-	snprintf(devno_buf, sizeof(devno_buf), "%d_%d", cmd->udev_dev.major, cmd->udev_dev.minor);
 	buffer_rewind(vec_buf, VALUE_VECTOR_IDX_DATA, BUFFER_POS_ABS);
-	buffer_add(vec_buf, devno_buf, strlen(devno_buf) + 1);
+	buffer_add(vec_buf, cmd->dev_id, strlen(cmd->dev_id) + 1);
 
 	/*
 	 * Handle delta.{plus,minus} vector for this device and relatives.
@@ -2070,7 +2067,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (!strncmp(key, KV_NS_UDEV_KEY_PREFIX, strlen(KV_NS_UDEV_KEY_PREFIX))) {
 			/* Export to udev. */
-			if (strcmp(key + sizeof(KV_NS_UDEV_KEY_PREFIX) - 1, KV_KEY_DEV_PREFIX_NULL)) {
+			if (strcmp(key + sizeof(KV_NS_UDEV_KEY_PREFIX) - 1, NULL_DEV_ID)) {
 				buffer_add(cmd->result_buf, (void *) key, key_size - 1);
 				buffer_add(cmd->result_buf, KV_PAIR, 1);
 				data_offset = _get_ubridge_kv_value_data_offset(ubridge_kv_value);
@@ -2248,6 +2245,7 @@ static int _destroy_command(sid_resource_t *res)
 
 	(void) sid_resource_destroy_event_source(res, &cmd->es);
 	buffer_destroy(cmd->result_buf);
+	free(cmd->dev_id);
 	free(cmd);
 	return 0;
 }
