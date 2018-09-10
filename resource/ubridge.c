@@ -453,13 +453,18 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 
 static void _dump_kv_store(sid_resource_t *kv_store_res)
 {
-	kv_store_iter_t *iter = kv_store_iter_create(kv_store_res);
+	kv_store_iter_t *iter;
 	size_t size;
 	kv_store_value_flags_t flags;
 	void *value;
 	struct iovec tmp_iov[_VALUE_VECTOR_IDX_COUNT];
 	struct iovec *iov;
 	unsigned int i = 0, j;
+
+	if (!(iter = kv_store_iter_create(kv_store_res))) {
+		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
+		return;
+	}
 
 	log_print(ID(kv_store_res), "\n======= KV STORE DUMP BEGIN =======");
 	while ((value = kv_store_iter_next(iter, &size, &flags))) {
@@ -483,6 +488,7 @@ static void _dump_kv_store(sid_resource_t *kv_store_res)
 	}
 	log_print(ID(kv_store_res), "======= KV STORE DUMP END =========\n");
 
+	kv_store_iter_destroy(iter);
 }
 
 static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
