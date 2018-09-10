@@ -451,7 +451,7 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 	return iov;
 }
 
-static void _dump_kv_store(sid_resource_t *kv_store_res)
+static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 {
 	kv_store_iter_t *iter;
 	size_t size;
@@ -466,9 +466,11 @@ static void _dump_kv_store(sid_resource_t *kv_store_res)
 		return;
 	}
 
-	log_print(ID(kv_store_res), "\n======= KV STORE DUMP BEGIN =======");
+	log_print(ID(kv_store_res), "\n======= KV STORE DUMP BEGIN %s =======", str);
 	while ((value = kv_store_iter_next(iter, &size, &flags))) {
 		iov = _get_value_vector(flags, value, size, tmp_iov);
+		if (!strncmp(kv_store_iter_current_key(iter), "U:", 2))
+			continue;
 		log_print(ID(kv_store_res), "  --- RECORD %u", i);
 		log_print(ID(kv_store_res), "      key: %s", kv_store_iter_current_key(iter));
 		log_print(ID(kv_store_res), "      seqnum: %" PRIu64 "  flags: %s%s%s%s  mod_name: %s",
@@ -486,7 +488,7 @@ static void _dump_kv_store(sid_resource_t *kv_store_res)
 		log_print(ID(kv_store_res), " ");
 		i++;
 	}
-	log_print(ID(kv_store_res), "======= KV STORE DUMP END =========\n");
+	log_print(ID(kv_store_res), "======= KV STORE DUMP END %s =========\n", str);
 
 	kv_store_iter_destroy(iter);
 }
@@ -1216,7 +1218,7 @@ static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 
 	_execute_block_modules(exec_args, CMD_IDENT_PHASE_A_IDENT);
 
-	sid_resource_dump_all_in_dot(sid_resource_get_top_level(exec_args->cmd_res));
+	//sid_resource_dump_all_in_dot(sid_resource_get_top_level(exec_args->cmd_res));
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->ident)
@@ -1902,6 +1904,8 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	    (_do_refresh_device_hierarchy_from_sysfs(cmd_res, "slaves", KV_KEY_DEV_LAYER_DOWN, KV_KEY_DEV_LAYER_UP) < 0))
 		return -1;
 
+	_dump_kv_store(__func__, ((struct sid_ubridge_cmd_context *) sid_resource_get_data(cmd_res))->kv_store_res);
+
 	return 0;
 }
 
@@ -2513,6 +2517,8 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	}
 
 	r = 0;
+
+	_dump_kv_store(__func__, ubridge->main_kv_store_res);
 out:
 	free(iov);
 
@@ -3139,7 +3145,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = NULL;
-	sid_resource_dump_all_in_dot(sid_resource_get_top_level(res));
+	//sid_resource_dump_all_in_dot(sid_resource_get_top_level(res));
 
 	*data = ubridge;
 	return 0;
