@@ -113,11 +113,14 @@ static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len
 
 static const void *_buffer_linear_fmt_add(struct buffer *buf, const char *fmt, va_list ap)
 {
+	va_list ap_copy;
 	size_t used = buf->used;
 	size_t available;
 	int printed;
 	const void *start;
 	int r;
+
+	va_copy(ap_copy, ap);
 
 	if (!used && buf->mode == BUFFER_MODE_SIZE_PREFIX)
 		used = MSG_SIZE_PREFIX_LEN;
@@ -134,7 +137,7 @@ static const void *_buffer_linear_fmt_add(struct buffer *buf, const char *fmt, v
 			return NULL;
 		}
 		available = buf->allocated - used;
-		if ((printed = vsnprintf(buf->mem + used, available, fmt, ap)) < 0) {
+		if ((printed = vsnprintf(buf->mem + used, available, fmt, ap_copy)) < 0) {
 			errno = EIO;
 			return NULL;
 		}
