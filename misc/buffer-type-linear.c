@@ -133,6 +133,7 @@ static const void *_buffer_linear_fmt_add(struct buffer *buf, const char *fmt, v
 			errno = -r;
 			return NULL;
 		}
+		available = buf->allocated - used;
 		if ((printed = vsnprintf(buf->mem + used, available, fmt, ap)) < 0) {
 			errno = EIO;
 			return NULL;
