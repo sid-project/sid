@@ -1512,8 +1512,7 @@ static int _sorted_set_delta_calculate(struct kv_store_update_spec *spec, struct
 				switch (delta->op) {
 					case DELTA_OP_DETECT:
 						/* we have detected removed item: add it to delta->minus */
-						if (delta->minus)
-							buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
+						buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
 					case DELTA_OP_PLUS:
 						/* we're not changing the old item: add it to delta->final */
@@ -1529,8 +1528,7 @@ static int _sorted_set_delta_calculate(struct kv_store_update_spec *spec, struct
 				switch (delta->op) {
 					case DELTA_OP_DETECT:
 						/* we have detected new item: add it to delta->plus and add it to delta->final */
-						if (delta->plus)
-							buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						/* no break here intentionally! */
 					case DELTA_OP_PLUS:
 						/* we're adding new item: add it to delta->final */
@@ -1565,8 +1563,7 @@ static int _sorted_set_delta_calculate(struct kv_store_update_spec *spec, struct
 				switch (delta->op) {
 					case DELTA_OP_DETECT:
 						/* we have detected new item: add it to delta->final */
-						if (delta->plus)
-							buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						/* no break here intentionally! */
 					case DELTA_OP_PLUS:
 						/* we're adding new item: add it to delta->final */
@@ -1584,8 +1581,7 @@ static int _sorted_set_delta_calculate(struct kv_store_update_spec *spec, struct
 				switch (delta->op) {
 					case DELTA_OP_DETECT:
 						/* we have detected removed item so add it to delta->minus */
-						if (delta->minus)
-							buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
+						buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
 					case DELTA_OP_PLUS:
 						/* we're not changing the old item so add it to delta->final */
