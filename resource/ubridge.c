@@ -525,11 +525,21 @@ static int _flags_indicate_mod_owned(sid_ubridge_kv_flags_t flags)
 	return flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED);
 }
 
+static const char *_get_mod_name(struct sid_module *mod)
+{
+	return mod ? sid_module_get_name(mod) : CORE_MOD_NAME;
+}
+
+static const char *_res_get_mod_name(sid_resource_t *mod_res)
+{
+	return _get_mod_name(mod_res ? sid_resource_get_data(mod_res) : NULL);
+}
+
+
 static size_t _get_ubridge_kv_value_data_offset(struct ubridge_kv_value *ubridge_kv_value)
 {
 	return strlen(ubridge_kv_value->data) + 1;
 }
-
 
 static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd, const char *mod_name,
 					    sid_ubridge_cmd_kv_namespace_t ns, const char *key)
@@ -577,17 +587,14 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 					const char *key, sid_ubridge_kv_flags_t flags, const void *value, size_t value_size)
 {
 	const char *key_prefix = NULL;
-	const char *mod_name;
 	struct iovec iov[4];
 	struct ubridge_kv_value *ubridge_kv_value;
 	struct kv_update_arg update_arg;
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
 						  .prefix = NULL,
-						  .mod_name = mod_name,
+						  .mod_name = _res_get_mod_name(cmd->mod_res),
 						  .dev_id = cmd->dev_id};
 	void *ret = NULL;
-
-	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
 
 	/*
 	 * First, we check if the KV is not reserved globally. This applies to reservations
@@ -601,8 +608,8 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	 * we can't control any global reservation at the moment so it doesn't make sense
 	 * to do the check here.
 	 */
-	if (!((ns == KV_NS_UDEV) && !*mod_name) &&
-	    !_passes_global_reservation_check(cmd, mod_name, ns, key))
+	if (!((ns == KV_NS_UDEV) && !*key_prefix_spec.mod_name) &&
+	    !_passes_global_reservation_check(cmd, key_prefix_spec.mod_name, ns, key))
 		goto out;
 
 	if (!(key_prefix = _buffer_get_key_prefix(cmd->gen_buf, &key_prefix_spec))) {
@@ -612,11 +619,11 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 
 	iov[VALUE_VECTOR_IDX_SEQNUM] = (struct iovec) {&cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum)};
 	iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&flags, sizeof(flags)};
-	iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {(void *) mod_name, strlen(mod_name) + 1};
+	iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {(void *) key_prefix_spec.mod_name, strlen(key_prefix_spec.mod_name) + 1};
 	iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {(void *) value, value ? value_size : 0};
 
 	update_arg.res = cmd->kv_store_res;
-	update_arg.mod_name = mod_name;
+	update_arg.mod_name = key_prefix_spec.mod_name;
 	update_arg.gen_buf = cmd->gen_buf;
 	update_arg.custom = NULL;
 	update_arg.ret_code = 0;
@@ -660,11 +667,10 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 {
 	const char *key_prefix = NULL;
 	struct ubridge_kv_value *ubridge_kv_value;
-	const char *mod_name;
 	size_t size, data_offset;
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
 						  .prefix = NULL,
-						  .mod_name = mod_name,
+						  .mod_name = _res_get_mod_name(cmd->mod_res),
 						  .dev_id = cmd->dev_id};
 	void *ret = NULL;
 
@@ -672,8 +678,6 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		errno = EINVAL;
 		goto out;
 	}
-
-	mod_name = cmd->mod_res ? sid_module_get_name(sid_resource_get_data(cmd->mod_res)) : CORE_MOD_NAME;
 
 	if (!(key_prefix = _buffer_get_key_prefix(cmd->gen_buf, &key_prefix_spec))) {
 		errno = ENOKEY;
@@ -684,7 +688,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		goto out;
 
 	if (ubridge_kv_value->flags & KV_MOD_PRIVATE) {
-		if (strcmp(ubridge_kv_value->data, mod_name)) {
+		if (strcmp(ubridge_kv_value->data, key_prefix_spec.mod_name)) {
 			errno = EACCES;
 			goto out;
 		}
@@ -757,7 +761,6 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 				       sid_ubridge_cmd_kv_namespace_t ns, const char *key, int unset)
 {
 	const char *key_prefix = NULL;
-	const char *mod_name;
 	struct iovec iov[_VALUE_VECTOR_IDX_COUNT - 1]; /* without VALUE_VECTOR_IDX_DATA */
 	struct ubridge_kv_value *ubridge_kv_value;
 	static uint64_t null_int = 0;
@@ -766,11 +769,9 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	int is_worker;
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
 						  .prefix = NULL,
-						  .mod_name = mod_name,
+						  .mod_name = _get_mod_name(mod),
 						  .dev_id = NULL_DEV_ID};
 	int r = -1;
-
-	mod_name = mod ? sid_module_get_name(mod) : CORE_MOD_NAME;
 
 	if (!(key_prefix = _buffer_get_key_prefix(cmd_mod->gen_buf, &key_prefix_spec))) {
 		errno = ENOKEY;
@@ -783,7 +784,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	}
 
 	update_arg.res = cmd_mod->kv_store_res;
-	update_arg.mod_name = mod_name;
+	update_arg.mod_name = key_prefix_spec.mod_name;
 	update_arg.custom = NULL;
 	update_arg.ret_code = 0;
 
@@ -799,7 +800,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	} else {
 		iov[VALUE_VECTOR_IDX_SEQNUM] = (struct iovec) {&null_int, sizeof(null_int)};
 		iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&flags, sizeof(flags)};
-		iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {(void *) mod_name, strlen(mod_name) + 1};
+		iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {(void *) key_prefix_spec.mod_name, strlen(key_prefix_spec.mod_name) + 1};
 
 		ubridge_kv_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, _VALUE_VECTOR_IDX_COUNT - 1,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
