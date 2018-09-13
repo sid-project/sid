@@ -28,6 +28,7 @@
 #include "resource.h"
 #include "ubridge-cmd-module.h"
 #include "util.h"
+#include "worker-control.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -43,32 +44,19 @@
 #define UBRIDGE_SOCKET_PATH          "@sid-ubridge.socket"
 
 #define UBRIDGE_NAME                 "ubridge"
-#define OBSERVER_NAME                "observer"
-#define WORKER_NAME                  "worker"
+#define CONNECTION_NAME              "connection"
 #define COMMAND_NAME                 "command"
 
 #define INTERNAL_AGGREGATE_ID        "ubridge-internal"
-#define OBSERVERS_AGGREGATE_ID       "observers"
 #define MODULES_AGGREGATE_ID         "modules"
 #define MODULES_BLOCK_ID             "block"
 #define MODULES_TYPE_ID              "type"
-
-#define WORKER_IDLE_TIMEOUT_USEC     5000000
-
-#define INTERNAL_COMMS_BUFFER_LEN      1
-
-#define INTERNAL_COMMS_CMD_RUNNING     1
-#define INTERNAL_COMMS_CMD_IDLE        2
-#define INTERNAL_COMMS_CMD_EXIT        3
-#define INTERNAL_COMMS_CMD_KV_SYNC     4
-#define INTERNAL_COMMS_CMD_KV_SYNC_ACK 5
 
 #define COMMAND_STATUS_MASK_OVERALL  UINT64_C(0x0000000000000001)
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
 #define COMMAND_STATUS_FAILURE       UINT64_C(0x0000000000000001)
 
 #define PROC_DEVICES_PATH            "/proc/devices"
-
 
 #define UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY "/usr/local/lib/sid/modules/ubridge-cmd/block"
 #define UBRIDGE_CMD_TYPE_MODULE_DIRECTORY  "/usr/local/lib/sid/modules/ubridge-cmd/type"
@@ -121,8 +109,7 @@
 #define CMD_DEV_ID(cmd) cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor
 
 /* internal resources */
-const sid_resource_reg_t sid_resource_reg_ubridge_observer;
-const sid_resource_reg_t sid_resource_reg_ubridge_worker;
+const sid_resource_reg_t sid_resource_reg_ubridge_connection;
 const sid_resource_reg_t sid_resource_reg_ubridge_command;
 
 struct sid_ubridge_cmd_mod_context {
@@ -135,23 +122,10 @@ struct ubridge {
 	sid_event_source *es;
 	sid_resource_t *internal_res;
 	sid_resource_t *modules_res;
-	sid_resource_t *observers_res;
 	sid_resource_t *main_kv_store_res;
+	sid_resource_t *worker_control_res;
 	struct sid_ubridge_cmd_mod_context cmd_mod;
 };
-
-struct kickstart {
-	pid_t worker_pid;
-	int comms_fd;
-};
-
-typedef enum {
-	WORKER_IDLE,
-	WORKER_INITIALIZING,
-	WORKER_RUNNING,
-	WORKER_EXITING,
-	WORKER_EXITED,
-} worker_state_t;
 
 typedef enum {
 	__CMD_START = 0,
@@ -187,25 +161,6 @@ typedef enum {
 	CMD_IDENT_PHASE_ERROR,
 } cmd_ident_phase_t;
 
-struct observer {
-	pid_t worker_pid;
-	int comms_fd;
-	sid_event_source *comms_es;
-	sid_event_source *child_es;
-	sid_event_source *idle_timeout_es;
-	worker_state_t worker_state;
-};
-
-struct worker {
-	int comms_fd;
-	int conn_fd;
-	sid_event_source *sigint_es;
-	sid_event_source *sigterm_es;
-	sid_event_source *comms_es;
-	sid_event_source *conn_es;
-	struct buffer *buf;
-};
-
 struct raw_command_header {
 	uint8_t protocol;
 	uint8_t cmd_number;	/* IN: cmd number  OUT: CMD_RESPONSE */
@@ -232,6 +187,12 @@ struct udevice {
 	char *type;
 	uint64_t seqnum;
 	char *synth_uuid;
+};
+
+struct connection {
+	int fd;
+	sid_event_source *es;
+	struct buffer *buf;
 };
 
 struct sid_ubridge_cmd_context {
@@ -788,7 +749,9 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	update_arg.custom = NULL;
 	update_arg.ret_code = 0;
 
-	if ((is_worker = sid_resource_is_registered_by(sid_resource_get_top_level(cmd_mod->kv_store_res), &sid_resource_reg_ubridge_worker)))
+	is_worker = worker_control_is_worker(cmd_mod->kv_store_res);
+
+	if (is_worker)
 		flags |= KV_PERSISTENT;
 
 	if (unset && !is_worker) {
@@ -2043,17 +2006,7 @@ static struct command_reg _command_regs[] = {
 	{.name = "checkpoint", .flags = 0, .execute = _cmd_execute_checkpoint}
 };
 
-static int _send_export_fd_to_observer(sid_resource_t *cmd_res, int export_fd)
-{
-	struct worker *worker = sid_resource_get_data(sid_resource_get_top_level(cmd_res));
-	char buf[INTERNAL_COMMS_BUFFER_LEN];
-
-	buf[0] = INTERNAL_COMMS_CMD_KV_SYNC;
-
-	return comms_unix_send(worker->comms_fd, buf, sizeof(buf), export_fd);
-}
-
-static int _export_kv_stores(sid_resource_t *cmd_res)
+static int _export_kv_store(sid_resource_t *cmd_res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 	struct ubridge_kv_value *ubridge_kv_value;
@@ -2076,8 +2029,8 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	 * to udev as result of "sid identify" udev builtin command.
 	 *
 	 * For others, we serialize the temp key-value store to an anonymous file in memory
-	 * created by memfd_create. Then we pass the file FD over to observer that reads it
-	 * and it updates the "master" key-value store.
+	 * created by memfd_create. Then we pass the file FD over to worker proxy that reads
+	 * it and it updates the "master" key-value store.
 	 *
 	 * We only send key=value pairs which are marked with KV_PERSISTENT flag.
 	 */
@@ -2200,7 +2153,7 @@ static int _export_kv_stores(sid_resource_t *cmd_res)
 	lseek(export_fd, 0, SEEK_SET);
 
 	if (bytes_written)
-		_send_export_fd_to_observer(cmd_res, export_fd);
+		worker_control_send(cmd_res, NULL, 0, export_fd);
 
 	kv_store_iter_destroy(iter);
 
@@ -2218,7 +2171,7 @@ static int _cmd_handler(sid_event_source *es, void *data)
 {
 	sid_resource_t *cmd_res = data;
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
-	struct worker *worker = sid_resource_get_data(sid_resource_get_parent(cmd_res));
+	struct connection *conn = sid_resource_get_data(sid_resource_get_parent(cmd_res));
 	struct raw_command_header response_header = {0};
 	struct command_exec_args exec_args = {0};
 
@@ -2234,7 +2187,7 @@ static int _cmd_handler(sid_event_source *es, void *data)
 			log_error_errno(ID(cmd_res), r, "Failed to execute command");
 	}
 
-	if (_export_kv_stores(cmd_res) < 0) {
+	if (_export_kv_store(cmd_res) < 0) {
 		log_error(ID(cmd_res), "Failed to synchronize key-value stores.");
 		r = -1;
 	}
@@ -2242,9 +2195,136 @@ static int _cmd_handler(sid_event_source *es, void *data)
 	if (r < 0)
 		response_header.status |= COMMAND_STATUS_FAILURE;
 
-	(void) buffer_write(cmd->result_buf, worker->conn_fd);
+	(void) buffer_write(cmd->result_buf, conn->fd);
 
 	return r;
+}
+
+static int _connection_cleanup(sid_resource_t *conn_res)
+{
+	sid_resource_t *worker_res = sid_resource_get_parent(conn_res);
+	sid_resource_iter_t *iter;
+	sid_resource_t *cmd_res;
+
+	if (!(iter = sid_resource_iter_create(conn_res)))
+		return -1;
+
+	while ((cmd_res = sid_resource_iter_next(iter)))
+		(void) sid_resource_destroy(cmd_res);
+
+	sid_resource_iter_destroy(iter);
+
+	sid_resource_destroy(conn_res);
+
+	// TODO: If there are more connections per worker used,
+	// 	 then check if this is the last connection.
+	// 	 If it's not the last one, then do not yield the worker.
+
+	(void) worker_control_worker_yield(worker_res);
+
+	return 0;
+}
+
+static int _on_connection_event(sid_event_source *es, int fd, uint32_t revents, void *data)
+{
+	sid_resource_t *conn_res = data;
+	struct connection *conn = sid_resource_get_data(conn_res);
+	const char *raw_stream;
+	size_t raw_stream_len;
+	struct raw_command raw_cmd;
+	char id[32];
+	ssize_t n;
+	int r = 0;
+
+	if (revents & EPOLLERR) {
+		if (revents & EPOLLHUP)
+			log_error(ID(conn_res), "Peer connection closed prematurely.");
+		else
+			log_error(ID(conn_res), "Connection error.");
+		(void) _connection_cleanup(conn_res);
+		return -1;
+	}
+
+	n = buffer_read(conn->buf, fd);
+	if (n > 0) {
+		if (buffer_is_complete(conn->buf)) {
+			(void) buffer_get_data(conn->buf, (const void **) &raw_stream, &raw_stream_len);
+			raw_cmd.header = (struct raw_command_header *) raw_stream;
+			raw_cmd.len = raw_stream_len;
+
+			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
+			if (raw_cmd.header->cmd_number <= __CMD_START || raw_cmd.header->cmd_number >= __CMD_END)
+				raw_cmd.header->cmd_number = CMD_UNKNOWN;
+
+			snprintf(id, sizeof(id) - 1, "%d/%s", getpid(), _command_regs[raw_cmd.header->cmd_number].name);
+
+			if (!sid_resource_create(conn_res, &sid_resource_reg_ubridge_command, 0, id, &raw_cmd))
+				log_error(ID(conn_res), "Failed to register command for processing.");
+
+			(void) buffer_reset(conn->buf, 0, 1);
+		}
+	} else if (n < 0) {
+		if (errno == EAGAIN || errno == EINTR)
+			return 0;
+		log_sys_error(ID(conn_res), "buffer_read_msg", "");
+		r = -1;
+	} else {
+		if (_connection_cleanup(conn_res) < 0)
+			r = -1;
+	}
+
+	return r;
+}
+
+static int _init_connection(sid_resource_t *res, const void *kickstart_data, void **data)
+{
+	struct connection *conn;
+
+	if (!(conn = zalloc(sizeof(*conn)))) {
+		log_error(ID(res), "Failed to allocate new connection structure.");
+		goto fail;
+	}
+
+	memcpy(&conn->fd, kickstart_data, sizeof(int));
+
+	if (sid_resource_create_io_event_source(res, &conn->es, conn->fd, _on_connection_event, NULL, res) < 0) {
+		log_error(ID(res), "Failed to register connection event handler.");
+		goto fail;
+	}
+
+	if (!(conn->buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {
+		log_error(ID(res), "Failed to create connection buffer.");
+		goto fail;
+	}
+
+	*data = conn;
+	return 0;
+fail:
+	if (conn) {
+		if (conn->es)
+			(void) sid_resource_destroy_event_source(res, &conn->es);
+		if (conn->buf)
+			buffer_destroy(conn->buf);
+		free(conn);
+	}
+	return -1;
+}
+
+static int _destroy_connection(sid_resource_t *res)
+{
+	struct connection *conn = sid_resource_get_data(res);
+
+	if (conn->fd != -1)
+		close(conn->fd);
+
+	if (conn->es)
+		(void) sid_resource_destroy_event_source(res, &conn->es);
+
+	if (conn->buf)
+		buffer_destroy(conn->buf);
+
+	free(conn);
+	return 0;
 }
 
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
@@ -2310,41 +2390,6 @@ static int _destroy_command(sid_resource_t *res)
 	return 0;
 }
 
-static int _worker_cleanup(sid_resource_t *worker_res)
-{
-	struct worker *worker = sid_resource_get_data(worker_res);
-	char buf[INTERNAL_COMMS_BUFFER_LEN];
-	sid_resource_iter_t *iter;
-	sid_resource_t *cmd_res;
-
-	if (!(iter = sid_resource_iter_create(worker_res)))
-		return -1;
-
-	while ((cmd_res = sid_resource_iter_next(iter))) {
-		if (sid_resource_is_registered_by(cmd_res, &sid_resource_reg_ubridge_command))
-			(void) sid_resource_destroy(cmd_res);
-	}
-
-	sid_resource_iter_destroy(iter);
-
-	(void) sid_resource_destroy_event_source(worker_res, &worker->conn_es);
-	(void) buffer_reset(worker->buf, 0, 1);
-
-	/*
-	 *  FIXME: Either send INTERNAL_COMMS_CMD_IDLE or EXIT based on configuration,
-	 *        take into account the KV store backend - e.g. if we're using hash,
-	 *        then we can't have a pool of IDLE workers, we need to fork a new
-	 *        process for each request.
-	 */
-
-	/* buf[0] = INTERNAL_COMMS_CMD_IDLE; */
-	buf[0] = INTERNAL_COMMS_CMD_EXIT;
-	if (!comms_unix_send(worker->comms_fd, buf, sizeof(buf), -1))
-		return -1;
-
-	return 0;
-}
-
 static int _master_kv_store_unset(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
@@ -2403,10 +2448,10 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 	return r;
 }
 
-static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
+static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t *ubridge_res, int fd)
 {
 	static const char syncing_msg[] = "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")";
-	struct ubridge *ubridge = sid_resource_get_data(sid_resource_get_parent(observer_res));
+	struct ubridge *ubridge = sid_resource_get_data(ubridge_res);
 	kv_store_value_flags_t flags;
 	size_t msg_size, key_size, data_size, data_offset, i;
 	char *key, *shm = NULL, *p, *end;
@@ -2420,12 +2465,12 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	int r = -1;
 
 	if (read(fd, &msg_size, sizeof(msg_size)) != sizeof(msg_size)) {
-		log_error_errno(ID(observer_res), errno, "Failed to read shared memory size");
+		log_error_errno(ID(worker_proxy_res), errno, "Failed to read shared memory size");
 		goto out;
 	}
 
 	if ((p = shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
-		log_error_errno(ID(observer_res), errno, "Failed to map memory with key-value store");
+		log_error_errno(ID(worker_proxy_res), errno, "Failed to map memory with key-value store");
 		goto out;
 	}
 
@@ -2453,7 +2498,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 
 		if (flags & KV_STORE_VALUE_VECTOR) {
 			if (!(iov = malloc(data_size * sizeof(struct iovec)))) {
-				log_error(ID(observer_res), "Failed to allocate vector to sync master key-value store.");
+				log_error(ID(worker_proxy_res), "Failed to allocate vector to sync master key-value store.");
 				goto out;
 			}
 
@@ -2470,7 +2515,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			update_arg.res = ubridge->main_kv_store_res;
 			update_arg.ret_code = 0;
 
-			log_debug(ID(observer_res), syncing_msg, key, unset ? "NULL"
+			log_debug(ID(worker_proxy_res), syncing_msg, key, unset ? "NULL"
 									    : "[vector]", VALUE_VECTOR_SEQNUM(iov));
 
 			if (!strncmp(key, KV_NS_DELTA_PLUS_KEY_PREFIX, sizeof(KV_NS_DELTA_PLUS_KEY_PREFIX) - 1)) {
@@ -2495,7 +2540,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 			update_arg.res = ubridge->main_kv_store_res;
 			update_arg.ret_code = 0;
 
-			log_debug(ID(observer_res), syncing_msg, key, unset ? "NULL"
+			log_debug(ID(worker_proxy_res), syncing_msg, key, unset ? "NULL"
 									    : data_offset ? value->data + data_offset
 											  : value->data, value->seqnum);
 
@@ -2522,461 +2567,80 @@ out:
 	free(iov);
 
 	if (shm && munmap(shm, msg_size) < 0) {
-		log_error_errno(ID(observer_res), errno, "Failed to unmap memory with key-value store");
+		log_error_errno(ID(worker_proxy_res), errno, "Failed to unmap memory with key-value store");
 		r = -1;
 	}
 
 	return r;
 }
 
-static int _on_worker_conn_event(sid_event_source *es, int fd, uint32_t revents, void *data)
+static int _worker_recv_fn(sid_resource_t *worker_res, void *data, size_t data_size, int fd, void *arg)
 {
-	sid_resource_t *worker_res = data;
-	struct worker *worker = sid_resource_get_data(worker_res);
-	const char *raw_stream;
-	size_t raw_stream_len;
-	struct raw_command raw_cmd;
-	char id[32];
-	ssize_t n;
-	int r = 0;
+	sid_resource_t *conn_res;
 
-	if (revents & EPOLLERR) {
-		if (revents & EPOLLHUP)
-			log_error(ID(worker_res), "Peer connection closed prematurely.");
-		else
-			log_error(ID(worker_res), "Connection error.");
-		
-		(void) _worker_cleanup(worker_res);
+	if (!(conn_res = sid_resource_create(worker_res, &sid_resource_reg_ubridge_connection, 0, NULL, &fd))) {
+		log_error(ID(worker_res), "Failed to create connection resource.");
 		return -1;
 	}
 
-	n = buffer_read(worker->buf, fd);
-	if (n > 0) {
-		if (buffer_is_complete(worker->buf)) {
-			(void) buffer_get_data(worker->buf, (const void **) &raw_stream, &raw_stream_len);
-			raw_cmd.header = (struct raw_command_header *) raw_stream;
-			raw_cmd.len = raw_stream_len;
-
-			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
-			if (raw_cmd.header->cmd_number <= __CMD_START || raw_cmd.header->cmd_number >= __CMD_END)
-				raw_cmd.header->cmd_number = CMD_UNKNOWN;
-
-			snprintf(id, sizeof(id) - 1, "%d/%s", getpid(), _command_regs[raw_cmd.header->cmd_number].name);
-
-			if (!sid_resource_create(worker_res, &sid_resource_reg_ubridge_command, 0, id, &raw_cmd))
-				log_error(ID(worker_res), "Failed to register command for processing.");
-
-			(void) buffer_reset(worker->buf, 0, 1);
-		}
-	} else {
-		if (n < 0) {
-			if (errno == EAGAIN || errno == EINTR)
-				return 0;
-			log_sys_error(ID(worker_res), "buffer_read_msg", "");
-			r = -1;
-		}
-
-		if (_worker_cleanup(worker_res) < 0)
-			r = -1;	
-	}
-
-	return r;
+	return 0;
 }
 
-static int _on_worker_comms_event(sid_event_source *es, int fd, uint32_t revents, void *data)
+static int _worker_proxy_recv_fn(sid_resource_t *worker_proxy_res, void *data, size_t data_size, int fd, void *arg)
 {
-	sid_resource_t *worker_res = data;
-	struct worker *worker = sid_resource_get_data(worker_res);
-	char buf[INTERNAL_COMMS_BUFFER_LEN];
-	int fd_received;
-
-	if (comms_unix_recv(worker->comms_fd, buf, sizeof(buf), &fd_received) < 0)
-		return -1;
-
-	if (fd_received != -1) {
-		worker->conn_fd = fd_received;
-
-		if (sid_resource_create_io_event_source(worker_res, &worker->conn_es, fd_received,
-							_on_worker_conn_event, NULL, worker_res) < 0) {
-			log_error(ID(worker_res), "Failed to register new connection.");
-			return -1;
-		}
-
-		buf[0] = INTERNAL_COMMS_CMD_RUNNING;
-		if (!comms_unix_send(worker->comms_fd, buf, sizeof(buf), -1))
-			return -1;
-	}
+	_sync_master_kv_store(worker_proxy_res, arg, fd);
+	close(fd);
 
 	return 0;
 }
 
-#define WORKER_STATE_CHANGED_TO_MSG "Worker state changed to "
-
-static int _make_worker_exit(sid_resource_t *observer_res)
+static int _worker_init_fn(sid_resource_t *worker_res, void *init_fn_arg)
 {
-	struct observer *observer = sid_resource_get_data(observer_res);
+	struct ubridge *ubridge = init_fn_arg;
 
-	observer->worker_state = WORKER_EXITING;
-	log_debug(ID(observer_res), WORKER_STATE_CHANGED_TO_MSG "WORKER_EXITING.");
+	(void) sid_resource_isolate_with_children(ubridge->modules_res);
+	(void) sid_resource_isolate_with_children(ubridge->main_kv_store_res);
 
-	return kill(observer->worker_pid, SIGTERM);
-}
+	(void) sid_resource_add_child(worker_res, ubridge->modules_res);
+	(void) sid_resource_add_child(worker_res, ubridge->main_kv_store_res);
 
-static int _on_idle_task_timeout_event(sid_event_source *es, uint64_t usec, void *data)
-{
-	sid_resource_t *observer_res = data;
-
-	log_debug(ID(observer_res), "Idle timeout expired.");
-	_make_worker_exit(observer_res);
+	worker_control_set_recv_callback(worker_res, _worker_recv_fn, NULL);
 
 	return 0;
-}
-
-static int _on_observer_comms_event(sid_event_source *es, int fd, uint32_t revents, void *data)
-{
-	sid_resource_t *observer_res = data;
-	struct observer *observer = sid_resource_get_data(observer_res);
-	char buf[INTERNAL_COMMS_BUFFER_LEN];
-	int fd_received;
-	uint64_t timeout_usec;
-
-	if (comms_unix_recv(observer->comms_fd, buf, sizeof(buf), &fd_received) < 0)
-		return -1;
-
-	if (buf[0] == INTERNAL_COMMS_CMD_RUNNING) {
-		observer->worker_state = WORKER_RUNNING;
-		log_debug(ID(observer_res), WORKER_STATE_CHANGED_TO_MSG "WORKER_RUNNING.");
-	} else if (buf[0] == INTERNAL_COMMS_CMD_IDLE) {
-		timeout_usec = util_get_now_usec(CLOCK_MONOTONIC) + WORKER_IDLE_TIMEOUT_USEC;
-		sid_resource_create_time_event_source(observer_res, &observer->idle_timeout_es, CLOCK_MONOTONIC,
-						      timeout_usec, 0, _on_idle_task_timeout_event, NULL, observer_res);
-		observer->worker_state = WORKER_IDLE;
-		log_debug(ID(observer_res), WORKER_STATE_CHANGED_TO_MSG "WORKER_IDLE.");
-	} else if (buf[0] == INTERNAL_COMMS_CMD_EXIT) {
-		_make_worker_exit(observer_res);
-	} else if (buf[0] == INTERNAL_COMMS_CMD_KV_SYNC) {
-		log_debug(ID(observer_res), "Received worker's key-value store to sync with master key-value store (fd %d).", fd_received);
-		_sync_master_kv_store(observer_res, fd_received);
-		close(fd_received);
-	}
-
-	return 0;
-}
-
-static int _on_observer_child_event(sid_event_source *es, const siginfo_t *si, void *data)
-{
-	static const char worker_exited_msg[] = WORKER_STATE_CHANGED_TO_MSG "WORKER_EXITED";
-	sid_resource_t *observer_res = data;
-	struct observer *observer = sid_resource_get_data(observer_res);
-
-	observer->worker_state = WORKER_EXITED;
-
-	switch (si->si_code) {
-		case CLD_EXITED:
-			log_debug(ID(observer_res), "%s (exited with exit code %d).", worker_exited_msg, si->si_status);
-			break;
-		case CLD_KILLED:
-		case CLD_DUMPED:
-			log_debug(ID(observer_res), "%s (terminated by signal %d).", worker_exited_msg, si->si_status);
-			break;
-		default:
-			log_debug(ID(observer_res), "%s (failed unexpectedly).", worker_exited_msg);
-	}
-
-	(void) sid_resource_destroy(observer_res);
-	return 0;
-}
-
-static int _on_signal_event(sid_event_source *es, const struct signalfd_siginfo *si, void *userdata)
-{
-	sid_resource_t *res = userdata;
-
-	log_print(ID(res), "Received signal %d from %d.", si->ssi_signo, si->ssi_pid);
-	sid_resource_exit_event_loop(res);
-
-	return 0;
-}
-
-static int _init_observer(sid_resource_t *res, const void *kickstart_data, void **data)
-{
-	const struct kickstart *kickstart = kickstart_data;
-	struct observer *observer = NULL;
-
-	if (!(observer = zalloc(sizeof(*observer)))) {
-		log_error(ID(res), "Failed to allocate new observer structure.");
-		goto fail;
-	}
-
-	observer->worker_pid = kickstart->worker_pid;
-	observer->comms_fd = kickstart->comms_fd;
-	observer->worker_state = WORKER_IDLE;
-
-	/* TEST: try sleeping here for a while here to check for races. */
-	if (sid_resource_create_child_event_source(res, &observer->child_es, observer->worker_pid, WEXITED, _on_observer_child_event, NULL, res) < 0) {
-		log_error(ID(res), "Failed to register child process monitoring.");
-		goto fail;
-	}
-
-	/* TEST: try sleeping here for a while here to check for races. */
-	if (sid_resource_create_io_event_source(res, &observer->comms_es, observer->comms_fd, _on_observer_comms_event, NULL, res) < 0) {
-		log_error(ID(res), "Failed to register worker <-> observer channel.");
-		goto fail;
-	}
-
-	*data = observer;
-	return 0;
-fail:
-	if (observer) {
-		if (observer->child_es)
-			(void) sid_resource_destroy_event_source(res, &observer->child_es);
-		if (observer->comms_es)
-			(void) sid_resource_destroy_event_source(res, &observer->comms_es);
-		free(observer);
-	}
-	return -1;
-
-}
-
-static int _destroy_observer(sid_resource_t *res)
-{
-	struct observer *observer = sid_resource_get_data(res);
-
-	if (observer->idle_timeout_es)
-		(void) sid_resource_destroy_event_source(res, &observer->idle_timeout_es);
-	(void) sid_resource_destroy_event_source(res, &observer->child_es);
-	(void) sid_resource_destroy_event_source(res, &observer->comms_es);
-	(void) close(observer->comms_fd);
-
-	free(observer);
-	return 0;
-}
-
-static int _init_worker(sid_resource_t *res, const void *kickstart_data, void **data)
-{
-	const struct kickstart *kickstart = kickstart_data;
-	struct worker *worker = NULL;
-
-	if (!(worker = zalloc(sizeof(*worker)))) {
-		log_error(ID(res), "Failed to allocate new worker structure.");
-		goto fail;
-	}
-
-	worker->conn_fd = -1;
-	worker->comms_fd = kickstart->comms_fd;
-
-	if (sid_resource_create_signal_event_source(res, &worker->sigterm_es, SIGTERM, _on_signal_event, NULL, res) < 0 ||
-	    sid_resource_create_signal_event_source(res, &worker->sigint_es, SIGINT, _on_signal_event, NULL, res) < 0) {
-		log_error(ID(res), "Failed to create signal handlers.");
-		goto fail;
-	}
-
-	if (sid_resource_create_io_event_source(res, &worker->comms_es, worker->comms_fd, _on_worker_comms_event, NULL, res) < 0) {
-		log_error(ID(res), "Failed to register worker <-> observer channel.");
-		goto fail;
-	}
-
-	if (!(worker->buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {
-		log_error(ID(res), "Failed to create buffer for connection.");
-		goto fail;
-	}
-
-	*data = worker;
-	return 0;
-fail:
-	if (worker) {
-		if (worker->sigterm_es)
-			(void) sid_resource_destroy_event_source(res, &worker->sigterm_es);
-		if (worker->sigint_es)
-			(void) sid_resource_destroy_event_source(res, &worker->sigint_es);
-		if (worker->conn_es)
-			(void) sid_resource_destroy_event_source(res, &worker->conn_es);
-		if (worker->comms_es)
-			(void) sid_resource_destroy_event_source(res, &worker->comms_es);
-		if (worker->conn_fd != -1)
-			(void) close(worker->conn_fd);
-		if (worker->buf)
-			buffer_destroy(worker->buf);
-		free(worker);
-	}
-	return -1;
-
-}
-
-static int _destroy_worker(sid_resource_t *res)
-{
-	struct worker *worker = sid_resource_get_data(res);
-
-	if (worker->conn_es)
-		(void) sid_resource_destroy_event_source(res, &worker->conn_es);
-	(void) sid_resource_destroy_event_source(res, &worker->comms_es);
-	(void) sid_resource_destroy_event_source(res, &worker->sigterm_es);
-	(void) sid_resource_destroy_event_source(res, &worker->sigint_es);
-
-	(void) close(worker->comms_fd);
-	if (worker->conn_fd != -1)
-		(void) close(worker->conn_fd);
-	buffer_destroy(worker->buf);
-
-	free(worker);
-	return 0;
-}
-
-static sid_resource_t *_spawn_worker(sid_resource_t *ubridge_res, int *is_worker)
-{
-	struct ubridge *ubridge;
-	struct kickstart kickstart = {0};
-	sigset_t original_sigmask, new_sigmask;
-	sid_resource_t *res = NULL;
-	sid_resource_t *modules_res;
-	sid_resource_t *main_kv_store_res;
-	int signals_blocked = 0;
-	int comms_fd[2];
-	pid_t pid = -1;
-	char id[16];
-
-	/*
-	 * Create socket pair for worker and observer
-	 * to communicate with each other.
-	 */
-	if (socketpair(AF_LOCAL, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, comms_fd) < 0) {
-		log_sys_error(ID(ubridge_res), "socketpair", "");
-		goto out;
-	}
-
-	if (sigfillset(&new_sigmask) < 0) {
-		log_sys_error(ID(ubridge_res), "sigfillset", "");
-		goto out;
-	}
-
-	if (sigprocmask(SIG_SETMASK, &new_sigmask, &original_sigmask) < 0) {
-		log_sys_error(ID(ubridge_res), "sigprocmask", "blocking signals before fork");
-		goto out;
-	}
-	signals_blocked = 1;
-
-	if ((pid = fork()) < 0) {
-		log_sys_error(ID(ubridge_res), "fork", "");
-		goto out;
-	}
-
-	ubridge = sid_resource_get_data(ubridge_res);
-
-	if (pid == 0) {
-		/* Child is a worker. */
-		*is_worker = 1;
-		kickstart.worker_pid = getpid();
-		kickstart.comms_fd = comms_fd[1];
-		(void) close(comms_fd[0]);
-
-		modules_res = ubridge->modules_res;
-		main_kv_store_res = ubridge->main_kv_store_res;
-
-		(void) sid_resource_isolate_with_children(modules_res);
-		(void) sid_resource_isolate_with_children(main_kv_store_res);
-
-		if (sid_resource_destroy(sid_resource_get_top_level(ubridge_res)) < 0)
-			log_error(ID(ubridge_res), "Failed to clean resource tree after forking a new worker.");
-
-		(void) util_pid_to_string(kickstart.worker_pid, id, sizeof(id));
-		if (!(res = sid_resource_create(NULL, &sid_resource_reg_ubridge_worker, 0, id, &kickstart))) {
-			(void) sid_resource_destroy(modules_res);
-			exit(EXIT_FAILURE);
-		}
-
-		(void) sid_resource_add_child(res, modules_res);
-		(void) sid_resource_add_child(res, main_kv_store_res);
-	} else {
-		/* Parent is a child observer. */
-		log_debug(ID(ubridge_res), "Spawned new worker process with PID %d.", pid);
-		*is_worker = 0;
-		kickstart.worker_pid = pid;
-		kickstart.comms_fd = comms_fd[0];
-		(void) close(comms_fd[1]);
-
-		(void) util_pid_to_string(kickstart.worker_pid, id, sizeof(id));
-		res = sid_resource_create(ubridge->observers_res, &sid_resource_reg_ubridge_observer, 0, id, &kickstart);
-	}
-out:
-	if (signals_blocked && pid) {
-		if (sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
-			log_sys_error(ID(ubridge_res), "sigprocmask", "after forking process");
-	}
-
-	return res;
-}
-
-static int _accept_connection_and_pass_to_worker(sid_resource_t *ubridge_res, sid_resource_t *observer_res)
-{
-	struct ubridge *ubridge;
-	struct observer *observer;
-	int conn_fd;
-
-	if (!ubridge_res || !observer_res)
-		return -1;
-
-	ubridge = sid_resource_get_data(ubridge_res);
-	observer = sid_resource_get_data(observer_res);
-
-	if ((conn_fd = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
-		log_sys_error(ID(ubridge_res), "accept", "");
-		return -1;
-	}
-
-	if (comms_unix_send(observer->comms_fd, NULL, 0, conn_fd) < 0) {
-		log_sys_error(ID(ubridge_res), "comms_unix_send", "");
-		(void) close(conn_fd);
-		return -1;
-	}
-
-	(void) close(conn_fd);
-	(void) sid_resource_destroy_event_source(observer_res, &observer->idle_timeout_es);
-	observer->worker_state = WORKER_INITIALIZING;
-	log_debug(ID(observer_res), WORKER_STATE_CHANGED_TO_MSG "WORKER_INITIALIZING.");
-
-	return 0;
-}
-
-static sid_resource_t *_find_observer_for_idle_worker(sid_resource_t *observers_res)
-{
-	sid_resource_iter_t *iter;
-	sid_resource_t *res;
-
-	if (!(iter = sid_resource_iter_create(observers_res)))
-		return NULL;
-
-	while ((res = sid_resource_iter_next(iter))) {
-		if (((struct observer *) sid_resource_get_data(res))->worker_state == WORKER_IDLE)
-			break;
-	}
-
-	sid_resource_iter_destroy(iter);
-	return res;
 }
 
 static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *ubridge_res = data;
 	struct ubridge *ubridge = sid_resource_get_data(ubridge_res);
-	sid_resource_t *res = NULL;
-	int is_worker = 0;
-	int r;
+	sid_resource_t *worker_proxy_res;
+	int conn_fd;
 
 	log_debug(ID(ubridge_res), "Received an event.");
 
-	if (!(res = _find_observer_for_idle_worker(ubridge->observers_res))) {
-		log_debug(ID(ubridge_res), "Idle worker not found, spawning a new one.");
-		if (!(res = _spawn_worker(ubridge_res, &is_worker)))
+	if (!(worker_proxy_res = worker_control_get_idle_worker(ubridge->worker_control_res))) {
+		log_debug(ID(ubridge_res), "Idle worker not found, creating a new one.");
+		if (!(worker_proxy_res = worker_control_get_new_worker(ubridge->worker_control_res, NULL, _worker_init_fn, ubridge)))
 			return -1;
 	}
 
-	if (is_worker) {
-		r = sid_resource_run_event_loop(res);
-		(void) sid_resource_destroy(sid_resource_get_top_level(res));
-		exit(-r);
-	} else {
-		r = _accept_connection_and_pass_to_worker(ubridge_res, res);
-		return r;
+	/* worker never reaches this point, only worker-proxy does */
+
+	worker_control_set_recv_callback(worker_proxy_res, _worker_proxy_recv_fn, ubridge_res);
+
+	if ((conn_fd = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
+		log_sys_error(ID(ubridge_res), "accept", "");
+		return -1;
 	}
+
+	if (worker_control_send(worker_proxy_res, NULL, 0, conn_fd) < 0) {
+		log_sys_error(ID(ubridge_res), "worker_control_send_to_worker", "");
+		(void) close(conn_fd);
+		return -1;
+	}
+
+	(void) close(conn_fd);
+	return 0;
 }
 
 static int _reserve_core_kvs(struct ubridge *ubridge)
@@ -3101,14 +2765,15 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(ubridge->observers_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_aggregate, 0, OBSERVERS_AGGREGATE_ID, ubridge))) {
-		log_error(ID(res), "Failed to create aggregate resource for ubridge observers.");
-		goto fail;
-	}
-
 	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_kv_store, SID_RESOURCE_RESTRICT_WALK_UP,
 							       MAIN_KV_STORE_NAME, &main_kv_store_res_params))) {
 		log_error(ID(res), "Failed to create main key-value store.");
+		goto fail;
+	}
+
+	if (!(ubridge->worker_control_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_worker_control, 0,
+							        NULL, NULL))) {
+		log_error(ID(res), "Failed to create worker control.");
 		goto fail;
 	}
 
@@ -3188,17 +2853,10 @@ const sid_resource_reg_t sid_resource_reg_ubridge_command = {
 	.destroy = _destroy_command,
 };
 
-const sid_resource_reg_t sid_resource_reg_ubridge_observer = {
-	.name = OBSERVER_NAME,
-	.init = _init_observer,
-	.destroy = _destroy_observer,
-};
-
-const sid_resource_reg_t sid_resource_reg_ubridge_worker = {
-	.name = WORKER_NAME,
-	.init = _init_worker,
-	.destroy = _destroy_worker,
-	.with_event_loop = 1,
+const sid_resource_reg_t sid_resource_reg_ubridge_connection = {
+	.name = CONNECTION_NAME,
+	.init = _init_connection,
+	.destroy = _destroy_connection,
 };
 
 const sid_resource_reg_t sid_resource_reg_ubridge = {
