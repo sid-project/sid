@@ -1625,7 +1625,7 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 	struct iovec *delta_iov, *cur_iov;
 	size_t delta_iov_cnt, cur_iov_cnt, i;
 	const char *tmp_mem_start = buffer_add(update_arg->gen_buf, "", 0);
-	struct delta delta = {.op = delta_op};
+	struct delta delta = {0};
 	int r = -1;
 
 	buffer_get_data(delta_buf, (const void **) (&delta_iov), &delta_iov_cnt);
@@ -1657,6 +1657,7 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 	/* store final and delta for each relative */
 	buffer_get_data(cur_buf, (const void **) (&cur_iov), &cur_iov_cnt);
 
+	delta.op = delta_op;
 	rel_spec->delta = &delta;
 	
 	for (i = VALUE_VECTOR_IDX_DATA; i < delta_iov_cnt; i++) {
@@ -1779,7 +1780,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 						      .mod_name = CORE_MOD_NAME,
 						      .dev_id = NULL};
 
-	struct delta delta = {.op = DELTA_OP_DETECT};
+	struct delta delta = {0};
 
 	struct relation_spec rel_spec = {.delta = &delta,
 					 .cur_key_prefix_spec = &cur_key_prefix_spec,
@@ -1860,6 +1861,8 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
 	}
+
+	delta.op = DELTA_OP_DETECT;
 
 	/*
 	 * Handle delta.final vector for this device.
@@ -2411,7 +2414,7 @@ static int _sync_master_kv_store(sid_resource_t *observer_res, int fd)
 	struct ubridge_kv_value *value = NULL;
 	struct iovec *iov = NULL;
 	void *data_to_store;
-	struct delta delta;
+	struct delta delta = {0};
 	struct relation_spec rel_spec = {.delta = &delta};
 	struct kv_update_arg update_arg = {.gen_buf = ubridge->cmd_mod.gen_buf, .custom = &rel_spec};
 	int unset;
