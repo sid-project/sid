@@ -64,9 +64,8 @@ fail:
 	return -1;
 }
 
-ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send)
+static ssize_t _do_comms_unix_send(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send)
 {
-	struct iovec iov;
 	struct msghdr msg = {0};
 	struct cmsghdr *cmsg;
 	union {
@@ -74,11 +73,8 @@ ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_sen
 		struct cmsghdr alignment;
 	} u = {0};
 
-	iov.iov_base = buf;
-	iov.iov_len = buf_len;
-
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = iov_len;
 
 	if (fd_to_send > -1) {
 		msg.msg_control = u.control;
@@ -93,10 +89,21 @@ ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_sen
 	return sendmsg(socket_fd, &msg, 0); 
 }
 
-int comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
+ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send)
+{
+	struct iovec iov = {.iov_base = buf, .iov_len = buf_len};
+
+	return _do_comms_unix_send(socket_fd, &iov, 1, fd_to_send);
+}
+
+ssize_t comms_unix_send_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send)
+{
+	return _do_comms_unix_send(socket_fd, iov, iov_len, fd_to_send);
+}
+
+static int _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
 {
 	ssize_t size;
-	struct iovec iov;
 	struct msghdr msg = {0};
 	struct cmsghdr *cmsg;
 	union {
@@ -104,11 +111,8 @@ int comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
 		struct cmsghdr alignment;
 	} u;
 
-	iov.iov_base = buf;
-	iov.iov_len = buf_len;
-
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = iov_len;
 	msg.msg_control = u.control;
 	msg.msg_controllen = sizeof(u.control);
 
@@ -127,4 +131,16 @@ int comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
 		memcpy(fd_received, CMSG_DATA(cmsg), sizeof(int));
 
 	return size;
+}
+
+int comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
+{
+	struct iovec iov = {.iov_base = buf, .iov_len = buf_len};
+
+	return _do_comms_unix_recv(socket_fd, &iov, 1, fd_received);
+}
+
+int comms_unix_recv_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
+{
+	return _do_comms_unix_recv(socket_fd, iov, iov_len, fd_received);
 }

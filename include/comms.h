@@ -22,6 +22,7 @@
 
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,8 +30,12 @@ extern "C" {
 #endif
 
 int comms_unix_create(const char *path, int type);
+
 ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send);
+ssize_t comms_unix_send_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send);
+
 int comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received);
+int comms_unix_recv_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received);
 
 #ifdef __cplusplus
 }
