@@ -34,7 +34,7 @@ typedef struct sid_resource {
 	char *id;
 	sid_resource_t *parent;
 	struct list children;
-	uint64_t flags;
+	sid_resource_flags_t flags;
 	sd_event *event_loop;
 	pid_t pid_created;
 	void *data;
@@ -48,7 +48,7 @@ typedef struct sid_resource_iter {
 } sid_resource_iter_t;
 
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_reg_t *reg,
-				    uint64_t flags, const char *id_part, const void *kickstart_data)
+				    sid_resource_flags_t flags, const char *id_part, const void *kickstart_data)
 {
 	sid_resource_t *res;
 	size_t id_size;

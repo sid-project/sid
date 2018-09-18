@@ -47,17 +47,18 @@ typedef struct sid_resource_iter sid_resource_iter_t;
 
 #include "resource-regs.h"
 
-#define SID_RESOURCE_RESTRICT_MASK      0x0000000000000003
-#define SID_RESOURCE_RESTRICT_WALK_UP   0x0000000000000001	/* restrict walk from child to parent */
-#define SID_RESOURCE_RESTRICT_WALK_DOWN 0x0000000000000002	/* restrict walk from parent to child */
-
-#define SID_RESOURCE_DISALLOW_ISOLATION 0x0000000000000004
+typedef enum {
+	SID_RESOURCE_RESTRICT_WALK_UP   = UINT64_C(0x0000000000000001),	/* restrict walk from child to parent */
+	SID_RESOURCE_RESTRICT_WALK_DOWN = UINT64_C(0x0000000000000002),	/* restrict walk from parent to child */
+	SID_RESOURCE_RESTRICT_MASK      = UINT64_C(0x0000000000000003),
+	SID_RESOURCE_DISALLOW_ISOLATION = UINT64_C(0x0000000000000004),
+} sid_resource_flags_t;
 
 /* 
  * create/destroy functions
  */
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_reg_t *reg,
-				    uint64_t flags, const char *id, const void *kickstart_data);
+				    sid_resource_flags_t flags, const char *id, const void *kickstart_data);
 int sid_resource_destroy(sid_resource_t *res);
 
 /*
