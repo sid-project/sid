@@ -1767,7 +1767,6 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	struct iovec *iov;
 	size_t iov_cnt;
 	int count = 0, i;
-	char *p;
 	int r = -1;
 
 	struct key_prefix_spec cur_key_prefix_spec = {.ns = KV_NS_DEVICE,
