@@ -321,6 +321,11 @@ sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_r
 	return NULL;
 }
 
+unsigned int sid_resource_get_children_count(sid_resource_t *res)
+{
+	return list_size(&(res->children));
+}
+
 int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child)
 {
 	if (!res || child->parent)

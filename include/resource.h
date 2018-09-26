@@ -99,6 +99,7 @@ void sid_resource_iter_destroy(sid_resource_iter_t *iter);
 sid_resource_t *sid_resource_get_parent(sid_resource_t *res);
 sid_resource_t *sid_resource_get_top_level(sid_resource_t *res);
 sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_reg_t *reg, const char *id);
+unsigned int sid_resource_get_children_count(sid_resource_t *res);
 
 /*
  * structure/tree modification functions
