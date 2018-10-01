@@ -8,27 +8,30 @@
 /configure.scan
 /config.h.in
 /config.h
-.deps
-.libs
+**/.deps
+**/.libs
 
 /include/stamp-h1
 /include/configure.h.in
 /include/configure.h
 
-Makefile
-Makefile.in
+**/am--include-marker
+**/\#
+
+**/Makefile
+**/Makefile.in
 
 /cscope.in.out
 /cscope.out
 /cscope.po.out
 /tags
 
-*.o
-*.lo
-*.la
-*.a
-*.m4
-*~
+**/*.o
+**/*.lo
+**/*.la
+**/*.a
+**/*.m4
+**/*~
 
 /daemon/sid
 
