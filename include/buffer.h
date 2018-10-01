@@ -22,7 +22,6 @@
 
 #include "buffer-common.h"
 
-#include <stdbool.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus

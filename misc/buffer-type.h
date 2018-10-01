@@ -23,7 +23,6 @@
 #include "buffer-common.h"
 
 #include <stdarg.h>
-#include <stdbool.h>
 #include <sys/types.h>
 
 struct buffer{
