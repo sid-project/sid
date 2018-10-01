@@ -22,4 +22,3 @@ libsidlog_la_SOURCES = log-target-standard.c \
 		       log-target-syslog.c \
 		       log.c
 pkginclude_HEADERS = $(top_builddir)/include/log.h
- 

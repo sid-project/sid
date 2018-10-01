@@ -54,7 +54,7 @@ typedef enum {
 	SID_RESOURCE_DISALLOW_ISOLATION = UINT64_C(0x0000000000000004),
 } sid_resource_flags_t;
 
-/* 
+/*
  * create/destroy functions
  */
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_reg_t *reg,
@@ -86,7 +86,7 @@ int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_event_sou
 					      sid_generic_handler handler, void *data);
 int sid_resource_destroy_event_source(sid_resource_t *res __attribute__((unused)), sid_event_source **es);
 
-/* 
+/*
  * structure/tree iterator and 'get' functions
  */
 sid_resource_iter_t *sid_resource_iter_create(sid_resource_t *res);

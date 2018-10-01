@@ -222,7 +222,7 @@ static struct hash_node **_find_str_with_val(struct hash_table *t, const void *k
 {
 	struct hash_node **c;
 	unsigned h;
-       
+
 	h = _hash(key, len) & (t->num_slots - 1);
 
 	for (c = &t->slots[h]; *c; c = &((*c)->next)) {

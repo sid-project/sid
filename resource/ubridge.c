@@ -1622,7 +1622,7 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 
 	delta.op = delta_op;
 	rel_spec->delta = &delta;
-	
+
 	for (i = VALUE_VECTOR_IDX_DATA; i < delta_iov_cnt; i++) {
 		rel_spec->rel_key_prefix_spec->dev_id = delta_iov[i].iov_base;
 
@@ -2078,11 +2078,11 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 				buffer_add(cmd->result_buf, KV_END, 1);
 				continue;
 			}
-		} 
+		}
 
 		/*
 		 * Export keys with data to master process.
- 		 *
+		 *
 		 * Serialization format fields:
 		 *
 		 *  1) overall message size (size_t)
@@ -2737,7 +2737,7 @@ static struct sid_module_registry_resource_params type_res_mod_params = {.direct
 										{
 											UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT,
 											SID_MODULE_SYMBOL_INDIRECT,
-										},	
+										},
 										{
 											UBRIDGE_CMD_MODULE_FN_NAME_ERROR,
 											SID_MODULE_SYMBOL_FAIL_ON_MISSING |

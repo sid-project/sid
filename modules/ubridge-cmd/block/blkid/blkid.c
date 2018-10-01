@@ -281,7 +281,7 @@ static int _blkid_scan_next(struct sid_module *module, struct sid_ubridge_cmd_co
                 goto out;
         }
 
-        if ((r = blkid_probe_set_device(pr, fd, offset, 0)) < 0) 
+        if ((r = blkid_probe_set_device(pr, fd, offset, 0)) < 0)
                 goto out;
 
         log_debug(ID, "Probe %s %sraid offset=%"PRIi64, dev_path, noraid ? "no" : "", offset);

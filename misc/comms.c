@@ -84,9 +84,9 @@ static ssize_t _do_comms_unix_send(int socket_fd, struct iovec *iov, size_t iov_
 		cmsg->cmsg_type = SCM_RIGHTS;
 		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
 		memcpy(CMSG_DATA(cmsg), &fd_to_send, sizeof(int));
-	}   
+	}
 
-	return sendmsg(socket_fd, &msg, 0); 
+	return sendmsg(socket_fd, &msg, 0);
 }
 
 ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send)
