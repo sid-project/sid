@@ -2649,7 +2649,7 @@ static int _reserve_core_kvs(struct ubridge *ubridge)
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, 0) < 0 ||
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP, 0) < 0 ||
 	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN, 0) < 0 ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_MOD, 0))
+	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_MOD, 0) < 0)
 		return -1;
 
 	return 0;
