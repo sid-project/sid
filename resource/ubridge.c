@@ -92,7 +92,7 @@
 #define KV_KEY_DEV_MOD                    "SID_MOD"
 #define KV_KEY_DEV_NEXT_MOD               SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
 
-#define NULL_DEV_ID "0_0"
+#define NULL_ID "*"
 
 #define CORE_MOD_NAME         "core"
 #define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
@@ -360,7 +360,7 @@ static const char *_buffer_get_key_prefix(struct buffer *buf, struct key_prefix_
 			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix ? : "", KV_NS_MODULE_KEY_PREFIX, spec->mod_name);
 			break;
 		case KV_NS_GLOBAL:
-			s = buffer_fmt_add(buf, "%s%s*", spec->prefix ? : "", KV_NS_GLOBAL_KEY_PREFIX);
+			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix ? : "", KV_NS_GLOBAL_KEY_PREFIX, NULL_ID);
 			break;
 	}
 
@@ -514,7 +514,7 @@ static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd,
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
 						  .prefix = NULL,
 						  .mod_name = mod_name,
-						  .dev_id = NULL_DEV_ID};
+						  .dev_id = NULL_ID};
 	int r = 1;
 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
@@ -731,7 +731,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
 						  .prefix = NULL,
 						  .mod_name = _get_mod_name(mod),
-						  .dev_id = NULL_DEV_ID};
+						  .dev_id = NULL_ID};
 	int r = -1;
 
 	if (!(key_prefix = _buffer_get_key_prefix(cmd_mod->gen_buf, &key_prefix_spec))) {
@@ -1740,7 +1740,7 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	struct key_prefix_spec rel_key_prefix_spec = {.ns = KV_NS_DEVICE,
 						      .prefix = NULL,
 						      .mod_name = CORE_MOD_NAME,
-						      .dev_id = NULL};
+						      .dev_id = NULL_ID};
 
 	struct delta delta = {0};
 
@@ -2070,7 +2070,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (!strncmp(key, KV_NS_UDEV_KEY_PREFIX, strlen(KV_NS_UDEV_KEY_PREFIX))) {
 			/* Export to udev. */
-			if (strcmp(key + sizeof(KV_NS_UDEV_KEY_PREFIX) - 1, NULL_DEV_ID)) {
+			if (strcmp(key + sizeof(KV_NS_UDEV_KEY_PREFIX) - 1, NULL_ID)) {
 				buffer_add(cmd->result_buf, (void *) key, key_size - 1);
 				buffer_add(cmd->result_buf, KV_PAIR, 1);
 				data_offset = _get_ubridge_kv_value_data_offset(ubridge_kv_value);
