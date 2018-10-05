@@ -92,7 +92,8 @@
 #define KV_KEY_DEV_MOD                    "SID_MOD"
 #define KV_KEY_DEV_NEXT_MOD               SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
 
-#define NULL_ID "*"
+#define NULL_PREFIX ""
+#define NULL_ID     "*"
 
 #define CORE_MOD_NAME         "core"
 #define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
@@ -351,16 +352,16 @@ static const char *_buffer_get_key_prefix(struct buffer *buf, struct key_prefix_
 
 	switch (spec->ns) {
 		case KV_NS_UDEV:
-			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix ? : "", KV_NS_UDEV_KEY_PREFIX, spec->dev_id);
+			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix, KV_NS_UDEV_KEY_PREFIX, spec->dev_id);
 			break;
 		case KV_NS_DEVICE:
-			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, spec->dev_id);
+			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix, KV_NS_DEVICE_KEY_PREFIX, spec->dev_id);
 			break;
 		case KV_NS_MODULE:
-			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix ? : "", KV_NS_MODULE_KEY_PREFIX, spec->mod_name);
+			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix, KV_NS_MODULE_KEY_PREFIX, spec->mod_name);
 			break;
 		case KV_NS_GLOBAL:
-			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix ? : "", KV_NS_GLOBAL_KEY_PREFIX, NULL_ID);
+			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix, KV_NS_GLOBAL_KEY_PREFIX, NULL_ID);
 			break;
 	}
 
@@ -512,7 +513,7 @@ static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd,
 	size_t value_size;
 	kv_store_value_flags_t value_flags;
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
-						  .prefix = NULL,
+						  .prefix = NULL_PREFIX,
 						  .mod_name = mod_name,
 						  .dev_id = NULL_ID};
 	int r = 1;
@@ -535,7 +536,7 @@ static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd,
 		goto out;
 
 	log_debug(ID(cmd->kv_store_res), "Module %s can't overwrite value with key %s%s%s which is reserved and attached to %s module.",
-		  mod_name, key_prefix ? key_prefix : "", key_prefix ? KV_STORE_KEY_JOIN : "", key, VALUE_VECTOR_MOD_NAME(iov));
+		  mod_name, key_prefix, KV_STORE_KEY_JOIN, key, VALUE_VECTOR_MOD_NAME(iov));
 
 	r = 0;
 out:
@@ -552,7 +553,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct ubridge_kv_value *ubridge_kv_value;
 	struct kv_update_arg update_arg;
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
-						  .prefix = NULL,
+						  .prefix = NULL_PREFIX,
 						  .mod_name = _res_get_mod_name(cmd->mod_res),
 						  .dev_id = cmd->dev_id};
 	void *ret = NULL;
@@ -630,7 +631,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	struct ubridge_kv_value *ubridge_kv_value;
 	size_t size, data_offset;
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
-						  .prefix = NULL,
+						  .prefix = NULL_PREFIX,
 						  .mod_name = _res_get_mod_name(cmd->mod_res),
 						  .dev_id = cmd->dev_id};
 	void *ret = NULL;
@@ -729,7 +730,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	struct kv_update_arg update_arg;
 	int is_worker;
 	struct key_prefix_spec key_prefix_spec = {.ns = ns,
-						  .prefix = NULL,
+						  .prefix = NULL_PREFIX,
 						  .mod_name = _get_mod_name(mod),
 						  .dev_id = NULL_ID};
 	int r = -1;
@@ -1615,7 +1616,7 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 
 	_value_vector_mark_persist(delta_iov, 0);
 	buffer_rewind_mem(update_arg->gen_buf, key_prefix);
-	rel_spec->cur_key_prefix_spec->prefix = NULL;
+	rel_spec->cur_key_prefix_spec->prefix = NULL_PREFIX;
 
 	/* store final and delta for each relative */
 	buffer_get_data(cur_buf, (const void **) (&cur_iov), &cur_iov_cnt);
@@ -1645,7 +1646,7 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 
 		_value_vector_mark_persist(cur_iov, 0);
 		buffer_rewind_mem(update_arg->gen_buf, key_prefix);
-		rel_spec->rel_key_prefix_spec->prefix = NULL;
+		rel_spec->rel_key_prefix_spec->prefix = NULL_PREFIX;
 	}
 
 	r = 0;
@@ -1733,12 +1734,12 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	int r = -1;
 
 	struct key_prefix_spec cur_key_prefix_spec = {.ns = KV_NS_DEVICE,
-						      .prefix = NULL,
+						      .prefix = NULL_PREFIX,
 						      .mod_name = CORE_MOD_NAME,
 						      .dev_id = cmd->dev_id};
 
 	struct key_prefix_spec rel_key_prefix_spec = {.ns = KV_NS_DEVICE,
-						      .prefix = NULL,
+						      .prefix = NULL_PREFIX,
 						      .mod_name = CORE_MOD_NAME,
 						      .dev_id = NULL_ID};
 
