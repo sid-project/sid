@@ -261,6 +261,11 @@ enum {
 	_VALUE_VECTOR_IDX_COUNT,
 };
 
+#define VALUE_VECTOR_PREPARE_HEADER(iov, seqnum, flags, mod_name) \
+		iov[VALUE_VECTOR_IDX_SEQNUM] = (struct iovec) {&(seqnum), sizeof(seqnum)}; \
+		iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&(flags), sizeof(flags)}; \
+		iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {mod_name, strlen(mod_name) + 1};
+
 #define VALUE_VECTOR_SEQNUM(iov) (*((uint64_t *) ((struct iovec *) iov)[VALUE_VECTOR_IDX_SEQNUM].iov_base))
 #define VALUE_VECTOR_FLAGS(iov) (*((sid_ubridge_kv_flags_t *) ((struct iovec *) iov)[VALUE_VECTOR_IDX_FLAGS].iov_base))
 #define VALUE_VECTOR_MOD_NAME(iov) ((char *) ((struct iovec *) iov)[VALUE_VECTOR_IDX_MOD_NAME].iov_base)
@@ -387,9 +392,7 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 	ubridge_kv_value = value;
 	mod_name_size = strlen(ubridge_kv_value->data) + 1;
 
-	iov[VALUE_VECTOR_IDX_SEQNUM] = (struct iovec) {&ubridge_kv_value->seqnum, sizeof(ubridge_kv_value->seqnum)};
-	iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&ubridge_kv_value->flags, sizeof(ubridge_kv_value->flags)};
-	iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {ubridge_kv_value->data, mod_name_size};
+	VALUE_VECTOR_PREPARE_HEADER(iov, ubridge_kv_value->seqnum, ubridge_kv_value->flags, ubridge_kv_value->data)
 	iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {ubridge_kv_value->data + mod_name_size, value_size - sizeof(*ubridge_kv_value) - mod_name_size};
 
 	return iov;
@@ -579,9 +582,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 		goto out;
 	}
 
-	iov[VALUE_VECTOR_IDX_SEQNUM] = (struct iovec) {&cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum)};
-	iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&flags, sizeof(flags)};
-	iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {(void *) key_prefix_spec.mod_name, strlen(key_prefix_spec.mod_name) + 1};
+	VALUE_VECTOR_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, flags, (char *) key_prefix_spec.mod_name);
 	iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {(void *) value, value ? value_size : 0};
 
 	update_arg.res = cmd->kv_store_res;
@@ -762,10 +763,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 			errno = update_arg.ret_code;
 		goto out;
 	} else {
-		iov[VALUE_VECTOR_IDX_SEQNUM] = (struct iovec) {&null_int, sizeof(null_int)};
-		iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&flags, sizeof(flags)};
-		iov[VALUE_VECTOR_IDX_MOD_NAME] = (struct iovec) {(void *) key_prefix_spec.mod_name, strlen(key_prefix_spec.mod_name) + 1};
-
+		VALUE_VECTOR_PREPARE_HEADER(iov, null_int, flags, (char *) key_prefix_spec.mod_name);
 		ubridge_kv_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, _VALUE_VECTOR_IDX_COUNT - 1,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
 						    _kv_reserve, &update_arg);
