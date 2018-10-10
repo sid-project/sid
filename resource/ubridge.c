@@ -77,23 +77,24 @@
 #define KV_PAIR             "="
 #define KV_END              ""
 
-#define KV_NS_DELTA_PLUS_KEY_PREFIX  "+" KV_STORE_KEY_JOIN
-#define KV_NS_DELTA_MINUS_KEY_PREFIX "-" KV_STORE_KEY_JOIN
+#define ID_NULL ""
 
-#define KV_NS_UDEV_KEY_PREFIX   "U" KV_STORE_KEY_JOIN
-#define KV_NS_DEVICE_KEY_PREFIX "D" KV_STORE_KEY_JOIN
-#define KV_NS_MODULE_KEY_PREFIX "M" KV_STORE_KEY_JOIN
-#define KV_NS_GLOBAL_KEY_PREFIX "G" KV_STORE_KEY_JOIN
+#define KV_PREFIX_NULL           ID_NULL
+#define KV_PREFIX_OP_DELTA_PLUS  "+"
+#define KV_PREFIX_OP_DELTA_MINUS "-"
+#define KV_PREFIX_NS_UDEV        "U"
+#define KV_PREFIX_NS_DEVICE      "D"
+#define KV_PREFIX_NS_MODULE      "M"
+#define KV_PREFIX_NS_GLOBAL      "G"
 
-#define KV_KEY_DEV_READY                  "SID_RDY"
-#define KV_KEY_DEV_RESERVED               "SID_RES"
-#define KV_KEY_DEV_LAYER_UP               "SID_LUP"
-#define KV_KEY_DEV_LAYER_DOWN             "SID_LDW"
-#define KV_KEY_DEV_MOD                    "SID_MOD"
-#define KV_KEY_DEV_NEXT_MOD               SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
-
-#define NULL_PREFIX ""
-#define NULL_ID     "*"
+#define KV_KEY_DEV_READY         "SID_RDY"
+#define KV_KEY_DEV_RESERVED      "SID_RES"
+#define KV_KEY_DEV_LAYER_UP      "SID_LUP"
+#define KV_KEY_DEV_LAYER_DOWN    "SID_LDW"
+#define KV_KEY_DEV_MOD           "SID_MOD"
+#define KV_KEY_DEV_NEXT_MOD      SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
+#define KV_KEY_GEN_GROUP_MEMBERS "SID_GMB"
+#define KV_KEY_GEN_GROUP_IN      "SID_GIN"
 
 #define CORE_MOD_NAME         "core"
 #define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
@@ -272,10 +273,10 @@ enum {
 #define VALUE_VECTOR_DATA(iov) (((struct iovec *) iov)[VALUE_VECTOR_IDX_DATA].iov_base)
 
 struct key_prefix_spec {
-	sid_ubridge_cmd_kv_namespace_t ns;
 	const char *prefix;
-	const char *mod_name;
-	const char *dev_id;
+	sid_ubridge_cmd_kv_namespace_t ns;
+	const char *id;
+	const char *id_sub;
 };
 
 struct kv_update_arg {
@@ -303,7 +304,6 @@ struct relation_spec {
 	struct delta *delta;
 	struct key_prefix_spec *cur_key_prefix_spec;
 	const char *cur_key;
-	const char *cur_id;
 	struct key_prefix_spec *rel_key_prefix_spec;
 	const char *rel_key;
 };
@@ -353,29 +353,19 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 
 static const char *_buffer_get_key_prefix(struct buffer *buf, struct key_prefix_spec *spec)
 {
-	const char *s = NULL;
+	static const char *ns_to_key_prefix_map[] = {[KV_NS_UDEV]   = KV_PREFIX_NS_UDEV,
+						     [KV_NS_DEVICE] = KV_PREFIX_NS_DEVICE,
+						     [KV_NS_MODULE] = KV_PREFIX_NS_MODULE,
+						     [KV_NS_GLOBAL] = KV_PREFIX_NS_GLOBAL};
 
-	switch (spec->ns) {
-		case KV_NS_UDEV:
-			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix, KV_NS_UDEV_KEY_PREFIX, spec->dev_id);
-			break;
-		case KV_NS_DEVICE:
-			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix, KV_NS_DEVICE_KEY_PREFIX, spec->dev_id);
-			break;
-		case KV_NS_MODULE:
-			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix, KV_NS_MODULE_KEY_PREFIX, spec->mod_name);
-			break;
-		case KV_NS_GLOBAL:
-			s = buffer_fmt_add(buf, "%s%s%s", spec->prefix, KV_NS_GLOBAL_KEY_PREFIX, NULL_ID);
-			break;
-	}
-
-	return s;
-}
-
-static const char *_buffer_get_dev_key_prefix(struct buffer *buf, const char *prefix, const char *devno_str)
-{
-	return buffer_fmt_add(buf, "%s%s%s", prefix ? : "", KV_NS_DEVICE_KEY_PREFIX, devno_str);
+	return buffer_fmt_add(buf, "%s" KV_STORE_KEY_JOIN
+				   "%s" KV_STORE_KEY_JOIN
+				   "%s" KV_STORE_KEY_JOIN
+				   "%s",
+				   spec->prefix,
+				   ns_to_key_prefix_map[spec->ns],
+				   spec->id,
+				   spec->id_sub);
 }
 
 static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value, size_t value_size, struct iovec *iov)
@@ -515,10 +505,10 @@ static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd,
 	void *found;
 	size_t value_size;
 	kv_store_value_flags_t value_flags;
-	struct key_prefix_spec key_prefix_spec = {.ns = ns,
-						  .prefix = NULL_PREFIX,
-						  .mod_name = mod_name,
-						  .dev_id = NULL_ID};
+	struct key_prefix_spec key_prefix_spec = {.prefix = KV_PREFIX_NULL,
+						  .ns = ns,
+						  .id = KV_PREFIX_NULL,
+						  .id_sub = KV_PREFIX_NULL};
 	int r = 1;
 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
@@ -548,17 +538,33 @@ out:
 	return r;
 }
 
+static const char *_get_ns_based_id(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns)
+{
+	switch (ns) {
+		case KV_NS_UDEV:
+		case KV_NS_DEVICE:
+			return cmd->dev_id;
+		case KV_NS_MODULE:
+			return _res_get_mod_name(cmd->mod_res);
+		case KV_NS_GLOBAL:
+			break;
+	}
+
+	return ID_NULL;
+}
+
 static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
 					const char *key, sid_ubridge_kv_flags_t flags, const void *value, size_t value_size)
 {
+	const char *mod_name = _res_get_mod_name(cmd->mod_res);
 	const char *key_prefix = NULL;
 	struct iovec iov[4];
 	struct ubridge_kv_value *ubridge_kv_value;
 	struct kv_update_arg update_arg;
-	struct key_prefix_spec key_prefix_spec = {.ns = ns,
-						  .prefix = NULL_PREFIX,
-						  .mod_name = _res_get_mod_name(cmd->mod_res),
-						  .dev_id = cmd->dev_id};
+	struct key_prefix_spec key_prefix_spec = {.prefix = KV_PREFIX_NULL,
+						  .ns = ns,
+						  .id = _get_ns_based_id(cmd, ns),
+						  .id_sub = KV_PREFIX_NULL};
 	void *ret = NULL;
 
 	/*
@@ -573,8 +579,8 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	 * we can't control any global reservation at the moment so it doesn't make sense
 	 * to do the check here.
 	 */
-	if (!((ns == KV_NS_UDEV) && !*key_prefix_spec.mod_name) &&
-	    !_passes_global_reservation_check(cmd, key_prefix_spec.mod_name, ns, key))
+	if (!((ns == KV_NS_UDEV) && !*mod_name) &&
+	    !_passes_global_reservation_check(cmd, mod_name, ns, key))
 		goto out;
 
 	if (!(key_prefix = _buffer_get_key_prefix(cmd->gen_buf, &key_prefix_spec))) {
@@ -582,11 +588,11 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 		goto out;
 	}
 
-	VALUE_VECTOR_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, flags, (char *) key_prefix_spec.mod_name);
+	VALUE_VECTOR_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, flags, (char *) mod_name);
 	iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {(void *) value, value ? value_size : 0};
 
 	update_arg.res = cmd->kv_store_res;
-	update_arg.mod_name = key_prefix_spec.mod_name;
+	update_arg.mod_name = mod_name;
 	update_arg.gen_buf = cmd->gen_buf;
 	update_arg.custom = NULL;
 	update_arg.ret_code = 0;
@@ -628,13 +634,14 @@ void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cm
 const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
 				   const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
 {
+	const char *mod_name = _res_get_mod_name(cmd->mod_res);
 	const char *key_prefix = NULL;
 	struct ubridge_kv_value *ubridge_kv_value;
 	size_t size, data_offset;
-	struct key_prefix_spec key_prefix_spec = {.ns = ns,
-						  .prefix = NULL_PREFIX,
-						  .mod_name = _res_get_mod_name(cmd->mod_res),
-						  .dev_id = cmd->dev_id};
+	struct key_prefix_spec key_prefix_spec = {.prefix = KV_PREFIX_NULL,
+						  .ns = ns,
+						  .id = _get_ns_based_id(cmd, ns),
+						  .id_sub = KV_PREFIX_NULL};
 	void *ret = NULL;
 
 	if (!cmd || !key || !*key) {
@@ -651,7 +658,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		goto out;
 
 	if (ubridge_kv_value->flags & KV_MOD_PRIVATE) {
-		if (strcmp(ubridge_kv_value->data, key_prefix_spec.mod_name)) {
+		if (strcmp(ubridge_kv_value->data, mod_name)) {
 			errno = EACCES;
 			goto out;
 		}
@@ -723,6 +730,7 @@ static int _kv_unreserve(const char *key_prefix, const char *key, struct kv_stor
 int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
 				       sid_ubridge_cmd_kv_namespace_t ns, const char *key, int unset)
 {
+	const char *mod_name = _get_mod_name(mod);
 	const char *key_prefix = NULL;
 	struct iovec iov[_VALUE_VECTOR_IDX_COUNT - 1]; /* without VALUE_VECTOR_IDX_DATA */
 	struct ubridge_kv_value *ubridge_kv_value;
@@ -730,10 +738,10 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	sid_ubridge_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
 	int is_worker;
-	struct key_prefix_spec key_prefix_spec = {.ns = ns,
-						  .prefix = NULL_PREFIX,
-						  .mod_name = _get_mod_name(mod),
-						  .dev_id = NULL_ID};
+	struct key_prefix_spec key_prefix_spec = {.prefix = KV_PREFIX_NULL,
+						  .ns = ns,
+						  .id = KV_PREFIX_NULL,
+						  .id_sub = KV_PREFIX_NULL};
 	int r = -1;
 
 	if (!(key_prefix = _buffer_get_key_prefix(cmd_mod->gen_buf, &key_prefix_spec))) {
@@ -747,7 +755,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	}
 
 	update_arg.res = cmd_mod->kv_store_res;
-	update_arg.mod_name = key_prefix_spec.mod_name;
+	update_arg.mod_name = mod_name;
 	update_arg.custom = NULL;
 	update_arg.ret_code = 0;
 
@@ -763,7 +771,8 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 			errno = update_arg.ret_code;
 		goto out;
 	} else {
-		VALUE_VECTOR_PREPARE_HEADER(iov, null_int, flags, (char *) key_prefix_spec.mod_name);
+		VALUE_VECTOR_PREPARE_HEADER(iov, null_int, flags, (char *) mod_name);
+		log_debug(">>>", "RESERVING %s" KV_STORE_KEY_JOIN "%s", key_prefix, key);
 		ubridge_kv_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, _VALUE_VECTOR_IDX_COUNT - 1,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
 						    _kv_reserve, &update_arg);
@@ -1597,9 +1606,9 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 		return 0;
 
 	if (delta_op == DELTA_OP_PLUS)
-		delta_key_prefix = KV_NS_DELTA_PLUS_KEY_PREFIX;
+		delta_key_prefix = KV_PREFIX_OP_DELTA_PLUS;
 	else if (delta_op == DELTA_OP_MINUS)
-		delta_key_prefix = KV_NS_DELTA_MINUS_KEY_PREFIX;
+		delta_key_prefix = KV_PREFIX_OP_DELTA_MINUS;
 	else {
 		log_error(ID(update_arg->res), INTERNAL_ERROR "%s: incorrect delta operation requested.", __func__);
 		goto out;
@@ -1614,7 +1623,7 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 
 	_value_vector_mark_persist(delta_iov, 0);
 	buffer_rewind_mem(update_arg->gen_buf, key_prefix);
-	rel_spec->cur_key_prefix_spec->prefix = NULL_PREFIX;
+	rel_spec->cur_key_prefix_spec->prefix = KV_PREFIX_NULL;
 
 	/* store final and delta for each relative */
 	buffer_get_data(cur_buf, (const void **) (&cur_iov), &cur_iov_cnt);
@@ -1623,7 +1632,7 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 	rel_spec->delta = &delta;
 
 	for (i = VALUE_VECTOR_IDX_DATA; i < delta_iov_cnt; i++) {
-		rel_spec->rel_key_prefix_spec->dev_id = delta_iov[i].iov_base;
+		rel_spec->rel_key_prefix_spec->id = delta_iov[i].iov_base;
 
 		/* final - nonpersistent */
 		key_prefix = _buffer_get_key_prefix(update_arg->gen_buf, rel_spec->rel_key_prefix_spec);
@@ -1636,7 +1645,7 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 
 		/* delta - persistent */
 		rel_spec->rel_key_prefix_spec->prefix = delta_key_prefix;
-		key_prefix = _buffer_get_dev_key_prefix(update_arg->gen_buf, delta_key_prefix, delta_iov[i].iov_base);
+		key_prefix = _buffer_get_key_prefix(update_arg->gen_buf, rel_spec->rel_key_prefix_spec);
 		_value_vector_mark_persist(cur_iov, 1);
 
 		kv_store_set_value(update_arg->res, key_prefix, rel_spec->rel_key, cur_iov, cur_iov_cnt,
@@ -1644,14 +1653,13 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 
 		_value_vector_mark_persist(cur_iov, 0);
 		buffer_rewind_mem(update_arg->gen_buf, key_prefix);
-		rel_spec->rel_key_prefix_spec->prefix = NULL_PREFIX;
+		rel_spec->rel_key_prefix_spec->prefix = KV_PREFIX_NULL;
 	}
 
 	r = 0;
 out:
 	if (tmp_mem_start)
 		buffer_rewind_mem(update_arg->gen_buf, tmp_mem_start);
-	rel_spec->rel_key_prefix_spec->dev_id = NULL;
 	rel_spec->delta = orig_delta;
 	return r;
 }
@@ -1679,10 +1687,10 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 		buffer_add(cur_buf, &seqnum, sizeof(seqnum));
 		buffer_add(cur_buf, &kv_flags_no_persist, sizeof(kv_flags_no_persist));
 		buffer_add(cur_buf, (void *) update_arg->mod_name, strlen(update_arg->mod_name) + 1);
-		buffer_add(cur_buf, (void *) rel_spec->cur_id, strlen(rel_spec->cur_id) + 1);
+		buffer_add(cur_buf, (void *) rel_spec->cur_key_prefix_spec->id, strlen(rel_spec->cur_key_prefix_spec->id) + 1);
 
 		/*
-		 * Handle delta.{plus,minus} vector for this device and relatives.
+		 * Handle delta.{plus,minus} vector for this item and relatives.
 		 *
 		 * Here, we set:
 		 * 	{+,-}SID_{LUP,LDW} here for current item (the "ref") to add/remove relatives
@@ -1731,22 +1739,21 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	int count = 0, i;
 	int r = -1;
 
-	struct key_prefix_spec cur_key_prefix_spec = {.ns = KV_NS_DEVICE,
-						      .prefix = NULL_PREFIX,
-						      .mod_name = CORE_MOD_NAME,
-						      .dev_id = cmd->dev_id};
+	struct key_prefix_spec cur_key_prefix_spec = {.prefix = KV_PREFIX_NULL,
+						      .ns = KV_NS_DEVICE,
+						      .id = _get_ns_based_id(cmd, KV_NS_DEVICE),
+						      .id_sub = KV_PREFIX_NULL};
 
-	struct key_prefix_spec rel_key_prefix_spec = {.ns = KV_NS_DEVICE,
-						      .prefix = NULL_PREFIX,
-						      .mod_name = CORE_MOD_NAME,
-						      .dev_id = NULL_ID};
+	struct key_prefix_spec rel_key_prefix_spec = {.prefix = KV_PREFIX_NULL,
+						      .ns = KV_NS_DEVICE,
+						      .id = KV_PREFIX_NULL, /* will be calculated later */
+						      .id_sub = KV_PREFIX_NULL};
 
 	struct delta delta = {0};
 
 	struct relation_spec rel_spec = {.delta = &delta,
 					 .cur_key_prefix_spec = &cur_key_prefix_spec,
 					 .cur_key = key,
-					 .cur_id = cmd->dev_id,
 					 .rel_key_prefix_spec = &rel_key_prefix_spec,
 					 .rel_key = rel_key};
 
@@ -2067,9 +2074,8 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		key_size = strlen(key) + 1;
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
-		if (!strncmp(key, KV_NS_UDEV_KEY_PREFIX, strlen(KV_NS_UDEV_KEY_PREFIX))) {
-			/* Export to udev. */
-			if (strcmp(key + sizeof(KV_NS_UDEV_KEY_PREFIX) - 1, NULL_ID)) {
+		if (!strncmp(key, KV_PREFIX_NS_UDEV, strlen(KV_PREFIX_NULL KV_PREFIX_NS_UDEV))) {
+			if (strcmp(key + sizeof(KV_PREFIX_NULL KV_PREFIX_NS_UDEV) - 1, KV_PREFIX_NULL)) {
 				buffer_add(cmd->result_buf, (void *) key, key_size - 1);
 				buffer_add(cmd->result_buf, KV_PAIR, 1);
 				data_offset = _get_ubridge_kv_value_data_offset(ubridge_kv_value);
@@ -2517,11 +2523,11 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 			log_debug(ID(worker_proxy_res), syncing_msg, key, unset ? "NULL"
 									    : "[vector]", VALUE_VECTOR_SEQNUM(iov));
 
-			if (!strncmp(key, KV_NS_DELTA_PLUS_KEY_PREFIX, sizeof(KV_NS_DELTA_PLUS_KEY_PREFIX) - 1)) {
-				key = key + sizeof(KV_NS_DELTA_PLUS_KEY_PREFIX) - 1;
+			if (!strncmp(key, KV_PREFIX_OP_DELTA_PLUS, sizeof(KV_PREFIX_OP_DELTA_PLUS) - 1)) {
+				key = key + sizeof(KV_PREFIX_OP_DELTA_PLUS) - 1;
 				delta.op = DELTA_OP_PLUS;
-			} else if (!strncmp(key, KV_NS_DELTA_MINUS_KEY_PREFIX, sizeof(KV_NS_DELTA_MINUS_KEY_PREFIX) - 1)) {
-				key = key + sizeof(KV_NS_DELTA_MINUS_KEY_PREFIX) - 1;
+			} else if (!strncmp(key, KV_PREFIX_OP_DELTA_MINUS, sizeof(KV_PREFIX_OP_DELTA_MINUS) - 1)) {
+				key = key + sizeof(KV_PREFIX_OP_DELTA_MINUS) - 1;
 				delta.op = DELTA_OP_MINUS;
 			} else
 				delta.op = DELTA_OP_DETECT;
@@ -2642,14 +2648,32 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 	return 0;
 }
 
+struct key_res_def {
+	sid_ubridge_cmd_kv_namespace_t ns;
+	const char *key;
+};
+
 static int _reserve_core_kvs(struct ubridge *ubridge)
 {
-	if (_do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_READY, 0) < 0 ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, 0) < 0 ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP, 0) < 0 ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN, 0) < 0 ||
-	    _do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, KV_NS_DEVICE, KV_KEY_DEV_MOD, 0) < 0)
-		return -1;
+	static const struct key_res_def r[] = { {KV_NS_DEVICE, KV_KEY_DEV_READY},
+						{KV_NS_DEVICE, KV_KEY_DEV_RESERVED},
+						{KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP},
+						{KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN},
+						{KV_NS_DEVICE, KV_KEY_DEV_MOD},
+						{KV_NS_DEVICE, KV_KEY_GEN_GROUP_MEMBERS},
+						{KV_NS_MODULE, KV_KEY_GEN_GROUP_MEMBERS},
+						{KV_NS_GLOBAL, KV_KEY_GEN_GROUP_MEMBERS},
+						{KV_NS_DEVICE, KV_KEY_GEN_GROUP_IN},
+						{KV_NS_MODULE, KV_KEY_GEN_GROUP_IN},
+						{KV_NS_GLOBAL, KV_KEY_GEN_GROUP_IN},
+						{0, NULL} };
+	unsigned i;
+
+	for (i = 0; r[i].key; i++) {
+		if (_do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, r[i].ns, r[i].key, 0) < 0)
+			/* FIXME: Maybe we should also unreserve already reserved keys in case there's a failure? */
+			return -1;
+	}
 
 	return 0;
 }
