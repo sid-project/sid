@@ -1596,7 +1596,6 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 	struct iovec *delta_iov, *cur_iov;
 	size_t delta_iov_cnt, cur_iov_cnt, i;
 	const char *tmp_mem_start = buffer_add(update_arg->gen_buf, "", 0);
-	struct delta delta = {0};
 	int r = -1;
 
 	buffer_get_data(delta_buf, (const void **) (&delta_iov), &delta_iov_cnt);
@@ -1628,8 +1627,8 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 	/* store final and delta for each relative */
 	buffer_get_data(cur_buf, (const void **) (&cur_iov), &cur_iov_cnt);
 
-	delta.op = delta_op;
-	rel_spec->delta = &delta;
+	rel_spec->delta = &((struct delta) {0});
+	rel_spec->delta->op = delta_op;
 
 	for (i = VALUE_VECTOR_IDX_DATA; i < delta_iov_cnt; i++) {
 		rel_spec->rel_key_prefix_spec->id = delta_iov[i].iov_base;
@@ -1640,7 +1639,7 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 		kv_store_set_value(update_arg->res, key_prefix, rel_spec->rel_key, cur_iov, cur_iov_cnt,
 				   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0, _kv_sorted_id_set_delta_resolve, update_arg);
 
-		_destroy_delta(&delta);
+		_destroy_delta(rel_spec->delta);
 		buffer_rewind_mem(update_arg->gen_buf, key_prefix);
 
 		/* delta - persistent */
@@ -1739,22 +1738,18 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	int count = 0, i;
 	int r = -1;
 
-	struct key_prefix_spec cur_key_prefix_spec = {.prefix = KV_PREFIX_NULL,
-						      .ns = KV_NS_DEVICE,
-						      .id = _get_ns_based_id(cmd, KV_NS_DEVICE),
-						      .id_sub = KV_PREFIX_NULL};
-
-	struct key_prefix_spec rel_key_prefix_spec = {.prefix = KV_PREFIX_NULL,
-						      .ns = KV_NS_DEVICE,
-						      .id = KV_PREFIX_NULL, /* will be calculated later */
-						      .id_sub = KV_PREFIX_NULL};
-
-	struct delta delta = {0};
-
-	struct relation_spec rel_spec = {.delta = &delta,
-					 .cur_key_prefix_spec = &cur_key_prefix_spec,
+	struct relation_spec rel_spec = {.delta = &((struct delta) {0}),
+					 .cur_key_prefix_spec = &((struct key_prefix_spec) {
+									.prefix= KV_PREFIX_NULL,
+									.ns = KV_NS_DEVICE,
+									.id = _get_ns_based_id(cmd, KV_NS_DEVICE),
+									.id_sub = KV_PREFIX_NULL}),
 					 .cur_key = key,
-					 .rel_key_prefix_spec = &rel_key_prefix_spec,
+					 .rel_key_prefix_spec = &((struct key_prefix_spec) {
+									.prefix = KV_PREFIX_NULL,
+									.ns = KV_NS_DEVICE,
+									.id = KV_PREFIX_NULL, /* will be calculated later */
+									.id_sub = KV_PREFIX_NULL}),
 					 .rel_key = rel_key};
 
 	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
@@ -1825,12 +1820,12 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
 	qsort(iov + 3, iov_cnt - 3, sizeof(struct iovec), _iov_str_item_cmp);
 
-	if (!(s = _buffer_get_key_prefix(cmd->gen_buf, &cur_key_prefix_spec))) {
+	if (!(s = _buffer_get_key_prefix(cmd->gen_buf, rel_spec.cur_key_prefix_spec))) {
 		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
 	}
 
-	delta.op = DELTA_OP_DETECT;
+	rel_spec.delta->op = DELTA_OP_DETECT;
 
 	/*
 	 * Handle delta.final vector for this device.
@@ -2463,8 +2458,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 	struct ubridge_kv_value *value = NULL;
 	struct iovec *iov = NULL;
 	void *data_to_store;
-	struct delta delta = {0};
-	struct relation_spec rel_spec = {.delta = &delta};
+	struct relation_spec rel_spec = {.delta = &((struct delta){0})};
 	struct kv_update_arg update_arg = {.gen_buf = ubridge->cmd_mod.gen_buf, .custom = &rel_spec};
 	int unset;
 	int r = -1;
@@ -2525,12 +2519,12 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 
 			if (!strncmp(key, KV_PREFIX_OP_DELTA_PLUS, sizeof(KV_PREFIX_OP_DELTA_PLUS) - 1)) {
 				key = key + sizeof(KV_PREFIX_OP_DELTA_PLUS) - 1;
-				delta.op = DELTA_OP_PLUS;
+				rel_spec.delta->op = DELTA_OP_PLUS;
 			} else if (!strncmp(key, KV_PREFIX_OP_DELTA_MINUS, sizeof(KV_PREFIX_OP_DELTA_MINUS) - 1)) {
 				key = key + sizeof(KV_PREFIX_OP_DELTA_MINUS) - 1;
-				delta.op = DELTA_OP_MINUS;
+				rel_spec.delta->op = DELTA_OP_MINUS;
 			} else
-				delta.op = DELTA_OP_DETECT;
+				rel_spec.delta->op = DELTA_OP_DETECT;
 
 			data_to_store = iov;
 		} else {
@@ -2549,7 +2543,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 									    : data_offset ? value->data + data_offset
 											  : value->data, value->seqnum);
 
-			delta.op = DELTA_OP_DETECT;
+			rel_spec.delta->op = DELTA_OP_DETECT;
 
 			data_to_store = value;
 		}
@@ -2560,7 +2554,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 			kv_store_set_value(ubridge->main_kv_store_res, NULL, key, data_to_store, data_size, flags, 0,
 					   _master_kv_store_update, &update_arg);
 
-		_destroy_delta(&delta);
+		_destroy_delta(rel_spec.delta);
 		free(iov);
 		iov = NULL;
 	}
