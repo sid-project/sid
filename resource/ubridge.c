@@ -1584,21 +1584,21 @@ static void _value_vector_mark_persist(struct iovec *iov, int persist)
 		iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&kv_flags_no_persist, sizeof(kv_flags_no_persist)};
 }
 
-static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg);
+static int _kv_sorted_id_set_delta_vector_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg);
 
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
 
-static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delta_buf, struct buffer *cur_buf, struct kv_update_arg *update_arg)
+static int _refresh_relation_from_delta_vector(delta_op_t delta_op,
+					       struct iovec *delta_iov, size_t delta_iov_cnt,
+					       struct iovec *cur_iov, size_t cur_iov_cnt,
+					       struct kv_update_arg *update_arg)
 {
 	struct relation_spec *rel_spec = update_arg->custom;
 	struct delta *orig_delta = rel_spec->delta;
 	const char *delta_key_prefix, *key_prefix;
-	struct iovec *delta_iov, *cur_iov;
-	size_t delta_iov_cnt, cur_iov_cnt, i;
+	size_t i;
 	const char *tmp_mem_start = buffer_add(update_arg->gen_buf, "", 0);
 	int r = -1;
-
-	buffer_get_data(delta_buf, (const void **) (&delta_iov), &delta_iov_cnt);
 
 	/* no relatives recorded in delta buffer so there's nothing to do */
 	if (delta_iov_cnt <= VALUE_VECTOR_IDX_DATA)
@@ -1625,8 +1625,6 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 	rel_spec->cur_key_prefix_spec->prefix = KV_PREFIX_NULL;
 
 	/* store final and delta for each relative */
-	buffer_get_data(cur_buf, (const void **) (&cur_iov), &cur_iov_cnt);
-
 	rel_spec->delta = &((struct delta) {0});
 	rel_spec->delta->op = delta_op;
 
@@ -1637,7 +1635,7 @@ static int _refresh_relation_from_delta(delta_op_t delta_op, struct buffer *delt
 		key_prefix = _buffer_get_key_prefix(update_arg->gen_buf, rel_spec->rel_key_prefix_spec);
 
 		kv_store_set_value(update_arg->res, key_prefix, rel_spec->rel_key, cur_iov, cur_iov_cnt,
-				   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0, _kv_sorted_id_set_delta_resolve, update_arg);
+				   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0, _kv_sorted_id_set_delta_vector_resolve, update_arg);
 
 		_destroy_delta(rel_spec->delta);
 		buffer_rewind_mem(update_arg->gen_buf, key_prefix);
@@ -1663,14 +1661,14 @@ out:
 	return r;
 }
 
-static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
+static int _kv_sorted_id_set_delta_vector_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *update_arg = garg;
 	struct relation_spec *rel_spec = update_arg->custom;
 	struct buffer *cur_buf = NULL;
 	uint64_t seqnum;
-	struct iovec *iov;
-	size_t size;
+	struct iovec *iov, *cur_iov, *delta_iov;
+	size_t size, cur_iov_cnt, delta_iov_cnt;
 	int r = 0; /* no change by default */
 
 	/* FIXME: propagate error out of this function so it can be reported by caller. */
@@ -1688,6 +1686,8 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 		buffer_add(cur_buf, (void *) update_arg->mod_name, strlen(update_arg->mod_name) + 1);
 		buffer_add(cur_buf, (void *) rel_spec->cur_key_prefix_spec->id, strlen(rel_spec->cur_key_prefix_spec->id) + 1);
 
+		buffer_get_data(cur_buf, (const void **) (&cur_iov), &cur_iov_cnt);
+
 		/*
 		 * Handle delta.{plus,minus} vector for this item and relatives.
 		 *
@@ -1695,8 +1695,12 @@ static int _kv_sorted_id_set_delta_resolve(const char *key_prefix, const char *k
 		 * 	{+,-}SID_{LUP,LDW} here for current item (the "ref") to add/remove relatives
 		 * 	{+,-}SID_{LWD,LUP} here reciprocally for relatives to add/remove current item (the "ref")
 		 */
-		if ((_refresh_relation_from_delta(DELTA_OP_PLUS, rel_spec->delta->plus, cur_buf, update_arg) < 0) ||
-		    (_refresh_relation_from_delta(DELTA_OP_MINUS, rel_spec->delta->minus, cur_buf, update_arg) < 0))
+		buffer_get_data(rel_spec->delta->plus, (const void **) (&delta_iov), &delta_iov_cnt);
+		if ((_refresh_relation_from_delta_vector(DELTA_OP_PLUS, delta_iov, delta_iov_cnt, cur_iov, cur_iov_cnt, update_arg) < 0))
+			goto out;
+
+		buffer_get_data(rel_spec->delta->minus, (const void **) (&delta_iov), &delta_iov_cnt);
+		if ((_refresh_relation_from_delta_vector(DELTA_OP_MINUS, delta_iov, delta_iov_cnt, cur_iov, cur_iov_cnt, update_arg) < 0))
 			goto out;
 	}
 
@@ -1829,14 +1833,14 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 
 	/*
 	 * Handle delta.final vector for this device.
-	 * The delta.final is computed inside _kv_sorted_id_set_delta_resolve out of vec_buf.
-	 * The _kv_sorted_id_set_delta_resolve also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
+	 * The delta.final is computed inside _kv_sorted_id_set_delta_vector_resolve out of vec_buf.
+	 * The _kv_sorted_id_set_delta_vector_resolve also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
 	 *
 	 * Here, we set:
 	 *	SID_{LUP,LDW} for current device
 	 */
 	iov = kv_store_set_value(cmd->kv_store_res, s, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
-				 _kv_sorted_id_set_delta_resolve, &update_arg);
+				 _kv_sorted_id_set_delta_vector_resolve, &update_arg);
 
 	r = 0;
 out:
@@ -2431,7 +2435,7 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 		      _kv_overwrite(key_prefix, key, spec, arg)));
 	else {
 		/* resolve delta */
-		r = _kv_sorted_id_set_delta_resolve(key_prefix, key, spec, garg);
+		r = _kv_sorted_id_set_delta_vector_resolve(key_prefix, key, spec, garg);
 		/* resolving delta might have changed new_data so get it afresh for the log_debug below */
 		iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 	}
