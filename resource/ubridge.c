@@ -18,6 +18,7 @@
 */
 
 #include "configure.h"
+#include "bitmap.h"
 #include "buffer.h"
 #include "comms.h"
 #include "kv-store.h"
@@ -288,13 +289,20 @@ struct kv_update_arg {
 };
 
 typedef enum {
-	DELTA_OP_DETECT,
-	DELTA_OP_PLUS,
-	DELTA_OP_MINUS,
-} delta_op_t;
+	VECTOR_OP_SET,   /* set vector to given value (overwrite existing value) */
+	VECTOR_OP_PLUS,  /* add items to vector */
+	VECTOR_OP_MINUS, /* remove items from vector */
+} vector_op_t;
+
+typedef enum {
+	DELTA_NO_FLAGS  = 0x0,
+	DELTA_WITH_DIFF = 0x1,
+	DELTA_WITH_REL  = 0x2,
+} delta_flags_t;
 
 struct delta {
-	delta_op_t op;
+	vector_op_t op;
+	delta_flags_t flags;
 	struct buffer *plus;
 	struct buffer *minus;
 	struct buffer *final;
@@ -308,6 +316,18 @@ struct relation_spec {
 	const char *rel_key;
 };
 
+#define UPDATE_ARG_GET_REL_SPEC(update_arg) ((struct relation_spec *) update_arg->custom)
+
+struct cross_bitmap_calc_arg
+{
+	struct iovec *old_value;
+	size_t old_size;
+	struct bitmap *old_bmp;
+	struct iovec *new_value;
+	size_t new_size;
+	struct bitmap *new_bmp;
+};
+
 #define CMD_IDENT_CAP_RDY UINT32_C(0x000000001) /* can set ready state */
 #define CMD_IDENT_CAP_RES UINT32_C(0x000000002) /* can set reserved state */
 
@@ -315,6 +335,9 @@ static struct command_reg _cmd_ident_phase_regs[];
 static sid_ubridge_kv_flags_t kv_flags_no_persist = (DEFAULT_CORE_KV_FLAGS) & ~KV_PERSISTENT;
 static sid_ubridge_kv_flags_t kv_flags_persist = DEFAULT_CORE_KV_FLAGS;
 static char *core_mod_name = CORE_MOD_NAME;
+
+static int _kv_delta(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg);
+static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
 
 udev_action_t sid_ubridge_cmd_dev_get_action(struct sid_ubridge_cmd_context *cmd)
 {
@@ -553,6 +576,46 @@ static const char *_get_ns_based_id(struct sid_ubridge_cmd_context *cmd, sid_ubr
 	return ID_NULL;
 }
 
+static void _destroy_delta(struct delta *delta)
+{
+	if (delta->plus) {
+		buffer_destroy(delta->plus);
+		delta->plus = NULL;
+	}
+
+	if (delta->minus) {
+		buffer_destroy(delta->minus);
+		delta->minus = NULL;
+	}
+
+	if (delta->final) {
+		buffer_destroy(delta->final);
+		delta->final = NULL;
+	}
+}
+
+static void _destroy_unused_delta(struct delta *delta)
+{
+	struct iovec *iov;
+	size_t size;
+
+	if (delta->plus) {
+		buffer_get_data(delta->plus, (const void **) &iov, &size);
+		if (size <= VALUE_VECTOR_IDX_DATA) {
+			buffer_destroy(delta->plus);
+			delta->plus = NULL;
+		}
+	}
+
+	if (delta->minus) {
+		buffer_get_data(delta->minus, (const void **) &iov, &size);
+		if (size <= VALUE_VECTOR_IDX_DATA) {
+			buffer_destroy(delta->minus);
+			delta->minus = NULL;
+		}
+	}
+}
+
 static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
 					const char *key, sid_ubridge_kv_flags_t flags, const void *value, size_t value_size)
 {
@@ -772,7 +835,6 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		goto out;
 	} else {
 		VALUE_VECTOR_PREPARE_HEADER(iov, null_int, flags, (char *) mod_name);
-		log_debug(">>>", "RESERVING %s" KV_STORE_KEY_JOIN "%s", key_prefix, key);
 		ubridge_kv_value = kv_store_set_value(cmd_mod->kv_store_res, key_prefix, key, iov, _VALUE_VECTOR_IDX_COUNT - 1,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
 						    _kv_reserve, &update_arg);
@@ -1404,71 +1466,73 @@ out:
 	return r;
 }
 
-static void _destroy_delta(struct delta *delta)
+static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iovec *header, size_t header_size)
 {
-	if (delta->plus) {
-		buffer_destroy(delta->plus);
-		delta->plus = NULL;
+	struct buffer *buf;
+	size_t i;
+
+	if (!size)
+		return 0;
+
+	if (size < header_size) {
+		errno = EINVAL;
+		return -1;
 	}
 
-	if (delta->minus) {
-		buffer_destroy(delta->minus);
-		delta->minus = NULL;
+	if (!(buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, size, 0))) {
+		errno = ENOMEM;
+		return -1;
 	}
 
-	if (delta->final) {
-		buffer_destroy(delta->final);
-		delta->final = NULL;
-	}
+	for (i = 0; i < header_size; i++)
+		buffer_add(buf, header[i].iov_base, header[i].iov_len);
+
+	*delta_buf = buf;
+	return 0;
 }
 
-static int _sorted_set_delta_calculate(struct kv_store_update_spec *spec, struct delta *delta)
+static int _init_delta_struct(struct delta *delta, size_t minus_size, size_t plus_size, size_t final_size,
+			      struct iovec *header, size_t header_size)
 {
+	if (_init_delta_buffer(&delta->plus, plus_size, header, header_size) < 0 ||
+	    _init_delta_buffer(&delta->minus, minus_size, header, header_size) < 0 ||
+	    _init_delta_buffer(&delta->final, final_size, header, header_size) < 0) {
+		_destroy_delta(delta);
+		return -1;
+	}
+
+	return 0;
+}
+
+static int _iov_str_item_cmp(const void *a, const void *b)
+{
+	const struct iovec *iovec_item_a = (struct iovec *) a;
+	const struct iovec *iovec_item_b = (struct iovec *) b;
+
+	return strcmp((const char *) iovec_item_a->iov_base, (const char *) iovec_item_b->iov_base);
+}
+
+static int _delta_step_calculate(const char *key_prefix, const char *key,
+				 struct kv_store_update_spec *spec,
+				 struct kv_update_arg *update_arg)
+{
+	struct delta *delta = UPDATE_ARG_GET_REL_SPEC(update_arg)->delta;
 	struct iovec *old_value = spec->old_data;
 	size_t old_size = spec->old_data_size;
 	struct iovec *new_value = spec->new_data;
 	size_t new_size = spec->new_data_size;
-	unsigned i_old, i_new;
+	size_t i_old, i_new;
 	int cmp_result;
 	int r = -1;
 
-	/*
-	 * Result vector is "delta->final".
-	 * Delta plus vector is "delta->plus" (items which are detected as added).
-	 * Delta minus vector is "delta->minus" (items which are detected as removed).
-	 */
+	if (_init_delta_struct(delta, old_size, new_size, old_size + new_size, new_value, VALUE_VECTOR_IDX_DATA) < 0)
+		goto out;
 
 	if (!old_size)
 		old_size = VALUE_VECTOR_IDX_DATA;
 
 	if (!new_size)
 		new_size = VALUE_VECTOR_IDX_DATA;
-
-	if (!(delta->final = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, old_size + new_size, 0))) {
-		errno = ENOMEM;
-		goto out;
-	}
-	/* copy the record header completely from new_value vector */
-	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_base, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_len);
-	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_FLAGS].iov_base, new_value[VALUE_VECTOR_IDX_FLAGS].iov_len);
-	buffer_add(delta->final, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
-
-	if (delta->op == DELTA_OP_DETECT) {
-		if (!(delta->plus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, new_size, 0)) ||
-		    !(delta->minus = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, old_size, 0))) {
-			errno = ENOMEM;
-			goto out;
-		}
-
-		buffer_add(delta->plus, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_base, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_len);
-		buffer_add(delta->plus, new_value[VALUE_VECTOR_IDX_FLAGS].iov_base, new_value[VALUE_VECTOR_IDX_FLAGS].iov_len);
-		buffer_add(delta->plus, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
-
-		buffer_add(delta->minus, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_base, new_value[VALUE_VECTOR_IDX_SEQNUM].iov_len);
-		buffer_add(delta->minus, new_value[VALUE_VECTOR_IDX_FLAGS].iov_base, new_value[VALUE_VECTOR_IDX_FLAGS].iov_len);
-		buffer_add(delta->minus, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_base, new_value[VALUE_VECTOR_IDX_MOD_NAME].iov_len);
-	} else
-		delta->plus = delta->minus = NULL;
 
 	/* start right beyond the header */
 	i_old = i_new = VALUE_VECTOR_IDX_DATA;
@@ -1481,15 +1545,15 @@ static int _sorted_set_delta_calculate(struct kv_store_update_spec *spec, struct
 			if (cmp_result < 0) {
 				/* the old vector has item the new one doesn't have */
 				switch (delta->op) {
-					case DELTA_OP_DETECT:
+					case VECTOR_OP_SET:
 						/* we have detected removed item: add it to delta->minus */
 						buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
-					case DELTA_OP_PLUS:
-						/* we're not changing the old item: add it to delta->final */
+					case VECTOR_OP_PLUS:
+						/* we're keeping old item: add it to delta->final */
 						/* no break here intentionally! */
-					case DELTA_OP_MINUS:
-						/* we're not changing the old item: add it to delta->final */
+					case VECTOR_OP_MINUS:
+						/* we're keeping old item: add it to delta->final */
 						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
 				}
@@ -1497,31 +1561,32 @@ static int _sorted_set_delta_calculate(struct kv_store_update_spec *spec, struct
 			} else if (cmp_result > 0) {
 				/* the new vector has item the old one doesn't have */
 				switch (delta->op) {
-					case DELTA_OP_DETECT:
-						/* we have detected new item: add it to delta->plus and add it to delta->final */
-						buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
+					case VECTOR_OP_SET:
+						/* we have detected new item: add it to delta->plus and delta->final */
 						/* no break here intentionally! */
-					case DELTA_OP_PLUS:
-						/* we're adding new item: add it to delta->final */
+					case VECTOR_OP_PLUS:
+						/* we're adding new item: add it to delta->plus and delta->final */
+						buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						break;
-					case DELTA_OP_MINUS:
-						/* we're removing item: don't add it to delta->final */
+					case VECTOR_OP_MINUS:
+						/* we're trying to remove non-existing item: ignore it */
 						break;
 				}
 				i_new++;
 			} else {
 				/* both old and new has the item */
 				switch (delta->op) {
-					case DELTA_OP_DETECT:
+					case VECTOR_OP_SET:
 						/* we have detected no change for this item: add it to delta->final */
 						/* no break here intentionally! */
-					case DELTA_OP_PLUS:
-						/* we're adding new item: add it to delta->final */
+					case VECTOR_OP_PLUS:
+						/* we're trying to add already existing item: add it to delta->final but not delta->plus */
 						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						break;
-					case DELTA_OP_MINUS:
-						/* we're removing item: don't add it to delta->final */
+					case VECTOR_OP_MINUS:
+						/* we're removing item: add it to delta->minus */
+						buffer_add(delta->minus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						break;
 				}
 				i_old++;
@@ -1532,16 +1597,16 @@ static int _sorted_set_delta_calculate(struct kv_store_update_spec *spec, struct
 			/* only new vector still has items to handle */
 			while (i_new < new_size) {
 				switch (delta->op) {
-					case DELTA_OP_DETECT:
+					case VECTOR_OP_SET:
 						/* we have detected new item: add it to delta->final */
-						buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						/* no break here intentionally! */
-					case DELTA_OP_PLUS:
-						/* we're adding new item: add it to delta->final */
+					case VECTOR_OP_PLUS:
+						/* we're adding new item: add it to delta->plus and delta->final */
+						buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						break;
-					case DELTA_OP_MINUS:
-						/* we're removing item: don't add to delta->final */
+					case VECTOR_OP_MINUS:
+						/* we're removing non-existing item: don't add to delta->minus */
 						break;
 				}
 				i_new++;
@@ -1550,14 +1615,14 @@ static int _sorted_set_delta_calculate(struct kv_store_update_spec *spec, struct
 			/* only old vector still has items to handle */
 			while (i_old < old_size) {
 				switch (delta->op) {
-					case DELTA_OP_DETECT:
-						/* we have detected removed item so add it to delta->minus */
+					case VECTOR_OP_SET:
+						/* we have detected removed item: add it to delta->minus */
 						buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
-					case DELTA_OP_PLUS:
-						/* we're not changing the old item so add it to delta->final */
+					case VECTOR_OP_PLUS:
+						/* we're keeping old item: add it to delta->final */
 						/* no break here intentionally! */
-					case DELTA_OP_MINUS:
+					case VECTOR_OP_MINUS:
 						/* we're not changing the old item so add it to delta->final */
 						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
@@ -1573,6 +1638,186 @@ static int _sorted_set_delta_calculate(struct kv_store_update_spec *spec, struct
 out:
 	if (r < 0)
 		_destroy_delta(delta);
+	else
+		_destroy_unused_delta(delta);
+
+	return r;
+}
+
+static void _delta_cross_bitmap_calculate(struct cross_bitmap_calc_arg *cross)
+{
+	size_t old_size, new_size;
+	size_t i_old, i_new;
+	int cmp_result;
+
+	if ((old_size = cross->old_size) < VALUE_VECTOR_IDX_DATA)
+		old_size = VALUE_VECTOR_IDX_DATA;
+
+	if ((new_size = cross->new_size) < VALUE_VECTOR_IDX_DATA)
+		new_size = VALUE_VECTOR_IDX_DATA;
+
+	i_old = i_new = VALUE_VECTOR_IDX_DATA;
+
+	while (1) {
+		if ((i_old < old_size) && (i_new < new_size)) {
+			/* both vectors still have items to handle */
+			cmp_result = strcmp(cross->old_value[i_old].iov_base, cross->new_value[i_new].iov_base);
+			if (cmp_result < 0) {
+				/* the old vector has item the new one doesn't have: OK */
+				i_old++;
+			} else if (cmp_result > 0) {
+				/* the new vector has item the old one doesn't have: OK */
+				i_new++;
+			} else {
+				/* both old and new has the item: we have found contradiction! */
+				bitmap_bit_unset(cross->old_bmp, i_old);
+				bitmap_bit_unset(cross->new_bmp, i_new);
+				i_old++;
+				i_new++;
+			}
+		} else if (i_old == old_size) {
+			/* only new vector still has items to handle: nothing else to compare */
+			break;
+		} else if (i_new == new_size) {
+			/* only old vector still has items to handle: nothing else to compare */
+			break;
+		}
+	}
+}
+
+static int _delta_abs_calculate(const char *key_prefix, const char *key,
+				struct kv_store_update_spec *spec,
+				struct kv_update_arg *update_arg,
+				struct delta *abs_delta)
+{
+	struct cross_bitmap_calc_arg cross1 = {0};
+	struct cross_bitmap_calc_arg cross2 = {0};
+	struct relation_spec *rel_spec = update_arg->custom;
+	const char *delta_key_prefix;
+	struct iovec *abs_plus, *abs_minus;
+	size_t i, abs_plus_size, abs_minus_size;
+	int r = -1;
+
+	if (!rel_spec->delta->plus && !rel_spec->delta->minus)
+		return 0;
+
+	if (!(delta_key_prefix = buffer_fmt_add(update_arg->gen_buf, "%s%s", KV_PREFIX_OP_DELTA_PLUS, key_prefix)))
+		goto out;
+	if ((cross1.old_value = kv_store_get_value(update_arg->res, delta_key_prefix, key, &cross1.old_size, NULL))) {
+		if (!(cross1.old_bmp = bitmap_create(cross1.old_size, true)))
+			goto out;
+	}
+	buffer_rewind_mem(update_arg->gen_buf, delta_key_prefix);
+
+	if (!(delta_key_prefix = buffer_fmt_add(update_arg->gen_buf, "%s%s", KV_PREFIX_OP_DELTA_MINUS, key_prefix)))
+		goto out;
+	if ((cross2.old_value = kv_store_get_value(update_arg->res, delta_key_prefix, key, &cross2.old_size, NULL))) {
+		if (!(cross2.old_bmp = bitmap_create(cross2.old_size, true)))
+			goto out;
+	}
+	buffer_rewind_mem(update_arg->gen_buf, delta_key_prefix);
+
+	/*
+	 * set up cross1 - old plus vs. new minus
+	 *
+	 * OLD              NEW
+	 *
+	 * plus  <----|     plus
+	 * minus      |---> minus
+	 */
+	if (rel_spec->delta->minus) {
+		buffer_get_data(rel_spec->delta->minus, (const void **) &cross1.new_value, &cross1.new_size);
+
+		if (!(cross1.new_bmp = bitmap_create(cross1.new_size, true)))
+			goto out;
+
+		/* cross-compare old_plus with new_minus and unset bitmap positions where we find contradiction */
+		_delta_cross_bitmap_calculate(&cross1);
+	}
+
+	/*
+	 * setup cross2 - old minus vs. new plus
+	 *
+	 * OLD             NEW
+	 *
+	 * plus      |---> plus
+	 * minus <---|     minus
+	 */
+	if (rel_spec->delta->plus) {
+		buffer_get_data(rel_spec->delta->plus, (const void **) &cross2.new_value, &cross2.new_size);
+
+		if (!(cross2.new_bmp = bitmap_create(cross2.new_size, true)))
+			goto out;
+
+		/* cross-compare old_minus with new_plus and unset bitmap positions where we find contradiction */
+		_delta_cross_bitmap_calculate(&cross2);
+	}
+
+	/*
+	 * count overall size for both plus and minus taking only non-contradicting items
+	 *
+	 * OLD             NEW
+	 *
+	 * plus  <---+---> plus
+	 * minus <---+---> minus
+	 */
+	abs_minus_size = ((cross2.old_bmp ? bitmap_get_bit_set_count(cross2.old_bmp) : 0) +
+			  (cross1.new_bmp ? bitmap_get_bit_set_count(cross1.new_bmp) : 0));
+
+	abs_plus_size = ((cross1.old_bmp ? bitmap_get_bit_set_count(cross1.old_bmp) : 0) +
+			 (cross2.new_bmp ? bitmap_get_bit_set_count(cross2.new_bmp) : 0));
+
+	/* go through the old and new plus and minus vectors and merge non-contradicting items */
+	if (_init_delta_struct(abs_delta, abs_minus_size, abs_plus_size, 0, spec->new_data, VALUE_VECTOR_IDX_DATA) < 0)
+		goto out;
+
+	if (rel_spec->delta->flags & DELTA_WITH_REL)
+		abs_delta->flags |= DELTA_WITH_REL;
+
+	for (i = VALUE_VECTOR_IDX_DATA; i < cross1.old_size; i++) {
+		if (bitmap_bit_is_set(cross1.old_bmp, i))
+			buffer_add(abs_delta->plus, cross1.old_value[i].iov_base, cross1.old_value[i].iov_len);
+	}
+
+	for (i = VALUE_VECTOR_IDX_DATA; i < cross1.new_size; i++) {
+		if (bitmap_bit_is_set(cross1.new_bmp, i))
+			buffer_add(abs_delta->minus, cross1.new_value[i].iov_base, cross1.new_value[i].iov_len);
+	}
+
+	for (i = VALUE_VECTOR_IDX_DATA; i < cross2.old_size; i++) {
+		if (bitmap_bit_is_set(cross2.old_bmp, i))
+			buffer_add(abs_delta->minus, cross2.old_value[i].iov_base, cross2.old_value[i].iov_len);
+	}
+
+	for (i = VALUE_VECTOR_IDX_DATA; i < cross2.new_size; i++) {
+		if (bitmap_bit_is_set(cross2.new_bmp, i))
+			buffer_add(abs_delta->plus, cross2.new_value[i].iov_base, cross2.new_value[i].iov_len);
+	}
+
+	if (abs_delta->plus) {
+		buffer_get_data(abs_delta->plus, (const void **) &abs_plus, &abs_plus_size);
+		qsort(abs_plus + VALUE_VECTOR_IDX_DATA, abs_plus_size - VALUE_VECTOR_IDX_DATA, sizeof(struct iovec), _iov_str_item_cmp);
+	}
+
+	if (abs_delta->minus) {
+		buffer_get_data(abs_delta->minus, (const void **) &abs_minus, &abs_minus_size);
+		qsort(abs_minus + VALUE_VECTOR_IDX_DATA, abs_minus_size - VALUE_VECTOR_IDX_DATA, sizeof(struct iovec), _iov_str_item_cmp);
+	}
+
+	r = 0;
+out:
+	if (cross1.old_bmp)
+		bitmap_destroy(cross1.old_bmp);
+	if (cross1.new_bmp)
+		bitmap_destroy(cross1.new_bmp);
+	if (cross2.old_bmp)
+		bitmap_destroy(cross2.old_bmp);
+	if (cross2.new_bmp)
+		bitmap_destroy(cross2.new_bmp);
+
+	if (r < 0)
+		_destroy_delta(abs_delta);
+
 	return r;
 }
 
@@ -1584,29 +1829,23 @@ static void _value_vector_mark_persist(struct iovec *iov, int persist)
 		iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&kv_flags_no_persist, sizeof(kv_flags_no_persist)};
 }
 
-static int _kv_sorted_id_set_delta_vector_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg);
-
-static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
-
-static int _refresh_relation_from_delta_vector(delta_op_t delta_op,
-					       struct iovec *delta_iov, size_t delta_iov_cnt,
-					       struct iovec *cur_iov, size_t cur_iov_cnt,
-					       struct kv_update_arg *update_arg)
+static int _do_delta_update(vector_op_t op,
+			    struct buffer *abs_delta_buf,
+			    struct buffer *delta_buf,
+			    struct iovec *cur_iov, size_t cur_iov_cnt,
+			    struct kv_update_arg *update_arg)
 {
 	struct relation_spec *rel_spec = update_arg->custom;
-	struct delta *orig_delta = rel_spec->delta;
+	struct delta *orig_delta;
+	struct iovec *delta_iov;
+	size_t delta_iov_cnt, i;
 	const char *delta_key_prefix, *key_prefix;
-	size_t i;
 	const char *tmp_mem_start = buffer_add(update_arg->gen_buf, "", 0);
 	int r = -1;
 
-	/* no relatives recorded in delta buffer so there's nothing to do */
-	if (delta_iov_cnt <= VALUE_VECTOR_IDX_DATA)
-		return 0;
-
-	if (delta_op == DELTA_OP_PLUS)
+	if (op == VECTOR_OP_PLUS)
 		delta_key_prefix = KV_PREFIX_OP_DELTA_PLUS;
-	else if (delta_op == DELTA_OP_MINUS)
+	else if (op == VECTOR_OP_MINUS)
 		delta_key_prefix = KV_PREFIX_OP_DELTA_MINUS;
 	else {
 		log_error(ID(update_arg->res), INTERNAL_ERROR "%s: incorrect delta operation requested.", __func__);
@@ -1614,6 +1853,8 @@ static int _refresh_relation_from_delta_vector(delta_op_t delta_op,
 	}
 
 	/* store delta for current item - persistent */
+	buffer_get_data(abs_delta_buf, (const void **) &delta_iov, &delta_iov_cnt);
+
 	rel_spec->cur_key_prefix_spec->prefix = delta_key_prefix;
 	key_prefix = _buffer_get_key_prefix(update_arg->gen_buf, rel_spec->cur_key_prefix_spec);
 	_value_vector_mark_persist(delta_iov, 1);
@@ -1625,107 +1866,127 @@ static int _refresh_relation_from_delta_vector(delta_op_t delta_op,
 	rel_spec->cur_key_prefix_spec->prefix = KV_PREFIX_NULL;
 
 	/* store final and delta for each relative */
-	rel_spec->delta = &((struct delta) {0});
-	rel_spec->delta->op = delta_op;
+	if (delta_buf && rel_spec->delta->flags & DELTA_WITH_REL) {
+		buffer_get_data(delta_buf, (const void **) &delta_iov, &delta_iov_cnt);
 
-	for (i = VALUE_VECTOR_IDX_DATA; i < delta_iov_cnt; i++) {
-		rel_spec->rel_key_prefix_spec->id = delta_iov[i].iov_base;
+		orig_delta = rel_spec->delta;
+		rel_spec->delta = &((struct delta) {0});
+		rel_spec->delta->op = op;
 
-		/* final - nonpersistent */
-		key_prefix = _buffer_get_key_prefix(update_arg->gen_buf, rel_spec->rel_key_prefix_spec);
+		for (i = VALUE_VECTOR_IDX_DATA; i < delta_iov_cnt; i++) {
+			/* final - nonpersistent */
+			key_prefix = delta_iov[i].iov_base;
 
-		kv_store_set_value(update_arg->res, key_prefix, rel_spec->rel_key, cur_iov, cur_iov_cnt,
-				   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0, _kv_sorted_id_set_delta_vector_resolve, update_arg);
+			kv_store_set_value(update_arg->res, key_prefix, rel_spec->rel_key, cur_iov, cur_iov_cnt,
+					   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0, _kv_delta, update_arg);
 
-		_destroy_delta(rel_spec->delta);
-		buffer_rewind_mem(update_arg->gen_buf, key_prefix);
+			_destroy_delta(rel_spec->delta);
 
-		/* delta - persistent */
-		rel_spec->rel_key_prefix_spec->prefix = delta_key_prefix;
-		key_prefix = _buffer_get_key_prefix(update_arg->gen_buf, rel_spec->rel_key_prefix_spec);
-		_value_vector_mark_persist(cur_iov, 1);
+			/* delta - persistent */
+			key_prefix = buffer_fmt_add(update_arg->gen_buf, "%s%s", delta_key_prefix, key_prefix);
+			_value_vector_mark_persist(cur_iov, 1);
 
-		kv_store_set_value(update_arg->res, key_prefix, rel_spec->rel_key, cur_iov, cur_iov_cnt,
-				   KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, update_arg);
+			kv_store_set_value(update_arg->res, key_prefix, rel_spec->rel_key, cur_iov, cur_iov_cnt,
+					   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0, _kv_delta, update_arg);
 
-		_value_vector_mark_persist(cur_iov, 0);
-		buffer_rewind_mem(update_arg->gen_buf, key_prefix);
-		rel_spec->rel_key_prefix_spec->prefix = KV_PREFIX_NULL;
+			_destroy_delta(rel_spec->delta);
+			_value_vector_mark_persist(cur_iov, 0);
+			buffer_rewind_mem(update_arg->gen_buf, key_prefix);
+		}
+
+		rel_spec->delta = orig_delta;
 	}
 
 	r = 0;
 out:
 	if (tmp_mem_start)
 		buffer_rewind_mem(update_arg->gen_buf, tmp_mem_start);
-	rel_spec->delta = orig_delta;
 	return r;
 }
 
-static int _kv_sorted_id_set_delta_vector_resolve(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
+static int _delta_update(const char *key_prefix,
+			 const char *key __attribute__((unused)),
+			 struct kv_store_update_spec *spec,
+			 struct kv_update_arg *update_arg,
+			 struct delta *abs_delta)
+{
+	struct relation_spec *rel_spec = (struct relation_spec *) update_arg->custom;
+	struct iovec cur_iov[VALUE_VECTOR_IDX_DATA + 1];
+	int r = -1;
+
+	if (!abs_delta->plus && !abs_delta->minus)
+		return 0;
+
+	if (rel_spec->delta->flags & DELTA_WITH_REL) {
+		VALUE_VECTOR_PREPARE_HEADER(cur_iov, VALUE_VECTOR_SEQNUM(spec->new_data), kv_flags_no_persist, (char *) update_arg->mod_name);
+		cur_iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {.iov_base = (void *) key_prefix, .iov_len = strlen(key_prefix) + 1};
+	}
+
+	if (abs_delta->plus &&
+	    _do_delta_update(VECTOR_OP_PLUS, abs_delta->plus, rel_spec->delta->plus, cur_iov, VALUE_VECTOR_IDX_DATA + 1, update_arg) < 0)
+		goto out;
+
+	if (abs_delta->minus &&
+	    _do_delta_update(VECTOR_OP_MINUS, abs_delta->minus, rel_spec->delta->minus, cur_iov, VALUE_VECTOR_IDX_DATA + 1, update_arg) < 0)
+		goto out;
+
+	r = 0;
+out:
+	return r;
+}
+
+static int _kv_delta(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *update_arg = garg;
-	struct relation_spec *rel_spec = update_arg->custom;
-	struct buffer *cur_buf = NULL;
-	uint64_t seqnum;
-	struct iovec *iov, *cur_iov, *delta_iov;
-	size_t size, cur_iov_cnt, delta_iov_cnt;
+	struct delta abs_delta = {0};
 	int r = 0; /* no change by default */
 
 	/* FIXME: propagate error out of this function so it can be reported by caller. */
 
-	if (_sorted_set_delta_calculate(spec, rel_spec->delta) < 0)
+	/*
+	 * Take previous and current vector and calculate difference "plus" and "minus" vectors.
+	 * These are "step vectors".
+	 */
+	if (_delta_step_calculate(key_prefix, key, spec, update_arg) < 0)
 		goto out;
 
-	if (rel_spec->delta->op == DELTA_OP_DETECT) {
-		if (!(cur_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, _VALUE_VECTOR_IDX_COUNT + 1, 0)))
+	/*
+	 * Take the "step vectors" we've just calculated and account for any not yet
+	 * committed "absolute vectors" and calculate new absolute vectors ruling
+	 * out any contradictions.
+	 *
+	 * A contradiction happens when (previous) "absolute plus vector" contains an item that
+	 * is also present in just calculated "step minus vector" and vice versa.
+	 *
+	 * This way we support application of more than one delta within one transaction
+	 * before we do a final commit.
+	 *
+	 */
+	if ((UPDATE_ARG_GET_REL_SPEC(update_arg)->delta->flags & (DELTA_WITH_DIFF | DELTA_WITH_REL))) {
+		if (_delta_abs_calculate(key_prefix, key, spec, update_arg, &abs_delta) < 0)
 			goto out;
 
-		seqnum = VALUE_VECTOR_SEQNUM(spec->new_data);
-		buffer_add(cur_buf, &seqnum, sizeof(seqnum));
-		buffer_add(cur_buf, &kv_flags_no_persist, sizeof(kv_flags_no_persist));
-		buffer_add(cur_buf, (void *) update_arg->mod_name, strlen(update_arg->mod_name) + 1);
-		buffer_add(cur_buf, (void *) rel_spec->cur_key_prefix_spec->id, strlen(rel_spec->cur_key_prefix_spec->id) + 1);
-
-		buffer_get_data(cur_buf, (const void **) (&cur_iov), &cur_iov_cnt);
-
-		/*
-		 * Handle delta.{plus,minus} vector for this item and relatives.
-		 *
-		 * Here, we set:
-		 * 	{+,-}SID_{LUP,LDW} here for current item (the "ref") to add/remove relatives
-		 * 	{+,-}SID_{LWD,LUP} here reciprocally for relatives to add/remove current item (the "ref")
-		 */
-		buffer_get_data(rel_spec->delta->plus, (const void **) (&delta_iov), &delta_iov_cnt);
-		if ((_refresh_relation_from_delta_vector(DELTA_OP_PLUS, delta_iov, delta_iov_cnt, cur_iov, cur_iov_cnt, update_arg) < 0))
-			goto out;
-
-		buffer_get_data(rel_spec->delta->minus, (const void **) (&delta_iov), &delta_iov_cnt);
-		if ((_refresh_relation_from_delta_vector(DELTA_OP_MINUS, delta_iov, delta_iov_cnt, cur_iov, cur_iov_cnt, update_arg) < 0))
+		if (_delta_update(key_prefix, key, spec, update_arg, &abs_delta) < 0)
 			goto out;
 	}
 
 	/*
-	 * Get the actual vector out of delta.final and rewrite spec->new_data with this one.
-	 * Also, make the vector to be copied instead of referenced only because we will destroy the delta buffer completely.
+	 * Get the actual vector out of rel_spec->delta->final and rewrite spec->new_data
+	 * with this one. Also, make the vector to be copied instead of referenced only
+	 * because we will destroy the delta buffer completely.
 	 */
-	buffer_get_data(rel_spec->delta->final, (const void **) &iov, &size);
-	spec->new_data_size = size;
-	spec->new_data = iov;
-	spec->new_flags &= ~KV_STORE_VALUE_REF;
+	if (UPDATE_ARG_GET_REL_SPEC(update_arg)->delta->final) {
+		buffer_get_data(UPDATE_ARG_GET_REL_SPEC(update_arg)->delta->final,
+				(const void **) &spec->new_data, &spec->new_data_size);
 
-	r = 1;
+		spec->new_flags &= ~KV_STORE_VALUE_REF;
+
+		r = 1;
+	}
 out:
-	if (cur_buf)
-		buffer_destroy(cur_buf);
+	_destroy_delta(&abs_delta);
+
 	return r;
-}
-
-static int _iov_str_item_cmp(const void *a, const void *b)
-{
-	const struct iovec *iovec_item_a = (struct iovec *) a;
-	const struct iovec *iovec_item_b = (struct iovec *) b;
-
-	return strcmp((const char *) iovec_item_a->iov_base, (const char *) iovec_item_b->iov_base);
 }
 
 static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *sysfs_item, const char *key, const char *rel_key)
@@ -1809,7 +2070,8 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 				_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf));
 				buffer_rewind_mem(cmd->gen_buf, s);
 				_canonicalize_kv_key(devno_buf);
-				s = buffer_fmt_add(cmd->gen_buf, devno_buf);
+				rel_spec.rel_key_prefix_spec->id = devno_buf;
+				s = _buffer_get_key_prefix(cmd->gen_buf, rel_spec.rel_key_prefix_spec);
 				buffer_add(vec_buf, (void *) s, strlen(s) + 1);
 			} else
 				log_error(ID(cmd_res), "Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT ".",
@@ -1820,6 +2082,8 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 		free(dirent);
 	}
 
+	rel_spec.rel_key_prefix_spec->id = KV_PREFIX_NULL;
+
 	/* Get the actual vector with relatives and sort it. */
 	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
 	qsort(iov + 3, iov_cnt - 3, sizeof(struct iovec), _iov_str_item_cmp);
@@ -1829,18 +2093,19 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 		goto out;
 	}
 
-	rel_spec.delta->op = DELTA_OP_DETECT;
+	rel_spec.delta->op = VECTOR_OP_SET;
+	rel_spec.delta->flags = DELTA_WITH_DIFF | DELTA_WITH_REL;
 
 	/*
 	 * Handle delta.final vector for this device.
-	 * The delta.final is computed inside _kv_sorted_id_set_delta_vector_resolve out of vec_buf.
-	 * The _kv_sorted_id_set_delta_vector_resolve also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
+	 * The delta.final is computed inside _kv_delta out of vec_buf.
+	 * The _kv_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
 	 *
 	 * Here, we set:
 	 *	SID_{LUP,LDW} for current device
 	 */
 	iov = kv_store_set_value(cmd->kv_store_res, s, key, iov, iov_cnt, KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
-				 _kv_sorted_id_set_delta_vector_resolve, &update_arg);
+				 _kv_delta, &update_arg);
 
 	r = 0;
 out:
@@ -2428,14 +2693,14 @@ static int _master_kv_store_update(const char *key_prefix, const char *key, stru
 	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
 	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 
-	if (rel_spec->delta->op == DELTA_OP_DETECT)
+	if (rel_spec->delta->op == VECTOR_OP_SET)
 		/* overwrite whole value */
 		r = (!iov_old ||
 		     ((VALUE_VECTOR_SEQNUM(iov_new) >= VALUE_VECTOR_SEQNUM(iov_old)) &&
 		      _kv_overwrite(key_prefix, key, spec, arg)));
 	else {
 		/* resolve delta */
-		r = _kv_sorted_id_set_delta_vector_resolve(key_prefix, key, spec, garg);
+		r = _kv_delta(key_prefix, key, spec, garg);
 		/* resolving delta might have changed new_data so get it afresh for the log_debug below */
 		iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 	}
@@ -2523,12 +2788,12 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 
 			if (!strncmp(key, KV_PREFIX_OP_DELTA_PLUS, sizeof(KV_PREFIX_OP_DELTA_PLUS) - 1)) {
 				key = key + sizeof(KV_PREFIX_OP_DELTA_PLUS) - 1;
-				rel_spec.delta->op = DELTA_OP_PLUS;
+				rel_spec.delta->op = VECTOR_OP_PLUS;
 			} else if (!strncmp(key, KV_PREFIX_OP_DELTA_MINUS, sizeof(KV_PREFIX_OP_DELTA_MINUS) - 1)) {
 				key = key + sizeof(KV_PREFIX_OP_DELTA_MINUS) - 1;
-				rel_spec.delta->op = DELTA_OP_MINUS;
+				rel_spec.delta->op = VECTOR_OP_MINUS;
 			} else
-				rel_spec.delta->op = DELTA_OP_DETECT;
+				rel_spec.delta->op = VECTOR_OP_SET;
 
 			data_to_store = iov;
 		} else {
@@ -2547,7 +2812,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 									    : data_offset ? value->data + data_offset
 											  : value->data, value->seqnum);
 
-			rel_spec.delta->op = DELTA_OP_DETECT;
+			rel_spec.delta->op = VECTOR_OP_SET;
 
 			data_to_store = value;
 		}
