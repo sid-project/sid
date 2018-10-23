@@ -317,7 +317,7 @@ static int _on_worker_proxy_child_event(sid_event_source *es, const siginfo_t *s
 			log_debug(ID(worker_proxy_res), "Worker failed unexpectedly.");
 	}
 
-	_change_worker_proxy_state(sid_resource_get_data(worker_proxy_res), WORKER_EXITED);
+	_change_worker_proxy_state(worker_proxy_res, WORKER_EXITED);
 
 	/*
 	 * FIXME: Add config to keep worker_proxy_res with struct worker_proxy for a while to be able to catch possible status.
