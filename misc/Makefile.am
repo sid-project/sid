@@ -19,6 +19,7 @@
 
 pkglib_LTLIBRARIES = libsidmisc.la
 libsidmisc_la_SOURCES = mem.c \
+			bitmap.c \
 			buffer-type.h \
 			buffer-type-linear.c \
 			buffer-type-vector.c \
@@ -29,6 +30,7 @@ libsidmisc_la_SOURCES = mem.c \
 			hash.c
 pkginclude_HEADERS = $(top_builddir)/include/types.h \
 		     $(top_builddir)/include/mem.h \
+		     $(top_builddir)/include/bitmap.h \
 		     $(top_builddir)/include/buffer-common.h \
 		     $(top_builddir)/include/buffer.h \
 		     $(top_builddir)/include/list.h \
