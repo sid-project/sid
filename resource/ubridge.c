@@ -952,6 +952,199 @@ dev_reserved_t sid_ubridge_cmd_dev_get_reserved(struct sid_ubridge_cmd_context *
 	return result;
 }
 
+static int _kv_write_new_only(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
+{
+	if (spec->old_data)
+		return 0;
+
+	return 1;
+}
+
+int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
+				 sid_ubridge_cmd_kv_namespace_t group_ns,
+				 const char *group_id,
+				 sid_ubridge_kv_flags_t group_flags)
+{
+	const char *key_prefix;
+	struct iovec iov[VALUE_VECTOR_IDX_DATA];
+
+	struct key_prefix_spec key_prefix_spec = {.prefix = KV_PREFIX_NULL,
+						  .ns = group_ns,
+						  .id = _get_ns_based_id(cmd, group_ns),
+						  .id_sub = group_id};
+
+	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
+					   .mod_name = _res_get_mod_name(cmd->mod_res),
+					   .gen_buf = cmd->gen_buf,
+					   .custom = NULL,
+					   .ret_code = 0};
+
+	key_prefix = _buffer_get_key_prefix(cmd->gen_buf, &key_prefix_spec);
+	VALUE_VECTOR_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, kv_flags_persist, core_mod_name);
+
+	if (!kv_store_set_value(cmd->kv_store_res,
+				key_prefix,
+				KV_KEY_GEN_GROUP_MEMBERS,
+				iov, VALUE_VECTOR_IDX_DATA,
+				KV_STORE_VALUE_VECTOR,
+				0,
+				_kv_write_new_only,
+				&update_arg)) {
+		errno = update_arg.ret_code;
+		return -1;
+	}
+
+	return 0;
+}
+
+int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
+				     sid_ubridge_cmd_kv_namespace_t group_ns,
+				     const char *group_id,
+				     vector_op_t op)
+{
+	const char *cur_key_prefix, *rel_key_prefix;
+	struct iovec iov[VALUE_VECTOR_IDX_DATA + 1];
+	int r = 0;
+
+	struct relation_spec rel_spec = {.delta = &((struct delta) {.op = op,
+								    .flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
+								    .plus = NULL,
+								    .minus = NULL,
+								    .final = NULL}),
+
+					 .cur_key_prefix_spec = &((struct key_prefix_spec) {
+									.prefix = KV_PREFIX_NULL,
+									.ns = group_ns,
+									.id = _get_ns_based_id(cmd, group_ns),
+									.id_sub = group_id}),
+
+					 .cur_key = KV_KEY_GEN_GROUP_MEMBERS,
+
+					 .rel_key_prefix_spec = &((struct key_prefix_spec) {
+									.prefix = KV_PREFIX_NULL,
+									.ns = KV_NS_DEVICE,
+									.id = _get_ns_based_id(cmd, KV_NS_DEVICE),
+									.id_sub = KV_PREFIX_NULL}),
+
+					 .rel_key = KV_KEY_GEN_GROUP_IN};
+
+	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
+					   .mod_name = CORE_MOD_NAME,
+					   .gen_buf = cmd->gen_buf,
+					   .custom = &rel_spec};
+
+	// TODO: check return values / maybe also pass flags / use proper mod_name
+
+	VALUE_VECTOR_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, kv_flags_persist, core_mod_name);
+	rel_key_prefix = _buffer_get_key_prefix(cmd->gen_buf, rel_spec.rel_key_prefix_spec);
+	iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {(void*) rel_key_prefix, strlen(rel_key_prefix) + 1};
+
+	cur_key_prefix = _buffer_get_key_prefix(cmd->gen_buf, rel_spec.cur_key_prefix_spec);
+
+	if (!kv_store_set_value(cmd->kv_store_res,
+				cur_key_prefix,
+				rel_spec.cur_key,
+				iov, VALUE_VECTOR_IDX_DATA + 1,
+				KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
+				0,
+				_kv_delta,
+				&update_arg)) {
+		errno = update_arg.ret_code;
+		r = -1;
+	}
+
+	_destroy_delta(rel_spec.delta);
+	buffer_rewind_mem(cmd->gen_buf, cur_key_prefix);
+
+	return r;
+}
+
+int sid_ubridge_cmd_group_add_current_dev(struct sid_ubridge_cmd_context *cmd,
+					  sid_ubridge_cmd_kv_namespace_t group_ns,
+					  const char *group_id)
+{
+	return _handle_current_dev_for_group(cmd, group_ns, group_id, VECTOR_OP_PLUS);
+}
+
+int sid_ubridge_cmd_group_remove_current_dev(struct sid_ubridge_cmd_context *cmd,
+					     sid_ubridge_cmd_kv_namespace_t group_ns,
+					     const char *group_id)
+{
+	return _handle_current_dev_for_group(cmd, group_ns, group_id, VECTOR_OP_MINUS);
+}
+
+int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
+				  sid_ubridge_cmd_kv_namespace_t group_ns,
+				  const char *group_id,
+				  int force)
+{
+	static sid_ubridge_kv_flags_t kv_flags_persist_no_reserved = (DEFAULT_CORE_KV_FLAGS) & ~KV_MOD_RESERVED;
+	const char *cur_key_prefix;
+	size_t size;
+	struct iovec *iov;
+	struct iovec iov_blank[VALUE_VECTOR_IDX_DATA];
+	int r = -1;
+
+	struct relation_spec rel_spec = {.delta = &((struct delta) {.op = VECTOR_OP_SET,
+								    .flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
+								    .plus = NULL,
+								    .minus = NULL,
+								    .final = NULL}),
+
+					 .cur_key_prefix_spec = &((struct key_prefix_spec) {
+									.prefix = KV_PREFIX_NULL,
+									.ns = group_ns,
+									.id = _get_ns_based_id(cmd, group_ns),
+									.id_sub = group_id}),
+
+					 .cur_key = KV_KEY_GEN_GROUP_MEMBERS,
+
+					 .rel_key_prefix_spec = &((struct key_prefix_spec) {
+									.prefix = KV_PREFIX_NULL,
+									.ns = 0,
+									.id = KV_PREFIX_NULL,
+									.id_sub = KV_PREFIX_NULL}),
+
+					 .rel_key = KV_KEY_GEN_GROUP_IN};
+
+	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
+					   .mod_name = CORE_MOD_NAME,
+					   .gen_buf = cmd->gen_buf,
+					   .custom = &rel_spec};
+
+	cur_key_prefix = _buffer_get_key_prefix(cmd->gen_buf, rel_spec.cur_key_prefix_spec);
+
+	if (!(iov = kv_store_get_value(cmd->kv_store_res, cur_key_prefix, rel_spec.cur_key, &size, NULL)))
+		goto out;
+
+	if (size > VALUE_VECTOR_IDX_DATA && !force) {
+		errno = ENOTEMPTY;
+		goto out;
+	}
+
+	VALUE_VECTOR_PREPARE_HEADER(iov_blank, cmd->udev_dev.seqnum, kv_flags_persist_no_reserved, core_mod_name);
+
+	cur_key_prefix = _buffer_get_key_prefix(cmd->gen_buf, rel_spec.cur_key_prefix_spec);
+
+	if (!kv_store_set_value(cmd->kv_store_res,
+				cur_key_prefix,
+				rel_spec.cur_key,
+				iov_blank, VALUE_VECTOR_IDX_DATA,
+				KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
+				0,
+				_kv_delta,
+				&update_arg)) {
+		errno = update_arg.ret_code;
+		goto out;
+	}
+
+	r = 0;
+out:
+	_destroy_delta(rel_spec.delta);
+	buffer_rewind_mem(cmd->gen_buf, cur_key_prefix);
+	return r;
+}
+
 static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 {
 	char *value;

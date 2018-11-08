@@ -141,6 +141,24 @@ dev_ready_t sid_ubridge_cmd_dev_get_ready(struct sid_ubridge_cmd_context *cmd);
 int sid_ubridge_cmd_dev_set_reserved(struct sid_ubridge_cmd_context *cmd, dev_reserved_t reserved);
 dev_reserved_t sid_ubridge_cmd_dev_get_reserved(struct sid_ubridge_cmd_context *cmd);
 
+int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
+				 sid_ubridge_cmd_kv_namespace_t group_ns,
+				 const char *group_id,
+				 sid_ubridge_kv_flags_t group_flags);
+
+int sid_ubridge_cmd_group_add_current_dev(struct sid_ubridge_cmd_context *cmd,
+					  sid_ubridge_cmd_kv_namespace_t group_ns,
+					  const char *group_id);
+
+int sid_ubridge_cmd_group_remove_current_dev(struct sid_ubridge_cmd_context *cmd,
+					     sid_ubridge_cmd_kv_namespace_t group_ns,
+					     const char *group_id);
+
+int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
+				  sid_ubridge_cmd_kv_namespace_t group_ns,
+				  const char *group_id,
+				  int force);
+
 #ifdef __cplusplus
 }
 #endif
