@@ -642,7 +642,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	 * we can't control any global reservation at the moment so it doesn't make sense
 	 * to do the check here.
 	 */
-	if (!((ns == KV_NS_UDEV) && !*mod_name) &&
+	if (!((ns == KV_NS_UDEV) && !strcmp(mod_name, CORE_MOD_NAME)) &&
 	    !_passes_global_reservation_check(cmd, mod_name, ns, key))
 		goto out;
 
