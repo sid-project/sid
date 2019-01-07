@@ -2369,8 +2369,11 @@ out:
 
 static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
-	if ((_do_refresh_device_hierarchy_from_sysfs(cmd_res, "holders", KV_KEY_DEV_LAYER_UP, KV_KEY_DEV_LAYER_DOWN) < 0) ||
+/*	if ((_do_refresh_device_hierarchy_from_sysfs(cmd_res, "holders", KV_KEY_DEV_LAYER_UP, KV_KEY_DEV_LAYER_DOWN) < 0) ||
 	    (_do_refresh_device_hierarchy_from_sysfs(cmd_res, "slaves", KV_KEY_DEV_LAYER_DOWN, KV_KEY_DEV_LAYER_UP) < 0))
+		return -1;*/
+
+	if ((_do_refresh_device_hierarchy_from_sysfs(cmd_res, "slaves", KV_KEY_DEV_LAYER_DOWN, KV_KEY_DEV_LAYER_UP) < 0))
 		return -1;
 
 	_dump_kv_store(__func__, ((struct sid_ubridge_cmd_context *) sid_resource_get_data(cmd_res))->kv_store_res);
