@@ -2313,8 +2313,13 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 				continue;
 			}
 
-			if ((s = buffer_fmt_add(cmd->gen_buf, "/sys/block/%s/dev", dirent[i]->d_name))) {
-				_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf));
+			if ((s = buffer_fmt_add(cmd->gen_buf, "/sys/dev/block/%d:%d/%s/%s/dev",
+								cmd->udev_dev.major,
+								cmd->udev_dev.minor,
+								sysfs_item,
+								dirent[i]->d_name))) {
+				if (_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf)) < 0)
+					continue;
 				buffer_rewind_mem(cmd->gen_buf, s);
 				_canonicalize_kv_key(devno_buf);
 				rel_spec.rel_key_prefix_spec->id = devno_buf;
