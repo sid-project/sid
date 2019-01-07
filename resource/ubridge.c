@@ -453,6 +453,60 @@ static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 	kv_store_iter_destroy(iter);
 }
 
+static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_store_res)
+{
+	static const char dev_prefix[] = KV_STORE_KEY_JOIN KV_PREFIX_NS_DEVICE KV_STORE_KEY_JOIN;
+	static size_t dev_prefix_size = sizeof(dev_prefix) - 1;
+	static const char ID[] = "DOT";
+	kv_store_iter_t *iter;
+	void *value;
+	size_t size;
+	kv_store_value_flags_t flags;
+	struct iovec tmp_iov[_VALUE_VECTOR_IDX_COUNT];
+	struct iovec *iov;
+	const char *full_key, *dev_key_stop, *key;
+	int i;
+
+	if (!(iter = kv_store_iter_create(kv_store_res))) {
+		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
+		goto out;
+	}
+
+	log_print(ID, "digraph stack {");
+
+	while ((value = kv_store_iter_next(iter, &size, &flags))) {
+		full_key = kv_store_iter_current_key(iter);
+
+		if (strncmp(full_key, dev_prefix, dev_prefix_size) ||
+		    !strncmp(full_key + dev_prefix_size, KV_STORE_KEY_JOIN, KV_STORE_KEY_JOIN_LEN))
+			continue;
+
+		dev_key_stop = strstr(full_key + dev_prefix_size, KV_STORE_KEY_JOIN);
+		dev_key_stop++;
+
+		key = util_strrstr(full_key, KV_STORE_KEY_JOIN);
+		key++;
+
+		if (!strcmp(key, KV_KEY_DEV_READY)) {
+			log_print(ID, "\"%.*s\"", dev_key_stop - full_key, full_key);
+		}
+
+		else if (!strcmp(key, KV_KEY_DEV_LAYER_UP)) {
+			iov = _get_value_vector(flags, value, size, tmp_iov);
+			for (i = VALUE_VECTOR_IDX_DATA; i < size; i++)
+				log_print(ID, "\"%.*s\" -> \"%s\"", dev_key_stop - full_key, full_key, iov[i].iov_base);
+		}
+
+		else if (!strcmp(key, KV_KEY_DEV_LAYER_DOWN)) {
+		}
+	}
+
+	log_print(ID, "}");
+out:
+	if (iter)
+		kv_store_iter_destroy(iter);
+}
+
 static int _kv_overwrite(const char *key_prefix, const char *key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
@@ -3024,6 +3078,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 	r = 0;
 
 	_dump_kv_store(__func__, ubridge->main_kv_store_res);
+	_dump_kv_store_dev_stack_in_dot(__func__, ubridge->main_kv_store_res);
 out:
 	free(iov);
 

@@ -29,6 +29,7 @@ extern "C" {
 #endif
 
 #define KV_STORE_KEY_JOIN ":"
+#define KV_STORE_KEY_JOIN_LEN (sizeof(KV_STORE_KEY_JOIN) - 1)
 
 typedef enum {
 	KV_STORE_BACKEND_HASH,
