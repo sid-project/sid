@@ -126,3 +126,20 @@ uint64_t util_get_now_usec(clockid_t clock_id)
 	clock_gettime(clock_id, &ts);
 	return (uint64_t) ts.tv_sec * 1000000 + (uint64_t) ts.tv_nsec / 1000;
 }
+
+char *util_strrstr(const char *haystack, const char *needle)
+{
+	size_t haystack_len, needle_len, pos;
+
+	haystack_len = strlen(haystack);
+	needle_len = strlen(needle);
+
+	if (needle_len > haystack_len)
+		return NULL;
+
+	for (pos = haystack_len - needle_len; pos > 0; pos--)
+		if (!strncmp(haystack + pos, needle, needle_len))
+			return (char *) haystack + pos;
+
+	return NULL;
+}
