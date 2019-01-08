@@ -114,6 +114,20 @@ udev_action_t util_get_udev_action_from_string(const char *str)
 		return UDEV_ACTION_UNKNOWN;
 }
 
+static const char *udev_devtype_str[] = {[UDEV_DEVTYPE_DISK]      = "disk",
+					 [UDEV_DEVTYPE_PARTITION] = "partition",
+					 [UDEV_DEVTYPE_UNKNOWN]   = "unknown"};
+
+udev_devtype_t util_get_udev_devtype_from_string(const char *str)
+{
+	if (!strcasecmp(str, udev_devtype_str[UDEV_DEVTYPE_DISK]))
+		return UDEV_DEVTYPE_DISK;
+	else if (!strcasecmp(str, udev_devtype_str[UDEV_DEVTYPE_PARTITION]))
+		return UDEV_DEVTYPE_PARTITION;
+	else
+		return UDEV_DEVTYPE_UNKNOWN;
+}
+
 const char *util_get_string_from_udev_action(udev_action_t udev_action)
 {
 	return udev_action_str[udev_action];

@@ -38,6 +38,12 @@ typedef enum {
 	UDEV_ACTION_UNBIND
 } udev_action_t;
 
+typedef enum {
+	UDEV_DEVTYPE_UNKNOWN,
+	UDEV_DEVTYPE_DISK,
+	UDEV_DEVTYPE_PARTITION,
+} udev_devtype_t;
+
 #ifdef __cplusplus
 }
 #endif
