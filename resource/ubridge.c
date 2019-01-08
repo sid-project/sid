@@ -101,12 +101,15 @@
 #define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
 
 #define UDEV_KEY_ACTION     "ACTION"
-#define UDEV_KEY_DEVNAME    "DEVNAME"
+#define UDEV_KEY_DEVPATH    "DEVPATH"
 #define UDEV_KEY_DEVTYPE    "DEVTYPE"
 #define UDEV_KEY_MAJOR      "MAJOR"
 #define UDEV_KEY_MINOR      "MINOR"
 #define UDEV_KEY_SEQNUM     "SEQNUM"
 #define UDEV_KEY_SYNTH_UUID "SYNTH_UUID"
+
+#define UDEV_VALUE_DEVTYPE_DISK      "disk"
+#define UDEV_VALUE_DEVTYPE_PARTITION "partition"
 
 #define CMD_DEV_ID_FMT  "%s (%d:%d)"
 #define CMD_DEV_ID(cmd) cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor
@@ -184,10 +187,11 @@ struct version {
 
 struct udevice {
 	udev_action_t action;
+	udev_devtype_t type;
+	char *path;
+	char *name; /* just a pointer to devpath's last element */
 	int major;
 	int minor;
-	char *name;
-	char *type;
 	uint64_t seqnum;
 	char *synth_uuid;
 };
@@ -359,7 +363,7 @@ const char *sid_ubridge_cmd_dev_get_name(struct sid_ubridge_cmd_context *cmd)
 	return cmd->udev_dev.name;
 }
 
-const char *sid_ubridge_cmd_dev_get_type(struct sid_ubridge_cmd_context *cmd)
+udev_devtype_t sid_ubridge_cmd_dev_get_type(struct sid_ubridge_cmd_context *cmd)
 {
 	return cmd->udev_dev.type;
 }
@@ -1216,14 +1220,13 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 	/* Common key=value pairs are also directly in the cmd->udev_dev structure. */
 	if (!strncmp(key, UDEV_KEY_ACTION, key_len))
 		cmd->udev_dev.action = util_get_udev_action_from_string(value);
-	else if (!strncmp(key, UDEV_KEY_DEVNAME, key_len))
-		cmd->udev_dev.name = value;
+	else if (!strncmp(key, UDEV_KEY_DEVPATH, key_len)) {
+		cmd->udev_dev.path = value;
+		cmd->udev_dev.name = util_strrstr(value, "/");
+		cmd->udev_dev.name++;
+	}
 	else if (!strncmp(key, UDEV_KEY_DEVTYPE, key_len))
-		cmd->udev_dev.type = value;
-	else if (!strncmp(key, UDEV_KEY_MAJOR, key_len))
-		cmd->udev_dev.major = atoi(value);
-	else if (!strncmp(key, UDEV_KEY_MINOR, key_len))
-		cmd->udev_dev.minor = atoi(value);
+		cmd->udev_dev.type = util_get_udev_devtype_from_string(value);
 	else if (!strncmp(key, UDEV_KEY_SEQNUM, key_len))
 		cmd->udev_dev.seqnum = strtoull(value, NULL, 10);
 	else if (!strncmp(key, UDEV_KEY_SYNTH_UUID, key_len))
