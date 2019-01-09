@@ -57,6 +57,7 @@
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
 #define COMMAND_STATUS_FAILURE       UINT64_C(0x0000000000000001)
 
+#define SYSFS_PATH		     "/sys"
 #define PROC_DEVICES_PATH            "/proc/devices"
 
 #define UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY "/usr/local/lib/sid/modules/ubridge-cmd/block"
@@ -2273,7 +2274,10 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 					   .custom = &rel_spec};
 
 	if (cmd->udev_dev.action != UDEV_ACTION_REMOVE) {
-		if (!(s = buffer_fmt_add(cmd->gen_buf, "/sys/dev/block/%d:%d/%s", cmd->udev_dev.major, cmd->udev_dev.minor, sysfs_item))) {
+		if (!(s = buffer_fmt_add(cmd->gen_buf, "%s%s/%s",
+							SYSFS_PATH,
+							cmd->udev_dev.path,
+							sysfs_item))) {
 			log_error(ID(cmd_res), "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT ".", sysfs_item, CMD_DEV_ID(cmd));
 			goto out;
 		}
@@ -2316,9 +2320,9 @@ static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, cons
 				continue;
 			}
 
-			if ((s = buffer_fmt_add(cmd->gen_buf, "/sys/dev/block/%d:%d/%s/%s/dev",
-								cmd->udev_dev.major,
-								cmd->udev_dev.minor,
+			if ((s = buffer_fmt_add(cmd->gen_buf, "%s%s/%s/%s/dev",
+								SYSFS_PATH,
+								cmd->udev_dev.path,
 								sysfs_item,
 								dirent[i]->d_name))) {
 				if (_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf)) < 0)
