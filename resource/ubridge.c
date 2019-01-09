@@ -2240,7 +2240,7 @@ out:
 	return r;
 }
 
-static int _do_refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *sysfs_item, const char *key, const char *rel_key)
+static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *sysfs_item, const char *key, const char *rel_key)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
@@ -2379,16 +2379,92 @@ out:
 	return r;
 }
 
+static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *key, const char *rel_key)
+{
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0);
+	struct iovec iov_to_store[_VALUE_VECTOR_IDX_COUNT];
+	char devno_buf[16];
+	const char *s;
+	struct iovec *iov;
+	int r = -1;
+
+	struct relation_spec rel_spec = {.delta = &((struct delta) {0}),
+					 .cur_key_prefix_spec = &((struct key_prefix_spec) {
+									.prefix= KV_PREFIX_NULL,
+									.ns = KV_NS_DEVICE,
+									.id = _get_ns_based_id(cmd, KV_NS_DEVICE),
+									.id_sub = KV_PREFIX_NULL}),
+					 .cur_key = key,
+					 .rel_key_prefix_spec = &((struct key_prefix_spec) {
+									.prefix = KV_PREFIX_NULL,
+									.ns = KV_NS_DEVICE,
+									.id = KV_PREFIX_NULL, /* will be calculated later */
+									.id_sub = KV_PREFIX_NULL}),
+					 .rel_key = rel_key};
+
+	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
+					   .mod_name = CORE_MOD_NAME,
+					   .gen_buf = cmd->gen_buf,
+					   .custom = &rel_spec};
+
+	VALUE_VECTOR_PREPARE_HEADER(iov_to_store, cmd->udev_dev.seqnum, kv_flags_no_persist, core_mod_name);
+
+	if ((s = buffer_fmt_add(cmd->gen_buf, "%s%s/../dev",
+						SYSFS_PATH,
+						cmd->udev_dev.path))) {
+		if (_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf)) < 0)
+			goto out;
+		buffer_rewind_mem(cmd->gen_buf, s);
+		_canonicalize_kv_key(devno_buf);
+		rel_spec.rel_key_prefix_spec->id = devno_buf;
+		s = _buffer_get_key_prefix(cmd->gen_buf, rel_spec.rel_key_prefix_spec);
+		rel_spec.rel_key_prefix_spec->id = KV_PREFIX_NULL;
+		iov_to_store[VALUE_VECTOR_IDX_DATA] = (struct iovec) {(void *) s, strlen(s) + 1};
+	} else
+		log_error(ID(cmd_res), "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
+
+	if (!(s = _buffer_get_key_prefix(cmd->gen_buf, rel_spec.cur_key_prefix_spec))) {
+		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
+		goto out;
+	}
+
+	rel_spec.delta->op = VECTOR_OP_SET;
+	rel_spec.delta->flags = DELTA_WITH_DIFF | DELTA_WITH_REL;
+
+	/*
+	 * Handle delta.final vector for this device.
+	 * The delta.final is computed inside _kv_delta out of vec_buf.
+	 * The _kv_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
+	 *
+	 * Here, we set:
+	 *	SID_{LUP,LDW} for current device
+	 */
+	iov = kv_store_set_value(cmd->kv_store_res, s, key, iov_to_store, _VALUE_VECTOR_IDX_COUNT, KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
+				 _kv_delta, &update_arg);
+
+	r = 0;
+out:
+	_destroy_delta(rel_spec.delta);
+
+	if (tmp_mem_start)
+		buffer_rewind_mem(cmd->gen_buf, tmp_mem_start);
+}
+
 static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
-/*	if ((_do_refresh_device_hierarchy_from_sysfs(cmd_res, "holders", KV_KEY_DEV_LAYER_UP, KV_KEY_DEV_LAYER_DOWN) < 0) ||
-	    (_do_refresh_device_hierarchy_from_sysfs(cmd_res, "slaves", KV_KEY_DEV_LAYER_DOWN, KV_KEY_DEV_LAYER_UP) < 0))
-		return -1;*/
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 
-	if ((_do_refresh_device_hierarchy_from_sysfs(cmd_res, "slaves", KV_KEY_DEV_LAYER_DOWN, KV_KEY_DEV_LAYER_UP) < 0))
-		return -1;
-
-	//_dump_kv_store(__func__, ((struct sid_ubridge_cmd_context *) sid_resource_get_data(cmd_res))->kv_store_res);
+	switch (cmd->udev_dev.type) {
+		case UDEV_DEVTYPE_DISK:
+			if ((_refresh_device_disk_hierarchy_from_sysfs(cmd_res, "slaves", KV_KEY_DEV_LAYER_DOWN, KV_KEY_DEV_LAYER_UP) < 0))
+				return -1;
+			break;
+		case UDEV_DEVTYPE_PARTITION:
+			if ((_refresh_device_partition_hierarchy_from_sysfs(cmd_res, KV_KEY_DEV_LAYER_DOWN, KV_KEY_DEV_LAYER_UP) < 0))
+				return -1;
+			break;
+	}
 
 	return 0;
 }
