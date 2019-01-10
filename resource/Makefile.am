@@ -32,6 +32,7 @@ pkginclude_HEADERS = $(top_builddir)/include/wrapper-sd.h \
 		     $(top_builddir)/include/module.h \
 		     $(top_builddir)/include/module-registry.h \
 		     $(top_builddir)/include/kv-store.h \
+		     $(top_builddir)/include/ubridge-cmd-module.h \
 		     $(top_builddir)/include/worker-control.h
 libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
 			   $(UDEV_CFLAGS)
