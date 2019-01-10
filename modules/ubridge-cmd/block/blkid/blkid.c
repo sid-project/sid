@@ -249,7 +249,7 @@ static int _probe_superblocks(blkid_probe pr) {
 
 static int _blkid_scan_next(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {
-	const char *dev_path;
+	char dev_path[PATH_MAX];
         int64_t offset = 0;
         int noraid = 0;
         int fd = -1;
@@ -274,7 +274,7 @@ static int _blkid_scan_next(struct sid_module *module, struct sid_ubridge_cmd_co
         if (noraid)
                 blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
 
-	dev_path = sid_ubridge_cmd_dev_get_name(cmd);
+	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ubridge_cmd_dev_get_name(cmd));
 
         if ((fd = open(dev_path, O_RDONLY|O_CLOEXEC)) < 0) {
                 log_error_errno(ID, errno, "Failed to open device %s.", dev_path);

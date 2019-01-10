@@ -20,7 +20,9 @@
 #include "ubridge-cmd-module.h"
 #include "log.h"
 
+#include <limits.h>
 #include <mpath_valid.h>
+#include <stdio.h>
 
 #define ID "multipath_component"
 
@@ -47,9 +49,13 @@ SID_UBRIDGE_CMD_MOD_RELOAD(_multipath_component_reload)
 
 static int _multipath_component_scan_pre(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {
+	char dev_path[PATH_MAX];
+
 	log_debug(ID, "scan-pre");
 
-	if (mpath_is_path(sid_ubridge_cmd_dev_get_name(cmd), MPATH_NORMAL)) {
+	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ubridge_cmd_dev_get_name(cmd));
+
+	if (mpath_is_path(dev_path, MPATH_NORMAL)) {
 		// mark with appropriate key=value pair
 	}
 
