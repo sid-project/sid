@@ -57,9 +57,6 @@
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
 #define COMMAND_STATUS_FAILURE       UINT64_C(0x0000000000000001)
 
-#define SYSFS_PATH		     "/sys"
-#define PROC_DEVICES_PATH            "/proc/devices"
-
 #define UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY "/usr/local/lib/sid/modules/ubridge-cmd/block"
 #define UBRIDGE_CMD_TYPE_MODULE_DIRECTORY  "/usr/local/lib/sid/modules/ubridge-cmd/type"
 
@@ -1311,7 +1308,7 @@ static void _canonicalize_kv_key(char *id)
 }
 
 /*
- *  Module name is equal to the name as exposed in PROC_DEVICES_PATH + MODULE_NAME_SUFFIX.
+ *  Module name is equal to the name as exposed in SYSTEM_PROC_DEVICES_PATH + MODULE_NAME_SUFFIX.
  */
 static const char *_lookup_module_name(sid_resource_t *cmd_res)
 {
@@ -1328,8 +1325,8 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	if ((mod_name = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL)))
 		goto out;
 
-	if (!(f = fopen(PROC_DEVICES_PATH, "r"))) {
-		log_sys_error(ID(cmd_res), "fopen", PROC_DEVICES_PATH);
+	if (!(f = fopen(SYSTEM_PROC_DEVICES_PATH, "r"))) {
+		log_sys_error(ID(cmd_res), "fopen", SYSTEM_PROC_DEVICES_PATH);
 		goto out;
 	}
 
@@ -1372,7 +1369,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 
 	if (!found) {
 		log_error(ID(cmd_res), "Unable to find major number %d for device %s in %s.",
-			  cmd->udev_dev.major, cmd->udev_dev.name, PROC_DEVICES_PATH);
+			  cmd->udev_dev.major, cmd->udev_dev.name, SYSTEM_PROC_DEVICES_PATH);
 		goto out;
 	}
 
@@ -1385,7 +1382,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 
 	if (len >= (sizeof(buf) - strlen(SID_MODULE_NAME_SUFFIX))) {
 		log_error(ID(cmd_res), "Insufficient result buffer for device lookup in %s, "
-			  "found string \"%s\", buffer size is only %zu.", PROC_DEVICES_PATH,
+			  "found string \"%s\", buffer size is only %zu.", SYSTEM_PROC_DEVICES_PATH,
 			  found, sizeof(buf));
 		goto out;
 	}
@@ -2275,7 +2272,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 
 	if (cmd->udev_dev.action != UDEV_ACTION_REMOVE) {
 		if (!(s = buffer_fmt_add(cmd->gen_buf, "%s%s/%s",
-							SYSFS_PATH,
+							SYSTEM_SYSFS_PATH,
 							cmd->udev_dev.path,
 							sysfs_item))) {
 			log_error(ID(cmd_res), "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT ".", sysfs_item, CMD_DEV_ID(cmd));
@@ -2321,7 +2318,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 			}
 
 			if ((s = buffer_fmt_add(cmd->gen_buf, "%s%s/%s/%s/dev",
-								SYSFS_PATH,
+								SYSTEM_SYSFS_PATH,
 								cmd->udev_dev.path,
 								sysfs_item,
 								dirent[i]->d_name))) {
@@ -2411,7 +2408,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	VALUE_VECTOR_PREPARE_HEADER(iov_to_store, cmd->udev_dev.seqnum, kv_flags_no_persist, core_mod_name);
 
 	if ((s = buffer_fmt_add(cmd->gen_buf, "%s%s/../dev",
-						SYSFS_PATH,
+						SYSTEM_SYSFS_PATH,
 						cmd->udev_dev.path))) {
 		if (_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf)) < 0)
 			goto out;

@@ -20,6 +20,7 @@
 #ifndef _SID_UBRIDGE_CMD_MODULE_H
 #define _SID_UBRIDGE_CMD_MODULE_H
 
+#include "macros.h"
 #include "types.h"
 
 #include <stdint.h>
