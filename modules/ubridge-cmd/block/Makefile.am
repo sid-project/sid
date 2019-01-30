@@ -17,4 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = dummy_block blkid multipath_component
+SUBDIRS = dummy_block blkid
+
+if BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT
+SUBDIRS += multipath_component
+endif

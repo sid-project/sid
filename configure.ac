@@ -73,4 +73,17 @@ AC_FUNC_ERROR_AT_LINE
 AC_FUNC_MALLOC
 PKG_CHECK_MODULES(SYSTEMD, libsystemd >= 221) # event loop supported in libsystemd version >= 221
 PKG_CHECK_MODULES(UDEV, libudev >= 174) # support for device tagging added in libudev version >= 174
+
+AC_MSG_CHECKING(whether to build multipath_component module)
+AC_ARG_ENABLE(mod-multipath_component,
+	      AC_HELP_STRING([--enable-mod-multipath_component], [enable multipath component module]),
+	      BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT=$enableval,
+	      BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT=yes)
+AC_MSG_RESULT($BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT)
+if test x$BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT = xyes; then
+	AC_CHECK_HEADER([mpath_valid.h], , [AC_MSG_ERROR(--enable-mod-multipath_component requires mpath_valid.h)])
+	AC_DEFINE([MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT], 1, [Define to 1 to enable multipath component module.])
+fi
+AM_CONDITIONAL([BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT], [test x$BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT = xyes])
+
 AC_OUTPUT
