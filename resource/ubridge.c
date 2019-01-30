@@ -490,13 +490,13 @@ static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_
 		key++;
 
 		if (!strcmp(key, KV_KEY_DEV_READY)) {
-			log_print(ID, "\"%.*s\"", dev_key_stop - full_key, full_key);
+			log_print(ID, "\"%.*s\"", (int) (dev_key_stop - full_key), full_key);
 		}
 
 		else if (!strcmp(key, KV_KEY_DEV_LAYER_UP)) {
 			iov = _get_value_vector(flags, value, size, tmp_iov);
 			for (i = VALUE_VECTOR_IDX_DATA; i < size; i++)
-				log_print(ID, "\"%.*s\" -> \"%s\"", dev_key_stop - full_key, full_key, iov[i].iov_base);
+				log_print(ID, "\"%.*s\" -> \"%s\"", (int) (dev_key_stop - full_key), full_key, (char *) iov[i].iov_base);
 		}
 
 		else if (!strcmp(key, KV_KEY_DEV_LAYER_DOWN)) {
@@ -2383,7 +2383,6 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	struct iovec iov_to_store[_VALUE_VECTOR_IDX_COUNT];
 	char devno_buf[16];
 	const char *s;
-	struct iovec *iov;
 	int r = -1;
 
 	struct relation_spec rel_spec = {.delta = &((struct delta) {0}),
@@ -2437,8 +2436,8 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	 * Here, we set:
 	 *	SID_{LUP,LDW} for current device
 	 */
-	iov = kv_store_set_value(cmd->kv_store_res, s, key, iov_to_store, _VALUE_VECTOR_IDX_COUNT, KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
-				 _kv_delta, &update_arg);
+	kv_store_set_value(cmd->kv_store_res, s, key, iov_to_store, _VALUE_VECTOR_IDX_COUNT, KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
+			   _kv_delta, &update_arg);
 
 	r = 0;
 out:
@@ -2446,6 +2445,8 @@ out:
 
 	if (tmp_mem_start)
 		buffer_rewind_mem(cmd->gen_buf, tmp_mem_start);
+
+	return r;
 }
 
 static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
@@ -2460,6 +2461,8 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		case UDEV_DEVTYPE_PARTITION:
 			if ((_refresh_device_partition_hierarchy_from_sysfs(cmd_res, KV_KEY_DEV_LAYER_DOWN, KV_KEY_DEV_LAYER_UP) < 0))
 				return -1;
+			break;
+		case UDEV_DEVTYPE_UNKNOWN:
 			break;
 	}
 
@@ -2620,7 +2623,6 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	void *value;
 	size_t size, iov_size, key_size, data_offset;
 	kv_store_value_flags_t flags;
-	sid_ubridge_kv_flags_t *value_flags;
 	struct iovec *iov;
 	int export_fd = -1;
 	size_t bytes_written = 0;
@@ -2652,24 +2654,27 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 	// FIXME: maybe buffer first so there's only single write
 	while ((value = kv_store_iter_next(iter, &size, &flags))) {
-		key = kv_store_iter_current_key(iter);
-
 		if (flags & KV_STORE_VALUE_VECTOR) {
 			iov = value;
 			iov_size = size;
 			ubridge_kv_value = NULL;
-			value_flags = (sid_ubridge_kv_flags_t *) iov[VALUE_VECTOR_IDX_FLAGS].iov_base;
+
+			if (!((*((sid_ubridge_kv_flags_t *) iov[VALUE_VECTOR_IDX_FLAGS].iov_base)) & KV_PERSISTENT))
+				continue;
+
+			*((sid_ubridge_kv_flags_t *) iov[VALUE_VECTOR_IDX_FLAGS].iov_base) &= ~KV_PERSISTENT;
 		} else {
 			iov = NULL;
+			iov_size = 0;
 			ubridge_kv_value = value;
-			value_flags = &ubridge_kv_value->flags;
+
+			if (ubridge_kv_value->flags & KV_PERSISTENT)
+				continue;
+
+			ubridge_kv_value->flags &= ~KV_PERSISTENT;
 		}
 
-		if (!(*value_flags & KV_PERSISTENT))
-			continue;
-
-		*value_flags &= ~KV_PERSISTENT;
-
+		key = kv_store_iter_current_key(iter);
 		key_size = strlen(key) + 1;
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
