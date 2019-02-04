@@ -50,7 +50,6 @@ struct kv_store_value {
 };
 
 struct kv_update_fn_relay {
-	const char *key_prefix;
 	const char *key;
 	kv_store_update_fn_t kv_update_fn;
 	void *kv_update_fn_arg;
@@ -61,20 +60,6 @@ struct kv_store_iter {
 	struct kv_store *store;
 	struct hash_node *current;
 };
-
-static const char *_get_full_key(char *buf, size_t buf_size, const char *key_prefix, const char *key)
-{
-	int size;
-
-	if (key_prefix && *key_prefix) {
-		size = snprintf(buf, buf_size, "%s%s%s", key_prefix, KV_STORE_KEY_JOIN, key);
-		if (size < 0 || (size > buf_size))
-			return NULL;
-		return buf;
-	}
-
-	return key;
-}
 
 static void *_get_data(struct kv_store_value *value)
 {
@@ -286,7 +271,7 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 			update_spec.new_flags = orig_new_flags = orig_new_value->ext_flags;
 		}
 
-		r = relay->kv_update_fn(relay->key_prefix, relay->key, &update_spec, relay->kv_update_fn_arg);
+		r = relay->kv_update_fn(relay->key, &update_spec, relay->kv_update_fn_arg);
 
 		/* Check if there has been any change... */
 		if ((r > 0) &&
@@ -340,28 +325,20 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 	return r;
 }
 
-void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
+void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
 			 void *value, size_t value_size,
 			 kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags,
 			 kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg)
 {
-	struct kv_update_fn_relay relay = {.key_prefix = key_prefix,
-					   .key = key,
+	struct kv_update_fn_relay relay = {.key = key,
 					   .kv_update_fn = kv_update_fn,
 					   .kv_update_fn_arg = kv_update_fn_arg,
 					   .updated = 0};
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
-	char buf[PATH_MAX];
-	const char *full_key;
 	struct iovec iov_internal = {.iov_base = value, .iov_len = value_size};
 	struct iovec *iov;
 	int iov_cnt;
 	struct kv_store_value *kv_store_value;
-
-	if (!(full_key = _get_full_key(buf, sizeof(buf), key_prefix, key))) {
-		errno = ENOKEY;
-		return NULL;
-	}
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		iov = value;
@@ -374,7 +351,7 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 	if (!(kv_store_value = _create_kv_store_value(iov, iov_cnt, flags, op_flags)))
 		return NULL;
 
-	if (hash_update_binary(kv_store->ht, full_key, strlen(full_key) + 1, (void **) &kv_store_value,
+	if (hash_update_binary(kv_store->ht, key, strlen(key) + 1, (void **) &kv_store_value,
 			       (hash_update_fn_t) _hash_update_fn, &relay)) {
 		errno = EIO;
 		return NULL;
@@ -388,20 +365,13 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 	return _get_data(kv_store_value);
 }
 
-void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
+void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key,
 			 size_t *value_size, kv_store_value_flags_t *flags)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
-	char buf[PATH_MAX];
-	const char *full_key;
 	struct kv_store_value *found;
 
-	if (!(full_key = _get_full_key(buf, sizeof(buf), key_prefix, key))) {
-		errno = ENOKEY;
-		return NULL;
-	}
-
-	if (!(found = hash_lookup(kv_store->ht, full_key))) {
+	if (!(found = hash_lookup(kv_store->ht, key))) {
 		errno = ENODATA;
 		return NULL;
 	}
@@ -415,25 +385,18 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 	return _get_data(found);
 }
 
-int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
+int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key,
 			 kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
-	char buf[PATH_MAX];
-	const char *full_key;
 	struct kv_store_value *found;
 	struct kv_store_update_spec update_spec = {0};
-
-	if (!(full_key = _get_full_key(buf, sizeof(buf), key_prefix, key))) {
-		errno = ENOKEY;
-		return -1;
-	}
 
 	/*
 	 * FIXME: hash_lookup and hash_remove are two searches inside hash - maybe try to do
 	 *        this in one step (...that requires hash interface extension).
 	 */
-	if (!(found = hash_lookup(kv_store->ht, full_key))) {
+	if (!(found = hash_lookup(kv_store->ht, key))) {
 		errno = ENODATA;
 		return -1;
 	}
@@ -442,13 +405,13 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, c
 	update_spec.old_data_size = found->size;
 	update_spec.old_flags = found->ext_flags;
 
-	if (kv_unset_fn && !kv_unset_fn(key_prefix, key, &update_spec, kv_unset_fn_arg)) {
+	if (kv_unset_fn && !kv_unset_fn(key, &update_spec, kv_unset_fn_arg)) {
 		errno = EADV;
 		return -1;
 	}
 
 	_destroy_kv_store_value(found);
-	hash_remove(kv_store->ht, full_key);
+	hash_remove(kv_store->ht, key);
 
 	return 0;
 }

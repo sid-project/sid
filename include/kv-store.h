@@ -73,13 +73,12 @@ struct kv_store_update_spec {
  *   0 to keep old_data
  *   1 to update old_data with new_data
  */
-typedef int (*kv_store_update_fn_t) (const char *key_prefix, const char *key,
+typedef int (*kv_store_update_fn_t) (const char *key,
 				     struct kv_store_update_spec *update_spec,
 				     void *arg);
 
 /*
  * Sets key-value pair:
- *   - Final key is composed of key_prefix and key.
  *   - kv_update_fn callback with kv_update_fn_arg is called before updating the value.
  *   - Value and size depend on flags with KV_STORE_VALUE_ prefix, see table below.
  *     INPUT VALUE:  value as provided via kv_store_set_value's "value" argument.
@@ -120,29 +119,27 @@ typedef int (*kv_store_update_fn_t) (const char *key_prefix, const char *key,
  * Returns:
  *   The value that has been set.
  */
-void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
+void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
 			 void *value, size_t value_size,
 			 kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags,
 			 kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg);
 /*
  * Gets value for given key.
- *   - Final key is composed of key_prefix and key.
  *   - If value_size is not NULL, the function returns the size of the value through this output argument.
  *   - If flags is not NULL, the function returns the flags attached to the value through this output argument.
  */
-void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key, size_t *value_size, kv_store_value_flags_t *flags);
+void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *value_size, kv_store_value_flags_t *flags);
 
 
 /*
  * Unsets value for given key.
- *   - Final key is composed of key_prefix and key.
  *   - Before the value is actually unset, unset_resolver with unset_resolver_arg is called to confirm the action.
  *
  * Returns:
  *    0 if value unset
  *   -1 if value not unset
  */
-int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key_prefix, const char *key,
+int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key,
 			 kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg);
 
 typedef struct kv_store_iter kv_store_iter_t;
