@@ -2689,7 +2689,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 			iov_size = 0;
 			ubridge_kv_value = value;
 
-			if (ubridge_kv_value->flags & KV_PERSISTENT)
+			if (!(ubridge_kv_value->flags & KV_PERSISTENT))
 				continue;
 
 			ubridge_kv_value->flags &= ~KV_PERSISTENT;
