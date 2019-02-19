@@ -79,13 +79,14 @@
 #define ID_NULL  ""
 #define KEY_NULL ID_NULL
 
-#define KV_PREFIX_NULL           ID_NULL
-#define KV_PREFIX_OP_DELTA_PLUS  "+"
-#define KV_PREFIX_OP_DELTA_MINUS "-"
-#define KV_PREFIX_NS_UDEV        "U"
-#define KV_PREFIX_NS_DEVICE      "D"
-#define KV_PREFIX_NS_MODULE      "M"
-#define KV_PREFIX_NS_GLOBAL      "G"
+#define KV_PREFIX_OP_SET       ""
+#define KV_PREFIX_OP_PLUS      "+"
+#define KV_PREFIX_OP_MINUS     "-"
+#define KV_PREFIX_NS_UNDEFINED ""
+#define KV_PREFIX_NS_UDEV      "U"
+#define KV_PREFIX_NS_DEVICE    "D"
+#define KV_PREFIX_NS_MODULE    "M"
+#define KV_PREFIX_NS_GLOBAL    "G"
 
 #define KV_KEY_DEV_READY         "SID_RDY"
 #define KV_KEY_DEV_RESERVED      "SID_RES"
@@ -285,10 +286,10 @@ struct kv_update_arg {
 };
 
 typedef enum {
-	VECTOR_OP_SET,   /* set vector to given value (overwrite existing value) */
-	VECTOR_OP_PLUS,  /* add items to vector */
-	VECTOR_OP_MINUS, /* remove items from vector */
-} vector_op_t;
+	KV_OP_SET,   /* set value for kv */
+	KV_OP_PLUS,  /* add value to vector kv */
+	KV_OP_MINUS, /* remove value fomr vector kv */
+} kv_op_t;
 
 typedef enum {
 	DELTA_NO_FLAGS  = 0x0,
@@ -297,7 +298,7 @@ typedef enum {
 } delta_flags_t;
 
 struct delta {
-	vector_op_t op;
+	kv_op_t op;
 	delta_flags_t flags;
 	struct buffer *plus;
 	struct buffer *minus;
@@ -305,7 +306,7 @@ struct delta {
 };
 
 struct key_spec {
-	const char *prefix;
+	kv_op_t op;
 	sid_ubridge_cmd_kv_namespace_t ns;
 	const char *id;
 	const char *id_sub;
@@ -376,18 +377,23 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 
 static const char *_do_buffer_compose_key(struct buffer *buf, struct key_spec *spec, int prefix_only)
 {
-	static const char *ns_to_key_prefix_map[] = {[KV_NS_UDEV]   = KV_PREFIX_NS_UDEV,
-						     [KV_NS_DEVICE] = KV_PREFIX_NS_DEVICE,
-						     [KV_NS_MODULE] = KV_PREFIX_NS_MODULE,
-						     [KV_NS_GLOBAL] = KV_PREFIX_NS_GLOBAL};
+	static const char *op_to_key_prefix_map[] = {[KV_OP_SET]       = KV_PREFIX_OP_SET,
+						     [KV_OP_PLUS]      = KV_PREFIX_OP_PLUS,
+						     [KV_OP_MINUS]     = KV_PREFIX_OP_MINUS};
 
-	/* <prefix>:<namespace>:<id>:<id_sub>[:<key>] */
+	static const char *ns_to_key_prefix_map[] = {[KV_NS_UNDEFINED] = KV_PREFIX_NS_UNDEFINED,
+						     [KV_NS_UDEV]      = KV_PREFIX_NS_UDEV,
+						     [KV_NS_DEVICE]    = KV_PREFIX_NS_DEVICE,
+						     [KV_NS_MODULE]    = KV_PREFIX_NS_MODULE,
+						     [KV_NS_GLOBAL]    = KV_PREFIX_NS_GLOBAL};
+
+	/* <op>:<ns>:<id>:<id_sub>[:<key>] */
 	return buffer_fmt_add(buf, "%s" KV_STORE_KEY_JOIN
 				   "%s" KV_STORE_KEY_JOIN
 				   "%s" KV_STORE_KEY_JOIN
 				   "%s" "%s"
 				   "%s",
-				   spec->prefix,
+				   op_to_key_prefix_map[spec->op],
 				   ns_to_key_prefix_map[spec->ns],
 				   spec->id,
 				   spec->id_sub,
@@ -397,13 +403,13 @@ static const char *_do_buffer_compose_key(struct buffer *buf, struct key_spec *s
 
 static const char *_buffer_compose_key(struct buffer *buf, struct key_spec *spec)
 {
-	/* <prefix>:<namespace>:<id>:<id_sub>:<key> */
+	/* <op>:<ns>:<id>:<id_sub>:<key> */
 	return _do_buffer_compose_key(buf, spec, 0);
 }
 
 static const char *_buffer_compose_key_prefix(struct buffer *buf, struct key_spec *spec)
 {
-	/* <prefix>:<namespace>:<id>:<id_sub> */
+	/* <op>:<ns>:<id>:<id_sub> */
 	return _do_buffer_compose_key(buf, spec, 1);
 }
 
@@ -411,8 +417,8 @@ static const char *_buffer_copy_id_from_key(struct buffer *buf, const char *key)
 {
 	const char *start, *end;
 
-	/*                     |<-->|
-	   <prefix>:<namespace>:<id>:<id_sub>[:<key>]
+	/*          |<-->|
+	   <op>:<ns>:<id>:<id_sub>[:<key>]
 	*/
 
 	if (!(end = util_strrstr(key, KV_STORE_KEY_JOIN)))
@@ -424,6 +430,56 @@ static const char *_buffer_copy_id_from_key(struct buffer *buf, const char *key)
 	}
 
 	return NULL;
+}
+
+static kv_op_t _get_op_from_key(const char *key)
+{
+	const char *end;
+
+	/* |<->|
+	 * <op>:<namespace>:<id>:<id_sub>[:<key>]
+	 */
+
+	if (!(end = strstr(key, KV_STORE_KEY_JOIN)))
+		goto out;
+
+	if (!strncmp(key, KV_PREFIX_OP_PLUS, sizeof(KV_PREFIX_OP_PLUS) - 1))
+	       return KV_OP_PLUS;
+	else if (!strncmp(key, KV_PREFIX_OP_MINUS, sizeof(KV_PREFIX_OP_MINUS) - 1))
+		return KV_OP_MINUS;
+out:
+	return KV_OP_SET;
+}
+
+static sid_ubridge_cmd_kv_namespace_t _get_ns_from_key(const char *key)
+{
+	const char *start, *end;
+	size_t len;
+
+	/*     |<-->|
+	 * <op>:<ns>:<id>:<id_sub>[:<key>]
+	 */
+
+	if (!(start = strstr(key, KV_STORE_KEY_JOIN)))
+		goto out;
+
+	start++;
+
+	if (!(end = strstr(start, KV_STORE_KEY_JOIN)))
+		goto out;
+
+	len = end - start;
+
+	if (!strncmp(start, KV_PREFIX_NS_UDEV, len))
+		return KV_NS_UDEV;
+	else if (!strncmp(start, KV_PREFIX_NS_DEVICE, len))
+		return KV_NS_DEVICE;
+	else if (!strncmp(start, KV_PREFIX_NS_MODULE, len))
+		return KV_NS_MODULE;
+	else if (!strncmp(start, KV_PREFIX_NS_GLOBAL, len))
+		return KV_NS_GLOBAL;
+out:
+	return KV_NS_UNDEFINED;
 }
 
 static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value, size_t value_size, struct iovec *iov)
@@ -616,10 +672,10 @@ static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd,
 	void *found;
 	size_t value_size;
 	kv_store_value_flags_t value_flags;
-	struct key_spec key_spec = {.prefix = KV_PREFIX_NULL,
+	struct key_spec key_spec = {.op = KV_OP_SET,
 				    .ns = ns,
-				    .id = KV_PREFIX_NULL,
-				    .id_sub = KV_PREFIX_NULL,
+				    .id = ID_NULL,
+				    .id_sub = ID_NULL,
 				    .key = key};
 	int r = 1;
 
@@ -658,6 +714,7 @@ static const char *_get_ns_based_id(struct sid_ubridge_cmd_context *cmd, sid_ubr
 		case KV_NS_MODULE:
 			return _res_get_mod_name(cmd->mod_res);
 		case KV_NS_GLOBAL:
+		case KV_NS_UNDEFINED:
 			break;
 	}
 
@@ -712,10 +769,10 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct iovec iov[4];
 	struct ubridge_kv_value *ubridge_kv_value;
 	struct kv_update_arg update_arg;
-	struct key_spec key_spec = {.prefix = KV_PREFIX_NULL,
+	struct key_spec key_spec = {.op = KV_OP_SET,
 				    .ns = ns,
 				    .id = _get_ns_based_id(cmd, ns),
-				    .id_sub = KV_PREFIX_NULL,
+				    .id_sub = ID_NULL,
 				    .key = key,
 				   };
 	void *ret = NULL;
@@ -790,10 +847,10 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	const char *full_key = NULL;
 	struct ubridge_kv_value *ubridge_kv_value;
 	size_t size, data_offset;
-	struct key_spec key_spec = {.prefix = KV_PREFIX_NULL,
+	struct key_spec key_spec = {.op = KV_OP_SET,
 				    .ns = ns,
 				    .id = _get_ns_based_id(cmd, ns),
-				    .id_sub = KV_PREFIX_NULL,
+				    .id_sub = ID_NULL,
 				    .key = key};
 	void *ret = NULL;
 
@@ -888,10 +945,10 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	sid_ubridge_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
 	int is_worker;
-	struct key_spec key_spec = {.prefix = KV_PREFIX_NULL,
+	struct key_spec key_spec = {.op = KV_OP_SET,
 				    .ns = ns,
-				    .id = KV_PREFIX_NULL,
-				    .id_sub = KV_PREFIX_NULL,
+				    .id = ID_NULL,
+				    .id_sub = ID_NULL,
 				    .key = key};
 	int r = -1;
 
@@ -1056,7 +1113,7 @@ int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
 	struct iovec iov[VALUE_VECTOR_IDX_DATA];
 	int r = -1;
 
-	struct key_spec key_spec = {.prefix = KV_PREFIX_NULL,
+	struct key_spec key_spec = {.op = KV_OP_SET,
 				    .ns = group_ns,
 				    .id = _get_ns_based_id(cmd, group_ns),
 				    .id_sub = group_id,
@@ -1090,8 +1147,7 @@ out:
 
 int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 				     sid_ubridge_cmd_kv_namespace_t group_ns,
-				     const char *group_id,
-				     vector_op_t op)
+				     const char *group_id, kv_op_t op)
 {
 	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0);
 	const char *cur_full_key, *rel_key_prefix;
@@ -1105,17 +1161,17 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 								    .final = NULL}),
 
 					 .cur_key_spec = &((struct key_spec) {
-							 	.prefix = KV_PREFIX_NULL,
+								.op = KV_OP_SET,
 								.ns = group_ns,
 								.id = _get_ns_based_id(cmd, group_ns),
 								.id_sub = group_id,
 								.key = KV_KEY_GEN_GROUP_MEMBERS}),
 
 					 .rel_key_spec = &((struct key_spec) {
-								.prefix = KV_PREFIX_NULL,
+								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.id = _get_ns_based_id(cmd, KV_NS_DEVICE),
-								.id_sub = KV_PREFIX_NULL,
+								.id_sub = ID_NULL,
 								.key = KV_KEY_GEN_GROUP_IN})
 					};
 
@@ -1152,14 +1208,14 @@ int sid_ubridge_cmd_group_add_current_dev(struct sid_ubridge_cmd_context *cmd,
 					  sid_ubridge_cmd_kv_namespace_t group_ns,
 					  const char *group_id)
 {
-	return _handle_current_dev_for_group(cmd, group_ns, group_id, VECTOR_OP_PLUS);
+	return _handle_current_dev_for_group(cmd, group_ns, group_id, KV_OP_PLUS);
 }
 
 int sid_ubridge_cmd_group_remove_current_dev(struct sid_ubridge_cmd_context *cmd,
 					     sid_ubridge_cmd_kv_namespace_t group_ns,
 					     const char *group_id)
 {
-	return _handle_current_dev_for_group(cmd, group_ns, group_id, VECTOR_OP_MINUS);
+	return _handle_current_dev_for_group(cmd, group_ns, group_id, KV_OP_MINUS);
 }
 
 int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
@@ -1174,24 +1230,24 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 	struct iovec iov_blank[VALUE_VECTOR_IDX_DATA];
 	int r = -1;
 
-	struct relation_spec rel_spec = {.delta = &((struct delta) {.op = VECTOR_OP_SET,
+	struct relation_spec rel_spec = {.delta = &((struct delta) {.op = KV_OP_SET,
 								    .flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
 								    .plus = NULL,
 								    .minus = NULL,
 								    .final = NULL}),
 
 					 .cur_key_spec = &((struct key_spec) {
-								.prefix = KV_PREFIX_NULL,
+								.op = KV_OP_SET,
 								.ns = group_ns,
 								.id = _get_ns_based_id(cmd, group_ns),
 								.id_sub = group_id,
 								.key = KV_KEY_GEN_GROUP_MEMBERS}),
 
 					 .rel_key_spec = &((struct key_spec) {
-								.prefix = KV_PREFIX_NULL,
+								.op = KV_OP_SET,
 								.ns = 0,
-								.id = KV_PREFIX_NULL,
-								.id_sub = KV_PREFIX_NULL,
+								.id = ID_NULL,
+								.id_sub = ID_NULL,
 								.key = KV_KEY_GEN_GROUP_IN})
 					};
 
@@ -1824,14 +1880,14 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 			if (cmp_result < 0) {
 				/* the old vector has item the new one doesn't have */
 				switch (delta->op) {
-					case VECTOR_OP_SET:
+					case KV_OP_SET:
 						/* we have detected removed item: add it to delta->minus */
 						buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
-					case VECTOR_OP_PLUS:
+					case KV_OP_PLUS:
 						/* we're keeping old item: add it to delta->final */
 						/* no break here intentionally! */
-					case VECTOR_OP_MINUS:
+					case KV_OP_MINUS:
 						/* we're keeping old item: add it to delta->final */
 						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
@@ -1840,15 +1896,15 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 			} else if (cmp_result > 0) {
 				/* the new vector has item the old one doesn't have */
 				switch (delta->op) {
-					case VECTOR_OP_SET:
+					case KV_OP_SET:
 						/* we have detected new item: add it to delta->plus and delta->final */
 						/* no break here intentionally! */
-					case VECTOR_OP_PLUS:
+					case KV_OP_PLUS:
 						/* we're adding new item: add it to delta->plus and delta->final */
 						buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						break;
-					case VECTOR_OP_MINUS:
+					case KV_OP_MINUS:
 						/* we're trying to remove non-existing item: ignore it */
 						break;
 				}
@@ -1856,14 +1912,14 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 			} else {
 				/* both old and new has the item */
 				switch (delta->op) {
-					case VECTOR_OP_SET:
+					case KV_OP_SET:
 						/* we have detected no change for this item: add it to delta->final */
 						/* no break here intentionally! */
-					case VECTOR_OP_PLUS:
+					case KV_OP_PLUS:
 						/* we're trying to add already existing item: add it to delta->final but not delta->plus */
 						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						break;
-					case VECTOR_OP_MINUS:
+					case KV_OP_MINUS:
 						/* we're removing item: add it to delta->minus */
 						buffer_add(delta->minus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						break;
@@ -1876,15 +1932,15 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 			/* only new vector still has items to handle */
 			while (i_new < new_size) {
 				switch (delta->op) {
-					case VECTOR_OP_SET:
+					case KV_OP_SET:
 						/* we have detected new item: add it to delta->final */
 						/* no break here intentionally! */
-					case VECTOR_OP_PLUS:
+					case KV_OP_PLUS:
 						/* we're adding new item: add it to delta->plus and delta->final */
 						buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						break;
-					case VECTOR_OP_MINUS:
+					case KV_OP_MINUS:
 						/* we're removing non-existing item: don't add to delta->minus */
 						break;
 				}
@@ -1894,14 +1950,14 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 			/* only old vector still has items to handle */
 			while (i_old < old_size) {
 				switch (delta->op) {
-					case VECTOR_OP_SET:
+					case KV_OP_SET:
 						/* we have detected removed item: add it to delta->minus */
 						buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
-					case VECTOR_OP_PLUS:
+					case KV_OP_PLUS:
 						/* we're keeping old item: add it to delta->final */
 						/* no break here intentionally! */
-					case VECTOR_OP_MINUS:
+					case KV_OP_MINUS:
 						/* we're not changing the old item so add it to delta->final */
 						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
@@ -1971,6 +2027,7 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 	struct cross_bitmap_calc_arg cross1 = {0};
 	struct cross_bitmap_calc_arg cross2 = {0};
 	struct relation_spec *rel_spec = update_arg->custom;
+	kv_op_t orig_op = rel_spec->cur_key_spec->op;
 	const char *delta_full_key;
 	struct iovec *abs_plus, *abs_minus;
 	size_t i, abs_plus_size, abs_minus_size;
@@ -1979,7 +2036,7 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 	if (!rel_spec->delta->plus && !rel_spec->delta->minus)
 		return 0;
 
-	rel_spec->cur_key_spec->prefix = KV_PREFIX_OP_DELTA_PLUS;
+	rel_spec->cur_key_spec->op = KV_OP_PLUS;
 	delta_full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 	if ((cross1.old_value = kv_store_get_value(update_arg->res, delta_full_key, &cross1.old_size, NULL))) {
 		if (!(cross1.old_bmp = bitmap_create(cross1.old_size, true)))
@@ -1987,7 +2044,7 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 	}
 	buffer_rewind_mem(update_arg->gen_buf, delta_full_key);
 
-	rel_spec->cur_key_spec->prefix = KV_PREFIX_OP_DELTA_MINUS;
+	rel_spec->cur_key_spec->op = KV_OP_MINUS;
 	delta_full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 	if ((cross2.old_value = kv_store_get_value(update_arg->res, delta_full_key, &cross2.old_size, NULL))) {
 		if (!(cross2.old_bmp = bitmap_create(cross2.old_size, true)))
@@ -2093,7 +2150,7 @@ out:
 	if (cross2.new_bmp)
 		bitmap_destroy(cross2.new_bmp);
 
-	rel_spec->cur_key_spec->prefix = KV_PREFIX_NULL;
+	rel_spec->cur_key_spec->op = orig_op;
 
 	if (r < 0)
 		_destroy_delta(abs_delta);
@@ -2121,11 +2178,11 @@ static void _flip_key_specs(struct relation_spec *rel_spec)
 
 static int _delta_update(struct kv_store_update_spec *spec,
 			 struct kv_update_arg *update_arg,
-			 struct delta *abs_delta,
-			 vector_op_t op)
+			 struct delta *abs_delta, kv_op_t op)
 {
 	uint64_t seqnum = VALUE_VECTOR_SEQNUM(spec->new_data);
 	struct relation_spec *rel_spec = update_arg->custom;
+	kv_op_t orig_op = rel_spec->cur_key_spec->op;
 	const char *tmp_mem_start = buffer_add(update_arg->gen_buf, "", 0);
 	struct delta *orig_delta;
 	struct iovec *delta_iov, *abs_delta_iov;
@@ -2133,31 +2190,31 @@ static int _delta_update(struct kv_store_update_spec *spec,
 	const char *key_prefix, *id, *full_key;
 	struct iovec rel_iov[_VALUE_VECTOR_IDX_COUNT];
 
-	if (op == VECTOR_OP_PLUS) {
+	if (op == KV_OP_PLUS) {
 		if (!abs_delta->plus)
 			return 0;
 		buffer_get_data(abs_delta->plus, (const void **) &abs_delta_iov, &abs_delta_iov_cnt);
 		buffer_get_data(rel_spec->delta->plus, (const void **) &delta_iov, &delta_iov_cnt);
-		rel_spec->cur_key_spec->prefix = KV_PREFIX_OP_DELTA_PLUS;
-	} else if (op == VECTOR_OP_MINUS) {
+	} else if (op == KV_OP_MINUS) {
 		if (!abs_delta->minus)
 			return 0;
 		buffer_get_data(abs_delta->minus, (const void **) &abs_delta_iov, &abs_delta_iov_cnt);
 		buffer_get_data(rel_spec->delta->minus, (const void **) &delta_iov, &delta_iov_cnt);
-		rel_spec->cur_key_spec->prefix = KV_PREFIX_OP_DELTA_MINUS;
 	} else {
 		log_error(ID(update_arg->res), INTERNAL_ERROR "%s: incorrect delta operation requested.", __func__);
 		return -1;
 	}
 
 	/* store absolute delta for current item - persistent */
+	rel_spec->cur_key_spec->op = op;
 	full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
+	rel_spec->cur_key_spec->op = orig_op;
+
 	_value_vector_mark_persist(abs_delta_iov, 1);
 	kv_store_set_value(update_arg->res, full_key, abs_delta_iov, abs_delta_iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, update_arg);
 	_value_vector_mark_persist(abs_delta_iov, 0);
-	buffer_rewind_mem(update_arg->gen_buf, full_key);
 
-	rel_spec->cur_key_spec->prefix = KV_PREFIX_NULL;
+	buffer_rewind_mem(update_arg->gen_buf, full_key);
 
 	/* the other way round now - store final and absolute delta for each relative */
 	if (delta_iov_cnt && rel_spec->delta->flags & DELTA_WITH_REL) {
@@ -2187,7 +2244,7 @@ static int _delta_update(struct kv_store_update_spec *spec,
 		_flip_key_specs(rel_spec);
 	}
 
-	rel_spec->cur_key_spec->prefix = KV_PREFIX_NULL;
+	rel_spec->cur_key_spec->op = orig_op;
 	buffer_rewind_mem(update_arg->gen_buf, tmp_mem_start);
 	return 0;
 }
@@ -2225,10 +2282,10 @@ static int _kv_delta(const char *full_key __attribute__ ((unused)),
 		if (_delta_abs_calculate(spec, update_arg, &abs_delta) < 0)
 			goto out;
 
-		if (_delta_update(spec, update_arg, &abs_delta, VECTOR_OP_PLUS) < 0)
+		if (_delta_update(spec, update_arg, &abs_delta, KV_OP_PLUS) < 0)
 			goto out;
 
-		if (_delta_update(spec, update_arg, &abs_delta, VECTOR_OP_MINUS) < 0)
+		if (_delta_update(spec, update_arg, &abs_delta, KV_OP_MINUS) < 0)
 			goto out;
 	}
 
@@ -2265,20 +2322,22 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 	int count = 0, i;
 	int r = -1;
 
-	struct relation_spec rel_spec = {.delta = &((struct delta) {0}),
+	struct relation_spec rel_spec = {.delta = &((struct delta) {
+							.op = KV_OP_SET,
+							.flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
 
 					 .cur_key_spec = &((struct key_spec) {
-								.prefix= KV_PREFIX_NULL,
+								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.id = _get_ns_based_id(cmd, KV_NS_DEVICE),
-								.id_sub = KV_PREFIX_NULL,
+								.id_sub = ID_NULL,
 								.key = key}),
 
 					 .rel_key_spec = &((struct key_spec) {
-								.prefix = KV_PREFIX_NULL,
+								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
-								.id = KV_PREFIX_NULL, /* will be calculated later */
-								.id_sub = KV_PREFIX_NULL,
+								.id = ID_NULL, /* will be calculated later */
+								.id_sub = ID_NULL,
 								.key = rel_key})
 					};
 
@@ -2356,7 +2415,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 			free(dirent[i]);
 		}
 		free(dirent);
-		rel_spec.rel_key_spec->id = KV_PREFIX_NULL;
+		rel_spec.rel_key_spec->id = ID_NULL;
 	}
 
 
@@ -2368,9 +2427,6 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
 	}
-
-	rel_spec.delta->op = VECTOR_OP_SET;
-	rel_spec.delta->flags = DELTA_WITH_DIFF | DELTA_WITH_REL;
 
 	/*
 	 * Handle delta.final vector for this device.
@@ -2401,20 +2457,22 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	const char *s;
 	int r = -1;
 
-	struct relation_spec rel_spec = {.delta = &((struct delta) {0}),
+	struct relation_spec rel_spec = {.delta = &((struct delta) {
+								.op    = KV_OP_SET,
+								.flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
 
 					 .cur_key_spec = &((struct key_spec) {
-									.prefix= KV_PREFIX_NULL,
+									.op = KV_OP_SET,
 									.ns = KV_NS_DEVICE,
 									.id = _get_ns_based_id(cmd, KV_NS_DEVICE),
-									.id_sub = KV_PREFIX_NULL,
+									.id_sub = ID_NULL,
 									.key = key}),
 
 					 .rel_key_spec = &((struct key_spec) {
-								.prefix = KV_PREFIX_NULL,
+								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
-								.id = KV_PREFIX_NULL, /* will be calculated later */
-								.id_sub = KV_PREFIX_NULL,
+								.id = ID_NULL, /* will be calculated later */
+								.id_sub = ID_NULL,
 								.key = rel_key})
 					};
 
@@ -2442,15 +2500,12 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	s = _buffer_compose_key_prefix(cmd->gen_buf, rel_spec.rel_key_spec);
 	iov_to_store[VALUE_VECTOR_IDX_DATA] = (struct iovec) {(void *) s, strlen(s) + 1};
 
-	rel_spec.rel_key_spec->id = KV_PREFIX_NULL;
+	rel_spec.rel_key_spec->id = ID_NULL;
 
 	if (!(s = _buffer_compose_key(cmd->gen_buf, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
 	}
-
-	rel_spec.delta->op = VECTOR_OP_SET;
-	rel_spec.delta->flags = DELTA_WITH_DIFF | DELTA_WITH_REL;
 
 	/*
 	 * Handle delta.final vector for this device.
@@ -2699,15 +2754,13 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		key_size = strlen(key) + 1;
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
-		if (!strncmp(key, KV_PREFIX_NS_UDEV, strlen(KV_PREFIX_NULL KV_PREFIX_NS_UDEV))) {
-			if (strcmp(key + sizeof(KV_PREFIX_NULL KV_PREFIX_NS_UDEV) - 1, KV_PREFIX_NULL)) {
-				buffer_add(cmd->result_buf, (void *) key, key_size - 1);
-				buffer_add(cmd->result_buf, KV_PAIR, 1);
-				data_offset = _get_ubridge_kv_value_data_offset(ubridge_kv_value);
-				buffer_add(cmd->result_buf, ubridge_kv_value->data + data_offset, strlen(ubridge_kv_value->data + data_offset));
-				buffer_add(cmd->result_buf, KV_END, 1);
-				continue;
-			}
+		if (_get_ns_from_key(key) == KV_NS_UDEV) {
+			buffer_add(cmd->result_buf, (void *) key, key_size - 1);
+			buffer_add(cmd->result_buf, KV_PAIR, 1);
+			data_offset = _get_ubridge_kv_value_data_offset(ubridge_kv_value);
+			buffer_add(cmd->result_buf, ubridge_kv_value->data + data_offset, strlen(ubridge_kv_value->data + data_offset));
+			buffer_add(cmd->result_buf, KV_END, 1);
+			continue;
 		}
 
 		/*
@@ -3054,7 +3107,7 @@ static int _master_kv_store_update(const char *full_key, struct kv_store_update_
 	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
 	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 
-	if (rel_spec->delta->op == VECTOR_OP_SET)
+	if (rel_spec->delta->op == KV_OP_SET)
 		/* overwrite whole value */
 		r = (!iov_old ||
 		     ((VALUE_VECTOR_SEQNUM(iov_new) >= VALUE_VECTOR_SEQNUM(iov_old)) &&
@@ -3145,14 +3198,16 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 			log_debug(ID(worker_proxy_res), syncing_msg, full_key,
 				  unset ? "NULL" : "[vector]", VALUE_VECTOR_SEQNUM(iov));
 
-			if (!strncmp(full_key, KV_PREFIX_OP_DELTA_PLUS, sizeof(KV_PREFIX_OP_DELTA_PLUS) - 1)) {
-				full_key += sizeof(KV_PREFIX_OP_DELTA_PLUS) - 1;
-				rel_spec.delta->op = VECTOR_OP_PLUS;
-			} else if (!strncmp(full_key, KV_PREFIX_OP_DELTA_MINUS, sizeof(KV_PREFIX_OP_DELTA_MINUS) - 1)) {
-				full_key += sizeof(KV_PREFIX_OP_DELTA_MINUS) - 1;
-				rel_spec.delta->op = VECTOR_OP_MINUS;
-			} else
-				rel_spec.delta->op = VECTOR_OP_SET;
+			switch (rel_spec.delta->op = _get_op_from_key(full_key)) {
+				case KV_OP_PLUS:
+					full_key += sizeof(KV_PREFIX_OP_PLUS) - 1;
+					break;
+				case KV_OP_MINUS:
+					full_key += sizeof(KV_PREFIX_OP_MINUS) - 1;
+					break;
+				case KV_OP_SET:
+					break;
+			}
 
 			data_to_store = iov;
 		} else {
@@ -3172,7 +3227,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 				        : data_offset ? value->data + data_offset
 						      : value->data, value->seqnum);
 
-			rel_spec.delta->op = VECTOR_OP_SET;
+			rel_spec.delta->op = KV_OP_SET;
 
 			data_to_store = value;
 		}

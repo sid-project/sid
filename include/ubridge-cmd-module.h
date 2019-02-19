@@ -96,10 +96,11 @@ uint64_t sid_ubridge_cmd_dev_get_seqnum(struct sid_ubridge_cmd_context *cmd);
 const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *cmd);
 
 typedef enum {
-	KV_NS_UDEV,    /* per-device namespace, it contains records imported from udev, all changed/new records  are exported back to udev */
-	KV_NS_GLOBAL,  /* global namespace, it contains records in global scope - visible for all modules and when processing all devices */
-	KV_NS_MODULE,  /* per-module namespace, it contains records in the scope of the module that set the record */
-	KV_NS_DEVICE,  /* per-device namespace, it contains records in the scope of the device that was being processed when the record was set */
+	KV_NS_UNDEFINED, /* namespace not defined */
+	KV_NS_UDEV,      /* per-device namespace, it contains records imported from udev, all changed/new records  are exported back to udev */
+	KV_NS_GLOBAL,    /* global namespace, it contains records in global scope - visible for all modules and when processing all devices */
+	KV_NS_MODULE,    /* per-module namespace, it contains records in the scope of the module that set the record */
+	KV_NS_DEVICE,    /* per-device namespace, it contains records in the scope of the device that was being processed when the record was set */
 } sid_ubridge_cmd_kv_namespace_t;
 
 typedef enum {
