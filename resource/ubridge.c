@@ -141,7 +141,7 @@ typedef enum {
 	CMD_IDENTIFY = 3,
 	CMD_CHECKPOINT = 4,
 	__CMD_END
-} command_t;
+} cmd_id_t;
 
 typedef enum {
 	CMD_IDENT_PHASE_A_INIT = 0,                                     /* initializing phase "A" */
@@ -167,15 +167,15 @@ typedef enum {
 	CMD_IDENT_PHASE_ERROR,
 } cmd_ident_phase_t;
 
-struct raw_command_header {
-	uint8_t protocol;
-	uint8_t cmd_number;	/* IN: cmd number  OUT: CMD_RESPONSE */
-	uint64_t status;	/* IN: udev seqnum OUT: response status */
+struct raw_cmd_hdr {
+	uint8_t prot;
+	uint8_t cmd_id;	 /* IN: cmd number  OUT: CMD_RESPONSE */
+	uint64_t status; /* IN: udev seqnum OUT: response status */
 	char data[0];
 } __attribute__((packed));
 
-struct raw_command {
-	struct raw_command_header *header;
+struct raw_cmd {
+	struct raw_cmd_hdr *hdr;
 	size_t len;		/* header + data */
 };
 
@@ -203,8 +203,8 @@ struct connection {
 };
 
 struct sid_ubridge_cmd_context {
-	uint8_t protocol;
-	command_t type;
+	uint8_t prot;
+	cmd_id_t id;
 	union {
 		cmd_ident_phase_t ident_phase;
 	};
@@ -215,11 +215,11 @@ struct sid_ubridge_cmd_context {
 	sid_resource_t *kv_store_res;
 	sid_resource_t *mod_res; /* the module that is processed at the moment */
 	struct buffer *gen_buf;
-	struct buffer *result_buf;
+	struct buffer *res_buf;
 
 };
 
-struct command_module_fns {
+struct cmd_mod_fns {
 	sid_ubridge_cmd_fn_t *ident;
 	sid_ubridge_cmd_fn_t *scan_pre;
 	sid_ubridge_cmd_fn_t *scan_current;
@@ -231,29 +231,29 @@ struct command_module_fns {
 	sid_ubridge_cmd_fn_t *error;
 } __attribute__((packed));
 
-struct udev_monitor_setup {
+struct umonitor {
 	struct udev *udev;
 	struct udev_monitor *monitor;
 	sid_event_source *es;
 	char tag[25]; /* "sid_<20_chars_for_64_bit_uevent_seqnum_in_decimal>" + "\0" */
 };
 
-struct command_exec_args {
+struct cmd_exec_arg {
 	sid_resource_t *cmd_res;
 	sid_resource_t *type_mod_registry_res;
 	sid_resource_iter_t *block_mod_iter;  /* all block modules to execute */
 	sid_resource_t *type_mod_res_current; /* one type module for current layer to execute */
 	sid_resource_t *type_mod_res_next;    /* one type module for next layer to execute */
-	struct udev_monitor_setup umonitor;
+	struct umonitor umonitor;
 };
 
-struct command_reg {
+struct cmd_reg {
 	const char *name;
 	uint32_t flags;
-	int (*execute) (struct command_exec_args *exec_arg);
+	int (*exec) (struct cmd_exec_arg *exec_arg);
 };
 
-struct ubridge_kv_value {
+struct kv_value {
 	uint64_t seqnum;
 	sid_ubridge_kv_flags_t flags;
 	char data[0];
@@ -297,7 +297,7 @@ typedef enum {
 	DELTA_WITH_REL  = 0x2,
 } delta_flags_t;
 
-struct delta {
+struct kv_delta {
 	kv_op_t op;
 	delta_flags_t flags;
 	struct buffer *plus;
@@ -305,7 +305,7 @@ struct delta {
 	struct buffer *final;
 };
 
-struct key_spec {
+struct kv_key_spec {
 	kv_op_t op;
 	sid_ubridge_cmd_kv_namespace_t ns;
 	const char *id;
@@ -313,10 +313,15 @@ struct key_spec {
 	const char *key;
 };
 
-struct relation_spec {
-	struct delta *delta;
-	struct key_spec *cur_key_spec;
-	struct key_spec *rel_key_spec;
+struct kv_rel_spec {
+	struct kv_delta *delta;
+	struct kv_key_spec *cur_key_spec;
+	struct kv_key_spec *rel_key_spec;
+};
+
+struct kv_key_res_def {
+	sid_ubridge_cmd_kv_namespace_t ns;
+	const char *key;
 };
 
 struct cross_bitmap_calc_arg
@@ -332,7 +337,7 @@ struct cross_bitmap_calc_arg
 #define CMD_IDENT_CAP_RDY UINT32_C(0x000000001) /* can set ready state */
 #define CMD_IDENT_CAP_RES UINT32_C(0x000000002) /* can set reserved state */
 
-static struct command_reg _cmd_ident_phase_regs[];
+static struct cmd_reg _cmd_ident_phase_regs[];
 static sid_ubridge_kv_flags_t kv_flags_no_persist = (DEFAULT_CORE_KV_FLAGS) & ~KV_PERSISTENT;
 static sid_ubridge_kv_flags_t kv_flags_persist = DEFAULT_CORE_KV_FLAGS;
 static char *core_mod_name = CORE_MOD_NAME;
@@ -375,7 +380,7 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 	return cmd->udev_dev.synth_uuid;
 }
 
-static const char *_do_buffer_compose_key(struct buffer *buf, struct key_spec *spec, int prefix_only)
+static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec *spec, int prefix_only)
 {
 	static const char *op_to_key_prefix_map[] = {[KV_OP_SET]       = KV_PREFIX_OP_SET,
 						     [KV_OP_PLUS]      = KV_PREFIX_OP_PLUS,
@@ -401,13 +406,13 @@ static const char *_do_buffer_compose_key(struct buffer *buf, struct key_spec *s
 				   prefix_only ? KEY_NULL : spec->key);
 }
 
-static const char *_buffer_compose_key(struct buffer *buf, struct key_spec *spec)
+static const char *_buffer_compose_key(struct buffer *buf, struct kv_key_spec *spec)
 {
 	/* <op>:<ns>:<id>:<id_sub>:<key> */
 	return _do_buffer_compose_key(buf, spec, 0);
 }
 
-static const char *_buffer_compose_key_prefix(struct buffer *buf, struct key_spec *spec)
+static const char *_buffer_compose_key_prefix(struct buffer *buf, struct kv_key_spec *spec)
 {
 	/* <op>:<ns>:<id>:<id_sub> */
 	return _do_buffer_compose_key(buf, spec, 1);
@@ -485,7 +490,7 @@ out:
 static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value, size_t value_size, struct iovec *iov)
 {
 	size_t mod_name_size;
-	struct ubridge_kv_value *ubridge_kv_value;
+	struct kv_value *kv_value;
 
 	if (!value)
 		return NULL;
@@ -493,11 +498,11 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 	if (flags & KV_STORE_VALUE_VECTOR)
 		return value;
 
-	ubridge_kv_value = value;
-	mod_name_size = strlen(ubridge_kv_value->data) + 1;
+	kv_value = value;
+	mod_name_size = strlen(kv_value->data) + 1;
 
-	VALUE_VECTOR_PREPARE_HEADER(iov, ubridge_kv_value->seqnum, ubridge_kv_value->flags, ubridge_kv_value->data)
-	iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {ubridge_kv_value->data + mod_name_size, value_size - sizeof(*ubridge_kv_value) - mod_name_size};
+	VALUE_VECTOR_PREPARE_HEADER(iov, kv_value->seqnum, kv_value->flags, kv_value->data)
+	iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {kv_value->data + mod_name_size, value_size - sizeof(*kv_value) - mod_name_size};
 
 	return iov;
 }
@@ -658,9 +663,9 @@ static const char *_res_get_mod_name(sid_resource_t *mod_res)
 }
 
 
-static size_t _get_ubridge_kv_value_data_offset(struct ubridge_kv_value *ubridge_kv_value)
+static size_t _get_kv_value_data_offset(struct kv_value *kv_value)
 {
-	return strlen(ubridge_kv_value->data) + 1;
+	return strlen(kv_value->data) + 1;
 }
 
 static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd, const char *mod_name,
@@ -672,11 +677,11 @@ static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd,
 	void *found;
 	size_t value_size;
 	kv_store_value_flags_t value_flags;
-	struct key_spec key_spec = {.op = KV_OP_SET,
-				    .ns = ns,
-				    .id = ID_NULL,
-				    .id_sub = ID_NULL,
-				    .key = key};
+	struct kv_key_spec key_spec = {.op = KV_OP_SET,
+				       .ns = ns,
+				       .id = ID_NULL,
+				       .id_sub = ID_NULL,
+				       .key = key};
 	int r = 1;
 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
@@ -721,7 +726,7 @@ static const char *_get_ns_based_id(struct sid_ubridge_cmd_context *cmd, sid_ubr
 	return ID_NULL;
 }
 
-static void _destroy_delta(struct delta *delta)
+static void _destroy_delta(struct kv_delta *delta)
 {
 	if (delta->plus) {
 		buffer_destroy(delta->plus);
@@ -739,7 +744,7 @@ static void _destroy_delta(struct delta *delta)
 	}
 }
 
-static void _destroy_unused_delta(struct delta *delta)
+static void _destroy_unused_delta(struct kv_delta *delta)
 {
 	struct iovec *iov;
 	size_t size;
@@ -767,14 +772,13 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	const char *mod_name = _res_get_mod_name(cmd->mod_res);
 	const char *full_key = NULL;
 	struct iovec iov[4];
-	struct ubridge_kv_value *ubridge_kv_value;
+	struct kv_value *kv_value;
 	struct kv_update_arg update_arg;
-	struct key_spec key_spec = {.op = KV_OP_SET,
-				    .ns = ns,
-				    .id = _get_ns_based_id(cmd, ns),
-				    .id_sub = ID_NULL,
-				    .key = key,
-				   };
+	struct kv_key_spec key_spec = {.op = KV_OP_SET,
+				       .ns = ns,
+				       .id = _get_ns_based_id(cmd, ns),
+				       .id_sub = ID_NULL,
+				       .key = key};
 	void *ret = NULL;
 
 	/*
@@ -807,11 +811,11 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	update_arg.custom = NULL;
 	update_arg.ret_code = 0;
 
-	ubridge_kv_value = kv_store_set_value(cmd->kv_store_res, full_key, iov, 4,
+	kv_value = kv_store_set_value(cmd->kv_store_res, full_key, iov, 4,
 					      KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
 					      _kv_overwrite, &update_arg);
 
-	if (!ubridge_kv_value) {
+	if (!kv_value) {
 		if (errno == EADV)
 			errno = update_arg.ret_code;
 		goto out;
@@ -820,7 +824,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	if (!value_size)
 		goto out;
 
-	ret = ubridge_kv_value->data + _get_ubridge_kv_value_data_offset(ubridge_kv_value);
+	ret = kv_value->data + _get_kv_value_data_offset(kv_value);
 out:
 	buffer_rewind_mem(cmd->gen_buf, full_key);
 	return ret;
@@ -845,13 +849,13 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 {
 	const char *mod_name = _res_get_mod_name(cmd->mod_res);
 	const char *full_key = NULL;
-	struct ubridge_kv_value *ubridge_kv_value;
+	struct kv_value *kv_value;
 	size_t size, data_offset;
-	struct key_spec key_spec = {.op = KV_OP_SET,
-				    .ns = ns,
-				    .id = _get_ns_based_id(cmd, ns),
-				    .id_sub = ID_NULL,
-				    .key = key};
+	struct kv_key_spec key_spec = {.op = KV_OP_SET,
+				       .ns = ns,
+				       .id = _get_ns_based_id(cmd, ns),
+				       .id_sub = ID_NULL,
+				       .key = key};
 	void *ret = NULL;
 
 	if (!cmd || !key || !*key) {
@@ -864,27 +868,27 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		goto out;
 	}
 
-	if (!(ubridge_kv_value = kv_store_get_value(cmd->kv_store_res, full_key, &size, NULL)))
+	if (!(kv_value = kv_store_get_value(cmd->kv_store_res, full_key, &size, NULL)))
 		goto out;
 
-	if (ubridge_kv_value->flags & KV_MOD_PRIVATE) {
-		if (strcmp(ubridge_kv_value->data, mod_name)) {
+	if (kv_value->flags & KV_MOD_PRIVATE) {
+		if (strcmp(kv_value->data, mod_name)) {
 			errno = EACCES;
 			goto out;
 		}
 	}
 
 	if (flags)
-		*flags = ubridge_kv_value->flags;
+		*flags = kv_value->flags;
 
-	data_offset = _get_ubridge_kv_value_data_offset(ubridge_kv_value);
-	size -= (sizeof(*ubridge_kv_value) + data_offset);
+	data_offset = _get_kv_value_data_offset(kv_value);
+	size -= (sizeof(*kv_value) + data_offset);
 
 	if (value_size)
 		*value_size = size;
 
 	if (size)
-		ret = ubridge_kv_value->data + data_offset;
+		ret = kv_value->data + data_offset;
 out:
 	buffer_rewind_mem(cmd->gen_buf, full_key);
 	return ret;
@@ -940,16 +944,16 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	const char *mod_name = _get_mod_name(mod);
 	const char *full_key = NULL;
 	struct iovec iov[_VALUE_VECTOR_IDX_COUNT - 1]; /* without VALUE_VECTOR_IDX_DATA */
-	struct ubridge_kv_value *ubridge_kv_value;
+	struct kv_value *kv_value;
 	static uint64_t null_int = 0;
 	sid_ubridge_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
 	int is_worker;
-	struct key_spec key_spec = {.op = KV_OP_SET,
-				    .ns = ns,
-				    .id = ID_NULL,
-				    .id_sub = ID_NULL,
-				    .key = key};
+	struct kv_key_spec key_spec = {.op = KV_OP_SET,
+				       .ns = ns,
+				       .id = ID_NULL,
+				       .id_sub = ID_NULL,
+				       .key = key};
 	int r = -1;
 
 	if (!(full_key = _buffer_compose_key(cmd_mod->gen_buf, &key_spec))) {
@@ -980,11 +984,11 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		goto out;
 	} else {
 		VALUE_VECTOR_PREPARE_HEADER(iov, null_int, flags, (char *) mod_name);
-		ubridge_kv_value = kv_store_set_value(cmd_mod->kv_store_res, full_key, iov, _VALUE_VECTOR_IDX_COUNT - 1,
+		kv_value = kv_store_set_value(cmd_mod->kv_store_res, full_key, iov, _VALUE_VECTOR_IDX_COUNT - 1,
 						    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
 						    _kv_reserve, &update_arg);
 
-		if (!ubridge_kv_value) {
+		if (!kv_value) {
 			if (errno == EADV)
 				errno = update_arg.ret_code;
 			goto out;
@@ -1113,11 +1117,11 @@ int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
 	struct iovec iov[VALUE_VECTOR_IDX_DATA];
 	int r = -1;
 
-	struct key_spec key_spec = {.op = KV_OP_SET,
-				    .ns = group_ns,
-				    .id = _get_ns_based_id(cmd, group_ns),
-				    .id_sub = group_id,
-				    .key = KV_KEY_GEN_GROUP_MEMBERS};
+	struct kv_key_spec key_spec = {.op = KV_OP_SET,
+				       .ns = group_ns,
+				       .id = _get_ns_based_id(cmd, group_ns),
+				       .id_sub = group_id,
+				       .key = KV_KEY_GEN_GROUP_MEMBERS};
 
 	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
 					   .mod_name = _res_get_mod_name(cmd->mod_res),
@@ -1154,26 +1158,25 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 	struct iovec iov[_VALUE_VECTOR_IDX_COUNT];
 	int r = 0;
 
-	struct relation_spec rel_spec = {.delta = &((struct delta) {.op = op,
+	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op = op,
 								    .flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
 								    .plus = NULL,
 								    .minus = NULL,
 								    .final = NULL}),
 
-					 .cur_key_spec = &((struct key_spec) {
+				       .cur_key_spec = &((struct kv_key_spec) {
 								.op = KV_OP_SET,
 								.ns = group_ns,
 								.id = _get_ns_based_id(cmd, group_ns),
 								.id_sub = group_id,
 								.key = KV_KEY_GEN_GROUP_MEMBERS}),
 
-					 .rel_key_spec = &((struct key_spec) {
+				       .rel_key_spec = &((struct kv_key_spec) {
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.id = _get_ns_based_id(cmd, KV_NS_DEVICE),
 								.id_sub = ID_NULL,
-								.key = KV_KEY_GEN_GROUP_IN})
-					};
+								.key = KV_KEY_GEN_GROUP_IN})};
 
 	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
 					   .mod_name = CORE_MOD_NAME,
@@ -1230,26 +1233,25 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 	struct iovec iov_blank[VALUE_VECTOR_IDX_DATA];
 	int r = -1;
 
-	struct relation_spec rel_spec = {.delta = &((struct delta) {.op = KV_OP_SET,
+	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op = KV_OP_SET,
 								    .flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
 								    .plus = NULL,
 								    .minus = NULL,
 								    .final = NULL}),
 
-					 .cur_key_spec = &((struct key_spec) {
+				       .cur_key_spec = &((struct kv_key_spec) {
 								.op = KV_OP_SET,
 								.ns = group_ns,
 								.id = _get_ns_based_id(cmd, group_ns),
 								.id_sub = group_id,
 								.key = KV_KEY_GEN_GROUP_MEMBERS}),
 
-					 .rel_key_spec = &((struct key_spec) {
+				       .rel_key_spec = &((struct kv_key_spec) {
 								.op = KV_OP_SET,
 								.ns = 0,
 								.id = ID_NULL,
 								.id_sub = ID_NULL,
-								.key = KV_KEY_GEN_GROUP_IN})
-					};
+								.key = KV_KEY_GEN_GROUP_IN})};
 
 	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
 					   .mod_name = CORE_MOD_NAME,
@@ -1327,22 +1329,22 @@ bad:
 	return -1;
 };
 
-static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct sid_ubridge_cmd_context *cmd)
+static int _parse_cmd_nullstr_udev_env(const struct raw_cmd *raw_cmd, struct sid_ubridge_cmd_context *cmd)
 {
 	char buf[32];
 	dev_t devno;
 	size_t i = 0;
 	const char *delim;
 	char *str;
-	size_t raw_udev_env_len = raw_cmd->len - sizeof(struct raw_command_header);
+	size_t raw_udev_env_len = raw_cmd->len - sizeof(struct raw_cmd_hdr);
 
-	if (raw_cmd->header->cmd_number != CMD_IDENTIFY)
+	if (raw_cmd->hdr->cmd_id != CMD_IDENTIFY)
 		return 0;
 
 	if (raw_udev_env_len < sizeof(devno))
 		goto fail;
 
-	memcpy(&devno, raw_cmd->header->data, sizeof(devno));
+	memcpy(&devno, raw_cmd->hdr->data, sizeof(devno));
 	raw_udev_env_len -= sizeof(devno);
 
 	cmd->udev_dev.major = major(devno);
@@ -1357,7 +1359,7 @@ static int _parse_cmd_nullstr_udev_env(const struct raw_command *raw_cmd, struct
 	 *   key1=value1\0key2=value2\0...
 	 */
 	while (i < raw_udev_env_len) {
-		str = raw_cmd->header->data + sizeof(devno) + i;
+		str = raw_cmd->hdr->data + sizeof(devno) + i;
 
 		if (!(delim = memchr(str, KV_END[0], raw_udev_env_len - i)))
 			goto fail;
@@ -1488,41 +1490,41 @@ out:
 	return mod_name;
 }
 
-static int _cmd_execute_unknown(struct command_exec_args *exec_args)
+static int _cmd_exec_unknown(struct cmd_exec_arg *exec_arg)
 {
 	return 0;
 }
 
-static int _cmd_execute_reply(struct command_exec_args *exec_args)
+static int _cmd_exec_reply(struct cmd_exec_arg *exec_arg)
 {
 	return 0;
 }
 
-static int _cmd_execute_version(struct command_exec_args *exec_args)
+static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	static struct version this_version = {.major = SID_VERSION_MAJOR,
 					      .minor = SID_VERSION_MINOR,
 					      .release = SID_VERSION_RELEASE};
 
-	buffer_add(cmd->result_buf, &this_version, sizeof(this_version));
+	buffer_add(cmd->res_buf, &this_version, sizeof(this_version));
 	return 0;
 }
 
-static int _execute_block_modules(struct command_exec_args *exec_args, cmd_ident_phase_t phase)
+static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_ident_phase_t phase)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *orig_mod_res = cmd->mod_res;
 	sid_resource_t *block_mod_res;
 	struct sid_module *block_mod;
-	const struct command_module_fns *block_mod_fns;
+	const struct cmd_mod_fns *block_mod_fns;
 	int r = -1;
 
-	sid_resource_iter_reset(exec_args->block_mod_iter);
+	sid_resource_iter_reset(exec_arg->block_mod_iter);
 
-	while ((block_mod_res = sid_resource_iter_next(exec_args->block_mod_iter))) {
+	while ((block_mod_res = sid_resource_iter_next(exec_arg->block_mod_iter))) {
 		if (sid_module_registry_get_module_symbols(block_mod_res, (const void ***) &block_mod_fns) < 0) {
-			log_error(ID(exec_args->cmd_res), "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
+			log_error(ID(exec_arg->cmd_res), "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
 			goto out;
 		}
 
@@ -1567,7 +1569,7 @@ static int _execute_block_modules(struct command_exec_args *exec_args, cmd_ident
 					goto out;
 				break;
 			default:
-				log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
+				log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
 					  __func__, _cmd_ident_phase_regs[phase].name);
 				break;
 		}
@@ -1579,14 +1581,14 @@ out:
 	return r;
 }
 
-static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
+static int _cmd_exec_identify_ident(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-	const struct command_module_fns *mod_fns;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_args, CMD_IDENT_PHASE_A_IDENT);
+	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_IDENT);
 
-	//sid_resource_dump_all_in_dot(sid_resource_get_top_level(exec_args->cmd_res));
+	//sid_resource_dump_all_in_dot(sid_resource_get_top_level(exec_arg->cmd_res));
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->ident)
@@ -1595,12 +1597,12 @@ static int _cmd_execute_identify_ident(struct command_exec_args *exec_args)
 	return 0;
 }
 
-static int _cmd_execute_identify_scan_pre(struct command_exec_args *exec_args)
+static int _cmd_exec_identify_scan_pre(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-	const struct command_module_fns *mod_fns;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_args, CMD_IDENT_PHASE_A_SCAN_PRE);
+	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_SCAN_PRE);
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_pre)
@@ -1609,12 +1611,12 @@ static int _cmd_execute_identify_scan_pre(struct command_exec_args *exec_args)
 	return 0;
 }
 
-static int _cmd_execute_identify_scan_current(struct command_exec_args *exec_args)
+static int _cmd_exec_identify_scan_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-	const struct command_module_fns *mod_fns;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_args, CMD_IDENT_PHASE_A_SCAN_CURRENT);
+	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_SCAN_CURRENT);
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_current)
@@ -1624,23 +1626,23 @@ static int _cmd_execute_identify_scan_current(struct command_exec_args *exec_arg
 	return 0;
 }
 
-static int _cmd_execute_identify_scan_next(struct command_exec_args *exec_args)
+static int _cmd_exec_identify_scan_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-	const struct command_module_fns *mod_fns;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
 	const char *next_mod_name;
 
-	_execute_block_modules(exec_args, CMD_IDENT_PHASE_A_SCAN_NEXT);
+	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_SCAN_NEXT);
 
 	if ((next_mod_name = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_NEXT_MOD, NULL, NULL))) {
-		if (!(exec_args->type_mod_res_next = sid_module_registry_get_module(exec_args->type_mod_registry_res, next_mod_name))) {
-			log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", next_mod_name);
+		if (!(exec_arg->type_mod_res_next = sid_module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name))) {
+			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
 			return -1;
 		}
 	} else
-		exec_args->type_mod_res_next = NULL;
+		exec_arg->type_mod_res_next = NULL;
 
-	cmd->mod_res = exec_args->type_mod_res_next;
+	cmd->mod_res = exec_arg->type_mod_res_next;
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_next)
@@ -1649,14 +1651,14 @@ static int _cmd_execute_identify_scan_next(struct command_exec_args *exec_args)
 	return 0;
 }
 
-static int _cmd_execute_identify_scan_post_current(struct command_exec_args *exec_args)
+static int _cmd_exec_identify_scan_post_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-	const struct command_module_fns *mod_fns;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
 
-	cmd->mod_res = exec_args->type_mod_res_current;
+	cmd->mod_res = exec_arg->type_mod_res_current;
 
-	_execute_block_modules(exec_args, CMD_IDENT_PHASE_A_SCAN_POST_CURRENT);
+	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_SCAN_POST_CURRENT);
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_current)
@@ -1665,14 +1667,14 @@ static int _cmd_execute_identify_scan_post_current(struct command_exec_args *exe
 	return 0;
 }
 
-static int _cmd_execute_identify_scan_post_next(struct command_exec_args *exec_args)
+static int _cmd_exec_identify_scan_post_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-	const struct command_module_fns *mod_fns;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
 
-	cmd->mod_res = exec_args->type_mod_res_next;
+	cmd->mod_res = exec_arg->type_mod_res_next;
 
-	_execute_block_modules(exec_args, CMD_IDENT_PHASE_A_SCAN_POST_NEXT);
+	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_SCAN_POST_NEXT);
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_next)
@@ -1681,36 +1683,36 @@ static int _cmd_execute_identify_scan_post_next(struct command_exec_args *exec_a
 	return 0;
 }
 
-static int _cmd_execute_identify_trigger_action_current(struct command_exec_args *exec_args)
+static int _cmd_exec_identify_trigger_action_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 
-	cmd->mod_res = exec_args->type_mod_res_current;
+	cmd->mod_res = exec_arg->type_mod_res_current;
 	return 0;
 }
 
-static int _cmd_execute_identify_trigger_action_next(struct command_exec_args *exec_args)
+static int _cmd_exec_identify_trigger_action_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 
-	cmd->mod_res = exec_args->type_mod_res_next;
+	cmd->mod_res = exec_arg->type_mod_res_next;
 	return 0;
 }
 
-static int _cmd_execute_identify_error(struct command_exec_args *exec_args)
+static int _cmd_exec_identify_error(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-	const struct command_module_fns *mod_fns;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
 	int r = 0;
 
-	_execute_block_modules(exec_args, CMD_IDENT_PHASE_ERROR);
+	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_ERROR);
 
-	cmd->mod_res = exec_args->type_mod_res_current;
+	cmd->mod_res = exec_arg->type_mod_res_current;
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->error)
 		r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
 
-	cmd->mod_res = exec_args->type_mod_res_next;
+	cmd->mod_res = exec_arg->type_mod_res_next;
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->error)
 		r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
@@ -1720,43 +1722,43 @@ static int _cmd_execute_identify_error(struct command_exec_args *exec_args)
 
 static int _on_cmd_udev_monitor(sid_event_source *es, int fd, uint32_t revents, void *data)
 {
-	return _cmd_ident_phase_regs[CMD_IDENT_PHASE_B_TRIGGER_ACTION_CURRENT].execute(data) &&
-	       _cmd_ident_phase_regs[CMD_IDENT_PHASE_B_TRIGGER_ACTION_NEXT].execute(data);
+	return _cmd_ident_phase_regs[CMD_IDENT_PHASE_B_TRIGGER_ACTION_CURRENT].exec(data) &&
+	       _cmd_ident_phase_regs[CMD_IDENT_PHASE_B_TRIGGER_ACTION_NEXT].exec(data);
 }
 
-static int _set_up_udev_monitor(struct command_exec_args *exec_args)
+static int _set_up_udev_monitor(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
-	struct udev_monitor_setup *umonitor = &exec_args->umonitor;
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct umonitor *umonitor = &exec_arg->umonitor;
 	int umonitor_fd = -1;
 
 	if (!(umonitor->udev = udev_new())) {
-		log_error(ID(exec_args->cmd_res), "Failed to create udev handle.");
+		log_error(ID(exec_arg->cmd_res), "Failed to create udev handle.");
 		goto fail;
 	}
 
 	if (!(umonitor->monitor = udev_monitor_new_from_netlink(umonitor->udev, "udev"))) {
-		log_error(ID(exec_args->cmd_res), "Failed to create udev monitor.");
+		log_error(ID(exec_arg->cmd_res), "Failed to create udev monitor.");
 		goto fail;
 	}
 
 	snprintf(umonitor->tag, sizeof(umonitor->tag), "sid_%" PRIu64, cmd->udev_dev.seqnum);
 
 	if (udev_monitor_filter_add_match_tag(umonitor->monitor, umonitor->tag) < 0) {
-		log_error(ID(exec_args->cmd_res), "Failed to create tag filter.");
+		log_error(ID(exec_arg->cmd_res), "Failed to create tag filter.");
 		goto fail;
 	}
 
 	umonitor_fd = udev_monitor_get_fd(umonitor->monitor);
 
-	if (sid_resource_create_io_event_source(exec_args->cmd_res, &umonitor->es, umonitor_fd,
-						_on_cmd_udev_monitor, NULL, exec_args) < 0) {
-		log_error(ID(exec_args->cmd_res), "Failed to register udev monitoring.");
+	if (sid_resource_create_io_event_source(exec_arg->cmd_res, &umonitor->es, umonitor_fd,
+						_on_cmd_udev_monitor, NULL, exec_arg) < 0) {
+		log_error(ID(exec_arg->cmd_res), "Failed to register udev monitoring.");
 		goto fail;
 	}
 
 	if (udev_monitor_enable_receiving(umonitor->monitor) < 0) {
-		log_error(ID(exec_args->cmd_res), "Failed to enable udev monitoring.");
+		log_error(ID(exec_arg->cmd_res), "Failed to enable udev monitoring.");
 		goto fail;
 	}
 
@@ -1767,7 +1769,7 @@ fail:
 			udev_monitor_unref(umonitor->monitor);
 		udev_unref(umonitor->udev);
 		if (umonitor->es)
-			(void) sid_resource_destroy_event_source(exec_args->cmd_res, &umonitor->es);
+			(void) sid_resource_destroy_event_source(exec_arg->cmd_res, &umonitor->es);
 	}
 	return -1;
 }
@@ -1827,7 +1829,7 @@ static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iov
 	return 0;
 }
 
-static int _init_delta_struct(struct delta *delta, size_t minus_size, size_t plus_size, size_t final_size,
+static int _init_delta_struct(struct kv_delta *delta, size_t minus_size, size_t plus_size, size_t final_size,
 			      struct iovec *header, size_t header_size)
 {
 	if (_init_delta_buffer(&delta->plus, plus_size, header, header_size) < 0 ||
@@ -1851,7 +1853,7 @@ static int _iov_str_item_cmp(const void *a, const void *b)
 static int _delta_step_calculate(struct kv_store_update_spec *spec,
 				 struct kv_update_arg *update_arg)
 {
-	struct delta *delta = ((struct relation_spec *) update_arg->custom)->delta;
+	struct kv_delta *delta = ((struct kv_rel_spec *) update_arg->custom)->delta;
 	struct iovec *old_value = spec->old_data;
 	size_t old_size = spec->old_data_size;
 	struct iovec *new_value = spec->new_data;
@@ -2022,11 +2024,11 @@ static void _delta_cross_bitmap_calculate(struct cross_bitmap_calc_arg *cross)
 
 static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 				struct kv_update_arg *update_arg,
-				struct delta *abs_delta)
+				struct kv_delta *abs_delta)
 {
 	struct cross_bitmap_calc_arg cross1 = {0};
 	struct cross_bitmap_calc_arg cross2 = {0};
-	struct relation_spec *rel_spec = update_arg->custom;
+	struct kv_rel_spec *rel_spec = update_arg->custom;
 	kv_op_t orig_op = rel_spec->cur_key_spec->op;
 	const char *delta_full_key;
 	struct iovec *abs_plus, *abs_minus;
@@ -2167,9 +2169,9 @@ static void _value_vector_mark_persist(struct iovec *iov, int persist)
 		iov[VALUE_VECTOR_IDX_FLAGS] = (struct iovec) {&kv_flags_no_persist, sizeof(kv_flags_no_persist)};
 }
 
-static void _flip_key_specs(struct relation_spec *rel_spec)
+static void _flip_key_specs(struct kv_rel_spec *rel_spec)
 {
-	struct key_spec *tmp_key_spec;
+	struct kv_key_spec *tmp_key_spec;
 
 	tmp_key_spec = rel_spec->cur_key_spec;
 	rel_spec->cur_key_spec = rel_spec->rel_key_spec;
@@ -2178,13 +2180,13 @@ static void _flip_key_specs(struct relation_spec *rel_spec)
 
 static int _delta_update(struct kv_store_update_spec *spec,
 			 struct kv_update_arg *update_arg,
-			 struct delta *abs_delta, kv_op_t op)
+			 struct kv_delta *abs_delta, kv_op_t op)
 {
 	uint64_t seqnum = VALUE_VECTOR_SEQNUM(spec->new_data);
-	struct relation_spec *rel_spec = update_arg->custom;
+	struct kv_rel_spec *rel_spec = update_arg->custom;
 	kv_op_t orig_op = rel_spec->cur_key_spec->op;
 	const char *tmp_mem_start = buffer_add(update_arg->gen_buf, "", 0);
-	struct delta *orig_delta;
+	struct kv_delta *orig_delta;
 	struct iovec *delta_iov, *abs_delta_iov;
 	size_t delta_iov_cnt, abs_delta_iov_cnt, i;
 	const char *key_prefix, *id, *full_key;
@@ -2221,7 +2223,7 @@ static int _delta_update(struct kv_store_update_spec *spec,
 		_flip_key_specs(rel_spec);
 		orig_delta = rel_spec->delta;
 
-		rel_spec->delta = &((struct delta) {0});
+		rel_spec->delta = &((struct kv_delta) {0});
 		rel_spec->delta->op = op;
 		rel_spec->delta->flags = DELTA_WITH_DIFF;
 
@@ -2253,8 +2255,8 @@ static int _kv_delta(const char *full_key __attribute__ ((unused)),
 		     struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *update_arg = garg;
-	struct relation_spec *rel_spec = update_arg->custom;
-	struct delta abs_delta = {0};
+	struct kv_rel_spec *rel_spec = update_arg->custom;
+	struct kv_delta abs_delta = {0};
 	int r = 0; /* no change by default */
 
 	/* FIXME: propagate error out of this function so it can be reported by caller. */
@@ -2322,18 +2324,18 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 	int count = 0, i;
 	int r = -1;
 
-	struct relation_spec rel_spec = {.delta = &((struct delta) {
+	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {
 							.op = KV_OP_SET,
 							.flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
 
-					 .cur_key_spec = &((struct key_spec) {
+					 .cur_key_spec = &((struct kv_key_spec) {
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.id = _get_ns_based_id(cmd, KV_NS_DEVICE),
 								.id_sub = ID_NULL,
 								.key = key}),
 
-					 .rel_key_spec = &((struct key_spec) {
+					 .rel_key_spec = &((struct kv_key_spec) {
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.id = ID_NULL, /* will be calculated later */
@@ -2457,24 +2459,23 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	const char *s;
 	int r = -1;
 
-	struct relation_spec rel_spec = {.delta = &((struct delta) {
+	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {
 								.op    = KV_OP_SET,
 								.flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
 
-					 .cur_key_spec = &((struct key_spec) {
+				       .cur_key_spec = &((struct kv_key_spec) {
 									.op = KV_OP_SET,
 									.ns = KV_NS_DEVICE,
 									.id = _get_ns_based_id(cmd, KV_NS_DEVICE),
 									.id_sub = ID_NULL,
 									.key = key}),
 
-					 .rel_key_spec = &((struct key_spec) {
+				       .rel_key_spec = &((struct kv_key_spec) {
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.id = ID_NULL, /* will be calculated later */
 								.id_sub = ID_NULL,
-								.key = rel_key})
-					};
+								.key = rel_key})};
 
 	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
 					   .mod_name = CORE_MOD_NAME,
@@ -2565,59 +2566,59 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	return 0;
 }
 
-static struct command_reg _cmd_ident_phase_regs[] = {
+static struct cmd_reg _cmd_ident_phase_regs[] = {
 	[CMD_IDENT_PHASE_A_INIT]                   = {.name = "init",
                                                       .flags = CMD_IDENT_CAP_RDY | CMD_IDENT_CAP_RES,
-                                                      .execute = NULL},
+                                                      .exec = NULL},
 
 	[CMD_IDENT_PHASE_A_IDENT]                  = {.name = "ident",
                                                       .flags = 0,
-                                                      .execute = _cmd_execute_identify_ident},
+                                                      .exec = _cmd_exec_identify_ident},
 
 	[CMD_IDENT_PHASE_A_SCAN_PRE]               = {.name = "scan-pre",
                                                       .flags = CMD_IDENT_CAP_RDY,
-                                                      .execute = _cmd_execute_identify_scan_pre},
+                                                      .exec = _cmd_exec_identify_scan_pre},
 
 	[CMD_IDENT_PHASE_A_SCAN_CURRENT]           = {.name = "scan-current",
                                                       .flags = CMD_IDENT_CAP_RDY,
-                                                      .execute = _cmd_execute_identify_scan_current},
+                                                      .exec = _cmd_exec_identify_scan_current},
 
 	[CMD_IDENT_PHASE_A_SCAN_NEXT]              = {.name = "scan-next",
                                                       .flags = CMD_IDENT_CAP_RES,
-                                                      .execute = _cmd_execute_identify_scan_next},
+                                                      .exec = _cmd_exec_identify_scan_next},
 
 	[CMD_IDENT_PHASE_A_SCAN_POST_CURRENT]      = {.name = "scan-post-current",
                                                       .flags = 0,
-                                                      .execute = _cmd_execute_identify_scan_post_current},
+                                                      .exec = _cmd_exec_identify_scan_post_current},
 
 	[CMD_IDENT_PHASE_A_SCAN_POST_NEXT]         = {.name = "scan-post-next",
                                                       .flags = 0,
-                                                      .execute = _cmd_execute_identify_scan_post_next},
+                                                      .exec = _cmd_exec_identify_scan_post_next},
 
 	[CMD_IDENT_PHASE_A_WAITING]                = {.name = "waiting",
                                                       .flags = 0,
-                                                      .execute = NULL},
+                                                      .exec = NULL},
 
 	[CMD_IDENT_PHASE_A_EXIT]                   = {.name = "exit",
                                                       .flags = CMD_IDENT_CAP_RDY | CMD_IDENT_CAP_RES,
-                                                      .execute = NULL},
+                                                      .exec = NULL},
 
 	[CMD_IDENT_PHASE_B_TRIGGER_ACTION_CURRENT] = {.name = "trigger-action-current",
                                                       .flags = 0,
-                                                      .execute = _cmd_execute_identify_trigger_action_current},
+                                                      .exec = _cmd_exec_identify_trigger_action_current},
 
 	[CMD_IDENT_PHASE_B_TRIGGER_ACTION_NEXT]    = {.name = "trigger-action-next",
                                                       .flags = 0,
-                                                      .execute = _cmd_execute_identify_trigger_action_next},
+                                                      .exec = _cmd_exec_identify_trigger_action_next},
 
 	[CMD_IDENT_PHASE_ERROR]                    = {.name = "error",
                                                       .flags = 0,
-                                                      .execute = _cmd_execute_identify_error},
+                                                      .exec = _cmd_exec_identify_error},
 };
 
-static int _cmd_execute_identify(struct command_exec_args *exec_args)
+static int _cmd_exec_identify(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_args->cmd_res);
+	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *modules_aggr_res, *block_mod_registry_res;
 	const char *mod_name;
 	cmd_ident_phase_t phase;
@@ -2625,75 +2626,75 @@ static int _cmd_execute_identify(struct command_exec_args *exec_args)
 
 	cmd->ident_phase = CMD_IDENT_PHASE_A_INIT;
 
-	if (!(modules_aggr_res = sid_resource_get_child(sid_resource_get_top_level(exec_args->cmd_res), &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID))) {
-		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "%s: Failed to find modules aggregate resource.", __func__);
+	if (!(modules_aggr_res = sid_resource_get_child(sid_resource_get_top_level(exec_arg->cmd_res), &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID))) {
+		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find modules aggregate resource.", __func__);
 		goto out;
 	}
 
 	if (!(block_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_reg_module_registry, MODULES_BLOCK_ID))) {
-		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
+		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
 		goto out;
 	}
 
-	if (!(exec_args->block_mod_iter = sid_resource_iter_create(block_mod_registry_res))) {
-		log_error(ID(exec_args->cmd_res), "Failed to create block module iterator.");
+	if (!(exec_arg->block_mod_iter = sid_resource_iter_create(block_mod_registry_res))) {
+		log_error(ID(exec_arg->cmd_res), "Failed to create block module iterator.");
 		goto out;
 	}
 
-	if (!(exec_args->type_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_reg_module_registry, MODULES_TYPE_ID))) {
-		log_error(ID(exec_args->cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
+	if (!(exec_arg->type_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_reg_module_registry, MODULES_TYPE_ID))) {
+		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
 		goto out;
 	}
 
-	if (_set_device_kv_records(exec_args->cmd_res) < 0) {
-		log_error(ID(exec_args->cmd_res), "Failed to set device hierarchy.");
+	if (_set_device_kv_records(exec_arg->cmd_res) < 0) {
+		log_error(ID(exec_arg->cmd_res), "Failed to set device hierarchy.");
 		goto out;
 	}
 
-	if (!(mod_name = _lookup_module_name(exec_args->cmd_res)))
+	if (!(mod_name = _lookup_module_name(exec_arg->cmd_res)))
 		goto out;
 
-	if (!(cmd->mod_res = exec_args->type_mod_res_current = sid_module_registry_get_module(exec_args->type_mod_registry_res, mod_name))) {
-		log_debug(ID(exec_args->cmd_res), "Module %s not loaded.", mod_name);
+	if (!(cmd->mod_res = exec_arg->type_mod_res_current = sid_module_registry_get_module(exec_arg->type_mod_registry_res, mod_name))) {
+		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
 		goto out;
 	}
 
 	for (phase = __CMD_IDENT_PHASE_A_START; phase <= __CMD_IDENT_PHASE_A_END; phase++) {
-		log_debug(ID(exec_args->cmd_res), "Executing %s phase.", _cmd_ident_phase_regs[phase].name);
+		log_debug(ID(exec_arg->cmd_res), "Executing %s phase.", _cmd_ident_phase_regs[phase].name);
 		cmd->ident_phase = phase;
-		if ((r = _cmd_ident_phase_regs[phase].execute(exec_args)) < 0) {
-			log_error(ID(exec_args->cmd_res), "%s phase failed.", _cmd_ident_phase_regs[phase].name);
-			if (_cmd_ident_phase_regs[CMD_IDENT_PHASE_ERROR].execute(exec_args) < 0)
-				log_error(ID(exec_args->cmd_res), "error phase failed.");
+		if ((r = _cmd_ident_phase_regs[phase].exec(exec_arg)) < 0) {
+			log_error(ID(exec_arg->cmd_res), "%s phase failed.", _cmd_ident_phase_regs[phase].name);
+			if (_cmd_ident_phase_regs[CMD_IDENT_PHASE_ERROR].exec(exec_arg) < 0)
+				log_error(ID(exec_arg->cmd_res), "error phase failed.");
 			goto out;
 		}
 	}
 out:
-	if (exec_args->block_mod_iter) {
-		(void) sid_resource_iter_destroy(exec_args->block_mod_iter);
-		exec_args->block_mod_iter = NULL;
+	if (exec_arg->block_mod_iter) {
+		(void) sid_resource_iter_destroy(exec_arg->block_mod_iter);
+		exec_arg->block_mod_iter = NULL;
 	}
 
 	return r;
 }
 
-static int _cmd_execute_checkpoint(struct command_exec_args *exec_args)
+static int _cmd_exec_checkpoint(struct cmd_exec_arg *exec_arg)
 {
 	return 0;
 }
 
-static struct command_reg _command_regs[] = {
-	{.name = "unknown",    .flags = 0, .execute = _cmd_execute_unknown},
-	{.name = "reply",      .flags = 0, .execute = _cmd_execute_reply},
-	{.name = "version",    .flags = 0, .execute = _cmd_execute_version},
-	{.name = "identify",   .flags = 0, .execute = _cmd_execute_identify},
-	{.name = "checkpoint", .flags = 0, .execute = _cmd_execute_checkpoint}
+static struct cmd_reg _cmd_regs[] = {
+	{.name = "unknown",    .flags = 0, .exec = _cmd_exec_unknown},
+	{.name = "reply",      .flags = 0, .exec = _cmd_exec_reply},
+	{.name = "version",    .flags = 0, .exec = _cmd_exec_version},
+	{.name = "identify",   .flags = 0, .exec = _cmd_exec_identify},
+	{.name = "checkpoint", .flags = 0, .exec = _cmd_exec_checkpoint}
 };
 
 static int _export_kv_store(sid_resource_t *cmd_res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
-	struct ubridge_kv_value *ubridge_kv_value;
+	struct kv_value *kv_value;
 	kv_store_iter_t *iter;
 	const char *key;
 	void *value;
@@ -2733,7 +2734,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		if (flags & KV_STORE_VALUE_VECTOR) {
 			iov = value;
 			iov_size = size;
-			ubridge_kv_value = NULL;
+			kv_value = NULL;
 
 			if (!((*((sid_ubridge_kv_flags_t *) iov[VALUE_VECTOR_IDX_FLAGS].iov_base)) & KV_PERSISTENT))
 				continue;
@@ -2742,12 +2743,12 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		} else {
 			iov = NULL;
 			iov_size = 0;
-			ubridge_kv_value = value;
+			kv_value = value;
 
-			if (!(ubridge_kv_value->flags & KV_PERSISTENT))
+			if (!(kv_value->flags & KV_PERSISTENT))
 				continue;
 
-			ubridge_kv_value->flags &= ~KV_PERSISTENT;
+			kv_value->flags &= ~KV_PERSISTENT;
 		}
 
 		key = kv_store_iter_current_key(iter);
@@ -2755,11 +2756,11 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
-			buffer_add(cmd->result_buf, (void *) key, key_size - 1);
-			buffer_add(cmd->result_buf, KV_PAIR, 1);
-			data_offset = _get_ubridge_kv_value_data_offset(ubridge_kv_value);
-			buffer_add(cmd->result_buf, ubridge_kv_value->data + data_offset, strlen(ubridge_kv_value->data + data_offset));
-			buffer_add(cmd->result_buf, KV_END, 1);
+			buffer_add(cmd->res_buf, (void *) key, key_size - 1);
+			buffer_add(cmd->res_buf, KV_PAIR, 1);
+			data_offset = _get_kv_value_data_offset(kv_value);
+			buffer_add(cmd->res_buf, kv_value->data + data_offset, strlen(kv_value->data + data_offset));
+			buffer_add(cmd->res_buf, KV_END, 1);
 			continue;
 		}
 
@@ -2822,7 +2823,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 					goto bad;
 			}
 		} else {
-			if ((r = write(export_fd, ubridge_kv_value, size)) == size)
+			if ((r = write(export_fd, kv_value, size)) == size)
 				bytes_written += r;
 			else
 				goto bad;
@@ -2855,18 +2856,18 @@ static int _cmd_handler(sid_event_source *es, void *data)
 	sid_resource_t *cmd_res = data;
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 	struct connection *conn = sid_resource_get_data(sid_resource_get_parent(cmd_res));
-	struct raw_command_header response_header = {0};
-	struct command_exec_args exec_args = {0};
+	struct raw_cmd_hdr response_header = {0};
+	struct cmd_exec_arg exec_arg = {0};
 
 	int r = -1;
 
-	(void) buffer_add(cmd->result_buf, &response_header, sizeof(response_header));
+	(void) buffer_add(cmd->res_buf, &response_header, sizeof(response_header));
 
-	if (cmd->protocol <= UBRIDGE_PROTOCOL) {
+	if (cmd->prot <= UBRIDGE_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
-		response_header.protocol = cmd->protocol;
-		exec_args.cmd_res = cmd_res;
-		if ((r = _command_regs[cmd->type].execute(&exec_args)) < 0)
+		response_header.prot = cmd->prot;
+		exec_arg.cmd_res = cmd_res;
+		if ((r = _cmd_regs[cmd->id].exec(&exec_arg)) < 0)
 			log_error_errno(ID(cmd_res), r, "Failed to execute command");
 	}
 
@@ -2878,7 +2879,7 @@ static int _cmd_handler(sid_event_source *es, void *data)
 	if (r < 0)
 		response_header.status |= COMMAND_STATUS_FAILURE;
 
-	(void) buffer_write(cmd->result_buf, conn->fd);
+	(void) buffer_write(cmd->res_buf, conn->fd);
 
 	return r;
 }
@@ -2914,7 +2915,7 @@ static int _on_connection_event(sid_event_source *es, int fd, uint32_t revents, 
 	struct connection *conn = sid_resource_get_data(conn_res);
 	const char *raw_stream;
 	size_t raw_stream_len;
-	struct raw_command raw_cmd;
+	struct raw_cmd raw_cmd;
 	char id[32];
 	ssize_t n;
 	int r = 0;
@@ -2932,14 +2933,14 @@ static int _on_connection_event(sid_event_source *es, int fd, uint32_t revents, 
 	if (n > 0) {
 		if (buffer_is_complete(conn->buf)) {
 			(void) buffer_get_data(conn->buf, (const void **) &raw_stream, &raw_stream_len);
-			raw_cmd.header = (struct raw_command_header *) raw_stream;
+			raw_cmd.hdr = (struct raw_cmd_hdr *) raw_stream;
 			raw_cmd.len = raw_stream_len;
 
 			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
-			if (raw_cmd.header->cmd_number <= __CMD_START || raw_cmd.header->cmd_number >= __CMD_END)
-				raw_cmd.header->cmd_number = CMD_UNKNOWN;
+			if (raw_cmd.hdr->cmd_id <= __CMD_START || raw_cmd.hdr->cmd_id >= __CMD_END)
+				raw_cmd.hdr->cmd_id = CMD_UNKNOWN;
 
-			snprintf(id, sizeof(id) - 1, "%d/%s", getpid(), _command_regs[raw_cmd.header->cmd_number].name);
+			snprintf(id, sizeof(id) - 1, "%d/%s", getpid(), _cmd_regs[raw_cmd.hdr->cmd_id].name);
 
 			if (!sid_resource_create(conn_res, &sid_resource_reg_ubridge_command, 0, id, &raw_cmd))
 				log_error(ID(conn_res), "Failed to register command for processing.");
@@ -3012,7 +3013,7 @@ static int _destroy_connection(sid_resource_t *res)
 
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
-	const struct raw_command *raw_cmd = kickstart_data;
+	const struct raw_cmd *raw_cmd = kickstart_data;
 	struct sid_ubridge_cmd_context *cmd = NULL;
 	int r;
 
@@ -3021,14 +3022,14 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		return -1;
 	}
 
-	if (!(cmd->result_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {
+	if (!(cmd->res_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {
 		log_error(ID(res), "Failed to create response buffer.");
 		goto fail;
 	}
 
-	cmd->protocol = raw_cmd->header->protocol;
-	cmd->type = raw_cmd->header->cmd_number;
-	cmd->status = raw_cmd->header->status;
+	cmd->prot = raw_cmd->hdr->prot;
+	cmd->id = raw_cmd->hdr->cmd_id;
+	cmd->status = raw_cmd->hdr->status;
 
 	if (!(cmd->gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX))) {
 		log_error(ID(res), "Failed to create generic buffer.");
@@ -3067,7 +3068,7 @@ static int _destroy_command(sid_resource_t *res)
 
 	(void) sid_resource_destroy_event_source(res, &cmd->es);
 	buffer_destroy(cmd->gen_buf);
-	buffer_destroy(cmd->result_buf);
+	buffer_destroy(cmd->res_buf);
 	free(cmd->dev_id);
 	free(cmd);
 	return 0;
@@ -3098,7 +3099,7 @@ static int _master_kv_store_unset(const char *full_key, struct kv_store_update_s
 static int _master_kv_store_update(const char *full_key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
-	struct relation_spec *rel_spec = arg->custom;
+	struct kv_rel_spec *rel_spec = arg->custom;
 	struct iovec tmp_iov_old[_VALUE_VECTOR_IDX_COUNT];
 	struct iovec tmp_iov_new[_VALUE_VECTOR_IDX_COUNT];
 	struct iovec *iov_old, *iov_new;
@@ -3136,10 +3137,10 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 	kv_store_value_flags_t flags;
 	size_t msg_size, full_key_size, data_size, data_offset, i;
 	char *full_key, *shm = NULL, *p, *end;
-	struct ubridge_kv_value *value = NULL;
+	struct kv_value *value = NULL;
 	struct iovec *iov = NULL;
 	void *data_to_store;
-	struct relation_spec rel_spec = {.delta = &((struct delta){0})};
+	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta){0})};
 	struct kv_update_arg update_arg = {.gen_buf = ubridge->cmd_mod.gen_buf, .custom = &rel_spec};
 	int unset;
 	int r = -1;
@@ -3211,12 +3212,12 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 
 			data_to_store = iov;
 		} else {
-			value = (struct ubridge_kv_value *) p;
+			value = (struct kv_value *) p;
 			p += data_size;
 
-			data_offset = _get_ubridge_kv_value_data_offset(value);
+			data_offset = _get_kv_value_data_offset(value);
 			unset = ((value->flags != KV_MOD_RESERVED) &&
-				 ((data_size - data_offset) == (sizeof(struct ubridge_kv_value) + data_offset)));
+				 ((data_size - data_offset) == (sizeof(struct kv_value) + data_offset)));
 
 			update_arg.mod_name = value->data;
 			update_arg.res = ubridge->main_kv_store_res;
@@ -3327,25 +3328,20 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 	return 0;
 }
 
-struct key_res_def {
-	sid_ubridge_cmd_kv_namespace_t ns;
-	const char *key;
-};
-
 static int _reserve_core_kvs(struct ubridge *ubridge)
 {
-	static const struct key_res_def r[] = { {KV_NS_DEVICE, KV_KEY_DEV_READY},
-						{KV_NS_DEVICE, KV_KEY_DEV_RESERVED},
-						{KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP},
-						{KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN},
-						{KV_NS_DEVICE, KV_KEY_DEV_MOD},
-						{KV_NS_DEVICE, KV_KEY_GEN_GROUP_MEMBERS},
-						{KV_NS_MODULE, KV_KEY_GEN_GROUP_MEMBERS},
-						{KV_NS_GLOBAL, KV_KEY_GEN_GROUP_MEMBERS},
-						{KV_NS_DEVICE, KV_KEY_GEN_GROUP_IN},
-						{KV_NS_MODULE, KV_KEY_GEN_GROUP_IN},
-						{KV_NS_GLOBAL, KV_KEY_GEN_GROUP_IN},
-						{0, NULL} };
+	static const struct kv_key_res_def r[] = { {KV_NS_DEVICE, KV_KEY_DEV_READY},
+						   {KV_NS_DEVICE, KV_KEY_DEV_RESERVED},
+						   {KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP},
+						   {KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN},
+						   {KV_NS_DEVICE, KV_KEY_DEV_MOD},
+						   {KV_NS_DEVICE, KV_KEY_GEN_GROUP_MEMBERS},
+						   {KV_NS_MODULE, KV_KEY_GEN_GROUP_MEMBERS},
+						   {KV_NS_GLOBAL, KV_KEY_GEN_GROUP_MEMBERS},
+						   {KV_NS_DEVICE, KV_KEY_GEN_GROUP_IN},
+						   {KV_NS_MODULE, KV_KEY_GEN_GROUP_IN},
+						   {KV_NS_GLOBAL, KV_KEY_GEN_GROUP_IN},
+						   {0, NULL} };
 	unsigned i;
 
 	for (i = 0; r[i].key; i++) {
