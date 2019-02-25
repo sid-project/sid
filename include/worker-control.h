@@ -39,6 +39,7 @@ typedef int worker_control_recv_cb_fn_t(sid_resource_t *res, void *data, size_t 
 
 sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, const char *id, worker_control_worker_init_cb_fn_t *init_fn, void *init_fn_arg);
 sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_res);
+sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, const char *id);
 
 bool worker_control_is_worker(sid_resource_t *res);
 

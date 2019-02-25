@@ -193,6 +193,13 @@ sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_re
 	return res;
 }
 
+sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, const char *id)
+{
+	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
+
+	return sid_resource_get_child(worker_control->worker_proxies_res, &sid_resource_type_worker_proxy, id);
+}
+
 bool worker_control_is_worker(sid_resource_t *res)
 {
 	return sid_resource_is_ancestor_of_type(res, &sid_resource_type_worker);
