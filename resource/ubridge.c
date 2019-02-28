@@ -53,6 +53,9 @@
 #define MODULES_BLOCK_ID             "block"
 #define MODULES_TYPE_ID              "type"
 
+#define UDEV_TAG_SID                 "sid"
+#define KV_KEY_UDEV_SID_WORKER_ID    "SID_WORKER_ID"
+
 #define COMMAND_STATUS_MASK_OVERALL  UINT64_C(0x0000000000000001)
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
 #define COMMAND_STATUS_FAILURE       UINT64_C(0x0000000000000001)
@@ -123,6 +126,12 @@ struct sid_ubridge_cmd_mod_context {
 	struct buffer *gen_buf;
 };
 
+struct umonitor {
+	struct udev *udev;
+	struct udev_monitor *mon;
+	sid_event_source *es;
+};
+
 struct ubridge {
 	int socket_fd;
 	sid_event_source *es;
@@ -131,6 +140,7 @@ struct ubridge {
 	sid_resource_t *main_kv_store_res;
 	sid_resource_t *worker_control_res;
 	struct sid_ubridge_cmd_mod_context cmd_mod;
+	struct umonitor umonitor;
 };
 
 typedef enum {
@@ -231,20 +241,12 @@ struct cmd_mod_fns {
 	sid_ubridge_cmd_fn_t *error;
 } __attribute__((packed));
 
-struct umonitor {
-	struct udev *udev;
-	struct udev_monitor *monitor;
-	sid_event_source *es;
-	char tag[25]; /* "sid_<20_chars_for_64_bit_uevent_seqnum_in_decimal>" + "\0" */
-};
-
 struct cmd_exec_arg {
 	sid_resource_t *cmd_res;
 	sid_resource_t *type_mod_registry_res;
 	sid_resource_iter_t *block_mod_iter;  /* all block modules to execute */
 	sid_resource_t *type_mod_res_current; /* one type module for current layer to execute */
 	sid_resource_t *type_mod_res_next;    /* one type module for next layer to execute */
-	struct umonitor umonitor;
 };
 
 struct cmd_reg {
@@ -1733,60 +1735,6 @@ static int _cmd_exec_identify_error(struct cmd_exec_arg *exec_arg)
 	return r;
 }
 
-static int _on_cmd_udev_monitor(sid_event_source *es, int fd, uint32_t revents, void *data)
-{
-	return _cmd_ident_phase_regs[CMD_IDENT_PHASE_B_TRIGGER_ACTION_CURRENT].exec(data) &&
-	       _cmd_ident_phase_regs[CMD_IDENT_PHASE_B_TRIGGER_ACTION_NEXT].exec(data);
-}
-
-static int _set_up_udev_monitor(struct cmd_exec_arg *exec_arg)
-{
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	struct umonitor *umonitor = &exec_arg->umonitor;
-	int umonitor_fd = -1;
-
-	if (!(umonitor->udev = udev_new())) {
-		log_error(ID(exec_arg->cmd_res), "Failed to create udev handle.");
-		goto fail;
-	}
-
-	if (!(umonitor->monitor = udev_monitor_new_from_netlink(umonitor->udev, "udev"))) {
-		log_error(ID(exec_arg->cmd_res), "Failed to create udev monitor.");
-		goto fail;
-	}
-
-	snprintf(umonitor->tag, sizeof(umonitor->tag), "sid_%" PRIu64, cmd->udev_dev.seqnum);
-
-	if (udev_monitor_filter_add_match_tag(umonitor->monitor, umonitor->tag) < 0) {
-		log_error(ID(exec_arg->cmd_res), "Failed to create tag filter.");
-		goto fail;
-	}
-
-	umonitor_fd = udev_monitor_get_fd(umonitor->monitor);
-
-	if (sid_resource_create_io_event_source(exec_arg->cmd_res, &umonitor->es, umonitor_fd,
-						_on_cmd_udev_monitor, NULL, exec_arg) < 0) {
-		log_error(ID(exec_arg->cmd_res), "Failed to register udev monitoring.");
-		goto fail;
-	}
-
-	if (udev_monitor_enable_receiving(umonitor->monitor) < 0) {
-		log_error(ID(exec_arg->cmd_res), "Failed to enable udev monitoring.");
-		goto fail;
-	}
-
-	return 0;
-fail:
-	if (umonitor->udev) {
-		if (umonitor->monitor)
-			udev_monitor_unref(umonitor->monitor);
-		udev_unref(umonitor->udev);
-		if (umonitor->es)
-			(void) sid_resource_destroy_event_source(exec_arg->cmd_res, &umonitor->es);
-	}
-	return -1;
-}
-
 static int _get_sysfs_value(sid_resource_t *res, const char *path, char *buf, size_t buf_size)
 {
 	FILE *fp;
@@ -3029,6 +2977,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 {
 	const struct raw_cmd *raw_cmd = kickstart_data;
 	struct sid_ubridge_cmd_context *cmd = NULL;
+	const char *worker_id;
 	int r;
 
 	if (!(cmd = zalloc(sizeof(*cmd)))) {
@@ -3059,6 +3008,17 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		log_error_errno(ID(res), r, "Failed to parse udev environment variables.");
 		goto fail;
 	}
+
+	if (!(worker_id = worker_control_get_worker_id(res))) {
+		log_error(ID(res), "Failed to get worker ID to set %s udev variable.", KV_KEY_UDEV_SID_WORKER_ID);
+		goto fail;
+	}
+
+	if (!_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, KV_KEY_UDEV_SID_WORKER_ID, KV_PERSISTENT, worker_id, strlen(worker_id) + 1)) {
+		log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_WORKER_ID);
+		goto fail;
+	}
+
 
 	if (sid_resource_create_deferred_event_source(res, &cmd->es, _cmd_handler, res) < 0) {
 		log_error(ID(res), "Failed to register command handler.");
@@ -3310,6 +3270,7 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *init_fn_arg)
 
 static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t revents, void *data)
 {
+	char uuid[UTIL_UUID_STR_SIZE];
 	sid_resource_t *ubridge_res = data;
 	struct ubridge *ubridge = sid_resource_get_data(ubridge_res);
 	sid_resource_t *worker_proxy_res;
@@ -3319,7 +3280,13 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 
 	if (!(worker_proxy_res = worker_control_get_idle_worker(ubridge->worker_control_res))) {
 		log_debug(ID(ubridge_res), "Idle worker not found, creating a new one.");
-		if (!(worker_proxy_res = worker_control_get_new_worker(ubridge->worker_control_res, NULL, _worker_init_fn, ubridge)))
+
+		if (!util_gen_uuid_str(uuid, sizeof(uuid))) {
+			log_error(ID(ubridge_res), "Failed to generate UUID for new worker.");
+			return -1;
+		}
+
+		if (!(worker_proxy_res = worker_control_get_new_worker(ubridge->worker_control_res, uuid, _worker_init_fn, ubridge)))
 			return -1;
 	}
 
@@ -3355,6 +3322,7 @@ static int _reserve_core_kvs(struct ubridge *ubridge)
 						   {KV_NS_DEVICE, KV_KEY_GEN_GROUP_IN},
 						   {KV_NS_MODULE, KV_KEY_GEN_GROUP_IN},
 						   {KV_NS_GLOBAL, KV_KEY_GEN_GROUP_IN},
+						   {KV_NS_UDEV,   KV_KEY_UDEV_SID_WORKER_ID},
 						   {0, NULL} };
 	unsigned i;
 
@@ -3365,6 +3333,86 @@ static int _reserve_core_kvs(struct ubridge *ubridge)
 	}
 
 	return 0;
+}
+
+static int _on_ubridge_udev_monitor_event(sid_event_source *es, int fd, uint32_t revents, void *data)
+{
+	sid_resource_t *res = data;
+	struct ubridge *ubridge = sid_resource_get_data(res);
+	sid_resource_t *worker_proxy_res;
+	struct udev_device *udev_dev;
+	const char *worker_id;
+	int r = -1;
+
+	if (!(udev_dev = udev_monitor_receive_device(ubridge->umonitor.mon)))
+		goto out;
+
+	if (!(worker_id = udev_device_get_property_value(udev_dev, KV_KEY_UDEV_SID_WORKER_ID)))
+		goto out;
+
+	if (!(worker_proxy_res = worker_control_find_worker(ubridge->worker_control_res, worker_id)))
+		goto out;
+
+	r = 0;
+out:
+	if (udev_dev)
+		udev_device_unref(udev_dev);
+	return r;
+}
+
+static void _destroy_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *umonitor)
+{
+	if (!umonitor->udev)
+		return;
+
+	if (umonitor->mon) {
+		udev_monitor_unref(umonitor->mon);
+		umonitor->mon = NULL;
+	}
+
+	if (umonitor->es)
+		(void) sid_resource_destroy_event_source(ubridge_res, &umonitor->es);
+
+	udev_unref(umonitor->udev);
+	umonitor->udev = NULL;
+}
+
+static int _set_up_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *umonitor)
+{
+	int umonitor_fd = -1;
+
+	if (!(umonitor->udev = udev_new())) {
+		log_error(ID(ubridge_res), "Failed to create udev handle.");
+		goto fail;
+	}
+
+	if (!(umonitor->mon = udev_monitor_new_from_netlink(umonitor->udev, "udev"))) {
+		log_error(ID(ubridge_res), "Failed to create udev monitor.");
+		goto fail;
+	}
+
+	if (udev_monitor_filter_add_match_tag(umonitor->mon, UDEV_TAG_SID) < 0) {
+		log_error(ID(ubridge_res), "Failed to create tag filter.");
+		goto fail;
+	}
+
+	umonitor_fd = udev_monitor_get_fd(umonitor->mon);
+
+	if (sid_resource_create_io_event_source(ubridge_res, &umonitor->es, umonitor_fd,
+						_on_ubridge_udev_monitor_event, NULL, ubridge_res) < 0) {
+		log_error(ID(ubridge_res), "Failed to register udev monitoring.");
+		goto fail;
+	}
+
+	if (udev_monitor_enable_receiving(umonitor->mon) < 0) {
+		log_error(ID(ubridge_res), "Failed to enable udev monitoring.");
+		goto fail;
+	}
+
+	return 0;
+fail:
+	_destroy_udev_monitor(ubridge_res, umonitor);
+	return -1;
 }
 
 static struct sid_module_registry_resource_params block_res_mod_params = {.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
@@ -3524,6 +3572,11 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
+	if (_set_up_udev_monitor(res, &ubridge->umonitor) < 0) {
+		log_error(ID(res), "Failed to set up udev monitor.");
+		goto fail;
+	}
+
 	block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = NULL;
 	//sid_resource_dump_all_in_dot(sid_resource_get_top_level(res));
 
@@ -3548,6 +3601,8 @@ static int _destroy_ubridge(sid_resource_t *res)
 	struct ubridge *ubridge = sid_resource_get_data(res);
 
 	(void) sid_resource_destroy_event_source(res, &ubridge->es);
+
+	_destroy_udev_monitor(res, &ubridge->umonitor);
 
 	if (ubridge->cmd_mod.gen_buf)
 		buffer_destroy(ubridge->cmd_mod.gen_buf);
