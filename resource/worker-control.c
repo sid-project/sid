@@ -133,7 +133,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		kickstart.comms_fd = comms_fd[1];
 
 		if (!id) {
-			(void) util_pid_to_string(kickstart.pid, gen_id, sizeof(gen_id));
+			(void) util_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
 			id = gen_id;
 		}
 
@@ -152,7 +152,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		kickstart.comms_fd = comms_fd[0];
 
 		if (!id) {
-			(void) util_pid_to_string(kickstart.pid, gen_id, sizeof(gen_id));
+			(void) util_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
 			id = gen_id;
 		}
 

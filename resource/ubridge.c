@@ -1307,14 +1307,14 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 
 	/* Common key=value pairs are also directly in the cmd->udev_dev structure. */
 	if (!strncmp(key, UDEV_KEY_ACTION, key_len))
-		cmd->udev_dev.action = util_get_udev_action_from_string(value);
+		cmd->udev_dev.action = util_str_to_udev_action(value);
 	else if (!strncmp(key, UDEV_KEY_DEVPATH, key_len)) {
 		cmd->udev_dev.path = value;
 		cmd->udev_dev.name = util_strrstr(value, "/");
 		cmd->udev_dev.name++;
 	}
 	else if (!strncmp(key, UDEV_KEY_DEVTYPE, key_len))
-		cmd->udev_dev.type = util_get_udev_devtype_from_string(value);
+		cmd->udev_dev.type = util_str_to_udev_devtype(value);
 	else if (!strncmp(key, UDEV_KEY_SEQNUM, key_len))
 		cmd->udev_dev.seqnum = strtoull(value, NULL, 10);
 	else if (!strncmp(key, UDEV_KEY_SYNTH_UUID, key_len))

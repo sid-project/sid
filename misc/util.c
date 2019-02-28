@@ -24,7 +24,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-int util_pid_to_string(pid_t pid, char *buf, size_t buf_size)
+int util_pid_to_str(pid_t pid, char *buf, size_t buf_size)
 {
 	int size;
 
@@ -34,52 +34,6 @@ int util_pid_to_string(pid_t pid, char *buf, size_t buf_size)
 		return -1;
 
 	return 0;
-}
-
-int util_create_full_dir_path(const char *path)
-{
-	char *path_copy, *s, *e;
-	struct stat st;
-	int r;
-
-	if (!(s = path_copy = strdup(path)))
-		return -ENOMEM;
-
-	for (;;) {
-		/* handle multiple '/' */
-		s += strspn(s, "/");
-
-		/* handle '/' at the end of the path */
-		if (!*s)
-			break;
-
-		if ((e = strchr(s, '/')))
-			*e = '\0';
-
-		if (mkdir(path_copy, 0777) < 0) {
-			if (errno == EEXIST) {
-				if (stat(path_copy, &st) < 0) {
-					r = -errno;
-					goto out;
-				}
-				if (!S_ISDIR(st.st_mode)) {
-					r = -ENOTDIR;
-					goto out;
-				}
-			} else {
-				r = -errno;
-				goto out;
-			}
-		}
-
-		if ((s = e))
-			*e = '/';
-		else
-			break;
-	}
-out:
-	free(path_copy);
-	return r;
 }
 
 static const char *udev_action_str[] = {[UDEV_ACTION_ADD]     = "add",
@@ -92,7 +46,7 @@ static const char *udev_action_str[] = {[UDEV_ACTION_ADD]     = "add",
 					[UDEV_ACTION_UNBIND]  = "unbind",
 					[UDEV_ACTION_UNKNOWN] = "unknown"};
 
-udev_action_t util_get_udev_action_from_string(const char *str)
+udev_action_t util_str_to_udev_action(const char *str)
 {
 	if (!strcasecmp(str, udev_action_str[UDEV_ACTION_ADD]))
 		return UDEV_ACTION_ADD;
@@ -118,7 +72,7 @@ static const char *udev_devtype_str[] = {[UDEV_DEVTYPE_DISK]      = "disk",
 					 [UDEV_DEVTYPE_PARTITION] = "partition",
 					 [UDEV_DEVTYPE_UNKNOWN]   = "unknown"};
 
-udev_devtype_t util_get_udev_devtype_from_string(const char *str)
+udev_devtype_t util_str_to_udev_devtype(const char *str)
 {
 	if (!strcasecmp(str, udev_devtype_str[UDEV_DEVTYPE_DISK]))
 		return UDEV_DEVTYPE_DISK;
@@ -126,11 +80,6 @@ udev_devtype_t util_get_udev_devtype_from_string(const char *str)
 		return UDEV_DEVTYPE_PARTITION;
 	else
 		return UDEV_DEVTYPE_UNKNOWN;
-}
-
-const char *util_get_string_from_udev_action(udev_action_t udev_action)
-{
-	return udev_action_str[udev_action];
 }
 
 uint64_t util_get_now_usec(clockid_t clock_id)
