@@ -78,6 +78,8 @@ PKG_CHECK_MODULES(UDEV, libudev >= 174) # support for device tagging added in li
 
 PKG_CHECK_MODULES(BLKID, blkid)
 
+PKG_CHECK_MODULES(UUID, uuid)
+
 AC_MSG_CHECKING(whether to build multipath_component module)
 AC_ARG_ENABLE(mod-multipath_component,
 	      AC_HELP_STRING([--enable-mod-multipath_component], [enable multipath component module]),
@@ -89,5 +91,7 @@ if test x$BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT = xyes; then
 	AC_DEFINE([MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT], 1, [Define to 1 to enable multipath component module.])
 fi
 AM_CONDITIONAL([BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT], [test x$BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT = xyes])
+
+AC_SUBST([UUID_LIBS])
 
 AC_OUTPUT

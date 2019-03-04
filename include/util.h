@@ -26,10 +26,13 @@
 #include <stdint.h>
 #include <sys/timerfd.h>
 #include <sys/types.h>
+#include <uuid/uuid.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define UTIL_UUID_STR_SIZE UUID_STR_LEN
 
 int util_pid_to_str(pid_t pid, char *buf, size_t buf_size);
 
@@ -39,6 +42,8 @@ udev_devtype_t util_str_to_udev_devtype(const char *str);
 uint64_t util_get_now_usec(clockid_t clock_id);
 
 char *util_strrstr(const char *haystack, const char *needle);
+
+char *util_gen_uuid_str(char *buf, size_t buf_len);
 
 #ifdef __cplusplus
 }

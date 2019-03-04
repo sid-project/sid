@@ -106,3 +106,23 @@ char *util_strrstr(const char *haystack, const char *needle)
 
 	return NULL;
 }
+
+char *util_gen_uuid_str(char *buf, size_t buf_len)
+{
+	uuid_t uu;
+	char *str;
+
+	if (buf) {
+		if (buf_len < UUID_STR_LEN)
+			return NULL;
+		str = buf;
+	} else {
+		if (!(str = malloc(UUID_STR_LEN)))
+			return NULL;
+	}
+
+	uuid_generate(uu);
+	uuid_unparse(uu, str);
+
+	return str;
+}
