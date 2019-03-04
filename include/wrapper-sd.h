@@ -21,7 +21,6 @@
 #define _SID_WRAPPER_SD_H
 
 #include <systemd/sd-event.h>
-#include <systemd/sd-id128.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -33,8 +32,6 @@ extern "C" {
 #define sid_child_handler sd_event_child_handler_t
 #define sid_time_handler sd_event_time_handler_t
 #define sid_generic_handler sd_event_handler_t
-
-#define sid_uuid sd_id128_t
 
 #ifdef __cplusplus
 }
