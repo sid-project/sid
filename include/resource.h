@@ -69,6 +69,11 @@ void *sid_resource_get_data(sid_resource_t *res);
 const char *sid_resource_get_full_id(sid_resource_t *res);
 const char *sid_resource_get_id(sid_resource_t *res);
 
+/*
+ * structure/tree ancestry functions
+ */
+bool sid_resource_is_ancestor_of_type(sid_resource_t *res, const sid_resource_type_t *type);
+
 #define ID(res) sid_resource_get_full_id(res)
 
 /*

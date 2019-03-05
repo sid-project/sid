@@ -169,6 +169,16 @@ void *sid_resource_get_data(sid_resource_t *res)
 	return res->data;
 }
 
+bool sid_resource_is_ancestor_of_type(sid_resource_t *res, const sid_resource_type_t *type)
+{
+	while ((res = res->parent)) {
+		if (res->type == type)
+			return true;
+	}
+
+	return false;
+}
+
 sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_not_found)
 {
 	sid_resource_t *tmp_res = res;
