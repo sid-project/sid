@@ -30,7 +30,7 @@
 
 typedef struct sid_resource {
 	struct list list;
-	const sid_resource_reg_t *reg;
+	const sid_resource_type_t *type;
 	char *id;
 	sid_resource_t *parent;
 	struct list children;
@@ -47,7 +47,7 @@ typedef struct sid_resource_iter {
 	struct list *next; /* for safety */
 } sid_resource_iter_t;
 
-sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_reg_t *reg,
+sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_type_t *type,
 				    sid_resource_flags_t flags, const char *id_part, const void *kickstart_data)
 {
 	sid_resource_t *res;
@@ -56,12 +56,12 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 	sid_resource_t *child_res, *tmp_child_res;
 
 	/* +1 for '/' if id is defined and +1 for '\0' at the end */
-	id_size = (reg->name ? strlen(reg->name) : 0) + (id_part ? strlen(id_part) + 1 : 0) + 1;
+	id_size = (type->name ? strlen(type->name) : 0) + (id_part ? strlen(id_part) + 1 : 0) + 1;
 
 	if (!(id = malloc(id_size)))
 		goto fail;
 
-	if (snprintf(id, id_size, "%s%s%s", reg->name ? : "", id_part ? "/" : "", id_part ? : "") < 0)
+	if (snprintf(id, id_size, "%s%s%s", type->name ? : "", id_part ? "/" : "", id_part ? : "") < 0)
 		goto fail;
 
 	log_debug(id, "Creating resource.");
@@ -72,21 +72,21 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 	res->id = id;
 	res->flags = flags;
 	list_init(&res->children);
-	res->reg = reg;
+	res->type = type;
 	res->event_loop = NULL;
 	res->pid_created = getpid(); /* FIXME: Use cached pid instead? Check latency... */
 
-	if (reg->with_event_loop && sd_event_new(&res->event_loop) < 0)
+	if (type->with_event_loop && sd_event_new(&res->event_loop) < 0)
 		goto fail;
 
 	if ((res->parent = parent_res))
 		list_add(&parent_res->children, &res->list);
 
-	if (reg->with_event_loop && reg->with_watchdog &&
+	if (type->with_event_loop && type->with_watchdog &&
 	    sd_event_set_watchdog(res->event_loop, 1) < 0)
 		goto fail;
 
-	if (reg->init && reg->init(res, kickstart_data, &res->data) < 0)
+	if (type->init && type->init(res, kickstart_data, &res->data) < 0)
 		goto fail;
 
 	log_debug(res->id, "Resource created.");
@@ -124,8 +124,8 @@ int sid_resource_destroy(sid_resource_t *res)
 	list_iterate_items_safe_back(child_res, tmp_child_res, &res->children)
 		(void) sid_resource_destroy(child_res);
 
-	if (res->reg->destroy)
-		(void) res->reg->destroy(res);
+	if (res->type->destroy)
+		(void) res->type->destroy(res);
 
 	if (res->event_loop)
 		res->event_loop = sd_event_unref(res->event_loop);
@@ -145,9 +145,9 @@ int sid_resource_destroy(sid_resource_t *res)
 	return 0;
 }
 
-bool sid_resource_is_registered_by(sid_resource_t *res, const sid_resource_reg_t *reg)
+bool sid_resource_is_type_of(sid_resource_t *res, const sid_resource_type_t *type)
 {
-	return res->reg == reg;
+	return res->type == type;
 }
 
 const char *sid_resource_get_full_id(sid_resource_t *res)
@@ -158,10 +158,10 @@ const char *sid_resource_get_full_id(sid_resource_t *res)
 
 const char *sid_resource_get_id(sid_resource_t *res)
 {
-	if (!res->reg->name)
+	if (!res->type->name)
 		return res->id;
 
-	return res->id + strlen(res->reg->name) + 1;
+	return res->id + strlen(res->type->name) + 1;
 }
 
 void *sid_resource_get_data(sid_resource_t *res)
@@ -315,14 +315,14 @@ sid_resource_t *sid_resource_get_top_level(sid_resource_t *res)
 	return res;
 }
 
-sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_reg_t *reg, const char *id)
+sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_type_t *type, const char *id)
 {
 	sid_resource_t *child_res;
 
 	list_iterate_items(child_res, &res->children) {
 		if (child_res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
 			continue;
-		if (child_res->reg == reg && !strcmp(sid_resource_get_id(child_res), id))
+		if (child_res->type == type && !strcmp(sid_resource_get_id(child_res), id))
 			return child_res;
 	}
 

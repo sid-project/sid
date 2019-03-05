@@ -27,7 +27,7 @@ libsidresource_la_SOURCES = resource.c \
 pkginclude_HEADERS = $(top_builddir)/include/wrapper-sd.h \
 		     $(top_builddir)/include/types.h \
 		     $(top_builddir)/include/resource.h \
-		     $(top_builddir)/include/resource-regs.h \
+		     $(top_builddir)/include/resource-type-regs.h \
 		     $(top_builddir)/include/macros.h \
 		     $(top_builddir)/include/module.h \
 		     $(top_builddir)/include/module-registry.h \

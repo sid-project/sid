@@ -35,7 +35,7 @@
 
 static volatile sig_atomic_t _shutdown_requested = 0;
 
-const sid_resource_reg_t sid_resource_reg_sid;
+const sid_resource_type_t sid_resource_type_sid;
 
 static void _help(FILE *f)
 {
@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
 	}
 
 
-	if (!(sid_res = sid_resource_create(NULL, &sid_resource_reg_sid, 0, NULL, NULL)))
+	if (!(sid_res = sid_resource_create(NULL, &sid_resource_type_sid, 0, NULL, NULL)))
 		goto out;
 
 	r = sid_resource_run_event_loop(sid_res);

@@ -32,7 +32,7 @@ static int _init_aggregate(sid_resource_t *res, const void *kickstart_data, void
 	return 0;
 }
 
-const sid_resource_reg_t sid_resource_reg_aggregate = {
+const sid_resource_type_t sid_resource_type_aggregate = {
 	.name = AGGREGATE_NAME,
 	.init = _init_aggregate,
 };

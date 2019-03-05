@@ -53,8 +53,8 @@ static const char *worker_state_str[] = {[WORKER_NEW]      = "WORKER_NEW",
 					 [WORKER_EXITING]  = "WORKER_EXITING",
 					 [WORKER_EXITED]   = "WORKER_EXITED"};
 
-const sid_resource_reg_t sid_resource_reg_worker_proxy;
-const sid_resource_reg_t sid_resource_reg_worker;
+const sid_resource_type_t sid_resource_type_worker_proxy;
+const sid_resource_type_t sid_resource_type_worker;
 
 struct worker_control {
 	sid_resource_t *worker_proxies_res;  /* aggregate resource to collect all worker proxies */
@@ -137,7 +137,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			id = gen_id;
 		}
 
-		res = sid_resource_create(NULL, &sid_resource_reg_worker, 0, id, &kickstart);
+		res = sid_resource_create(NULL, &sid_resource_type_worker, 0, id, &kickstart);
 
 		if (init_fn)
 			(void) init_fn(res, init_fn_arg);
@@ -156,7 +156,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			id = gen_id;
 		}
 
-		res = sid_resource_create(worker_control->worker_proxies_res, &sid_resource_reg_worker_proxy, 0, id, &kickstart);
+		res = sid_resource_create(worker_control->worker_proxies_res, &sid_resource_type_worker_proxy, 0, id, &kickstart);
 	}
 out:
 	if (signals_blocked && pid) {
@@ -195,7 +195,7 @@ sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_re
 
 bool worker_control_is_worker(sid_resource_t *res)
 {
-	return sid_resource_is_registered_by(sid_resource_get_top_level(res), &sid_resource_reg_worker);
+	return sid_resource_is_type_of(sid_resource_get_top_level(res), &sid_resource_type_worker);
 }
 
 static int _comms_send(int comms_fd, comms_cmd_t cmd, void *data, size_t data_size, int fd)
@@ -248,11 +248,11 @@ int worker_control_set_recv_callback(sid_resource_t *res, worker_control_recv_cb
 	struct worker_proxy *worker_proxy;
 	struct worker *worker;
 
-	if (sid_resource_is_registered_by(res, &sid_resource_reg_worker_proxy)) {
+	if (sid_resource_is_type_of(res, &sid_resource_type_worker_proxy)) {
 		worker_proxy = sid_resource_get_data(res);
 		worker_proxy->recv_fn = recv_fn;
 		worker_proxy->recv_fn_arg = recv_fn_arg;
-	} else if (sid_resource_is_registered_by(res, &sid_resource_reg_worker)) {
+	} else if (sid_resource_is_type_of(res, &sid_resource_type_worker)) {
 		worker = sid_resource_get_data(res);
 		worker->recv_fn = recv_fn;
 		worker->recv_fn_arg = recv_fn_arg;
@@ -269,7 +269,7 @@ int worker_control_send(sid_resource_t *res, void *data, size_t data_size, int f
 	struct worker_proxy *worker_proxy;
 	int comms_fd;
 
-	if (sid_resource_is_registered_by(res, &sid_resource_reg_worker_proxy)) {
+	if (sid_resource_is_type_of(res, &sid_resource_type_worker_proxy)) {
 		/* sending from worker proxy to worker */
 		worker_proxy = sid_resource_get_data(res);
 		comms_fd = worker_proxy->comms_fd;
@@ -279,7 +279,7 @@ int worker_control_send(sid_resource_t *res, void *data, size_t data_size, int f
 	} else {
 		res = sid_resource_get_top_level(res);
 
-		if (sid_resource_is_registered_by(res, &sid_resource_reg_worker)) {
+		if (sid_resource_is_type_of(res, &sid_resource_type_worker)) {
 			/* sending from worker to worker proxy */
 			comms_fd = ((struct worker *) sid_resource_get_data(res))->comms_fd;
 		} else {
@@ -553,7 +553,7 @@ static int _init_worker_control(sid_resource_t *worker_control_res, const void *
 		goto fail;
 	}
 
-	if (!(worker_control->worker_proxies_res = sid_resource_create(worker_control_res, &sid_resource_reg_aggregate,
+	if (!(worker_control->worker_proxies_res = sid_resource_create(worker_control_res, &sid_resource_type_aggregate,
 								       SID_RESOURCE_RESTRICT_WALK_UP |
 								       SID_RESOURCE_RESTRICT_WALK_DOWN |
 								       SID_RESOURCE_DISALLOW_ISOLATION,
@@ -579,20 +579,20 @@ static int _destroy_worker_control(sid_resource_t *worker_control_res)
 	return 0;
 }
 
-const sid_resource_reg_t sid_resource_reg_worker_proxy = {
+const sid_resource_type_t sid_resource_type_worker_proxy = {
 	.name = WORKER_PROXY_NAME,
 	.init = _init_worker_proxy,
 	.destroy = _destroy_worker_proxy,
 };
 
-const sid_resource_reg_t sid_resource_reg_worker = {
+const sid_resource_type_t sid_resource_type_worker = {
 	.name = WORKER_NAME,
 	.init = _init_worker,
 	.destroy = _destroy_worker,
 	.with_event_loop = 1,
 };
 
-const sid_resource_reg_t sid_resource_reg_worker_control = {
+const sid_resource_type_t sid_resource_type_worker_control = {
 	.name = WORKER_CONTROL_NAME,
 	.init = _init_worker_control,
 	.destroy = _destroy_worker_control,

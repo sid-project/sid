@@ -24,11 +24,11 @@
 extern "C" {
 #endif
 
-const sid_resource_reg_t sid_resource_reg_aggregate;
-const sid_resource_reg_t sid_resource_reg_ubridge;
-const sid_resource_reg_t sid_resource_reg_module_registry;
-const sid_resource_reg_t sid_resource_reg_kv_store;
-const sid_resource_reg_t sid_resource_reg_worker_control;
+const sid_resource_type_t sid_resource_type_aggregate;
+const sid_resource_type_t sid_resource_type_ubridge;
+const sid_resource_type_t sid_resource_type_module_registry;
+const sid_resource_type_t sid_resource_type_kv_store;
+const sid_resource_type_t sid_resource_type_worker_control;
 
 #ifdef __cplusplus
 }

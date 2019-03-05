@@ -34,18 +34,18 @@ extern "C" {
 typedef struct sid_resource sid_resource_t;
 
 /* resource registration structure */
-typedef struct sid_resource_reg {
+typedef struct sid_resource_type {
 	const char *name;
 	int (*init) (sid_resource_t *res, const void *kickstart_data, void **data);
 	int (*destroy) (sid_resource_t *res);
 	unsigned int with_event_loop : 1;
 	unsigned int with_watchdog   : 1;
-} sid_resource_reg_t;
+} sid_resource_type_t;
 
 /* opaque resource's child iteration handler */
 typedef struct sid_resource_iter sid_resource_iter_t;
 
-#include "resource-regs.h"
+#include "resource-type-regs.h"
 
 typedef enum {
 	SID_RESOURCE_RESTRICT_WALK_UP   = UINT64_C(0x0000000000000001),	/* restrict walk from child to parent */
@@ -57,14 +57,14 @@ typedef enum {
 /*
  * create/destroy functions
  */
-sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_reg_t *reg,
+sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_type_t *type,
 				    sid_resource_flags_t flags, const char *id, const void *kickstart_data);
 int sid_resource_destroy(sid_resource_t *res);
 
 /*
  * basic property retrieval functions
  */
-bool sid_resource_is_registered_by(sid_resource_t *res, const sid_resource_reg_t *reg);
+bool sid_resource_is_type_of(sid_resource_t *res, const sid_resource_type_t *type);
 void *sid_resource_get_data(sid_resource_t *res);
 const char *sid_resource_get_full_id(sid_resource_t *res);
 const char *sid_resource_get_id(sid_resource_t *res);
@@ -99,7 +99,7 @@ void sid_resource_iter_destroy(sid_resource_iter_t *iter);
 
 sid_resource_t *sid_resource_get_parent(sid_resource_t *res);
 sid_resource_t *sid_resource_get_top_level(sid_resource_t *res);
-sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_reg_t *reg, const char *id);
+sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_type_t *type, const char *id);
 unsigned int sid_resource_get_children_count(sid_resource_t *res);
 
 /*

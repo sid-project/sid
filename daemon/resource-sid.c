@@ -62,7 +62,7 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 		goto fail;
 	}
 
-	if (!sid_resource_create(res, &sid_resource_reg_ubridge, SID_RESOURCE_RESTRICT_WALK_UP, NULL, NULL)) {
+	if (!sid_resource_create(res, &sid_resource_type_ubridge, SID_RESOURCE_RESTRICT_WALK_UP, NULL, NULL)) {
 		log_error(ID(res), "Failed to create udev bridge interface.");
 		goto fail;
 	}
@@ -91,7 +91,7 @@ static int _destroy_sid(sid_resource_t *res)
 	return 0;
 }
 
-const sid_resource_reg_t sid_resource_reg_sid = {
+const sid_resource_type_t sid_resource_type_sid = {
 	.name = SID_NAME,
 	.with_event_loop = 1,
 	.with_watchdog = 1,

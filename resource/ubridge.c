@@ -115,8 +115,8 @@
 #define CMD_DEV_ID(cmd) cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor
 
 /* internal resources */
-const sid_resource_reg_t sid_resource_reg_ubridge_connection;
-const sid_resource_reg_t sid_resource_reg_ubridge_command;
+const sid_resource_type_t sid_resource_type_ubridge_connection;
+const sid_resource_type_t sid_resource_type_ubridge_command;
 
 struct sid_ubridge_cmd_mod_context {
 	sid_resource_t *kv_store_res;
@@ -2626,12 +2626,12 @@ static int _cmd_exec_identify(struct cmd_exec_arg *exec_arg)
 
 	cmd->ident_phase = CMD_IDENT_PHASE_A_INIT;
 
-	if (!(modules_aggr_res = sid_resource_get_child(sid_resource_get_top_level(exec_arg->cmd_res), &sid_resource_reg_aggregate, MODULES_AGGREGATE_ID))) {
+	if (!(modules_aggr_res = sid_resource_get_child(sid_resource_get_top_level(exec_arg->cmd_res), &sid_resource_type_aggregate, MODULES_AGGREGATE_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find modules aggregate resource.", __func__);
 		goto out;
 	}
 
-	if (!(block_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_reg_module_registry, MODULES_BLOCK_ID))) {
+	if (!(block_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_type_module_registry, MODULES_BLOCK_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
 		goto out;
 	}
@@ -2641,7 +2641,7 @@ static int _cmd_exec_identify(struct cmd_exec_arg *exec_arg)
 		goto out;
 	}
 
-	if (!(exec_arg->type_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_reg_module_registry, MODULES_TYPE_ID))) {
+	if (!(exec_arg->type_mod_registry_res = sid_resource_get_child(modules_aggr_res, &sid_resource_type_module_registry, MODULES_TYPE_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
 		goto out;
 	}
@@ -2942,7 +2942,7 @@ static int _on_connection_event(sid_event_source *es, int fd, uint32_t revents, 
 
 			snprintf(id, sizeof(id) - 1, "%d/%s", getpid(), _cmd_regs[raw_cmd.hdr->cmd_id].name);
 
-			if (!sid_resource_create(conn_res, &sid_resource_reg_ubridge_command, 0, id, &raw_cmd))
+			if (!sid_resource_create(conn_res, &sid_resource_type_ubridge_command, 0, id, &raw_cmd))
 				log_error(ID(conn_res), "Failed to register command for processing.");
 
 			(void) buffer_reset(conn->buf, 0, 1);
@@ -3036,7 +3036,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(cmd->kv_store_res = sid_resource_get_child(sid_resource_get_top_level(res), &sid_resource_reg_kv_store, MAIN_KV_STORE_NAME))) {
+	if (!(cmd->kv_store_res = sid_resource_get_child(sid_resource_get_top_level(res), &sid_resource_type_kv_store, MAIN_KV_STORE_NAME))) {
 		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find key-value store.", __func__);
 		goto fail;
 	}
@@ -3263,7 +3263,7 @@ static int _worker_recv_fn(sid_resource_t *worker_res, void *data, size_t data_s
 {
 	sid_resource_t *conn_res;
 
-	if (!(conn_res = sid_resource_create(worker_res, &sid_resource_reg_ubridge_connection, 0, NULL, &fd))) {
+	if (!(conn_res = sid_resource_create(worker_res, &sid_resource_type_ubridge_connection, 0, NULL, &fd))) {
 		log_error(ID(worker_res), "Failed to create connection resource.");
 		return -1;
 	}
@@ -3456,20 +3456,20 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(ubridge->internal_res = sid_resource_create(res, &sid_resource_reg_aggregate,
+	if (!(ubridge->internal_res = sid_resource_create(res, &sid_resource_type_aggregate,
 							  SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_RESTRICT_WALK_DOWN,
 							  INTERNAL_AGGREGATE_ID, ubridge))) {
 		log_error(ID(res), "Failed to create internal ubridge resource.");
 		goto fail;
 	}
 
-	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_kv_store, SID_RESOURCE_RESTRICT_WALK_UP,
+	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_kv_store, SID_RESOURCE_RESTRICT_WALK_UP,
 							       MAIN_KV_STORE_NAME, &main_kv_store_res_params))) {
 		log_error(ID(res), "Failed to create main key-value store.");
 		goto fail;
 	}
 
-	if (!(ubridge->worker_control_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_worker_control, 0,
+	if (!(ubridge->worker_control_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_worker_control, 0,
 							        NULL, NULL))) {
 		log_error(ID(res), "Failed to create worker control.");
 		goto fail;
@@ -3489,13 +3489,13 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 
 	block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = &ubridge->cmd_mod;
 
-	if (!(ubridge->modules_res = sid_resource_create(ubridge->internal_res, &sid_resource_reg_aggregate, 0, MODULES_AGGREGATE_ID, NULL))) {
+	if (!(ubridge->modules_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_aggregate, 0, MODULES_AGGREGATE_ID, NULL))) {
 		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
 		goto fail;
 	}
 
-	if (!(sid_resource_create(ubridge->modules_res, &sid_resource_reg_module_registry, 0, MODULES_BLOCK_ID, &block_res_mod_params)) ||
-	    !(sid_resource_create(ubridge->modules_res, &sid_resource_reg_module_registry, 0, MODULES_TYPE_ID, &type_res_mod_params))) {
+	if (!(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, 0, MODULES_BLOCK_ID, &block_res_mod_params)) ||
+	    !(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, 0, MODULES_TYPE_ID, &type_res_mod_params))) {
 		log_error(ID(res), "Failed to create module handler.");
 		goto fail;
 	}
@@ -3545,19 +3545,19 @@ static int _destroy_ubridge(sid_resource_t *res)
 	return 0;
 }
 
-const sid_resource_reg_t sid_resource_reg_ubridge_command = {
+const sid_resource_type_t sid_resource_type_ubridge_command = {
 	.name = COMMAND_NAME,
 	.init = _init_command,
 	.destroy = _destroy_command,
 };
 
-const sid_resource_reg_t sid_resource_reg_ubridge_connection = {
+const sid_resource_type_t sid_resource_type_ubridge_connection = {
 	.name = CONNECTION_NAME,
 	.init = _init_connection,
 	.destroy = _destroy_connection,
 };
 
-const sid_resource_reg_t sid_resource_reg_ubridge = {
+const sid_resource_type_t sid_resource_type_ubridge = {
 	.name = UBRIDGE_NAME,
 	.init = _init_ubridge,
 	.destroy = _destroy_ubridge,

@@ -32,7 +32,7 @@
 #define MODULE_REGISTRY_NAME "module-registry"
 #define MODULE_NAME "module"
 
-const sid_resource_reg_t sid_resource_reg_module;
+const sid_resource_type_t sid_resource_type_module;
 
 struct module_registry {
 	const char *directory;
@@ -60,7 +60,7 @@ static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const c
 
 	sid_resource_iter_reset(registry->module_iter);
 	while ((res = sid_resource_iter_next(registry->module_iter))) {
-		if (sid_resource_is_registered_by(res, &sid_resource_reg_module)) {
+		if (sid_resource_is_type_of(res, &sid_resource_type_module)) {
 			if (!strcmp(((struct sid_module *) sid_resource_get_data(res))->name, module_name)) {
 				found = res;
 				break;
@@ -81,7 +81,7 @@ sid_resource_t *sid_module_registry_load_module(sid_resource_t *module_registry_
 		return module_res;
 	}
 
-	if (!(module_res = sid_resource_create(module_registry_res, &sid_resource_reg_module, SID_RESOURCE_DISALLOW_ISOLATION, module_name, module_name))) {
+	if (!(module_res = sid_resource_create(module_registry_res, &sid_resource_type_module, SID_RESOURCE_DISALLOW_ISOLATION, module_name, module_name))) {
 		log_error(ID(module_registry_res), "Failed to load module %s/%s.", registry->directory, module_name);
 		return NULL;
 	}
@@ -192,7 +192,7 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 
 	for (i = 0; i < count; i++) {
 		if (dirent[i]->d_name[0] != '.' && _has_suffix(dirent[i]->d_name, SID_MODULE_NAME_SUFFIX, 1)) {
-			if (!(module_res = sid_resource_create(module_registry_res, &sid_resource_reg_module, SID_RESOURCE_DISALLOW_ISOLATION, dirent[i]->d_name, dirent[i]->d_name)))
+			if (!(module_res = sid_resource_create(module_registry_res, &sid_resource_type_module, SID_RESOURCE_DISALLOW_ISOLATION, dirent[i]->d_name, dirent[i]->d_name)))
 				log_error(ID(module_registry_res), "Failed to preload module %s/%s.", registry->directory, dirent[i]->d_name);
 		}
 		free(dirent[i]);
@@ -372,13 +372,13 @@ static int _destroy_module_registry(sid_resource_t *module_registry_res)
 	return 0;
 }
 
-const sid_resource_reg_t sid_resource_reg_module = {
+const sid_resource_type_t sid_resource_type_module = {
 	.name = MODULE_NAME,
 	.init = _init_module,
 	.destroy = _destroy_module,
 };
 
-const sid_resource_reg_t sid_resource_reg_module_registry = {
+const sid_resource_type_t sid_resource_type_module_registry = {
 	.name = MODULE_REGISTRY_NAME,
 	.init = _init_module_registry,
 	.destroy = _destroy_module_registry,
