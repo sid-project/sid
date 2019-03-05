@@ -37,7 +37,7 @@ blkid_la_SOURCES = blkid-type.h \
 		   blkid.c
 blkid_la_LDFLAGS = -module -avoid-version
 blkid_la_LIBADD = $(top_builddir)/log/libsidlog.la \
-		  -lblkid
+		  $(BLKID_LIBS)
 
 mostlyclean-local:
 	rm -f blkid-type-mapper.c
