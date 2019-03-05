@@ -43,6 +43,8 @@ sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, c
 
 bool worker_control_is_worker(sid_resource_t *res);
 
+const char *worker_control_get_worker_id(sid_resource_t *res);
+
 /* Set callback called on data and/or fd reception. */
 int worker_control_set_recv_callback(sid_resource_t *res, worker_control_recv_cb_fn_t *recv_fn, void *recv_fn_arg);
 

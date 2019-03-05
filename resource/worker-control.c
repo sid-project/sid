@@ -205,6 +205,17 @@ bool worker_control_is_worker(sid_resource_t *res)
 	return sid_resource_is_ancestor_of_type(res, &sid_resource_type_worker);
 }
 
+const char *worker_control_get_worker_id(sid_resource_t *res)
+{
+	do {
+		if (sid_resource_is_type_of(res, &sid_resource_type_worker) ||
+		    sid_resource_is_type_of(res, &sid_resource_type_worker_proxy))
+			return sid_resource_get_id(res);
+	} while ((res = sid_resource_get_parent(res)));
+
+	return NULL;
+}
+
 static int _comms_send(int comms_fd, comms_cmd_t cmd, void *data, size_t data_size, int fd)
 {
 	struct iovec iov[3];
