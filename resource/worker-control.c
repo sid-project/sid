@@ -195,7 +195,7 @@ sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_re
 
 bool worker_control_is_worker(sid_resource_t *res)
 {
-	return sid_resource_is_type_of(sid_resource_get_top_level(res), &sid_resource_type_worker);
+	return sid_resource_is_ancestor_of_type(res, &sid_resource_type_worker);
 }
 
 static int _comms_send(int comms_fd, comms_cmd_t cmd, void *data, size_t data_size, int fd)
