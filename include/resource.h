@@ -66,9 +66,10 @@ int sid_resource_destroy(sid_resource_t *res);
  */
 bool sid_resource_is_registered_by(sid_resource_t *res, const sid_resource_reg_t *reg);
 void *sid_resource_get_data(sid_resource_t *res);
+const char *sid_resource_get_full_id(sid_resource_t *res);
 const char *sid_resource_get_id(sid_resource_t *res);
 
-#define ID(res) sid_resource_get_id(res)
+#define ID(res) sid_resource_get_full_id(res)
 
 /*
  * event source handling functions

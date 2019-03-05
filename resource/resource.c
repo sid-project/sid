@@ -150,9 +150,18 @@ bool sid_resource_is_registered_by(sid_resource_t *res, const sid_resource_reg_t
 	return res->reg == reg;
 }
 
-const char *sid_resource_get_id(sid_resource_t *res)
+const char *sid_resource_get_full_id(sid_resource_t *res)
 {
 	return res->id;
+}
+
+
+const char *sid_resource_get_id(sid_resource_t *res)
+{
+	if (!res->reg->name)
+		return res->id;
+
+	return res->id + strlen(res->reg->name) + 1;
 }
 
 void *sid_resource_get_data(sid_resource_t *res)
@@ -309,12 +318,11 @@ sid_resource_t *sid_resource_get_top_level(sid_resource_t *res)
 sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_reg_t *reg, const char *id)
 {
 	sid_resource_t *child_res;
-	size_t id_offset = reg->name ? strlen(reg->name) + 1 : 0;
 
 	list_iterate_items(child_res, &res->children) {
 		if (child_res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
 			continue;
-		if (child_res->reg == reg && !strcmp(child_res->id + id_offset, id))
+		if (child_res->reg == reg && !strcmp(sid_resource_get_id(child_res), id))
 			return child_res;
 	}
 
