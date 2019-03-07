@@ -487,6 +487,19 @@ out:
 	return KV_NS_UNDEFINED;
 }
 
+static const char *_get_core_key(const char *key)
+{
+	/*                        |<---->|
+	 * <op>:<ns>:<id>:<id_sub>[:<key>]
+	 */
+	const char *start;
+	
+	if ((start = util_strrstr(key, KV_STORE_KEY_JOIN)))
+		start += 1;
+
+	return start;
+}
+
 static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value, size_t value_size, struct iovec *iov)
 {
 	size_t mod_name_size;
@@ -2756,7 +2769,8 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
-			buffer_add(cmd->res_buf, (void *) key, key_size - 1);
+			key = _get_core_key(key);
+			buffer_add(cmd->res_buf, (void *) key, strlen(key));
 			buffer_add(cmd->res_buf, KV_PAIR, 1);
 			data_offset = _get_kv_value_data_offset(kv_value);
 			buffer_add(cmd->res_buf, kv_value->data + data_offset, strlen(kv_value->data + data_offset));
