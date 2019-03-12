@@ -82,14 +82,14 @@
 #define ID_NULL  ""
 #define KEY_NULL ID_NULL
 
-#define KV_PREFIX_OP_SET       ""
-#define KV_PREFIX_OP_PLUS      "+"
-#define KV_PREFIX_OP_MINUS     "-"
-#define KV_PREFIX_NS_UNDEFINED ""
-#define KV_PREFIX_NS_UDEV      "U"
-#define KV_PREFIX_NS_DEVICE    "D"
-#define KV_PREFIX_NS_MODULE    "M"
-#define KV_PREFIX_NS_GLOBAL    "G"
+#define KV_PREFIX_OP_SET_C       ""
+#define KV_PREFIX_OP_PLUS_C      "+"
+#define KV_PREFIX_OP_MINUS_C     "-"
+#define KV_PREFIX_NS_UNDEFINED_C ""
+#define KV_PREFIX_NS_UDEV_C      "U"
+#define KV_PREFIX_NS_DEVICE_C    "D"
+#define KV_PREFIX_NS_MODULE_C    "M"
+#define KV_PREFIX_NS_GLOBAL_C    "G"
 
 #define KEY_SYS_C                "#"
 
@@ -386,15 +386,15 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 
 static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec *spec, int prefix_only)
 {
-	static const char *op_to_key_prefix_map[] = {[KV_OP_SET]       = KV_PREFIX_OP_SET,
-						     [KV_OP_PLUS]      = KV_PREFIX_OP_PLUS,
-						     [KV_OP_MINUS]     = KV_PREFIX_OP_MINUS};
+	static const char *op_to_key_prefix_map[] = {[KV_OP_SET]       = KV_PREFIX_OP_SET_C,
+						     [KV_OP_PLUS]      = KV_PREFIX_OP_PLUS_C,
+						     [KV_OP_MINUS]     = KV_PREFIX_OP_MINUS_C};
 
-	static const char *ns_to_key_prefix_map[] = {[KV_NS_UNDEFINED] = KV_PREFIX_NS_UNDEFINED,
-						     [KV_NS_UDEV]      = KV_PREFIX_NS_UDEV,
-						     [KV_NS_DEVICE]    = KV_PREFIX_NS_DEVICE,
-						     [KV_NS_MODULE]    = KV_PREFIX_NS_MODULE,
-						     [KV_NS_GLOBAL]    = KV_PREFIX_NS_GLOBAL};
+	static const char *ns_to_key_prefix_map[] = {[KV_NS_UNDEFINED] = KV_PREFIX_NS_UNDEFINED_C,
+						     [KV_NS_UDEV]      = KV_PREFIX_NS_UDEV_C,
+						     [KV_NS_DEVICE]    = KV_PREFIX_NS_DEVICE_C,
+						     [KV_NS_MODULE]    = KV_PREFIX_NS_MODULE_C,
+						     [KV_NS_GLOBAL]    = KV_PREFIX_NS_GLOBAL_C};
 
 	/* <op>:<ns>:<id>:<id_sub>[:<key>] */
 	return buffer_fmt_add(buf, "%s" KV_STORE_KEY_JOIN
@@ -452,9 +452,9 @@ static kv_op_t _get_op_from_key(const char *key)
 	if (!(end = strstr(key, KV_STORE_KEY_JOIN)))
 		goto out;
 
-	if (!strncmp(key, KV_PREFIX_OP_PLUS, sizeof(KV_PREFIX_OP_PLUS) - 1))
+	if (key[0] == KV_PREFIX_OP_PLUS_C[0])
 	       return KV_OP_PLUS;
-	else if (!strncmp(key, KV_PREFIX_OP_MINUS, sizeof(KV_PREFIX_OP_MINUS) - 1))
+	else if (key[0] == KV_PREFIX_OP_MINUS_C[0])
 		return KV_OP_MINUS;
 out:
 	return KV_OP_SET;
@@ -463,7 +463,6 @@ out:
 static sid_ubridge_cmd_kv_namespace_t _get_ns_from_key(const char *key)
 {
 	const char *start, *end;
-	size_t len;
 
 	/*     |<-->|
 	 * <op>:<ns>:<id>:<id_sub>[:<key>]
@@ -477,15 +476,16 @@ static sid_ubridge_cmd_kv_namespace_t _get_ns_from_key(const char *key)
 	if (!(end = strstr(start, KV_STORE_KEY_JOIN)))
 		goto out;
 
-	len = end - start;
+	if (end - start > 1)
+		goto out;
 
-	if (!strncmp(start, KV_PREFIX_NS_UDEV, len))
+	if (key[0] == KV_PREFIX_NS_UDEV_C[0])
 		return KV_NS_UDEV;
-	else if (!strncmp(start, KV_PREFIX_NS_DEVICE, len))
+	else if (key[0] == KV_PREFIX_NS_DEVICE_C[0])
 		return KV_NS_DEVICE;
-	else if (!strncmp(start, KV_PREFIX_NS_MODULE, len))
+	else if (key[0] == KV_PREFIX_NS_MODULE_C[0])
 		return KV_NS_MODULE;
-	else if (!strncmp(start, KV_PREFIX_NS_GLOBAL, len))
+	else if (key[0] == KV_PREFIX_NS_GLOBAL_C[0])
 		return KV_NS_GLOBAL;
 out:
 	return KV_NS_UNDEFINED;
@@ -568,7 +568,7 @@ static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 
 static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_store_res)
 {
-	static const char dev_prefix[] = KV_STORE_KEY_JOIN KV_PREFIX_NS_DEVICE KV_STORE_KEY_JOIN;
+	static const char dev_prefix[] = KV_STORE_KEY_JOIN KV_PREFIX_NS_DEVICE_C KV_STORE_KEY_JOIN;
 	static size_t dev_prefix_size = sizeof(dev_prefix) - 1;
 	static const char ID[] = "DOT";
 	kv_store_iter_t *iter;
@@ -3177,10 +3177,10 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 
 			switch (rel_spec.delta->op = _get_op_from_key(full_key)) {
 				case KV_OP_PLUS:
-					full_key += sizeof(KV_PREFIX_OP_PLUS) - 1;
+					full_key += sizeof(KV_PREFIX_OP_PLUS_C) - 1;
 					break;
 				case KV_OP_MINUS:
-					full_key += sizeof(KV_PREFIX_OP_MINUS) - 1;
+					full_key += sizeof(KV_PREFIX_OP_MINUS_C) - 1;
 					break;
 				case KV_OP_SET:
 					break;
