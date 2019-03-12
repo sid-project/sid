@@ -76,8 +76,8 @@
 
 #define MAIN_KV_STORE_NAME  "main"
 
-#define KV_PAIR             "="
-#define KV_END              ""
+#define KV_PAIR_C           "="
+#define KV_END_C            ""
 
 #define ID_NULL  ""
 #define KEY_NULL ID_NULL
@@ -1313,7 +1313,7 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 	char *value;
 	size_t key_len;
 
-	if (!(value = strchr(key, KV_PAIR[0])) || !*(value++))
+	if (!(value = strchr(key, KV_PAIR_C[0])) || !*(value++))
 		return -1;
 
 	key_len = value - key - 1;
@@ -1337,11 +1337,11 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 	else if (!strncmp(key, UDEV_KEY_SYNTH_UUID, key_len))
 		cmd->udev_dev.synth_uuid = value;
 
-	key[key_len] = KV_PAIR[0];
+	key[key_len] = KV_PAIR_C[0];
 
 	return 0;
 bad:
-	key[key_len] = KV_PAIR[0];
+	key[key_len] = KV_PAIR_C[0];
 
 	return -1;
 };
@@ -1378,7 +1378,7 @@ static int _parse_cmd_nullstr_udev_env(const struct raw_cmd *raw_cmd, struct sid
 	while (i < raw_udev_env_len) {
 		str = raw_cmd->hdr->data + sizeof(devno) + i;
 
-		if (!(delim = memchr(str, KV_END[0], raw_udev_env_len - i)))
+		if (!(delim = memchr(str, KV_END_C[0], raw_udev_env_len - i)))
 			goto fail;
 
 		if (_device_add_field(cmd, str) < 0)
@@ -2721,10 +2721,10 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
 			key = _get_core_key(key);
 			buffer_add(cmd->res_buf, (void *) key, strlen(key));
-			buffer_add(cmd->res_buf, KV_PAIR, 1);
+			buffer_add(cmd->res_buf, KV_PAIR_C, 1);
 			data_offset = _get_kv_value_data_offset(kv_value);
 			buffer_add(cmd->res_buf, kv_value->data + data_offset, strlen(kv_value->data + data_offset));
-			buffer_add(cmd->res_buf, KV_END, 1);
+			buffer_add(cmd->res_buf, KV_END_C, 1);
 			continue;
 		}
 
