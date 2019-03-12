@@ -91,14 +91,16 @@
 #define KV_PREFIX_NS_MODULE    "M"
 #define KV_PREFIX_NS_GLOBAL    "G"
 
-#define KV_KEY_DEV_READY         "SID_RDY"
-#define KV_KEY_DEV_RESERVED      "SID_RES"
-#define KV_KEY_DEV_LAYER_UP      "SID_LUP"
-#define KV_KEY_DEV_LAYER_DOWN    "SID_LDW"
-#define KV_KEY_DEV_MOD           "SID_MOD"
+#define KEY_SYS_C                "#"
+
+#define KV_KEY_DEV_READY         KEY_SYS_C "RDY"
+#define KV_KEY_DEV_RESERVED      KEY_SYS_C "RES"
+#define KV_KEY_DEV_LAYER_UP      KEY_SYS_C "LUP"
+#define KV_KEY_DEV_LAYER_DOWN    KEY_SYS_C "LDW"
+#define KV_KEY_DEV_MOD           KEY_SYS_C "MOD"
 #define KV_KEY_DEV_NEXT_MOD      SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
-#define KV_KEY_GEN_GROUP_MEMBERS "SID_GMB"
-#define KV_KEY_GEN_GROUP_IN      "SID_GIN"
+#define KV_KEY_GEN_GROUP_MEMBERS KEY_SYS_C "GMB"
+#define KV_KEY_GEN_GROUP_IN      KEY_SYS_C "GIN"
 
 #define CORE_MOD_NAME         "core"
 #define DEFAULT_CORE_KV_FLAGS  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
@@ -848,7 +850,7 @@ out:
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
 			     const char *key, const void *value, size_t value_size, sid_ubridge_kv_flags_t flags)
 {
-	if (!cmd || !key || !*key) {
+	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0])) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -873,7 +875,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 				       .key = key};
 	void *ret = NULL;
 
-	if (!cmd || !key || !*key) {
+	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0])) {
 		errno = EINVAL;
 		goto out;
 	}
@@ -3309,32 +3311,6 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 	return 0;
 }
 
-static int _reserve_core_kvs(struct ubridge *ubridge)
-{
-	static const struct kv_key_res_def r[] = { {KV_NS_DEVICE, KV_KEY_DEV_READY},
-						   {KV_NS_DEVICE, KV_KEY_DEV_RESERVED},
-						   {KV_NS_DEVICE, KV_KEY_DEV_LAYER_UP},
-						   {KV_NS_DEVICE, KV_KEY_DEV_LAYER_DOWN},
-						   {KV_NS_DEVICE, KV_KEY_DEV_MOD},
-						   {KV_NS_DEVICE, KV_KEY_GEN_GROUP_MEMBERS},
-						   {KV_NS_MODULE, KV_KEY_GEN_GROUP_MEMBERS},
-						   {KV_NS_GLOBAL, KV_KEY_GEN_GROUP_MEMBERS},
-						   {KV_NS_DEVICE, KV_KEY_GEN_GROUP_IN},
-						   {KV_NS_MODULE, KV_KEY_GEN_GROUP_IN},
-						   {KV_NS_GLOBAL, KV_KEY_GEN_GROUP_IN},
-						   {KV_NS_UDEV,   KV_KEY_UDEV_SID_WORKER_ID},
-						   {0, NULL} };
-	unsigned i;
-
-	for (i = 0; r[i].key; i++) {
-		if (_do_sid_ubridge_cmd_mod_reserve_kv(NULL, &ubridge->cmd_mod, r[i].ns, r[i].key, 0) < 0)
-			/* FIXME: Maybe we should also unreserve already reserved keys in case there's a failure? */
-			return -1;
-	}
-
-	return 0;
-}
-
 static int _on_ubridge_udev_monitor_event(sid_event_source *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *res = data;
@@ -3543,11 +3519,6 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	ubridge->cmd_mod.kv_store_res = ubridge->main_kv_store_res;
-
-	if (_reserve_core_kvs(ubridge) < 0) {
-		log_error(ID(res), "Failed to reserve core key-value pairs.");
-		goto fail;
-	}
 
 	block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = &ubridge->cmd_mod;
 
