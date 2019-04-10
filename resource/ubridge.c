@@ -82,6 +82,7 @@
 #define ID_NULL  ""
 #define KEY_NULL ID_NULL
 
+#define KV_PREFIX_OP_ILLEGAL_C   "X"
 #define KV_PREFIX_OP_SET_C       ""
 #define KV_PREFIX_OP_PLUS_C      "+"
 #define KV_PREFIX_OP_MINUS_C     "-"
@@ -290,9 +291,10 @@ struct kv_update_arg {
 };
 
 typedef enum {
-	KV_OP_SET,   /* set value for kv */
-	KV_OP_PLUS,  /* add value to vector kv */
-	KV_OP_MINUS, /* remove value fomr vector kv */
+	KV_OP_ILLEGAL, /* illegal operation */
+	KV_OP_SET,     /* set value for kv */
+	KV_OP_PLUS,    /* add value to vector kv */
+	KV_OP_MINUS,   /* remove value fomr vector kv */
 } kv_op_t;
 
 typedef enum {
@@ -398,7 +400,8 @@ const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *c
 
 static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec *spec, int prefix_only)
 {
-	static const char *op_to_key_prefix_map[] = {[KV_OP_SET]       = KV_PREFIX_OP_SET_C,
+	static const char *op_to_key_prefix_map[] = {[KV_OP_ILLEGAL]   = KV_PREFIX_OP_ILLEGAL_C,
+						     [KV_OP_SET]       = KV_PREFIX_OP_SET_C,
 						     [KV_OP_PLUS]      = KV_PREFIX_OP_PLUS_C,
 						     [KV_OP_MINUS]     = KV_PREFIX_OP_MINUS_C};
 
@@ -486,14 +489,17 @@ static kv_op_t _get_op_from_key(const char *key)
 	 */
 
 	if (!(str = _get_key_part(key, KEY_PART_OP, &len)) || len > 1)
+		return KV_OP_ILLEGAL;
+
+	if (!len)
 		return KV_OP_SET;
 
 	if (str[0] == KV_PREFIX_OP_PLUS_C[0])
 		return KV_OP_PLUS;
 	else if (str[0] == KV_PREFIX_OP_MINUS_C[0])
 		return KV_OP_MINUS;
-	else
-		return KV_OP_SET;
+
+	return KV_OP_ILLEGAL;
 }
 
 static sid_ubridge_cmd_kv_namespace_t _get_ns_from_key(const char *key)
@@ -1888,6 +1894,8 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 						/* we're keeping old item: add it to delta->final */
 						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
+					case KV_OP_ILLEGAL:
+						goto out;
 				}
 				i_old++;
 			} else if (cmp_result > 0) {
@@ -1904,6 +1912,8 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 					case KV_OP_MINUS:
 						/* we're trying to remove non-existing item: ignore it */
 						break;
+					case KV_OP_ILLEGAL:
+						goto out;
 				}
 				i_new++;
 			} else {
@@ -1920,6 +1930,8 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 						/* we're removing item: add it to delta->minus */
 						buffer_add(delta->minus, new_value[i_new].iov_base, new_value[i_new].iov_len);
 						break;
+					case KV_OP_ILLEGAL:
+						goto out;
 				}
 				i_old++;
 				i_new++;
@@ -1940,6 +1952,8 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 					case KV_OP_MINUS:
 						/* we're removing non-existing item: don't add to delta->minus */
 						break;
+					case KV_OP_ILLEGAL:
+						goto out;
 				}
 				i_new++;
 			}
@@ -1958,6 +1972,8 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 						/* we're not changing the old item so add it to delta->final */
 						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
 						break;
+					case KV_OP_ILLEGAL:
+						goto out;
 				}
 				i_old++;
 			}
@@ -3220,6 +3236,10 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 					break;
 				case KV_OP_SET:
 					break;
+				case KV_OP_ILLEGAL:
+					log_error(ID(worker_proxy_res), INTERNAL_ERROR
+						  "Illegal operator found for key %s while trying to sync master key-value store.", full_key);
+					goto out;
 			}
 
 			data_to_store = iov;
