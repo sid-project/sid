@@ -54,7 +54,7 @@ AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile resource/Makefile daemon/Ma
 AC_CONFIG_HEADERS([include/configure.h])
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
-AC_CHECK_FUNCS([clock_gettime dup2 memchr memset mkdir munmap select socket strcasecmp strchr strdup strerror strspn strtoull])
+AC_CHECK_FUNCS([clock_gettime dup2 memchr memset mkdir munmap select socket strcasecmp strchr strdup strerror strspn strstr strtoull])
 AC_C_INLINE
 AC_FUNC_FORK
 AC_FUNC_MALLOC
