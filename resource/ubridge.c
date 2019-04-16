@@ -2884,7 +2884,7 @@ static int _cmd_handler(sid_event_source *es, void *data)
 		response_header.prot = cmd->prot;
 		exec_arg.cmd_res = cmd_res;
 		if ((r = _cmd_regs[cmd->id].exec(&exec_arg)) < 0)
-			log_error_errno(ID(cmd_res), r, "Failed to execute command");
+			log_error(ID(cmd_res), "Failed to execute command");
 	}
 
 	if (_export_kv_store(cmd_res) < 0) {
