@@ -1001,6 +1001,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	int is_worker;
 	struct kv_key_spec key_spec = {.op = KV_OP_SET,
 				       .ns = ns,
+				       .ns_part = ID_NULL,
 				       .id = ID_NULL,
 				       .id_part = ID_NULL,
 				       .key = key};
