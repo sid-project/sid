@@ -316,9 +316,10 @@ typedef enum {
 	KEY_PART_OP      = 0x0,
 	KEY_PART_NS      = 0x1,
 	KEY_PART_NS_PART = 0x2,
-	KEY_PART_ID      = 0x3,
-	KEY_PART_ID_PART = 0x4,
-	KEY_PART_CORE    = 0x5,
+	KEY_PART_DOM     = 0x3,
+	KEY_PART_ID      = 0x4,
+	KEY_PART_ID_PART = 0x5,
+	KEY_PART_CORE    = 0x6,
 	__KEY_PART_COUNT,
 } key_part_t;
 
@@ -326,6 +327,7 @@ struct kv_key_spec {
 	kv_op_t op;
 	sid_ubridge_cmd_kv_namespace_t ns;
 	const char *ns_part;
+	const char *dom;
 	const char *id;
 	const char *id_part;
 	const char *key;
@@ -416,12 +418,14 @@ static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec
 	return buffer_fmt_add(buf, "%s" KV_STORE_KEY_JOIN /* op */
 				   "%s" KV_STORE_KEY_JOIN /* ns */
 				   "%s" KV_STORE_KEY_JOIN /* ns_part */
+				   "%s" KV_STORE_KEY_JOIN /* dom */
 				   "%s" KV_STORE_KEY_JOIN /* id */
 				   "%s" "%s"              /* id_part */
 				   "%s",
 				   op_to_key_prefix_map[spec->op],
 				   ns_to_key_prefix_map[spec->ns],
 				   spec->ns_part,
+				   spec->dom,
 				   spec->id,
 				   spec->id_part,
 				   prefix_only ? KEY_NULL : KV_STORE_KEY_JOIN,
@@ -430,13 +434,13 @@ static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec
 
 static const char *_buffer_compose_key(struct buffer *buf, struct kv_key_spec *spec)
 {
-	/* <op>:<ns>:<ns_part>:<id>:<id_part>:<key> */
+	/* <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>:<key> */
 	return _do_buffer_compose_key(buf, spec, 0);
 }
 
 static const char *_buffer_compose_key_prefix(struct buffer *buf, struct kv_key_spec *spec)
 {
-	/* <op>:<ns>:<ns_part>:<id>:<id_part> */
+	/* <op>:<ns>:<ns_part>:<dom>:<id>:<id_part> */
 	return _do_buffer_compose_key(buf, spec, 1);
 }
 
@@ -470,7 +474,7 @@ static const char *_buffer_copy_ns_part_from_key(struct buffer *buf, const char 
 	size_t len;
 
 	/*           |<----->|
-	   <op>:<ns>:<ns_part>:<id>:<id_part>[:<key>]
+	   <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
 	*/
 
 	if (!(str = _get_key_part(key, KEY_PART_NS_PART, &len)))
@@ -485,7 +489,7 @@ static kv_op_t _get_op_from_key(const char *key)
 	size_t len;
 
 	/* |<>|
-	 * <op>:<ns>:<ns_part>:<id>:<id_part>[:<key>]
+	 * <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
 	 */
 
 	if (!(str = _get_key_part(key, KEY_PART_OP, &len)) || len > 1)
@@ -508,7 +512,7 @@ static sid_ubridge_cmd_kv_namespace_t _get_ns_from_key(const char *key)
 	size_t len;
 
 	/*      |<>|
-	 * <op>:<ns>:<ns_part>:<id>:<id_part>[:<key>]
+	 * <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
 	 */
 
 	if (!(str = _get_key_part(key, KEY_PART_NS, &len)) || len > 1)
@@ -528,8 +532,8 @@ static sid_ubridge_cmd_kv_namespace_t _get_ns_from_key(const char *key)
 
 static const char *_get_core_key(const char *key)
 {
-	/*                                     |<->|
-	 * <op>:<ns>:<ns_part>:<id>:<id_part>[:<key>]
+	/*                                           |<->|
+	 * <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
 	 */
 	return _get_key_part(key, KEY_PART_CORE, NULL);
 }
@@ -727,6 +731,7 @@ static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd,
 	struct kv_key_spec key_spec = {.op = KV_OP_SET,
 				       .ns = ns,
 				       .ns_part = ID_NULL,
+				       .dom = ID_NULL,
 				       .id = ID_NULL,
 				       .id_part = ID_NULL,
 				       .key = key};
@@ -825,6 +830,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct kv_key_spec key_spec = {.op = KV_OP_SET,
 				       .ns = ns,
 				       .ns_part = _get_ns_part(cmd, ns),
+				       .dom = ID_NULL,
 				       .id = ID_NULL,
 				       .id_part = ID_NULL,
 				       .key = key};
@@ -903,6 +909,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	struct kv_key_spec key_spec = {.op = KV_OP_SET,
 				       .ns = ns,
 				       .ns_part = _get_ns_part(cmd, ns),
+				       .dom = ID_NULL,
 				       .id = ID_NULL,
 				       .id_part = ID_NULL,
 				       .key = key};
@@ -1002,6 +1009,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	struct kv_key_spec key_spec = {.op = KV_OP_SET,
 				       .ns = ns,
 				       .ns_part = ID_NULL,
+				       .dom = ID_NULL,
 				       .id = ID_NULL,
 				       .id_part = ID_NULL,
 				       .key = key};
@@ -1171,6 +1179,7 @@ int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
 	struct kv_key_spec key_spec = {.op = KV_OP_SET,
 				       .ns = group_ns,
 				       .ns_part = _get_ns_part(cmd, group_ns),
+				       .dom = ID_NULL,
 				       .id = group_id,
 				       .id_part = ID_NULL,
 				       .key = KV_KEY_GEN_GROUP_MEMBERS};
@@ -1220,6 +1229,7 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 								.op = KV_OP_SET,
 								.ns = group_ns,
 								.ns_part = _get_ns_part(cmd, group_ns),
+								.dom = ID_NULL,
 								.id = group_id,
 								.id_part = ID_NULL,
 								.key = KV_KEY_GEN_GROUP_MEMBERS}),
@@ -1228,6 +1238,7 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.ns_part = _get_ns_part(cmd, KV_NS_DEVICE),
+								.dom = ID_NULL,
 								.id = ID_NULL,
 								.id_part = ID_NULL,
 								.key = KV_KEY_GEN_GROUP_IN})};
@@ -1297,6 +1308,7 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 								.op = KV_OP_SET,
 								.ns = group_ns,
 								.ns_part = _get_ns_part(cmd, group_ns),
+								.dom = ID_NULL,
 								.id = group_id,
 								.id_part = ID_NULL,
 								.key = KV_KEY_GEN_GROUP_MEMBERS}),
@@ -1305,6 +1317,7 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 								.op = KV_OP_SET,
 								.ns = 0,
 								.ns_part = ID_NULL,
+								.dom = ID_NULL,
 								.id = ID_NULL,
 								.id_part = ID_NULL,
 								.key = KV_KEY_GEN_GROUP_IN})};
@@ -2344,6 +2357,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.ns_part = _get_ns_part(cmd, KV_NS_DEVICE),
+								.dom = ID_NULL,
 								.id = ID_NULL,
 								.id_part = ID_NULL,
 								.key = key}),
@@ -2352,6 +2366,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.ns_part = ID_NULL, /* will be calculated later */
+								.dom = ID_NULL,
 								.id = ID_NULL,
 								.id_part = ID_NULL,
 								.key = rel_key})
@@ -2481,6 +2496,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 									.op = KV_OP_SET,
 									.ns = KV_NS_DEVICE,
 									.ns_part = _get_ns_part(cmd, KV_NS_DEVICE),
+									.dom = ID_NULL,
 									.id = ID_NULL,
 									.id_part = ID_NULL,
 									.key = key}),
@@ -2489,6 +2505,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.ns_part = ID_NULL, /* will be calculated later */
+								.dom = ID_NULL,
 								.id = ID_NULL,
 								.id_part = ID_NULL,
 								.key = rel_key})};
