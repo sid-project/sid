@@ -25,4 +25,6 @@
 #define SYSTEM_PROC_PATH          "/proc"
 #define SYSTEM_PROC_DEVICES_PATH  SYSTEM_PROC_PATH "/devices"
 
+#define SYSTEM_SYSFS_SLAVES       "slaves"
+
 #endif

@@ -96,10 +96,11 @@
 
 #define KV_KEY_DEV_READY         KEY_SYS_C "RDY"
 #define KV_KEY_DEV_RESERVED      KEY_SYS_C "RES"
-#define KV_KEY_DEV_LAYER_UP      KEY_SYS_C "LUP"
-#define KV_KEY_DEV_LAYER_DOWN    KEY_SYS_C "LDW"
 #define KV_KEY_DEV_MOD           KEY_SYS_C "MOD"
 #define KV_KEY_DEV_NEXT_MOD      SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
+
+#define KV_KEY_DOM_LAYER         "LYR"
+
 #define KV_KEY_GEN_GROUP_MEMBERS KEY_SYS_C "GMB"
 #define KV_KEY_GEN_GROUP_IN      KEY_SYS_C "GIN"
 
@@ -594,16 +595,15 @@ static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 
 static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_store_res)
 {
-	static const char dev_prefix[] = KV_STORE_KEY_JOIN KV_PREFIX_NS_DEVICE_C KV_STORE_KEY_JOIN;
-	static size_t dev_prefix_size = sizeof(dev_prefix) - 1;
 	static const char ID[] = "DOT";
 	kv_store_iter_t *iter;
 	void *value;
-	size_t size;
+	size_t value_size, dom_len, this_dev_len, ref_dev_len;
+	const char *full_key, *key, *dom, *this_dev, *ref_dev;
+
 	kv_store_value_flags_t flags;
 	struct iovec tmp_iov[_VALUE_VECTOR_IDX_COUNT];
 	struct iovec *iov;
-	const char *full_key, *dev_key_stop, *key;
 	int i;
 
 	if (!(iter = kv_store_iter_create(kv_store_res))) {
@@ -613,30 +613,44 @@ static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_
 
 	log_print(ID, "digraph stack {");
 
-	while ((value = kv_store_iter_next(iter, &size, &flags))) {
+	while ((value = kv_store_iter_next(iter, &value_size, &flags))) {
 		full_key = kv_store_iter_current_key(iter);
 
-		if (strncmp(full_key, dev_prefix, dev_prefix_size) ||
-		    !strncmp(full_key + dev_prefix_size, KV_STORE_KEY_JOIN, KV_STORE_KEY_JOIN_LEN))
+		/* we're intested in KV_NS_DEVICE records only */
+		if (_get_ns_from_key(full_key) != KV_NS_DEVICE)
 			continue;
 
-		dev_key_stop = strstr(full_key + dev_prefix_size, KV_STORE_KEY_JOIN);
-		dev_key_stop++;
+		key = _get_key_part(full_key, KEY_PART_CORE, NULL);
 
-		key = util_strrstr(full_key, KV_STORE_KEY_JOIN);
-		key++;
+		/*
+		 * We need to print:
+		 *
+		 *   '"this dev"' once
+		 *     (we're using KV_KEY_DEV_READY key for that as that is set only once for each dev)
+		 *
+		 *   '"this dev" -> "ref_dev"' for each ref dev
+		 *     (that's the KV_KEY_GEN_GROUP_IN + KV_KEY_DOM_LAYER key)
+		 *
+		 */
 
 		if (!strcmp(key, KV_KEY_DEV_READY)) {
-			log_print(ID, "\"%.*s\"", (int) (dev_key_stop - full_key), full_key);
+			this_dev = _get_key_part(full_key, KEY_PART_NS_PART, &this_dev_len);
+			log_print(ID, "\"%.*s\"", (int) this_dev_len, this_dev);
+			continue;
 		}
 
-		else if (!strcmp(key, KV_KEY_DEV_LAYER_UP)) {
-			iov = _get_value_vector(flags, value, size, tmp_iov);
-			for (i = VALUE_VECTOR_IDX_DATA; i < size; i++)
-				log_print(ID, "\"%.*s\" -> \"%s\"", (int) (dev_key_stop - full_key), full_key, (char *) iov[i].iov_base);
-		}
+		if (strcmp(key, KV_KEY_GEN_GROUP_IN) ||
+		    (!(dom = _get_key_part(full_key, KEY_PART_DOM, &dom_len))) ||
+		    !dom_len ||
+		    strncmp(dom, KV_KEY_DOM_LAYER, dom_len))
+			continue;
 
-		else if (!strcmp(key, KV_KEY_DEV_LAYER_DOWN)) {
+		this_dev = _get_key_part(full_key, KEY_PART_NS_PART, &this_dev_len);
+		iov = _get_value_vector(flags, value, value_size, tmp_iov);
+
+		for (i = VALUE_VECTOR_IDX_DATA; i < value_size; i++) {
+			ref_dev = _get_key_part((const char *) iov[i].iov_base, KEY_PART_NS_PART, &ref_dev_len);
+			log_print(ID, "\"%.*s\" -> \"%.*s\"", (int) this_dev_len, this_dev, (int) ref_dev_len, ref_dev);
 		}
 	}
 
@@ -2327,7 +2341,7 @@ out:
 	return r;
 }
 
-static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *sysfs_item, const char *key, const char *rel_key)
+static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
@@ -2349,19 +2363,19 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.ns_part = _get_ns_part(cmd, KV_NS_DEVICE),
-								.dom = ID_NULL,
+								.dom = KV_KEY_DOM_LAYER,
 								.id = ID_NULL,
 								.id_part = ID_NULL,
-								.key = key}),
+								.key = KV_KEY_GEN_GROUP_MEMBERS}),
 
 					 .rel_key_spec = &((struct kv_key_spec) {
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.ns_part = ID_NULL, /* will be calculated later */
-								.dom = ID_NULL,
+								.dom = KV_KEY_DOM_LAYER,
 								.id = ID_NULL,
 								.id_part = ID_NULL,
-								.key = rel_key})
+								.key = KV_KEY_GEN_GROUP_IN})
 					};
 
 	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
@@ -2373,8 +2387,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 		if (!(s = buffer_fmt_add(cmd->gen_buf, "%s%s/%s",
 							SYSTEM_SYSFS_PATH,
 							cmd->udev_dev.path,
-							sysfs_item))) {
-			log_error(ID(cmd_res), "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT ".", sysfs_item, CMD_DEV_ID(cmd));
+							SYSTEM_SYSFS_SLAVES))) {
+			log_error(ID(cmd_res), "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT ".", SYSTEM_SYSFS_SLAVES, CMD_DEV_ID(cmd));
 			goto out;
 		}
 
@@ -2419,7 +2433,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res, co
 			if ((s = buffer_fmt_add(cmd->gen_buf, "%s%s/%s/%s/dev",
 								SYSTEM_SYSFS_PATH,
 								cmd->udev_dev.path,
-								sysfs_item,
+								SYSTEM_SYSFS_SLAVES,
 								dirent[i]->d_name))) {
 
 				if (_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf)) < 0)
@@ -2471,7 +2485,7 @@ out:
 	return r;
 }
 
-static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_res, const char *key, const char *rel_key)
+static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0);
@@ -2488,19 +2502,19 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 									.op = KV_OP_SET,
 									.ns = KV_NS_DEVICE,
 									.ns_part = _get_ns_part(cmd, KV_NS_DEVICE),
-									.dom = ID_NULL,
+									.dom = KV_KEY_DOM_LAYER,
 									.id = ID_NULL,
 									.id_part = ID_NULL,
-									.key = key}),
+									.key = KV_KEY_GEN_GROUP_MEMBERS}),
 
 				       .rel_key_spec = &((struct kv_key_spec) {
 								.op = KV_OP_SET,
 								.ns = KV_NS_DEVICE,
 								.ns_part = ID_NULL, /* will be calculated later */
-								.dom = ID_NULL,
+								.dom = KV_KEY_DOM_LAYER,
 								.id = ID_NULL,
 								.id_part = ID_NULL,
-								.key = rel_key})};
+								.key = KV_KEY_GEN_GROUP_IN})};
 
 	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
 					   .mod_name = CORE_MOD_NAME,
@@ -2557,11 +2571,11 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 	switch (cmd->udev_dev.type) {
 		case UDEV_DEVTYPE_DISK:
-			if ((_refresh_device_disk_hierarchy_from_sysfs(cmd_res, "slaves", KV_KEY_DEV_LAYER_DOWN, KV_KEY_DEV_LAYER_UP) < 0))
+			if ((_refresh_device_disk_hierarchy_from_sysfs(cmd_res) < 0))
 				return -1;
 			break;
 		case UDEV_DEVTYPE_PARTITION:
-			if ((_refresh_device_partition_hierarchy_from_sysfs(cmd_res, KV_KEY_DEV_LAYER_DOWN, KV_KEY_DEV_LAYER_UP) < 0))
+			if ((_refresh_device_partition_hierarchy_from_sysfs(cmd_res) < 0))
 				return -1;
 			break;
 		case UDEV_DEVTYPE_UNKNOWN:
