@@ -468,21 +468,6 @@ static const char *_get_key_part(const char *key, key_part_t req_part, size_t *l
 	return start;
 }
 
-static const char *_buffer_copy_ns_part_from_key(struct buffer *buf, const char *key)
-{
-	const char *str;
-	size_t len;
-
-	/*           |<----->|
-	   <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
-	*/
-
-	if (!(str = _get_key_part(key, KEY_PART_NS_PART, &len)))
-		return NULL;
-
-	return buffer_fmt_add(buf, "%.*s", len, str);
-}
-
 static kv_op_t _get_op_from_key(const char *key)
 {
 	const char *str;
@@ -530,12 +515,19 @@ static sid_ubridge_cmd_kv_namespace_t _get_ns_from_key(const char *key)
 		return KV_NS_UNDEFINED;
 }
 
-static const char *_get_core_key(const char *key)
+static const char *_buffer_copy_ns_part_from_key(struct buffer *buf, const char *key)
 {
-	/*                                           |<->|
-	 * <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
-	 */
-	return _get_key_part(key, KEY_PART_CORE, NULL);
+	const char *str;
+	size_t len;
+
+	/*           |<----->|
+	   <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
+	*/
+
+	if (!(str = _get_key_part(key, KEY_PART_NS_PART, &len)))
+		return NULL;
+
+	return buffer_fmt_add(buf, "%.*s", len, str);
 }
 
 static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value, size_t value_size, struct iovec *iov)
@@ -2789,7 +2781,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
-			key = _get_core_key(key);
+			key = _get_key_part(key, KEY_PART_CORE, NULL);
 			buffer_add(cmd->res_buf, (void *) key, strlen(key));
 			buffer_add(cmd->res_buf, KV_PAIR_C, 1);
 			data_offset = _get_kv_value_data_offset(kv_value);
