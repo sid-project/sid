@@ -2783,10 +2783,10 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 			iov_size = size;
 			kv_value = NULL;
 
-			if (!((*((sid_ubridge_kv_flags_t *) iov[KV_VALUE_IDX_FLAGS].iov_base)) & KV_PERSISTENT))
+			if (!(KV_VALUE_FLAGS(iov) & KV_PERSISTENT))
 				continue;
 
-			*((sid_ubridge_kv_flags_t *) iov[KV_VALUE_IDX_FLAGS].iov_base) &= ~KV_PERSISTENT;
+			KV_VALUE_FLAGS(iov) &= ~KV_PERSISTENT;
 		} else {
 			iov = NULL;
 			iov_size = 0;
