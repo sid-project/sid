@@ -100,6 +100,7 @@
 #define KV_KEY_DEV_NEXT_MOD      SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
 
 #define KV_KEY_DOM_LAYER         "LYR"
+#define KV_KEY_DOM_USER          "USR"
 
 #define KV_KEY_GEN_GROUP_MEMBERS KEY_SYS_C "GMB"
 #define KV_KEY_GEN_GROUP_IN      KEY_SYS_C "GIN"
@@ -825,7 +826,7 @@ static void _destroy_unused_delta(struct kv_delta *delta)
 	}
 }
 
-static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns, const char *dom,
 					const char *key, sid_ubridge_kv_flags_t flags, const void *value, size_t value_size)
 {
 	const char *mod_name = _res_get_mod_name(cmd->mod_res);
@@ -836,7 +837,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct kv_key_spec key_spec = {.op = KV_OP_SET,
 				       .ns = ns,
 				       .ns_part = _get_ns_part(cmd, ns),
-				       .dom = ID_NULL,
+				       .dom = dom ? : ID_NULL,
 				       .id = ID_NULL,
 				       .id_part = ID_NULL,
 				       .key = key};
@@ -902,7 +903,7 @@ void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cm
 	if (ns == KV_NS_UDEV)
 		flags |= KV_PERSISTENT;
 
-	return _do_sid_ubridge_cmd_set_kv(cmd, ns, key, flags, value, value_size);
+	return _do_sid_ubridge_cmd_set_kv(cmd, ns, KV_KEY_DOM_USER, key, flags, value, value_size);
 }
 
 const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
@@ -915,7 +916,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	struct kv_key_spec key_spec = {.op = KV_OP_SET,
 				       .ns = ns,
 				       .ns_part = _get_ns_part(cmd, ns),
-				       .dom = ID_NULL,
+				       .dom = KV_KEY_DOM_USER,
 				       .id = ID_NULL,
 				       .id_part = ID_NULL,
 				       .key = key};
@@ -1105,7 +1106,7 @@ int sid_ubridge_cmd_dev_set_ready(struct sid_ubridge_cmd_context *cmd, dev_ready
 	orig_mod_res = cmd->mod_res;
 	cmd->mod_res = NULL;
 
-	_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, DEFAULT_CORE_KV_FLAGS, &ready, sizeof(ready));
+	_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_READY, DEFAULT_CORE_KV_FLAGS, &ready, sizeof(ready));
 
 	cmd->mod_res = orig_mod_res;
 	return 0;
@@ -1141,7 +1142,7 @@ int sid_ubridge_cmd_dev_set_reserved(struct sid_ubridge_cmd_context *cmd, dev_re
 	orig_mod_res = cmd->mod_res;
 	cmd->mod_res = NULL;
 
-	_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, DEFAULT_CORE_KV_FLAGS, &reserved, sizeof(reserved));
+	_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_RESERVED, DEFAULT_CORE_KV_FLAGS, &reserved, sizeof(reserved));
 
 	cmd->mod_res = orig_mod_res;
 	return 0;
@@ -1235,7 +1236,7 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 								.op = KV_OP_SET,
 								.ns = group_ns,
 								.ns_part = _get_ns_part(cmd, group_ns),
-								.dom = ID_NULL,
+								.dom = KV_KEY_DOM_USER,
 								.id = group_id,
 								.id_part = ID_NULL,
 								.key = KV_KEY_GEN_GROUP_MEMBERS}),
@@ -1377,7 +1378,7 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
 	key_len = value - key - 1;
 	key[key_len] = '\0';
 
-	if (!(value = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, key, 0, value, strlen(value) + 1)))
+	if (!(value = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, NULL, key, 0, value, strlen(value) + 1)))
 		goto bad;
 
 	/* Common key=value pairs are also directly in the cmd->udev_dev structure. */
@@ -1557,7 +1558,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	buf[len + SID_MODULE_NAME_SUFFIX_LEN] = '\0';
 	_canonicalize_module_name(buf);
 
-	if (!(mod_name = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_MOD, DEFAULT_CORE_KV_FLAGS, buf, strlen(buf) + 1)))
+	if (!(mod_name = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_MOD, DEFAULT_CORE_KV_FLAGS, buf, strlen(buf) + 1)))
 		log_error_errno(ID(cmd_res), errno, "Failed to store device " CMD_DEV_ID_FMT " module name.", CMD_DEV_ID(cmd));
 out:
 	if (f)
@@ -2596,8 +2597,8 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 		ready = DEV_NOT_RDY_UNPROCESSED;
 		reserved = DEV_RES_UNPROCESSED;
 
-		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, DEFAULT_CORE_KV_FLAGS, &ready, sizeof(ready));
-		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, DEFAULT_CORE_KV_FLAGS, &reserved, sizeof(reserved));
+		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_READY, DEFAULT_CORE_KV_FLAGS, &ready, sizeof(ready));
+		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_RESERVED, DEFAULT_CORE_KV_FLAGS, &reserved, sizeof(reserved));
 	}
 
 	_refresh_device_hierarchy_from_sysfs(cmd_res);
@@ -3092,7 +3093,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, KV_KEY_UDEV_SID_WORKER_ID, KV_PERSISTENT, worker_id, strlen(worker_id) + 1)) {
+	if (!_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, NULL, KV_KEY_UDEV_SID_WORKER_ID, KV_PERSISTENT, worker_id, strlen(worker_id) + 1)) {
 		log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_WORKER_ID);
 		goto fail;
 	}
