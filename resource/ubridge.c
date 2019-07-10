@@ -1257,7 +1257,7 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 
 	// TODO: check return values / maybe also pass flags / use proper mod_name
 
-	VALUE_VECTOR_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, kv_flags_persist, core_mod_name);
+	VALUE_VECTOR_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, kv_flags_no_persist, core_mod_name);
 	rel_key_prefix = _buffer_compose_key_prefix(cmd->gen_buf, rel_spec.rel_key_spec);
 	iov[VALUE_VECTOR_IDX_DATA] = (struct iovec) {(void*) rel_key_prefix, strlen(rel_key_prefix) + 1};
 
