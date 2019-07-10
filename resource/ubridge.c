@@ -2358,7 +2358,10 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {
 							.op = KV_OP_SET,
-							.flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
+							.flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
+							.plus = NULL,
+							.minus = NULL,
+							.final = NULL}),
 
 					 .cur_key_spec = &((struct kv_key_spec) {
 								.op = KV_OP_SET,
@@ -2496,8 +2499,11 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	int r = -1;
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {
-								.op    = KV_OP_SET,
-								.flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
+								.op = KV_OP_SET,
+								.flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
+								.plus = NULL,
+								.minus = NULL,
+								.final = NULL}),
 
 				       .cur_key_spec = &((struct kv_key_spec) {
 									.op = KV_OP_SET,
