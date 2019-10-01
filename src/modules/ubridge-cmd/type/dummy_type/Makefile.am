@@ -17,25 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-pkglib_LTLIBRARIES = libsidmisc.la
-libsidmisc_la_SOURCES = mem.c \
-			bitmap.c \
-			buffer-type.h \
-			buffer-type-linear.c \
-			buffer-type-vector.c \
-			buffer.c \
-			list.c \
-			comms.c \
-			util.c \
-			hash.c
-pkginclude_HEADERS = $(top_builddir)/include/types.h \
-		     $(top_builddir)/include/mem.h \
-		     $(top_builddir)/include/bitmap.h \
-		     $(top_builddir)/include/buffer-common.h \
-		     $(top_builddir)/include/buffer.h \
-		     $(top_builddir)/include/list.h \
-		     $(top_builddir)/include/comms.h \
-		     $(top_builddir)/include/util.h \
-		     $(top_builddir)/include/hash.h
-libsidmisc_la_LIBADD = $(top_builddir)/log/libsidlog.la \
-		       $(UUID_LIBS)
+dummy_typedir = $(pkglibdir)/modules/ubridge-cmd/type
+dummy_type_LTLIBRARIES = dummy_type.la
+dummy_type_la_SOURCES = dummy_type.c
+dummy_type_la_LDFLAGS = -module -avoid-version
+dummy_type_la_LIBADD = $(top_builddir)/src/log/libsidlog.la

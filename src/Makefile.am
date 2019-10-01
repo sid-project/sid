@@ -17,9 +17,4 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-multipath_componentdir = $(pkglibdir)/modules/ubridge-cmd/block
-multipath_component_LTLIBRARIES = multipath_component.la
-multipath_component_la_SOURCES = multipath_component.c
-multipath_component_la_LDFLAGS = -module -avoid-version
-multipath_component_la_LIBADD = $(top_builddir)/log/libsidlog.la \
-				-lmpathvalid
+SUBDIRS = log misc resource daemon modules

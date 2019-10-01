@@ -17,7 +17,25 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-bin_PROGRAMS = sid
-sid_SOURCES = resource-sid.c \
-	      sid.c
-sid_LDADD = $(top_builddir)/resource/libsidresource.la
+pkglib_LTLIBRARIES = libsidmisc.la
+libsidmisc_la_SOURCES = mem.c \
+			bitmap.c \
+			buffer-type.h \
+			buffer-type-linear.c \
+			buffer-type-vector.c \
+			buffer.c \
+			list.c \
+			comms.c \
+			util.c \
+			hash.c
+pkginclude_HEADERS = $(top_builddir)/src/include/types.h \
+		     $(top_builddir)/src/include/mem.h \
+		     $(top_builddir)/src/include/bitmap.h \
+		     $(top_builddir)/src/include/buffer-common.h \
+		     $(top_builddir)/src/include/buffer.h \
+		     $(top_builddir)/src/include/list.h \
+		     $(top_builddir)/src/include/comms.h \
+		     $(top_builddir)/src/include/util.h \
+		     $(top_builddir)/src/include/hash.h
+libsidmisc_la_LIBADD = $(top_builddir)/src/log/libsidlog.la \
+		       $(UUID_LIBS)

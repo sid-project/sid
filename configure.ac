@@ -40,18 +40,24 @@ AC_DEFINE_UNQUOTED(SID_CONFIGURE_LINE,"$CONFIGURE_LINE", [configure command line
 AC_DEFINE_UNQUOTED(SID_COMPILED_BY, "$(whoami)", [user who ran configure])
 AC_DEFINE_UNQUOTED(SID_COMPILATION_HOST, "$(hostname -f 2>/dev/null || hostname)", [host on which configure was executed])
 AC_DEFINE_UNQUOTED(SID_COMPILER, "$($CC --version | head -n 1)", [compiler used to compile sources])
-AC_CONFIG_FILES([Makefile log/Makefile misc/Makefile resource/Makefile daemon/Makefile
-		 modules/Makefile modules/ubridge-cmd/Makefile
-		 modules/ubridge-cmd/type/Makefile
-		 modules/ubridge-cmd/block/Makefile
-		 modules/ubridge-cmd/type/dummy_type/Makefile
-		 modules/ubridge-cmd/type/device_mapper/Makefile
-		 modules/ubridge-cmd/type/md/Makefile
-		 modules/ubridge-cmd/type/sd/Makefile
-		 modules/ubridge-cmd/block/dummy_block/Makefile
-		 modules/ubridge-cmd/block/blkid/Makefile
-		 modules/ubridge-cmd/block/multipath_component/Makefile])
-AC_CONFIG_HEADERS([include/configure.h])
+AC_CONFIG_FILES([Makefile
+		 src/Makefile
+		 src/log/Makefile
+		 src/misc/Makefile
+		 src/resource/Makefile
+		 src/daemon/Makefile
+		 src/modules/Makefile
+		 src/modules/ubridge-cmd/Makefile
+		 src/modules/ubridge-cmd/type/Makefile
+		 src/modules/ubridge-cmd/block/Makefile
+		 src/modules/ubridge-cmd/type/dummy_type/Makefile
+		 src/modules/ubridge-cmd/type/device_mapper/Makefile
+		 src/modules/ubridge-cmd/type/md/Makefile
+		 src/modules/ubridge-cmd/type/sd/Makefile
+		 src/modules/ubridge-cmd/block/dummy_block/Makefile
+		 src/modules/ubridge-cmd/block/blkid/Makefile
+		 src/modules/ubridge-cmd/block/multipath_component/Makefile])
+AC_CONFIG_HEADERS([src/include/configure.h])
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
 AC_CHECK_FUNCS([clock_gettime dup2 memchr memset mkdir munmap select socket strcasecmp strchr strdup strerror strspn strstr strtoull])

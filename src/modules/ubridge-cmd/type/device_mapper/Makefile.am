@@ -17,8 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-dummy_blockdir = $(pkglibdir)/modules/ubridge-cmd/block
-dummy_block_LTLIBRARIES = dummy_block.la
-dummy_block_la_SOURCES = dummy_block.c
-dummy_block_la_LDFLAGS = -module -avoid-version
-dummy_block_la_LIBADD = $(top_builddir)/log/libsidlog.la
+device_mapperdir = $(pkglibdir)/modules/ubridge-cmd/type
+device_mapper_LTLIBRARIES = device_mapper.la
+device_mapper_la_SOURCES = device_mapper.c
+device_mapper_la_LDFLAGS = -module -avoid-version
+device_mapper_la_LIBADD = $(top_builddir)/src/log/libsidlog.la

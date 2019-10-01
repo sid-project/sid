@@ -17,8 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-pkglib_LTLIBRARIES = libsidlog.la
-libsidlog_la_SOURCES = log-target-standard.c \
-		       log-target-syslog.c \
-		       log.c
-pkginclude_HEADERS = $(top_builddir)/include/log.h
+sddir = $(pkglibdir)/modules/ubridge-cmd/type
+sd_LTLIBRARIES = sd.la
+sd_la_SOURCES = sd.c
+sd_la_LDFLAGS = -module -avoid-version
+sd_la_LIBADD = $(top_builddir)/src/log/libsidlog.la

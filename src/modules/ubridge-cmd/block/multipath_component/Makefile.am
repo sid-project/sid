@@ -17,26 +17,9 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-pkglib_LTLIBRARIES = libsidresource.la
-libsidresource_la_SOURCES = resource.c \
-			    aggregate.c \
-			    ubridge.c \
-			    module-registry.c \
-			    kv-store.c \
-			    worker-control.c
-pkginclude_HEADERS = $(top_builddir)/include/wrapper-sd.h \
-		     $(top_builddir)/include/types.h \
-		     $(top_builddir)/include/resource.h \
-		     $(top_builddir)/include/resource-type-regs.h \
-		     $(top_builddir)/include/macros.h \
-		     $(top_builddir)/include/module.h \
-		     $(top_builddir)/include/module-registry.h \
-		     $(top_builddir)/include/kv-store.h \
-		     $(top_builddir)/include/ubridge-cmd-module.h \
-		     $(top_builddir)/include/worker-control.h
-libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
-			   $(UDEV_CFLAGS)
-libsidresource_la_LIBADD = $(top_builddir)/misc/libsidmisc.la \
-			   $(SYSTEMD_LIBS) \
-			   $(UDEV_LIBS) \
-			   -ldl
+multipath_componentdir = $(pkglibdir)/modules/ubridge-cmd/block
+multipath_component_LTLIBRARIES = multipath_component.la
+multipath_component_la_SOURCES = multipath_component.c
+multipath_component_la_LDFLAGS = -module -avoid-version
+multipath_component_la_LIBADD = $(top_builddir)/src/log/libsidlog.la \
+                                -lmpathvalid

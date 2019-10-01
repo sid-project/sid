@@ -17,8 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-sddir = $(pkglibdir)/modules/ubridge-cmd/type
-sd_LTLIBRARIES = sd.la
-sd_la_SOURCES = sd.c
-sd_la_LDFLAGS = -module -avoid-version
-sd_la_LIBADD = $(top_builddir)/log/libsidlog.la
+mddir = $(pkglibdir)/modules/ubridge-cmd/type
+md_LTLIBRARIES = md.la
+md_la_SOURCES = md.c
+md_la_LDFLAGS = -module -avoid-version
+md_la_LIBADD = $(top_builddir)/src/log/libsidlog.la

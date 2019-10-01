@@ -11,9 +11,9 @@
 **/.deps
 **/.libs
 
-/include/stamp-h1
-/include/configure.h.in
-/include/configure.h
+src/include/stamp-h1
+src/include/configure.h.in
+src/include/configure.h
 
 **/am--include-marker
 **/\#
@@ -36,3 +36,5 @@
 /daemon/sid
 
 libtool
+
+src/daemon/sid

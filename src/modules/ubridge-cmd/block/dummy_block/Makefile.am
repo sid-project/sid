@@ -17,27 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-blkiddir = $(pkglibdir)/modules/ubridge-cmd/block
-
-blkid-type-mapper.c: blkid-type-mapper.gperf
-	$(AM_V_GEN) \
-	if $(GPERF) $(GPERFFLAGS) < $< >$@.temp; then \
-		mv $@.temp $@; \
-	elif $(GPERF) --version >/dev/null 2>&1; then \
-		rm $@.temp; \
-		exit 1; \
-	else \
-		rm $@.temp; \
-		touch $@; \
-	fi
-
-blkid_LTLIBRARIES = blkid.la
-blkid_la_SOURCES = blkid-type.h \
-		   blkid-type-mapper.c \
-		   blkid.c
-blkid_la_LDFLAGS = -module -avoid-version
-blkid_la_LIBADD = $(top_builddir)/log/libsidlog.la \
-		  $(BLKID_LIBS)
-
-mostlyclean-local:
-	rm -f blkid-type-mapper.c
+dummy_blockdir = $(pkglibdir)/modules/ubridge-cmd/block
+dummy_block_LTLIBRARIES = dummy_block.la
+dummy_block_la_SOURCES = dummy_block.c
+dummy_block_la_LDFLAGS = -module -avoid-version
+dummy_block_la_LIBADD = $(top_builddir)/src/log/libsidlog.la
