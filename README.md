@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/sid-project/sid-mvp.svg?branch=master)](https://travis-ci.org/sid-project/sid-mvp)
+
+
 # Storage Instantiation Daemon
 
 Storage Instantiation Daemon (SID) is a project that aims to help with

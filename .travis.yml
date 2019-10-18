@@ -1,0 +1,36 @@
+dist: bionic
+language: c
+sudo: true
+compiler: gcc
+notifications:
+  email:
+    on_success: never
+    on_failure: always
+
+matrix:
+    include:
+
+#
+# Whitespace check
+#
+    - env:
+        - TEST="whitespace"
+      script:
+        - git remote add upstream https://github.com/$TRAVIS_REPO_SLUG.git
+        - git fetch upstream
+        - git diff --check upstream/master
+
+#
+# compile tests
+#
+    - env:
+        - TEST="compile"
+      before_install:
+        - sudo apt-get update
+        - sudo apt-get -q -y install bison flex libjson-c-dev autoconf-archive libxen-dev libsystemd-dev libudev-dev libblkid-dev
+      install:
+        - touch README
+        - ./autogen.sh
+      script:
+        - ./configure --disable-mod-multipath_component || cat config.log
+        - make
