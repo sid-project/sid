@@ -44,14 +44,16 @@ typedef enum {
 #define COMMS_BUFFER_LEN sizeof(comms_cmd_t)
 
 static const char *comms_cmd_str[] = {[COMMS_CMD_NOOP]   = "NOOP",
-				      [COMMS_CMD_YIELD]  = "YIELD",
-				      [COMMS_CMD_CUSTOM] = "CUSTOM"};
+                                      [COMMS_CMD_YIELD]  = "YIELD",
+                                      [COMMS_CMD_CUSTOM] = "CUSTOM"
+                                     };
 
 static const char *worker_state_str[] = {[WORKER_NEW]      = "WORKER_NEW",
-					 [WORKER_IDLE]     = "WORKER_IDLE",
-					 [WORKER_ASSIGNED] = "WORKER_ASSIGNED",
-					 [WORKER_EXITING]  = "WORKER_EXITING",
-					 [WORKER_EXITED]   = "WORKER_EXITED"};
+                                         [WORKER_IDLE]     = "WORKER_IDLE",
+                                         [WORKER_ASSIGNED] = "WORKER_ASSIGNED",
+                                         [WORKER_EXITING]  = "WORKER_EXITING",
+                                         [WORKER_EXITED]   = "WORKER_EXITED"
+                                        };
 
 const sid_resource_type_t sid_resource_type_worker_proxy;
 const sid_resource_type_t sid_resource_type_worker;
@@ -472,13 +474,13 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	worker_proxy->state = WORKER_NEW;
 
 	if (sid_resource_create_child_event_source(worker_proxy_res, &worker_proxy->child_es, worker_proxy->pid, WEXITED,
-						   _on_worker_proxy_child_event, NULL, worker_proxy_res) < 0) {
+	                                           _on_worker_proxy_child_event, NULL, worker_proxy_res) < 0) {
 		log_error(ID(worker_proxy_res), "Failed to register worker process monitoring in worker proxy.");
 		goto fail;
 	}
 
 	if (sid_resource_create_io_event_source(worker_proxy_res, &worker_proxy->comms_es, worker_proxy->comms_fd,
-						_on_worker_proxy_comms_event, NULL, worker_proxy_res) < 0) {
+	                                        _on_worker_proxy_comms_event, NULL, worker_proxy_res) < 0) {
 		log_error(ID(worker_proxy_res), "Failed to register communication channel between worker and its proxy.");
 		goto fail;
 	}
@@ -572,10 +574,10 @@ static int _init_worker_control(sid_resource_t *worker_control_res, const void *
 	}
 
 	if (!(worker_control->worker_proxies_res = sid_resource_create(worker_control_res, &sid_resource_type_aggregate,
-								       SID_RESOURCE_RESTRICT_WALK_UP |
-								       SID_RESOURCE_RESTRICT_WALK_DOWN |
-								       SID_RESOURCE_DISALLOW_ISOLATION,
-								       WORKER_PROXIES_AGGREGATE_ID, worker_control))) {
+	                                                               SID_RESOURCE_RESTRICT_WALK_UP |
+	                                                               SID_RESOURCE_RESTRICT_WALK_DOWN |
+	                                                               SID_RESOURCE_DISALLOW_ISOLATION,
+	                                                               WORKER_PROXIES_AGGREGATE_ID, worker_control))) {
 		log_error(ID(worker_control_res), "Failed to create aggregate resource for worker proxies.");
 		goto fail;
 	}

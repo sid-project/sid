@@ -53,7 +53,7 @@ unsigned int list_size(const struct list *head)
 	const struct list *v;
 
 	list_iterate(v, head)
-		i++;
+	i++;
 
 	return i;
 }

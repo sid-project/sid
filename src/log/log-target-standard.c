@@ -32,22 +32,22 @@ void log_standard_open(int verbose_mode)
 	switch (verbose_mode) {
 		case 0:
 			_max_level_id = LOG_NOTICE;
-                        break;
-                case 1:
-                        _max_level_id = LOG_INFO;
-                        break;
-                case 2:
-                        _max_level_id = LOG_DEBUG;
-                        break;
-		case 3:
-                        _max_level_id = LOG_DEBUG;
-                        _with_src_info = 1;
-                        _force_err_out = 1;
 			break;
-                default:
-                        _max_level_id = LOG_DEBUG;
-                        _with_src_info = 1;
-                        _force_err_out = 1;
+		case 1:
+			_max_level_id = LOG_INFO;
+			break;
+		case 2:
+			_max_level_id = LOG_DEBUG;
+			break;
+		case 3:
+			_max_level_id = LOG_DEBUG;
+			_with_src_info = 1;
+			_force_err_out = 1;
+			break;
+		default:
+			_max_level_id = LOG_DEBUG;
+			_with_src_info = 1;
+			_force_err_out = 1;
 			_with_pids = 1;
 			break;
 	}
@@ -60,14 +60,14 @@ void log_standard_close(void)
 }
 
 void log_standard_output(int level_id,
-			 const char *prefix,
-			 int class_id,
-			 int errno_id,
-			 const char *src_file_name,
-			 int src_line_number,
-			 const char *function_name,
-			 const char *format,
-			 va_list ap)
+                         const char *prefix,
+                         int class_id,
+                         int errno_id,
+                         const char *src_file_name,
+                         int src_line_number,
+                         const char *function_name,
+                         const char *format,
+                         va_list ap)
 {
 	FILE *out_file;
 
@@ -81,7 +81,7 @@ void log_standard_output(int level_id,
 
 	if (_with_src_info)
 		fprintf(out_file, "%s:%d%s%s\t", src_file_name, src_line_number,
-			function_name ? ":" : "", function_name ? : "");
+		        function_name ? ":" : "", function_name ? : "");
 
 	if (prefix)
 		fprintf(out_file, "<%s> ", prefix);

@@ -172,7 +172,7 @@ static int _has_suffix(const char *s, const char *suffix, int no_case)
 		return 0;
 
 	return no_case ? strcasecmp(s + len_s - len_suffix, suffix) == 0
-		       : strcmp(s + len_s - len_suffix, suffix) == 0;
+	       : strcmp(s + len_s - len_suffix, suffix) == 0;
 }
 
 static int _preload_modules(sid_resource_t *module_registry_res, struct module_registry *registry)

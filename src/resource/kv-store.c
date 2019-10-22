@@ -244,8 +244,8 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 }
 
 static int _hash_update_fn(const char *key, uint32_t key_len,
-			   struct kv_store_value *old_value, struct kv_store_value **new_value,
-			   struct kv_update_fn_relay *relay)
+                           struct kv_store_value *old_value, struct kv_store_value **new_value,
+                           struct kv_update_fn_relay *relay)
 {
 	struct kv_store_value *orig_new_value = new_value ? *new_value : NULL;
 	struct kv_store_value *edited_new_value;
@@ -326,14 +326,15 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 }
 
 void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
-			 void *value, size_t value_size,
-			 kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags,
-			 kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg)
+                         void *value, size_t value_size,
+                         kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags,
+                         kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg)
 {
 	struct kv_update_fn_relay relay = {.key = key,
-					   .kv_update_fn = kv_update_fn,
-					   .kv_update_fn_arg = kv_update_fn_arg,
-					   .updated = 0};
+		       .kv_update_fn = kv_update_fn,
+		       .kv_update_fn_arg = kv_update_fn_arg,
+		       .updated = 0
+	};
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	struct iovec iov_internal = {.iov_base = value, .iov_len = value_size};
 	struct iovec *iov;
@@ -352,7 +353,7 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
 		return NULL;
 
 	if (hash_update_binary(kv_store->ht, key, strlen(key) + 1, (void **) &kv_store_value,
-			       (hash_update_fn_t) _hash_update_fn, &relay)) {
+	                       (hash_update_fn_t) _hash_update_fn, &relay)) {
 		errno = EIO;
 		return NULL;
 	}
@@ -366,7 +367,7 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
 }
 
 void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key,
-			 size_t *value_size, kv_store_value_flags_t *flags)
+                         size_t *value_size, kv_store_value_flags_t *flags)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_store_value *found;
@@ -386,7 +387,7 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key,
 }
 
 int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key,
-			 kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg)
+                         kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_store_value *found;
@@ -453,7 +454,7 @@ const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags)
 {
 	iter->current = iter->current ? hash_get_next(iter->store->ht, iter->current)
-				      : hash_get_first(iter->store->ht);
+	                : hash_get_first(iter->store->ht);
 
 	return kv_store_iter_current(iter, size, flags);
 }

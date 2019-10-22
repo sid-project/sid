@@ -152,22 +152,22 @@ int _buffer_vector_rewind(struct buffer *buf, size_t pos)
 
 bool _buffer_vector_is_complete(struct buffer *buf)
 {
-/*	struct iovec *iov;
-	MSG_SIZE_PREFIX_TYPE size_prefix;
-	size_t size = 0;
-	unsigned i;
+	/*	struct iovec *iov;
+		MSG_SIZE_PREFIX_TYPE size_prefix;
+		size_t size = 0;
+		unsigned i;
 
-	switch (buf->mode) {
-		case BUFFER_MODE_PLAIN:
-			return true;
-		case BUFFER_MODE_SIZE_PREFIX:
-			iov = buf->mem;
-			size_prefix = *((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base);
-			for (i = 1; i < buf->used; i++)
-				size += iov[i].iov_len;
-			return buf->used && size_prefix == size;
-	}
-*/
+		switch (buf->mode) {
+			case BUFFER_MODE_PLAIN:
+				return true;
+			case BUFFER_MODE_SIZE_PREFIX:
+				iov = buf->mem;
+				size_prefix = *((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base);
+				for (i = 1; i < buf->used; i++)
+					size += iov[i].iov_len;
+				return buf->used && size_prefix == size;
+		}
+	*/
 	return true;
 }
 

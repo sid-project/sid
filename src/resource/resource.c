@@ -48,7 +48,7 @@ typedef struct sid_resource_iter {
 } sid_resource_iter_t;
 
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_type_t *type,
-				    sid_resource_flags_t flags, const char *id_part, const void *kickstart_data)
+                                    sid_resource_flags_t flags, const char *id_part, const void *kickstart_data)
 {
 	sid_resource_t *res;
 	size_t id_size;
@@ -94,7 +94,7 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 fail:
 	if (res) {
 		list_iterate_items_safe_back(child_res, tmp_child_res, &res->children)
-			(void) sid_resource_destroy(child_res);
+		(void) sid_resource_destroy(child_res);
 		if (res->parent)
 			list_del(&res->list);
 		if (res->event_loop)
@@ -119,10 +119,10 @@ int sid_resource_destroy(sid_resource_t *res)
 		log_debug(res->id, "%s.", msg_destroying);
 	else
 		log_debug(res->id, "%s (%s: %d/%d).", msg_destroying,
-			  msg_pid_created_current, res->pid_created, pid);
+		          msg_pid_created_current, res->pid_created, pid);
 
 	list_iterate_items_safe_back(child_res, tmp_child_res, &res->children)
-		(void) sid_resource_destroy(child_res);
+	(void) sid_resource_destroy(child_res);
 
 	if (res->type->destroy)
 		(void) res->type->destroy(res);
@@ -137,7 +137,7 @@ int sid_resource_destroy(sid_resource_t *res)
 		log_debug(res->id, "%s.", msg_destroyed);
 	else
 		log_debug(res->id, "%s (%s: %d/%d).", msg_destroyed,
-			  msg_pid_created_current, res->pid_created, pid);
+		          msg_pid_created_current, res->pid_created, pid);
 
 	free(res->id);
 	free(res);
@@ -196,7 +196,7 @@ sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_
 }
 
 int sid_resource_create_io_event_source(sid_resource_t *res, sid_event_source **es, int fd,
-				        sid_io_handler handler, const char *name, void *data)
+                                        sid_io_handler handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 	int r;
@@ -215,7 +215,7 @@ int sid_resource_create_io_event_source(sid_resource_t *res, sid_event_source **
 }
 
 int sid_resource_create_signal_event_source(sid_resource_t *res, sid_event_source **es, int signal,
-					    sid_signal_handler handler, const char *name, void *data)
+                                            sid_signal_handler handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 	int r;
@@ -234,7 +234,7 @@ int sid_resource_create_signal_event_source(sid_resource_t *res, sid_event_sourc
 }
 
 int sid_resource_create_child_event_source(sid_resource_t *res, sid_event_source **es, pid_t pid,
-					   int options, sid_child_handler handler, const char *name, void *data)
+                                           int options, sid_child_handler handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 	int r;
@@ -253,8 +253,8 @@ int sid_resource_create_child_event_source(sid_resource_t *res, sid_event_source
 }
 
 int sid_resource_create_time_event_source(sid_resource_t *res, sid_event_source **es, clockid_t clock,
-					  uint64_t usec, uint64_t accuracy, sid_time_handler handler,
-					  const char *name, void *data)
+                                          uint64_t usec, uint64_t accuracy, sid_time_handler handler,
+                                          const char *name, void *data)
 {
 	sid_resource_t *res_event_loop = _get_resource_with_event_loop(res, 1);
 	int r;
@@ -303,7 +303,7 @@ int sid_resource_create_exit_event_source(sid_resource_t *res, sid_event_source 
 }
 
 int sid_resource_destroy_event_source(sid_resource_t *res __attribute__((unused)),
-				      sid_event_source **es)
+                                      sid_event_source **es)
 {
 	*es = sd_event_source_unref(*es);
 	return 0;
@@ -422,7 +422,7 @@ sid_resource_t *sid_resource_iter_next(sid_resource_iter_t *iter)
 	iter->next = iter->current->n;
 
 	if ((res = list_struct_base(iter->current, sid_resource_t, list)) &&
-	     res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
+	    res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
 		return sid_resource_iter_next(iter);
 
 	return res;
@@ -439,7 +439,7 @@ sid_resource_t *sid_resource_iter_previous(sid_resource_iter_t *iter)
 	iter->prev = iter->current->p;
 
 	if ((res = list_struct_base(iter->current, sid_resource_t, list)) &&
-	     res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
+	    res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
 		return sid_resource_iter_previous(iter);
 
 	return res;
@@ -467,7 +467,7 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 	log_debug(res->id, "Entering event loop.");
 
 	(void) sd_notify(0, "READY=1\n"
-			    "STATUS=SID started processing requests.");
+	                 "STATUS=SID started processing requests.");
 
 	r = sd_event_loop(res->event_loop);
 	if (r < 0) {
@@ -512,8 +512,8 @@ void _dump_children_recursively_in_dot(sid_resource_t *res)
 		}
 
 		log_print(ID, "\"%s\" -> \"%s\" %s%s;",
-			  res->id, child_res->id, dir,
-			  child_res->flags & SID_RESOURCE_DISALLOW_ISOLATION ? " [color=red]" : "");
+		          res->id, child_res->id, dir,
+		          child_res->flags & SID_RESOURCE_DISALLOW_ISOLATION ? " [color=red]" : "");
 		_dump_children_recursively_in_dot(child_res);
 	}
 

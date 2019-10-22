@@ -22,8 +22,7 @@
 static log_target_t _current_target = LOG_TARGET_NONE;
 static int _current_verbose_mode = 0;
 
-static const struct log_target *log_target_registry[] =
-{
+static const struct log_target *log_target_registry[] = {
 	[LOG_TARGET_STANDARD] = &log_target_standard,
 	[LOG_TARGET_SYSLOG] = &log_target_syslog
 };
@@ -49,8 +48,8 @@ void log_change_target(log_target_t new_target)
 }
 
 void log_output(int level_id, const char *prefix, int class_id, int errno_id,
-		const char *file_name, int line_number, const char *function_name,
-		const char *format, ...)
+                const char *file_name, int line_number, const char *function_name,
+                const char *format, ...)
 {
 	int orig_errno;
 	va_list ap;
@@ -61,13 +60,13 @@ void log_output(int level_id, const char *prefix, int class_id, int errno_id,
 	orig_errno = errno;
 	va_start(ap, format);
 	log_target_registry[_current_target]->output(level_id,
-						     prefix,
-						     class_id,
-						     errno_id,
-						     file_name,
-						     line_number,
-						     function_name,
-						     format, ap);
+	                                             prefix,
+	                                             class_id,
+	                                             errno_id,
+	                                             file_name,
+	                                             line_number,
+	                                             function_name,
+	                                             format, ap);
 	va_end(ap);
 	errno = orig_errno;
 }

@@ -37,14 +37,15 @@ int util_pid_to_str(pid_t pid, char *buf, size_t buf_size)
 }
 
 static const char *udev_action_str[] = {[UDEV_ACTION_ADD]     = "add",
-					[UDEV_ACTION_CHANGE]  = "change",
-					[UDEV_ACTION_REMOVE]  = "remove",
-					[UDEV_ACTION_MOVE]    = "move",
-					[UDEV_ACTION_ONLINE]  = "online",
-					[UDEV_ACTION_OFFLINE] = "offline",
-					[UDEV_ACTION_BIND]    = "bind",
-					[UDEV_ACTION_UNBIND]  = "unbind",
-					[UDEV_ACTION_UNKNOWN] = "unknown"};
+                                        [UDEV_ACTION_CHANGE]  = "change",
+                                        [UDEV_ACTION_REMOVE]  = "remove",
+                                        [UDEV_ACTION_MOVE]    = "move",
+                                        [UDEV_ACTION_ONLINE]  = "online",
+                                        [UDEV_ACTION_OFFLINE] = "offline",
+                                        [UDEV_ACTION_BIND]    = "bind",
+                                        [UDEV_ACTION_UNBIND]  = "unbind",
+                                        [UDEV_ACTION_UNKNOWN] = "unknown"
+                                       };
 
 udev_action_t util_str_to_udev_action(const char *str)
 {
@@ -69,8 +70,9 @@ udev_action_t util_str_to_udev_action(const char *str)
 }
 
 static const char *udev_devtype_str[] = {[UDEV_DEVTYPE_DISK]      = "disk",
-					 [UDEV_DEVTYPE_PARTITION] = "partition",
-					 [UDEV_DEVTYPE_UNKNOWN]   = "unknown"};
+                                         [UDEV_DEVTYPE_PARTITION] = "partition",
+                                         [UDEV_DEVTYPE_UNKNOWN]   = "unknown"
+                                        };
 
 udev_devtype_t util_str_to_udev_devtype(const char *str)
 {

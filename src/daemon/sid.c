@@ -40,12 +40,12 @@ const sid_resource_type_t sid_resource_type_sid;
 static void _help(FILE *f)
 {
 	fprintf(f, "Usage: sid [options]\n"
-		"\n"
-		"    -f|--foreground  Run in foreground.\n"
-		"    -h|--help        Show this help information.\n"
-		"    -v|--verbose     Verbose mode, repeat to increase level.\n"
-		"    -V|--version     Show SID version.\n"
-		"\n");
+	        "\n"
+	        "    -f|--foreground  Run in foreground.\n"
+	        "    -h|--help        Show this help information.\n"
+	        "    -v|--verbose     Verbose mode, repeat to increase level.\n"
+	        "    -V|--version     Show SID version.\n"
+	        "\n");
 }
 
 static void _version(FILE *f)
@@ -53,7 +53,7 @@ static void _version(FILE *f)
 	fprintf(f, PACKAGE_STRING "\n");
 	fprintf(f, "Configuration line: %s\n", SID_CONFIGURE_LINE);
 	fprintf(f, "Compiled by: %s on %s with %s\n", SID_COMPILED_BY,
-		SID_COMPILATION_HOST, SID_COMPILER);
+	        SID_COMPILATION_HOST, SID_COMPILER);
 }
 
 static void _shutdown_signal_handler(int sig __attribute__((unused)))
@@ -108,8 +108,8 @@ static void _become_daemon()
 		exit(EXIT_FAILURE);
 	}
 
-        for (fd = sysconf(_SC_OPEN_MAX) - 1; fd > STDERR_FILENO; fd--) {
-                if (close(fd)) {
+	for (fd = sysconf(_SC_OPEN_MAX) - 1; fd > STDERR_FILENO; fd--) {
+		if (close(fd)) {
 			if (errno == EBADF)
 				continue;
 			log_error_errno(LOG_PREFIX, errno, "Failed to close FD %d", fd);
@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
 	};
 
 	while ((opt = getopt_long(argc, argv, "fhvV", longopts, NULL)) != -1) {
-		switch(opt) {
+		switch (opt) {
 			case 'f':
 				foreground = 1;
 				break;

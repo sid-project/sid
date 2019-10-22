@@ -1,0 +1,7 @@
+style=linux
+indent=tab
+suffix=none
+align-pointer=name
+indent-switches
+min-conditional-indent=0
+max-continuation-indent=80

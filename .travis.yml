@@ -21,13 +21,32 @@ matrix:
         - git diff --check upstream/master
 
 #
+# Codestyle check
+#
+    - env:
+        - TEST="codestyle"
+      before_install:
+        - sudo apt-get update
+        - sudo apt-get -q -y install astyle
+      script:
+        - export ARTISTIC_STYLE_OPTIONS=".astylerc" && astyle -Q `find . -name "*.c" -o -name ".h"` > astyle.out
+        - TEST=$(cat astyle.out | wc -l)
+        - |
+          if [[ $TEST -ne 0 ]]; then
+            cat astyle.out
+            git --no-pager diff
+            echo "Please fix style issues as shown above"
+            exit 1
+          fi
+
+#
 # compile tests
 #
     - env:
         - TEST="compile"
       before_install:
         - sudo apt-get update
-        - sudo apt-get -q -y install bison flex libjson-c-dev autoconf-archive libxen-dev libsystemd-dev libudev-dev libblkid-dev
+        - sudo apt-get -q -y install autoconf-archive libxen-dev libsystemd-dev libudev-dev libblkid-dev
       install:
         - touch README
         - ./autogen.sh
