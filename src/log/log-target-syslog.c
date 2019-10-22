@@ -30,13 +30,13 @@ void log_syslog_open(int verbose_mode)
 	switch (verbose_mode) {
 		case 0:
 			_max_level_id = LOG_NOTICE;
-                        break;
-                case 1:
-                        _max_level_id = LOG_INFO;
-                        break;
+			break;
+		case 1:
+			_max_level_id = LOG_INFO;
+			break;
 		default:
-                        _max_level_id = LOG_DEBUG;
-                        break;
+			_max_level_id = LOG_DEBUG;
+			break;
 	}
 
 	openlog(SID_SYSLOG_IDENT, LOG_PID, LOG_DAEMON);
@@ -48,14 +48,14 @@ void log_syslog_close(void)
 }
 
 void log_syslog_output(int level_id,
-		       const char *prefix,
-		       int class_id,
-		       int errno_id,
-		       const char *src_file_name,
-		       int src_line_number,
-		       const char *function_name,
-		       const char *format,
-		       va_list ap)
+                       const char *prefix,
+                       int class_id,
+                       int errno_id,
+                       const char *src_file_name,
+                       int src_line_number,
+                       const char *function_name,
+                       const char *format,
+                       va_list ap)
 {
 	char msg[4096];
 	size_t prefix_len, remaining_len;

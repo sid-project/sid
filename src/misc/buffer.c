@@ -22,8 +22,7 @@
 #include "mem.h"
 #include <errno.h>
 
-static const struct buffer_type *_buffer_type_registry[] =
-{
+static const struct buffer_type *_buffer_type_registry[] = {
 	[BUFFER_TYPE_LINEAR] = &buffer_type_linear,
 	[BUFFER_TYPE_VECTOR] = &buffer_type_vector
 };

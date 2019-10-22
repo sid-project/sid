@@ -191,7 +191,7 @@ int hash_insert_binary(struct hash_table *t, const void *key, uint32_t len, void
 }
 
 void hash_remove_binary(struct hash_table *t, const void *key,
-			uint32_t len)
+                        uint32_t len)
 {
 	struct hash_node **c = _find(t, key, len);
 
@@ -368,7 +368,7 @@ char *hash_get_key(struct hash_table *t __attribute__((unused)), struct hash_nod
 }
 
 void *hash_get_data(struct hash_table *t __attribute__((unused)),
-		       struct hash_node *n)
+                    struct hash_node *n)
 {
 	return n->data;
 }
@@ -402,7 +402,7 @@ struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n)
  */
 
 int hash_update_binary(struct hash_table *t, const void *key, uint32_t len, void **data,
-		       hash_update_fn_t hash_update_fn, void *hash_update_fn_arg)
+                       hash_update_fn_t hash_update_fn, void *hash_update_fn_arg)
 {
 	struct hash_node **c = _find(t, key, len);
 
