@@ -85,8 +85,7 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 			if (value->int_flags & KV_STORE_VALUE_INT_ALLOC)
 				/* H */
 				free(iov[0].iov_base);
-
-			if (value->ext_flags & KV_STORE_VALUE_AUTOFREE) {
+			else if (value->ext_flags & KV_STORE_VALUE_AUTOFREE) {
 				/* G */
 				for (i = 0; i < value->size; i++)
 					free(iov[i].iov_base);
@@ -170,7 +169,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 					p2 += iov[i].iov_len;
 				}
 
-				value->data_p = iov;
+				value->data_p = p1;
 				value->size = iov_cnt;
 				value->int_flags = KV_STORE_VALUE_INT_ALLOC;
 			} else {
@@ -247,7 +246,12 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
                            struct kv_store_value *old_value, struct kv_store_value **new_value,
                            struct kv_update_fn_relay *relay)
 {
-	struct kv_store_value *orig_new_value = new_value ? *new_value : NULL;
+	/*
+	 * Note that:
+	 *   '*new_value' is always non-NULL here
+	 *   'old_value' can be NULL if there wasn't any previous record
+	 */
+	struct kv_store_value *orig_new_value = *new_value;
 	struct kv_store_value *edited_new_value;
 	void *orig_new_data = NULL;
 	size_t orig_new_data_size = 0;
@@ -265,11 +269,9 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 			update_spec.old_flags = old_value->ext_flags;
 		}
 
-		if (orig_new_value) {
-			update_spec.new_data = orig_new_data = _get_data(orig_new_value);
-			update_spec.new_data_size = orig_new_data_size = orig_new_value->size;
-			update_spec.new_flags = orig_new_flags = orig_new_value->ext_flags;
-		}
+		update_spec.new_data = orig_new_data = _get_data(orig_new_value);
+		update_spec.new_data_size = orig_new_data_size = orig_new_value->size;
+		update_spec.new_flags = orig_new_flags = orig_new_value->ext_flags;
 
 		r = relay->kv_update_fn(relay->key, &update_spec, relay->kv_update_fn_arg);
 

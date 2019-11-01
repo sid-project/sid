@@ -82,7 +82,7 @@ void log_syslog_output(int level_id,
 		syslog(level_id, INTERNAL_ERROR "%s: (log message truncated)", __func__);
 
 	if (r > 0)
-		syslog(level_id, msg);
+		syslog(level_id, "%s", msg);
 }
 
 const struct log_target log_target_syslog = {

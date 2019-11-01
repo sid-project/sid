@@ -323,7 +323,10 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	if (!params->symbol_params) {
+	while (params->symbol_params[count].name)
+		count++;
+
+	if (!count) {
 		log_error(ID(module_registry_res), "Module's symbol parameters not specified.");
 		goto fail;
 	}
@@ -335,9 +338,6 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 
 	/* FIXME: Make a copy of directory name and symbols to load array. */
 	registry->directory = params->directory;
-
-	while (params->symbol_params[count].name)
-		count++;
 
 	registry->flags = params->flags;
 	registry->callback_arg = params->callback_arg;
