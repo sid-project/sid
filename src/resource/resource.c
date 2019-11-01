@@ -50,7 +50,7 @@ typedef struct sid_resource_iter {
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_type_t *type,
                                     sid_resource_flags_t flags, const char *id_part, const void *kickstart_data)
 {
-	sid_resource_t *res;
+	sid_resource_t *res = NULL;
 	size_t id_size;
 	char *id;
 	sid_resource_t *child_res, *tmp_child_res;

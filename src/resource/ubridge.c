@@ -264,7 +264,7 @@ struct cmd_reg {
 struct kv_value {
 	uint64_t seqnum;
 	sid_ubridge_kv_flags_t flags;
-	char data[0];
+	char data[0]; /* contains both internal and external data */
 } __attribute__((packed));
 
 enum {
@@ -460,7 +460,7 @@ static const char *_get_key_part(const char *key, key_part_t req_part, size_t *l
 	}
 
 	if (len) {
-		if ((req_part == __KEY_PART_COUNT - 1))
+		if (req_part == __KEY_PART_COUNT - 1)
 			*len = strlen(start);
 		else {
 			if (!(end = strstr(start, KV_STORE_KEY_JOIN)))
@@ -603,7 +603,7 @@ static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_
 	static const char ID[] = "DOT";
 	kv_store_iter_t *iter;
 	void *value;
-	size_t value_size, dom_len, this_dev_len, ref_dev_len;
+	size_t value_size, elem_count, dom_len, this_dev_len, ref_dev_len;
 	const char *full_key, *key, *dom, *this_dev, *ref_dev;
 
 	kv_store_value_flags_t flags;
@@ -653,7 +653,12 @@ static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_
 		this_dev = _get_key_part(full_key, KEY_PART_NS_PART, &this_dev_len);
 		iov = _get_value_vector(flags, value, value_size, tmp_iov);
 
-		for (i = KV_VALUE_IDX_DATA; i < value_size; i++) {
+		if (flags & KV_STORE_VALUE_VECTOR)
+			elem_count = value_size;
+		else
+			elem_count = KV_VALUE_IDX_DATA + 1;
+
+		for (i = KV_VALUE_IDX_DATA; i < elem_count; i++) {
 			ref_dev = _get_key_part((const char *) iov[i].iov_base, KEY_PART_NS_PART, &ref_dev_len);
 			log_print(ID, "\"%.*s\" -> \"%.*s\"", (int) this_dev_len, this_dev, (int) ref_dev_len, ref_dev);
 		}
@@ -723,7 +728,7 @@ static const char *_res_get_mod_name(sid_resource_t *mod_res)
 }
 
 
-static size_t _get_kv_value_data_offset(struct kv_value *kv_value)
+static size_t _kv_value_ext_data_offset(struct kv_value *kv_value)
 {
 	return strlen(kv_value->data) + 1;
 }
@@ -892,7 +897,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	if (!value_size)
 		goto out;
 
-	ret = kv_value->data + _get_kv_value_data_offset(kv_value);
+	ret = kv_value->data + _kv_value_ext_data_offset(kv_value);
 out:
 	buffer_rewind_mem(cmd->gen_buf, full_key);
 	return ret;
@@ -952,7 +957,7 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 	if (flags)
 		*flags = kv_value->flags;
 
-	data_offset = _get_kv_value_data_offset(kv_value);
+	data_offset = _kv_value_ext_data_offset(kv_value);
 	size -= (sizeof(*kv_value) + data_offset);
 
 	if (value_size)
@@ -1101,7 +1106,7 @@ int sid_ubridge_cmd_dev_set_ready(struct sid_ubridge_cmd_context *cmd, dev_ready
 {
 	sid_resource_t *orig_mod_res;
 
-	if (!_cmd_ident_phase_regs[cmd->ident_phase].flags & CMD_IDENT_CAP_RDY) {
+	if (!(_cmd_ident_phase_regs[cmd->ident_phase].flags & CMD_IDENT_CAP_RDY)) {
 		errno = EPERM;
 		return -1;
 	}
@@ -2173,24 +2178,32 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 	if (rel_spec->delta->flags & DELTA_WITH_REL)
 		abs_delta->flags |= DELTA_WITH_REL;
 
-	for (i = KV_VALUE_IDX_DATA; i < cross1.old_size; i++) {
-		if (bitmap_bit_is_set(cross1.old_bmp, i))
-			buffer_add(abs_delta->plus, cross1.old_value[i].iov_base, cross1.old_value[i].iov_len);
+	if (cross1.old_value) {
+		for (i = KV_VALUE_IDX_DATA; i < cross1.old_size; i++) {
+			if (bitmap_bit_is_set(cross1.old_bmp, i))
+				buffer_add(abs_delta->plus, cross1.old_value[i].iov_base, cross1.old_value[i].iov_len);
+		}
 	}
 
-	for (i = KV_VALUE_IDX_DATA; i < cross1.new_size; i++) {
-		if (bitmap_bit_is_set(cross1.new_bmp, i))
-			buffer_add(abs_delta->minus, cross1.new_value[i].iov_base, cross1.new_value[i].iov_len);
+	if (cross1.new_value) {
+		for (i = KV_VALUE_IDX_DATA; i < cross1.new_size; i++) {
+			if (bitmap_bit_is_set(cross1.new_bmp, i))
+				buffer_add(abs_delta->minus, cross1.new_value[i].iov_base, cross1.new_value[i].iov_len);
+		}
 	}
 
-	for (i = KV_VALUE_IDX_DATA; i < cross2.old_size; i++) {
-		if (bitmap_bit_is_set(cross2.old_bmp, i))
-			buffer_add(abs_delta->minus, cross2.old_value[i].iov_base, cross2.old_value[i].iov_len);
+	if (cross2.old_value) {
+		for (i = KV_VALUE_IDX_DATA; i < cross2.old_size; i++) {
+			if (bitmap_bit_is_set(cross2.old_bmp, i))
+				buffer_add(abs_delta->minus, cross2.old_value[i].iov_base, cross2.old_value[i].iov_len);
+		}
 	}
 
-	for (i = KV_VALUE_IDX_DATA; i < cross2.new_size; i++) {
-		if (bitmap_bit_is_set(cross2.new_bmp, i))
-			buffer_add(abs_delta->plus, cross2.new_value[i].iov_base, cross2.new_value[i].iov_len);
+	if (cross2.new_value) {
+		for (i = KV_VALUE_IDX_DATA; i < cross2.new_size; i++) {
+			if (bitmap_bit_is_set(cross2.new_bmp, i))
+				buffer_add(abs_delta->plus, cross2.new_value[i].iov_base, cross2.new_value[i].iov_len);
+		}
 	}
 
 	if (abs_delta->plus) {
@@ -2823,6 +2836,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	kv_store_iter_t *iter;
 	const char *key;
 	void *value;
+	bool vector;
 	size_t size, iov_size, key_size, data_offset;
 	kv_store_value_flags_t flags;
 	struct iovec *iov;
@@ -2856,7 +2870,9 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 	// FIXME: maybe buffer first so there's only single write
 	while ((value = kv_store_iter_next(iter, &size, &flags))) {
-		if (flags & KV_STORE_VALUE_VECTOR) {
+		vector = flags & KV_STORE_VALUE_VECTOR;
+
+		if (vector) {
 			iov = value;
 			iov_size = size;
 			kv_value = NULL;
@@ -2881,10 +2897,15 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
+			if (vector) {
+				log_error(ID(cmd_res), INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
+				          __func__, key);
+				return -1;
+			}
 			key = _get_key_part(key, KEY_PART_CORE, NULL);
 			buffer_add(cmd->res_buf, (void *) key, strlen(key));
 			buffer_add(cmd->res_buf, KV_PAIR_C, 1);
-			data_offset = _get_kv_value_data_offset(kv_value);
+			data_offset = _kv_value_ext_data_offset(kv_value);
 			buffer_add(cmd->res_buf, kv_value->data + data_offset, strlen(kv_value->data + data_offset));
 			buffer_add(cmd->res_buf, KV_END_C, 1);
 			continue;
@@ -3320,6 +3341,12 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 		 */
 
 		if (flags & KV_STORE_VALUE_VECTOR) {
+			if (data_size < KV_VALUE_IDX_DATA) {
+				log_error(ID(worker_proxy_res), "Received incorrect vector of size %zu to sync with master key-value store.",
+				          data_size);
+				goto out;
+			}
+
 			if (!(iov = malloc(data_size * sizeof(struct iovec)))) {
 				log_error(ID(worker_proxy_res), "Failed to allocate vector to sync master key-value store.");
 				goto out;
@@ -3358,10 +3385,16 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 
 			data_to_store = iov;
 		} else {
+			if (data_size <= sizeof(struct kv_value)) {
+				log_error(ID(worker_proxy_res), "Received incorrect value of size %zu to sync with master key-value store.",
+				          data_size);
+				goto out;
+			}
+
 			value = (struct kv_value *) p;
 			p += data_size;
 
-			data_offset = _get_kv_value_data_offset(value);
+			data_offset = _kv_value_ext_data_offset(value);
 			unset = ((value->flags != KV_MOD_RESERVED) &&
 			         ((data_size - data_offset) == (sizeof(struct kv_value) + data_offset)));
 

@@ -91,14 +91,14 @@ static int _blkid_init(struct sid_module *module, struct sid_ubridge_cmd_mod_con
 
 	for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
 		if (sid_ubridge_cmd_mod_reserve_kv(module, cmd_mod, KV_NS_UDEV, keys[i]) < 0) {
-			log_error("Failed to reserve blkid udev key %s.", keys[i]);
+			log_error(ID, "Failed to reserve blkid udev key %s.", keys[i]);
 			return -1;
 		}
 	}
 
 	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
 		if (sid_ubridge_cmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE, keys[i]) < 0) {
-			log_error("Failed to reserve blkid device key %s.", keys[i]);
+			log_error(ID, "Failed to reserve blkid device key %s.", keys[i]);
 			return -1;
 		}
 	}

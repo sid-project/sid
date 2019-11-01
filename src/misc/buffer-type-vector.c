@@ -66,7 +66,7 @@ int _buffer_vector_destroy(struct buffer *buf)
 
 static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
 {
-	char *p;
+	void *p;
 	size_t align;
 	size_t alloc_step;
 
