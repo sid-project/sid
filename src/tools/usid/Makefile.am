@@ -1,7 +1,7 @@
 ##############################################################################
 # This file is part of SID.
 #
-# Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
+# Copyright (C) 2019 Red Hat, Inc. All rights reserved.
 #
 # SID is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,4 +17,9 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = log misc iface resource daemon modules tools
+bin_PROGRAMS = usid
+usid_SOURCES = usid.c
+
+usid_LDADD = $(top_builddir)/src/log/libsidlog.la \
+	     $(top_builddir)/src/iface/libsidiface.la \
+	     $(top_builddir)/src/misc/libsidmisc.la
