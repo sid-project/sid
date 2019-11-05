@@ -1,7 +1,7 @@
 ##############################################################################
 # This file is part of SID.
 #
-# Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+# Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
 #
 # SID is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ AC_DEFINE_UNQUOTED(SID_COMPILER, "$($CC --version | head -n 1)", [compiler used 
 AC_CONFIG_FILES([Makefile
 		 src/Makefile
 		 src/log/Makefile
+		 src/iface/Makefile
 		 src/misc/Makefile
 		 src/resource/Makefile
 		 src/daemon/Makefile
