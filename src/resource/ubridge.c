@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
-
 #include "configure.h"
 #include "bitmap.h"
 #include "buffer.h"
@@ -28,6 +27,7 @@
 #include "module-registry.h"
 #include "resource.h"
 #include "ubridge-cmd-module.h"
+#include "usid-iface.h"
 #include "util.h"
 #include "worker-control.h"
 
@@ -150,16 +150,6 @@ struct ubridge {
 };
 
 typedef enum {
-	__CMD_START = 0,
-	CMD_UNKNOWN = 0,
-	CMD_REPLY = 1,
-	CMD_VERSION = 2,
-	CMD_IDENTIFY = 3,
-	CMD_CHECKPOINT = 4,
-	__CMD_END
-} cmd_id_t;
-
-typedef enum {
 	CMD_IDENT_PHASE_A_INIT = 0,                                     /* initializing phase "A" */
 
 	__CMD_IDENT_PHASE_A_START = 1,                                  /* phase "A" module processing starts */
@@ -183,24 +173,6 @@ typedef enum {
 	CMD_IDENT_PHASE_ERROR,
 } cmd_ident_phase_t;
 
-struct raw_cmd_hdr {
-	uint8_t prot;
-	uint8_t cmd_id;	 /* IN: cmd number  OUT: CMD_RESPONSE */
-	uint64_t status; /* IN: udev seqnum OUT: response status */
-	char data[0];
-} __attribute__((packed));
-
-struct raw_cmd {
-	struct raw_cmd_hdr *hdr;
-	size_t len;		/* header + data */
-};
-
-struct version {
-	uint16_t major;
-	uint16_t minor;
-	uint16_t release;
-} __attribute__((packed));
-
 struct udevice {
 	udev_action_t action;
 	udev_devtype_t type;
@@ -219,12 +191,10 @@ struct connection {
 };
 
 struct sid_ubridge_cmd_context {
-	uint8_t prot;
-	cmd_id_t id;
+	struct usid_msg request;
 	union {
 		cmd_ident_phase_t ident_phase;
 	};
-	uint16_t status;
 	sid_event_source *es;
 	char *dev_id;
 	struct udevice udev_dev;
@@ -1437,20 +1407,13 @@ out:
 	return r;
 };
 
-static int _parse_cmd_nullstr_udev_env(const struct raw_cmd *raw_cmd, struct sid_ubridge_cmd_context *cmd)
+static int _parse_cmd_nullstr_udev_env(struct sid_ubridge_cmd_context *cmd, const char *env, size_t env_size)
 {
 	dev_t devno;
-	const char *env;
 	const char *end;
 	int r = 0;
 
-	if (raw_cmd->hdr->cmd_id != CMD_IDENTIFY)
-		return 0;
-
-	env = raw_cmd->hdr->data;
-	end = env + raw_cmd->len - sizeof(struct raw_cmd_hdr);
-
-	if (end - env < sizeof(devno)) {
+	if (env_size <= sizeof(devno)) {
 		r = -EINVAL;
 		goto out;
 	}
@@ -1469,7 +1432,7 @@ static int _parse_cmd_nullstr_udev_env(const struct raw_cmd *raw_cmd, struct sid
 	 *
 	 *   devnokey1=value1\0key2=value2\0...
 	 */
-	for (env += sizeof(devno); env < end; env += strlen(env) + 1) {
+	for (env += sizeof(devno), end = env + env_size; env < end; env += strlen(env) + 1) {
 		if ((r = _device_add_field(cmd, env) < 0))
 			goto out;
 	}
@@ -1605,12 +1568,12 @@ static int _cmd_exec_reply(struct cmd_exec_arg *exec_arg)
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	static struct version this_version = {.major = SID_VERSION_MAJOR,
+	static struct usid_version version = {.major = SID_VERSION_MAJOR,
 		       .minor = SID_VERSION_MINOR,
 		       .release = SID_VERSION_RELEASE
 	};
 
-	buffer_add(cmd->res_buf, &this_version, sizeof(this_version));
+	buffer_add(cmd->res_buf, &version, sizeof(version));
 	return 0;
 }
 
@@ -1684,7 +1647,7 @@ out:
 	return r;
 }
 
-static int _cmd_exec_identify_ident(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_ident(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
@@ -1700,7 +1663,7 @@ static int _cmd_exec_identify_ident(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static int _cmd_exec_identify_scan_pre(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
@@ -1714,7 +1677,7 @@ static int _cmd_exec_identify_scan_pre(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static int _cmd_exec_identify_scan_current(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
@@ -1729,7 +1692,7 @@ static int _cmd_exec_identify_scan_current(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static int _cmd_exec_identify_scan_next(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
@@ -1754,7 +1717,7 @@ static int _cmd_exec_identify_scan_next(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static int _cmd_exec_identify_scan_post_current(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
@@ -1770,7 +1733,7 @@ static int _cmd_exec_identify_scan_post_current(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static int _cmd_exec_identify_scan_post_next(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
@@ -1786,7 +1749,7 @@ static int _cmd_exec_identify_scan_post_next(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static int _cmd_exec_identify_trigger_action_current(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_trigger_action_current(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 
@@ -1794,7 +1757,7 @@ static int _cmd_exec_identify_trigger_action_current(struct cmd_exec_arg *exec_a
 	return 0;
 }
 
-static int _cmd_exec_identify_trigger_action_next(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 
@@ -1802,7 +1765,7 @@ static int _cmd_exec_identify_trigger_action_next(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static int _cmd_exec_identify_error(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
@@ -2682,37 +2645,37 @@ static struct cmd_reg _cmd_ident_phase_regs[] = {
 	[CMD_IDENT_PHASE_A_IDENT]                  = {
 		.name = "ident",
 		.flags = 0,
-		.exec = _cmd_exec_identify_ident
+		.exec = _cmd_exec_ident
 	},
 
 	[CMD_IDENT_PHASE_A_SCAN_PRE]               = {
 		.name = "scan-pre",
 		.flags = CMD_IDENT_CAP_RDY,
-		.exec = _cmd_exec_identify_scan_pre
+		.exec = _cmd_exec_scan_pre
 	},
 
 	[CMD_IDENT_PHASE_A_SCAN_CURRENT]           = {
 		.name = "scan-current",
 		.flags = CMD_IDENT_CAP_RDY,
-		.exec = _cmd_exec_identify_scan_current
+		.exec = _cmd_exec_scan_current
 	},
 
 	[CMD_IDENT_PHASE_A_SCAN_NEXT]              = {
 		.name = "scan-next",
 		.flags = CMD_IDENT_CAP_RES,
-		.exec = _cmd_exec_identify_scan_next
+		.exec = _cmd_exec_scan_next
 	},
 
 	[CMD_IDENT_PHASE_A_SCAN_POST_CURRENT]      = {
 		.name = "scan-post-current",
 		.flags = 0,
-		.exec = _cmd_exec_identify_scan_post_current
+		.exec = _cmd_exec_scan_post_current
 	},
 
 	[CMD_IDENT_PHASE_A_SCAN_POST_NEXT]         = {
 		.name = "scan-post-next",
 		.flags = 0,
-		.exec = _cmd_exec_identify_scan_post_next
+		.exec = _cmd_exec_scan_post_next
 	},
 
 	[CMD_IDENT_PHASE_A_WAITING]                = {
@@ -2730,23 +2693,23 @@ static struct cmd_reg _cmd_ident_phase_regs[] = {
 	[CMD_IDENT_PHASE_B_TRIGGER_ACTION_CURRENT] = {
 		.name = "trigger-action-current",
 		.flags = 0,
-		.exec = _cmd_exec_identify_trigger_action_current
+		.exec = _cmd_exec_trigger_action_current
 	},
 
 	[CMD_IDENT_PHASE_B_TRIGGER_ACTION_NEXT]    = {
 		.name = "trigger-action-next",
 		.flags = 0,
-		.exec = _cmd_exec_identify_trigger_action_next
+		.exec = _cmd_exec_trigger_action_next
 	},
 
 	[CMD_IDENT_PHASE_ERROR]                    = {
 		.name = "error",
 		.flags = 0,
-		.exec = _cmd_exec_identify_error
+		.exec = _cmd_exec_scan_error
 	},
 };
 
-static int _cmd_exec_identify(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *modules_aggr_res, *block_mod_registry_res;
@@ -2814,11 +2777,12 @@ static int _cmd_exec_checkpoint(struct cmd_exec_arg *exec_arg)
 }
 
 static struct cmd_reg _cmd_regs[] = {
-	{.name = "unknown",    .flags = 0, .exec = _cmd_exec_unknown},
-	{.name = "reply",      .flags = 0, .exec = _cmd_exec_reply},
-	{.name = "version",    .flags = 0, .exec = _cmd_exec_version},
-	{.name = "identify",   .flags = 0, .exec = _cmd_exec_identify},
-	{.name = "checkpoint", .flags = 0, .exec = _cmd_exec_checkpoint}
+	[USID_CMD_ACTIVE] =     {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
+	[USID_CMD_CHECKPOINT] = {.name = NULL, .flags = 0, .exec = _cmd_exec_checkpoint},
+	[USID_CMD_REPLY] =      {.name = NULL, .flags = 0, .exec = _cmd_exec_reply},
+	[USID_CMD_SCAN] =       {.name = NULL, .flags = 0, .exec = _cmd_exec_scan},
+	[USID_CMD_UNKNOWN] =    {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
+	[USID_CMD_VERSION] =    {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
 };
 
 static int _export_kv_store(sid_resource_t *cmd_res)
@@ -2841,7 +2805,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	 * Export key-value store to udev or for sync with master kv store.
 	 *
 	 * For udev, we append key=value pairs to the output buffer that is sent back
-	 * to udev as result of "sid identify" udev builtin command.
+	 * to udev as result of "usid scan" command.
 	 *
 	 * For others, we serialize the temp key-value store to an anonymous file in memory
 	 * created by memfd_create. Then we pass the file FD over to worker proxy that reads
@@ -2995,23 +2959,23 @@ static int _cmd_handler(sid_event_source *es, void *data)
 	sid_resource_t *cmd_res = data;
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 	struct connection *conn = sid_resource_get_data(sid_resource_get_parent(cmd_res));
-	struct raw_cmd_hdr response_header = {0};
+	struct usid_msg_header response_header = {0};
 	struct cmd_exec_arg exec_arg = {0};
 
 	int r = -1;
 
 	(void) buffer_add(cmd->res_buf, &response_header, sizeof(response_header));
 
-	if (cmd->prot <= UBRIDGE_PROTOCOL) {
+	if (cmd->request.header->prot <= UBRIDGE_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
-		response_header.prot = cmd->prot;
+		response_header.prot = cmd->request.header->prot;
 		exec_arg.cmd_res = cmd_res;
-		if ((r = _cmd_regs[cmd->id].exec(&exec_arg)) < 0)
+		if ((r = _cmd_regs[cmd->request.header->cmd].exec(&exec_arg)) < 0)
 			log_error(ID(cmd_res), "Failed to execute command");
 	}
 
 	if (_export_kv_store(cmd_res) < 0) {
-		log_error(ID(cmd_res), "Failed to synchronize key-value stores.");
+		log_error(ID(cmd_res), "Failed to synchronize key-value store.");
 		r = -1;
 	}
 
@@ -3052,9 +3016,9 @@ static int _on_connection_event(sid_event_source *es, int fd, uint32_t revents, 
 {
 	sid_resource_t *conn_res = data;
 	struct connection *conn = sid_resource_get_data(conn_res);
-	const char *raw_stream;
-	size_t raw_stream_len;
-	struct raw_cmd raw_cmd;
+	struct usid_msg_header *header;
+	size_t size;
+	struct usid_msg msg;
 	char id[32];
 	ssize_t n;
 	int r = 0;
@@ -3071,17 +3035,18 @@ static int _on_connection_event(sid_event_source *es, int fd, uint32_t revents, 
 	n = buffer_read(conn->buf, fd);
 	if (n > 0) {
 		if (buffer_is_complete(conn->buf)) {
-			(void) buffer_get_data(conn->buf, (const void **) &raw_stream, &raw_stream_len);
-			raw_cmd.hdr = (struct raw_cmd_hdr *) raw_stream;
-			raw_cmd.len = raw_stream_len;
+			(void) buffer_get_data(conn->buf, (const void **) &header, &size);
+
+			msg.size = size;
+			msg.header = header;
 
 			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
-			if (raw_cmd.hdr->cmd_id <= __CMD_START || raw_cmd.hdr->cmd_id >= __CMD_END)
-				raw_cmd.hdr->cmd_id = CMD_UNKNOWN;
+			if (msg.header->cmd < _USID_CMD_START || msg.header->cmd > _USID_CMD_END)
+				msg.header->cmd = USID_CMD_UNKNOWN;
 
-			snprintf(id, sizeof(id) - 1, "%d/%s", getpid(), _cmd_regs[raw_cmd.hdr->cmd_id].name);
+			snprintf(id, sizeof(id) - 1, "%d/%s", getpid(), usid_cmd_names[msg.header->cmd]);
 
-			if (!sid_resource_create(conn_res, &sid_resource_type_ubridge_command, 0, id, &raw_cmd))
+			if (!sid_resource_create(conn_res, &sid_resource_type_ubridge_command, 0, id, &msg))
 				log_error(ID(conn_res), "Failed to register command for processing.");
 
 			(void) buffer_reset(conn->buf, 0, 1);
@@ -3152,7 +3117,7 @@ static int _destroy_connection(sid_resource_t *res)
 
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
-	const struct raw_cmd *raw_cmd = kickstart_data;
+	const struct usid_msg *msg = kickstart_data;
 	struct sid_ubridge_cmd_context *cmd = NULL;
 	const char *worker_id;
 	int r;
@@ -3167,9 +3132,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	cmd->prot = raw_cmd->hdr->prot;
-	cmd->id = raw_cmd->hdr->cmd_id;
-	cmd->status = raw_cmd->hdr->status;
+	cmd->request.header = msg->header;
 
 	if (!(cmd->gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX))) {
 		log_error(ID(res), "Failed to create generic buffer.");
@@ -3181,9 +3144,12 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if ((r = _parse_cmd_nullstr_udev_env(raw_cmd, cmd)) < 0) {
-		log_error_errno(ID(res), r, "Failed to parse udev environment variables.");
-		goto fail;
+	if (msg->header->cmd == USID_CMD_SCAN) {
+		/* currently, we only parse udev environment for the SCAN command */
+		if ((r = _parse_cmd_nullstr_udev_env(cmd, msg->header->data, msg->size - sizeof(*msg->header))) < 0) {
+			log_error_errno(ID(res), r, "Failed to parse udev environment variables.");
+			goto fail;
+		}
 	}
 
 	if (!(worker_id = worker_control_get_worker_id(res))) {
