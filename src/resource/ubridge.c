@@ -204,12 +204,12 @@ struct version {
 struct udevice {
 	udev_action_t action;
 	udev_devtype_t type;
-	char *path;
-	char *name; /* just a pointer to devpath's last element */
+	const char *path;
+	const char *name; /* just a pointer to devpath's last element */
 	int major;
 	int minor;
 	uint64_t seqnum;
-	char *synth_uuid;
+	const char *synth_uuid;
 };
 
 struct connection {
@@ -1402,87 +1402,79 @@ out:
 	return r;
 }
 
-static int _device_add_field(struct sid_ubridge_cmd_context *cmd, char *key)
+static int _device_add_field(struct sid_ubridge_cmd_context *cmd, const char *start)
 {
-	char *value;
-	size_t key_len;
+	const char *key;
+	const char *value;
+	int r = -1;
 
-	if (!(value = strchr(key, KV_PAIR_C[0])) || !*(value++))
+	if (!(value = strchr(start, KV_PAIR_C[0])) || !*(value++))
 		return -1;
 
-	key_len = value - key - 1;
-	key[key_len] = '\0';
+	if (!(key = buffer_fmt_add(cmd->gen_buf, "%.*s", value - start - 1, start)))
+		return -1;
 
 	if (!(value = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, NULL, key, 0, value, strlen(value) + 1)))
-		goto bad;
+		goto out;
 
 	/* Common key=value pairs are also directly in the cmd->udev_dev structure. */
-	if (!strncmp(key, UDEV_KEY_ACTION, key_len))
+	if (!strcmp(key, UDEV_KEY_ACTION))
 		cmd->udev_dev.action = util_str_to_udev_action(value);
-	else if (!strncmp(key, UDEV_KEY_DEVPATH, key_len)) {
+	else if (!strcmp(key, UDEV_KEY_DEVPATH)) {
 		cmd->udev_dev.path = value;
 		cmd->udev_dev.name = util_strrstr(value, "/");
 		cmd->udev_dev.name++;
-	} else if (!strncmp(key, UDEV_KEY_DEVTYPE, key_len))
+	} else if (!strcmp(key, UDEV_KEY_DEVTYPE))
 		cmd->udev_dev.type = util_str_to_udev_devtype(value);
-	else if (!strncmp(key, UDEV_KEY_SEQNUM, key_len))
+	else if (!strcmp(key, UDEV_KEY_SEQNUM))
 		cmd->udev_dev.seqnum = strtoull(value, NULL, 10);
-	else if (!strncmp(key, UDEV_KEY_SYNTH_UUID, key_len))
+	else if (!strcmp(key, UDEV_KEY_SYNTH_UUID))
 		cmd->udev_dev.synth_uuid = value;
 
-	key[key_len] = KV_PAIR_C[0];
-
-	return 0;
-bad:
-	key[key_len] = KV_PAIR_C[0];
-
-	return -1;
+	r = 0;
+out:
+	buffer_rewind_mem(cmd->gen_buf, key);
+	return r;
 };
 
 static int _parse_cmd_nullstr_udev_env(const struct raw_cmd *raw_cmd, struct sid_ubridge_cmd_context *cmd)
 {
-	char buf[32];
 	dev_t devno;
-	size_t i = 0;
-	const char *delim;
-	char *str;
-	size_t raw_udev_env_len = raw_cmd->len - sizeof(struct raw_cmd_hdr);
+	const char *env;
+	const char *end;
+	int r = 0;
 
 	if (raw_cmd->hdr->cmd_id != CMD_IDENTIFY)
 		return 0;
 
-	if (raw_udev_env_len < sizeof(devno))
-		goto fail;
+	env = raw_cmd->hdr->data;
+	end = env + raw_cmd->len - sizeof(struct raw_cmd_hdr);
 
-	memcpy(&devno, raw_cmd->hdr->data, sizeof(devno));
-	raw_udev_env_len -= sizeof(devno);
+	if (end - env < sizeof(devno)) {
+		r = -EINVAL;
+		goto out;
+	}
 
+	memcpy(&devno, env, sizeof(devno));
 	cmd->udev_dev.major = major(devno);
 	cmd->udev_dev.minor = minor(devno);
 
-	snprintf(buf, sizeof(buf), "%d_%d", cmd->udev_dev.major, cmd->udev_dev.minor);
-	cmd->dev_id = strdup(buf);
-
-	/*
-	 * We have this on input:
-	 *
-	 *   key1=value1\0key2=value2\0...
-	 */
-	while (i < raw_udev_env_len) {
-		str = raw_cmd->hdr->data + sizeof(devno) + i;
-
-		if (!(delim = memchr(str, KV_END_C[0], raw_udev_env_len - i)))
-			goto fail;
-
-		if (_device_add_field(cmd, str) < 0)
-			goto fail;
-
-		i += delim - str + 1;
+	if (asprintf(&cmd->dev_id, "%d_%d", cmd->udev_dev.major, cmd->udev_dev.minor) < 0) {
+		r = -ENOMEM;
+		goto out;
 	}
 
-	return 0;
-fail:
-	return -EINVAL;
+	/*
+	 * We have this on input ('devno' prefix is already processed so skip it):
+	 *
+	 *   devnokey1=value1\0key2=value2\0...
+	 */
+	for (env += sizeof(devno); env < end; env += strlen(env) + 1) {
+		if ((r = _device_add_field(cmd, env) < 0))
+			goto out;
+	}
+out:
+	return r;
 }
 
 static void _canonicalize_module_name(char *name)
