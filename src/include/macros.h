@@ -27,4 +27,7 @@
 
 #define SYSTEM_SYSFS_SLAVES       "slaves"
 
+#define UBRIDGE_PROTOCOL          1
+#define UBRIDGE_SOCKET_PATH       "@sid-ubridge.socket"
+
 #endif
