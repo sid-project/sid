@@ -27,10 +27,20 @@
 
 #define LOG_PREFIX "comms"
 
+static void _comms_unix_addr_init(const char *path, struct sockaddr_un *addr, socklen_t *addr_len)
+{
+	memset(addr, 0, sizeof(*addr));
+	addr->sun_family = AF_UNIX;
+	strncpy(addr->sun_path, path, sizeof(addr->sun_path));
+	if (path[0] == '@')
+		addr->sun_path[0] = '\0';
+	*addr_len = offsetof(struct sockaddr_un, sun_path) + strlen(addr->sun_path + 1) + 1;
+}
+
 int comms_unix_create(const char *path, int type)
 {
-	struct sockaddr_un addr;
 	int socket_fd;
+	struct sockaddr_un addr;
 	socklen_t addr_len;
 
 	if ((socket_fd = socket(AF_UNIX, type, 0)) < 0) {
@@ -38,12 +48,7 @@ int comms_unix_create(const char *path, int type)
 		goto fail;
 	}
 
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, path, sizeof(addr.sun_path));
-	if (path[0] == '@')
-		addr.sun_path[0] = '\0';
-	addr_len = offsetof(struct sockaddr_un, sun_path) + strlen(addr.sun_path + 1) + 1;
+	_comms_unix_addr_init(path, &addr, &addr_len);
 
 	if (bind(socket_fd, (struct sockaddr *) &addr, addr_len)) {
 		log_sys_error(LOG_PREFIX, "bind", path);
@@ -55,6 +60,34 @@ int comms_unix_create(const char *path, int type)
 			log_sys_error(LOG_PREFIX, "listen", path);
 			goto fail;
 		}
+	}
+
+	return socket_fd;
+fail:
+	if (socket_fd >= 0)
+		(void) close(socket_fd);
+	return -1;
+}
+
+int comms_unix_init(const char *path, int type)
+{
+	struct sockaddr_un addr;
+	int socket_fd;
+	socklen_t addr_len;
+
+	if ((socket_fd = socket(AF_UNIX, type, 0)) < 0) {
+		log_sys_error(LOG_PREFIX, "socket", path);
+		goto fail;
+	}
+
+	if (!(type & (SOCK_STREAM | SOCK_SEQPACKET)))
+		return socket_fd;
+
+	_comms_unix_addr_init(path, &addr, &addr_len);
+
+	if (connect(socket_fd, (struct sockaddr *) &addr, addr_len) < 0) {
+		log_sys_error(LOG_PREFIX, "connect", path);
+		goto fail;
 	}
 
 	return socket_fd;
