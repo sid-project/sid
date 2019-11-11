@@ -23,6 +23,7 @@
 #include "kv-store.h"
 #include "list.h"
 #include "log.h"
+#include "macros.h"
 #include "mem.h"
 #include "module-registry.h"
 #include "resource.h"
@@ -40,9 +41,6 @@
 #include <sys/mman.h>
 #include <sys/signalfd.h>
 #include <unistd.h>
-
-#define UBRIDGE_PROTOCOL             1
-#define UBRIDGE_SOCKET_PATH          "@sid-ubridge.socket"
 
 #define UBRIDGE_NAME                 "ubridge"
 #define CONNECTION_NAME              "connection"
