@@ -25,7 +25,7 @@ AC_INIT([sid], [VERSION_MAJOR.VERSION_MINOR.VERSION_RELEASE], [prajnoha@redhat.c
 AC_CONFIG_AUX_DIR(autoconf)
 AC_CONFIG_MACRO_DIRS([m4])
 AC_GNU_SOURCE
-CONFIGURE_LINE="$0 $@"
+CONFIGURE_LINE="$(echo "$0 $ac_configure_args")"
 AM_INIT_AUTOMAKE([foreign -Wall -Werror])
 AM_SILENT_RULES([yes])
 AM_MISSING_PROG([GPERF], [gperf])
