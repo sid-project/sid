@@ -114,9 +114,9 @@ bool buffer_is_complete(struct buffer *buf)
 	return _buffer_type_registry[buf->type]->is_complete(buf);
 }
 
-int buffer_get_data(struct buffer *buf, const void **data, size_t *data_len)
+int buffer_get_data(struct buffer *buf, const void **data, size_t *data_size)
 {
-	return _buffer_type_registry[buf->type]->get_data(buf, data, data_len);
+	return _buffer_type_registry[buf->type]->get_data(buf, data, data_size);
 }
 
 ssize_t buffer_read(struct buffer *buf, int fd)

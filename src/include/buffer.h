@@ -45,7 +45,7 @@ int buffer_rewind_mem(struct buffer *buf, const void *mem);
 bool buffer_is_complete(struct buffer *buf);
 ssize_t buffer_read(struct buffer *buf, int fd);
 ssize_t buffer_write(struct buffer *buf, int fd);
-int buffer_get_data(struct buffer *buf, const void **data, size_t *data_len);
+int buffer_get_data(struct buffer *buf, const void **data, size_t *data_size);
 
 #ifdef __cplusplus
 }
