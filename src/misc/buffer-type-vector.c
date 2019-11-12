@@ -171,16 +171,20 @@ bool _buffer_vector_is_complete(struct buffer *buf)
 	return true;
 }
 
-int _buffer_vector_get_data(struct buffer *buf, const void **data, size_t *data_len)
+int _buffer_vector_get_data(struct buffer *buf, const void **data, size_t *data_size)
 {
 	switch (buf->mode) {
 		case BUFFER_MODE_PLAIN:
-			*data = buf->mem;
-			*data_len = buf->used;
+			if (data)
+				*data = buf->mem;
+			if (data_size)
+				*data_size = buf->used;
 			break;
 		case BUFFER_MODE_SIZE_PREFIX:
-			*data = buf->mem + VECTOR_ITEM_SIZE;
-			*data_len = buf->used - 1;
+			if (data)
+				*data = buf->mem + VECTOR_ITEM_SIZE;
+			if (data_size)
+				*data_size = buf->used - 1;
 			break;
 	}
 

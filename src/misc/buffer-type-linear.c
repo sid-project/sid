@@ -176,16 +176,20 @@ static bool _buffer_linear_is_complete(struct buffer *buf)
 	return false;
 }
 
-static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t *data_len)
+static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t *data_size)
 {
 	switch (buf->mode) {
 		case BUFFER_MODE_PLAIN:
-			*data = buf->mem;
-			*data_len = buf->used;
+			if (data)
+				*data = buf->mem;
+			if (data_size)
+				*data_size = buf->used;
 			break;
 		case BUFFER_MODE_SIZE_PREFIX:
-			*data = buf->mem + MSG_SIZE_PREFIX_LEN;
-			*data_len = buf->used - MSG_SIZE_PREFIX_LEN;
+			if (data)
+				*data = buf->mem + MSG_SIZE_PREFIX_LEN;
+			if (data_size)
+				*data_size = buf->used - MSG_SIZE_PREFIX_LEN;
 			break;
 	}
 
