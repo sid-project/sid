@@ -26,7 +26,7 @@ AC_CONFIG_AUX_DIR(autoconf)
 AC_CONFIG_MACRO_DIRS([m4])
 AC_GNU_SOURCE
 CONFIGURE_LINE="$(echo "$0 $ac_configure_args")"
-AM_INIT_AUTOMAKE([foreign -Wall -Werror])
+AM_INIT_AUTOMAKE([foreign -Wall -Werror -Wno-portability])
 AM_SILENT_RULES([yes])
 AM_MISSING_PROG([GPERF], [gperf])
 AM_PROG_AR
@@ -59,7 +59,8 @@ AC_CONFIG_FILES([Makefile
 		 src/modules/ubridge-cmd/block/blkid/Makefile
 		 src/modules/ubridge-cmd/block/multipath_component/Makefile
 		 src/tools/Makefile
-		 src/tools/usid/Makefile])
+		 src/tools/usid/Makefile
+		 udev/Makefile])
 AC_CONFIG_HEADERS([src/include/configure.h])
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
@@ -89,6 +90,18 @@ PKG_CHECK_MODULES(BLKID, blkid)
 
 PKG_CHECK_MODULES(UUID, uuid)
 
+AC_MSG_CHECKING(for udev directory)
+PKG_CHECK_VAR(UDEV_DIR, udev, udevdir)
+AC_MSG_RESULT($UDEV_DIR)
+
+AC_MSG_CHECKING(for udev rule installation directory)
+AC_ARG_WITH(udevrulesdir,
+	    AC_HELP_STRING([--with-udevrulesdir=DIR],
+			   [install udev rules to DIR [UDEV_DIR/rules.d]]),
+			   [udevrulesdir=$withval],
+			   [udevrulesdir="${UDEV_DIR}/rules.d"])
+AC_MSG_RESULT([$udevrulesdir])
+
 AC_MSG_CHECKING(whether to build multipath_component module)
 AC_ARG_ENABLE(mod-multipath_component,
 	      AC_HELP_STRING([--enable-mod-multipath_component], [enable multipath component module]),
@@ -103,5 +116,6 @@ AM_CONDITIONAL([BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT], [test x$BUILD_
 
 AC_SUBST([BLKID_LIBS])
 AC_SUBST([UUID_LIBS])
+AC_SUBST(udevrulesdir)
 
 AC_OUTPUT

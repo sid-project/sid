@@ -1,7 +1,7 @@
 ##############################################################################
 # This file is part of SID.
 #
-# Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+# Copyright (C) 2019 Red Hat, Inc. All rights reserved.
 #
 # SID is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,5 +17,10 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = src udev
+dist_udevrules_DATA = 00-sid.rules
+
+$(dist_udevrules_DATA):%:%.in
+	$(SED) -e "s|(BINDIR)|$(bindir)|" $< >$@
+
+distclean-local:
+	$(RM) $(dist_udevrules_DATA)
