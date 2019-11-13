@@ -52,7 +52,7 @@
 #define MODULES_TYPE_ID              "type"
 
 #define UDEV_TAG_SID                 "sid"
-#define KV_KEY_UDEV_SID_WORKER_ID    "SID_WORKER_ID"
+#define KV_KEY_UDEV_SID_SESSION_ID   "SID_SESSION_ID"
 
 #define COMMAND_STATUS_MASK_OVERALL  UINT64_C(0x0000000000000001)
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
@@ -3151,12 +3151,12 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	if (!(worker_id = worker_control_get_worker_id(res))) {
-		log_error(ID(res), "Failed to get worker ID to set %s udev variable.", KV_KEY_UDEV_SID_WORKER_ID);
+		log_error(ID(res), "Failed to get worker ID to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
 		goto fail;
 	}
 
-	if (!_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, NULL, KV_KEY_UDEV_SID_WORKER_ID, KV_PERSISTENT, worker_id, strlen(worker_id) + 1)) {
-		log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_WORKER_ID);
+	if (!_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, NULL, KV_KEY_UDEV_SID_SESSION_ID, KV_PERSISTENT, worker_id, strlen(worker_id) + 1)) {
+		log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
 		goto fail;
 	}
 
@@ -3482,7 +3482,7 @@ static int _on_ubridge_udev_monitor_event(sid_event_source *es, int fd, uint32_t
 	if (!(udev_dev = udev_monitor_receive_device(ubridge->umonitor.mon)))
 		goto out;
 
-	if (!(worker_id = udev_device_get_property_value(udev_dev, KV_KEY_UDEV_SID_WORKER_ID)))
+	if (!(worker_id = udev_device_get_property_value(udev_dev, KV_KEY_UDEV_SID_SESSION_ID)))
 		goto out;
 
 	if (!(worker_proxy_res = worker_control_find_worker(ubridge->worker_control_res, worker_id)))
