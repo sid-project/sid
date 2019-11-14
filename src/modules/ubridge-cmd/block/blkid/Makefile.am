@@ -24,10 +24,10 @@ blkid-type-mapper.c: blkid-type-mapper.gperf
 	if $(GPERF) $(GPERFFLAGS) < $< >$@.temp; then \
 		mv $@.temp $@; \
 	elif $(GPERF) --version >/dev/null 2>&1; then \
-		rm $@.temp; \
+		$(RM) $@.temp; \
 		exit 1; \
 	else \
-		rm $@.temp; \
+		$(RM) $@.temp; \
 		touch $@; \
 	fi
 
@@ -40,4 +40,4 @@ blkid_la_LIBADD = $(top_builddir)/src/log/libsidlog.la \
 		  $(BLKID_LIBS)
 
 mostlyclean-local:
-	rm -f blkid-type-mapper.c
+	$(RM) blkid-type-mapper.c
