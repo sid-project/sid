@@ -39,5 +39,7 @@ blkid_la_LDFLAGS = -module -avoid-version
 blkid_la_LIBADD = $(top_builddir)/src/log/libsidlog.la \
 		  $(BLKID_LIBS)
 
+EXTRA_DIST = blkid-type-mapper.gperf
+
 mostlyclean-local:
 	$(RM) blkid-type-mapper.c
