@@ -1,1 +1,1 @@
-SUBSYSTEM=="block", ACTION=="change|remove", IMPORT{builtin}="sid identify"
+SUBSYSTEM=="block", ACTION=="change|remove", IMPORT{builtin}="sid scan"
