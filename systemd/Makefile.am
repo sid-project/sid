@@ -1,7 +1,7 @@
 ##############################################################################
 # This file is part of SID.
 #
-# Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+# Copyright (C) 2019 Red Hat, Inc. All rights reserved.
 #
 # SID is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,5 +17,19 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = src udev systemd
+dist_systemdsystemunit_DATA = sid.socket \
+			      sid.service
+
+dist_sysconfig_DATA = sid.sysconfig
+
+$(dist_systemdsystemunit_DATA):%:%.in
+	$(SED) -e "s|(BINDIR)|$(bindir)|" \
+	       -e "s|(SYSCONFIGDIR)|$(sysconfigdir)|" \
+	       $< >$@
+
+$(dist_sysconfig_DATA):%:%.in
+	$(SED) -e "s|(SYSTEMDSYSTEMUNITDIR)|$(systemdsystemunitdir)|" $< >$@
+
+distclean-local:
+	$(RM) $(dist_systemdsystemunit_DATA) \
+		$(dist_sysconfig_DATA)

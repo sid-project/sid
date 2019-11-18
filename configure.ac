@@ -64,7 +64,8 @@ AC_CONFIG_FILES([Makefile
 		 src/modules/ubridge-cmd/block/multipath_component/Makefile
 		 src/tools/Makefile
 		 src/tools/usid/Makefile
-		 udev/Makefile])
+		 udev/Makefile
+		 systemd/Makefile])
 AC_CONFIG_HEADERS([src/include/configure.h])
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
@@ -94,6 +95,26 @@ PKG_CHECK_MODULES(BLKID, blkid)
 
 PKG_CHECK_MODULES(UUID, uuid)
 
+AC_MSG_CHECKING(for systemd system unit directory)
+PKG_CHECK_VAR(SYSTEMD_SYSTEM_UNIT_DIR, systemd, systemdsystemunitdir)
+AC_MSG_RESULT($SYSTEMD_SYSTEM_UNIT_DIR)
+
+AC_MSG_CHECKING(for sysconfig directory)
+AC_ARG_WITH(sysconfigdir,
+	    AS_HELP_STRING([--with-sysconfigdir=DIR],
+			   [install sysconfig files to DIR [SYSCONFDIR/sysconfig]]),
+			   [sysconfdir=${withval}],
+			   [sysconfigdir="${sysconfdir}/sysconfig"])
+AC_MSG_RESULT([$sysconfigdir])
+
+AC_MSG_CHECKING(for systemd system unit installation directory)
+AC_ARG_WITH(systemdsystemunitdir,
+	    AS_HELP_STRING([--with-systemdsystemunitdir=DIR],
+			   [install systemd system units to DIR [SYSTEMD_SYSTEM_UNIT_DIR]]),
+			   [systemdsystemunitdir=$withval],
+			   [systemdsystemunitdir="$SYSTEMD_SYSTEM_UNIT_DIR"])
+AC_MSG_RESULT([$systemdsystemunitdir])
+
 AC_MSG_CHECKING(for udev directory)
 PKG_CHECK_VAR(UDEV_DIR, udev, udevdir)
 AC_MSG_RESULT($UDEV_DIR)
@@ -118,6 +139,8 @@ if test x$BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT = xyes; then
 fi
 AM_CONDITIONAL([BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT], [test x$BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT = xyes])
 
-AC_SUBST(udevrulesdir)
+AC_SUBST([sysconfigdir])
+AC_SUBST([systemdsystemunitdir])
+AC_SUBST([udevrulesdir])
 
 AC_OUTPUT

@@ -1,0 +1,10 @@
+[Unit]
+Description=Storage Instantiation Daemon
+DefaultDependencies=no
+After=systemd-udevd.service
+Before=sysinit.target
+
+[Service]
+Type=notify
+EnvironmentFile=(SYSCONFIGDIR)/sid.sysconfig
+ExecStart=(BINDIR)/sid -f

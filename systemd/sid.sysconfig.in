@@ -1,0 +1,5 @@
+# This file is part of SID.
+# It provides settings for (SYSTEMDSYSTEMUNITDIR)/sid.service.
+
+# Verbosity level.
+VERBOSE=0
