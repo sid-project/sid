@@ -1,0 +1,9 @@
+[Unit]
+Description=Storage Instantiation Daemon socket
+DefaultDependencies=no
+Before=sockets.target
+After=systemd-udevd-kernel.socket
+
+[Socket]
+ListenStream=@sid-ubridge.socket
+PassCredentials=yes
