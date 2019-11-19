@@ -24,7 +24,7 @@ m4_define([VERSION_RELEASE], [2])
 AC_INIT([sid], [VERSION_MAJOR.VERSION_MINOR.VERSION_RELEASE], [prajnoha@redhat.com])
 AC_CONFIG_AUX_DIR(autoconf)
 AC_CONFIG_MACRO_DIRS([m4])
-AC_GNU_SOURCE
+AC_USE_SYSTEM_EXTENSIONS([_GNU_SOURCE])
 CONFIGURE_LINE="$(echo "$0 $ac_configure_args")"
 AM_INIT_AUTOMAKE([foreign -Wall -Werror -Wno-portability])
 AM_SILENT_RULES([yes])
@@ -64,7 +64,7 @@ AC_CONFIG_FILES([Makefile
 AC_CONFIG_HEADERS([src/include/configure.h])
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
-AC_CHECK_FUNCS([clock_gettime dup2 memchr memset mkdir munmap select socket strcasecmp strchr strdup strerror strspn strstr strtoull])
+AC_CHECK_FUNCS([clock_gettime dup2 memchr memset mkdir munmap select socket strcasecmp strchr strdup strerror strspn strstr strtoul strtoull])
 AC_C_INLINE
 AC_FUNC_FORK
 AC_FUNC_MALLOC
@@ -96,7 +96,7 @@ AC_MSG_RESULT($UDEV_DIR)
 
 AC_MSG_CHECKING(for udev rule installation directory)
 AC_ARG_WITH(udevrulesdir,
-	    AC_HELP_STRING([--with-udevrulesdir=DIR],
+	    AS_HELP_STRING([--with-udevrulesdir=DIR],
 			   [install udev rules to DIR [UDEV_DIR/rules.d]]),
 			   [udevrulesdir=$withval],
 			   [udevrulesdir="${UDEV_DIR}/rules.d"])
@@ -104,7 +104,7 @@ AC_MSG_RESULT([$udevrulesdir])
 
 AC_MSG_CHECKING(whether to build multipath_component module)
 AC_ARG_ENABLE(mod-multipath_component,
-	      AC_HELP_STRING([--enable-mod-multipath_component], [enable multipath component module]),
+	      AS_HELP_STRING([--enable-mod-multipath_component], [enable multipath component module]),
 	      BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT=$enableval,
 	      BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT=yes)
 AC_MSG_RESULT($BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT)
