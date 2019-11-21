@@ -3655,6 +3655,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		log_error(ID(res), "Failed to allocate memory for interface structure.");
 		goto fail;
 	}
+	ubridge->socket_fd = -1;
 
 	if (!(ubridge->internal_res = sid_resource_create(res, &sid_resource_type_aggregate,
 	                                                  SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_RESTRICT_WALK_DOWN,
@@ -3696,7 +3697,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	if ((ubridge->socket_fd = comms_unix_create(UBRIDGE_SOCKET_PATH, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
-		log_error(ID(res), "Failed to create local server socket.");
+		log_error_errno(ID(res), ubridge->socket_fd, "Failed to create local server socket.");
 		goto fail;
 	}
 
@@ -3720,7 +3721,7 @@ fail:
 		if (ubridge->cmd_mod.gen_buf)
 			buffer_destroy(ubridge->cmd_mod.gen_buf);
 		block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = NULL;
-		if (ubridge->socket_fd != -1)
+		if (ubridge->socket_fd >= 0)
 			(void) close(ubridge->socket_fd);
 		if (ubridge->es)
 			(void) sid_resource_destroy_event_source(res, &ubridge->es);

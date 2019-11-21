@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,14 +18,12 @@
 */
 
 #include "comms.h"
-#include "log.h"
 
+#include <errno.h>
 #include <stddef.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-
-#define LOG_PREFIX "comms"
 
 static void _comms_unix_addr_init(const char *path, struct sockaddr_un *addr, socklen_t *addr_len)
 {
@@ -42,22 +40,23 @@ int comms_unix_create(const char *path, int type)
 	int socket_fd;
 	struct sockaddr_un addr;
 	socklen_t addr_len;
+	int r;
 
 	if ((socket_fd = socket(AF_UNIX, type, 0)) < 0) {
-		log_sys_error(LOG_PREFIX, "socket", path);
+		r = -errno;
 		goto fail;
 	}
 
 	_comms_unix_addr_init(path, &addr, &addr_len);
 
 	if (bind(socket_fd, (struct sockaddr *) &addr, addr_len)) {
-		log_sys_error(LOG_PREFIX, "bind", path);
+		r = -errno;
 		goto fail;
 	}
 
 	if (type & (SOCK_STREAM | SOCK_SEQPACKET)) {
 		if (listen(socket_fd, 0) < 0) {
-			log_sys_error(LOG_PREFIX, "listen", path);
+			r = -errno;
 			goto fail;
 		}
 	}
@@ -66,7 +65,7 @@ int comms_unix_create(const char *path, int type)
 fail:
 	if (socket_fd >= 0)
 		(void) close(socket_fd);
-	return -1;
+	return r;
 }
 
 int comms_unix_init(const char *path, int type)
@@ -74,9 +73,10 @@ int comms_unix_init(const char *path, int type)
 	struct sockaddr_un addr;
 	int socket_fd;
 	socklen_t addr_len;
+	int r;
 
 	if ((socket_fd = socket(AF_UNIX, type, 0)) < 0) {
-		log_sys_error(LOG_PREFIX, "socket", path);
+		r = -errno;
 		goto fail;
 	}
 
@@ -86,7 +86,7 @@ int comms_unix_init(const char *path, int type)
 	_comms_unix_addr_init(path, &addr, &addr_len);
 
 	if (connect(socket_fd, (struct sockaddr *) &addr, addr_len) < 0) {
-		log_sys_error(LOG_PREFIX, "connect", path);
+		r = -errno;
 		goto fail;
 	}
 
@@ -94,7 +94,7 @@ int comms_unix_init(const char *path, int type)
 fail:
 	if (socket_fd >= 0)
 		(void) close(socket_fd);
-	return -1;
+	return r;
 }
 
 static ssize_t _do_comms_unix_send(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send)
