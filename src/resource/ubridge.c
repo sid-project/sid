@@ -3696,7 +3696,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if ((ubridge->socket_fd = comms_unix_create(UBRIDGE_SOCKET_PATH, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
+	if ((ubridge->socket_fd = comms_unix_create(UBRIDGE_SOCKET_PATH, UBRIDGE_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
 		log_error_errno(ID(res), ubridge->socket_fd, "Failed to create local server socket.");
 		goto fail;
 	}

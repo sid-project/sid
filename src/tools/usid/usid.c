@@ -67,7 +67,7 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 	ssize_t n;
 	int r = -1;
 
-	if ((socket_fd = comms_unix_init(UBRIDGE_SOCKET_PATH, SOCK_STREAM | SOCK_CLOEXEC)) < 0)
+	if ((socket_fd = comms_unix_init(UBRIDGE_SOCKET_PATH, UBRIDGE_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0)
 		goto out;
 
 	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {

@@ -31,6 +31,7 @@
 #define SYSTEM_MAX_MINOR          ((1U << 12) - 1)
 
 #define UBRIDGE_PROTOCOL          1
-#define UBRIDGE_SOCKET_PATH       "@sid-ubridge.socket"
+#define UBRIDGE_SOCKET_PATH       "\0sid-ubridge.socket"
+#define UBRIDGE_SOCKET_PATH_LEN   (sizeof(UBRIDGE_SOCKET_PATH) - 1)
 
 #endif

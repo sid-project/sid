@@ -25,29 +25,32 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-static void _comms_unix_addr_init(const char *path, struct sockaddr_un *addr, socklen_t *addr_len)
+static void _comms_unix_addr_init(const char *path, size_t path_len, struct sockaddr_un *addr, socklen_t *addr_len)
 {
 	memset(addr, 0, sizeof(*addr));
 	addr->sun_family = AF_UNIX;
-	strncpy(addr->sun_path, path, sizeof(addr->sun_path));
-	if (path[0] == '@')
-		addr->sun_path[0] = '\0';
-	*addr_len = offsetof(struct sockaddr_un, sun_path) + strlen(addr->sun_path + 1) + 1;
+	memccpy(addr->sun_path, path, path_len, sizeof(addr->sun_path));
+	*addr_len = offsetof(struct sockaddr_un, sun_path) + path_len;
 }
 
-int comms_unix_create(const char *path, int type)
+int comms_unix_create(const char *path, size_t path_len, int type)
 {
-	int socket_fd;
+	int socket_fd = -1;
 	struct sockaddr_un addr;
 	socklen_t addr_len;
 	int r;
+
+	if (!path_len) {
+		r = -EINVAL;
+		goto fail;
+	}
 
 	if ((socket_fd = socket(AF_UNIX, type, 0)) < 0) {
 		r = -errno;
 		goto fail;
 	}
 
-	_comms_unix_addr_init(path, &addr, &addr_len);
+	_comms_unix_addr_init(path, path_len, &addr, &addr_len);
 
 	if (bind(socket_fd, (struct sockaddr *) &addr, addr_len)) {
 		r = -errno;
@@ -68,12 +71,17 @@ fail:
 	return r;
 }
 
-int comms_unix_init(const char *path, int type)
+int comms_unix_init(const char *path, size_t path_len, int type)
 {
 	struct sockaddr_un addr;
-	int socket_fd;
+	int socket_fd = -1;
 	socklen_t addr_len;
 	int r;
+
+	if (!path_len) {
+		r = -EINVAL;
+		goto fail;
+	}
 
 	if ((socket_fd = socket(AF_UNIX, type, 0)) < 0) {
 		r = -errno;
@@ -83,7 +91,7 @@ int comms_unix_init(const char *path, int type)
 	if (!(type & (SOCK_STREAM | SOCK_SEQPACKET)))
 		return socket_fd;
 
-	_comms_unix_addr_init(path, &addr, &addr_len);
+	_comms_unix_addr_init(path, path_len, &addr, &addr_len);
 
 	if (connect(socket_fd, (struct sockaddr *) &addr, addr_len) < 0) {
 		r = -errno;
