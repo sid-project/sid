@@ -20,9 +20,11 @@
 #include "configure.h"
 #include "log.h"
 #include "resource.h"
+#include "util.h"
 
 #include <errno.h>
 #include <getopt.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -32,6 +34,8 @@
 
 #define SID_DEFAULT_UMASK 0077
 #define LOG_PREFIX "main"
+
+#define KEY_VERBOSE "VERBOSE"
 
 static volatile sig_atomic_t _shutdown_requested = 0;
 
@@ -124,6 +128,7 @@ static void _become_daemon()
 
 int main(int argc, char *argv[])
 {
+	unsigned long long val;
 	int opt;
 	int verbose = 0;
 	int foreground = 0;
@@ -157,6 +162,9 @@ int main(int argc, char *argv[])
 				return -EINVAL;
 		}
 	}
+
+	if (util_get_env_ull(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
+		verbose = val;
 
 	if (foreground)
 		log_init(LOG_TARGET_STANDARD, verbose);
