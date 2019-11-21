@@ -27,6 +27,7 @@
 #include "mem.h"
 #include "module-registry.h"
 #include "resource.h"
+#include "service-iface.h"
 #include "ubridge-cmd-module.h"
 #include "usid-iface.h"
 #include "util.h"
@@ -34,9 +35,14 @@
 
 #include <ctype.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <libudev.h>
 #include <sys/mman.h>
+#include <sys/signalfd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
+
 
 #define UBRIDGE_NAME                 "ubridge"
 #define CONNECTION_NAME              "connection"
@@ -3491,6 +3497,44 @@ static void _destroy_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *
 	umonitor->udev = NULL;
 }
 
+static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_socket_fd)
+{
+	char *val;
+	int fd;
+
+	if (service_fd_activation_present(1)) {
+		/* Service autoactivation - take over preloaded socket FD. */
+		if (!(val = getenv(SERVICE_KEY_ACTIVATION_TYPE))) {
+			log_error(ID(ubridge_res), "Missing %s key in environment.",
+			          SERVICE_KEY_ACTIVATION_TYPE);
+			return -ENOKEY;
+		}
+
+		if (strcmp(val, SERVICE_VALUE_ACTIVATION_FD)) {
+			log_error(ID(ubridge_res), "Incorrect value for key %s: %s.",
+			          SERVICE_VALUE_ACTIVATION_FD, val);
+			return -EINVAL;
+		}
+
+		/* The very first FD passed in is the one we are interested in. */
+		fd = SERVICE_FD_ACTIVATION_FDS_START;
+
+		if (!(service_fd_is_socket_unix(fd, SOCK_STREAM, 1, UBRIDGE_SOCKET_PATH, UBRIDGE_SOCKET_PATH_LEN))) {
+			log_error(ID(ubridge_res), "Passed file descriptor is of incorrect type.");
+			return -EINVAL;
+		}
+	} else {
+		/* No systemd autoactivation - create new socket FD. */
+		if ((fd = comms_unix_create(UBRIDGE_SOCKET_PATH, UBRIDGE_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
+			log_error_errno(ID(ubridge_res), fd, "Failed to create local server socket.");
+			return fd;
+		}
+	}
+
+	*ubridge_socket_fd = fd;
+	return 0;
+}
+
 static int _set_up_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *umonitor)
 {
 	int umonitor_fd = -1;
@@ -3675,8 +3719,8 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if ((ubridge->socket_fd = comms_unix_create(UBRIDGE_SOCKET_PATH, UBRIDGE_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
-		log_error_errno(ID(res), ubridge->socket_fd, "Failed to create local server socket.");
+	if (_set_up_ubridge_socket(res, &ubridge->socket_fd) < 0) {
+		log_error(ID(res), "Failed to set up local server socket.");
 		goto fail;
 	}
 
