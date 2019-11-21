@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -127,4 +127,26 @@ char *util_gen_uuid_str(char *buf, size_t buf_len)
 	uuid_unparse(uu, str);
 
 	return str;
+}
+
+int util_get_env_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val)
+{
+	unsigned long long ret;
+	char *env_val;
+	char *p;
+
+	if (!(env_val = getenv(key)))
+		return -ENOKEY;
+
+	errno = 0;
+	ret = strtoull(env_val, &p, 10);
+	if (errno || !p || *p)
+		return -EINVAL;
+
+	if (min != max)
+		if (ret < min || ret > max)
+			return -ERANGE;
+
+	*val = ret;
+	return 0;
 }

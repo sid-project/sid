@@ -23,6 +23,7 @@
 #include "log.h"
 #include "macros.h"
 #include "usid-iface.h"
+#include "util.h"
 
 #include <getopt.h>
 #include <inttypes.h>
@@ -119,26 +120,9 @@ out:
 	return r;
 }
 
-int _get_env_ul(const char *key, unsigned long *val)
-{
-	unsigned long ret;
-	char *env_val;
-	char *p;
-
-	if (!(env_val = getenv(key)))
-		return -ENOKEY;
-
-	errno = 0;
-	ret = strtoul(env_val, &p, 10);
-	if (errno || !p || *p)
-		return -ERANGE;
-
-	*val = ret;
-	return 0;
-}
-
 static int _usid_cmd_active(struct args *args)
 {
+	unsigned long long val;
 	uint64_t seqnum;
 	struct buffer *buf = NULL;
 	struct usid_msg_header *hdr;
@@ -146,8 +130,7 @@ static int _usid_cmd_active(struct args *args)
 	const char *status;
 	int r;
 
-	if (_get_env_ul(KEY_ENV_SEQNUM, &seqnum) < 0)
-		seqnum = 0;
+	seqnum = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	if ((r = _sid_req(USID_CMD_VERSION, seqnum, NULL, NULL, &buf)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
@@ -187,12 +170,20 @@ static int _print_env_from_buffer(struct buffer *buf)
 
 static int _add_devt_env_to_buffer(struct buffer *buf)
 {
-	unsigned long major, minor;
+	unsigned long long val;
+	unsigned major, minor;
 	dev_t devnum;
+	int r;
 
-	if ((_get_env_ul(KEY_ENV_MAJOR, &major) < 0) ||
-	    (_get_env_ul(KEY_ENV_MINOR, &minor) < 0))
-		return -ENOKEY;
+	if ((r = util_get_env_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0)
+		return r;
+	else
+		major = val;
+
+	if ((r = util_get_env_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0)
+		return r;
+	else
+		minor = val;
 
 	devnum = makedev(major, minor);
 	buffer_add(buf, &devnum, sizeof(devnum));
@@ -230,12 +221,15 @@ static int _add_checkpoint_env_to_buf(struct buffer *buf, void *data)
 
 static int _usid_cmd_checkpoint(struct args *args)
 {
+	unsigned long long val;
 	uint64_t seqnum;
 	struct buffer *buf = NULL;
 	int r;
 
-	if ((r = _get_env_ul(KEY_ENV_SEQNUM, &seqnum)) < 0)
+	if ((r = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0))
 		return r;
+	else
+		seqnum = val;
 
 	if ((r = _sid_req(USID_CMD_CHECKPOINT, seqnum, _add_checkpoint_env_to_buf, args, &buf) == 0)) {
 		r = _print_env_from_buffer(buf);
@@ -262,12 +256,15 @@ static int _add_scan_env_to_buf(struct buffer *buf, void *data)
 
 static int _usid_cmd_scan(struct args *args)
 {
+	unsigned long long val;
 	uint64_t seqnum;
 	struct buffer *buf = NULL;
 	int r;
 
-	if ((r = _get_env_ul(KEY_ENV_SEQNUM, &seqnum)) < 0)
+	if ((r = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0))
 		return r;
+	else
+		seqnum = val;
 
 	if ((r = _sid_req(USID_CMD_SCAN, seqnum, _add_scan_env_to_buf, NULL, &buf) == 0)) {
 		r = _print_env_from_buffer(buf);
@@ -279,6 +276,7 @@ static int _usid_cmd_scan(struct args *args)
 
 static int _usid_cmd_version(struct args *args)
 {
+	unsigned long long val;
 	uint64_t seqnum;
 	struct buffer *buf = NULL;
 	struct usid_msg_header *hdr;
@@ -286,8 +284,7 @@ static int _usid_cmd_version(struct args *args)
 	struct usid_version *vsn = NULL;
 	int r;
 
-	if (_get_env_ul(KEY_ENV_SEQNUM, &seqnum) < 0)
-		seqnum = 0;
+	seqnum = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	fprintf(stdout, KEY_USID_PROTOCOL "=%" PRIu8 "\n"
 	        KEY_USID_MAJOR "=%" PRIu16 "\n"

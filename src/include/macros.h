@@ -27,6 +27,9 @@
 
 #define SYSTEM_SYSFS_SLAVES       "slaves"
 
+#define SYSTEM_MAX_MAJOR          ((1U << 20) - 1)
+#define SYSTEM_MAX_MINOR          ((1U << 12) - 1)
+
 #define UBRIDGE_PROTOCOL          1
 #define UBRIDGE_SOCKET_PATH       "@sid-ubridge.socket"
 

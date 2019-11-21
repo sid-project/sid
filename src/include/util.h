@@ -45,6 +45,8 @@ char *util_strrstr(const char *haystack, const char *needle);
 
 char *util_gen_uuid_str(char *buf, size_t buf_len);
 
+int util_get_env_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val);
+
 #ifdef __cplusplus
 }
 #endif
