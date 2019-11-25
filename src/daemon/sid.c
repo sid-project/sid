@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -126,6 +126,14 @@ static void _become_daemon()
 		log_error_errno(LOG_PREFIX, errno, "Failed to send SIGTERM signal to parent");
 }
 
+static sid_resource_service_link_def_t service_link_defs[] = {{
+		.name = "systemd",
+		.type = SERVICE_TYPE_SYSTEMD,
+		.notification = SERVICE_NOTIFICATION_READY,
+	},
+	NULL_SERVICE_LINK
+};
+
 int main(int argc, char *argv[])
 {
 	unsigned long long val;
@@ -174,7 +182,7 @@ int main(int argc, char *argv[])
 	}
 
 
-	if (!(sid_res = sid_resource_create(NULL, &sid_resource_type_sid, 0, NULL, NULL)))
+	if (!(sid_res = sid_resource_create(NULL, &sid_resource_type_sid, 0, NULL, NULL, service_link_defs)))
 		goto out;
 
 	r = sid_resource_run_event_loop(sid_res);

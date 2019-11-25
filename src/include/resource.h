@@ -20,6 +20,7 @@
 #ifndef _SID_CONTEXT_H
 #define _SID_CONTEXT_H
 
+#include "service-link-iface.h"
 #include "types.h"
 
 #include <signal.h>
@@ -55,8 +56,21 @@ typedef enum {
 	SID_RESOURCE_DISALLOW_ISOLATION = UINT64_C(0x0000000000000004),
 } sid_resource_flags_t;
 
+typedef struct sid_resource_service_link_def {
+	const char *name;
+	service_link_type_t type;
+	service_link_notification_t notification;
+} sid_resource_service_link_def_t;
+
+#define NULL_SERVICE_LINK ((sid_resource_service_link_def_t) {.name = NULL, \
+							      .type = SERVICE_TYPE_NONE, \
+							      .notification = SERVICE_NOTIFICATION_NONE})
+
+/* Note: service_link_defs[] array must always be terminated by NULL_SERVICE_LINK */
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_type_t *type,
-				    sid_resource_flags_t flags, const char *id, const void *kickstart_data);
+				    sid_resource_flags_t flags, const char *id, const void *kickstart_data,
+				    sid_resource_service_link_def_t service_link_defs[]);
+
 int sid_resource_destroy(sid_resource_t *res);
 
 /*
