@@ -39,6 +39,7 @@
 #define KEY_ENV_MINOR                   "MINOR"
 
 #define KEY_USID_BRIDGE_STATUS          "USID_BRIDGE_STATUS"
+#define USID_BRIDGE_STATUS_ERROR        "error"
 #define USID_BRIDGE_STATUS_ACTIVE       "active"
 #define USID_BRIDGE_STATUS_INACTIVE     "inactive"
 #define USID_BRIDGE_STATUS_INCOMPATIBLE "incompatible"
@@ -67,11 +68,8 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 	ssize_t n;
 	int r = -1;
 
-	if ((socket_fd = comms_unix_init(UBRIDGE_SOCKET_PATH, UBRIDGE_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0)
-		goto out;
-
 	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {
-		log_error(LOG_PREFIX, "Failed to create message buffer.");
+		log_error(LOG_PREFIX, "Failed to create request buffer.");
 		goto out;
 	}
 
@@ -82,11 +80,20 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 		.status = status
 	}), USID_MSG_HEADER_SIZE);
 
-	if (data_fn && (data_fn(buf, data_fn_arg) < 0))
+	if (data_fn && (data_fn(buf, data_fn_arg) < 0)) {
+		log_error(LOG_PREFIX, "Failed to add data to request.");
 		goto out;
+	}
+
+	if ((socket_fd = comms_unix_init(UBRIDGE_SOCKET_PATH, UBRIDGE_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
+		r = socket_fd;
+		if (r != -ECONNREFUSED)
+			log_error_errno(LOG_PREFIX, r, "Failed to initialize connection");
+		goto out;
+	}
 
 	if (buffer_write(buf, socket_fd) < 0) {
-		log_error(LOG_PREFIX, "Failed to send request to SID daemon.");
+		log_error(LOG_PREFIX, "Failed to send request.");
 		goto out;
 	}
 
@@ -102,10 +109,14 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 		} else if (n < 0) {
 			if (errno == EAGAIN || errno == EINTR)
 				continue;
+			log_error_errno(LOG_PREFIX, errno, "Failed to read response");
 			r = -EBADMSG;
 			break;
-		} else
+		} else {
+			if (!buffer_is_complete(buf))
+				log_error(LOG_PREFIX, "Unexpected reponse end.");
 			break;
+		}
 	}
 out:
 	if (socket_fd >= 0)
@@ -142,12 +153,17 @@ static int _usid_cmd_active(struct args *args)
 			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
 
 		buffer_destroy(buf);
-	} else
-		status = USID_BRIDGE_STATUS_INACTIVE;
+	} else {
+		if (r == -ECONNREFUSED) {
+			status = USID_BRIDGE_STATUS_INACTIVE;
+			r = 0;
+		} else
+			status = USID_BRIDGE_STATUS_ERROR;
+	}
 
 	fprintf(stdout, KEY_USID_BRIDGE_STATUS "=%s\n", status);
 
-	return 0;
+	return r;
 }
 
 static int _print_env_from_buffer(struct buffer *buf)
@@ -157,8 +173,10 @@ static int _print_env_from_buffer(struct buffer *buf)
 	const char *end, *kv;
 
 	buffer_get_data(buf, (const void **) &hdr, &size);
-	if (size < USID_MSG_HEADER_SIZE)
+	if (size < USID_MSG_HEADER_SIZE) {
+		log_error(LOG_PREFIX, "Unexpected response size.");
 		return -EBADMSG;
+	}
 
 	size -= USID_MSG_HEADER_SIZE;
 
@@ -168,6 +186,8 @@ static int _print_env_from_buffer(struct buffer *buf)
 	return 0;
 }
 
+static const char _msg_failed_to_get_value_for_key[] = "Failed to get value for %s key from environment";
+
 static int _add_devt_env_to_buffer(struct buffer *buf)
 {
 	unsigned long long val;
@@ -175,15 +195,19 @@ static int _add_devt_env_to_buffer(struct buffer *buf)
 	dev_t devnum;
 	int r;
 
-	if ((r = util_get_env_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0)
+	if ((r = util_get_env_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0) {
+		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_value_for_key, KEY_ENV_MAJOR);
 		return r;
-	else
-		major = val;
+	}
 
-	if ((r = util_get_env_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0)
+	major = val;
+
+	if ((r = util_get_env_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0) {
+		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_value_for_key, KEY_ENV_MINOR);
 		return r;
-	else
-		minor = val;
+	}
+
+	minor = val;
 
 	devnum = makedev(major, minor);
 	buffer_add(buf, &devnum, sizeof(devnum));
@@ -200,9 +224,11 @@ static int _add_checkpoint_env_to_buf(struct buffer *buf, void *data)
 	if ((r = _add_devt_env_to_buffer(buf)) < 0)
 		return r;
 
-	if (args->argc < 2)
+	if (args->argc < 2) {
 		/* we need at least checkpoint name */
+		log_error(LOG_PREFIX, "Missing checkpoint name.");
 		return -EINVAL;
+	}
 
 	/* add checkpoint name */
 	buffer_add(buf, args->argv[1], strlen(args->argv[1]));
@@ -219,6 +245,8 @@ static int _add_checkpoint_env_to_buf(struct buffer *buf, void *data)
 	return 0;
 }
 
+static const char _msg_failed_to_get_seqnum[] = "Failed to get value for %s key from environment";
+
 static int _usid_cmd_checkpoint(struct args *args)
 {
 	unsigned long long val;
@@ -226,12 +254,14 @@ static int _usid_cmd_checkpoint(struct args *args)
 	struct buffer *buf = NULL;
 	int r;
 
-	if ((r = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0))
+	if ((r = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
+		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_seqnum, KEY_ENV_SEQNUM);
 		return r;
-	else
-		seqnum = val;
+	}
 
-	if ((r = _sid_req(USID_CMD_CHECKPOINT, seqnum, _add_checkpoint_env_to_buf, args, &buf) == 0)) {
+	seqnum = val;
+
+	if ((r = _sid_req(USID_CMD_CHECKPOINT, seqnum, _add_checkpoint_env_to_buf, args, &buf)) == 0) {
 		r = _print_env_from_buffer(buf);
 		buffer_destroy(buf);
 	}
@@ -261,12 +291,14 @@ static int _usid_cmd_scan(struct args *args)
 	struct buffer *buf = NULL;
 	int r;
 
-	if ((r = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0))
+	if ((r = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
+		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_seqnum, KEY_ENV_SEQNUM);
 		return r;
-	else
-		seqnum = val;
+	}
 
-	if ((r = _sid_req(USID_CMD_SCAN, seqnum, _add_scan_env_to_buf, NULL, &buf) == 0)) {
+	seqnum = val;
+
+	if ((r = _sid_req(USID_CMD_SCAN, seqnum, _add_scan_env_to_buf, NULL, &buf)) == 0) {
 		r = _print_env_from_buffer(buf);
 		buffer_destroy(buf);
 	}
@@ -311,15 +343,14 @@ static int _usid_cmd_version(struct args *args)
 		}
 
 		buffer_destroy(buf);
-	} else
-		log_error(LOG_PREFIX, "Unexpected response from SID daemon for version request.");
+	}
 
 	return r;
 }
 
 static void _help(FILE *f)
 {
-	fprintf(f, "Usage: usid [--help] [--verbose] [--version] [command] [command_options]\n"
+	fprintf(f, "Usage: usid [-h|--help] [-v|--verbose] [-V|--version] [command] [arguments]\n"
 	        "\n"
 	        "Communicate with SID daemon and interchange information.\n"
 	        "\n"
@@ -328,23 +359,24 @@ static void _help(FILE *f)
 	        "    -v|--verbose    Verbose mode, repeat to increase level.\n"
 	        "    -V|--version    Show USID version.\n"
 	        "\n"
-	        "Commands:\n"
+	        "Commands and arguments:\n"
 	        "\n"
 	        "    active\n"
 	        "      Get SID daemon readiness and compatibility state.\n"
 	        "      Input:  None.\n"
-	        "      Output: USID_BRIDGE_STATUS=active if SID active and compatible.\n"
-	        "              USID_BRIDGE_STATUS=incompatible if SID active but incompatible.\n"
-	        "              USID_BRIDGE_STATUS=inactive is SID not active.\n"
+	        "      Output: USID_BRIDGE_STATUS=active if SID is active and compatible.\n"
+	        "              USID_BRIDGE_STATUS=incompatible if SID is active but incompatible.\n"
+	        "              USID_BRIDGE_STATUS=inactive if SID is not active.\n"
+	        "              USID_BRIDGE_STATUS=error on error.\n"
 	        "\n"
 	        "    checkpoint <checkpoint_name> [key1 key2 ...]\n"
-	        "      Send information to SID about reaching a checkpoint.\n"
+	        "      Send information to SID about reached checkpoint with optional environment.\n"
 	        "      Input:  Identification of checkpoint by checkpoint_name.\n"
-	        "              List of keys from current command environment.\n"
+	        "              Optional list of keys from current command environment.\n"
 	        "      Output: Added or changed items in KEY=VALUE format.\n"
 	        "\n"
 	        "    scan\n"
-	        "      Execute scanning phase in SID daemon for current environment.\n"
+	        "      Execute scanning phase in SID daemon with current environment.\n"
 	        "      Input:  Current command environment in KEY=VALUE format.\n"
 	        "      Output: Added or changed items in KEY=VALUE format.\n"
 	        "\n"
