@@ -38,6 +38,7 @@ typedef struct sid_resource {
 	sid_resource_flags_t flags;
 	sd_event *sd_event_loop;
 	struct list event_sources;
+	struct service_link_group *slg;
 	pid_t pid_created;
 	void *data;
 } sid_resource_t;
@@ -112,8 +113,43 @@ static void _destroy_event_source(sid_resource_t *res, sid_resource_event_source
 	free(es);
 }
 
+static int _create_service_link_group(sid_resource_t *res, sid_resource_service_link_def_t service_link_defs[])
+{
+	sid_resource_service_link_def_t *def;
+	struct service_link_group *slg;
+	struct service_link *sl;
+	int r = 0;
+
+	if (!service_link_defs)
+		return 0;
+
+	if (!(slg = service_link_group_create(res->id)))
+		return -ENOMEM;
+
+	for (def = service_link_defs; def->type != SERVICE_NOTIFICATION_NONE; def++) {
+		if (!(sl = service_link_create(def->type, def->name))) {
+			r = -ENOMEM;
+			goto out;
+		}
+
+		if ((r = service_link_add_notification(sl, def->notification)) < 0)
+			goto out;
+
+		if ((r = service_link_group_add_member(slg, sl)) < 0)
+			goto out;
+	}
+
+	res->slg = slg;
+out:
+	if (r < 0)
+		service_link_group_destroy_with_members(slg);
+
+	return r;
+}
+
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_type_t *type,
-                                    sid_resource_flags_t flags, const char *id_part, const void *kickstart_data)
+                                    sid_resource_flags_t flags, const char *id_part, const void *kickstart_data,
+                                    sid_resource_service_link_def_t service_link_defs[])
 {
 	sid_resource_t *res = NULL;
 	size_t id_size;
@@ -136,6 +172,10 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 		goto fail;
 
 	res->id = id;
+
+	if (_create_service_link_group(res, service_link_defs) < 0)
+		goto fail;
+
 	res->flags = flags;
 	list_init(&res->children);
 	res->type = type;
@@ -216,6 +256,9 @@ int sid_resource_destroy(sid_resource_t *res)
 
 	if (res->parent)
 		list_del(&res->list);
+
+	if (res->slg)
+		service_link_group_destroy_with_members(res->slg);
 
 	if (pid == res->pid_created)
 		log_debug(res->id, "%s.", msg_destroyed);
@@ -608,8 +651,7 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 
 	log_debug(res->id, "Entering event loop.");
 
-	(void) sd_notify(0, "READY=1\n"
-	                 "STATUS=SID started processing requests.");
+	(void) service_link_group_notify(res->slg, SERVICE_NOTIFICATION_READY, NULL);
 
 	if ((r = sd_event_loop(res->sd_event_loop)) < 0) {
 		log_error_errno(res->id, -r, "Event loop failed.");

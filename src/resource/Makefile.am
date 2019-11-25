@@ -36,6 +36,7 @@ pkginclude_HEADERS = $(top_builddir)/src/include/types.h \
 libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
 			   $(UDEV_CFLAGS)
 libsidresource_la_LIBADD = $(top_builddir)/src/misc/libsidmisc.la \
+			   $(top_builddir)/src/iface/libsidiface.la \
 			   $(SYSTEMD_LIBS) \
 			   $(UDEV_LIBS) \
 			   -ldl

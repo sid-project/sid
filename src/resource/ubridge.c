@@ -27,7 +27,6 @@
 #include "mem.h"
 #include "module-registry.h"
 #include "resource.h"
-#include "service-iface.h"
 #include "ubridge-cmd-module.h"
 #include "usid-iface.h"
 #include "util.h"
@@ -3038,7 +3037,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 
 			snprintf(id, sizeof(id) - 1, "%d/%s", getpid(), usid_cmd_names[msg.header->cmd]);
 
-			if (!sid_resource_create(conn_res, &sid_resource_type_ubridge_command, 0, id, &msg))
+			if (!sid_resource_create(conn_res, &sid_resource_type_ubridge_command, 0, id, &msg, NULL))
 				log_error(ID(conn_res), "Failed to register command for processing.");
 
 			(void) buffer_reset(conn->buf, 0, 1);
@@ -3386,7 +3385,7 @@ static int _worker_recv_fn(sid_resource_t *worker_res, void *data, size_t data_s
 {
 	sid_resource_t *conn_res;
 
-	if (!(conn_res = sid_resource_create(worker_res, &sid_resource_type_ubridge_connection, 0, NULL, &fd))) {
+	if (!(conn_res = sid_resource_create(worker_res, &sid_resource_type_ubridge_connection, 0, NULL, &fd, NULL))) {
 		log_error(ID(worker_res), "Failed to create connection resource.");
 		return -1;
 	}
@@ -3503,7 +3502,6 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 	int fd;
 
 	if (service_fd_activation_present(1)) {
-		/* Service autoactivation - take over preloaded socket FD. */
 		if (!(val = getenv(SERVICE_KEY_ACTIVATION_TYPE))) {
 			log_error(ID(ubridge_res), "Missing %s key in environment.",
 			          SERVICE_KEY_ACTIVATION_TYPE);
@@ -3682,19 +3680,19 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 
 	if (!(ubridge->internal_res = sid_resource_create(res, &sid_resource_type_aggregate,
 	                                                  SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_RESTRICT_WALK_DOWN,
-	                                                  INTERNAL_AGGREGATE_ID, ubridge))) {
+	                                                  INTERNAL_AGGREGATE_ID, ubridge, NULL))) {
 		log_error(ID(res), "Failed to create internal ubridge resource.");
 		goto fail;
 	}
 
 	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_kv_store, SID_RESOURCE_RESTRICT_WALK_UP,
-	                                                       MAIN_KV_STORE_NAME, &main_kv_store_res_params))) {
+	                                                       MAIN_KV_STORE_NAME, &main_kv_store_res_params, NULL))) {
 		log_error(ID(res), "Failed to create main key-value store.");
 		goto fail;
 	}
 
 	if (!(ubridge->worker_control_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_worker_control, 0,
-	                                                        NULL, NULL))) {
+	                                                        NULL, NULL, NULL))) {
 		log_error(ID(res), "Failed to create worker control.");
 		goto fail;
 	}
@@ -3708,13 +3706,16 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 
 	block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = &ubridge->cmd_mod;
 
-	if (!(ubridge->modules_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_aggregate, 0, MODULES_AGGREGATE_ID, NULL))) {
+	if (!(ubridge->modules_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_aggregate, 0, MODULES_AGGREGATE_ID,
+	                                                 NULL, NULL))) {
 		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
 		goto fail;
 	}
 
-	if (!(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, 0, MODULES_BLOCK_ID, &block_res_mod_params)) ||
-	    !(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, 0, MODULES_TYPE_ID, &type_res_mod_params))) {
+	if (!(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, 0, MODULES_BLOCK_ID,
+	                          &block_res_mod_params, NULL)) ||
+	    !(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, 0, MODULES_TYPE_ID,
+	                          &type_res_mod_params, NULL))) {
 		log_error(ID(res), "Failed to create module handler.");
 		goto fail;
 	}

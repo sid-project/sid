@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -134,7 +134,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			id = gen_id;
 		}
 
-		res = sid_resource_create(NULL, &sid_resource_type_worker, 0, id, &kickstart);
+		res = sid_resource_create(NULL, &sid_resource_type_worker, 0, id, &kickstart, NULL);
 
 		if (init_fn)
 			(void) init_fn(res, init_fn_arg);
@@ -153,7 +153,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			id = gen_id;
 		}
 
-		res = sid_resource_create(worker_control->worker_proxies_res, &sid_resource_type_worker_proxy, 0, id, &kickstart);
+		res = sid_resource_create(worker_control->worker_proxies_res, &sid_resource_type_worker_proxy, 0, id, &kickstart, NULL);
 	}
 out:
 	if (signals_blocked && pid) {
@@ -551,7 +551,8 @@ static int _init_worker_control(sid_resource_t *worker_control_res, const void *
 	                                                               SID_RESOURCE_RESTRICT_WALK_UP |
 	                                                               SID_RESOURCE_RESTRICT_WALK_DOWN |
 	                                                               SID_RESOURCE_DISALLOW_ISOLATION,
-	                                                               WORKER_PROXIES_AGGREGATE_ID, worker_control))) {
+	                                                               WORKER_PROXIES_AGGREGATE_ID, worker_control,
+	                                                               NULL))) {
 		log_error(ID(worker_control_res), "Failed to create aggregate resource for worker proxies.");
 		goto fail;
 	}
