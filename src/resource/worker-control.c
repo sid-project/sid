@@ -453,7 +453,7 @@ static int _on_worker_signal_event(sid_event_source *es, const struct signalfd_s
 {
 	sid_resource_t *res = userdata;
 
-	log_print(ID(res), "Received signal %d from %d.", si->ssi_signo, si->ssi_pid);
+	log_debug(ID(res), "Received signal %d from %d.", si->ssi_signo, si->ssi_pid);
 	sid_resource_exit_event_loop(res);
 
 	return 0;
