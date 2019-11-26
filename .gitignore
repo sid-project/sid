@@ -40,3 +40,5 @@ udev/00-sid.rules
 libtool
 
 .gdbinit
+
+.mk.log
