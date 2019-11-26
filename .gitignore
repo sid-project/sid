@@ -18,6 +18,9 @@ src/include/configure.h
 **/am--include-marker
 **/\#
 
+m4/lt*.m4
+m4/libtool.m4
+
 **/Makefile
 **/Makefile.in
 
@@ -30,7 +33,6 @@ src/include/configure.h
 **/*.lo
 **/*.la
 **/*.a
-**/*.m4
 **/*~
 
 src/daemon/sid

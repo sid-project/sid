@@ -58,8 +58,8 @@
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
 #define COMMAND_STATUS_FAILURE       UINT64_C(0x0000000000000001)
 
-#define UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY "/usr/local/lib/sid/modules/ubridge-cmd/block"
-#define UBRIDGE_CMD_TYPE_MODULE_DIRECTORY  "/usr/local/lib/sid/modules/ubridge-cmd/type"
+#define UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY LIBDIR "/" PACKAGE "/modules/ubridge-cmd/block"
+#define UBRIDGE_CMD_TYPE_MODULE_DIRECTORY  LIBDIR "/" PACKAGE "/modules/ubridge-cmd/type"
 
 #define UBRIDGE_CMD_MODULE_FN_NAME_IDENT                  "sid_ubridge_cmd_ident"
 #define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_PRE               "sid_ubridge_cmd_scan_pre"
