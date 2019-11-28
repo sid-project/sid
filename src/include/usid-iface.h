@@ -17,8 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _USID_IFACE_H
-#define _USID_IFACE_H
+#ifndef _SID_USID_IFACE_H
+#define _SID_USID_IFACE_H
 
 #include <stddef.h>
 #include <stdint.h>
