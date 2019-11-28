@@ -18,5 +18,9 @@
 ##############################################################################
 
 pkglib_LTLIBRARIES = libsidiface.la
-libsidiface_la_SOURCES = usid-iface.c
-pkginclude_HEADERS = $(top_builddir)/src/include/usid-iface.h
+libsidiface_la_SOURCES = service-link-iface.c \
+			 usid-iface.c
+pkginclude_HEADERS = $(top_builddir)/src/include/service-link-iface.h \
+		     $(top_builddir)/src/include/usid-iface.h
+libsidiface_la_LIBADD = $(top_builddir)/src/misc/libsidmisc.la \
+			$(SYSTEMD_LIBS)
