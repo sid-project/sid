@@ -25,7 +25,6 @@
 
 #ifdef __cplusplus
 extern "C" {
-}
 #endif
 
 typedef enum {

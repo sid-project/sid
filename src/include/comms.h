@@ -26,7 +26,6 @@
 
 #ifdef __cplusplus
 extern "C" {
-}
 #endif
 
 int comms_unix_create(const char *path, size_t path_len, int type);

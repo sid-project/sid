@@ -20,6 +20,10 @@
 #ifndef _SID_MODULE_H
 #define _SID_MODULE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct sid_module;
 
 typedef int sid_module_fn_t (struct sid_module *module, void *arg);
@@ -33,5 +37,9 @@ typedef int sid_module_fn_t (struct sid_module *module, void *arg);
 const char *sid_module_get_name(struct sid_module *module);
 void sid_module_set_data(struct sid_module *module, void *data);
 void *sid_module_get_data(struct sid_module *module);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
