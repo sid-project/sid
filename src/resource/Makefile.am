@@ -24,8 +24,7 @@ libsidresource_la_SOURCES = resource.c \
 			    module-registry.c \
 			    kv-store.c \
 			    worker-control.c
-pkginclude_HEADERS = $(top_builddir)/src/include/wrapper-sd.h \
-		     $(top_builddir)/src/include/types.h \
+pkginclude_HEADERS = $(top_builddir)/src/include/types.h \
 		     $(top_builddir)/src/include/resource.h \
 		     $(top_builddir)/src/include/resource-type-regs.h \
 		     $(top_builddir)/src/include/macros.h \

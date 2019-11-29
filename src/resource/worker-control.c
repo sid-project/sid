@@ -68,21 +68,16 @@ struct worker_kickstart {
 };
 
 struct worker_proxy {
-	pid_t pid;                            /* worker PID */
-	int comms_fd;			      /* communication channel between worker proxy and worker */
-	sid_event_source *comms_es;           /* event source for comms_fd */
-	sid_event_source *child_es;           /* event source to catch SIGCHLD from worker */
-	sid_event_source *idle_timeout_es;    /* event source to catch idle timeout for worker */
-	worker_state_t state;                 /* current worker state */
-	worker_control_recv_cb_fn_t *recv_fn; /* callback function called on CMD_CUSTOM comms command reception */
-	void *recv_fn_arg;                    /* argument passed to callback function called on CMD_CUSTOM comms command reception */
+	pid_t pid;                                    /* worker PID */
+	int comms_fd;                                 /* communication channel between worker proxy and worker */
+	sid_resource_event_source_t *idle_timeout_es; /* event source to catch idle timeout for worker */
+	worker_state_t state;                         /* current worker state */
+	worker_control_recv_cb_fn_t *recv_fn;         /* callback function called on CMD_CUSTOM comms command reception */
+	void *recv_fn_arg;                            /* argument passed to callback function called on CMD_CUSTOM comms command reception */
 };
 
 struct worker {
 	int comms_fd;                         /* communication channel between worker proxy and worker */
-	sid_event_source *comms_es;           /* event source for commds_fd */
-	sid_event_source *sigint_es;          /* event source to catch SIGINT */
-	sid_event_source *sigterm_es;         /* event source to catch SIGTERM */
 	worker_control_recv_cb_fn_t *recv_fn; /* callback function called on CMD_CUSTOM comms command reception */
 	void *recv_fn_arg;                    /* argument passed to callback function called on CMD_CUSTOM comms command reception */
 };
@@ -293,7 +288,8 @@ int worker_control_send(sid_resource_t *res, void *data, size_t data_size, int f
 		/* sending from worker proxy to worker */
 		worker_proxy = sid_resource_get_data(res);
 		comms_fd = worker_proxy->comms_fd;
-		sid_resource_destroy_event_source(res, &worker_proxy->idle_timeout_es);
+		if (worker_proxy->idle_timeout_es)
+			sid_resource_destroy_event_source(res, &worker_proxy->idle_timeout_es);
 		if (worker_proxy->state != WORKER_ASSIGNED)
 			_change_worker_proxy_state(res, WORKER_ASSIGNED);
 	} else {
@@ -321,7 +317,7 @@ int worker_control_worker_yield(sid_resource_t *worker_res)
 	return 0;
 }
 
-static int _on_worker_proxy_child_event(sid_event_source *es, const siginfo_t *si, void *data)
+static int _on_worker_proxy_child_event(sid_resource_event_source_t *es, const siginfo_t *si, void *data)
 {
 	sid_resource_t *worker_proxy_res = data;
 
@@ -363,7 +359,7 @@ static int _make_worker_exit(sid_resource_t *worker_proxy_res)
 }
 
 /*
-static int _on_worker_proxy_idle_timeout_event(sid_event_source *es, uint64_t usec, void *data)
+static int _on_worker_proxy_idle_timeout_event(sid_resource_event_source_t *es, uint64_t usec, void *data)
 {
 	sid_resource_t *worker_proxy_res = data;
 
@@ -376,7 +372,7 @@ static const char _unexpected_internal_command_msg[] = "unexpected internal comm
 static const char _no_custom_receive_function_msg[] = "Custom message received but not receive function defined.";
 static const char _custom_message_handling_failed_msg[] = "Custom message handling failed.";
 
-static int _on_worker_proxy_comms_event(sid_event_source *es, int fd, uint32_t revents, void *data)
+static int _on_worker_proxy_comms_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *worker_proxy_res = data;
 	struct worker_proxy *worker_proxy = sid_resource_get_data(worker_proxy_res);
@@ -418,7 +414,7 @@ static int _on_worker_proxy_comms_event(sid_event_source *es, int fd, uint32_t r
 	return 0;
 }
 
-static int _on_worker_comms_event(sid_event_source *es, int fd, uint32_t revents, void *data)
+static int _on_worker_comms_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *worker_res = data;
 	struct worker *worker = sid_resource_get_data(worker_res);
@@ -449,7 +445,7 @@ static int _on_worker_comms_event(sid_event_source *es, int fd, uint32_t revents
 	return 0;
 }
 
-static int _on_worker_signal_event(sid_event_source *es, const struct signalfd_siginfo *si, void *userdata)
+static int _on_worker_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *userdata)
 {
 	sid_resource_t *res = userdata;
 
@@ -473,13 +469,13 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	worker_proxy->comms_fd = kickstart->comms_fd;
 	worker_proxy->state = WORKER_NEW;
 
-	if (sid_resource_create_child_event_source(worker_proxy_res, &worker_proxy->child_es, worker_proxy->pid, WEXITED,
+	if (sid_resource_create_child_event_source(worker_proxy_res, NULL, worker_proxy->pid, WEXITED,
 	                                           _on_worker_proxy_child_event, NULL, worker_proxy_res) < 0) {
 		log_error(ID(worker_proxy_res), "Failed to register worker process monitoring in worker proxy.");
 		goto fail;
 	}
 
-	if (sid_resource_create_io_event_source(worker_proxy_res, &worker_proxy->comms_es, worker_proxy->comms_fd,
+	if (sid_resource_create_io_event_source(worker_proxy_res, NULL, worker_proxy->comms_fd,
 	                                        _on_worker_proxy_comms_event, NULL, worker_proxy_res) < 0) {
 		log_error(ID(worker_proxy_res), "Failed to register communication channel between worker and its proxy.");
 		goto fail;
@@ -488,13 +484,7 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	*data = worker_proxy;
 	return 0;
 fail:
-	if (worker_proxy) {
-		if (worker_proxy->child_es)
-			(void) sid_resource_destroy_event_source(worker_proxy_res, &worker_proxy->child_es);
-		if (worker_proxy->comms_es)
-			(void) sid_resource_destroy_event_source(worker_proxy_res, &worker_proxy->comms_es);
-		free(worker_proxy);
-	}
+	free(worker_proxy);
 	return -1;
 }
 
@@ -502,10 +492,6 @@ static int _destroy_worker_proxy(sid_resource_t *worker_proxy_res)
 {
 	struct worker_proxy *worker_proxy = sid_resource_get_data(worker_proxy_res);
 
-	if (worker_proxy->idle_timeout_es)
-		(void) sid_resource_destroy_event_source(worker_proxy_res, &worker_proxy->idle_timeout_es);
-	(void) sid_resource_destroy_event_source(worker_proxy_res, &worker_proxy->child_es);
-	(void) sid_resource_destroy_event_source(worker_proxy_res, &worker_proxy->comms_es);
 	(void) close(worker_proxy->comms_fd);
 
 	free(worker_proxy);
@@ -524,13 +510,13 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 
 	worker->comms_fd = kickstart->comms_fd;
 
-	if (sid_resource_create_signal_event_source(worker_res, &worker->sigterm_es, SIGTERM, _on_worker_signal_event, NULL, worker_res) < 0 ||
-	    sid_resource_create_signal_event_source(worker_res, &worker->sigint_es, SIGINT, _on_worker_signal_event, NULL, worker_res) < 0) {
+	if (sid_resource_create_signal_event_source(worker_res, NULL, SIGTERM, _on_worker_signal_event, NULL, worker_res) < 0 ||
+	    sid_resource_create_signal_event_source(worker_res, NULL, SIGINT, _on_worker_signal_event, NULL, worker_res) < 0) {
 		log_error(ID(worker_res), "Failed to create signal handlers.");
 		goto fail;
 	}
 
-	if (sid_resource_create_io_event_source(worker_res, &worker->comms_es, worker->comms_fd, _on_worker_comms_event, NULL, worker_res) < 0) {
+	if (sid_resource_create_io_event_source(worker_res, NULL, worker->comms_fd, _on_worker_comms_event, NULL, worker_res) < 0) {
 		log_error(ID(worker_res), "Failed to register worker <-> proxy channel.");
 		goto fail;
 	}
@@ -538,15 +524,7 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 	*data = worker;
 	return 0;
 fail:
-	if (worker) {
-		if (worker->sigterm_es)
-			(void) sid_resource_destroy_event_source(worker_res, &worker->sigterm_es);
-		if (worker->sigint_es)
-			(void) sid_resource_destroy_event_source(worker_res, &worker->sigint_es);
-		if (worker->comms_es)
-			(void) sid_resource_destroy_event_source(worker_res, &worker->comms_es);
-		free(worker);
-	}
+	free(worker);
 	return -1;
 }
 
@@ -554,13 +532,9 @@ static int _destroy_worker(sid_resource_t *worker_res)
 {
 	struct worker *worker = sid_resource_get_data(worker_res);
 
-	(void) sid_resource_destroy_event_source(worker_res, &worker->comms_es);
-	(void) sid_resource_destroy_event_source(worker_res, &worker->sigterm_es);
-	(void) sid_resource_destroy_event_source(worker_res, &worker->sigint_es);
-
 	(void) close(worker->comms_fd);
-
 	free(worker);
+
 	return 0;
 }
 

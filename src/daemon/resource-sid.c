@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,20 +25,9 @@
 
 #define SID_NAME "sid"
 
-struct sid_data {
-	sid_event_source *sigint_es;
-	sid_event_source *sigterm_es;
-};
-
 static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **data)
 {
-	struct sid_data *sid;
 	sigset_t sig_set;
-
-	if (!(sid = zalloc(sizeof(*sid)))) {
-		log_error(ID(res), "Failed to allocate %s structure.", SID_NAME);
-		goto fail;
-	}
 
 	if (sigemptyset(&sig_set) < 0) {
 		log_sys_error(ID(res), "sigemptyset", "");
@@ -56,8 +45,8 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 		goto fail;
 	}
 
-	if (sid_resource_create_signal_event_source(res, &sid->sigterm_es, SIGTERM, NULL, NULL, NULL) < 0 ||
-	    sid_resource_create_signal_event_source(res, &sid->sigint_es, SIGINT, NULL, NULL, NULL) < 0) {
+	if (sid_resource_create_signal_event_source(res, NULL, SIGTERM, NULL, NULL, NULL) < 0 ||
+	    sid_resource_create_signal_event_source(res, NULL, SIGINT, NULL, NULL, NULL) < 0) {
 		log_error(ID(res), "Failed to create signal handlers.");
 		goto fail;
 	}
@@ -67,28 +56,9 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 		goto fail;
 	}
 
-	*data = sid;
 	return 0;
 fail:
-	if (sid) {
-		if (sid->sigterm_es)
-			(void) sid_resource_destroy_event_source(res, &sid->sigterm_es);
-		if (sid->sigint_es)
-			(void) sid_resource_destroy_event_source(res, &sid->sigint_es);
-		free(sid);
-	}
 	return -1;
-}
-
-static int _destroy_sid(sid_resource_t *res)
-{
-	struct sid_data *sid = sid_resource_get_data(res);
-
-	(void) sid_resource_destroy_event_source(res, &sid->sigterm_es);
-	(void) sid_resource_destroy_event_source(res, &sid->sigint_es);
-
-	free(sid);
-	return 0;
 }
 
 const sid_resource_type_t sid_resource_type_sid = {
@@ -96,5 +66,4 @@ const sid_resource_type_t sid_resource_type_sid = {
 	.with_event_loop = 1,
 	.with_watchdog = 1,
 	.init = _init_sid,
-	.destroy = _destroy_sid,
 };

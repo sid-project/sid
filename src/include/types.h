@@ -20,8 +20,6 @@
 #ifndef _SID_TYPES_H
 #define _SID_TYPES_H
 
-#include "wrapper-sd.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

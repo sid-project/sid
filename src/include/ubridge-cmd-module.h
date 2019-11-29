@@ -21,10 +21,11 @@
 #define _SID_UBRIDGE_CMD_MODULE_H
 
 #include "macros.h"
+#include "module.h"
 #include "types.h"
 
-#include <stdint.h>
-#include <module.h>
+#include <inttypes.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {

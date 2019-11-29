@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,18 +22,19 @@
 
 #include "types.h"
 
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/epoll.h>
+#include <sys/signalfd.h>
 #include <sys/timerfd.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* opaque resource handler */
 typedef struct sid_resource sid_resource_t;
 
-/* resource registration structure */
 typedef struct sid_resource_type {
 	const char *name;
 	int (*init) (sid_resource_t *res, const void *kickstart_data, void **data);
@@ -42,11 +43,11 @@ typedef struct sid_resource_type {
 	unsigned int with_watchdog   : 1;
 } sid_resource_type_t;
 
-/* opaque resource's child iteration handler */
-typedef struct sid_resource_iter sid_resource_iter_t;
-
 #include "resource-type-regs.h"
 
+/*
+ * create/destroy functions and related types
+ */
 typedef enum {
 	SID_RESOURCE_RESTRICT_WALK_UP   = UINT64_C(0x0000000000000001),	/* restrict walk from child to parent */
 	SID_RESOURCE_RESTRICT_WALK_DOWN = UINT64_C(0x0000000000000002),	/* restrict walk from parent to child */
@@ -54,9 +55,6 @@ typedef enum {
 	SID_RESOURCE_DISALLOW_ISOLATION = UINT64_C(0x0000000000000004),
 } sid_resource_flags_t;
 
-/*
- * create/destroy functions
- */
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_type_t *type,
 				    sid_resource_flags_t flags, const char *id, const void *kickstart_data);
 int sid_resource_destroy(sid_resource_t *res);
@@ -77,24 +75,10 @@ bool sid_resource_is_ancestor_of_type(sid_resource_t *res, const sid_resource_ty
 #define ID(res) sid_resource_get_full_id(res)
 
 /*
- * event source handling functions
+ * structure/tree iterator and 'get' functions and types
  */
-int sid_resource_create_io_event_source(sid_resource_t *res, sid_event_source **es, int fd,
-					sid_io_handler handler, const char *name, void *data);
-int sid_resource_create_signal_event_source(sid_resource_t *res, sid_event_source **es, int signal,
-					    sid_signal_handler handler, const char *name, void *data);
-int sid_resource_create_child_event_source(sid_resource_t *res, sid_event_source **es, pid_t pid,
-					   int options, sid_child_handler handler, const char *name, void *data);
-int sid_resource_create_time_event_source(sid_resource_t *res, sid_event_source **es, clockid_t clock,
-					  uint64_t usec, uint64_t accuracy, sid_time_handler handler,
-					  const char *name, void *data);
-int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_event_source **es,
-					      sid_generic_handler handler, void *data);
-int sid_resource_destroy_event_source(sid_resource_t *res __attribute__((unused)), sid_event_source **es);
+typedef struct sid_resource_iter sid_resource_iter_t;
 
-/*
- * structure/tree iterator and 'get' functions
- */
 sid_resource_iter_t *sid_resource_iter_create(sid_resource_t *res);
 sid_resource_t *sid_resource_iter_current(sid_resource_iter_t *iter);
 sid_resource_t *sid_resource_iter_next(sid_resource_iter_t *iter);
@@ -114,10 +98,47 @@ int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child);
 int sid_resource_isolate(sid_resource_t *res);
 int sid_resource_isolate_with_children(sid_resource_t *res);
 
-/* event loop functions */
+/*
+ * event loop and event handling functions and types
+ */
+typedef struct sid_resource_event_source sid_resource_event_source_t;
+
+typedef int (*sid_resource_io_event_handler_t)(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data);
+typedef int (*sid_resource_signal_event_handler_t)(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *data);
+typedef int (*sid_resource_child_event_handler_t)(sid_resource_event_source_t *es, const siginfo_t *si, void *data);
+typedef int (*sid_resource_time_event_handler_t)(sid_resource_event_source_t *es, uint64_t usec, void *data);
+typedef int (*sid_resource_generic_event_handler_t)(sid_resource_event_source_t *es, void *data);
+
+int sid_resource_create_io_event_source(sid_resource_t *res, sid_resource_event_source_t **es, int fd,
+					sid_resource_io_event_handler_t handler, const char *name, void *data);
+
+int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_event_source_t **es, int signal,
+					    sid_resource_signal_event_handler_t handler, const char *name, void *data);
+
+int sid_resource_create_child_event_source(sid_resource_t *res, sid_resource_event_source_t **es, pid_t pid, int options,
+					   sid_resource_child_event_handler_t handler, const char *name, void *data);
+
+int sid_resource_create_time_event_source(sid_resource_t *res, sid_resource_event_source_t **es, clockid_t clock,
+				   uint64_t usec, uint64_t accuracy, sid_resource_time_event_handler_t handler,
+				   const char *name, void *data);
+
+int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
+					      sid_resource_generic_event_handler_t handler, void *data);
+
+int sid_resource_create_post_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
+					  sid_resource_generic_event_handler_t handler, void *data);
+
+int sid_resource_create_exit_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
+					  sid_resource_generic_event_handler_t handler, void *data);
+
+int sid_resource_destroy_event_source(sid_resource_t *res, sid_resource_event_source_t **es);
+
 int sid_resource_run_event_loop(sid_resource_t *res);
 int sid_resource_exit_event_loop(sid_resource_t *res);
 
+/*
+ * miscellanous functions
+ */
 void sid_resource_dump_all_in_dot(sid_resource_t *res);
 
 #ifdef __cplusplus

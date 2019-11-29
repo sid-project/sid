@@ -35,11 +35,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <libudev.h>
-#include <limits.h>
-#include <signal.h>
-#include <stdio.h>
 #include <sys/mman.h>
-#include <sys/signalfd.h>
 #include <unistd.h>
 
 #define UBRIDGE_NAME                 "ubridge"
@@ -133,12 +129,10 @@ struct sid_ubridge_cmd_mod_context {
 struct umonitor {
 	struct udev *udev;
 	struct udev_monitor *mon;
-	sid_event_source *es;
 };
 
 struct ubridge {
 	int socket_fd;
-	sid_event_source *es;
 	sid_resource_t *internal_res;
 	sid_resource_t *modules_res;
 	sid_resource_t *main_kv_store_res;
@@ -184,7 +178,6 @@ struct udevice {
 
 struct connection {
 	int fd;
-	sid_event_source *es;
 	struct buffer *buf;
 };
 
@@ -193,7 +186,6 @@ struct sid_ubridge_cmd_context {
 	union {
 		cmd_ident_phase_t ident_phase;
 	};
-	sid_event_source *es;
 	char *dev_id;
 	struct udevice udev_dev;
 	sid_resource_t *kv_store_res;
@@ -2952,7 +2944,7 @@ bad:
 	return -1;
 }
 
-static int _cmd_handler(sid_event_source *es, void *data)
+static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
 	sid_resource_t *cmd_res = data;
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
@@ -3010,7 +3002,7 @@ static int _connection_cleanup(sid_resource_t *conn_res)
 	return 0;
 }
 
-static int _on_connection_event(sid_event_source *es, int fd, uint32_t revents, void *data)
+static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *conn_res = data;
 	struct connection *conn = sid_resource_get_data(conn_res);
@@ -3068,7 +3060,7 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 
 	memcpy(&conn->fd, kickstart_data, sizeof(int));
 
-	if (sid_resource_create_io_event_source(res, &conn->es, conn->fd, _on_connection_event, NULL, res) < 0) {
+	if (sid_resource_create_io_event_source(res, NULL, conn->fd, _on_connection_event, NULL, res) < 0) {
 		log_error(ID(res), "Failed to register connection event handler.");
 		goto fail;
 	}
@@ -3082,8 +3074,6 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 	return 0;
 fail:
 	if (conn) {
-		if (conn->es)
-			(void) sid_resource_destroy_event_source(res, &conn->es);
 		if (conn->buf)
 			buffer_destroy(conn->buf);
 		free(conn);
@@ -3097,9 +3087,6 @@ static int _destroy_connection(sid_resource_t *res)
 
 	if (conn->fd != -1)
 		close(conn->fd);
-
-	if (conn->es)
-		(void) sid_resource_destroy_event_source(res, &conn->es);
 
 	if (conn->buf)
 		buffer_destroy(conn->buf);
@@ -3156,7 +3143,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 
-	if (sid_resource_create_deferred_event_source(res, &cmd->es, _cmd_handler, res) < 0) {
+	if (sid_resource_create_deferred_event_source(res, NULL, _cmd_handler, res) < 0) {
 		log_error(ID(res), "Failed to register command handler.");
 		goto fail;
 	}
@@ -3176,7 +3163,6 @@ static int _destroy_command(sid_resource_t *res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(res);
 
-	(void) sid_resource_destroy_event_source(res, &cmd->es);
 	buffer_destroy(cmd->gen_buf);
 	buffer_destroy(cmd->res_buf);
 	free(cmd->dev_id);
@@ -3424,7 +3410,7 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *init_fn_arg)
 	return 0;
 }
 
-static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t revents, void *data)
+static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	char uuid[UTIL_UUID_STR_SIZE];
 	sid_resource_t *ubridge_res = data;
@@ -3465,7 +3451,7 @@ static int _on_ubridge_interface_event(sid_event_source *es, int fd, uint32_t re
 	return 0;
 }
 
-static int _on_ubridge_udev_monitor_event(sid_event_source *es, int fd, uint32_t revents, void *data)
+static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *res = data;
 	struct ubridge *ubridge = sid_resource_get_data(res);
@@ -3500,9 +3486,6 @@ static void _destroy_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *
 		umonitor->mon = NULL;
 	}
 
-	if (umonitor->es)
-		(void) sid_resource_destroy_event_source(ubridge_res, &umonitor->es);
-
 	udev_unref(umonitor->udev);
 	umonitor->udev = NULL;
 }
@@ -3528,7 +3511,7 @@ static int _set_up_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *um
 
 	umonitor_fd = udev_monitor_get_fd(umonitor->mon);
 
-	if (sid_resource_create_io_event_source(ubridge_res, &umonitor->es, umonitor_fd,
+	if (sid_resource_create_io_event_source(ubridge_res, NULL, umonitor_fd,
 	                                        _on_ubridge_udev_monitor_event, NULL, ubridge_res) < 0) {
 		log_error(ID(ubridge_res), "Failed to register udev monitoring.");
 		goto fail;
@@ -3696,7 +3679,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (sid_resource_create_io_event_source(res, &ubridge->es, ubridge->socket_fd, _on_ubridge_interface_event, UBRIDGE_NAME, res) < 0) {
+	if (sid_resource_create_io_event_source(res, NULL, ubridge->socket_fd, _on_ubridge_interface_event, UBRIDGE_NAME, res) < 0) {
 		log_error(ID(res), "Failed to register interface with event loop.");
 		goto fail;
 	}
@@ -3718,8 +3701,6 @@ fail:
 		block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = NULL;
 		if (ubridge->socket_fd >= 0)
 			(void) close(ubridge->socket_fd);
-		if (ubridge->es)
-			(void) sid_resource_destroy_event_source(res, &ubridge->es);
 		free(ubridge);
 	}
 	return -1;
@@ -3728,8 +3709,6 @@ fail:
 static int _destroy_ubridge(sid_resource_t *res)
 {
 	struct ubridge *ubridge = sid_resource_get_data(res);
-
-	(void) sid_resource_destroy_event_source(res, &ubridge->es);
 
 	_destroy_udev_monitor(res, &ubridge->umonitor);
 
