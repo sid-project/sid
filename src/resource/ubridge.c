@@ -3060,7 +3060,7 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 
 	memcpy(&conn->fd, kickstart_data, sizeof(int));
 
-	if (sid_resource_create_io_event_source(res, NULL, conn->fd, _on_connection_event, NULL, res) < 0) {
+	if (sid_resource_create_io_event_source(res, NULL, conn->fd, _on_connection_event, "client connection", res) < 0) {
 		log_error(ID(res), "Failed to register connection event handler.");
 		goto fail;
 	}
@@ -3143,7 +3143,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 
-	if (sid_resource_create_deferred_event_source(res, NULL, _cmd_handler, NULL, res) < 0) {
+	if (sid_resource_create_deferred_event_source(res, NULL, _cmd_handler, "command handler", res) < 0) {
 		log_error(ID(res), "Failed to register command handler.");
 		goto fail;
 	}
@@ -3512,7 +3512,7 @@ static int _set_up_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *um
 	umonitor_fd = udev_monitor_get_fd(umonitor->mon);
 
 	if (sid_resource_create_io_event_source(ubridge_res, NULL, umonitor_fd,
-	                                        _on_ubridge_udev_monitor_event, NULL, ubridge_res) < 0) {
+	                                        _on_ubridge_udev_monitor_event, "udev monitor", ubridge_res) < 0) {
 		log_error(ID(ubridge_res), "Failed to register udev monitoring.");
 		goto fail;
 	}

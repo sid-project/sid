@@ -45,8 +45,8 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 		goto fail;
 	}
 
-	if (sid_resource_create_signal_event_source(res, NULL, SIGTERM, NULL, NULL, NULL) < 0 ||
-	    sid_resource_create_signal_event_source(res, NULL, SIGINT, NULL, NULL, NULL) < 0) {
+	if (sid_resource_create_signal_event_source(res, NULL, SIGTERM, NULL, "sigterm", NULL) < 0 ||
+	    sid_resource_create_signal_event_source(res, NULL, SIGINT, NULL, "sigint", NULL) < 0) {
 		log_error(ID(res), "Failed to create signal handlers.");
 		goto fail;
 	}

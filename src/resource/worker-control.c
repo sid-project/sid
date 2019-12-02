@@ -391,7 +391,7 @@ static int _on_worker_proxy_comms_event(sid_resource_event_source_t *es, int fd,
 			 *
 			timeout_usec = util_get_now_usec(CLOCK_MONOTONIC) + DEFAULT_WORKER_IDLE_TIMEOUT_USEC;
 			sid_resource_create_time_event_source(worker_proxy_res, &worker_proxy->idle_timeout_es, CLOCK_MONOTONIC,
-							      timeout_usec, 0, _on_worker_proxy_idle_timeout_event, NULL, worker_proxy_res);
+							      timeout_usec, 0, _on_worker_proxy_idle_timeout_event, "idle timeout", worker_proxy_res);
 			_change_worker_proxy_state(worker_proxy_res, WORKER_IDLE);
 			*/
 			_make_worker_exit(worker_proxy_res);
@@ -470,13 +470,13 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	worker_proxy->state = WORKER_NEW;
 
 	if (sid_resource_create_child_event_source(worker_proxy_res, NULL, worker_proxy->pid, WEXITED,
-	                                           _on_worker_proxy_child_event, NULL, worker_proxy_res) < 0) {
+	                                           _on_worker_proxy_child_event, "worker process monitor", worker_proxy_res) < 0) {
 		log_error(ID(worker_proxy_res), "Failed to register worker process monitoring in worker proxy.");
 		goto fail;
 	}
 
 	if (sid_resource_create_io_event_source(worker_proxy_res, NULL, worker_proxy->comms_fd,
-	                                        _on_worker_proxy_comms_event, NULL, worker_proxy_res) < 0) {
+	                                        _on_worker_proxy_comms_event, "worker comms", worker_proxy_res) < 0) {
 		log_error(ID(worker_proxy_res), "Failed to register communication channel between worker and its proxy.");
 		goto fail;
 	}
@@ -510,13 +510,13 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 
 	worker->comms_fd = kickstart->comms_fd;
 
-	if (sid_resource_create_signal_event_source(worker_res, NULL, SIGTERM, _on_worker_signal_event, NULL, worker_res) < 0 ||
-	    sid_resource_create_signal_event_source(worker_res, NULL, SIGINT, _on_worker_signal_event, NULL, worker_res) < 0) {
+	if (sid_resource_create_signal_event_source(worker_res, NULL, SIGTERM, _on_worker_signal_event, "sigterm", worker_res) < 0 ||
+	    sid_resource_create_signal_event_source(worker_res, NULL, SIGINT, _on_worker_signal_event, "sigint", worker_res) < 0) {
 		log_error(ID(worker_res), "Failed to create signal handlers.");
 		goto fail;
 	}
 
-	if (sid_resource_create_io_event_source(worker_res, NULL, worker->comms_fd, _on_worker_comms_event, NULL, worker_res) < 0) {
+	if (sid_resource_create_io_event_source(worker_res, NULL, worker->comms_fd, _on_worker_comms_event, "master comms", worker_res) < 0) {
 		log_error(ID(worker_res), "Failed to register worker <-> proxy channel.");
 		goto fail;
 	}
