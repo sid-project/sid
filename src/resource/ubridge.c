@@ -3014,8 +3014,6 @@ static int _on_connection_event(sid_event_source *es, int fd, uint32_t revents, 
 {
 	sid_resource_t *conn_res = data;
 	struct connection *conn = sid_resource_get_data(conn_res);
-	struct usid_msg_header *header;
-	size_t size;
 	struct usid_msg msg;
 	char id[32];
 	ssize_t n;
@@ -3033,10 +3031,7 @@ static int _on_connection_event(sid_event_source *es, int fd, uint32_t revents, 
 	n = buffer_read(conn->buf, fd);
 	if (n > 0) {
 		if (buffer_is_complete(conn->buf)) {
-			(void) buffer_get_data(conn->buf, (const void **) &header, &size);
-
-			msg.size = size;
-			msg.header = header;
+			(void) buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 
 			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
 			if (msg.header->cmd < _USID_CMD_START || msg.header->cmd > _USID_CMD_END)
