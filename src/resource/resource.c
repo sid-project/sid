@@ -388,7 +388,7 @@ static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
 }
 
 int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
-                                              sid_resource_generic_event_handler_t handler, void *data)
+                                              sid_resource_generic_event_handler_t handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es;
@@ -400,14 +400,14 @@ int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_resource_
 	if ((r = sd_event_add_defer(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
 		return r;
 
-	if ((r = _create_event_source(res, NULL, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
 		return r;
 
 	return 0;
 }
 
 int sid_resource_create_post_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
-                                          sid_resource_generic_event_handler_t handler, void *data)
+                                          sid_resource_generic_event_handler_t handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es;
@@ -419,14 +419,14 @@ int sid_resource_create_post_event_source(sid_resource_t *res, sid_resource_even
 	if ((r = sd_event_add_post(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
 		return r;
 
-	if ((r = _create_event_source(res, NULL, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
 		return r;
 
 	return 0;
 }
 
 int sid_resource_create_exit_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
-                                          sid_resource_generic_event_handler_t handler, void *data)
+                                          sid_resource_generic_event_handler_t handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es;
@@ -438,7 +438,7 @@ int sid_resource_create_exit_event_source(sid_resource_t *res, sid_resource_even
 	if ((r = sd_event_add_exit(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
 		return r;
 
-	if ((r = _create_event_source(res, NULL, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
 		return r;
 
 	return 0;

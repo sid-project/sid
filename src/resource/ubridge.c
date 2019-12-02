@@ -3143,7 +3143,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 
-	if (sid_resource_create_deferred_event_source(res, NULL, _cmd_handler, res) < 0) {
+	if (sid_resource_create_deferred_event_source(res, NULL, _cmd_handler, NULL, res) < 0) {
 		log_error(ID(res), "Failed to register command handler.");
 		goto fail;
 	}

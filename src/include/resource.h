@@ -123,13 +123,13 @@ int sid_resource_create_time_event_source(sid_resource_t *res, sid_resource_even
 				   const char *name, void *data);
 
 int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
-					      sid_resource_generic_event_handler_t handler, void *data);
+					      sid_resource_generic_event_handler_t handler, const char *name, void *data);
 
 int sid_resource_create_post_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
-					  sid_resource_generic_event_handler_t handler, void *data);
+					  sid_resource_generic_event_handler_t handler, const char *name, void *data);
 
 int sid_resource_create_exit_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
-					  sid_resource_generic_event_handler_t handler, void *data);
+					  sid_resource_generic_event_handler_t handler, const char *name, void *data);
 
 int sid_resource_destroy_event_source(sid_resource_t *res, sid_resource_event_source_t **es);
 
