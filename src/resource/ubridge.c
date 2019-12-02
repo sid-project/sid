@@ -189,7 +189,7 @@ struct connection {
 };
 
 struct sid_ubridge_cmd_context {
-	struct usid_msg request;
+	struct usid_msg_header request_header;
 	union {
 		cmd_ident_phase_t ident_phase;
 	};
@@ -2964,11 +2964,11 @@ static int _cmd_handler(sid_event_source *es, void *data)
 
 	(void) buffer_add(cmd->res_buf, &response_header, sizeof(response_header));
 
-	if (cmd->request.header->prot <= UBRIDGE_PROTOCOL) {
+	if (cmd->request_header.prot <= UBRIDGE_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
-		response_header.prot = cmd->request.header->prot;
+		response_header.prot = cmd->request_header.prot;
 		exec_arg.cmd_res = cmd_res;
-		if ((r = _cmd_regs[cmd->request.header->cmd].exec(&exec_arg)) < 0)
+		if ((r = _cmd_regs[cmd->request_header.cmd].exec(&exec_arg)) < 0)
 			log_error(ID(cmd_res), "Failed to execute command");
 	}
 
@@ -3130,7 +3130,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	cmd->request.header = msg->header;
+	cmd->request_header = *msg->header;
 
 	if (!(cmd->gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX))) {
 		log_error(ID(res), "Failed to create generic buffer.");
