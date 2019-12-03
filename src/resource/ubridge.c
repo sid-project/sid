@@ -2926,7 +2926,8 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	}
 
 	lseek(export_fd, 0, SEEK_SET);
-	write(export_fd, &bytes_written, sizeof(bytes_written));
+	if ((r = write(export_fd, &bytes_written, sizeof(bytes_written))) < 0)
+		goto bad;
 	lseek(export_fd, 0, SEEK_SET);
 
 	if (bytes_written)
