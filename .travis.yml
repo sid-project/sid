@@ -46,7 +46,7 @@ matrix:
         - TEST="compile"
       before_install:
         - sudo apt-get update
-        - sudo apt-get -q -y install autoconf-archive libxen-dev libsystemd-dev libudev-dev libblkid-dev
+        - sudo apt-get -q -y install autoconf-archive gperf libxen-dev libsystemd-dev libudev-dev libblkid-dev
       install:
         - touch README
         - ./autogen.sh
