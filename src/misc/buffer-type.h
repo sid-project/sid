@@ -22,7 +22,6 @@
 
 #include "buffer-common.h"
 
-#include <stdarg.h>
 #include <sys/types.h>
 
 struct buffer{

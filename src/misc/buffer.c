@@ -81,6 +81,11 @@ const void *buffer_fmt_add(struct buffer *buf, const char *fmt, ...)
 	return r;
 }
 
+const void *buffer_vfmt_add(struct buffer *buf, const char *fmt, va_list ap)
+{
+	return _buffer_type_registry[buf->type]->fmt_add(buf, fmt, ap);
+}
+
 int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
 {
 	if (whence == BUFFER_POS_REL) {

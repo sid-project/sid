@@ -40,6 +40,7 @@ void buffer_destroy(struct buffer *buf);
 int buffer_reset(struct buffer *buf, size_t intial_size, size_t alloc_step);
 const void *buffer_add(struct buffer *buf, void *data, size_t len);
 const void *buffer_fmt_add(struct buffer *buf, const char *fmt, ...);
+const void *buffer_vfmt_add(struct buffer *buf, const char *fmt, va_list ap);
 int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence);
 int buffer_rewind_mem(struct buffer *buf, const void *mem);
 bool buffer_is_complete(struct buffer *buf);
