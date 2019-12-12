@@ -37,6 +37,9 @@ m4/libtool.m4
 
 src/daemon/sid
 src/tools/usid
+systemd/sid.service
+systemd/sid.socket
+systemd/sid.sysconfig
 udev/00-sid.rules
 
 libtool
