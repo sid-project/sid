@@ -86,7 +86,9 @@ AC_TYPE_UINT64_T
 AC_FUNC_ERROR_AT_LINE
 AC_FUNC_MALLOC
 
-PKG_CHECK_MODULES(SYSTEMD, libsystemd >= 221) # event loop supported in libsystemd version >= 221
+# event loop supported in libsystemd version >= 221
+PKG_CHECK_MODULES(SYSTEMD, libsystemd >= 221, [], [
+    PKG_CHECK_MODULES(ELOGIND, [libelogind >= 221])])
 
 PKG_CHECK_MODULES(UDEV, libudev >= 174) # support for device tagging added in libudev version >= 174
 

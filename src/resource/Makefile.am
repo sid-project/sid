@@ -34,8 +34,10 @@ pkginclude_HEADERS = $(top_builddir)/src/include/types.h \
 		     $(top_builddir)/src/include/ubridge-cmd-module.h \
 		     $(top_builddir)/src/include/worker-control.h
 libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
+			   $(ELOGIND_CFLAGS) \
 			   $(UDEV_CFLAGS)
 libsidresource_la_LIBADD = $(top_builddir)/src/misc/libsidmisc.la \
 			   $(SYSTEMD_LIBS) \
+			   $(ELOGIND_LIBS) \
 			   $(UDEV_LIBS) \
 			   -ldl
