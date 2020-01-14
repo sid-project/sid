@@ -141,7 +141,7 @@ static int _usid_cmd_active(struct args *args)
 	const char *status;
 	int r;
 
-	seqnum = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
+	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	if ((r = _sid_req(USID_CMD_VERSION, seqnum, NULL, NULL, &buf)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
@@ -195,14 +195,14 @@ static int _add_devt_env_to_buffer(struct buffer *buf)
 	dev_t devnum;
 	int r;
 
-	if ((r = util_get_env_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0) {
+	if ((r = util_env_get_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0) {
 		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_value_for_key, KEY_ENV_MAJOR);
 		return r;
 	}
 
 	major = val;
 
-	if ((r = util_get_env_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0) {
+	if ((r = util_env_get_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0) {
 		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_value_for_key, KEY_ENV_MINOR);
 		return r;
 	}
@@ -254,7 +254,7 @@ static int _usid_cmd_checkpoint(struct args *args)
 	struct buffer *buf = NULL;
 	int r;
 
-	if ((r = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
+	if ((r = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
 		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_seqnum, KEY_ENV_SEQNUM);
 		return r;
 	}
@@ -291,7 +291,7 @@ static int _usid_cmd_scan(struct args *args)
 	struct buffer *buf = NULL;
 	int r;
 
-	if ((r = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
+	if ((r = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
 		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_seqnum, KEY_ENV_SEQNUM);
 		return r;
 	}
@@ -316,7 +316,7 @@ static int _usid_cmd_version(struct args *args)
 	struct usid_version *vsn = NULL;
 	int r;
 
-	seqnum = util_get_env_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
+	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	fprintf(stdout, KEY_USID_PROTOCOL "=%" PRIu8 "\n"
 	        KEY_USID_MAJOR "=%" PRIu16 "\n"

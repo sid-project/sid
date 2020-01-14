@@ -1384,13 +1384,13 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, const char *st
 
 	/* Common key=value pairs are also directly in the cmd->udev_dev structure. */
 	if (!strcmp(key, UDEV_KEY_ACTION))
-		cmd->udev_dev.action = util_str_to_udev_action(value);
+		cmd->udev_dev.action = util_udev_str_to_udev_action(value);
 	else if (!strcmp(key, UDEV_KEY_DEVPATH)) {
 		cmd->udev_dev.path = value;
-		cmd->udev_dev.name = util_strrstr(value, "/");
+		cmd->udev_dev.name = util_str_rstr(value, "/");
 		cmd->udev_dev.name++;
 	} else if (!strcmp(key, UDEV_KEY_DEVTYPE))
-		cmd->udev_dev.type = util_str_to_udev_devtype(value);
+		cmd->udev_dev.type = util_udev_str_to_udev_devtype(value);
 	else if (!strcmp(key, UDEV_KEY_SEQNUM))
 		cmd->udev_dev.seqnum = strtoull(value, NULL, 10);
 	else if (!strcmp(key, UDEV_KEY_SYNTH_UUID))
@@ -3429,7 +3429,7 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	if (!(worker_proxy_res = worker_control_get_idle_worker(ubridge->worker_control_res))) {
 		log_debug(ID(ubridge_res), "Idle worker not found, creating a new one.");
 
-		if (!util_gen_uuid_str(uuid, sizeof(uuid))) {
+		if (!util_uuid_gen_str(uuid, sizeof(uuid))) {
 			log_error(ID(ubridge_res), "Failed to generate UUID for new worker.");
 			return -1;
 		}

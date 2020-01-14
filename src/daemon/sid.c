@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (util_get_env_ull(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
+	if (util_env_get_ull(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
 		verbose = val;
 
 	if (foreground)

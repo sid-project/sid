@@ -32,20 +32,38 @@
 extern "C" {
 #endif
 
+/*
+ * Process-related utilities.
+ */
+int util_process_pid_to_str(pid_t pid, char *buf, size_t buf_size);
+
+/*
+ * Udev-related utilities.
+ */
+udev_action_t util_udev_str_to_udev_action(const char *str);
+udev_devtype_t util_udev_str_to_udev_devtype(const char *str);
+
+/*
+ * String-related utilities.
+ */
+char *util_str_rstr(const char *haystack, const char *needle);
+
+/*
+ * Time-related utilities.
+ */
+uint64_t util_time_get_now_usec(clockid_t clock_id);
+
+/*
+ * UUID-related utilities.
+ */
 #define UTIL_UUID_STR_SIZE UUID_STR_LEN
 
-int util_pid_to_str(pid_t pid, char *buf, size_t buf_size);
+char *util_uuid_gen_str(char *buf, size_t buf_len);
 
-udev_action_t util_str_to_udev_action(const char *str);
-udev_devtype_t util_str_to_udev_devtype(const char *str);
-
-uint64_t util_get_now_usec(clockid_t clock_id);
-
-char *util_strrstr(const char *haystack, const char *needle);
-
-char *util_gen_uuid_str(char *buf, size_t buf_len);
-
-int util_get_env_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val);
+/*
+ * Environment-related utilities.
+ */
+int util_env_get_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val);
 
 #ifdef __cplusplus
 }

@@ -24,7 +24,11 @@
 #include <string.h>
 #include <sys/stat.h>
 
-int util_pid_to_str(pid_t pid, char *buf, size_t buf_size)
+/*
+ * Process-related utilities.
+ */
+
+int util_process_pid_to_str(pid_t pid, char *buf, size_t buf_size)
 {
 	int size;
 
@@ -35,6 +39,10 @@ int util_pid_to_str(pid_t pid, char *buf, size_t buf_size)
 
 	return 0;
 }
+
+/*
+ * Udev-related utilities.
+ */
 
 static const char *udev_action_str[] = {[UDEV_ACTION_ADD]     = "add",
                                         [UDEV_ACTION_CHANGE]  = "change",
@@ -47,7 +55,7 @@ static const char *udev_action_str[] = {[UDEV_ACTION_ADD]     = "add",
                                         [UDEV_ACTION_UNKNOWN] = "unknown"
                                        };
 
-udev_action_t util_str_to_udev_action(const char *str)
+udev_action_t util_udev_str_to_udev_action(const char *str)
 {
 	if (!strcasecmp(str, udev_action_str[UDEV_ACTION_ADD]))
 		return UDEV_ACTION_ADD;
@@ -74,7 +82,7 @@ static const char *udev_devtype_str[] = {[UDEV_DEVTYPE_DISK]      = "disk",
                                          [UDEV_DEVTYPE_UNKNOWN]   = "unknown"
                                         };
 
-udev_devtype_t util_str_to_udev_devtype(const char *str)
+udev_devtype_t util_udev_str_to_udev_devtype(const char *str)
 {
 	if (!strcasecmp(str, udev_devtype_str[UDEV_DEVTYPE_DISK]))
 		return UDEV_DEVTYPE_DISK;
@@ -84,15 +92,11 @@ udev_devtype_t util_str_to_udev_devtype(const char *str)
 		return UDEV_DEVTYPE_UNKNOWN;
 }
 
-uint64_t util_get_now_usec(clockid_t clock_id)
-{
-	struct timespec ts;
+/*
+ * String-related utilities.
+ */
 
-	clock_gettime(clock_id, &ts);
-	return (uint64_t) ts.tv_sec * 1000000 + (uint64_t) ts.tv_nsec / 1000;
-}
-
-char *util_strrstr(const char *haystack, const char *needle)
+char *util_str_rstr(const char *haystack, const char *needle)
 {
 	size_t haystack_len, needle_len, pos;
 
@@ -109,7 +113,23 @@ char *util_strrstr(const char *haystack, const char *needle)
 	return NULL;
 }
 
-char *util_gen_uuid_str(char *buf, size_t buf_len)
+/*
+ * Time-related utilities.
+ */
+
+uint64_t util_time_get_now_usec(clockid_t clock_id)
+{
+	struct timespec ts;
+
+	clock_gettime(clock_id, &ts);
+	return (uint64_t) ts.tv_sec * 1000000 + (uint64_t) ts.tv_nsec / 1000;
+}
+
+/*
+ * UUID-related utilities.
+ */
+
+char *util_uuid_gen_str(char *buf, size_t buf_len)
 {
 	uuid_t uu;
 	char *str;
@@ -129,7 +149,11 @@ char *util_gen_uuid_str(char *buf, size_t buf_len)
 	return str;
 }
 
-int util_get_env_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val)
+/*
+ * Environment-related utilities.
+ */
+
+int util_env_get_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val)
 {
 	unsigned long long ret;
 	char *env_val;
