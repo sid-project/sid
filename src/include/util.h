@@ -46,7 +46,16 @@ udev_devtype_t util_udev_str_to_udev_devtype(const char *str);
 /*
  * String-related utilities.
  */
+#define UTIL_STR_DEFAULT_DELIMS " \t\r\n\v\f"
+#define UTIL_STR_DEFAULT_QUOTES "\"\'"
+
 char *util_str_rstr(const char *haystack, const char *needle);
+
+typedef int (*util_str_token_fn_t) (const char *token, size_t len, void *data);
+int util_str_iterate_tokens(const char *str, const char *delims, const char *quotes, util_str_token_fn_t token_fn, void *token_fn_data);
+
+char **util_str_comb_to_strv(const char *prefix, const char *str, const char *suffix, const char *delims, const char *quotes);
+char **util_strv_copy(const char **strv);
 
 /*
  * Time-related utilities.

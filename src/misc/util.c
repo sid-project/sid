@@ -113,6 +113,188 @@ char *util_str_rstr(const char *haystack, const char *needle)
 	return NULL;
 }
 
+const char *_get_quote(const char *str, const char *quotes, const char quote)
+{
+	const char *prev;
+	size_t esc_count;
+
+	if (!(str = quote ? strchr(str, quote) : strpbrk(str, quotes)))
+		return NULL;
+
+	for (esc_count = 0, prev = str - 1; prev >= str && *prev == '\\'; prev--)
+		esc_count++;
+
+	if (esc_count % 2 == 0)
+		/* even number of escapes before quote char do not escape it - return the quote */
+		return str;
+
+	/* odd number of escapes before quote char do escape it - look for another quote char */
+	return _get_quote(str + 1, quotes, quote);
+}
+
+int util_str_iterate_tokens(const char *str, const char *delims, const char *quotes, util_str_token_fn_t token_fn, void *token_fn_data)
+{
+	const char *start_quote, *end_quote;
+	size_t len;
+	int r;
+
+	if (!str)
+		return 0;
+
+	if (!delims)
+		delims = "";
+
+	if (!quotes)
+		quotes = "";
+
+	while (str[0]) {
+		str += strspn(str, delims); /* ignore delims at start */
+
+		if (!(start_quote = _get_quote(str, quotes, 0))) {
+			/* we don't have any more quotes - read tokens up to the end of the string */
+			while (str[0]) {
+				len = strcspn(str, delims); /* token */
+				if ((r = token_fn(str, len, token_fn_data)) < 0)
+					return r;
+				str += len;
+				str += strspn(str, delims); /* delims */
+			}
+			break;
+		}
+
+		/* we always require opening and closing quotes to match - it's an error otherwise */
+		if (!(end_quote = _get_quote(start_quote + 1, quotes, start_quote[0])))
+			return -EINVAL;
+
+		/* we do have quotes - read tokens up to the start quote first */
+		while (str < start_quote) {
+			len = strcspn(str, delims); /* token */
+			if ((r = token_fn(str, len, token_fn_data)) < 0)
+				return r;
+			str += len;
+			str += strspn(str, delims);  /* delims */
+		}
+
+		/* skip the start quote */
+		str++;
+
+		/* read the word between start and end quote */
+		token_fn(str, end_quote - start_quote - 1, token_fn_data);
+
+		/* continue further with the part after the end quote */
+		str = end_quote + 1;
+	}
+
+	return 0;
+}
+
+struct token_counter {
+	size_t tokens;
+	size_t chars;
+};
+
+static int _count_token(const char *token, size_t len, void *data)
+{
+	struct token_counter *counter = data;
+
+	counter->tokens++;
+	counter->chars += len;
+
+	return 0;
+}
+
+struct strv_iter {
+	char **strv;
+	size_t i;
+	char *s;
+};
+
+static int _copy_token_to_strv(const char *token, size_t len, void *data)
+{
+	struct strv_iter *copier = data;
+
+	memcpy(copier->s, token, len);
+	copier->strv[copier->i] = copier->s;
+	copier->s += len;
+	*copier->s = '\0';
+
+	copier->s++;
+	copier->i++;
+
+	return 0;
+}
+
+static size_t _get_strv_header_size(struct token_counter *counter)
+{
+	/* 'counter.tokens' to include NULL item at the end of the vector */
+	return (counter->tokens + 1) * sizeof(char *);
+}
+
+static size_t _get_strv_full_mem_size(struct token_counter *counter)
+{
+	/*
+	 * Complete memory needed is:
+	 *   - memory for storing the vector itself ('vector header') where the vector is NULL-terminated
+	 *   - memory for storing the strings where each string is NULL-terminated
+	 */
+	return _get_strv_header_size(counter) + counter->chars + counter->tokens;
+}
+
+char **util_str_comb_to_strv(const char *prefix, const char *str, const char *suffix, const char *delims, const char *quotes)
+{
+	struct token_counter counter = {0};
+	struct strv_iter copier = {0};
+
+	if (util_str_iterate_tokens(prefix, delims, quotes, _count_token, &counter) < 0 ||
+	    util_str_iterate_tokens(str, delims, quotes, _count_token, &counter) < 0 ||
+	    util_str_iterate_tokens(suffix, delims, quotes, _count_token, &counter) < 0)
+		goto fail;
+
+	if (!(copier.strv = malloc(_get_strv_full_mem_size(&counter))))
+		goto fail;
+
+	copier.s = (char *) copier.strv + _get_strv_header_size(&counter);
+
+	if (util_str_iterate_tokens(prefix, delims, quotes, _copy_token_to_strv, &copier) < 0 ||
+	    util_str_iterate_tokens(str, delims, quotes, _copy_token_to_strv, &copier) < 0 ||
+	    util_str_iterate_tokens(suffix, delims, quotes, _copy_token_to_strv, &copier) < 0)
+		goto fail;
+
+	copier.strv[counter.tokens] = NULL;
+	return copier.strv;
+fail:
+	free(copier.strv);
+	return NULL;
+}
+
+char **util_strv_copy(const char **strv)
+{
+	const char **p;
+	struct token_counter counter = {0};
+	struct strv_iter copier = {0};
+	char *mem;
+
+	for (p = strv; *p; p++) {
+		if (_count_token(*p, strlen(*p), &counter) < 0)
+			return NULL;
+	}
+
+	if (!(mem = malloc(_get_strv_full_mem_size(&counter))))
+		return NULL;
+
+	copier.strv = (char **) mem;
+	copier.s = mem + _get_strv_header_size(&counter);
+
+	for (p = strv; *p; p++) {
+		if (_copy_token_to_strv(*p, strlen(*p), &copier) < 0) {
+			free(mem);
+			return NULL;
+		}
+	}
+
+	return copier.strv;
+}
+
 /*
  * Time-related utilities.
  */
