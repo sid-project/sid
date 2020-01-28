@@ -147,28 +147,28 @@ struct ubridge {
 };
 
 typedef enum {
-	CMD_IDENT_PHASE_A_INIT = 0,                                     /* initializing phase "A" */
+	CMD_SCAN_PHASE_A_INIT = 0,                                     /* initializing phase "A" */
 
-	__CMD_IDENT_PHASE_A_START = 1,                                  /* phase "A" module processing starts */
-	CMD_IDENT_PHASE_A_IDENT = __CMD_IDENT_PHASE_A_START,            /* module */
-	CMD_IDENT_PHASE_A_SCAN_PRE,                                     /* module */
-	CMD_IDENT_PHASE_A_SCAN_CURRENT,                                 /* module */
-	CMD_IDENT_PHASE_A_SCAN_NEXT,                                    /* module */
-	CMD_IDENT_PHASE_A_SCAN_POST_CURRENT,                            /* module */
-	CMD_IDENT_PHASE_A_SCAN_POST_NEXT,                               /* module */
-	__CMD_IDENT_PHASE_A_END = CMD_IDENT_PHASE_A_SCAN_POST_NEXT,     /* phase "A" module processing ends */
+	__CMD_SCAN_PHASE_A_START = 1,                                  /* phase "A" module processing starts */
+	CMD_SCAN_PHASE_A_IDENT = __CMD_SCAN_PHASE_A_START,             /* module */
+	CMD_SCAN_PHASE_A_SCAN_PRE,                                     /* module */
+	CMD_SCAN_PHASE_A_SCAN_CURRENT,                                 /* module */
+	CMD_SCAN_PHASE_A_SCAN_NEXT,                                    /* module */
+	CMD_SCAN_PHASE_A_SCAN_POST_CURRENT,                            /* module */
+	CMD_SCAN_PHASE_A_SCAN_POST_NEXT,                               /* module */
+	__CMD_SCAN_PHASE_A_END = CMD_SCAN_PHASE_A_SCAN_POST_NEXT,     /* phase "A" module processing ends */
 
-	CMD_IDENT_PHASE_A_WAITING,                                      /* phase "A" waiting for confirmation */
+	CMD_SCAN_PHASE_A_WAITING,                                      /* phase "A" waiting for confirmation */
 
-	CMD_IDENT_PHASE_A_EXIT,                                         /* exiting phase "A" */
+	CMD_SCAN_PHASE_A_EXIT,                                         /* exiting phase "A" */
 
-	CMD_IDENT_PHASE_B_TRIGGER_ACTION_CURRENT,
-	__CMD_IDENT_PHASE_B_TRIGGER_ACTION_START = CMD_IDENT_PHASE_B_TRIGGER_ACTION_CURRENT,
-	CMD_IDENT_PHASE_B_TRIGGER_ACTION_NEXT,
-	__CMD_IDENT_PHASE_B_TRIGGER_ACTION_END = CMD_IDENT_PHASE_B_TRIGGER_ACTION_NEXT,
+	CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT,
+	__CMD_SCAN_PHASE_B_TRIGGER_ACTION_START = CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT,
+	CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT,
+	__CMD_SCAN_PHASE_B_TRIGGER_ACTION_END = CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT,
 
-	CMD_IDENT_PHASE_ERROR,
-} cmd_ident_phase_t;
+	CMD_SCAN_PHASE_ERROR,
+} cmd_scan_phase_t;
 
 struct udevice {
 	udev_action_t action;
@@ -189,7 +189,7 @@ struct connection {
 struct sid_ubridge_cmd_context {
 	struct usid_msg_header request_header;
 	union {
-		cmd_ident_phase_t ident_phase;
+		cmd_scan_phase_t scan_phase;
 	};
 	char *dev_id;
 	struct udevice udev_dev;
@@ -321,10 +321,10 @@ struct cross_bitmap_calc_arg {
 	struct bitmap *new_bmp;
 };
 
-#define CMD_IDENT_CAP_RDY UINT32_C(0x000000001) /* can set ready state */
-#define CMD_IDENT_CAP_RES UINT32_C(0x000000002) /* can set reserved state */
+#define CMD_SCAN_CAP_RDY UINT32_C(0x000000001) /* can set ready state */
+#define CMD_SCAN_CAP_RES UINT32_C(0x000000002) /* can set reserved state */
 
-static struct cmd_reg _cmd_ident_phase_regs[];
+static struct cmd_reg _cmd_scan_phase_regs[];
 static sid_ubridge_kv_flags_t kv_flags_no_persist = (DEFAULT_KV_FLAGS_CORE) & ~KV_PERSISTENT;
 static sid_ubridge_kv_flags_t kv_flags_persist = DEFAULT_KV_FLAGS_CORE;
 static char *core_owner = OWNER_CORE;
@@ -1071,7 +1071,7 @@ int sid_ubridge_cmd_dev_set_ready(struct sid_ubridge_cmd_context *cmd, dev_ready
 {
 	sid_resource_t *orig_mod_res;
 
-	if (!(_cmd_ident_phase_regs[cmd->ident_phase].flags & CMD_IDENT_CAP_RDY)) {
+	if (!(_cmd_scan_phase_regs[cmd->scan_phase].flags & CMD_SCAN_CAP_RDY)) {
 		errno = EPERM;
 		return -1;
 	}
@@ -1112,7 +1112,7 @@ int sid_ubridge_cmd_dev_set_reserved(struct sid_ubridge_cmd_context *cmd, dev_re
 {
 	sid_resource_t *orig_mod_res;
 
-	if (!(_cmd_ident_phase_regs[cmd->ident_phase].flags & CMD_IDENT_CAP_RES)) {
+	if (!(_cmd_scan_phase_regs[cmd->scan_phase].flags & CMD_SCAN_CAP_RES)) {
 		errno = EPERM;
 		return -1;
 	}
@@ -1572,7 +1572,7 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_ident_phase_t phase)
+static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_t phase)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *orig_mod_res = cmd->mod_res;
@@ -1593,45 +1593,45 @@ static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_ident_phase
 		block_mod = sid_resource_get_data(block_mod_res);
 
 		switch (phase) {
-			case CMD_IDENT_PHASE_A_IDENT:
+			case CMD_SCAN_PHASE_A_IDENT:
 				if (block_mod_fns->ident && block_mod_fns->ident(block_mod, cmd) < 0)
 					goto out;
 				break;
-			case CMD_IDENT_PHASE_A_SCAN_PRE:
+			case CMD_SCAN_PHASE_A_SCAN_PRE:
 				if (block_mod_fns->scan_pre && block_mod_fns->scan_pre(block_mod, cmd) < 0)
 					goto out;
 				break;
-			case CMD_IDENT_PHASE_A_SCAN_CURRENT:
+			case CMD_SCAN_PHASE_A_SCAN_CURRENT:
 				if (block_mod_fns->scan_current && block_mod_fns->scan_current(block_mod, cmd) < 0)
 					goto out;
 				break;
-			case CMD_IDENT_PHASE_A_SCAN_NEXT:
+			case CMD_SCAN_PHASE_A_SCAN_NEXT:
 				if (block_mod_fns->scan_next && block_mod_fns->scan_next(block_mod, cmd) < 0)
 					goto out;
 				break;
-			case CMD_IDENT_PHASE_A_SCAN_POST_CURRENT:
+			case CMD_SCAN_PHASE_A_SCAN_POST_CURRENT:
 				if (block_mod_fns->scan_post_current && block_mod_fns->scan_post_current(block_mod, cmd) < 0)
 					goto out;
 				break;
-			case CMD_IDENT_PHASE_A_SCAN_POST_NEXT:
+			case CMD_SCAN_PHASE_A_SCAN_POST_NEXT:
 				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(block_mod, cmd) < 0)
 					goto out;
 				break;
-			case CMD_IDENT_PHASE_B_TRIGGER_ACTION_CURRENT:
+			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT:
 				if (block_mod_fns->trigger_action_current && block_mod_fns->trigger_action_current(block_mod, cmd) < 0)
 					goto out;
 				break;
-			case CMD_IDENT_PHASE_B_TRIGGER_ACTION_NEXT:
+			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT:
 				if (block_mod_fns->trigger_action_next && block_mod_fns->trigger_action_next(block_mod, cmd) < 0)
 					goto out;
 				break;
-			case CMD_IDENT_PHASE_ERROR:
+			case CMD_SCAN_PHASE_ERROR:
 				if (block_mod_fns->error && block_mod_fns->error(block_mod, cmd) < 0)
 					goto out;
 				break;
 			default:
 				log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
-				          __func__, _cmd_ident_phase_regs[phase].name);
+				          __func__, _cmd_scan_phase_regs[phase].name);
 				break;
 		}
 	}
@@ -1647,7 +1647,7 @@ static int _cmd_exec_ident(struct cmd_exec_arg *exec_arg)
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_IDENT);
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
 
 	//sid_resource_dump_all_in_dot(sid_resource_get_top_level(exec_arg->cmd_res));
 
@@ -1663,7 +1663,7 @@ static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_SCAN_PRE);
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_pre)
@@ -1677,7 +1677,7 @@ static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_SCAN_CURRENT);
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_current)
@@ -1693,7 +1693,7 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 	const struct cmd_mod_fns *mod_fns;
 	const char *next_mod_name;
 
-	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_SCAN_NEXT);
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
 
 	if ((next_mod_name = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_NEXT_MOD, NULL, NULL))) {
 		if (!(exec_arg->type_mod_res_next = sid_module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name))) {
@@ -1719,7 +1719,7 @@ static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 
 	cmd->mod_res = exec_arg->type_mod_res_current;
 
-	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_SCAN_POST_CURRENT);
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_CURRENT);
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_current)
@@ -1735,7 +1735,7 @@ static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 
 	cmd->mod_res = exec_arg->type_mod_res_next;
 
-	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_A_SCAN_POST_NEXT);
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_NEXT);
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_next)
@@ -1766,7 +1766,7 @@ static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 	const struct cmd_mod_fns *mod_fns;
 	int r = 0;
 
-	_execute_block_modules(exec_arg, CMD_IDENT_PHASE_ERROR);
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_ERROR);
 
 	cmd->mod_res = exec_arg->type_mod_res_current;
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
@@ -2630,74 +2630,74 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	return 0;
 }
 
-static struct cmd_reg _cmd_ident_phase_regs[] = {
-	[CMD_IDENT_PHASE_A_INIT]                   = {
+static struct cmd_reg _cmd_scan_phase_regs[] = {
+	[CMD_SCAN_PHASE_A_INIT]                   = {
 		.name = "init",
-		.flags = CMD_IDENT_CAP_RDY | CMD_IDENT_CAP_RES,
+		.flags = CMD_SCAN_CAP_RDY | CMD_SCAN_CAP_RES,
 		.exec = NULL
 	},
 
-	[CMD_IDENT_PHASE_A_IDENT]                  = {
+	[CMD_SCAN_PHASE_A_IDENT]                  = {
 		.name = "ident",
 		.flags = 0,
 		.exec = _cmd_exec_ident
 	},
 
-	[CMD_IDENT_PHASE_A_SCAN_PRE]               = {
+	[CMD_SCAN_PHASE_A_SCAN_PRE]               = {
 		.name = "scan-pre",
-		.flags = CMD_IDENT_CAP_RDY,
+		.flags = CMD_SCAN_CAP_RDY,
 		.exec = _cmd_exec_scan_pre
 	},
 
-	[CMD_IDENT_PHASE_A_SCAN_CURRENT]           = {
+	[CMD_SCAN_PHASE_A_SCAN_CURRENT]           = {
 		.name = "scan-current",
-		.flags = CMD_IDENT_CAP_RDY,
+		.flags = CMD_SCAN_CAP_RDY,
 		.exec = _cmd_exec_scan_current
 	},
 
-	[CMD_IDENT_PHASE_A_SCAN_NEXT]              = {
+	[CMD_SCAN_PHASE_A_SCAN_NEXT]              = {
 		.name = "scan-next",
-		.flags = CMD_IDENT_CAP_RES,
+		.flags = CMD_SCAN_CAP_RES,
 		.exec = _cmd_exec_scan_next
 	},
 
-	[CMD_IDENT_PHASE_A_SCAN_POST_CURRENT]      = {
+	[CMD_SCAN_PHASE_A_SCAN_POST_CURRENT]      = {
 		.name = "scan-post-current",
 		.flags = 0,
 		.exec = _cmd_exec_scan_post_current
 	},
 
-	[CMD_IDENT_PHASE_A_SCAN_POST_NEXT]         = {
+	[CMD_SCAN_PHASE_A_SCAN_POST_NEXT]         = {
 		.name = "scan-post-next",
 		.flags = 0,
 		.exec = _cmd_exec_scan_post_next
 	},
 
-	[CMD_IDENT_PHASE_A_WAITING]                = {
+	[CMD_SCAN_PHASE_A_WAITING]                = {
 		.name = "waiting",
 		.flags = 0,
 		.exec = NULL
 	},
 
-	[CMD_IDENT_PHASE_A_EXIT]                   = {
+	[CMD_SCAN_PHASE_A_EXIT]                   = {
 		.name = "exit",
-		.flags = CMD_IDENT_CAP_RDY | CMD_IDENT_CAP_RES,
+		.flags = CMD_SCAN_CAP_RDY | CMD_SCAN_CAP_RES,
 		.exec = NULL
 	},
 
-	[CMD_IDENT_PHASE_B_TRIGGER_ACTION_CURRENT] = {
+	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT] = {
 		.name = "trigger-action-current",
 		.flags = 0,
 		.exec = _cmd_exec_trigger_action_current
 	},
 
-	[CMD_IDENT_PHASE_B_TRIGGER_ACTION_NEXT]    = {
+	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT]    = {
 		.name = "trigger-action-next",
 		.flags = 0,
 		.exec = _cmd_exec_trigger_action_next
 	},
 
-	[CMD_IDENT_PHASE_ERROR]                    = {
+	[CMD_SCAN_PHASE_ERROR]                    = {
 		.name = "error",
 		.flags = 0,
 		.exec = _cmd_exec_scan_error
@@ -2709,10 +2709,10 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *modules_aggr_res, *block_mod_registry_res;
 	const char *mod_name;
-	cmd_ident_phase_t phase;
+	cmd_scan_phase_t phase;
 	int r = -1;
 
-	cmd->ident_phase = CMD_IDENT_PHASE_A_INIT;
+	cmd->scan_phase = CMD_SCAN_PHASE_A_INIT;
 
 	if (!(modules_aggr_res = sid_resource_get_child(sid_resource_get_top_level(exec_arg->cmd_res), &sid_resource_type_aggregate, MODULES_AGGREGATE_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find modules aggregate resource.", __func__);
@@ -2747,12 +2747,12 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 		goto out;
 	}
 
-	for (phase = __CMD_IDENT_PHASE_A_START; phase <= __CMD_IDENT_PHASE_A_END; phase++) {
-		log_debug(ID(exec_arg->cmd_res), "Executing %s phase.", _cmd_ident_phase_regs[phase].name);
-		cmd->ident_phase = phase;
-		if ((r = _cmd_ident_phase_regs[phase].exec(exec_arg)) < 0) {
-			log_error(ID(exec_arg->cmd_res), "%s phase failed.", _cmd_ident_phase_regs[phase].name);
-			if (_cmd_ident_phase_regs[CMD_IDENT_PHASE_ERROR].exec(exec_arg) < 0)
+	for (phase = __CMD_SCAN_PHASE_A_START; phase <= __CMD_SCAN_PHASE_A_END; phase++) {
+		log_debug(ID(exec_arg->cmd_res), "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
+		cmd->scan_phase = phase;
+		if ((r = _cmd_scan_phase_regs[phase].exec(exec_arg)) < 0) {
+			log_error(ID(exec_arg->cmd_res), "%s phase failed.", _cmd_scan_phase_regs[phase].name);
+			if (_cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].exec(exec_arg) < 0)
 				log_error(ID(exec_arg->cmd_res), "error phase failed.");
 			goto out;
 		}
