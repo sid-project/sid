@@ -35,7 +35,7 @@ mv %{name}-mvp-%{version}/* .
 
 %build
 ./autogen.sh
-./configure --disable-mod-multipath_component CC=gcc CFLAGS="-g0 -O0 -Wall"
+./configure --disable-mod-multipath_component CC=gcc
 make
 
 %install
