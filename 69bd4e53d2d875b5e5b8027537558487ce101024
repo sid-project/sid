@@ -1,0 +1,3 @@
+Incorrect CFLAGS in rpm spec file containing "-g0"
+caused debug info to not be included and in turn it
+caused a failure to build rpm debugsource subpackage.
