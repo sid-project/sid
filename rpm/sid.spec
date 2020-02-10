@@ -1,5 +1,5 @@
 Name:           sid
-Version:        0.0.2
+Version:        0.0.3
 Release:        mvp.1%{?dist}
 Summary:        Minimum viable product for SID project
 
