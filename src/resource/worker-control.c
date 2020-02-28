@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,59 +27,70 @@
 
 #include <unistd.h>
 
-#define WORKER_CONTROL_NAME              "worker-control"
-#define WORKER_PROXY_NAME                "worker-proxy"
-#define WORKER_NAME                      "worker"
-#define WORKER_PROXIES_AGGREGATE_ID      "worker-proxies"
+#define WORKER_CONTROL_NAME                "worker-control"
+#define WORKER_PROXY_NAME                  "worker-proxy"
+#define WORKER_NAME                        "worker"
 
-#define DEFAULT_WORKER_IDLE_TIMEOUT_USEC 5000000
+#define WORKER_PROXIES_AGGREGATE_ID        "worker-proxies"
+
+#define WORKER_CHANNEL_ID_SYS_C            "#"
+
+#define DEFAULT_WORKER_IDLE_TIMEOUT_USEC   5000000
 
 typedef enum {
-	COMMS_CMD_NOOP   = 0,
-	COMMS_CMD_YIELD  = 1,
-	COMMS_CMD_CUSTOM = 2,
-	_COMMS_CMD_COUNT,
-} comms_cmd_t;
+	WORKER_COMMS_CMD_NOOP,
+	WORKER_COMMS_CMD_YIELD,
+	WORKER_COMMS_CMD_CUSTOM,
+} worker_comms_cmd_t;
 
 #define COMMS_BUFFER_LEN sizeof(comms_cmd_t)
 
-static const char *comms_cmd_str[] = {[COMMS_CMD_NOOP]   = "NOOP",
-                                      [COMMS_CMD_YIELD]  = "YIELD",
-                                      [COMMS_CMD_CUSTOM] = "CUSTOM"
-                                     };
+static const char *worker_comms_cmd_str[] = {[WORKER_COMMS_CMD_NOOP]   = "NOOP",
+                                             [WORKER_COMMS_CMD_YIELD]  = "YIELD",
+                                             [WORKER_COMMS_CMD_CUSTOM] = "CUSTOM"
+                                            };
 
-static const char *worker_state_str[] = {[WORKER_NEW]      = "WORKER_NEW",
-                                         [WORKER_IDLE]     = "WORKER_IDLE",
-                                         [WORKER_ASSIGNED] = "WORKER_ASSIGNED",
-                                         [WORKER_EXITING]  = "WORKER_EXITING",
-                                         [WORKER_EXITED]   = "WORKER_EXITED"
+static const char *worker_state_str[] = {[WORKER_STATE_NEW]      = "WORKER_NEW",
+                                         [WORKER_STATE_IDLE]     = "WORKER_IDLE",
+                                         [WORKER_STATE_ASSIGNED] = "WORKER_ASSIGNED",
+                                         [WORKER_STATE_EXITING]  = "WORKER_EXITING",
+                                         [WORKER_STATE_EXITED]   = "WORKER_EXITED"
                                         };
 
 const sid_resource_type_t sid_resource_type_worker_proxy;
 const sid_resource_type_t sid_resource_type_worker;
 
 struct worker_control {
-	sid_resource_t *worker_proxies_res;  /* aggregate resource to collect all worker proxies */
+	worker_type_t worker_type;
+	struct worker_init_cb_spec init_cb_spec;
+	unsigned channel_spec_count;
+	struct worker_channel_spec *channel_specs;
+	sid_resource_t *proxies_res;
+};
+
+struct worker_channel {
+	sid_resource_t *owner;                        /* either worker_proxy or worker instance */
+	const struct worker_channel_spec *spec;
+	int fd;
 };
 
 struct worker_kickstart {
 	pid_t pid;
-	int comms_fd;
+	struct worker_channel *channels;
+	unsigned channel_count;
 };
 
 struct worker_proxy {
 	pid_t pid;                                    /* worker PID */
-	int comms_fd;                                 /* communication channel between worker proxy and worker */
-	sid_resource_event_source_t *idle_timeout_es; /* event source to catch idle timeout for worker */
 	worker_state_t state;                         /* current worker state */
-	worker_control_recv_cb_fn_t *recv_fn;         /* callback function called on CMD_CUSTOM comms command reception */
-	void *recv_fn_arg;                            /* argument passed to callback function called on CMD_CUSTOM comms command reception */
+	sid_resource_event_source_t *idle_timeout_es; /* event source to catch idle timeout for worker */
+	struct worker_channel *channels;              /* NULL-terminated array of worker_proxy --> worker channels */
+	unsigned channel_count;
 };
 
 struct worker {
-	int comms_fd;                         /* communication channel between worker proxy and worker */
-	worker_control_recv_cb_fn_t *recv_fn; /* callback function called on CMD_CUSTOM comms command reception */
-	void *recv_fn_arg;                    /* argument passed to callback function called on CMD_CUSTOM comms command reception */
+	struct worker_channel *channels;              /* NULL-terminated array of worker --> worker_proxy channels */
+	unsigned channel_count;
 };
 
 static void _change_worker_proxy_state(sid_resource_t *worker_proxy_res, worker_state_t state)
@@ -90,20 +101,135 @@ static void _change_worker_proxy_state(sid_resource_t *worker_proxy_res, worker_
 	log_debug(ID(worker_proxy_res), "Worker state changed to %s.", worker_state_str[state]);
 }
 
-sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, const char *id, worker_control_worker_init_cb_fn_t *init_fn, void *init_fn_arg)
+static int _create_channel(sid_resource_t *worker_control_res, const struct worker_channel_spec *spec,
+                           struct worker_channel *proxy_chan, struct worker_channel *chan)
+{
+	int comms_fds[2];
+
+	proxy_chan->spec = chan->spec = spec;
+	proxy_chan->owner = chan->owner = NULL; /* will be assigned right after we create the worker and proxy resource */
+
+	switch (spec->wire.type) {
+		case WORKER_WIRE_NONE:
+			proxy_chan->fd = -1;
+			chan->fd = -1;
+			break;
+
+		case WORKER_WIRE_PIPE_TO_WORKER:
+			if (pipe(comms_fds) < 0) {
+				log_sys_error(ID(worker_control_res), "pipe", "Failed to create pipe to worker.");
+				return -1;
+			}
+
+			proxy_chan->fd = comms_fds[1];
+			chan->fd = comms_fds[0];
+			break;
+
+		case WORKER_WIRE_PIPE_TO_PROXY:
+			if (pipe(comms_fds) < 0) {
+				log_sys_error(ID(worker_control_res), "pipe", "Failed to create pipe to worker proxy.");
+				return -1;
+			}
+
+			proxy_chan->fd = comms_fds[0];
+			chan->fd = comms_fds[1];
+			break;
+
+		case WORKER_WIRE_SOCKET:
+			if (socketpair(AF_LOCAL, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, comms_fds) < 0) {
+				log_sys_error(ID(worker_control_res), "socketpair", "Failed to create socket.");
+				return -1;
+			}
+
+			proxy_chan->fd = comms_fds[0];
+			chan->fd = comms_fds[1];
+			break;
+	}
+
+	return 0;
+}
+
+static int _create_channels(sid_resource_t *worker_control_res,
+                            struct worker_channel **worker_proxy_channels,
+                            struct worker_channel **worker_channels)
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
-	struct worker_kickstart kickstart = {0};
+	struct worker_channel *proxy_chans = NULL, *chans = NULL;
+	unsigned i = 0;
+
+	if (!(proxy_chans = malloc((worker_control->channel_spec_count) * sizeof(struct worker_channel)))) {
+		log_error(ID(worker_control_res), "Failed to allocate worker proxy channel array.");
+		goto fail;
+	}
+
+	if (!(chans = malloc((worker_control->channel_spec_count) * sizeof(struct worker_channel)))) {
+		log_error(ID(worker_control_res), "Failed to allocate worker channel array.");
+		goto fail;
+	}
+
+	while (i < worker_control->channel_spec_count) {
+		if (_create_channel(worker_control_res, &worker_control->channel_specs[i], &proxy_chans[i], &chans[i]) < 0)
+			goto fail;
+		i++;
+	}
+
+	*worker_proxy_channels = proxy_chans;
+	*worker_channels = chans;
+
+	return 0;
+fail:
+	while (i > 0) {
+		if (proxy_chans[i].fd >= 0)
+			close(proxy_chans[i].fd);
+		if (chans[i].fd >= 0)
+			close(chans[i].fd);
+		i--;
+	}
+
+	if (proxy_chans)
+		free(proxy_chans);
+	if (chans)
+		free(chans);
+
+	return -1;
+}
+
+void _close_channels(struct worker_channel *channels, unsigned channel_count)
+{
+	unsigned i;
+
+	for (i = 0; i < channel_count; i++) {
+		switch (channels[i].spec->wire.type) {
+			case WORKER_WIRE_NONE:
+				break;
+			case WORKER_WIRE_SOCKET:
+			case WORKER_WIRE_PIPE_TO_WORKER:
+			case WORKER_WIRE_PIPE_TO_PROXY:
+				close(channels[i].fd);
+				break;
+		}
+	}
+}
+
+sid_resource_t *worker_channel_get_owner(struct worker_channel *channel)
+{
+	return channel->owner;
+}
+
+sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, const char *id)
+{
+	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
+	struct worker_channel *worker_proxy_channels, *worker_channels;
+	struct worker_kickstart kickstart;
 	sigset_t original_sigmask, new_sigmask;
 	sid_resource_t *res = NULL;
 	int signals_blocked = 0;
-	int comms_fd[2];
 	pid_t pid = -1;
 	char gen_id[16];
 	int r;
 
-	if (socketpair(AF_LOCAL, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, comms_fd) < 0) {
-		log_sys_error(ID(worker_control_res), "socketpair", "");
+	if (_create_channels(worker_control_res, &worker_proxy_channels, &worker_channels) < 0) {
+		log_error(ID(worker_control_res), "Failed to create worker channels.");
 		goto out;
 	}
 
@@ -124,10 +250,16 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 	}
 
 	if (pid == 0) {
-		(void) close(comms_fd[0]);
+		/*
+		 *  WORKER HERE
+		 */
+
+		_close_channels(worker_proxy_channels, worker_control->channel_spec_count);
+		free(worker_proxy_channels);
 
 		kickstart.pid = getpid();
-		kickstart.comms_fd = comms_fd[1];
+		kickstart.channels = worker_channels;
+		kickstart.channel_count = worker_control->channel_spec_count;
 
 		if (!id) {
 			(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
@@ -141,8 +273,8 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		                          &kickstart,
 		                          SID_RESOURCE_NO_SERVICE_LINKS);
 
-		if (init_fn)
-			(void) init_fn(res, init_fn_arg);
+		if (worker_control->init_cb_spec.cb)
+			(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
 
 		/*
 		 * FIXME: There seems to be a problem with a short period of time when we
@@ -162,19 +294,25 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		 */
 		/*(void) sid_resource_destroy(sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));*/
 	} else {
-		(void) close(comms_fd[1]);
+		/*
+		 * WORKER PROXY HERE
+		 */
 
 		log_debug(ID(worker_control_res), "Created new worker process with PID %d.", pid);
 
+		_close_channels(worker_channels, worker_control->channel_spec_count);
+		free(worker_channels);
+
 		kickstart.pid = pid;
-		kickstart.comms_fd = comms_fd[0];
+		kickstart.channels = worker_proxy_channels;
+		kickstart.channel_count = worker_control->channel_spec_count;
 
 		if (!id) {
 			(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
 			id = gen_id;
 		}
 
-		res = sid_resource_create(worker_control->worker_proxies_res,
+		res = sid_resource_create(worker_control->proxies_res,
 		                          &sid_resource_type_worker_proxy,
 		                          SID_RESOURCE_DISALLOW_ISOLATION,
 		                          id,
@@ -204,11 +342,11 @@ sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_re
 	sid_resource_iter_t *iter;
 	sid_resource_t *res;
 
-	if (!(iter = sid_resource_iter_create(worker_control->worker_proxies_res)))
+	if (!(iter = sid_resource_iter_create(worker_control->proxies_res)))
 		return NULL;
 
 	while ((res = sid_resource_iter_next(iter))) {
-		if (((struct worker_proxy *) sid_resource_get_data(res))->state == WORKER_IDLE)
+		if (((struct worker_proxy *) sid_resource_get_data(res))->state == WORKER_STATE_IDLE)
 			break;
 	}
 
@@ -220,13 +358,18 @@ sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, c
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
 
-	return sid_resource_search(worker_control->worker_proxies_res, SID_RESOURCE_SEARCH_IMM_DESC,
+	return sid_resource_search(worker_control->proxies_res, SID_RESOURCE_SEARCH_IMM_DESC,
 	                           &sid_resource_type_worker_proxy, id);
 }
 
 bool worker_control_is_worker(sid_resource_t *res)
 {
-	return sid_resource_search(res, SID_RESOURCE_SEARCH_ANC, &sid_resource_type_worker, NULL) != NULL;
+	if (sid_resource_match(res, &sid_resource_type_worker, NULL))
+		return true;
+	else if (sid_resource_match(res, &sid_resource_type_worker, NULL))
+		return false;
+	else
+		return sid_resource_search(res, SID_RESOURCE_SEARCH_ANC, &sid_resource_type_worker, NULL) != NULL;
 }
 
 const char *worker_control_get_worker_id(sid_resource_t *res)
@@ -240,108 +383,188 @@ const char *worker_control_get_worker_id(sid_resource_t *res)
 	return NULL;
 }
 
-static int _comms_send(int comms_fd, comms_cmd_t cmd, void *data, size_t data_size, int fd)
+static int _chan_send(const struct worker_channel *chan, worker_comms_cmd_t cmd, struct worker_data_spec *data_spec)
 {
-	struct iovec iov[3];
+	static struct worker_data_spec null_data_spec = {0};
+	int has_data = data_spec && data_spec->data && data_spec->data_size;
+	struct iovec iov[3]; /* cmd + data_size + data */
+	size_t iov_data_size = 0;
+	ssize_t r = 0;
 
 	iov[0].iov_base = &cmd;
 	iov[0].iov_len = sizeof(cmd);
-	iov[1].iov_base = &data_size;
-	iov[1].iov_len = sizeof(data_size);
-	iov[2].iov_base = data;
-	iov[2].iov_len = data_size;
+	iov_data_size += iov[0].iov_len;
 
-	return comms_unix_send_iovec(comms_fd, iov, data && data_size ? 3 : 2, fd);
+	if (has_data) {
+		iov[1].iov_base = &data_spec->data_size;
+		iov[1].iov_len = sizeof(data_spec->data_size);
+		iov[2].iov_base = data_spec->data;
+		iov[2].iov_len = data_spec->data_size;
+		iov_data_size += iov[1].iov_len + iov[2].iov_len;
+	} else {
+		iov[1].iov_base = &null_data_spec.data_size;
+		iov[1].iov_len = sizeof(null_data_spec.data_size);
+		iov_data_size += iov[1].iov_len;
+	}
+
+	switch (chan->spec->wire.type) {
+		case WORKER_WIRE_PIPE_TO_WORKER:
+		case WORKER_WIRE_PIPE_TO_PROXY:
+			if ((r = writev(chan->fd, iov, has_data ? 3 : 2)) < 0)
+				return -errno;
+			break;
+
+		case WORKER_WIRE_SOCKET:
+			if ((r = comms_unix_send_iovec(chan->fd, iov, has_data ? 3 : 2, data_spec ? data_spec->ext.socket.fd_pass : -1)) < 0)
+				return r;
+			break;
+
+		case WORKER_WIRE_NONE:
+			break;
+	}
+
+	if (r != iov_data_size)
+		return -ENOBUFS;
+
+	return 0;
 }
 
-static int _comms_recv(int comms_fd, comms_cmd_t *cmd, void **data, size_t *data_size, int *fd)
+static int _chan_recv(const struct worker_channel *chan, worker_comms_cmd_t *cmd, struct worker_data_spec *data_spec)
 {
 	struct iovec iov[2];
-	size_t buf_size;
 	void *buf = NULL;
-	int r;
+	ssize_t r = 0;
 
 	iov[0].iov_base = cmd;
 	iov[0].iov_len = sizeof(*cmd);
-	iov[1].iov_base = data_size;
-	iov[1].iov_len = sizeof(*data_size);
+	iov[1].iov_base = &data_spec->data_size;
+	iov[1].iov_len = sizeof(data_spec->data_size);
 
-	if ((r = comms_unix_recv_iovec(comms_fd, iov, 2, fd)) < 0)
-		return -1;
+	switch (chan->spec->wire.type) {
+		case WORKER_WIRE_PIPE_TO_WORKER:
+		case WORKER_WIRE_PIPE_TO_PROXY:
+			if ((r = readv(chan->fd, iov, 2)) < 0)
+				return -errno;
 
-	if ((buf_size = *data_size) > 0) {
-		if (!(buf = malloc(buf_size))) {
-			errno = ENOMEM;
-			return -1;
-		}
+			if (data_spec->data_size > 0) {
+				if (!(buf = malloc(data_spec->data_size)))
+					return -ENOMEM;
 
-		if (comms_unix_recv(comms_fd, buf, buf_size, NULL) < 0) {
-			free(buf);
-			return -1;
-		}
+				if ((r = read(chan->fd, buf, data_spec->data_size)) < 0) {
+					data_spec->data_size = 0;
+					free(buf);
+					return -errno;
+				}
+			}
+			break;
+
+		case WORKER_WIRE_SOCKET:
+			if ((r = comms_unix_recv_iovec(chan->fd, iov, 2, &data_spec->ext.socket.fd_pass)) < 0)
+				return r;
+
+			if (data_spec->data_size > 0) {
+				if (!(buf = malloc(data_spec->data_size)))
+					return -ENOMEM;
+
+				if ((r = comms_unix_recv(chan->fd, buf, data_spec->data_size, NULL)) < 0) {
+					data_spec->data_size = 0;
+					free(buf);
+					return r;
+				}
+			}
+			break;
+
+		case WORKER_WIRE_NONE:
+			data_spec->data_size = 0;
+			break;
 	}
 
-	*data = buf;
-	return r + buf_size;
+	data_spec->data = buf;
+	return 0;
 }
 
-int worker_control_set_recv_callback(sid_resource_t *res, worker_control_recv_cb_fn_t *recv_fn, void *recv_fn_arg)
+static struct worker_channel *_get_channel(struct worker_channel *channels, unsigned channel_count, const char *channel_id)
 {
+	struct worker_channel *chan;
+	unsigned i;
+
+	for (i = 0; i < channel_count; i++) {
+		chan = &channels[i];
+		if (!strcmp(chan->spec->id, channel_id))
+			return chan;
+	}
+
+	return NULL;
+}
+
+static const char _custom_message_handling_failed_msg[] = "Custom message handling failed.";
+
+int worker_control_channel_send(sid_resource_t *current_res, const char *channel_id, struct worker_data_spec *data_spec)
+{
+	sid_resource_t *res = current_res;
 	struct worker_proxy *worker_proxy;
 	struct worker *worker;
+	struct worker_channel *chan;
 
-	if (sid_resource_match(res, &sid_resource_type_worker_proxy, NULL)) {
-		worker_proxy = sid_resource_get_data(res);
-		worker_proxy->recv_fn = recv_fn;
-		worker_proxy->recv_fn_arg = recv_fn_arg;
-	} else if (sid_resource_match(res, &sid_resource_type_worker, NULL)) {
-		worker = sid_resource_get_data(res);
-		worker->recv_fn = recv_fn;
-		worker->recv_fn_arg = recv_fn_arg;
-	} else {
-		errno = ENOMEDIUM;
-		return -1;
-	}
+	if (!channel_id || !*channel_id)
+		return -ECHRNG;
 
-	return 0;
-}
-
-int worker_control_send(sid_resource_t *res, void *data, size_t data_size, int fd)
-{
-	struct worker_proxy *worker_proxy;
-	int comms_fd;
-
-	if (sid_resource_match(res, &sid_resource_type_worker_proxy, NULL)) {
+	if (sid_resource_match(res, &sid_resource_type_worker_proxy, NULL) ||
+	    (res = sid_resource_search(current_res, SID_RESOURCE_SEARCH_ANC, &sid_resource_type_worker_proxy, NULL))) {
 		/* sending from worker proxy to worker */
 		worker_proxy = sid_resource_get_data(res);
-		comms_fd = worker_proxy->comms_fd;
+
+		if (!(chan = _get_channel(worker_proxy->channels, worker_proxy->channel_count, channel_id)))
+			return -ECHRNG;
+
 		if (worker_proxy->idle_timeout_es)
 			sid_resource_destroy_event_source(res, &worker_proxy->idle_timeout_es);
-		if (worker_proxy->state != WORKER_ASSIGNED)
-			_change_worker_proxy_state(res, WORKER_ASSIGNED);
-	} else {
-		res = sid_resource_search(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL);
+		if (worker_proxy->state != WORKER_STATE_ASSIGNED)
+			_change_worker_proxy_state(res, WORKER_STATE_ASSIGNED);
 
-		if (sid_resource_match(res, &sid_resource_type_worker, NULL)) {
-			/* sending from worker to worker proxy */
-			comms_fd = ((struct worker *) sid_resource_get_data(res))->comms_fd;
-		} else {
-			errno = ENOMEDIUM;
-			return -1;
-		}
-	}
+		if (chan->spec->proxy_tx_cb.cb)
+			if (chan->spec->proxy_tx_cb.cb(res, chan, data_spec, chan->spec->proxy_tx_cb.arg) < 0)
+				log_warning(ID(current_res), "%s", _custom_message_handling_failed_msg);
 
-	return _comms_send(comms_fd, COMMS_CMD_CUSTOM, data, data_size, fd);
+	} else if ((res = sid_resource_search(current_res, SID_RESOURCE_SEARCH_TOP, &sid_resource_type_worker, NULL))) {
+		/* sending from worker to worker proxy */
+		worker = sid_resource_get_data(res);
+
+		if (!(chan = _get_channel(worker->channels, worker->channel_count, channel_id)))
+			return -ECHRNG;
+
+		if (chan->spec->worker_tx_cb.cb)
+			if (chan->spec->worker_tx_cb.cb(res, chan, data_spec, chan->spec->worker_tx_cb.arg) < 0)
+				log_warning(ID(current_res), "%s", _custom_message_handling_failed_msg);
+
+	} else
+		return -ENOMEDIUM;
+
+	return _chan_send(chan, WORKER_COMMS_CMD_CUSTOM, data_spec);
 }
 
-int worker_control_worker_yield(sid_resource_t *worker_res)
+int worker_control_worker_yield(sid_resource_t *res)
 {
-	struct worker *worker = sid_resource_get_data(worker_res);
+	sid_resource_t *worker_res;
+	struct worker *worker;
+	struct worker_channel *chan;
+	unsigned i;
 
-	if (_comms_send(worker->comms_fd, COMMS_CMD_YIELD, NULL, 0, -1) < 0)
-		return -1;
+	if (sid_resource_match(res, &sid_resource_type_worker, NULL))
+		worker_res = res;
+	else if (!(worker_res = sid_resource_search(res, SID_RESOURCE_SEARCH_ANC, &sid_resource_type_worker, NULL)))
+		return -ENOMEDIUM;
 
-	return 0;
+	worker = sid_resource_get_data(worker_res);
+
+	for (i = 0; i < worker->channel_count; i++) {
+		chan = &worker->channels[i];
+		if (chan->spec->wire.type == WORKER_WIRE_PIPE_TO_PROXY ||
+		    chan->spec->wire.type == WORKER_WIRE_SOCKET)
+			return _chan_send(chan, WORKER_COMMS_CMD_YIELD, NULL);
+	}
+
+	return -ENOTCONN;
 }
 
 static int _on_worker_proxy_child_event(sid_resource_event_source_t *es, const siginfo_t *si, void *data)
@@ -360,7 +583,7 @@ static int _on_worker_proxy_child_event(sid_resource_event_source_t *es, const s
 			log_debug(ID(worker_proxy_res), "Worker failed unexpectedly.");
 	}
 
-	_change_worker_proxy_state(worker_proxy_res, WORKER_EXITED);
+	_change_worker_proxy_state(worker_proxy_res, WORKER_STATE_EXITED);
 
 	/*
 	 * FIXME: Add config to keep worker_proxy_res with struct worker_proxy for a while to be able to catch possible status.
@@ -380,7 +603,7 @@ static int _make_worker_exit(sid_resource_t *worker_proxy_res)
 	int r;
 
 	if (!(r = kill(worker_proxy->pid, SIGTERM)))
-		_change_worker_proxy_state(worker_proxy_res, WORKER_EXITING);
+		_change_worker_proxy_state(worker_proxy_res, WORKER_STATE_EXITING);
 
 	return r;
 }
@@ -396,79 +619,75 @@ static int _on_worker_proxy_idle_timeout_event(sid_resource_event_source_t *es, 
 */
 
 static const char _unexpected_internal_command_msg[] = "unexpected internal command received.";
-static const char _no_custom_receive_function_msg[] = "Custom message received but not receive function defined.";
-static const char _custom_message_handling_failed_msg[] = "Custom message handling failed.";
 
-static int _on_worker_proxy_comms_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
+static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	sid_resource_t *worker_proxy_res = data;
-	struct worker_proxy *worker_proxy = sid_resource_get_data(worker_proxy_res);
-	comms_cmd_t recv_cmd;
-	void *recv_data;
-	size_t recv_data_size;
-	int recv_fd;
+	struct worker_channel *chan = data;
+	worker_comms_cmd_t cmd;
+	struct worker_data_spec data_spec = {0};
 	/*uint64_t timeout_usec;*/
+	int r = 0;
 
-	if (_comms_recv(worker_proxy->comms_fd, &recv_cmd, &recv_data, &recv_data_size, &recv_fd) < 0)
-		return -1;
+	if (_chan_recv(chan, &cmd, &data_spec) < 0) {
+		r = -1;
+		goto out;
+	}
 
-	switch (recv_cmd) {
-		case COMMS_CMD_YIELD:
+	switch (cmd) {
+		case WORKER_COMMS_CMD_YIELD:
 			/* FIXME: Make timeout configurable. If timeout is set to zero, exit worker right away - call _make_worker_exit.
 			 *
 			timeout_usec = util_get_now_usec(CLOCK_MONOTONIC) + DEFAULT_WORKER_IDLE_TIMEOUT_USEC;
-			sid_resource_create_time_event_source(worker_proxy_res, &worker_proxy->idle_timeout_es, CLOCK_MONOTONIC,
-							      timeout_usec, 0, _on_worker_proxy_idle_timeout_event, "idle timeout", worker_proxy_res);
-			_change_worker_proxy_state(worker_proxy_res, WORKER_IDLE);
+			sid_resource_create_time_event_source(chan->owner, &worker_proxy->idle_timeout_es, CLOCK_MONOTONIC,
+							      timeout_usec, 0, _on_worker_proxy_idle_timeout_event, "idle timeout", chan->owner);
+			_change_worker_proxy_state(chan->owner, WORKER_STATE_IDLE);
 			*/
-			_make_worker_exit(worker_proxy_res);
+			_make_worker_exit(chan->owner);
 			break;
-		case COMMS_CMD_CUSTOM:
-			if (worker_proxy->recv_fn) {
-				if (worker_proxy->recv_fn(worker_proxy_res, recv_data, recv_data_size, recv_fd, worker_proxy->recv_fn_arg) < 0)
-					log_warning(ID(worker_proxy_res), "%s", _custom_message_handling_failed_msg);
-			} else {
-				log_warning(ID(worker_proxy_res), "%s", _no_custom_receive_function_msg);
-				if (recv_data)
-					free(recv_data);
+		case WORKER_COMMS_CMD_CUSTOM:
+			if (chan->spec->proxy_rx_cb.cb) {
+				if (chan->spec->proxy_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->proxy_rx_cb.arg) < 0)
+					log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
 			}
 			break;
 		default:
-			log_error(ID(worker_proxy_res), INTERNAL_ERROR "%s%s", comms_cmd_str[recv_cmd], _unexpected_internal_command_msg);
-			return -1;
-	}
-
-	return 0;
-}
-
-static int _on_worker_comms_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
-{
-	sid_resource_t *worker_res = data;
-	struct worker *worker = sid_resource_get_data(worker_res);
-	comms_cmd_t recv_cmd;
-	void *recv_data;
-	size_t recv_data_size;
-	int recv_fd;
-	int r = 0;
-
-	if (_comms_recv(worker->comms_fd, &recv_cmd, &recv_data, &recv_data_size, &recv_fd) < 0)
-		return -1;
-
-	switch (recv_cmd) {
-		case COMMS_CMD_CUSTOM:
-			if (worker->recv_fn) {
-				if (worker->recv_fn(worker_res, recv_data, recv_data_size, recv_fd, worker->recv_fn_arg) < 0)
-					log_warning(ID(worker_res), "%s", _custom_message_handling_failed_msg);
-			} else
-				log_warning(ID(worker_res), "%s", _no_custom_receive_function_msg);
-			break;
-		default:
-			log_error(ID(worker_res), INTERNAL_ERROR "%s%s", comms_cmd_str[recv_cmd], _unexpected_internal_command_msg);
+			log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_comms_cmd_str[cmd], _unexpected_internal_command_msg);
 			r = -1;
 	}
+out:
+	if (data_spec.data)
+		free(data_spec.data);
 
-	if (recv_data)
-		free(recv_data);
+	return r;
+}
+
+static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
+{
+	struct worker_channel *chan = data;
+	worker_comms_cmd_t cmd;
+	struct worker_data_spec data_spec = {0};
+	int r = 0;
+
+	if (_chan_recv(chan, &cmd, &data_spec) < 0) {
+		r = -1;
+		goto out;
+	}
+
+	switch (cmd) {
+		case WORKER_COMMS_CMD_CUSTOM:
+			if (chan->spec->worker_rx_cb.cb) {
+				if (chan->spec->worker_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->worker_rx_cb.arg) < 0)
+					log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
+			}
+			break;
+		default:
+			log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_comms_cmd_str[cmd], _unexpected_internal_command_msg);
+			r = -1;
+	}
+out:
+	if (data_spec.data)
+		free(data_spec.data);
+
 	return r;
 }
 
@@ -486,6 +705,8 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 {
 	const struct worker_kickstart *kickstart = kickstart_data;
 	struct worker_proxy *worker_proxy = NULL;
+	struct worker_channel *chan;
+	unsigned i;
 
 	if (!(worker_proxy = zalloc(sizeof(*worker_proxy)))) {
 		log_error(ID(worker_proxy_res), "Failed to allocate worker_proxy structure.");
@@ -493,8 +714,9 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	}
 
 	worker_proxy->pid = kickstart->pid;
-	worker_proxy->comms_fd = kickstart->comms_fd;
-	worker_proxy->state = WORKER_NEW;
+	worker_proxy->state = WORKER_STATE_NEW;
+	worker_proxy->channels = kickstart->channels;
+	worker_proxy->channel_count = kickstart->channel_count;
 
 	if (sid_resource_create_child_event_source(worker_proxy_res, NULL, worker_proxy->pid, WEXITED,
 	                                           _on_worker_proxy_child_event, "worker process monitor", worker_proxy_res) < 0) {
@@ -502,10 +724,12 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 		goto fail;
 	}
 
-	if (sid_resource_create_io_event_source(worker_proxy_res, NULL, worker_proxy->comms_fd,
-	                                        _on_worker_proxy_comms_event, "worker comms", worker_proxy_res) < 0) {
-		log_error(ID(worker_proxy_res), "Failed to register communication channel between worker and its proxy.");
-		goto fail;
+	for (i = 0, chan = worker_proxy->channels; i < kickstart->channel_count; chan++, i++) {
+		if (sid_resource_create_io_event_source(worker_proxy_res, NULL, chan->fd, _on_worker_proxy_channel_event, chan->spec->id, chan) < 0) {
+			log_error(ID(worker_proxy_res), "Failed to register worker proxy communication channel with ID %s.", chan->spec->id);
+			goto fail;
+		}
+		chan->owner = worker_proxy_res;
 	}
 
 	*data = worker_proxy;
@@ -519,9 +743,10 @@ static int _destroy_worker_proxy(sid_resource_t *worker_proxy_res)
 {
 	struct worker_proxy *worker_proxy = sid_resource_get_data(worker_proxy_res);
 
-	(void) close(worker_proxy->comms_fd);
-
+	// TODO: close channels
+	free(worker_proxy->channels);
 	free(worker_proxy);
+
 	return 0;
 }
 
@@ -529,13 +754,16 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 {
 	const struct worker_kickstart *kickstart = kickstart_data;
 	struct worker *worker = NULL;
+	struct worker_channel *chan;
+	unsigned i;
 
 	if (!(worker = zalloc(sizeof(*worker)))) {
 		log_error(ID(worker_res), "Failed to allocate new worker structure.");
 		goto fail;
 	}
 
-	worker->comms_fd = kickstart->comms_fd;
+	worker->channels = kickstart->channels;
+	worker->channel_count = kickstart->channel_count;
 
 	if (sid_resource_create_signal_event_source(worker_res, NULL, SIGTERM, _on_worker_signal_event, "sigterm", worker_res) < 0 ||
 	    sid_resource_create_signal_event_source(worker_res, NULL, SIGINT, _on_worker_signal_event, "sigint", worker_res) < 0) {
@@ -543,9 +771,12 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 		goto fail;
 	}
 
-	if (sid_resource_create_io_event_source(worker_res, NULL, worker->comms_fd, _on_worker_comms_event, "master comms", worker_res) < 0) {
-		log_error(ID(worker_res), "Failed to register worker <-> proxy channel.");
-		goto fail;
+	for (i = 0, chan = worker->channels; i < kickstart->channel_count; chan++, i++) {
+		if (sid_resource_create_io_event_source(worker_res, NULL, chan->fd, _on_worker_channel_event, chan->spec->id, chan) < 0) {
+			log_error(ID(worker_res), "Failed to register worker communication channel with ID %s.", chan->spec->id);
+			goto fail;
+		}
+		chan->owner = worker_res;
 	}
 
 	*data = worker;
@@ -559,7 +790,8 @@ static int _destroy_worker(sid_resource_t *worker_res)
 {
 	struct worker *worker = sid_resource_get_data(worker_res);
 
-	(void) close(worker->comms_fd);
+	// TODO: close channels
+	free(worker->channels);
 	free(worker);
 
 	return 0;
@@ -567,27 +799,53 @@ static int _destroy_worker(sid_resource_t *worker_res)
 
 static int _init_worker_control(sid_resource_t *worker_control_res, const void *kickstart_data, void **data)
 {
+	const struct worker_control_resource_params *params = kickstart_data;
 	struct worker_control *worker_control;
+	const struct worker_channel_spec *channel_spec;
+	unsigned i, channel_spec_count = 0;
 
 	if (!(worker_control = zalloc(sizeof(*worker_control)))) {
 		log_error(ID(worker_control_res), "Failed to allocate memory for worker control structure.");
 		goto fail;
 	}
 
-	if (!(worker_control->worker_proxies_res = sid_resource_create(worker_control_res, &sid_resource_type_aggregate,
-	                                                               SID_RESOURCE_RESTRICT_WALK_UP |
-	                                                               SID_RESOURCE_RESTRICT_WALK_DOWN |
-	                                                               SID_RESOURCE_DISALLOW_ISOLATION,
-	                                                               WORKER_PROXIES_AGGREGATE_ID, worker_control,
-	                                                               NULL))) {
+	if (!(worker_control->proxies_res = sid_resource_create(worker_control_res,
+	                                                        &sid_resource_type_aggregate,
+	                                                        SID_RESOURCE_RESTRICT_WALK_UP |
+	                                                        SID_RESOURCE_RESTRICT_WALK_DOWN |
+	                                                        SID_RESOURCE_DISALLOW_ISOLATION,
+	                                                        WORKER_PROXIES_AGGREGATE_ID,
+	                                                        worker_control,
+	                                                        SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(worker_control_res), "Failed to create aggregate resource for worker proxies.");
 		goto fail;
 	}
+
+	for (channel_spec = params->channel_specs; channel_spec->wire.type != WORKER_WIRE_NONE; channel_spec++) {
+		if (!channel_spec->id || !*channel_spec->id) {
+			log_error(ID(worker_control_res), "Found channel specification without ID set.");
+			goto fail;
+		}
+
+		channel_spec_count++;
+	}
+
+	if (!(worker_control->channel_specs = zalloc(channel_spec_count * sizeof(struct worker_channel_spec)))) {
+		log_error(ID(worker_control_res), "Failed to allocate memory for channel specifications.");
+		goto fail;
+	}
+
+	for (i = 0; i < channel_spec_count; i++)
+		worker_control->channel_specs[i] = params->channel_specs[i];
+
+	worker_control->init_cb_spec = params->init_cb_spec;
+	worker_control->channel_spec_count = channel_spec_count;
 
 	*data = worker_control;
 	return 0;
 fail:
 	if (worker_control) {
+		free(worker_control->channel_specs);
 		free(worker_control);
 	}
 	return -1;
@@ -597,6 +855,7 @@ static int _destroy_worker_control(sid_resource_t *worker_control_res)
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
 
+	free(worker_control->channel_specs);
 	free(worker_control);
 	return 0;
 }

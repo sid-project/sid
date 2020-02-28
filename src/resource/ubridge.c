@@ -72,7 +72,8 @@
 #define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ubridge_cmd_trigger_action_current"
 #define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ubridge_cmd_trigger_action_next"
 
-#define MAIN_KV_STORE_NAME  "main"
+#define MAIN_KV_STORE_NAME     "main"
+#define MAIN_WORKER_CHANNEL_ID "main"
 
 #define KV_PAIR_C           "="
 #define KV_END_C            ""
@@ -2797,6 +2798,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	struct iovec *iov;
 	int export_fd = -1;
 	size_t bytes_written = 0;
+	struct worker_data_spec data_spec;
 	unsigned i;
 	ssize_t r;
 
@@ -2939,8 +2941,12 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		goto bad;
 	lseek(export_fd, 0, SEEK_SET);
 
+	data_spec.data = NULL;
+	data_spec.data_size = 0;
+	data_spec.ext.socket.fd_pass = export_fd;
+
 	if (bytes_written)
-		worker_control_send(cmd_res, NULL, 0, export_fd);
+		worker_control_channel_send(cmd_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
 
 	kv_store_iter_destroy(iter);
 
@@ -3056,6 +3062,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 
 static int _init_connection(sid_resource_t *res, const void *kickstart_data, void **data)
 {
+	const struct worker_data_spec *data_spec = kickstart_data;
 	struct connection *conn;
 
 	if (!(conn = zalloc(sizeof(*conn)))) {
@@ -3063,7 +3070,7 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 		goto fail;
 	}
 
-	memcpy(&conn->fd, kickstart_data, sizeof(int));
+	memcpy(&conn->fd, &data_spec->ext.socket.fd_pass, sizeof(conn->fd));
 
 	if (sid_resource_create_io_event_source(res, NULL, conn->fd, _on_connection_event, "client connection", res) < 0) {
 		log_error(ID(res), "Failed to register connection event handler.");
@@ -3381,7 +3388,18 @@ out:
 	return r;
 }
 
-static int _worker_recv_fn(sid_resource_t *worker_res, void *data, size_t data_size, int fd, void *arg)
+static int _worker_proxy_recv_fn(sid_resource_t *worker_proxy_res, struct worker_channel *chan, struct worker_data_spec *data_spec, void *arg)
+{
+	sid_resource_t *ubridge_res = arg;
+	int r;
+
+	r = _sync_master_kv_store(worker_proxy_res, ubridge_res, data_spec->ext.socket.fd_pass);
+	close(data_spec->ext.socket.fd_pass);
+
+	return r;
+}
+
+static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *chan, struct worker_data_spec *data_spec, void *arg)
 {
 	sid_resource_t *conn_res;
 
@@ -3389,7 +3407,7 @@ static int _worker_recv_fn(sid_resource_t *worker_res, void *data, size_t data_s
 	                                     &sid_resource_type_ubridge_connection,
 	                                     SID_RESOURCE_NO_FLAGS,
 	                                     SID_RESOURCE_NO_CUSTOM_ID,
-	                                     &fd,
+	                                     data_spec,
 	                                     SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(worker_res), "Failed to create connection resource.");
 		return -1;
@@ -3398,25 +3416,15 @@ static int _worker_recv_fn(sid_resource_t *worker_res, void *data, size_t data_s
 	return 0;
 }
 
-static int _worker_proxy_recv_fn(sid_resource_t *worker_proxy_res, void *data, size_t data_size, int fd, void *arg)
+static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 {
-	_sync_master_kv_store(worker_proxy_res, arg, fd);
-	close(fd);
-
-	return 0;
-}
-
-static int _worker_init_fn(sid_resource_t *worker_res, void *init_fn_arg)
-{
-	struct ubridge *ubridge = init_fn_arg;
+	struct ubridge *ubridge = arg;
 
 	(void) sid_resource_isolate_with_children(ubridge->modules_res);
 	(void) sid_resource_isolate_with_children(ubridge->main_kv_store_res);
 
 	(void) sid_resource_add_child(worker_res, ubridge->modules_res);
 	(void) sid_resource_add_child(worker_res, ubridge->main_kv_store_res);
-
-	worker_control_set_recv_callback(worker_res, _worker_recv_fn, NULL);
 
 	return 0;
 }
@@ -3427,7 +3435,7 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	sid_resource_t *ubridge_res = data;
 	struct ubridge *ubridge = sid_resource_get_data(ubridge_res);
 	sid_resource_t *worker_proxy_res;
-	int conn_fd;
+	struct worker_data_spec data_spec;
 
 	log_debug(ID(ubridge_res), "Received an event.");
 
@@ -3439,26 +3447,27 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 			return -1;
 		}
 
-		if (!(worker_proxy_res = worker_control_get_new_worker(ubridge->worker_control_res, uuid, _worker_init_fn, ubridge)))
+		if (!(worker_proxy_res = worker_control_get_new_worker(ubridge->worker_control_res, uuid)))
 			return -1;
 	}
 
 	/* worker never reaches this point, only worker-proxy does */
 
-	worker_control_set_recv_callback(worker_proxy_res, _worker_proxy_recv_fn, ubridge_res);
-
-	if ((conn_fd = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
+	if ((data_spec.ext.socket.fd_pass = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
 		log_sys_error(ID(ubridge_res), "accept", "");
 		return -1;
 	}
 
-	if (worker_control_send(worker_proxy_res, NULL, 0, conn_fd) < 0) {
-		log_sys_error(ID(ubridge_res), "worker_control_send_to_worker", "");
-		(void) close(conn_fd);
+	data_spec.data = NULL;
+	data_spec.data_size = 0;
+
+	if (worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec) < 0) {
+		log_sys_error(ID(ubridge_res), "worker_control_channel_send", "");
+		(void) close(data_spec.ext.socket.fd_pass);
 		return -1;
 	}
 
-	(void) close(conn_fd);
+	(void) close(data_spec.ext.socket.fd_pass);
 	return 0;
 }
 
@@ -3666,20 +3675,7 @@ static const struct sid_kv_store_resource_params main_kv_store_res_params = {.ba
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	struct ubridge *ubridge = NULL;
-
-	struct sid_module_registry_resource_params block_res_mod_params = {
-		.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
-		.flags         = SID_MODULE_REGISTRY_PRELOAD,
-		.cb_arg        = NULL,
-		.symbol_params = block_symbol_params,
-	};
-
-	struct sid_module_registry_resource_params type_res_mod_params = {
-		.directory     = UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
-		.flags         = SID_MODULE_REGISTRY_PRELOAD,
-		.cb_arg        = NULL,
-		.symbol_params = type_symbol_params,
-	};
+	struct buffer *buf;
 
 	if (!(ubridge = zalloc(sizeof(struct ubridge)))) {
 		log_error(ID(res), "Failed to allocate memory for interface structure.");
@@ -3709,24 +3705,63 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
+	struct worker_channel_spec channel_specs[] = {
+		{
+			.id = MAIN_WORKER_CHANNEL_ID,
+
+			.wire = (struct worker_wire_spec)
+			{
+				.type = WORKER_WIRE_SOCKET,
+			},
+
+			.worker_tx_cb = NULL_WORKER_CHANNEL_CB_SPEC,
+			.worker_rx_cb = (struct worker_channel_cb_spec)
+			{
+				.cb = _worker_recv_fn,
+				.arg = NULL,
+			},
+
+			.proxy_tx_cb = NULL_WORKER_CHANNEL_CB_SPEC,
+			.proxy_rx_cb = (struct worker_channel_cb_spec)
+			{
+				.cb = _worker_proxy_recv_fn,
+				.arg = res,
+			},
+		},
+		NULL_WORKER_CHANNEL_SPEC,
+	};
+
+	struct worker_control_resource_params worker_control_res_params = {
+		.worker_type   = WORKER_TYPE_INTERNAL,
+
+		.init_cb_spec = (struct worker_init_cb_spec)
+		{
+			.cb = _worker_init_fn,
+			.arg = ubridge,
+		},
+
+		.channel_specs = channel_specs,
+	};
+
 	if (!(ubridge->worker_control_res = sid_resource_create(ubridge->internal_res,
 	                                                        &sid_resource_type_worker_control,
 	                                                        SID_RESOURCE_NO_FLAGS,
 	                                                        SID_RESOURCE_NO_CUSTOM_ID,
-	                                                        SID_RESOURCE_NO_PARAMS,
+	                                                        &worker_control_res_params,
 	                                                        SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create worker control.");
 		goto fail;
 	}
 
-	if (!(ubridge->cmd_mod.gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX))) {
+	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX))) {
 		log_error(ID(res), "Failed to create generic buffer.");
 		goto fail;
 	}
 
-	ubridge->cmd_mod.kv_store_res = ubridge->main_kv_store_res;
-
-	block_res_mod_params.cb_arg = type_res_mod_params.cb_arg = &ubridge->cmd_mod;
+	ubridge->cmd_mod = (struct sid_ubridge_cmd_mod_context) {
+		.kv_store_res = ubridge->main_kv_store_res,
+		.gen_buf = buf,
+	};
 
 	if (!(ubridge->modules_res = sid_resource_create(ubridge->internal_res,
 	                                                 &sid_resource_type_aggregate,
@@ -3737,6 +3772,20 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
 		goto fail;
 	}
+
+	struct sid_module_registry_resource_params block_res_mod_params = {
+		.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
+		.flags         = SID_MODULE_REGISTRY_PRELOAD,
+		.symbol_params = block_symbol_params,
+		.cb_arg        = &ubridge->cmd_mod,
+	};
+
+	struct sid_module_registry_resource_params type_res_mod_params = {
+		.directory     = UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
+		.flags         = SID_MODULE_REGISTRY_PRELOAD,
+		.symbol_params = type_symbol_params,
+		.cb_arg        = &ubridge->cmd_mod,
+	};
 
 	if (!(sid_resource_create(ubridge->modules_res,
 	                          &sid_resource_type_module_registry,
