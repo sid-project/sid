@@ -21,7 +21,6 @@
 #include "buffer.h"
 #include "comms.h"
 #include "kv-store.h"
-#include "list.h"
 #include "log.h"
 #include "macros.h"
 #include "mem.h"

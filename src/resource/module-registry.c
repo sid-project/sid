@@ -18,7 +18,6 @@
 */
 
 #include "configure.h"
-#include "list.h"
 #include "log.h"
 #include "mem.h"
 #include "module-registry.h"
