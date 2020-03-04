@@ -33,8 +33,6 @@ typedef enum {
 	KV_STORE_VALUE_INT_ALLOC = UINT32_C(0x00000001),
 } kv_store_value_int_flags_t;
 
-const sid_resource_type_t sid_resource_type_kv_store_hash;
-
 struct kv_store {
 	struct hash_table *ht;
 };
