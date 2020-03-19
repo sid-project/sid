@@ -182,13 +182,13 @@ int main(int argc, char *argv[])
 	}
 
 
-	if (!(sid_res = sid_resource_create(NULL, &sid_resource_type_sid, 0, NULL, NULL, service_link_defs)))
+	if (!(sid_res = sid_resource_ref(sid_resource_create(NULL, &sid_resource_type_sid, 0, NULL, NULL, service_link_defs))))
 		goto out;
 
 	r = sid_resource_run_event_loop(sid_res);
 out:
 	if (sid_res)
-		(void) sid_resource_destroy(sid_res);
+		sid_resource_unref(sid_res);
 
 	return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

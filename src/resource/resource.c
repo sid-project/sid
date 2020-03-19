@@ -33,6 +33,7 @@ typedef struct sid_resource {
 	struct list list;
 	const sid_resource_type_t *type;
 	char *id;
+	unsigned ref_count;
 	sid_resource_t *parent;
 	struct list children;
 	sid_resource_flags_t flags;
@@ -187,8 +188,10 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 
 	list_init(&res->event_sources);
 
-	if ((res->parent = parent_res))
+	if ((res->parent = parent_res)) {
 		list_add(&parent_res->children, &res->list);
+		res->ref_count++;
+	}
 
 	if (type->with_event_loop && type->with_watchdog &&
 	    sd_event_set_watchdog(res->sd_event_loop, 1) < 0)
@@ -254,8 +257,13 @@ int sid_resource_destroy(sid_resource_t *res)
 	if (res->sd_event_loop)
 		res->sd_event_loop = sd_event_unref(res->sd_event_loop);
 
-	if (res->parent)
+	if (res->parent) {
 		list_del(&res->list);
+		res->ref_count--;
+	}
+
+	if (res->ref_count > 0)
+		log_error(res->id, INTERNAL_ERROR "%s: Resource has %u references left while destroying it.", __func__, res->ref_count);
 
 	if (res->slg)
 		service_link_group_destroy_with_members(res->slg);
@@ -268,6 +276,27 @@ int sid_resource_destroy(sid_resource_t *res)
 
 	free(res->id);
 	free(res);
+
+	return 0;
+}
+
+sid_resource_t *sid_resource_ref(sid_resource_t *res)
+{
+	res->ref_count++;
+	return res;
+}
+
+int sid_resource_unref(sid_resource_t *res)
+{
+	if (res->ref_count == 0) {
+		log_error(res->id, INTERNAL_ERROR "%s: Resource has no references.", __func__);
+		return -EINVAL;
+	}
+
+	res->ref_count--;
+
+	if (res->ref_count == 0)
+		return sid_resource_destroy(res);
 
 	return 0;
 }
@@ -536,6 +565,7 @@ int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child)
 
 	child->parent = res;
 	list_add(&res->children, &child->list);
+	child->ref_count++;
 
 	log_debug(res->id, "Child %s added.", child->id);
 	return 0;
@@ -556,6 +586,7 @@ int sid_resource_isolate(sid_resource_t *res)
 	}
 	list_del(&res->list);
 	res->parent = NULL;
+	res->ref_count--;
 
 	return 0;
 }
@@ -568,6 +599,7 @@ int sid_resource_isolate_with_children(sid_resource_t *res)
 
 	list_del(&res->list);
 	res->parent = NULL;
+	res->ref_count--;
 
 	return 0;
 }
@@ -579,7 +611,7 @@ sid_resource_iter_t *sid_resource_iter_create(sid_resource_t *res)
 	if (!(iter = malloc(sizeof(*iter))))
 		return NULL;
 
-	iter->res = res;
+	iter->res = sid_resource_ref(res);
 
 	iter->current = &res->children;
 	iter->prev = iter->current->p;
@@ -639,6 +671,7 @@ void sid_resource_iter_reset(sid_resource_iter_t *iter)
 
 void sid_resource_iter_destroy(sid_resource_iter_t *iter)
 {
+	(void) sid_resource_unref(iter->res);
 	free(iter);
 }
 

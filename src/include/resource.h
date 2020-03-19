@@ -74,6 +74,12 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 int sid_resource_destroy(sid_resource_t *res);
 
 /*
+ * reference counting support
+ */
+sid_resource_t *sid_resource_ref(sid_resource_t *res);
+int sid_resource_unref(sid_resource_t *res);
+
+/*
  * basic property retrieval functions
  */
 bool sid_resource_is_type_of(sid_resource_t *res, const sid_resource_type_t *type);
