@@ -108,8 +108,15 @@ void sid_resource_iter_destroy(sid_resource_iter_t *iter);
 
 sid_resource_t *sid_resource_get_parent(sid_resource_t *res);
 sid_resource_t *sid_resource_get_top_level(sid_resource_t *res);
-sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_type_t *type, const char *id);
-unsigned int sid_resource_get_children_count(sid_resource_t *res);
+
+typedef enum {
+	SID_RESOURCE_SEARCH_IMMEDIATE,     /* only immediate children */
+	SID_RESOURCE_SEARCH_BREADTH_FIRST, /* immediate children first, then all further ancenstors */
+	SID_RESOURCE_SEARCH_DEPTH_FIRST,   /* child and all its ancestors first, then next child */
+} sid_resource_search_method_t;
+
+sid_resource_t *sid_resource_search(sid_resource_t *root_res, sid_resource_search_method_t search_method,
+				    const sid_resource_type_t *res_type, const char *id);
 
 /*
  * structure/tree modification functions

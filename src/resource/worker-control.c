@@ -210,7 +210,8 @@ sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, c
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
 
-	return sid_resource_get_child(worker_control->worker_proxies_res, &sid_resource_type_worker_proxy, id);
+	return sid_resource_search(worker_control->worker_proxies_res, SID_RESOURCE_SEARCH_IMMEDIATE,
+	                           &sid_resource_type_worker_proxy, id);
 }
 
 bool worker_control_is_worker(sid_resource_t *res)

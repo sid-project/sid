@@ -539,23 +539,35 @@ sid_resource_t *sid_resource_get_top_level(sid_resource_t *res)
 	return res;
 }
 
-sid_resource_t *sid_resource_get_child(sid_resource_t *res, const sid_resource_type_t *type, const char *id)
+sid_resource_t *sid_resource_search(sid_resource_t *res, sid_resource_search_method_t search_method,
+                                    const sid_resource_type_t *res_type, const char *id)
 {
-	sid_resource_t *child_res;
+	sid_resource_t *child_res, *found;
+
+	if (res->type == res_type && !strcmp(sid_resource_get_id(res), id))
+		return res;
 
 	list_iterate_items(child_res, &res->children) {
 		if (child_res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
 			continue;
-		if (child_res->type == type && !strcmp(sid_resource_get_id(child_res), id))
+
+		if (child_res->type == res_type && !strcmp(sid_resource_get_id(child_res), id))
 			return child_res;
+
+		if (search_method == SID_RESOURCE_SEARCH_DEPTH_FIRST) {
+			if ((found = sid_resource_search(child_res, search_method, res_type, id)))
+				return found;
+		}
+	}
+
+	if (search_method == SID_RESOURCE_SEARCH_BREADTH_FIRST) {
+		list_iterate_items(child_res, &res->children) {
+			if ((found = sid_resource_search(child_res, search_method, res_type, id)))
+				return found;
+		}
 	}
 
 	return NULL;
-}
-
-unsigned int sid_resource_get_children_count(sid_resource_t *res)
-{
-	return list_size(&(res->children));
 }
 
 int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child)
