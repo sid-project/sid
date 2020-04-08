@@ -31,7 +31,9 @@ void log_init(log_target_t target, int verbose_mode)
 {
 	_current_target = target;
 	_current_verbose_mode = verbose_mode;
-	log_target_registry[_current_target]->open(verbose_mode);
+
+	if (_current_target != LOG_TARGET_NONE)
+		log_target_registry[_current_target]->open(verbose_mode);
 }
 
 void log_change_target(log_target_t new_target)
