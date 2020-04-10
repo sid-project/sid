@@ -18,4 +18,4 @@
 ##############################################################################
 
 ACLOCAL_AMFLAGS = -I m4
-SUBDIRS = src udev systemd
+SUBDIRS = src udev systemd . tests

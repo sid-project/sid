@@ -65,7 +65,9 @@ AC_CONFIG_FILES([Makefile
 		 src/tools/Makefile
 		 src/tools/usid/Makefile
 		 udev/Makefile
-		 systemd/Makefile])
+		 systemd/Makefile
+		 tests/Makefile])
+
 AC_CONFIG_HEADERS([src/include/configure.h])
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
@@ -144,3 +146,4 @@ AC_SUBST([systemdsystemunitdir])
 AC_SUBST([udevrulesdir])
 
 AC_OUTPUT
+AM_CHECK_CMOCKA
