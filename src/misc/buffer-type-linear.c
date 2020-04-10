@@ -126,7 +126,8 @@ static const void *_buffer_linear_fmt_add(struct buffer *buf, const char *fmt, v
 		used = MSG_SIZE_PREFIX_LEN;
 
 	available = buf->allocated - used;
-	printed = vsnprintf(buf->mem + used, available, fmt, ap) + 1;
+	printed = vsnprintf(buf->mem + used, available, fmt, ap_copy) + 1;
+	va_end(ap_copy);
 
 	if (printed < 0) {
 		errno = EIO;
@@ -137,7 +138,7 @@ static const void *_buffer_linear_fmt_add(struct buffer *buf, const char *fmt, v
 			return NULL;
 		}
 		available = buf->allocated - used;
-		if ((printed = vsnprintf(buf->mem + used, available, fmt, ap_copy)) < 0) {
+		if ((printed = vsnprintf(buf->mem + used, available, fmt, ap)) < 0) {
 			errno = EIO;
 			return NULL;
 		}
