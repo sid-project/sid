@@ -2,3 +2,4 @@
 *.trs
 
 test_buffer
+test_notify
