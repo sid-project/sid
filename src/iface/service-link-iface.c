@@ -133,7 +133,7 @@ int service_link_group_remove_member(struct service_link_group *slg, struct serv
 	return 0;
 }
 
-static const char *_get_arg_line(const char *str, const char *key_eq, size_t *size)
+static const char *_get_arg_value(const char *str, const char *key_eq, size_t *size)
 {
 	const char *str_end;
 	const char *line_end;
@@ -147,10 +147,9 @@ static const char *_get_arg_line(const char *str, const char *key_eq, size_t *si
 	for (str_end = str + strlen(str); str < str_end; str = line_end + 1) {
 		line_end = strchr(str, '\n') ? : str_end;
 
-		if (!strcmp(key_eq, str)) {
+		if (!strncmp(key_eq, str, strlen(key_eq))) {
 			/* get the value and its size */
 			str += strlen(key_eq);
-
 			*size = line_end - str;
 			return str;
 		}
@@ -168,7 +167,7 @@ int _do_service_link_notify(struct service_link *sl, struct service_link_group *
                             service_link_notification_t notification, const char *fmt, va_list ap)
 {
 	struct buffer *buf = NULL, *fmt_buf = NULL;
-	const char *arg_str, *arg_line;
+	const char *arg_str, *arg_value;
 	size_t size;
 	int unset = 0;
 	int iter_r, r = 0;
@@ -197,19 +196,31 @@ int _do_service_link_notify(struct service_link *sl, struct service_link_group *
 		unset = 1;
 
 	if (notification & SERVICE_NOTIFICATION_STATUS) {
-		if ((arg_line = _get_arg_line(arg_str, SERVICE_KEY_STATUS EQ, &size)))
-			if (!buffer_add(buf, (void *) arg_line, size)) {
+		if ((arg_value = _get_arg_value(arg_str, SERVICE_KEY_STATUS EQ, &size))) {
+			if (!buffer_fmt_add(buf, SERVICE_KEY_STATUS EQ "%.*s\n",
+			                    size, arg_value)) {
 				r = -ENOMEM;
 				goto out;
 			}
+			if (buffer_rewind(buf, 1, BUFFER_POS_REL) < 0) {
+				r = -errno;
+				goto out;
+			}
+		}
 	}
 
 	if (notification & SERVICE_NOTIFICATION_ERRNO) {
-		if ((arg_line = _get_arg_line(arg_str, SERVICE_KEY_ERRNO EQ, &size)))
-			if (!buffer_add(buf, (void *) arg_line, size)) {
+		if ((arg_value = _get_arg_value(arg_str, SERVICE_KEY_ERRNO EQ, &size))) {
+			if (!buffer_fmt_add(buf, SERVICE_KEY_ERRNO EQ "%.*s\n",
+			                    size, arg_value)) {
 				r = -ENOMEM;
 				goto out;
 			}
+			if (buffer_rewind(buf, 1, BUFFER_POS_REL) < 0) {
+				r = -errno;
+				goto out;
+			}
+		}
 	}
 
 	if (notification & SERVICE_NOTIFICATION_READY)
