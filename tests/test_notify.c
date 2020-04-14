@@ -60,12 +60,39 @@ static void test_notify_blank(void **state)
 	service_link_destroy(sl);
 }
 
+static void test_notify_errno(void **state)
+{
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD,
+	                                              "systemd");
+
+	assert_non_null(sl);
+	assert_int_equal(service_link_add_notification(sl, SERVICE_NOTIFICATION_ERRNO), 0);
+	will_return(__wrap_sd_notify, "ERRNO=2\n");
+	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_ERRNO, "ERRNO=%d\n", 2), 0);
+	service_link_destroy(sl);
+}
+
+static void test_notify_errno_status(void **state)
+{
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD,
+	                                              "systemd");
+
+	assert_non_null(sl);
+	assert_int_equal(service_link_add_notification(sl, SERVICE_NOTIFICATION_ERRNO), 0);
+	assert_int_equal(service_link_add_notification(sl, SERVICE_NOTIFICATION_STATUS), 0);
+	will_return(__wrap_sd_notify, "STATUS=testing\nERRNO=2\n");
+	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_ERRNO | SERVICE_NOTIFICATION_STATUS, "ERRNO=%d\nSTATUS=testing", 2), 0);
+	service_link_destroy(sl);
+}
+
 int main(void)
 {
 	const struct CMUnitTest tests[] = {
 		cmocka_unit_test(test_notify_ready),
 		cmocka_unit_test(test_notify_ready_reloading),
 		cmocka_unit_test(test_notify_blank),
+		cmocka_unit_test(test_notify_errno),
+		cmocka_unit_test(test_notify_errno_status),
 	};
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
