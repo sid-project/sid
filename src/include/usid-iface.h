@@ -50,9 +50,9 @@ static const char * const usid_cmd_names[] = {
 };
 
 struct usid_msg_header {
+	uint64_t status;
 	uint8_t prot;
 	uint8_t cmd;
-	uint64_t status;
 	char data[0];
 } __attribute__((packed));
 
