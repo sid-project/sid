@@ -82,7 +82,6 @@ int sid_resource_unref(sid_resource_t *res);
 /*
  * basic property retrieval functions
  */
-bool sid_resource_is_type_of(sid_resource_t *res, const sid_resource_type_t *type);
 void *sid_resource_get_data(sid_resource_t *res);
 const char *sid_resource_get_full_id(sid_resource_t *res);
 const char *sid_resource_get_id(sid_resource_t *res);
@@ -108,6 +107,8 @@ void sid_resource_iter_destroy(sid_resource_iter_t *iter);
 
 sid_resource_t *sid_resource_get_parent(sid_resource_t *res);
 sid_resource_t *sid_resource_get_top_level(sid_resource_t *res);
+
+bool sid_resource_match(sid_resource_t *res, const sid_resource_type_t *type, const char *id);
 
 typedef enum {
 	_SID_RESOURCE_SEARCH_DESC_START, /* internal use */

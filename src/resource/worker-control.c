@@ -222,8 +222,8 @@ bool worker_control_is_worker(sid_resource_t *res)
 const char *worker_control_get_worker_id(sid_resource_t *res)
 {
 	do {
-		if (sid_resource_is_type_of(res, &sid_resource_type_worker) ||
-		    sid_resource_is_type_of(res, &sid_resource_type_worker_proxy))
+		if (sid_resource_match(res, &sid_resource_type_worker, NULL) ||
+		    sid_resource_match(res, &sid_resource_type_worker_proxy, NULL))
 			return sid_resource_get_id(res);
 	} while ((res = sid_resource_get_parent(res)));
 
@@ -280,11 +280,11 @@ int worker_control_set_recv_callback(sid_resource_t *res, worker_control_recv_cb
 	struct worker_proxy *worker_proxy;
 	struct worker *worker;
 
-	if (sid_resource_is_type_of(res, &sid_resource_type_worker_proxy)) {
+	if (sid_resource_match(res, &sid_resource_type_worker_proxy, NULL)) {
 		worker_proxy = sid_resource_get_data(res);
 		worker_proxy->recv_fn = recv_fn;
 		worker_proxy->recv_fn_arg = recv_fn_arg;
-	} else if (sid_resource_is_type_of(res, &sid_resource_type_worker)) {
+	} else if (sid_resource_match(res, &sid_resource_type_worker, NULL)) {
 		worker = sid_resource_get_data(res);
 		worker->recv_fn = recv_fn;
 		worker->recv_fn_arg = recv_fn_arg;
@@ -301,7 +301,7 @@ int worker_control_send(sid_resource_t *res, void *data, size_t data_size, int f
 	struct worker_proxy *worker_proxy;
 	int comms_fd;
 
-	if (sid_resource_is_type_of(res, &sid_resource_type_worker_proxy)) {
+	if (sid_resource_match(res, &sid_resource_type_worker_proxy, NULL)) {
 		/* sending from worker proxy to worker */
 		worker_proxy = sid_resource_get_data(res);
 		comms_fd = worker_proxy->comms_fd;
@@ -312,7 +312,7 @@ int worker_control_send(sid_resource_t *res, void *data, size_t data_size, int f
 	} else {
 		res = sid_resource_get_top_level(res);
 
-		if (sid_resource_is_type_of(res, &sid_resource_type_worker)) {
+		if (sid_resource_match(res, &sid_resource_type_worker, NULL)) {
 			/* sending from worker to worker proxy */
 			comms_fd = ((struct worker *) sid_resource_get_data(res))->comms_fd;
 		} else {

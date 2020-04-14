@@ -301,11 +301,6 @@ int sid_resource_unref(sid_resource_t *res)
 	return 0;
 }
 
-bool sid_resource_is_type_of(sid_resource_t *res, const sid_resource_type_t *type)
-{
-	return res->type == type;
-}
-
 const char *sid_resource_get_full_id(sid_resource_t *res)
 {
 	return res->id;
@@ -537,6 +532,11 @@ sid_resource_t *sid_resource_get_top_level(sid_resource_t *res)
 		res = res->parent;
 
 	return res;
+}
+
+bool sid_resource_match(sid_resource_t *res, const sid_resource_type_t *type, const char *id)
+{
+	return (type ? res->type == type : true) && (id ? !strcmp(sid_resource_get_id(res), id) : true);
 }
 
 sid_resource_t *sid_resource_search(sid_resource_t *res, sid_resource_search_method_t search_method,

@@ -59,7 +59,7 @@ static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const c
 
 	sid_resource_iter_reset(registry->module_iter);
 	while ((res = sid_resource_iter_next(registry->module_iter))) {
-		if (sid_resource_is_type_of(res, &sid_resource_type_module)) {
+		if (sid_resource_match(res, &sid_resource_type_module, NULL)) {
 			if (!strcmp(((struct sid_module *) sid_resource_get_data(res))->name, module_name)) {
 				found = res;
 				break;
