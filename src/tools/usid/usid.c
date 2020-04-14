@@ -75,9 +75,9 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 
 	buffer_add(buf,
 	&((struct usid_msg_header) {
+		.status = status,
 		.prot = UBRIDGE_PROTOCOL,
-		.cmd = cmd,
-		.status = status
+		.cmd = cmd
 	}), USID_MSG_HEADER_SIZE);
 
 	if (data_fn && (data_fn(buf, data_fn_arg) < 0)) {
