@@ -118,8 +118,8 @@ typedef enum {
 	_SID_RESOURCE_SEARCH_DESC_END,   /* internal use */
 } sid_resource_search_method_t;
 
-sid_resource_t *sid_resource_search(sid_resource_t *root_res, sid_resource_search_method_t search_method,
-				    const sid_resource_type_t *res_type, const char *id);
+sid_resource_t *sid_resource_search(sid_resource_t *root_res, sid_resource_search_method_t method,
+				    const sid_resource_type_t *type, const char *id);
 
 /*
  * structure/tree modification functions

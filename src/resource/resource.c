@@ -539,33 +539,39 @@ bool sid_resource_match(sid_resource_t *res, const sid_resource_type_t *type, co
 	return (type ? res->type == type : true) && (id ? !strcmp(sid_resource_get_id(res), id) : true);
 }
 
-sid_resource_t *sid_resource_search(sid_resource_t *res, sid_resource_search_method_t search_method,
-                                    const sid_resource_type_t *res_type, const char *id)
+sid_resource_t *_search_down(sid_resource_t *res, sid_resource_search_method_t method,
+                             const sid_resource_type_t *type, const char *id)
 {
 	sid_resource_t *child_res, *found;
-
-	if (res->type == res_type && !strcmp(sid_resource_get_id(res), id))
-		return res;
 
 	list_iterate_items(child_res, &res->children) {
 		if (child_res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
 			continue;
 
-		if (child_res->type == res_type && !strcmp(sid_resource_get_id(child_res), id))
+		if (sid_resource_match(child_res, type, id))
 			return child_res;
 
-		if (search_method == SID_RESOURCE_SEARCH_DFS) {
-			if ((found = sid_resource_search(child_res, search_method, res_type, id)))
+		if (method == SID_RESOURCE_SEARCH_DFS) {
+			if ((found = sid_resource_search(child_res, method, type, id)))
 				return found;
 		}
 	}
 
-	if (search_method == SID_RESOURCE_SEARCH_WIDE_DFS) {
+	if (method == SID_RESOURCE_SEARCH_WIDE_DFS) {
 		list_iterate_items(child_res, &res->children) {
-			if ((found = sid_resource_search(child_res, search_method, res_type, id)))
+			if ((found = _search_down(child_res, method, type, id)))
 				return found;
 		}
 	}
+
+	return NULL;
+}
+
+sid_resource_t *sid_resource_search(sid_resource_t *res, sid_resource_search_method_t method,
+                                    const sid_resource_type_t *type, const char *id)
+{
+	if (method > _SID_RESOURCE_SEARCH_DESC_START && method < _SID_RESOURCE_SEARCH_DESC_END)
+		return _search_down(res, method, type, id);
 
 	return NULL;
 }
