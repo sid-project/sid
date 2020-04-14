@@ -24,15 +24,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define SERVICE_KEY_READY     "READY"
-#define SERVICE_KEY_RELOADING "RELOADING"
-#define SERVICE_KEY_STOPPING  "STOPPING"
-#define SERVICE_KEY_WATCHDOG  "WATCHDOG"
+#define SERVICE_READY_LINE		"READY=1\n"
+#define SERVICE_RELOADING_LINE		"RELOADING=1\n"
+#define SERVICE_STOPPING_LINE		"STOPPING=1\n"
+#define SERVICE_WATCHDOG_REFRESH_LINE	"WATCHDOG=1\n"
+#define SERVICE_WATCHDOG_TRIGGER_LINE	"WATCHDOG=trigger\n"
 
-#define EQ                    "="
-#define ONE                   "1"
-#define TRIGGER               "trigger"
-#define NL                    "\n"
+#define EQ "="
 
 struct service_link {
 	struct list list;
@@ -137,9 +135,15 @@ int service_link_group_remove_member(struct service_link_group *slg, struct serv
 
 static const char *_get_arg_line(const char *str, const char *key_eq, size_t *size)
 {
-	const char *str_end = str + strlen(str);
+	const char *str_end;
 	const char *line_end;
 
+	if (!size)
+		return NULL;
+	if (!str || !key_eq)
+		goto out;
+
+	str_end = str + strlen(str);
 	for (str_end = str + strlen(str); str < str_end; str = line_end + 1) {
 		line_end = strchr(str, '\n') ? : str_end;
 
@@ -151,7 +155,7 @@ static const char *_get_arg_line(const char *str, const char *key_eq, size_t *si
 			return str;
 		}
 	}
-
+out:
 	*size = 0;
 	return NULL;
 }
@@ -209,35 +213,45 @@ int _do_service_link_notify(struct service_link *sl, struct service_link_group *
 	}
 
 	if (notification & SERVICE_NOTIFICATION_READY)
-		if (!buffer_fmt_add(buf, SERVICE_KEY_READY EQ ONE NL)) {
+		if (!buffer_add(buf, (void *)SERVICE_READY_LINE,
+		                sizeof(SERVICE_READY_LINE) - 1)) {
 			r = -ENOMEM;
 			goto out;
 		}
 
 	if (notification & SERVICE_NOTIFICATION_RELOADING)
-		if (!buffer_fmt_add(buf, SERVICE_KEY_RELOADING EQ ONE NL)) {
+		if (!buffer_add(buf, (void *)SERVICE_RELOADING_LINE,
+		                sizeof(SERVICE_RELOADING_LINE) - 1)) {
 			r = -ENOMEM;
 			goto out;
 		}
 
 	if (notification & SERVICE_NOTIFICATION_STOPPING)
-		if (!buffer_fmt_add(buf, SERVICE_KEY_STOPPING EQ ONE NL)) {
+		if (!buffer_add(buf, (void *)SERVICE_STOPPING_LINE,
+		                sizeof(SERVICE_STOPPING_LINE) - 1)) {
 			r = -ENOMEM;
 			goto out;
 		}
 
 	if (notification & SERVICE_NOTIFICATION_WATCHDOG_REFRESH)
-		if (!buffer_fmt_add(buf, SERVICE_KEY_WATCHDOG EQ ONE NL)) {
+		if (!buffer_add(buf, (void *)SERVICE_WATCHDOG_REFRESH_LINE,
+		                sizeof(SERVICE_WATCHDOG_REFRESH_LINE) - 1)) {
 			r = -ENOMEM;
 			goto out;
 		}
 
 	if (notification & SERVICE_NOTIFICATION_WATCHDOG_TRIGGER)
-		if (!buffer_fmt_add(buf, SERVICE_KEY_WATCHDOG EQ TRIGGER NL)) {
+		if (!buffer_add(buf, (void *)SERVICE_WATCHDOG_TRIGGER_LINE,
+		                sizeof(SERVICE_WATCHDOG_TRIGGER_LINE) - 1)) {
 			r = -ENOMEM;
 			goto out;
 		}
 
+	/* NULL termintate string, or create empty string */
+	if (!buffer_add(buf, (void *)"", 1)) {
+		r = -ENOMEM;
+		goto out;
+	}
 	buffer_get_data(buf, (const void **) &arg_str, &size);
 
 	if (sl) {
