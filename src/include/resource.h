@@ -110,9 +110,11 @@ sid_resource_t *sid_resource_get_parent(sid_resource_t *res);
 sid_resource_t *sid_resource_get_top_level(sid_resource_t *res);
 
 typedef enum {
-	SID_RESOURCE_SEARCH_IMMEDIATE,     /* only immediate children */
-	SID_RESOURCE_SEARCH_BREADTH_FIRST, /* immediate children first, then all further ancenstors */
-	SID_RESOURCE_SEARCH_DEPTH_FIRST,   /* child and all its ancestors first, then next child */
+	_SID_RESOURCE_SEARCH_DESC_START, /* internal use */
+	  SID_RESOURCE_SEARCH_IMM_DESC,  /* only immediate descendants - children */
+	  SID_RESOURCE_SEARCH_DFS,       /* depth first search */
+	  SID_RESOURCE_SEARCH_WIDE_DFS,  /* IMM_DESC + DFS hybrid (DFS, but process all immediate children first before going deeper) */
+	_SID_RESOURCE_SEARCH_DESC_END,   /* internal use */
 } sid_resource_search_method_t;
 
 sid_resource_t *sid_resource_search(sid_resource_t *root_res, sid_resource_search_method_t search_method,

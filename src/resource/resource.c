@@ -554,13 +554,13 @@ sid_resource_t *sid_resource_search(sid_resource_t *res, sid_resource_search_met
 		if (child_res->type == res_type && !strcmp(sid_resource_get_id(child_res), id))
 			return child_res;
 
-		if (search_method == SID_RESOURCE_SEARCH_DEPTH_FIRST) {
+		if (search_method == SID_RESOURCE_SEARCH_DFS) {
 			if ((found = sid_resource_search(child_res, search_method, res_type, id)))
 				return found;
 		}
 	}
 
-	if (search_method == SID_RESOURCE_SEARCH_BREADTH_FIRST) {
+	if (search_method == SID_RESOURCE_SEARCH_WIDE_DFS) {
 		list_iterate_items(child_res, &res->children) {
 			if ((found = sid_resource_search(child_res, search_method, res_type, id)))
 				return found;
