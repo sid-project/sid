@@ -803,7 +803,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 {
 	const char *owner = _res_get_mod_name(cmd->mod_res);
 	const char *full_key = NULL;
-	struct iovec iov[4];
+	struct iovec iov[_KV_VALUE_IDX_COUNT];
 	struct kv_value *kv_value;
 	struct kv_update_arg update_arg;
 	struct kv_key_spec key_spec = {.op = KV_OP_SET,
@@ -848,7 +848,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	update_arg.custom = NULL;
 	update_arg.ret_code = 0;
 
-	kv_value = kv_store_set_value(cmd->kv_store_res, full_key, iov, 4,
+	kv_value = kv_store_set_value(cmd->kv_store_res, full_key, iov, _KV_VALUE_IDX_COUNT,
 	                              KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
 	                              _kv_overwrite, &update_arg);
 
