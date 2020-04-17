@@ -127,7 +127,7 @@ static int _create_service_link_group(sid_resource_t *res, sid_resource_service_
 	if (!(slg = service_link_group_create(res->id)))
 		return -ENOMEM;
 
-	for (def = service_link_defs; def->type != SERVICE_NOTIFICATION_NONE; def++) {
+	for (def = service_link_defs; def->type != SERVICE_TYPE_NONE; def++) {
 		if (!(sl = service_link_create(def->type, def->name))) {
 			r = -ENOMEM;
 			goto out;
