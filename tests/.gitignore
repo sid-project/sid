@@ -3,3 +3,4 @@
 
 test_buffer
 test_notify
+test_kv_store
