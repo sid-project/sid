@@ -80,10 +80,17 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 		if (value->ext_flags & KV_STORE_VALUE_VECTOR) {
 			iov = value->data_p;
 
-			if (value->int_flags & KV_STORE_VALUE_INT_ALLOC)
+			if (value->int_flags & KV_STORE_VALUE_INT_ALLOC) {
 				/* H */
 				free(iov[0].iov_base);
-			else if (value->ext_flags & KV_STORE_VALUE_AUTOFREE) {
+				if (value->ext_flags & KV_STORE_VALUE_AUTOFREE)
+					free(value->data_p);
+				else
+					for (i = 0; i < value->size; i++) {
+						iov[i].iov_base = NULL;
+						iov[i].iov_len = 0;
+					}
+			} else if (value->ext_flags & KV_STORE_VALUE_AUTOFREE) {
 				/* G */
 				for (i = 0; i < value->size; i++)
 					free(iov[i].iov_base);
@@ -167,14 +174,11 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 					p2 += iov[i].iov_len;
 				}
 
-				value->data_p = p1;
-				value->size = iov_cnt;
 				value->int_flags = KV_STORE_VALUE_INT_ALLOC;
-			} else {
-				/* G */
-				value->data_p = iov;
-				value->size = iov_cnt;
 			}
+			/* G,H */
+			value->data_p = iov;
+			value->size = iov_cnt;
 		} else {
 			for (i = 0, data_size = 0; i < iov_cnt; i++)
 				data_size += iov[i].iov_len;
