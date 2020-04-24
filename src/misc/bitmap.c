@@ -47,8 +47,15 @@ static void _init_bitmap()
 
 struct bitmap *bitmap_create(size_t bit_count, bool invert)
 {
-	size_t mem_size = (bit_count / BITS_PER_BLOCK + 1) * BLOCK_SIZE;
+	size_t mem_size;
 	struct bitmap *bitmap;
+
+	if (!bit_count) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	mem_size = ((bit_count - 1)/ BITS_PER_BLOCK + 1) * BLOCK_SIZE;
 
 	if (!(bitmap = malloc(sizeof(struct bitmap) + mem_size))) {
 		errno = ENOMEM;
@@ -75,7 +82,7 @@ void bitmap_destroy(struct bitmap *bitmap)
 
 int _get_coord(struct bitmap *bitmap, size_t bit_pos, unsigned *block, unsigned *bit)
 {
-	if (bit_pos > bitmap->bit_count) {
+	if (bit_pos >= bitmap->bit_count) {
 		errno = ERANGE;
 		return -1;
 	}
