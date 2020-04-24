@@ -320,16 +320,6 @@ void *sid_resource_get_data(sid_resource_t *res)
 	return res->data;
 }
 
-bool sid_resource_is_ancestor_of_type(sid_resource_t *res, const sid_resource_type_t *type)
-{
-	while ((res = res->parent)) {
-		if (res->type == type)
-			return true;
-	}
-
-	return false;
-}
-
 sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_not_found)
 {
 	sid_resource_t *tmp_res = res;
@@ -518,22 +508,6 @@ int sid_resource_destroy_event_source(sid_resource_t *res, sid_resource_event_so
 	return 0;
 }
 
-sid_resource_t *sid_resource_get_parent(sid_resource_t *res)
-{
-	if (!res->parent || res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP)
-		return NULL;
-
-	return res->parent;
-}
-
-sid_resource_t *sid_resource_get_top_level(sid_resource_t *res)
-{
-	while (res->parent)
-		res = res->parent;
-
-	return res;
-}
-
 bool sid_resource_match(sid_resource_t *res, const sid_resource_type_t *type, const char *id)
 {
 	return (type ? res->type == type : true) && (id ? !strcmp(sid_resource_get_id(res), id) : true);
@@ -567,11 +541,55 @@ sid_resource_t *_search_down(sid_resource_t *res, sid_resource_search_method_t m
 	return NULL;
 }
 
+sid_resource_t *_search_up(sid_resource_t *res, sid_resource_search_method_t method,
+                           const sid_resource_type_t *type, const char *id)
+{
+	if (method == SID_RESOURCE_SEARCH_IMM_ANC) {
+		if (res->parent && !(res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP) &&
+		    sid_resource_match(res->parent, type, id))
+			return res->parent;
+	} else if (method == SID_RESOURCE_SEARCH_ANC) {
+		while (res->parent && !(res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP)) {
+			if (sid_resource_match(res->parent, type, id))
+				return res->parent;
+		}
+	} else if (method == SID_RESOURCE_SEARCH_TOP) {
+		while (res->parent && !(res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP))
+			res = res->parent;
+
+		if (sid_resource_match(res, type, id))
+			return res;
+	}
+
+	return NULL;
+}
+
+sid_resource_t *_search(sid_resource_t *res, sid_resource_search_method_t method,
+                        const sid_resource_type_t *type, const char *id)
+{
+	sid_resource_t *tmp_res;
+
+	if (method == SID_RESOURCE_SEARCH_GENUS) {
+		if (!(tmp_res = _search_up(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL)))
+			return NULL;
+
+		return _search_down(tmp_res, SID_RESOURCE_SEARCH_WIDE_DFS, type, id);
+	}
+
+	return NULL;
+}
+
 sid_resource_t *sid_resource_search(sid_resource_t *res, sid_resource_search_method_t method,
                                     const sid_resource_type_t *type, const char *id)
 {
 	if (method > _SID_RESOURCE_SEARCH_DESC_START && method < _SID_RESOURCE_SEARCH_DESC_END)
 		return _search_down(res, method, type, id);
+
+	if (method > _SID_RESOURCE_SEARCH_ANC_START && method < _SID_RESOURCE_SEARCH_ANC_END)
+		return _search_up(res, method, type, id);
+
+	if (method > _SID_RESOURCE_SEARCH_COMP_START && method < _SID_RESOURCE_SEARCH_COMP_END)
+		return _search(res, method, type, id);
 
 	return NULL;
 }

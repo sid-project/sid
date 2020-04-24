@@ -135,7 +135,7 @@ int sid_module_registry_reload_modules(sid_resource_t *module_registry_res)
 
 int sid_module_registry_reload_module(sid_resource_t *module_res)
 {
-	struct module_registry *registry = sid_resource_get_data(sid_resource_get_parent(module_res));
+	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct sid_module *module = sid_resource_get_data(module_res);
 
 	if (module->reload_fn && module->reload_fn(module, registry->callback_arg) < 0) {
@@ -230,7 +230,7 @@ static int _load_module_symbol(sid_resource_t *module_res, void *dl_handle, cons
 
 static int _init_module(sid_resource_t *module_res, const void *kickstart_data, void **data)
 {
-	struct module_registry *registry = sid_resource_get_data(sid_resource_get_parent(module_res));
+	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct sid_module_symbol_params symbol_params = {0};
 	const char *module_name = kickstart_data;
 	struct sid_module *module = NULL;
@@ -293,7 +293,7 @@ fail:
 
 static int _destroy_module(sid_resource_t *module_res)
 {
-	struct module_registry *registry = sid_resource_get_data(sid_resource_get_parent(module_res));
+	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct sid_module *module = sid_resource_get_data(module_res);
 
 	if (module->exit_fn(module, registry->callback_arg) < 0)

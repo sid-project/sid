@@ -1648,7 +1648,7 @@ static int _cmd_exec_ident(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
 
-	//sid_resource_dump_all_in_dot(sid_resource_get_top_level(exec_arg->cmd_res));
+	//sid_resource_dump_all_in_dot(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
 	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->ident)
@@ -2713,7 +2713,7 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 
 	cmd->scan_phase = CMD_SCAN_PHASE_A_INIT;
 
-	if (!(modules_aggr_res = sid_resource_search(sid_resource_get_top_level(exec_arg->cmd_res), SID_RESOURCE_SEARCH_IMM_DESC,
+	if (!(modules_aggr_res = sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_GENUS,
 	                                             &sid_resource_type_aggregate, MODULES_AGGREGATE_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find modules aggregate resource.", __func__);
 		goto out;
@@ -2956,7 +2956,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
 	sid_resource_t *cmd_res = data;
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
-	struct connection *conn = sid_resource_get_data(sid_resource_get_parent(cmd_res));
+	struct connection *conn = sid_resource_get_data(sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct usid_msg_header response_header = {0};
 	struct cmd_exec_arg exec_arg = {0};
 
@@ -2987,7 +2987,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 
 static int _connection_cleanup(sid_resource_t *conn_res)
 {
-	sid_resource_t *worker_res = sid_resource_get_parent(conn_res);
+	sid_resource_t *worker_res = sid_resource_search(conn_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
 	sid_resource_iter_t *iter;
 	sid_resource_t *cmd_res;
 
@@ -3127,7 +3127,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(cmd->kv_store_res = sid_resource_search(sid_resource_get_top_level(res), SID_RESOURCE_SEARCH_IMM_DESC,
+	if (!(cmd->kv_store_res = sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS,
 	                                              &sid_resource_type_kv_store, MAIN_KV_STORE_NAME))) {
 		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find key-value store.", __func__);
 		goto fail;
@@ -3739,7 +3739,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = NULL;
-	//sid_resource_dump_all_in_dot(sid_resource_get_top_level(res));
+	//sid_resource_dump_all_in_dot(sid_resource_search(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
 	*data = ubridge;
 	return 0;

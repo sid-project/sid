@@ -155,7 +155,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		 *        daemon process. But we should fix this correctly and we should
 		 *        know why this is causing problems!
 		 */
-		/*(void) sid_resource_destroy(sid_resource_get_top_level(worker_control_res));*/
+		/*(void) sid_resource_destroy(sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));*/
 	} else {
 		(void) close(comms_fd[1]);
 
@@ -216,7 +216,7 @@ sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, c
 
 bool worker_control_is_worker(sid_resource_t *res)
 {
-	return sid_resource_is_ancestor_of_type(res, &sid_resource_type_worker);
+	return sid_resource_search(res, SID_RESOURCE_SEARCH_ANC, &sid_resource_type_worker, NULL) != NULL;
 }
 
 const char *worker_control_get_worker_id(sid_resource_t *res)
@@ -225,7 +225,7 @@ const char *worker_control_get_worker_id(sid_resource_t *res)
 		if (sid_resource_match(res, &sid_resource_type_worker, NULL) ||
 		    sid_resource_match(res, &sid_resource_type_worker_proxy, NULL))
 			return sid_resource_get_id(res);
-	} while ((res = sid_resource_get_parent(res)));
+	} while ((res = sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL)));
 
 	return NULL;
 }
@@ -310,7 +310,7 @@ int worker_control_send(sid_resource_t *res, void *data, size_t data_size, int f
 		if (worker_proxy->state != WORKER_ASSIGNED)
 			_change_worker_proxy_state(res, WORKER_ASSIGNED);
 	} else {
-		res = sid_resource_get_top_level(res);
+		res = sid_resource_search(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL);
 
 		if (sid_resource_match(res, &sid_resource_type_worker, NULL)) {
 			/* sending from worker to worker proxy */

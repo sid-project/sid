@@ -86,11 +86,6 @@ void *sid_resource_get_data(sid_resource_t *res);
 const char *sid_resource_get_full_id(sid_resource_t *res);
 const char *sid_resource_get_id(sid_resource_t *res);
 
-/*
- * structure/tree ancestry functions
- */
-bool sid_resource_is_ancestor_of_type(sid_resource_t *res, const sid_resource_type_t *type);
-
 #define ID(res) sid_resource_get_full_id(res)
 
 /*
@@ -105,17 +100,34 @@ sid_resource_t *sid_resource_iter_previous(sid_resource_iter_t *iter);
 void sid_resource_iter_reset(sid_resource_iter_t *iter);
 void sid_resource_iter_destroy(sid_resource_iter_t *iter);
 
-sid_resource_t *sid_resource_get_parent(sid_resource_t *res);
-sid_resource_t *sid_resource_get_top_level(sid_resource_t *res);
-
 bool sid_resource_match(sid_resource_t *res, const sid_resource_type_t *type, const char *id);
 
 typedef enum {
+
+	/* Descendant search methods */
+
 	_SID_RESOURCE_SEARCH_DESC_START, /* internal use */
 	  SID_RESOURCE_SEARCH_IMM_DESC,  /* only immediate descendants - children */
 	  SID_RESOURCE_SEARCH_DFS,       /* depth first search */
 	  SID_RESOURCE_SEARCH_WIDE_DFS,  /* IMM_DESC + DFS hybrid (DFS, but process all immediate children first before going deeper) */
 	_SID_RESOURCE_SEARCH_DESC_END,   /* internal use */
+
+
+	/* Ancestor search methods */
+
+	_SID_RESOURCE_SEARCH_ANC_START, /* internal use */
+	  SID_RESOURCE_SEARCH_IMM_ANC,  /* only immediate ancestor - parent */
+	  SID_RESOURCE_SEARCH_ANC,      /* any ancestor that matches */
+	  SID_RESOURCE_SEARCH_TOP,      /* topmost ancestor */
+	_SID_RESOURCE_SEARCH_ANC_END,   /* internal use */
+
+
+	/* Compound search methods */
+
+	_SID_RESOURCE_SEARCH_COMP_START, /* internal use */
+	  SID_RESOURCE_SEARCH_GENUS,     /* TOP + WIDE_DFS hybrid (go to topmost ancestor first, then search through all descendandts) */
+	_SID_RESOURCE_SEARCH_COMP_END,   /* internal use */
+
 } sid_resource_search_method_t;
 
 sid_resource_t *sid_resource_search(sid_resource_t *root_res, sid_resource_search_method_t method,
