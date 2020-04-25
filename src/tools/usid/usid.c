@@ -231,7 +231,7 @@ static int _add_checkpoint_env_to_buf(struct buffer *buf, void *data)
 	}
 
 	/* add checkpoint name */
-	buffer_add(buf, args->argv[1], strlen(args->argv[1]));
+	buffer_add(buf, args->argv[1], strlen(args->argv[1]) + 1);
 
 	/* add key=value pairs from current environment */
 	for (i = 2; i < args->argc; i++) {
