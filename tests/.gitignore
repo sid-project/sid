@@ -5,3 +5,4 @@ test_buffer
 test_notify
 test_kv_store
 test_bitmap
+test_usid
