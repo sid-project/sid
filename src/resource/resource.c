@@ -282,7 +282,9 @@ int sid_resource_destroy(sid_resource_t *res)
 
 sid_resource_t *sid_resource_ref(sid_resource_t *res)
 {
-	res->ref_count++;
+	if (res)
+		res->ref_count++;
+
 	return res;
 }
 
