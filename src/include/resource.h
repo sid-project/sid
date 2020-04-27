@@ -126,6 +126,7 @@ typedef enum {
 
 	_SID_RESOURCE_SEARCH_COMP_START, /* internal use */
 	  SID_RESOURCE_SEARCH_GENUS,     /* TOP + WIDE_DFS hybrid (go to topmost ancestor first, then search through all descendandts) */
+	  SID_RESOURCE_SEARCH_SIB,       /* IMM_ANC + IMM_DESC (go to parent first, then search through all its children) */
 	_SID_RESOURCE_SEARCH_COMP_END,   /* internal use */
 
 } sid_resource_search_method_t;

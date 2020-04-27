@@ -514,7 +514,8 @@ bool sid_resource_match(sid_resource_t *res, const sid_resource_type_t *type, co
 }
 
 sid_resource_t *_search_down(sid_resource_t *res, sid_resource_search_method_t method,
-                             const sid_resource_type_t *type, const char *id)
+                             const sid_resource_type_t *type, const char *id,
+                             sid_resource_t *ign_res)
 {
 	sid_resource_t *child_res, *found;
 
@@ -522,7 +523,7 @@ sid_resource_t *_search_down(sid_resource_t *res, sid_resource_search_method_t m
 		if (child_res->flags & SID_RESOURCE_RESTRICT_WALK_DOWN)
 			continue;
 
-		if (sid_resource_match(child_res, type, id))
+		if (child_res != ign_res && sid_resource_match(child_res, type, id))
 			return child_res;
 
 		if (method == SID_RESOURCE_SEARCH_DFS) {
@@ -533,7 +534,7 @@ sid_resource_t *_search_down(sid_resource_t *res, sid_resource_search_method_t m
 
 	if (method == SID_RESOURCE_SEARCH_WIDE_DFS) {
 		list_iterate_items(child_res, &res->children) {
-			if ((found = _search_down(child_res, method, type, id)))
+			if ((found = _search_down(child_res, method, type, id, NULL)))
 				return found;
 		}
 	}
@@ -542,22 +543,23 @@ sid_resource_t *_search_down(sid_resource_t *res, sid_resource_search_method_t m
 }
 
 sid_resource_t *_search_up(sid_resource_t *res, sid_resource_search_method_t method,
-                           const sid_resource_type_t *type, const char *id)
+                           const sid_resource_type_t *type, const char *id,
+                           sid_resource_t *ign_res)
 {
 	if (method == SID_RESOURCE_SEARCH_IMM_ANC) {
 		if (res->parent && !(res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP) &&
-		    sid_resource_match(res->parent, type, id))
+		    res->parent != ign_res && sid_resource_match(res->parent, type, id))
 			return res->parent;
 	} else if (method == SID_RESOURCE_SEARCH_ANC) {
 		while (res->parent && !(res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP)) {
-			if (sid_resource_match(res->parent, type, id))
+			if (res->parent != ign_res && sid_resource_match(res->parent, type, id))
 				return res->parent;
 		}
 	} else if (method == SID_RESOURCE_SEARCH_TOP) {
 		while (res->parent && !(res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP))
 			res = res->parent;
 
-		if (sid_resource_match(res, type, id))
+		if (res != ign_res && sid_resource_match(res, type, id))
 			return res;
 	}
 
@@ -570,10 +572,17 @@ sid_resource_t *_search(sid_resource_t *res, sid_resource_search_method_t method
 	sid_resource_t *tmp_res;
 
 	if (method == SID_RESOURCE_SEARCH_GENUS) {
-		if (!(tmp_res = _search_up(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL)))
+		if (!(tmp_res = _search_up(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL, NULL)))
 			return NULL;
 
-		return _search_down(tmp_res, SID_RESOURCE_SEARCH_WIDE_DFS, type, id);
+		return _search_down(tmp_res, SID_RESOURCE_SEARCH_WIDE_DFS, type, id, NULL);
+	}
+
+	if (method == SID_RESOURCE_SEARCH_SIB) {
+		if (!(tmp_res = _search_up(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL, NULL)))
+			return NULL;
+
+		return _search_down(tmp_res, SID_RESOURCE_SEARCH_IMM_DESC, type, id, res);
 	}
 
 	return NULL;
@@ -583,10 +592,10 @@ sid_resource_t *sid_resource_search(sid_resource_t *res, sid_resource_search_met
                                     const sid_resource_type_t *type, const char *id)
 {
 	if (method > _SID_RESOURCE_SEARCH_DESC_START && method < _SID_RESOURCE_SEARCH_DESC_END)
-		return _search_down(res, method, type, id);
+		return _search_down(res, method, type, id, NULL);
 
 	if (method > _SID_RESOURCE_SEARCH_ANC_START && method < _SID_RESOURCE_SEARCH_ANC_END)
-		return _search_up(res, method, type, id);
+		return _search_up(res, method, type, id, NULL);
 
 	if (method > _SID_RESOURCE_SEARCH_COMP_START && method < _SID_RESOURCE_SEARCH_COMP_END)
 		return _search(res, method, type, id);
