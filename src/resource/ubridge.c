@@ -3031,7 +3031,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 			if (msg.header->cmd < _USID_CMD_START || msg.header->cmd > _USID_CMD_END)
 				msg.header->cmd = USID_CMD_UNKNOWN;
 
-			snprintf(id, sizeof(id) - 1, "%d/%s", getpid(), usid_cmd_names[msg.header->cmd]);
+			snprintf(id, sizeof(id), "%d/%s", getpid(), usid_cmd_names[msg.header->cmd]);
 
 			if (!sid_resource_create(conn_res, &sid_resource_type_ubridge_command, 0, id, &msg, NULL))
 				log_error(ID(conn_res), "Failed to register command for processing.");
