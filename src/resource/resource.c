@@ -547,16 +547,16 @@ sid_resource_t *_search_up(sid_resource_t *res, sid_resource_search_method_t met
                            sid_resource_t *ign_res)
 {
 	if (method == SID_RESOURCE_SEARCH_IMM_ANC) {
-		if (res->parent && !(res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP) &&
+		if (res->parent && !(res->flags & SID_RESOURCE_RESTRICT_WALK_UP) &&
 		    res->parent != ign_res && sid_resource_match(res->parent, type, id))
 			return res->parent;
 	} else if (method == SID_RESOURCE_SEARCH_ANC) {
-		while (res->parent && !(res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP)) {
+		while (res->parent && !(res->flags & SID_RESOURCE_RESTRICT_WALK_UP)) {
 			if (res->parent != ign_res && sid_resource_match(res->parent, type, id))
 				return res->parent;
 		}
 	} else if (method == SID_RESOURCE_SEARCH_TOP) {
-		while (res->parent && !(res->parent->flags & SID_RESOURCE_RESTRICT_WALK_UP))
+		while (res->parent && !(res->flags & SID_RESOURCE_RESTRICT_WALK_UP))
 			res = res->parent;
 
 		if (res != ign_res && sid_resource_match(res, type, id))
