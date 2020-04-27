@@ -1372,7 +1372,7 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, const char *st
 	const char *value;
 	int r = -1;
 
-	if (!(value = strchr(start, KV_PAIR_C[0])) || !*(value++))
+	if (!(value = strchr(start, KV_PAIR_C[0])) || !*(++value))
 		return -1;
 
 	if (!(key = buffer_fmt_add(cmd->gen_buf, "%.*s", value - start - 1, start)))
