@@ -2706,20 +2706,14 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	sid_resource_t *modules_aggr_res, *block_mod_registry_res;
+	sid_resource_t *block_mod_registry_res;
 	const char *mod_name;
 	cmd_scan_phase_t phase;
 	int r = -1;
 
 	cmd->scan_phase = CMD_SCAN_PHASE_A_INIT;
 
-	if (!(modules_aggr_res = sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_GENUS,
-	                                             &sid_resource_type_aggregate, MODULES_AGGREGATE_ID))) {
-		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find modules aggregate resource.", __func__);
-		goto out;
-	}
-
-	if (!(block_mod_registry_res = sid_resource_search(modules_aggr_res, SID_RESOURCE_SEARCH_IMM_DESC,
+	if (!(block_mod_registry_res = sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_GENUS,
 	                                                   &sid_resource_type_module_registry, MODULES_BLOCK_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
 		goto out;
@@ -2730,7 +2724,7 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 		goto out;
 	}
 
-	if (!(exec_arg->type_mod_registry_res = sid_resource_search(modules_aggr_res, SID_RESOURCE_SEARCH_IMM_DESC,
+	if (!(exec_arg->type_mod_registry_res = sid_resource_search(block_mod_registry_res, SID_RESOURCE_SEARCH_SIB,
 	                                                            &sid_resource_type_module_registry, MODULES_TYPE_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
 		goto out;
