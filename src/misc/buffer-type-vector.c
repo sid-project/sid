@@ -150,6 +150,11 @@ int _buffer_vector_rewind(struct buffer *buf, size_t pos)
 	return 0;
 }
 
+int _buffer_vector_rewind_mem(struct buffer *buf, const void *mem)
+{
+	return _buffer_vector_rewind(buf, (struct iovec *)mem - (struct iovec *)buf->mem);
+}
+
 bool _buffer_vector_is_complete(struct buffer *buf)
 {
 	/*	struct iovec *iov;
@@ -235,6 +240,7 @@ const struct buffer_type buffer_type_vector = {
 	.add = _buffer_vector_add,
 	.fmt_add = _buffer_vector_fmt_add,
 	.rewind = _buffer_vector_rewind,
+	.rewind_mem = _buffer_vector_rewind_mem,
 	.is_complete = _buffer_vector_is_complete,
 	.get_data = _buffer_vector_get_data,
 	.read = _buffer_vector_read,

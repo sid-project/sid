@@ -163,6 +163,11 @@ static int _buffer_linear_rewind(struct buffer *buf, size_t pos)
 	return 0;
 }
 
+static int _buffer_linear_rewind_mem(struct buffer *buf, const void *mem)
+{
+	return _buffer_linear_rewind(buf, mem - buf->mem);
+}
+
 #define EXPECTED(buf) (buf->used >= MSG_SIZE_PREFIX_LEN ? *((MSG_SIZE_PREFIX_TYPE *) buf->mem) : 0)
 
 static bool _buffer_linear_is_complete(struct buffer *buf)
@@ -278,6 +283,7 @@ const struct buffer_type buffer_type_linear = {
 	.add = _buffer_linear_add,
 	.fmt_add = _buffer_linear_fmt_add,
 	.rewind = _buffer_linear_rewind,
+	.rewind_mem = _buffer_linear_rewind_mem,
 	.is_complete = _buffer_linear_is_complete,
 	.get_data = _buffer_linear_get_data,
 	.read = _buffer_linear_read,

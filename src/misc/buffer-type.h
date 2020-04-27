@@ -40,6 +40,7 @@ struct buffer_type {
 	const void *(*add) (struct buffer *buf, void *data, size_t len);
 	const void *(*fmt_add) (struct buffer *buf, const char *fmt, va_list ap);
 	int (*rewind) (struct buffer *buf, size_t pos);
+	int (*rewind_mem) (struct buffer *buf, const void *mem);
 	bool (*is_complete) (struct buffer *buf);
 	int (*get_data) (struct buffer *buf, const void **data, size_t *data_size);
 	ssize_t (*read) (struct buffer *buf, int fd);
