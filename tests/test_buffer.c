@@ -6,18 +6,23 @@
 #include "buffer.h"
 
 #define TEST_STR "foo"
+#define TEST_SIZE sizeof(TEST_STR)
+#define TEST_STR2 "zyzzy"
+#define TEST_SIZE2 sizeof(TEST_STR2)
+#define TEST_STR3 "quux"
+#define TEST_SIZE3 sizeof(TEST_STR3)
 
 int test_fmt_add(int buf_size)
 {
 	int r = 0;
 	struct buffer *buf = NULL;
 	char *data;
-	size_t data_size, test_size = sizeof(TEST_STR);
+	size_t data_size;
 	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, buf_size, 1);
 	assert_non_null(buf);
 	assert_non_null(buffer_fmt_add(buf, TEST_STR));
 	assert_int_equal(buffer_get_data(buf, (const void **)&data, &data_size),			 0);
-	assert_true(data_size == test_size);
+	assert_true(data_size == TEST_SIZE);
 	buffer_destroy(buf);
 	return r;
 }
@@ -32,11 +37,74 @@ static void test_no_realloc_fmt_add(void **state)
 	test_fmt_add(8);
 }
 
+static const void *do_rewind_test(struct buffer *buf)
+{
+	const void *rewind_mem;
+
+	assert_non_null(buf);
+	assert_non_null(buffer_add(buf, TEST_STR, TEST_SIZE));
+	rewind_mem = buffer_add(buf, TEST_STR2, TEST_SIZE2);
+	assert_non_null(rewind_mem);
+	assert_non_null(buffer_add(buf, TEST_STR3, TEST_SIZE3));
+	assert_int_equal(buffer_rewind_mem(buf, rewind_mem), 0);
+	return rewind_mem;
+}
+
+static void test_linear_rewind_mem(void **state)
+{
+	struct buffer *buf;
+
+	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, 1);
+	do_rewind_test(buf);
+	buffer_destroy(buf);
+}
+
+static void test_vector_rewind_mem(void **state)
+{
+	struct buffer *buf;
+
+	buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, 0, 1);
+	do_rewind_test(buf);
+	buffer_destroy(buf);
+}
+
+static void do_test_zero_add(struct buffer *buf)
+{
+	const void *rewind_mem, *tmp_mem_start;
+
+	rewind_mem = do_rewind_test(buf);
+	tmp_mem_start = buffer_add(buf, "", 0);
+	assert_ptr_equal(rewind_mem, tmp_mem_start);
+	assert_non_null(buffer_add(buf, TEST_STR3, TEST_SIZE3));
+	assert_int_equal(buffer_rewind_mem(buf, tmp_mem_start), 0);
+	buffer_destroy(buf);
+}
+
+static void test_linear_zero_add(void **state)
+{
+	struct buffer *buf;
+
+	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, 1);
+	do_test_zero_add(buf);
+}
+
+static void test_vector_zero_add(void **state)
+{
+	struct buffer *buf;
+
+	buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, 0, 1);
+	do_test_zero_add(buf);
+}
+
 int main(void)
 {
 	const struct CMUnitTest tests[] = {
 		cmocka_unit_test(test_realloc_fmt_add),
 		cmocka_unit_test(test_no_realloc_fmt_add),
+		cmocka_unit_test(test_linear_rewind_mem),
+		cmocka_unit_test(test_vector_rewind_mem),
+		cmocka_unit_test(test_linear_zero_add),
+		cmocka_unit_test(test_vector_zero_add),
 	};
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
