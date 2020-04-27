@@ -3676,7 +3676,9 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	ubridge->socket_fd = -1;
 
 	if (!(ubridge->internal_res = sid_resource_create(res, &sid_resource_type_aggregate,
-	                                                  SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_RESTRICT_WALK_DOWN,
+	                                                  SID_RESOURCE_RESTRICT_WALK_UP |
+	                                                  SID_RESOURCE_RESTRICT_WALK_DOWN |
+	                                                  SID_RESOURCE_DISALLOW_ISOLATION,
 	                                                  INTERNAL_AGGREGATE_ID, ubridge, NULL))) {
 		log_error(ID(res), "Failed to create internal ubridge resource.");
 		goto fail;
@@ -3709,9 +3711,9 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, 0, MODULES_BLOCK_ID,
+	if (!(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, SID_RESOURCE_DISALLOW_ISOLATION, MODULES_BLOCK_ID,
 	                          &block_res_mod_params, NULL)) ||
-	    !(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, 0, MODULES_TYPE_ID,
+	    !(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, SID_RESOURCE_DISALLOW_ISOLATION, MODULES_TYPE_ID,
 	                          &type_res_mod_params, NULL))) {
 		log_error(ID(res), "Failed to create module handler.");
 		goto fail;

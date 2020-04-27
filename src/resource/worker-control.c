@@ -169,7 +169,8 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			id = gen_id;
 		}
 
-		res = sid_resource_create(worker_control->worker_proxies_res, &sid_resource_type_worker_proxy, 0, id, &kickstart, NULL);
+		res = sid_resource_create(worker_control->worker_proxies_res, &sid_resource_type_worker_proxy,
+		                          SID_RESOURCE_DISALLOW_ISOLATION, id, &kickstart, NULL);
 	}
 out:
 	if (signals_blocked && pid) {
