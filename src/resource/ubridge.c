@@ -3336,7 +3336,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 
 			data_offset = _kv_value_ext_data_offset(value);
 			unset = ((value->flags != KV_MOD_RESERVED) &&
-			         ((data_size - data_offset) == (sizeof(struct kv_value) + data_offset)));
+			         (data_size == (sizeof(struct kv_value) + data_offset)));
 
 			update_arg.owner = value->data;
 			update_arg.res = ubridge->main_kv_store_res;
