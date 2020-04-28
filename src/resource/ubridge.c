@@ -2116,9 +2116,13 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 	 */
 	abs_minus_size = ((cross2.old_bmp ? bitmap_get_bit_set_count(cross2.old_bmp) : 0) +
 	                  (cross1.new_bmp ? bitmap_get_bit_set_count(cross1.new_bmp) : 0));
+	if (cross2.old_bmp && cross1.new_bmp)
+		abs_minus_size -= KV_VALUE_IDX_DATA;
 
 	abs_plus_size = ((cross1.old_bmp ? bitmap_get_bit_set_count(cross1.old_bmp) : 0) +
 	                 (cross2.new_bmp ? bitmap_get_bit_set_count(cross2.new_bmp) : 0));
+	if (cross1.old_bmp && cross2.new_bmp)
+		abs_plus_size -= KV_VALUE_IDX_DATA;
 
 	/* go through the old and new plus and minus vectors and merge non-contradicting items */
 	if (_init_delta_struct(abs_delta, abs_minus_size, abs_plus_size, 0, spec->new_data, KV_VALUE_IDX_DATA) < 0)
