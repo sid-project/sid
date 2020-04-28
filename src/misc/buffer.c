@@ -61,7 +61,7 @@ int buffer_reset(struct buffer *buf, size_t initial_size, size_t alloc_step)
 
 const void *buffer_add(struct buffer *buf, void *data, size_t len)
 {
-	if (!data || !len) {
+	if (!data) {
 		errno = EINVAL;
 		return NULL;
 	}
