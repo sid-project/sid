@@ -440,6 +440,7 @@ static int _on_worker_comms_event(sid_resource_event_source_t *es, int fd, uint3
 	void *recv_data;
 	size_t recv_data_size;
 	int recv_fd;
+	int r = 0;
 
 	if (_comms_recv(worker->comms_fd, &recv_cmd, &recv_data, &recv_data_size, &recv_fd) < 0)
 		return -1;
@@ -449,18 +450,17 @@ static int _on_worker_comms_event(sid_resource_event_source_t *es, int fd, uint3
 			if (worker->recv_fn) {
 				if (worker->recv_fn(worker_res, recv_data, recv_data_size, recv_fd, worker->recv_fn_arg) < 0)
 					log_warning(ID(worker_res), "%s", _custom_message_handling_failed_msg);
-			} else {
+			} else
 				log_warning(ID(worker_res), "%s", _no_custom_receive_function_msg);
-				if (recv_data)
-					free(recv_data);
-			}
 			break;
 		default:
 			log_error(ID(worker_res), INTERNAL_ERROR "%s%s", comms_cmd_str[recv_cmd], _unexpected_internal_command_msg);
-			return -1;
+			r = -1;
 	}
 
-	return 0;
+	if (recv_data)
+		free(recv_data);
+	return r;
 }
 
 static int _on_worker_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *userdata)
