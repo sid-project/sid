@@ -2986,16 +2986,6 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 static int _connection_cleanup(sid_resource_t *conn_res)
 {
 	sid_resource_t *worker_res = sid_resource_search(conn_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
-	sid_resource_iter_t *iter;
-	sid_resource_t *cmd_res;
-
-	if (!(iter = sid_resource_iter_create(conn_res)))
-		return -1;
-
-	while ((cmd_res = sid_resource_iter_next(iter)))
-		(void) sid_resource_destroy(cmd_res);
-
-	sid_resource_iter_destroy(iter);
 
 	sid_resource_destroy(conn_res);
 
