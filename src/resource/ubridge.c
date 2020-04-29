@@ -881,8 +881,8 @@ void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cm
 	return _do_sid_ubridge_cmd_set_kv(cmd, ns, KV_KEY_DOM_USER, key, flags, value, value_size);
 }
 
-const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-                                   const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
+static const void *_do_sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+                                              const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
 {
 	const char *owner = _res_get_mod_name(cmd->mod_res);
 	const char *full_key = NULL;
@@ -897,11 +897,6 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 		       .key = key
 	};
 	void *ret = NULL;
-
-	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0])) {
-		errno = EINVAL;
-		goto out;
-	}
 
 	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec))) {
 		errno = ENOKEY;
@@ -932,6 +927,16 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 out:
 	buffer_rewind_mem(cmd->gen_buf, full_key);
 	return ret;
+}
+
+const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
+                                   const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
+{
+	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0])) {
+		errno = EINVAL;
+		return NULL;
+	}
+	return _do_sid_ubridge_cmd_get_kv(cmd, ns, key, value_size, flags);
 }
 
 static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, void *garg)
@@ -1098,7 +1103,7 @@ dev_ready_t sid_ubridge_cmd_dev_get_ready(struct sid_ubridge_cmd_context *cmd)
 	orig_mod_res = cmd->mod_res;
 	cmd->mod_res = NULL;
 
-	if (!(p_ready = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
+	if (!(p_ready = _do_sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
 		result = DEV_NOT_RDY_UNPROCESSED;
 	else
 		result = *p_ready;
@@ -1134,7 +1139,7 @@ dev_reserved_t sid_ubridge_cmd_dev_get_reserved(struct sid_ubridge_cmd_context *
 	orig_mod_res = cmd->mod_res;
 	cmd->mod_res = NULL;
 
-	if (!(p_reserved = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
+	if (!(p_reserved = _do_sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
 		result = DEV_RES_UNPROCESSED;
 	else
 		result = *p_reserved;
@@ -1471,7 +1476,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	int major;
 	size_t len;
 
-	if ((mod_name = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL)))
+	if ((mod_name = _do_sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL)))
 		goto out;
 
 	if (!(f = fopen(SYSTEM_PROC_DEVICES_PATH, "r"))) {
@@ -1694,7 +1699,7 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
 
-	if ((next_mod_name = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_NEXT_MOD, NULL, NULL))) {
+	if ((next_mod_name = _do_sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_NEXT_MOD, NULL, NULL))) {
 		if (!(exec_arg->type_mod_res_next = sid_module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name))) {
 			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
 			return -1;
@@ -2620,7 +2625,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	const dev_ready_t *p_ready;
 	dev_reserved_t reserved;
 
-	if (!(p_ready = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL))) {
+	if (!(p_ready = _do_sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL))) {
 		ready = DEV_NOT_RDY_UNPROCESSED;
 		reserved = DEV_RES_UNPROCESSED;
 
