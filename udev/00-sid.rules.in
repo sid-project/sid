@@ -1,1 +1,1 @@
-SUBSYSTEM=="block", ACTION=="change|remove", IMPORT{program}="(SBINDIR)/usid scan"
+SUBSYSTEM=="block", ACTION=="add|change|remove", IMPORT{program}="(SBINDIR)/usid scan"
