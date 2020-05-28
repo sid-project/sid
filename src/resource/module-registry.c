@@ -38,7 +38,7 @@ struct module_registry {
 	uint64_t flags;
 	void *callback_arg;
 	unsigned symbol_count;
-	const struct sid_module_symbol_params *symbol_params;
+	struct sid_module_symbol_params *symbol_params;
 	sid_resource_iter_t *module_iter;
 };
 
@@ -308,11 +308,30 @@ static int _destroy_module(sid_resource_t *module_res)
 	return 0;
 }
 
+static void _free_module_registry(struct module_registry *registry)
+{
+	unsigned i;
+
+	if (!registry)
+		return;
+
+	sid_resource_iter_destroy(registry->module_iter);
+
+	if (registry->symbol_params) {
+		for (i = 0; i < registry->symbol_count; i++)
+			free((void *) registry->symbol_params[i].name);
+		free(registry->symbol_params);
+	}
+
+	free((void *) registry->directory);
+	free(registry);
+}
+
 static int _init_module_registry(sid_resource_t *module_registry_res, const void *kickstart_data, void **data)
 {
 	const struct sid_module_registry_resource_params *params = kickstart_data;
 	struct module_registry *registry = NULL;
-	unsigned count = 0;
+	unsigned i, symbol_count = 0;
 
 	if (!params) {
 		log_error(ID(module_registry_res), "Module resource parameters not specified.");
@@ -324,10 +343,10 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	while (params->symbol_params[count].name)
-		count++;
+	while (params->symbol_params[symbol_count].name)
+		symbol_count++;
 
-	if (!count) {
+	if (!symbol_count) {
 		log_error(ID(module_registry_res), "Module's symbol parameters not specified.");
 		goto fail;
 	}
@@ -337,13 +356,28 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	/* FIXME: Make a copy of directory name and symbols to load array. */
-	registry->directory = params->directory;
+	registry->symbol_count = symbol_count;
+
+	if (!(registry->directory = strdup(params->directory))) {
+		log_error(ID(module_registry_res), "Failed to copy module directory name.");
+		goto fail;
+	}
+
+	if (!(registry->symbol_params = zalloc(symbol_count * sizeof(struct sid_module_symbol_params)))) {
+		log_error(ID(module_registry_res), "Failed to allocate memory for symbol parameters.");
+		goto fail;
+	}
+
+	for (i = 0; i < symbol_count; i++) {
+		if (!(registry->symbol_params[i].name = strdup(params->symbol_params[i].name))) {
+			log_error(ID(module_registry_res), "Failed to copy symbol name.");
+			goto fail;
+		}
+		registry->symbol_params[i].flags = params->symbol_params[i].flags;
+	}
 
 	registry->flags = params->flags;
 	registry->callback_arg = params->callback_arg;
-	registry->symbol_count = count;
-	registry->symbol_params = params->symbol_params;
 
 	*data = registry;
 
@@ -359,17 +393,13 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 
 	return 0;
 fail:
-	free(registry);
+	_free_module_registry(registry);
 	return -1;
 }
 
 static int _destroy_module_registry(sid_resource_t *module_registry_res)
 {
-	struct module_registry *registry = sid_resource_get_data(module_registry_res);
-
-	sid_resource_iter_destroy(registry->module_iter);
-	free(registry);
-
+	_free_module_registry(sid_resource_get_data(module_registry_res));
 	return 0;
 }
 
