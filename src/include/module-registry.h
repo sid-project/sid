@@ -47,7 +47,7 @@ struct sid_module_registry_resource_params {
 	const char *directory;
 	uint64_t flags;
 	void *callback_arg;
-	const struct sid_module_symbol_params symbol_params[]; /* NULL-terminated list of symbol params */
+	const struct sid_module_symbol_params *symbol_params; /* NULL-terminated list of symbol params */
 };
 
 sid_resource_t *sid_module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name);
