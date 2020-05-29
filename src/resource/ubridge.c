@@ -1431,7 +1431,7 @@ static int _parse_cmd_nullstr_udev_env(struct sid_ubridge_cmd_context *cmd, cons
 	 *
 	 *   devnokey1=value1\0key2=value2\0...
 	 */
-	for (env += sizeof(devno), end = env + env_size; env < end; env += strlen(env) + 1) {
+	for (end = env + env_size, env += sizeof(devno); env < end; env += strlen(env) + 1) {
 		if ((r = _device_add_field(cmd, env) < 0))
 			goto out;
 	}
