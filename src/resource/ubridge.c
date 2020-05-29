@@ -3032,7 +3032,12 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 
 			snprintf(id, sizeof(id), "%d/%s", getpid(), usid_cmd_names[msg.header->cmd]);
 
-			if (!sid_resource_create(conn_res, &sid_resource_type_ubridge_command, 0, id, &msg, NULL))
+			if (!sid_resource_create(conn_res,
+			                         &sid_resource_type_ubridge_command,
+			                         SID_RESOURCE_NO_FLAGS,
+			                         id,
+			                         &msg,
+			                         SID_RESOURCE_NO_SERVICE_LINKS))
 				log_error(ID(conn_res), "Failed to register command for processing.");
 
 			(void) buffer_reset(conn->buf, 0, 1);
@@ -3381,7 +3386,12 @@ static int _worker_recv_fn(sid_resource_t *worker_res, void *data, size_t data_s
 {
 	sid_resource_t *conn_res;
 
-	if (!(conn_res = sid_resource_create(worker_res, &sid_resource_type_ubridge_connection, 0, NULL, &fd, NULL))) {
+	if (!(conn_res = sid_resource_create(worker_res,
+	                                     &sid_resource_type_ubridge_connection,
+	                                     SID_RESOURCE_NO_FLAGS,
+	                                     SID_RESOURCE_NO_CUSTOM_ID,
+	                                     &fd,
+	                                     SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(worker_res), "Failed to create connection resource.");
 		return -1;
 	}
@@ -3678,23 +3688,34 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 	ubridge->socket_fd = -1;
 
-	if (!(ubridge->internal_res = sid_resource_create(res, &sid_resource_type_aggregate,
+	if (!(ubridge->internal_res = sid_resource_create(res,
+	                                                  &sid_resource_type_aggregate,
 	                                                  SID_RESOURCE_RESTRICT_WALK_UP |
 	                                                  SID_RESOURCE_RESTRICT_WALK_DOWN |
 	                                                  SID_RESOURCE_DISALLOW_ISOLATION,
-	                                                  INTERNAL_AGGREGATE_ID, ubridge, NULL))) {
+	                                                  INTERNAL_AGGREGATE_ID,
+	                                                  ubridge,
+	                                                  SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create internal ubridge resource.");
 		goto fail;
 	}
 
-	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_kv_store, SID_RESOURCE_RESTRICT_WALK_UP,
-	                                                       MAIN_KV_STORE_NAME, &main_kv_store_res_params, NULL))) {
+	if (!(ubridge->main_kv_store_res = sid_resource_create(ubridge->internal_res,
+	                                                       &sid_resource_type_kv_store,
+	                                                       SID_RESOURCE_RESTRICT_WALK_UP,
+	                                                       MAIN_KV_STORE_NAME,
+	                                                       &main_kv_store_res_params,
+	                                                       SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create main key-value store.");
 		goto fail;
 	}
 
-	if (!(ubridge->worker_control_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_worker_control, 0,
-	                                                        NULL, NULL, NULL))) {
+	if (!(ubridge->worker_control_res = sid_resource_create(ubridge->internal_res,
+	                                                        &sid_resource_type_worker_control,
+	                                                        SID_RESOURCE_NO_FLAGS,
+	                                                        SID_RESOURCE_NO_CUSTOM_ID,
+	                                                        SID_RESOURCE_NO_PARAMS,
+	                                                        SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create worker control.");
 		goto fail;
 	}
@@ -3708,16 +3729,28 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 
 	block_res_mod_params.cb_arg = type_res_mod_params.cb_arg = &ubridge->cmd_mod;
 
-	if (!(ubridge->modules_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_aggregate, 0, MODULES_AGGREGATE_ID,
-	                                                 NULL, NULL))) {
+	if (!(ubridge->modules_res = sid_resource_create(ubridge->internal_res,
+	                                                 &sid_resource_type_aggregate,
+	                                                 SID_RESOURCE_NO_FLAGS,
+	                                                 MODULES_AGGREGATE_ID,
+	                                                 SID_RESOURCE_NO_PARAMS,
+	                                                 SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
 		goto fail;
 	}
 
-	if (!(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, SID_RESOURCE_DISALLOW_ISOLATION, MODULES_BLOCK_ID,
-	                          &block_res_mod_params, NULL)) ||
-	    !(sid_resource_create(ubridge->modules_res, &sid_resource_type_module_registry, SID_RESOURCE_DISALLOW_ISOLATION, MODULES_TYPE_ID,
-	                          &type_res_mod_params, NULL))) {
+	if (!(sid_resource_create(ubridge->modules_res,
+	                          &sid_resource_type_module_registry,
+	                          SID_RESOURCE_DISALLOW_ISOLATION,
+	                          MODULES_BLOCK_ID,
+	                          &block_res_mod_params,
+	                          SID_RESOURCE_NO_SERVICE_LINKS)) ||
+	    !(sid_resource_create(ubridge->modules_res,
+	                          &sid_resource_type_module_registry,
+	                          SID_RESOURCE_DISALLOW_ISOLATION,
+	                          MODULES_TYPE_ID,
+	                          &type_res_mod_params,
+	                          SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create module handler.");
 		goto fail;
 	}

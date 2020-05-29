@@ -182,7 +182,12 @@ int main(int argc, char *argv[])
 	}
 
 
-	if (!(sid_res = sid_resource_ref(sid_resource_create(NULL, &sid_resource_type_sid, 0, NULL, NULL, service_link_defs))))
+	if (!(sid_res = sid_resource_ref(sid_resource_create(SID_RESOURCE_NO_PARENT,
+	                                                     &sid_resource_type_sid,
+	                                                     SID_RESOURCE_NO_FLAGS,
+	                                                     SID_RESOURCE_NO_CUSTOM_ID,
+	                                                     SID_RESOURCE_NO_PARAMS,
+	                                                     service_link_defs))))
 		goto out;
 
 	r = sid_resource_run_event_loop(sid_res);

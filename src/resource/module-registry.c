@@ -80,8 +80,12 @@ sid_resource_t *sid_module_registry_load_module(sid_resource_t *module_registry_
 		return module_res;
 	}
 
-	if (!(module_res = sid_resource_create(module_registry_res, &sid_resource_type_module, SID_RESOURCE_DISALLOW_ISOLATION,
-	                                       module_name, module_name, NULL))) {
+	if (!(module_res = sid_resource_create(module_registry_res,
+	                                       &sid_resource_type_module,
+	                                       SID_RESOURCE_DISALLOW_ISOLATION,
+	                                       module_name,
+	                                       module_name,
+	                                       SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(module_registry_res), "Failed to load module %s/%s.", registry->directory, module_name);
 		return NULL;
 	}
@@ -192,8 +196,12 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 
 	for (i = 0; i < count; i++) {
 		if (dirent[i]->d_name[0] != '.' && _has_suffix(dirent[i]->d_name, SID_MODULE_NAME_SUFFIX, 1)) {
-			if (!(module_res = sid_resource_create(module_registry_res, &sid_resource_type_module, SID_RESOURCE_DISALLOW_ISOLATION,
-			                                       dirent[i]->d_name, dirent[i]->d_name, NULL)))
+			if (!(module_res = sid_resource_create(module_registry_res,
+			                                       &sid_resource_type_module,
+			                                       SID_RESOURCE_DISALLOW_ISOLATION,
+			                                       dirent[i]->d_name,
+			                                       dirent[i]->d_name,
+			                                       SID_RESOURCE_NO_SERVICE_LINKS)))
 				log_error(ID(module_registry_res), "Failed to preload module %s/%s.", registry->directory, dirent[i]->d_name);
 		}
 		free(dirent[i]);

@@ -50,11 +50,17 @@ typedef struct sid_resource_type {
  * create/destroy functions and related types
  */
 typedef enum {
+	SID_RESOURCE_NO_FLAGS           = UINT64_C(0x0000000000000000),
 	SID_RESOURCE_RESTRICT_WALK_UP   = UINT64_C(0x0000000000000001),	/* restrict walk from child to parent */
 	SID_RESOURCE_RESTRICT_WALK_DOWN = UINT64_C(0x0000000000000002),	/* restrict walk from parent to child */
 	SID_RESOURCE_RESTRICT_MASK      = UINT64_C(0x0000000000000003),
 	SID_RESOURCE_DISALLOW_ISOLATION = UINT64_C(0x0000000000000004),
 } sid_resource_flags_t;
+
+#define SID_RESOURCE_NO_PARENT        NULL
+#define SID_RESOURCE_NO_CUSTOM_ID     NULL
+#define SID_RESOURCE_NO_PARAMS        NULL
+#define SID_RESOURCE_NO_SERVICE_LINKS NULL
 
 typedef struct sid_resource_service_link_def {
 	const char *name;
