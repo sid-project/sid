@@ -217,6 +217,10 @@ fail:
 		_destroy_event_source(res, es);
 		if (res->sd_event_loop)
 			sd_event_unref(res->sd_event_loop);
+
+		if (res->slg)
+			service_link_group_destroy_with_members(res->slg);
+
 		free(res);
 	}
 
