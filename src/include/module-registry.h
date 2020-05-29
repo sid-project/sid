@@ -46,7 +46,7 @@ struct sid_module_symbol_params {
 struct sid_module_registry_resource_params {
 	const char *directory;
 	uint64_t flags;
-	void *callback_arg;
+	void *cb_arg;                                         /* custom arg passed to sid_module_fn_t (init/exit/reload callbacks) */
 	const struct sid_module_symbol_params *symbol_params; /* NULL-terminated list of symbol params */
 };
 

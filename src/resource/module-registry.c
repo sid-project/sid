@@ -36,7 +36,7 @@ const sid_resource_type_t sid_resource_type_module;
 struct module_registry {
 	const char *directory;
 	uint64_t flags;
-	void *callback_arg;
+	void *cb_arg;
 	unsigned symbol_count;
 	struct sid_module_symbol_params *symbol_params;
 	sid_resource_iter_t *module_iter;
@@ -126,7 +126,7 @@ int sid_module_registry_reload_modules(sid_resource_t *module_registry_res)
 
 	while ((res = sid_resource_iter_next(registry->module_iter))) {
 		module = sid_resource_get_data(res);
-		if (module->reload_fn && module->reload_fn(module, registry->callback_arg) < 0)
+		if (module->reload_fn && module->reload_fn(module, registry->cb_arg) < 0)
 			log_error(ID(res), module_reload_failed_msg);
 	}
 
@@ -138,7 +138,7 @@ int sid_module_registry_reload_module(sid_resource_t *module_res)
 	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct sid_module *module = sid_resource_get_data(module_res);
 
-	if (module->reload_fn && module->reload_fn(module, registry->callback_arg) < 0) {
+	if (module->reload_fn && module->reload_fn(module, registry->cb_arg) < 0) {
 		log_error(ID(module_res), module_reload_failed_msg);
 		return -1;
 	}
@@ -273,7 +273,7 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 			goto fail;
 	}
 
-	if (module->init_fn(module, registry->callback_arg) < 0) {
+	if (module->init_fn(module, registry->cb_arg) < 0) {
 		log_error(ID(module_res), "Module-specific initialization failed.");
 		goto fail;
 	}
@@ -296,7 +296,7 @@ static int _destroy_module(sid_resource_t *module_res)
 	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct sid_module *module = sid_resource_get_data(module_res);
 
-	if (module->exit_fn(module, registry->callback_arg) < 0)
+	if (module->exit_fn(module, registry->cb_arg) < 0)
 		log_error(ID(module_res), "Module-specific finalization failed.");
 
 	if (dlclose(module->handle) < 0)
@@ -377,7 +377,7 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 	}
 
 	registry->flags = params->flags;
-	registry->callback_arg = params->callback_arg;
+	registry->cb_arg = params->cb_arg;
 
 	*data = registry;
 

@@ -3661,14 +3661,14 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	struct sid_module_registry_resource_params block_res_mod_params = {
 		.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
 		.flags         = SID_MODULE_REGISTRY_PRELOAD,
-		.callback_arg  = NULL,
+		.cb_arg        = NULL,
 		.symbol_params = block_symbol_params,
 	};
 
 	struct sid_module_registry_resource_params type_res_mod_params = {
 		.directory     = UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
 		.flags         = SID_MODULE_REGISTRY_PRELOAD,
-		.callback_arg  = NULL,
+		.cb_arg        = NULL,
 		.symbol_params = type_symbol_params,
 	};
 
@@ -3706,7 +3706,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 
 	ubridge->cmd_mod.kv_store_res = ubridge->main_kv_store_res;
 
-	block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = &ubridge->cmd_mod;
+	block_res_mod_params.cb_arg = type_res_mod_params.cb_arg = &ubridge->cmd_mod;
 
 	if (!(ubridge->modules_res = sid_resource_create(ubridge->internal_res, &sid_resource_type_aggregate, 0, MODULES_AGGREGATE_ID,
 	                                                 NULL, NULL))) {

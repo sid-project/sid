@@ -26,7 +26,7 @@ extern "C" {
 
 struct sid_module;
 
-typedef int sid_module_fn_t (struct sid_module *module, void *arg);
+typedef int sid_module_fn_t(struct sid_module *module, void *cb_arg);
 
 #define SID_MODULE_FN(name, fn) sid_module_fn_t *sid_module_ ## name = fn;
 
