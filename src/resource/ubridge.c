@@ -3608,12 +3608,6 @@ static struct sid_module_symbol_params block_symbol_params[] = {
 	{NULL, 0}
 };
 
-static struct sid_module_registry_resource_params block_res_mod_params = {.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
-	       .flags         = SID_MODULE_REGISTRY_PRELOAD,
-	       .callback_arg  = NULL,
-	       .symbol_params = block_symbol_params,
-};
-
 static struct sid_module_symbol_params type_symbol_params[] = {
 	{
 		UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
@@ -3656,12 +3650,6 @@ static struct sid_module_symbol_params type_symbol_params[] = {
 	{NULL, 0}
 };
 
-static struct sid_module_registry_resource_params type_res_mod_params = {.directory     = UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
-	       .flags         = SID_MODULE_REGISTRY_PRELOAD,
-	       .callback_arg  = NULL,
-	       .symbol_params = type_symbol_params,
-};
-
 static const struct sid_kv_store_resource_params main_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,
 	       .hash.initial_size = 32
 };
@@ -3669,6 +3657,20 @@ static const struct sid_kv_store_resource_params main_kv_store_res_params = {.ba
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	struct ubridge *ubridge = NULL;
+
+	struct sid_module_registry_resource_params block_res_mod_params = {
+		.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
+		.flags         = SID_MODULE_REGISTRY_PRELOAD,
+		.callback_arg  = NULL,
+		.symbol_params = block_symbol_params,
+	};
+
+	struct sid_module_registry_resource_params type_res_mod_params = {
+		.directory     = UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
+		.flags         = SID_MODULE_REGISTRY_PRELOAD,
+		.callback_arg  = NULL,
+		.symbol_params = type_symbol_params,
+	};
 
 	if (!(ubridge = zalloc(sizeof(struct ubridge)))) {
 		log_error(ID(res), "Failed to allocate memory for interface structure.");
@@ -3735,7 +3737,6 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = NULL;
 	//sid_resource_dump_all_in_dot(sid_resource_search(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
 	*data = ubridge;
@@ -3744,7 +3745,6 @@ fail:
 	if (ubridge) {
 		if (ubridge->cmd_mod.gen_buf)
 			buffer_destroy(ubridge->cmd_mod.gen_buf);
-		block_res_mod_params.callback_arg = type_res_mod_params.callback_arg = NULL;
 		if (ubridge->socket_fd >= 0)
 			(void) close(ubridge->socket_fd);
 		free(ubridge);
