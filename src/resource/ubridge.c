@@ -3615,7 +3615,7 @@ static struct sid_module_symbol_params block_symbol_params[] = {
 		SID_MODULE_SYMBOL_FAIL_ON_MISSING |
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
-	{NULL, 0}
+	NULL_MODULE_SYMBOL_PARAMS
 };
 
 static struct sid_module_symbol_params type_symbol_params[] = {
@@ -3657,7 +3657,7 @@ static struct sid_module_symbol_params type_symbol_params[] = {
 		SID_MODULE_SYMBOL_FAIL_ON_MISSING |
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
-	{NULL, 0}
+	NULL_MODULE_SYMBOL_PARAMS
 };
 
 static const struct sid_kv_store_resource_params main_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,

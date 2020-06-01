@@ -43,6 +43,8 @@ struct sid_module_symbol_params {
 	uint64_t flags;
 };
 
+#define NULL_MODULE_SYMBOL_PARAMS ((const struct sid_module_symbol_params) {.name = NULL, .flags = 0})
+
 struct sid_module_registry_resource_params {
 	const char *directory;
 	uint64_t flags;
