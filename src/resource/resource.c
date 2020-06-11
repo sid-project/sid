@@ -560,6 +560,8 @@ sid_resource_t *_search_up(sid_resource_t *res, sid_resource_search_method_t met
 		while (res->parent && !(res->flags & SID_RESOURCE_RESTRICT_WALK_UP)) {
 			if (res->parent != ign_res && sid_resource_match(res->parent, type, id))
 				return res->parent;
+
+			res = res->parent;
 		}
 	} else if (method == SID_RESOURCE_SEARCH_TOP) {
 		while (res->parent && !(res->flags & SID_RESOURCE_RESTRICT_WALK_UP))
