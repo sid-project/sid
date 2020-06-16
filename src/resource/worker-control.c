@@ -31,8 +31,6 @@
 #define WORKER_PROXY_NAME                  "worker-proxy"
 #define WORKER_NAME                        "worker"
 
-#define WORKER_PROXIES_AGGREGATE_ID        "worker-proxies"
-
 #define WORKER_CHANNEL_ID_SYS_C            "#"
 
 #define DEFAULT_WORKER_IDLE_TIMEOUT_USEC   5000000
@@ -65,7 +63,6 @@ struct worker_control {
 	struct worker_init_cb_spec init_cb_spec;
 	unsigned channel_spec_count;
 	struct worker_channel_spec *channel_specs;
-	sid_resource_t *proxies_res;
 };
 
 struct worker_channel {
@@ -312,7 +309,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			id = gen_id;
 		}
 
-		res = sid_resource_create(worker_control->proxies_res,
+		res = sid_resource_create(worker_control_res,
 		                          &sid_resource_type_worker_proxy,
 		                          SID_RESOURCE_DISALLOW_ISOLATION,
 		                          id,
@@ -338,11 +335,10 @@ out:
 
 sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_res)
 {
-	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
 	sid_resource_iter_t *iter;
 	sid_resource_t *res;
 
-	if (!(iter = sid_resource_iter_create(worker_control->proxies_res)))
+	if (!(iter = sid_resource_iter_create(worker_control_res)))
 		return NULL;
 
 	while ((res = sid_resource_iter_next(iter))) {
@@ -356,9 +352,7 @@ sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_re
 
 sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, const char *id)
 {
-	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
-
-	return sid_resource_search(worker_control->proxies_res, SID_RESOURCE_SEARCH_IMM_DESC,
+	return sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_IMM_DESC,
 	                           &sid_resource_type_worker_proxy, id);
 }
 
@@ -806,18 +800,6 @@ static int _init_worker_control(sid_resource_t *worker_control_res, const void *
 
 	if (!(worker_control = zalloc(sizeof(*worker_control)))) {
 		log_error(ID(worker_control_res), "Failed to allocate memory for worker control structure.");
-		goto fail;
-	}
-
-	if (!(worker_control->proxies_res = sid_resource_create(worker_control_res,
-	                                                        &sid_resource_type_aggregate,
-	                                                        SID_RESOURCE_RESTRICT_WALK_UP |
-	                                                        SID_RESOURCE_RESTRICT_WALK_DOWN |
-	                                                        SID_RESOURCE_DISALLOW_ISOLATION,
-	                                                        WORKER_PROXIES_AGGREGATE_ID,
-	                                                        worker_control,
-	                                                        SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(ID(worker_control_res), "Failed to create aggregate resource for worker proxies.");
 		goto fail;
 	}
 
