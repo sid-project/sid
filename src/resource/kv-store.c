@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 #include "resource.h"
 
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #define KV_STORE_NAME "kv-store"
@@ -41,10 +42,7 @@ struct kv_store_value {
 	size_t size;
 	kv_store_value_int_flags_t int_flags;
 	kv_store_value_flags_t ext_flags;
-	union {
-		void *data_p;
-		char data[0];
-	};
+	char data[];
 };
 
 struct kv_update_fn_relay {
@@ -59,12 +57,25 @@ struct kv_store_iter {
 	struct hash_node *current;
 };
 
+static void _set_ptr(void *dest, const void *p)
+{
+	memcpy(dest, (void *) &p, sizeof(intptr_t));
+}
+
+static void *_get_ptr(const void *src)
+{
+	intptr_t ptr;
+
+	memcpy(&ptr, src, sizeof(ptr));
+	return (void *) ptr;
+}
+
 static void *_get_data(struct kv_store_value *value)
 {
 	if (!value)
 		return NULL;
 
-	return value->ext_flags & KV_STORE_VALUE_REF ? value->data_p : value->data;
+	return value->ext_flags & KV_STORE_VALUE_REF ? _get_ptr(value->data) : value->data;
 }
 
 static void _destroy_kv_store_value(struct kv_store_value *value)
@@ -78,13 +89,13 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 	/* Take extra care of situations where we store reference to a value. */
 	if (value->ext_flags & KV_STORE_VALUE_REF) {
 		if (value->ext_flags & KV_STORE_VALUE_VECTOR) {
-			iov = value->data_p;
+			iov = _get_ptr(value->data);
 
 			if (value->int_flags & KV_STORE_VALUE_INT_ALLOC) {
 				/* H */
 				free(iov[0].iov_base);
 				if (value->ext_flags & KV_STORE_VALUE_AUTOFREE)
-					free(value->data_p);
+					free(iov);
 				else
 					for (i = 0; i < value->size; i++) {
 						iov[i].iov_base = NULL;
@@ -94,12 +105,12 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 				/* G */
 				for (i = 0; i < value->size; i++)
 					free(iov[i].iov_base);
-				free(value->data_p);
+				free(iov);
 			}
 		} else {
 			/* C, D */
 			if (value->ext_flags & KV_STORE_VALUE_AUTOFREE)
-				free(value->data_p);
+				free(_get_ptr(value->data));
 		}
 	}
 
@@ -150,7 +161,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		if (flags & KV_STORE_VALUE_REF) {
-			if (!(value = zalloc(sizeof(*value)))) {
+			if (!(value = zalloc(sizeof(*value) + sizeof(intptr_t)))) {
 				errno = ENOMEM;
 				return NULL;
 			}
@@ -177,7 +188,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 				value->int_flags = KV_STORE_VALUE_INT_ALLOC;
 			}
 			/* G,H */
-			value->data_p = iov;
+			_set_ptr(value->data, iov);
 			value->size = iov_cnt;
 		} else {
 			for (i = 0, data_size = 0; i < iov_cnt; i++)
@@ -222,11 +233,11 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 	} else {
 		if (flags & KV_STORE_VALUE_REF) {
 			/* C,D */
-			if (!(value = zalloc(sizeof(*value)))) {
+			if (!(value = zalloc(sizeof(*value) + sizeof(intptr_t)))) {
 				errno = ENOMEM;
 				return NULL;
 			}
-			value->data_p = iov[0].iov_base;
+			_set_ptr(value->data, iov[0].iov_base);
 		} else {
 			/* A,B */
 			if (!(value = zalloc(sizeof(*value) + iov[0].iov_len))) {
@@ -288,10 +299,10 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 			    !update_spec.op_flags) {
 				/*
 				 * If kv_store_value stores value as reference and we haven't changed the ext_flags
-				 * nor op_flags, we just need to rewrite the the data_p pointer and size, no need
+				 * nor op_flags, we just need to rewrite the ptr stored in data and size, no need
 				 * to recreate the whole kv_store_value...
 				 */
-				orig_new_value->data_p = update_spec.new_data;
+				_set_ptr(orig_new_value->data, update_spec.new_data);
 				orig_new_value->size = update_spec.new_data_size;
 				orig_new_value->ext_flags = update_spec.new_flags;
 			} else {
@@ -447,7 +458,7 @@ void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_
 	if (flags)
 		*flags = value->ext_flags;
 
-	return (value->ext_flags & KV_STORE_VALUE_REF) ? value->data_p : value->data;
+	return _get_data(value);
 }
 
 const char *kv_store_iter_current_key(kv_store_iter_t *iter)
