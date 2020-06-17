@@ -186,7 +186,6 @@ struct connection {
 };
 
 struct sid_ubridge_cmd_context {
-	struct usid_msg_header request_header;
 	union {
 		cmd_scan_phase_t scan_phase;
 	};
@@ -196,7 +195,7 @@ struct sid_ubridge_cmd_context {
 	sid_resource_t *mod_res; /* the module that is processed at the moment */
 	struct buffer *gen_buf;
 	struct buffer *res_buf;
-
+	struct usid_msg_header request_header;
 };
 
 struct cmd_mod_fns {
@@ -228,7 +227,7 @@ struct cmd_reg {
 struct kv_value {
 	uint64_t seqnum;
 	sid_ubridge_kv_flags_t flags;
-	char data[0]; /* contains both internal and external data */
+	char data[]; /* contains both internal and external data */
 } __attribute__((packed));
 
 enum {

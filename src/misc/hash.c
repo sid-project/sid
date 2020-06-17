@@ -29,7 +29,7 @@ struct hash_node {
 	void *data;
 	unsigned data_len;
 	unsigned keylen;
-	char key[0];
+	char key[];
 };
 
 struct hash_table {

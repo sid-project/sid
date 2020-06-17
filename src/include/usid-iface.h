@@ -53,7 +53,7 @@ struct usid_msg_header {
 	uint64_t status;
 	uint8_t prot;
 	uint8_t cmd;
-	char data[0];
+	char data[];
 } __attribute__((packed));
 
 struct usid_msg {
