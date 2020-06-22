@@ -3068,7 +3068,7 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 
 	memcpy(&conn->fd, &data_spec->ext.socket.fd_pass, sizeof(conn->fd));
 
-	if (sid_resource_create_io_event_source(res, NULL, conn->fd, _on_connection_event, "client connection", res) < 0) {
+	if (sid_resource_create_io_event_source(res, NULL, conn->fd, _on_connection_event, 0, "client connection", res) < 0) {
 		log_error(ID(res), "Failed to register connection event handler.");
 		goto fail;
 	}
@@ -3152,7 +3152,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 
-	if (sid_resource_create_deferred_event_source(res, NULL, _cmd_handler, "command handler", res) < 0) {
+	if (sid_resource_create_deferred_event_source(res, NULL, _cmd_handler, 0, "command handler", res) < 0) {
 		log_error(ID(res), "Failed to register command handler.");
 		goto fail;
 	}
@@ -3591,7 +3591,7 @@ static int _set_up_udev_monitor(sid_resource_t *ubridge_res, sid_resource_t *int
 	umonitor_fd = udev_monitor_get_fd(umonitor->mon);
 
 	if (sid_resource_create_io_event_source(ubridge_res, NULL, umonitor_fd,
-	                                        _on_ubridge_udev_monitor_event, "udev monitor", internal_ubridge_res) < 0) {
+	                                        _on_ubridge_udev_monitor_event, 0, "udev monitor", internal_ubridge_res) < 0) {
 		log_error(ID(ubridge_res), "Failed to register udev monitoring.");
 		goto fail;
 	}
@@ -3831,7 +3831,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (sid_resource_create_io_event_source(res, NULL, ubridge->socket_fd, _on_ubridge_interface_event, UBRIDGE_NAME, internal_res) < 0) {
+	if (sid_resource_create_io_event_source(res, NULL, ubridge->socket_fd, _on_ubridge_interface_event, 0, UBRIDGE_NAME, internal_res) < 0) {
 		log_error(ID(res), "Failed to register interface with event loop.");
 		goto fail;
 	}

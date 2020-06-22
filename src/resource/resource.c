@@ -349,7 +349,8 @@ static int _sd_io_event_handler(sd_event_source *sd_es, int fd, uint32_t revents
 }
 
 int sid_resource_create_io_event_source(sid_resource_t *res, sid_resource_event_source_t **es, int fd,
-                                        sid_resource_io_event_handler_t handler, const char *name, void *data)
+                                        sid_resource_io_event_handler_t handler, int64_t prio,
+                                        const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es = NULL;
@@ -361,6 +362,9 @@ int sid_resource_create_io_event_source(sid_resource_t *res, sid_resource_event_
 	}
 
 	if ((r = sd_event_add_io(res_event_loop->sd_event_loop, &sd_es, fd, EPOLLIN, _sd_io_event_handler, NULL)) < 0)
+		goto fail;
+
+	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
@@ -380,7 +384,8 @@ static int _sd_signal_event_handler(sd_event_source *sd_es, const struct signalf
 }
 
 int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_event_source_t **es, int signal,
-                                            sid_resource_signal_event_handler_t handler, const char *name, void *data)
+                                            sid_resource_signal_event_handler_t handler, int64_t prio,
+                                            const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es = NULL;
@@ -392,6 +397,9 @@ int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_ev
 	}
 
 	if ((r = sd_event_add_signal(res_event_loop->sd_event_loop, &sd_es, signal, handler ? _sd_signal_event_handler : NULL, NULL)) < 0)
+		goto fail;
+
+	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
@@ -411,7 +419,8 @@ static int _sd_child_event_handler(sd_event_source *sd_es, const siginfo_t *si, 
 }
 
 int sid_resource_create_child_event_source(sid_resource_t *res, sid_resource_event_source_t **es, pid_t pid, int options,
-                                           sid_resource_child_event_handler_t handler, const char *name, void *data)
+                                           sid_resource_child_event_handler_t handler, int64_t prio,
+                                           const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es = NULL;
@@ -423,6 +432,9 @@ int sid_resource_create_child_event_source(sid_resource_t *res, sid_resource_eve
 	}
 
 	if ((r = sd_event_add_child(res_event_loop->sd_event_loop, &sd_es, pid, options, handler ? _sd_child_event_handler : NULL, NULL)) < 0)
+		goto fail;
+
+	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
@@ -443,7 +455,8 @@ static int _sd_time_event_handler(sd_event_source *sd_es, uint64_t usec, void *d
 
 int sid_resource_create_time_event_source(sid_resource_t *res, sid_resource_event_source_t **es, clockid_t clock,
                                           uint64_t usec, uint64_t accuracy,
-                                          sid_resource_time_event_handler_t handler, const char *name, void *data)
+                                          sid_resource_time_event_handler_t handler, int64_t prio,
+                                          const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es = NULL;
@@ -455,6 +468,9 @@ int sid_resource_create_time_event_source(sid_resource_t *res, sid_resource_even
 	}
 
 	if ((r = sd_event_add_time(res_event_loop->sd_event_loop, &sd_es, clock, usec, accuracy, handler ? _sd_time_event_handler : NULL, NULL)) < 0)
+		goto fail;
+
+	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
@@ -475,7 +491,8 @@ static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
 }
 
 int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
-                                              sid_resource_generic_event_handler_t handler, const char *name, void *data)
+                                              sid_resource_generic_event_handler_t handler, int64_t prio,
+                                              const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es = NULL;
@@ -489,6 +506,9 @@ int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_resource_
 	if ((r = sd_event_add_defer(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
 		goto fail;
 
+	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
+		goto fail;
+
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
 		goto fail;
 
@@ -500,7 +520,8 @@ fail:
 }
 
 int sid_resource_create_post_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
-                                          sid_resource_generic_event_handler_t handler, const char *name, void *data)
+                                          sid_resource_generic_event_handler_t handler, int64_t prio,
+                                          const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es = NULL;
@@ -514,6 +535,9 @@ int sid_resource_create_post_event_source(sid_resource_t *res, sid_resource_even
 	if ((r = sd_event_add_post(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
 		goto fail;
 
+	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
+		goto fail;
+
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
 		goto fail;
 
@@ -525,7 +549,8 @@ fail:
 }
 
 int sid_resource_create_exit_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
-                                          sid_resource_generic_event_handler_t handler, const char *name, void *data)
+                                          sid_resource_generic_event_handler_t handler, int64_t prio,
+                                          const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es = NULL;
@@ -537,6 +562,9 @@ int sid_resource_create_exit_event_source(sid_resource_t *res, sid_resource_even
 	}
 
 	if ((r = sd_event_add_exit(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
+		goto fail;
+
+	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)

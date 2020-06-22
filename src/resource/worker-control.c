@@ -713,13 +713,13 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	worker_proxy->channel_count = kickstart->channel_count;
 
 	if (sid_resource_create_child_event_source(worker_proxy_res, NULL, worker_proxy->pid, WEXITED,
-	                                           _on_worker_proxy_child_event, "worker process monitor", worker_proxy_res) < 0) {
+	                                           _on_worker_proxy_child_event, 0, "worker process monitor", worker_proxy_res) < 0) {
 		log_error(ID(worker_proxy_res), "Failed to register worker process monitoring in worker proxy.");
 		goto fail;
 	}
 
 	for (i = 0, chan = worker_proxy->channels; i < kickstart->channel_count; chan++, i++) {
-		if (sid_resource_create_io_event_source(worker_proxy_res, NULL, chan->fd, _on_worker_proxy_channel_event, chan->spec->id, chan) < 0) {
+		if (sid_resource_create_io_event_source(worker_proxy_res, NULL, chan->fd, _on_worker_proxy_channel_event, 0, chan->spec->id, chan) < 0) {
 			log_error(ID(worker_proxy_res), "Failed to register worker proxy communication channel with ID %s.", chan->spec->id);
 			goto fail;
 		}
@@ -759,14 +759,14 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 	worker->channels = kickstart->channels;
 	worker->channel_count = kickstart->channel_count;
 
-	if (sid_resource_create_signal_event_source(worker_res, NULL, SIGTERM, _on_worker_signal_event, "sigterm", worker_res) < 0 ||
-	    sid_resource_create_signal_event_source(worker_res, NULL, SIGINT, _on_worker_signal_event, "sigint", worker_res) < 0) {
+	if (sid_resource_create_signal_event_source(worker_res, NULL, SIGTERM, _on_worker_signal_event, 0, "sigterm", worker_res) < 0 ||
+	    sid_resource_create_signal_event_source(worker_res, NULL, SIGINT, _on_worker_signal_event, 0, "sigint", worker_res) < 0) {
 		log_error(ID(worker_res), "Failed to create signal handlers.");
 		goto fail;
 	}
 
 	for (i = 0, chan = worker->channels; i < kickstart->channel_count; chan++, i++) {
-		if (sid_resource_create_io_event_source(worker_res, NULL, chan->fd, _on_worker_channel_event, chan->spec->id, chan) < 0) {
+		if (sid_resource_create_io_event_source(worker_res, NULL, chan->fd, _on_worker_channel_event, 0, chan->spec->id, chan) < 0) {
 			log_error(ID(worker_res), "Failed to register worker communication channel with ID %s.", chan->spec->id);
 			goto fail;
 		}
