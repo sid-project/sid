@@ -352,19 +352,25 @@ int sid_resource_create_io_event_source(sid_resource_t *res, sid_resource_event_
                                         sid_resource_io_event_handler_t handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
-	sd_event_source *sd_es;
+	sd_event_source *sd_es = NULL;
 	int r;
 
-	if (!(res_event_loop = _get_resource_with_event_loop(res, 1)))
-		return -ENOMEDIUM;
+	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
+		r = -ENOMEDIUM;
+		goto fail;
+	}
 
 	if ((r = sd_event_add_io(res_event_loop->sd_event_loop, &sd_es, fd, EPOLLIN, _sd_io_event_handler, NULL)) < 0)
-		return r;
+		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
-		return r;
+		goto fail;
 
 	return 0;
+fail:
+	if (sd_es)
+		sd_event_source_unref(sd_es);
+	return r;
 }
 
 static int _sd_signal_event_handler(sd_event_source *sd_es, const struct signalfd_siginfo *si, void *data)
@@ -377,19 +383,25 @@ int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_ev
                                             sid_resource_signal_event_handler_t handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
-	sd_event_source *sd_es;
+	sd_event_source *sd_es = NULL;
 	int r;
 
-	if (!(res_event_loop = _get_resource_with_event_loop(res, 1)))
-		return -ENOMEDIUM;
+	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
+		r = -ENOMEDIUM;
+		goto fail;
+	}
 
 	if ((r = sd_event_add_signal(res_event_loop->sd_event_loop, &sd_es, signal, handler ? _sd_signal_event_handler : NULL, NULL)) < 0)
-		return r;
+		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
-		return r;
+		goto fail;
 
 	return 0;
+fail:
+	if (sd_es)
+		sd_event_source_unref(sd_es);
+	return r;
 }
 
 static int _sd_child_event_handler(sd_event_source *sd_es, const siginfo_t *si, void *data)
@@ -402,19 +414,25 @@ int sid_resource_create_child_event_source(sid_resource_t *res, sid_resource_eve
                                            sid_resource_child_event_handler_t handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
-	sd_event_source *sd_es;
+	sd_event_source *sd_es = NULL;
 	int r;
 
-	if (!(res_event_loop = _get_resource_with_event_loop(res, 1)))
-		return -ENOMEDIUM;
+	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
+		r = -ENOMEDIUM;
+		goto fail;
+	}
 
 	if ((r = sd_event_add_child(res_event_loop->sd_event_loop, &sd_es, pid, options, handler ? _sd_child_event_handler : NULL, NULL)) < 0)
-		return r;
+		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
-		return r;
+		goto fail;
 
 	return 0;
+fail:
+	if (sd_es)
+		sd_event_source_unref(sd_es);
+	return r;
 }
 
 static int _sd_time_event_handler(sd_event_source *sd_es, uint64_t usec, void *data)
@@ -428,19 +446,25 @@ int sid_resource_create_time_event_source(sid_resource_t *res, sid_resource_even
                                           sid_resource_time_event_handler_t handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
-	sd_event_source *sd_es;
+	sd_event_source *sd_es = NULL;
 	int r;
 
-	if (!(res_event_loop = _get_resource_with_event_loop(res, 1)))
-		return -ENOMEDIUM;
+	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
+		r = -ENOMEDIUM;
+		goto fail;
+	}
 
 	if ((r = sd_event_add_time(res_event_loop->sd_event_loop, &sd_es, clock, usec, accuracy, handler ? _sd_time_event_handler : NULL, NULL)) < 0)
-		return r;
+		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
-		return r;
+		goto fail;
 
 	return 0;
+fail:
+	if (sd_es)
+		sd_event_source_unref(sd_es);
+	return r;
 }
 
 static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
@@ -454,57 +478,75 @@ int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_resource_
                                               sid_resource_generic_event_handler_t handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
-	sd_event_source *sd_es;
+	sd_event_source *sd_es = NULL;
 	int r;
 
-	if (!(res_event_loop = _get_resource_with_event_loop(res, 1)))
-		return -ENOMEDIUM;
+	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
+		r = -ENOMEDIUM;
+		goto fail;
+	}
 
 	if ((r = sd_event_add_defer(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
-		return r;
+		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
-		return r;
+		goto fail;
 
 	return 0;
+fail:
+	if (sd_es)
+		sd_event_source_unref(sd_es);
+	return r;
 }
 
 int sid_resource_create_post_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
                                           sid_resource_generic_event_handler_t handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
-	sd_event_source *sd_es;
+	sd_event_source *sd_es = NULL;
 	int r;
 
-	if (!(res_event_loop = _get_resource_with_event_loop(res, 1)))
-		return -ENOMEDIUM;
+	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
+		r = -ENOMEDIUM;
+		goto fail;
+	}
 
 	if ((r = sd_event_add_post(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
-		return r;
+		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
-		return r;
+		goto fail;
 
 	return 0;
+fail:
+	if (sd_es)
+		sd_event_source_unref(sd_es);
+	return r;
 }
 
 int sid_resource_create_exit_event_source(sid_resource_t *res, sid_resource_event_source_t **es,
                                           sid_resource_generic_event_handler_t handler, const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
-	sd_event_source *sd_es;
+	sd_event_source *sd_es = NULL;
 	int r;
 
-	if (!(res_event_loop = _get_resource_with_event_loop(res, 1)))
-		return -ENOMEDIUM;
+	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
+		r = -ENOMEDIUM;
+		goto fail;
+	}
 
 	if ((r = sd_event_add_exit(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
-		return r;
+		goto fail;
 
 	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
-		return r;
+		goto fail;
 
 	return 0;
+fail:
+	if (sd_es)
+		sd_event_source_unref(sd_es);
+	return r;
 }
 
 int sid_resource_destroy_event_source(sid_resource_t *res, sid_resource_event_source_t **es)
