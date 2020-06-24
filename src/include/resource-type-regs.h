@@ -17,8 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef _SID_RESOURCE_REGS_H
-#define _SID_RESOURCE_REGS_H
+#ifndef _SID_RESOURCE_TYPE_REGS_H
+#define _SID_RESOURCE_TYPE_REGS_H
 
 #ifdef __cplusplus
 extern "C" {
