@@ -113,6 +113,7 @@ static ssize_t _do_comms_unix_send(int socket_fd, struct iovec *iov, size_t iov_
 		char control[CMSG_SPACE(sizeof(int))];
 		struct cmsghdr alignment;
 	} u = {0};
+	ssize_t r;
 
 	msg.msg_iov = iov;
 	msg.msg_iovlen = iov_len;
@@ -127,7 +128,10 @@ static ssize_t _do_comms_unix_send(int socket_fd, struct iovec *iov, size_t iov_
 		memcpy(CMSG_DATA(cmsg), &fd_to_send, sizeof(int));
 	}
 
-	return sendmsg(socket_fd, &msg, 0);
+	if ((r = sendmsg(socket_fd, &msg, 0) < 0))
+		return -errno;
+	else
+		return r;
 }
 
 ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send)
@@ -142,15 +146,15 @@ ssize_t comms_unix_send_iovec(int socket_fd, struct iovec *iov, size_t iov_len, 
 	return _do_comms_unix_send(socket_fd, iov, iov_len, fd_to_send);
 }
 
-static int _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
+static ssize_t _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
 {
-	ssize_t size;
 	struct msghdr msg = {0};
 	struct cmsghdr *cmsg;
 	union {
 		char control[CMSG_SPACE(sizeof(int))];
 		struct cmsghdr alignment;
 	} u;
+	ssize_t r;
 
 	msg.msg_iov = iov;
 	msg.msg_iovlen = iov_len;
@@ -159,10 +163,8 @@ static int _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_len,
 
 	*fd_received = -1;
 
-	size = recvmsg(socket_fd, &msg, 0);
-
-	if (size < 0)
-		return size;
+	if ((r = recvmsg(socket_fd, &msg, 0)) < 0)
+		return -errno;
 
 	cmsg = CMSG_FIRSTHDR(&msg);
 	if (cmsg &&
@@ -171,17 +173,17 @@ static int _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_len,
 	    cmsg->cmsg_type == SCM_RIGHTS)
 		memcpy(fd_received, CMSG_DATA(cmsg), sizeof(int));
 
-	return size;
+	return r;
 }
 
-int comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
+ssize_t comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
 {
 	struct iovec iov = {.iov_base = buf, .iov_len = buf_len};
 
 	return _do_comms_unix_recv(socket_fd, &iov, 1, fd_received);
 }
 
-int comms_unix_recv_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
+ssize_t comms_unix_recv_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
 {
 	return _do_comms_unix_recv(socket_fd, iov, iov_len, fd_received);
 }
