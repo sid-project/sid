@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -810,7 +810,7 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 	(void) service_link_group_notify(res->slg, SERVICE_NOTIFICATION_READY, NULL);
 
 	if ((r = sd_event_loop(res->sd_event_loop)) < 0) {
-		log_error_errno(res->id, -r, "Event loop failed.");
+		log_error_errno(res->id, r, "Event loop failed.");
 		return r;
 	}
 

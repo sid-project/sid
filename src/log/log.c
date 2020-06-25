@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -58,6 +58,9 @@ void log_output(int level_id, const char *prefix, int class_id, int errno_id,
 
 	if (_current_target == LOG_TARGET_NONE)
 		return;
+
+	if (errno_id < 0)
+		errno_id = -errno_id;
 
 	orig_errno = errno;
 	va_start(ap, format);
