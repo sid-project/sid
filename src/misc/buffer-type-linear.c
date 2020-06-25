@@ -30,10 +30,8 @@ static int _buffer_linear_create(struct buffer *buf, size_t initial_size)
 	if (buf->mode == BUFFER_MODE_SIZE_PREFIX)
 		initial_size += MSG_SIZE_PREFIX_LEN;
 
-	if (!(buf->mem = zalloc(initial_size))) {
-		errno = ENOMEM;
-		return -1;
-	}
+	if (!(buf->mem = zalloc(initial_size)))
+		return -ENOMEM;
 
 	buf->allocated = initial_size;
 	return 0;
@@ -154,10 +152,8 @@ static int _buffer_linear_rewind(struct buffer *buf, size_t pos)
 {
 	size_t min_pos = (buf->mode == BUFFER_MODE_SIZE_PREFIX) ? MSG_SIZE_PREFIX_LEN : 0;
 
-	if (pos > buf->used || pos < min_pos) {
-		errno = EINVAL;
-		return -1;
-	}
+	if (pos > buf->used || pos < min_pos)
+		return -EINVAL;
 
 	buf->used = pos;
 	return 0;
@@ -206,10 +202,8 @@ static ssize_t _buffer_linear_read_plain(struct buffer *buf, int fd)
 {
 	ssize_t n;
 
-	if (buf->used == buf->allocated) {
-		errno = EXFULL;
-		return -1;
-	}
+	if (buf->used == buf->allocated)
+		return -EXFULL;
 
 	n = read(fd, buf->mem + buf->used, buf->allocated - buf->used);
 	if (n > 0)
@@ -224,10 +218,8 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 	size_t previous_used;
 	size_t expected;
 
-	if (_buffer_linear_is_complete(buf)) {
-		errno = EXFULL;
-		return -1;
-	}
+	if (_buffer_linear_is_complete(buf))
+		return -EXFULL;
 
 	n = read(fd, buf->mem + buf->used, buf->allocated - buf->used);
 	if (n > 0) {
@@ -235,10 +227,8 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 		buf->used += n;
 		if ((expected = EXPECTED(buf))) {
 			/* Message must start with a prefix that is MSG_SIZE_PREFIX_LEN bytes! */
-			if (expected < MSG_SIZE_PREFIX_LEN) {
-				errno = EBADE;
-				return -1;
-			}
+			if (expected < MSG_SIZE_PREFIX_LEN)
+				return -EBADE;
 			if (previous_used < MSG_SIZE_PREFIX_LEN) {
 				if (_buffer_linear_realloc(buf, expected, 0) < 0)
 					return -1;
@@ -247,10 +237,8 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 	} else if (!n) {
 		/* Detect premature EOF when we haven't received full message yet. */
 		expected = EXPECTED(buf);
-		if ((!expected && buf->used) || (expected && buf->used != expected)) {
-			errno = EBADE;
-			return -1;
-		}
+		if ((!expected && buf->used) || (expected && buf->used != expected))
+			return -EBADE;
 	}
 
 	return n;

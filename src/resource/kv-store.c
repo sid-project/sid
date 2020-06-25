@@ -412,19 +412,15 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key,
 	 * FIXME: hash_lookup and hash_remove are two searches inside hash - maybe try to do
 	 *        this in one step (...that requires hash interface extension).
 	 */
-	if (!(found = hash_lookup(kv_store->ht, key))) {
-		errno = ENODATA;
-		return -1;
-	}
+	if (!(found = hash_lookup(kv_store->ht, key)))
+		return -ENODATA;
 
 	update_spec.old_data = _get_data(found);
 	update_spec.old_data_size = found->size;
 	update_spec.old_flags = found->ext_flags;
 
-	if (kv_unset_fn && !kv_unset_fn(key, &update_spec, kv_unset_fn_arg)) {
-		errno = EADV;
-		return -1;
-	}
+	if (kv_unset_fn && !kv_unset_fn(key, &update_spec, kv_unset_fn_arg))
+		return -EADV;
 
 	_destroy_kv_store_value(found);
 	hash_remove(kv_store->ht, key);

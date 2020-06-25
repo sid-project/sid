@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -82,22 +82,22 @@ void bitmap_destroy(struct bitmap *bitmap)
 
 int _get_coord(struct bitmap *bitmap, size_t bit_pos, unsigned *block, unsigned *bit)
 {
-	if (bit_pos >= bitmap->bit_count) {
-		errno = ERANGE;
-		return -1;
-	}
+	if (bit_pos >= bitmap->bit_count)
+		return -ERANGE;
 
 	*block = bit_pos >> BLOCK_SHIFT;
 	*bit = 1 << (bit_pos & (BITS_PER_BLOCK - 1));
+
 	return 0;
 }
 
 int bitmap_bit_set(struct bitmap *bitmap, size_t bit_pos)
 {
 	unsigned block, bit;
+	int r;
 
-	if (_get_coord(bitmap, bit_pos, &block, &bit) < 0)
-		return -1;
+	if ((r = _get_coord(bitmap, bit_pos, &block, &bit)) < 0)
+		return r;
 
 	if (!(bitmap->mem[block] & bit)) {
 		bitmap->mem[block] |= bit;
@@ -110,9 +110,10 @@ int bitmap_bit_set(struct bitmap *bitmap, size_t bit_pos)
 int bitmap_bit_unset(struct bitmap *bitmap, size_t bit_pos)
 {
 	unsigned block, bit;
+	int r;
 
-	if (_get_coord(bitmap, bit_pos, &block, &bit) < 0)
-		return -1;
+	if ((r = _get_coord(bitmap, bit_pos, &block, &bit)) < 0)
+		return r;
 
 	if (bitmap->mem[block] & bit) {
 		bitmap->mem[block] &= ~bit;
@@ -127,7 +128,7 @@ bool bitmap_bit_is_set(struct bitmap *bitmap, size_t bit_pos)
 	unsigned block, bit;
 
 	if (_get_coord(bitmap, bit_pos, &block, &bit) < 0)
-		return -1;
+		return 0;
 
 	return bitmap->mem[block] & bit;
 }

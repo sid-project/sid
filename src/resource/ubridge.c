@@ -1048,10 +1048,8 @@ out:
 int sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
                                    sid_ubridge_cmd_kv_namespace_t ns, const char *key)
 {
-	if (!mod || !cmd_mod || !key || !*key) {
-		errno = EINVAL;
-		return -1;
-	}
+	if (!mod || !cmd_mod || !key || !*key)
+		return -EINVAL;
 
 	return _do_sid_ubridge_cmd_mod_reserve_kv(mod, cmd_mod, ns, key, 0);
 }
@@ -1059,10 +1057,8 @@ int sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cm
 int sid_ubridge_cmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
                                      sid_ubridge_cmd_kv_namespace_t ns, const char *key)
 {
-	if (!mod || !cmd_mod || !key || !*key) {
-		errno = EINVAL;
-		return -1;
-	}
+	if (!mod || !cmd_mod || !key || !*key)
+		return -EINVAL;
 
 	return _do_sid_ubridge_cmd_mod_reserve_kv(mod, cmd_mod, ns, key, 1);
 }
@@ -1071,15 +1067,11 @@ int sid_ubridge_cmd_dev_set_ready(struct sid_ubridge_cmd_context *cmd, dev_ready
 {
 	sid_resource_t *orig_mod_res;
 
-	if (!(_cmd_scan_phase_regs[cmd->scan_phase].flags & CMD_SCAN_CAP_RDY)) {
-		errno = EPERM;
-		return -1;
-	}
+	if (!(_cmd_scan_phase_regs[cmd->scan_phase].flags & CMD_SCAN_CAP_RDY))
+		return -EPERM;
 
-	if (ready == DEV_NOT_RDY_UNPROCESSED) {
-		errno = EINVAL;
-		return -1;
-	}
+	if (ready == DEV_NOT_RDY_UNPROCESSED)
+		return -EINVAL;
 
 	orig_mod_res = cmd->mod_res;
 	cmd->mod_res = NULL;
@@ -1112,10 +1104,8 @@ int sid_ubridge_cmd_dev_set_reserved(struct sid_ubridge_cmd_context *cmd, dev_re
 {
 	sid_resource_t *orig_mod_res;
 
-	if (!(_cmd_scan_phase_regs[cmd->scan_phase].flags & CMD_SCAN_CAP_RES)) {
-		errno = EPERM;
-		return -1;
-	}
+	if (!(_cmd_scan_phase_regs[cmd->scan_phase].flags & CMD_SCAN_CAP_RES))
+		return -EPERM;
 
 	orig_mod_res = cmd->mod_res;
 	cmd->mod_res = NULL;
@@ -1343,7 +1333,7 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 		goto out;
 
 	if (size > KV_VALUE_IDX_DATA && !force) {
-		errno = ENOTEMPTY;
+		r = -ENOTEMPTY;
 		goto out;
 	}
 
@@ -1356,7 +1346,7 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 	                        0,
 	                        _kv_delta,
 	                        &update_arg)) {
-		errno = update_arg.ret_code;
+		r = -update_arg.ret_code;
 		goto out;
 	}
 
@@ -1819,15 +1809,11 @@ static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iov
 	if (!size)
 		return 0;
 
-	if (size < header_size) {
-		errno = EINVAL;
-		return -1;
-	}
+	if (size < header_size)
+		return -EINVAL;
 
-	if (!(buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, size, 0))) {
-		errno = ENOMEM;
-		return -1;
-	}
+	if (!(buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, size, 0)))
+		return -ENOMEM;
 
 	for (i = 0; i < header_size; i++)
 		buffer_add(buf, header[i].iov_base, header[i].iov_len);
@@ -3046,7 +3032,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 	} else if (n < 0) {
 		if (errno == EAGAIN || errno == EINTR)
 			return 0;
-		log_sys_error(ID(conn_res), "buffer_read_msg", "");
+		log_error_errno(ID(conn_res), n, "buffer_read_msg");
 		r = -1;
 	} else {
 		if (_connection_cleanup(conn_res) < 0)
@@ -3448,6 +3434,7 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	sid_resource_t *worker_control_res, *worker_proxy_res;
 	struct ubridge *ubridge = sid_resource_get_data(internal_ubridge_res);
 	struct worker_data_spec data_spec;
+	int r;
 
 	log_debug(ID(internal_ubridge_res), "Received an event.");
 
@@ -3479,8 +3466,8 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	data_spec.data = NULL;
 	data_spec.data_size = 0;
 
-	if (worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec) < 0) {
-		log_sys_error(ID(internal_ubridge_res), "worker_control_channel_send", "");
+	if ((r = worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec)) < 0) {
+		log_error_errno(ID(internal_ubridge_res), r, "worker_control_channel_send");
 		(void) close(data_spec.ext.socket.fd_pass);
 		return -1;
 	}

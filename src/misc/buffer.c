@@ -89,10 +89,8 @@ const void *buffer_vfmt_add(struct buffer *buf, const char *fmt, va_list ap)
 int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
 {
 	if (whence == BUFFER_POS_REL) {
-		if (pos > buf->used) {
-			errno = EINVAL;
-			return -1;
-		}
+		if (pos > buf->used)
+			return -EINVAL;
 
 		pos = buf->used - pos;
 	}

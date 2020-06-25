@@ -32,17 +32,14 @@ static int _buffer_vector_create(struct buffer *buf, size_t initial_size)
 	if (buf->mode == BUFFER_MODE_SIZE_PREFIX)
 		initial_size += 1;
 
-	if (!(buf->mem = zalloc(initial_size * VECTOR_ITEM_SIZE))) {
-		errno = ENOMEM;
-		return -1;
-	}
+	if (!(buf->mem = zalloc(initial_size * VECTOR_ITEM_SIZE)))
+		return -ENOMEM;
 
 	if (buf->mode == BUFFER_MODE_SIZE_PREFIX) {
 		iov = buf->mem;
 		if (!(iov[0].iov_base = zalloc(MSG_SIZE_PREFIX_LEN))) {
 			free(buf->mem);
-			errno = ENOMEM;
-			return -1;
+			return -ENOMEM;
 		}
 		iov[0].iov_len = MSG_SIZE_PREFIX_LEN;
 	}
@@ -141,10 +138,8 @@ int _buffer_vector_rewind(struct buffer *buf, size_t pos)
 {
 	size_t min_pos = (buf->mode == BUFFER_MODE_SIZE_PREFIX) ? 1 : 0;
 
-	if (pos > buf->used || pos < min_pos) {
-		errno = EINVAL;
-		return -1;
-	}
+	if (pos > buf->used || pos < min_pos)
+		return -EINVAL;
 
 	buf->used = pos;
 	return 0;
