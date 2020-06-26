@@ -88,11 +88,8 @@ void log_standard_output(int level_id,
 
 	vfprintf(out_file, format, ap);
 
-	if (errno_id) {
-		if (errno_id < 0)
-			errno_id = -errno_id;
+	if (errno_id)
 		fprintf(out_file, ": %s.", strerror(errno_id));
-	}
 
 	fputc('\n', out_file);
 }
