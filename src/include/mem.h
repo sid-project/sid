@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ extern "C" {
 
 void *zalloc(size_t size) __attribute__((__malloc__));
 void *alloc_copy(void *mem, size_t size) __attribute__((__malloc__));
+void *freen(void *mem);
 
 #ifdef __cplusplus
 }

@@ -40,3 +40,9 @@ void *alloc_copy(void *mem, size_t size)
 
 	return p;
 }
+
+void *freen(void *mem)
+{
+	free(mem);
+	return NULL;
+}
