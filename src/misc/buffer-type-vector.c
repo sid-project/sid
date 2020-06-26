@@ -106,7 +106,7 @@ int _buffer_vector_reset(struct buffer *buf, size_t initial_size)
 	return _buffer_vector_realloc(buf, initial_size, 1);
 }
 
-const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len)
+const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len, int *ret_code)
 {
 	size_t used = buf->used;
 	struct iovec *iov;
@@ -115,22 +115,26 @@ const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len)
 	if (!used && buf->mode == BUFFER_MODE_SIZE_PREFIX)
 		used = 1;
 
-	if ((r = _buffer_vector_realloc(buf, used + 1, 0)) < 0) {
-		errno = -r;
-		return NULL;
-	}
+	if ((r = _buffer_vector_realloc(buf, used + 1, 0)) < 0)
+		goto out;;
 
 	iov = buf->mem;
 	iov[used].iov_base = data;
 	iov[used].iov_len = len;
 	buf->used = used + 1;
-
-	return &iov[buf->used - 1];
+out:
+	if (ret_code)
+		*ret_code = r;
+	if (r < 0)
+		return NULL;
+	else
+		return &iov[buf->used - 1];
 }
 
-const void *_buffer_vector_fmt_add(struct buffer *buf, const char *fmt, va_list ap)
+const void *_buffer_vector_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap)
 {
-	errno = ENOTSUP;
+	if (ret_code)
+		*ret_code = -ENOTSUP;
 	return NULL;
 }
 
@@ -150,7 +154,7 @@ int _buffer_vector_rewind_mem(struct buffer *buf, const void *mem)
 	return _buffer_vector_rewind(buf, (struct iovec *)mem - (struct iovec *)buf->mem);
 }
 
-bool _buffer_vector_is_complete(struct buffer *buf)
+bool _buffer_vector_is_complete(struct buffer *buf, int *ret_code)
 {
 	/*	struct iovec *iov;
 		MSG_SIZE_PREFIX_TYPE size_prefix;
@@ -168,6 +172,8 @@ bool _buffer_vector_is_complete(struct buffer *buf)
 				return buf->used && size_prefix == size;
 		}
 	*/
+	if (*ret_code)
+		*ret_code = -ENOTSUP;
 	return true;
 }
 

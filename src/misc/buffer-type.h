@@ -37,11 +37,11 @@ struct buffer_type {
 	int (*create) (struct buffer *buf, size_t initial_size);
 	int (*destroy) (struct buffer *buf);
 	int (*reset) (struct buffer *buf, size_t initial_size);
-	const void *(*add) (struct buffer *buf, void *data, size_t len);
-	const void *(*fmt_add) (struct buffer *buf, const char *fmt, va_list ap);
+	const void *(*add) (struct buffer *buf, void *data, size_t len, int *ret_code);
+	const void *(*fmt_add) (struct buffer *buf, int *ret_code, const char *fmt, va_list ap);
 	int (*rewind) (struct buffer *buf, size_t pos);
 	int (*rewind_mem) (struct buffer *buf, const void *mem);
-	bool (*is_complete) (struct buffer *buf);
+	bool (*is_complete) (struct buffer *buf, int *ret_code);
 	int (*get_data) (struct buffer *buf, const void **data, size_t *data_size);
 	ssize_t (*read) (struct buffer *buf, int fd);
 	ssize_t (*write) (struct buffer *buf, int fd);

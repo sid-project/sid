@@ -18,9 +18,9 @@ int test_fmt_add(int buf_size)
 	struct buffer *buf = NULL;
 	char *data;
 	size_t data_size;
-	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, buf_size, 1);
+	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, buf_size, 1, NULL);
 	assert_non_null(buf);
-	assert_non_null(buffer_fmt_add(buf, TEST_STR));
+	assert_non_null(buffer_fmt_add(buf, NULL, TEST_STR));
 	assert_int_equal(buffer_get_data(buf, (const void **)&data, &data_size),			 0);
 	assert_true(data_size == TEST_SIZE);
 	buffer_destroy(buf);
@@ -42,10 +42,10 @@ static const void *do_rewind_test(struct buffer *buf)
 	const void *rewind_mem;
 
 	assert_non_null(buf);
-	assert_non_null(buffer_add(buf, TEST_STR, TEST_SIZE));
-	rewind_mem = buffer_add(buf, TEST_STR2, TEST_SIZE2);
+	assert_non_null(buffer_add(buf, TEST_STR, TEST_SIZE, NULL));
+	rewind_mem = buffer_add(buf, TEST_STR2, TEST_SIZE2, NULL);
 	assert_non_null(rewind_mem);
-	assert_non_null(buffer_add(buf, TEST_STR3, TEST_SIZE3));
+	assert_non_null(buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL));
 	assert_int_equal(buffer_rewind_mem(buf, rewind_mem), 0);
 	return rewind_mem;
 }
@@ -54,7 +54,7 @@ static void test_linear_rewind_mem(void **state)
 {
 	struct buffer *buf;
 
-	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, 1);
+	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, 1, NULL);
 	do_rewind_test(buf);
 	buffer_destroy(buf);
 }
@@ -63,7 +63,7 @@ static void test_vector_rewind_mem(void **state)
 {
 	struct buffer *buf;
 
-	buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, 0, 1);
+	buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, 0, 1, NULL);
 	do_rewind_test(buf);
 	buffer_destroy(buf);
 }
@@ -73,9 +73,9 @@ static void do_test_zero_add(struct buffer *buf)
 	const void *rewind_mem, *tmp_mem_start;
 
 	rewind_mem = do_rewind_test(buf);
-	tmp_mem_start = buffer_add(buf, "", 0);
+	tmp_mem_start = buffer_add(buf, "", 0, NULL);
 	assert_ptr_equal(rewind_mem, tmp_mem_start);
-	assert_non_null(buffer_add(buf, TEST_STR3, TEST_SIZE3));
+	assert_non_null(buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL));
 	assert_int_equal(buffer_rewind_mem(buf, tmp_mem_start), 0);
 	buffer_destroy(buf);
 }
@@ -84,7 +84,7 @@ static void test_linear_zero_add(void **state)
 {
 	struct buffer *buf;
 
-	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, 1);
+	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, 1, NULL);
 	do_test_zero_add(buf);
 }
 
@@ -92,7 +92,7 @@ static void test_vector_zero_add(void **state)
 {
 	struct buffer *buf;
 
-	buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, 0, 1);
+	buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, 0, 1, NULL);
 	do_test_zero_add(buf);
 }
 

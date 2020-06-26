@@ -379,7 +379,8 @@ static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec
 
 	/* <op>:<ns>:<ns_part>:<id>:<id_part>[:<key>] */
 
-	return buffer_fmt_add(buf, "%s" KV_STORE_KEY_JOIN /* op */
+	return buffer_fmt_add(buf, NULL,
+	                      "%s" KV_STORE_KEY_JOIN /* op */
 	                      "%s" KV_STORE_KEY_JOIN /* ns */
 	                      "%s" KV_STORE_KEY_JOIN /* ns_part */
 	                      "%s" KV_STORE_KEY_JOIN /* dom */
@@ -491,7 +492,7 @@ static const char *_buffer_copy_ns_part_from_key(struct buffer *buf, const char 
 	if (!(str = _get_key_part(key, KEY_PART_NS_PART, &len)))
 		return NULL;
 
-	return buffer_fmt_add(buf, "%.*s", len, str);
+	return buffer_fmt_add(buf, NULL, "%.*s", len, str);
 }
 
 static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value, size_t value_size, struct iovec *iov)
@@ -1191,7 +1192,7 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
                                   sid_ubridge_cmd_kv_namespace_t group_ns,
                                   const char *group_id, kv_op_t op)
 {
-	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0);
+	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
 	const char *cur_full_key, *rel_key_prefix;
 	struct iovec iov[_KV_VALUE_IDX_COUNT];
 	int r = 0;
@@ -1366,8 +1367,8 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, const char *st
 	if (!(value = strchr(start, KV_PAIR_C[0])) || !*(++value))
 		return -1;
 
-	if (!(key = buffer_fmt_add(cmd->gen_buf, "%.*s", value - start - 1, start)))
-		return -1;
+	if (!(key = buffer_fmt_add(cmd->gen_buf, &r, "%.*s", value - start - 1, start)))
+		return r;;
 
 	if (!(value = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, NULL, key, 0, value, strlen(value) + 1)))
 		goto out;
@@ -1557,9 +1558,10 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 		       .minor = SID_VERSION_MINOR,
 		       .release = SID_VERSION_RELEASE
 	};
+	int r;
 
-	buffer_add(cmd->res_buf, &version, sizeof(version));
-	return 0;
+	buffer_add(cmd->res_buf, &version, sizeof(version), &r);
+	return r;
 }
 
 static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_t phase)
@@ -1803,23 +1805,31 @@ out:
 
 static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iovec *header, size_t header_size)
 {
-	struct buffer *buf;
+	struct buffer *buf = NULL;
 	size_t i;
+	int r = 0;
 
 	if (!size)
 		return 0;
 
-	if (size < header_size)
-		return -EINVAL;
+	if (size < header_size) {
+		r = -EINVAL;
+		goto out;
+	}
 
-	if (!(buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, size, 0)))
-		return -ENOMEM;
+	if (!(buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, size, 0, &r)))
+		goto out;
 
-	for (i = 0; i < header_size; i++)
-		buffer_add(buf, header[i].iov_base, header[i].iov_len);
-
-	*delta_buf = buf;
-	return 0;
+	for (i = 0; i < header_size; i++) {
+		if (!buffer_add(buf, header[i].iov_base, header[i].iov_len, &r))
+			goto out;
+	}
+out:
+	if (r < 0)
+		free(buf);
+	else
+		*delta_buf = buf;
+	return r;
 }
 
 static int _init_delta_struct(struct kv_delta *delta, size_t minus_size, size_t plus_size, size_t final_size,
@@ -1877,14 +1887,16 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 				switch (delta->op) {
 					case KV_OP_SET:
 						/* we have detected removed item: add it to delta->minus */
-						buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
+						if (!buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len, &r))
+							goto out;
 						break;
 					case KV_OP_PLUS:
 					/* we're keeping old item: add it to delta->final */
 					/* no break here intentionally! */
 					case KV_OP_MINUS:
 						/* we're keeping old item: add it to delta->final */
-						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
+						if (!buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len, &r))
+							goto out;
 						break;
 					case KV_OP_ILLEGAL:
 						goto out;
@@ -1898,8 +1910,9 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 					/* no break here intentionally! */
 					case KV_OP_PLUS:
 						/* we're adding new item: add it to delta->plus and delta->final */
-						buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
-						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						if (!buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len, &r) ||
+						    !buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len, &r))
+							goto out;
 						break;
 					case KV_OP_MINUS:
 						/* we're trying to remove non-existing item: ignore it */
@@ -1916,11 +1929,13 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 					/* no break here intentionally! */
 					case KV_OP_PLUS:
 						/* we're trying to add already existing item: add it to delta->final but not delta->plus */
-						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						if (!buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len, &r))
+							goto out;
 						break;
 					case KV_OP_MINUS:
 						/* we're removing item: add it to delta->minus */
-						buffer_add(delta->minus, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						if (!buffer_add(delta->minus, new_value[i_new].iov_base, new_value[i_new].iov_len, &r))
+							goto out;
 						break;
 					case KV_OP_ILLEGAL:
 						goto out;
@@ -1938,8 +1953,9 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 					/* no break here intentionally! */
 					case KV_OP_PLUS:
 						/* we're adding new item: add it to delta->plus and delta->final */
-						buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len);
-						buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len);
+						if (!buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len, &r) ||
+						    !buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len, &r))
+							goto out;
 						break;
 					case KV_OP_MINUS:
 						/* we're removing non-existing item: don't add to delta->minus */
@@ -1955,14 +1971,16 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 				switch (delta->op) {
 					case KV_OP_SET:
 						/* we have detected removed item: add it to delta->minus */
-						buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len);
+						if (!buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len, &r))
+							goto out;
 						break;
 					case KV_OP_PLUS:
 					/* we're keeping old item: add it to delta->final */
 					/* no break here intentionally! */
 					case KV_OP_MINUS:
 						/* we're not changing the old item so add it to delta->final */
-						buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len);
+						if (!buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len, &r))
+							goto out;
 						break;
 					case KV_OP_ILLEGAL:
 						goto out;
@@ -2120,29 +2138,33 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 
 	if (cross1.old_value) {
 		for (i = KV_VALUE_IDX_DATA; i < cross1.old_size; i++) {
-			if (bitmap_bit_is_set(cross1.old_bmp, i, NULL))
-				buffer_add(abs_delta->plus, cross1.old_value[i].iov_base, cross1.old_value[i].iov_len);
+			if (bitmap_bit_is_set(cross1.old_bmp, i, NULL) &&
+			    !buffer_add(abs_delta->plus, cross1.old_value[i].iov_base, cross1.old_value[i].iov_len, &r))
+				goto out;
 		}
 	}
 
 	if (cross1.new_value) {
 		for (i = KV_VALUE_IDX_DATA; i < cross1.new_size; i++) {
-			if (bitmap_bit_is_set(cross1.new_bmp, i, NULL))
-				buffer_add(abs_delta->minus, cross1.new_value[i].iov_base, cross1.new_value[i].iov_len);
+			if (bitmap_bit_is_set(cross1.new_bmp, i, NULL) &&
+			    !buffer_add(abs_delta->minus, cross1.new_value[i].iov_base, cross1.new_value[i].iov_len, &r))
+				goto out;
 		}
 	}
 
 	if (cross2.old_value) {
 		for (i = KV_VALUE_IDX_DATA; i < cross2.old_size; i++) {
-			if (bitmap_bit_is_set(cross2.old_bmp, i, NULL))
-				buffer_add(abs_delta->minus, cross2.old_value[i].iov_base, cross2.old_value[i].iov_len);
+			if (bitmap_bit_is_set(cross2.old_bmp, i, NULL) &&
+			    !buffer_add(abs_delta->minus, cross2.old_value[i].iov_base, cross2.old_value[i].iov_len, &r))
+				goto out;
 		}
 	}
 
 	if (cross2.new_value) {
 		for (i = KV_VALUE_IDX_DATA; i < cross2.new_size; i++) {
-			if (bitmap_bit_is_set(cross2.new_bmp, i, NULL))
-				buffer_add(abs_delta->plus, cross2.new_value[i].iov_base, cross2.new_value[i].iov_len);
+			if (bitmap_bit_is_set(cross2.new_bmp, i, NULL) &&
+			    !buffer_add(abs_delta->plus, cross2.new_value[i].iov_base, cross2.new_value[i].iov_len, &r))
+				goto out;
 		}
 	}
 
@@ -2204,7 +2226,7 @@ static int _delta_update(struct kv_store_update_spec *spec,
 	uint64_t seqnum = KV_VALUE_SEQNUM(spec->new_data);
 	struct kv_rel_spec *rel_spec = update_arg->custom;
 	kv_op_t orig_op = rel_spec->cur_key_spec->op;
-	const char *tmp_mem_start = buffer_add(update_arg->gen_buf, "", 0);
+	const char *tmp_mem_start = buffer_add(update_arg->gen_buf, "", 0, NULL);
 	struct kv_delta *orig_delta;
 	struct iovec *delta_iov, *abs_delta_iov;
 	size_t delta_iov_cnt, abs_delta_iov_cnt, i;
@@ -2337,7 +2359,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
-	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0);
+	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
 	const char *s;
 	struct dirent **dirent = NULL;
 	struct buffer *vec_buf = NULL;
@@ -2386,11 +2408,12 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	};
 
 	if (cmd->udev_dev.action != UDEV_ACTION_REMOVE) {
-		if (!(s = buffer_fmt_add(cmd->gen_buf, "%s%s/%s",
+		if (!(s = buffer_fmt_add(cmd->gen_buf, &r,
+		                         "%s%s/%s",
 		                         SYSTEM_SYSFS_PATH,
 		                         cmd->udev_dev.path,
 		                         SYSTEM_SYSFS_SLAVES))) {
-			log_error(ID(cmd_res), "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT ".", SYSTEM_SYSFS_SLAVES, CMD_DEV_ID(cmd));
+			log_error_errno(ID(cmd_res), r, "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT ".", SYSTEM_SYSFS_SLAVES, CMD_DEV_ID(cmd));
 			goto out;
 		}
 
@@ -2414,15 +2437,16 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	 * -2 to subtract "." and ".." directory which we're not interested in
 	 * +3 for "seqnum|flags|owner" header
 	 */
-	if (!(vec_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 1))) {
-		log_error(ID(cmd_res), "Failed to create buffer to record hierarchy for device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
+	if (!(vec_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 1, &r))) {
+		log_error_errno(ID(cmd_res), r, "Failed to create buffer to record hierarchy for device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
 		goto out;
 	}
 
 	/* Add record header to vec_buf: seqnum | flags | owner. */
-	buffer_add(vec_buf, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum));
-	buffer_add(vec_buf, &kv_flags_no_persist, sizeof(kv_flags_no_persist));
-	buffer_add(vec_buf, core_owner, strlen(core_owner) + 1);
+	if (!buffer_add(vec_buf, &cmd->udev_dev.seqnum, sizeof(cmd->udev_dev.seqnum), &r) ||
+	    !buffer_add(vec_buf, &kv_flags_no_persist, sizeof(kv_flags_no_persist), &r) ||
+	    !buffer_add(vec_buf, core_owner, strlen(core_owner) + 1, &r))
+		goto out;
 
 	/* Read relatives from sysfs into vec_buf. */
 	if (cmd->udev_dev.action != UDEV_ACTION_REMOVE) {
@@ -2432,7 +2456,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				continue;
 			}
 
-			if ((s = buffer_fmt_add(cmd->gen_buf, "%s%s/%s/%s/dev",
+			if ((s = buffer_fmt_add(cmd->gen_buf, &r,
+			                        "%s%s/%s/%s/dev",
 			                        SYSTEM_SYSFS_PATH,
 			                        cmd->udev_dev.path,
 			                        SYSTEM_SYSFS_SLAVES,
@@ -2446,9 +2471,10 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				rel_spec.rel_key_spec->ns_part = devno_buf;
 
 				s = _buffer_compose_key_prefix(cmd->gen_buf, rel_spec.rel_key_spec);
-				buffer_add(vec_buf, (void *) s, strlen(s) + 1);
+				if (!buffer_add(vec_buf, (void *) s, strlen(s) + 1, &r))
+					goto out;
 			} else
-				log_error(ID(cmd_res), "Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT ".",
+				log_error_errno(ID(cmd_res), r, "Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT ".",
 				          dirent[i]->d_name, CMD_DEV_ID(cmd));
 
 			free(dirent[i]);
@@ -2490,7 +2516,7 @@ out:
 static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
-	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0);
+	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
 	struct iovec iov_to_store[_KV_VALUE_IDX_COUNT];
 	char devno_buf[16];
 	const char *s;
@@ -2536,10 +2562,11 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 
 	KV_VALUE_PREPARE_HEADER(iov_to_store, cmd->udev_dev.seqnum, kv_flags_no_persist, core_owner);
 
-	if (!(s = buffer_fmt_add(cmd->gen_buf, "%s%s/../dev",
+	if (!(s = buffer_fmt_add(cmd->gen_buf, &r,
+	                         "%s%s/../dev",
 	                         SYSTEM_SYSFS_PATH,
 	                         cmd->udev_dev.path))) {
-		log_error(ID(cmd_res), "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
+		log_error_errno(ID(cmd_res), r, "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
 		goto out;
 	}
 
@@ -2782,7 +2809,8 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	size_t bytes_written = 0;
 	struct worker_data_spec data_spec;
 	unsigned i;
-	ssize_t r;
+	ssize_t r_wr;
+	int r;
 
 	/*
 	 * Export key-value store to udev or for sync with master kv store.
@@ -2842,11 +2870,13 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 				return -1;
 			}
 			key = _get_key_part(key, KEY_PART_CORE, NULL);
-			buffer_add(cmd->res_buf, (void *) key, strlen(key));
-			buffer_add(cmd->res_buf, KV_PAIR_C, 1);
+			if (!buffer_add(cmd->res_buf, (void *) key, strlen(key), &r) ||
+			    !buffer_add(cmd->res_buf, KV_PAIR_C, 1, &r))
+				goto bad;
 			data_offset = _kv_value_ext_data_offset(kv_value);
-			buffer_add(cmd->res_buf, kv_value->data + data_offset, strlen(kv_value->data + data_offset));
-			buffer_add(cmd->res_buf, KV_END_C, 1);
+			if (!buffer_add(cmd->res_buf, kv_value->data + data_offset, strlen(kv_value->data + data_offset), &r) ||
+			    !buffer_add(cmd->res_buf, KV_END_C, 1, &r))
+				goto bad;
 			continue;
 		}
 
@@ -2873,24 +2903,24 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		 */
 
 		/* FIXME: Try to reduce the "write" calls. */
-		if ((r = write(export_fd, &flags, sizeof(flags))) == sizeof(flags))
-			bytes_written += r;
+		if ((r_wr = write(export_fd, &flags, sizeof(flags))) == sizeof(flags))
+			bytes_written += r_wr;
 		else
 			goto bad;
 
 
-		if ((r = write(export_fd, &key_size, sizeof(key_size))) == sizeof(key_size))
-			bytes_written += r;
+		if ((r_wr = write(export_fd, &key_size, sizeof(key_size))) == sizeof(key_size))
+			bytes_written += r_wr;
 		else
 			goto bad;
 
-		if ((r = write(export_fd, &size, sizeof(size))) == sizeof(size))
-			bytes_written += r;
+		if ((r_wr = write(export_fd, &size, sizeof(size))) == sizeof(size))
+			bytes_written += r_wr;
 		else
 			goto bad;
 
-		if ((r = write(export_fd, key, strlen(key) + 1)) == strlen(key) + 1)
-			bytes_written += r;
+		if ((r_wr = write(export_fd, key, strlen(key) + 1)) == strlen(key) + 1)
+			bytes_written += r_wr;
 		else
 			goto bad;
 
@@ -2898,19 +2928,19 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 			for (i = 0, size = 0; i < iov_size; i++) {
 				size += iov[i].iov_len;
 
-				if ((r = write(export_fd, &iov[i].iov_len, sizeof(iov->iov_len))) == sizeof(iov->iov_len))
-					bytes_written += r;
+				if ((r_wr = write(export_fd, &iov[i].iov_len, sizeof(iov->iov_len))) == sizeof(iov->iov_len))
+					bytes_written += r_wr;
 				else
 					goto bad;
 
-				if ((r = write(export_fd, iov[i].iov_base, iov[i].iov_len)) == iov[i].iov_len)
-					bytes_written += r;
+				if ((r_wr = write(export_fd, iov[i].iov_base, iov[i].iov_len)) == iov[i].iov_len)
+					bytes_written += r_wr;
 				else
 					goto bad;
 			}
 		} else {
-			if ((r = write(export_fd, kv_value, size)) == size)
-				bytes_written += r;
+			if ((r_wr = write(export_fd, kv_value, size)) == size)
+				bytes_written += r_wr;
 			else
 				goto bad;
 		}
@@ -2919,7 +2949,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	}
 
 	lseek(export_fd, 0, SEEK_SET);
-	if ((r = write(export_fd, &bytes_written, sizeof(bytes_written))) < 0)
+	if ((r_wr = write(export_fd, &bytes_written, sizeof(bytes_written))) < 0)
 		goto bad;
 	lseek(export_fd, 0, SEEK_SET);
 
@@ -2952,7 +2982,8 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 
 	int r = -1;
 
-	(void) buffer_add(cmd->res_buf, &response_header, sizeof(response_header));
+	if(!buffer_add(cmd->res_buf, &response_header, sizeof(response_header), &r))
+		goto out;
 
 	if (cmd->request_header.prot <= UBRIDGE_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
@@ -2962,11 +2993,11 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 			log_error(ID(cmd_res), "Failed to execute command");
 	}
 
-	if (_export_kv_store(cmd_res) < 0) {
+	if ((r = _export_kv_store(cmd_res)) < 0) {
 		log_error(ID(cmd_res), "Failed to synchronize key-value store.");
-		r = -1;
+		goto out;
 	}
-
+out:
 	if (r < 0)
 		response_header.status |= COMMAND_STATUS_FAILURE;
 
@@ -3010,7 +3041,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 
 	n = buffer_read(conn->buf, fd);
 	if (n > 0) {
-		if (buffer_is_complete(conn->buf)) {
+		if (buffer_is_complete(conn->buf, NULL)) {
 			(void) buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 
 			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
@@ -3046,6 +3077,7 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 {
 	const struct worker_data_spec *data_spec = kickstart_data;
 	struct connection *conn;
+	int r;
 
 	if (!(conn = zalloc(sizeof(*conn)))) {
 		log_error(ID(res), "Failed to allocate new connection structure.");
@@ -3059,8 +3091,8 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 		goto fail;
 	}
 
-	if (!(conn->buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {
-		log_error(ID(res), "Failed to create connection buffer.");
+	if (!(conn->buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1, &r))) {
+		log_error_errno(ID(res), r, "Failed to create connection buffer.");
 		goto fail;
 	}
 
@@ -3101,15 +3133,15 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		return -1;
 	}
 
-	if (!(cmd->res_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {
-		log_error(ID(res), "Failed to create response buffer.");
+	if (!(cmd->res_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 0, 1, &r))) {
+		log_error_errno(ID(res), r, "Failed to create response buffer.");
 		goto fail;
 	}
 
 	cmd->request_header = *msg->header;
 
-	if (!(cmd->gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX))) {
-		log_error(ID(res), "Failed to create generic buffer.");
+	if (!(cmd->gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX, &r))) {
+		log_error_errno(ID(res), r, "Failed to create generic buffer.");
 		goto fail;
 	}
 
@@ -3685,6 +3717,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	struct ubridge *ubridge = NULL;
 	sid_resource_t *internal_res, *kv_store_res, *modules_res, *worker_control_res;
 	struct buffer *buf;
+	int r;
 
 	if (!(ubridge = zalloc(sizeof(struct ubridge)))) {
 		log_error(ID(res), "Failed to allocate memory for interface structure.");
@@ -3762,8 +3795,8 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX))) {
-		log_error(ID(res), "Failed to create generic buffer.");
+	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX, &r))) {
+		log_error_errno(ID(res), r, "Failed to create generic buffer.");
 		goto fail;
 	}
 

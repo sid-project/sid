@@ -88,34 +88,34 @@ static int _buffer_linear_reset(struct buffer *buf, size_t initial_size)
 	return _buffer_linear_realloc(buf, initial_size, 1);
 }
 
-static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len)
+static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len, int *ret_code)
 {
 	size_t used = buf->used;
-	void *start;
+	void *start = NULL;
 	int r;
 
 	if (!used && buf->mode == BUFFER_MODE_SIZE_PREFIX)
 		used = MSG_SIZE_PREFIX_LEN;
 
-	if ((r = _buffer_linear_realloc(buf, used + len, 0)) < 0) {
-		errno = -r;
-		return NULL;
-	}
+	if ((r = _buffer_linear_realloc(buf, used + len, 0)) < 0)
+		goto out;
 
 	start = buf->mem + used;
 	memcpy(start, data, len);
 	buf->used = used + len;
-
+out:
+	if (ret_code)
+		*ret_code = r;
 	return start;
 }
 
-static const void *_buffer_linear_fmt_add(struct buffer *buf, const char *fmt, va_list ap)
+static const void *_buffer_linear_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap)
 {
 	va_list ap_copy;
 	size_t used = buf->used;
 	size_t available;
 	int printed;
-	const void *start;
+	const void *start = NULL;
 	int r;
 
 	va_copy(ap_copy, ap);
@@ -128,23 +128,23 @@ static const void *_buffer_linear_fmt_add(struct buffer *buf, const char *fmt, v
 	va_end(ap_copy);
 
 	if (printed < 0) {
-		errno = EIO;
-		return NULL;
+		r = -EIO;
+		goto out;
 	} else if ((printed >= available)) {
-		if ((r = _buffer_linear_realloc(buf, used + printed + 1, 0)) < 0) {
-			errno = -r;
-			return NULL;
-		}
+		if ((r = _buffer_linear_realloc(buf, used + printed + 1, 0)) < 0)
+			goto out;
 		available = buf->allocated - used;
 		if ((printed = vsnprintf(buf->mem + used, available, fmt, ap)) < 0) {
-			errno = EIO;
-			return NULL;
+			r = -EIO;
+			goto out;
 		}
 	}
 
 	start = buf->mem + used;
 	buf->used = used + printed + 1;
-
+out:
+	if (ret_code)
+		*ret_code = r;
 	return start;
 }
 
@@ -166,16 +166,20 @@ static int _buffer_linear_rewind_mem(struct buffer *buf, const void *mem)
 
 #define EXPECTED(buf) (buf->used >= MSG_SIZE_PREFIX_LEN ? *((MSG_SIZE_PREFIX_TYPE *) buf->mem) : 0)
 
-static bool _buffer_linear_is_complete(struct buffer *buf)
+static bool _buffer_linear_is_complete(struct buffer *buf, int *ret_code)
 {
+	bool result;
+
 	switch (buf->mode) {
 		case BUFFER_MODE_PLAIN:
-			return true;
+			result = true;
 		case BUFFER_MODE_SIZE_PREFIX:
-			return buf->used && buf->used == EXPECTED(buf);
+			result = buf->used && buf->used == EXPECTED(buf);
 	}
 
-	return false;
+	if (ret_code)
+		*ret_code = 0;
+	return result;
 }
 
 static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t *data_size)
@@ -217,9 +221,12 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 	ssize_t n;
 	size_t previous_used;
 	size_t expected;
+	int r;
 
-	if (_buffer_linear_is_complete(buf))
-		return -EXFULL;
+	if (_buffer_linear_is_complete(buf, &r)) {
+		return r < 0 ? r : -EXFULL;
+	} else if (r < 0)
+		return r;
 
 	n = read(fd, buf->mem + buf->used, buf->allocated - buf->used);
 	if (n > 0) {

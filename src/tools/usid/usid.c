@@ -68,17 +68,18 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 	ssize_t n;
 	int r = -1;
 
-	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1))) {
-		log_error(LOG_PREFIX, "Failed to create request buffer.");
+	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1, &r))) {
+		log_error_errno(LOG_PREFIX, r, "Failed to create request buffer.");
 		goto out;
 	}
 
-	buffer_add(buf,
+	if (!buffer_add(buf,
 	&((struct usid_msg_header) {
-		.status = status,
-		.prot = UBRIDGE_PROTOCOL,
-		.cmd = cmd
-	}), USID_MSG_HEADER_SIZE);
+	.status = status,
+	.prot = UBRIDGE_PROTOCOL,
+	.cmd = cmd
+}), USID_MSG_HEADER_SIZE, &r))
+	goto out;
 
 	if (data_fn && (data_fn(buf, data_fn_arg) < 0)) {
 		log_error(LOG_PREFIX, "Failed to add data to request.");
@@ -102,7 +103,7 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 	for (;;) {
 		n = buffer_read(buf, socket_fd);
 		if (n > 0) {
-			if (buffer_is_complete(buf)) {
+			if (buffer_is_complete(buf, NULL)) {
 				r = 0;
 				break;
 			}
@@ -113,7 +114,7 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 			r = -EBADMSG;
 			break;
 		} else {
-			if (!buffer_is_complete(buf))
+			if (!buffer_is_complete(buf, NULL))
 				log_error(LOG_PREFIX, "Unexpected reponse end.");
 			break;
 		}
@@ -210,9 +211,9 @@ static int _add_devt_env_to_buffer(struct buffer *buf)
 	minor = val;
 
 	devnum = makedev(major, minor);
-	buffer_add(buf, &devnum, sizeof(devnum));
+	buffer_add(buf, &devnum, sizeof(devnum), &r);
 
-	return 0;
+	return r;
 }
 
 static int _add_checkpoint_env_to_buf(struct buffer *buf, void *data)
@@ -222,16 +223,18 @@ static int _add_checkpoint_env_to_buf(struct buffer *buf, void *data)
 	int i, r;
 
 	if ((r = _add_devt_env_to_buffer(buf)) < 0)
-		return r;
+		goto out;
 
 	if (args->argc < 2) {
 		/* we need at least checkpoint name */
 		log_error(LOG_PREFIX, "Missing checkpoint name.");
-		return -EINVAL;
+		r = -EINVAL;
+		goto out;
 	}
 
 	/* add checkpoint name */
-	buffer_add(buf, args->argv[1], strlen(args->argv[1]) + 1);
+	if (!buffer_add(buf, args->argv[1], strlen(args->argv[1]) + 1, &r))
+		goto out;
 
 	/* add key=value pairs from current environment */
 	for (i = 2; i < args->argc; i++) {
@@ -239,10 +242,13 @@ static int _add_checkpoint_env_to_buf(struct buffer *buf, void *data)
 		if (!(val = getenv(key)))
 			continue;
 
-		buffer_fmt_add(buf, "%s=%s", key, val);
+		if (!buffer_fmt_add(buf, &r, "%s=%s", key, val))
+			goto out;
 	}
 
-	return 0;
+	r = 0;
+out:
+	return r;
 }
 
 static const char _msg_failed_to_get_seqnum[] = "Failed to get value for %s key from environment";
@@ -276,12 +282,13 @@ static int _add_scan_env_to_buf(struct buffer *buf, void *data)
 	int r;
 
 	if ((r = _add_devt_env_to_buffer(buf)) < 0)
-		return r;
+		goto out;
 
 	for (kv = environ; *kv; kv++)
-		buffer_add(buf, *kv, strlen(*kv) + 1);
-
-	return 0;
+		if (!buffer_add(buf, *kv, strlen(*kv) + 1, &r))
+			goto out;
+out:
+	return r;
 }
 
 static int _usid_cmd_scan(struct args *args)
