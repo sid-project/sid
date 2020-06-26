@@ -193,10 +193,8 @@ int _do_service_link_notify(struct service_link *sl, struct service_link_group *
 			                    size, arg_value))
 				goto out;
 
-			if (buffer_rewind(buf, 1, BUFFER_POS_REL) < 0) {
-				r = -errno;
+			if ((r = buffer_rewind(buf, 1, BUFFER_POS_REL)) < 0)
 				goto out;
-			}
 		}
 	}
 
@@ -206,10 +204,8 @@ int _do_service_link_notify(struct service_link *sl, struct service_link_group *
 			                    size, arg_value))
 				goto out;
 
-			if (buffer_rewind(buf, 1, BUFFER_POS_REL) < 0) {
-				r = -errno;
+			if ((r = buffer_rewind(buf, 1, BUFFER_POS_REL)) < 0)
 				goto out;
-			}
 		}
 	}
 
