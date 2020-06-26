@@ -2044,7 +2044,7 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 	rel_spec->cur_key_spec->op = KV_OP_PLUS;
 	delta_full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 	if ((cross1.old_value = kv_store_get_value(update_arg->res, delta_full_key, &cross1.old_size, NULL))) {
-		if (!(cross1.old_bmp = bitmap_create(cross1.old_size, true)))
+		if (!(cross1.old_bmp = bitmap_create(cross1.old_size, true, NULL)))
 			goto out;
 	}
 	buffer_rewind_mem(update_arg->gen_buf, delta_full_key);
@@ -2052,7 +2052,7 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 	rel_spec->cur_key_spec->op = KV_OP_MINUS;
 	delta_full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 	if ((cross2.old_value = kv_store_get_value(update_arg->res, delta_full_key, &cross2.old_size, NULL))) {
-		if (!(cross2.old_bmp = bitmap_create(cross2.old_size, true)))
+		if (!(cross2.old_bmp = bitmap_create(cross2.old_size, true, NULL)))
 			goto out;
 	}
 	buffer_rewind_mem(update_arg->gen_buf, delta_full_key);
@@ -2068,7 +2068,7 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 	if (rel_spec->delta->minus) {
 		buffer_get_data(rel_spec->delta->minus, (const void **) &cross1.new_value, &cross1.new_size);
 
-		if (!(cross1.new_bmp = bitmap_create(cross1.new_size, true)))
+		if (!(cross1.new_bmp = bitmap_create(cross1.new_size, true, NULL)))
 			goto out;
 
 		/* cross-compare old_plus with new_minus and unset bitmap positions where we find contradiction */
@@ -2086,7 +2086,7 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 	if (rel_spec->delta->plus) {
 		buffer_get_data(rel_spec->delta->plus, (const void **) &cross2.new_value, &cross2.new_size);
 
-		if (!(cross2.new_bmp = bitmap_create(cross2.new_size, true)))
+		if (!(cross2.new_bmp = bitmap_create(cross2.new_size, true, NULL)))
 			goto out;
 
 		/* cross-compare old_minus with new_plus and unset bitmap positions where we find contradiction */
@@ -2120,28 +2120,28 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 
 	if (cross1.old_value) {
 		for (i = KV_VALUE_IDX_DATA; i < cross1.old_size; i++) {
-			if (bitmap_bit_is_set(cross1.old_bmp, i))
+			if (bitmap_bit_is_set(cross1.old_bmp, i, NULL))
 				buffer_add(abs_delta->plus, cross1.old_value[i].iov_base, cross1.old_value[i].iov_len);
 		}
 	}
 
 	if (cross1.new_value) {
 		for (i = KV_VALUE_IDX_DATA; i < cross1.new_size; i++) {
-			if (bitmap_bit_is_set(cross1.new_bmp, i))
+			if (bitmap_bit_is_set(cross1.new_bmp, i, NULL))
 				buffer_add(abs_delta->minus, cross1.new_value[i].iov_base, cross1.new_value[i].iov_len);
 		}
 	}
 
 	if (cross2.old_value) {
 		for (i = KV_VALUE_IDX_DATA; i < cross2.old_size; i++) {
-			if (bitmap_bit_is_set(cross2.old_bmp, i))
+			if (bitmap_bit_is_set(cross2.old_bmp, i, NULL))
 				buffer_add(abs_delta->minus, cross2.old_value[i].iov_base, cross2.old_value[i].iov_len);
 		}
 	}
 
 	if (cross2.new_value) {
 		for (i = KV_VALUE_IDX_DATA; i < cross2.new_size; i++) {
-			if (bitmap_bit_is_set(cross2.new_bmp, i))
+			if (bitmap_bit_is_set(cross2.new_bmp, i, NULL))
 				buffer_add(abs_delta->plus, cross2.new_value[i].iov_base, cross2.new_value[i].iov_len);
 		}
 	}

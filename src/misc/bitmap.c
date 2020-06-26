@@ -45,21 +45,22 @@ static void _init_bitmap()
 	BLOCK_SHIFT = _log2n_recursive(BITS_PER_BLOCK);
 }
 
-struct bitmap *bitmap_create(size_t bit_count, bool invert)
+struct bitmap *bitmap_create(size_t bit_count, bool invert, int *ret_code)
 {
 	size_t mem_size;
-	struct bitmap *bitmap;
+	struct bitmap *bitmap = NULL;
+	int r = 0;
 
 	if (!bit_count) {
-		errno = EINVAL;
-		return NULL;
+		r = -EINVAL;
+		goto out;
 	}
 
 	mem_size = ((bit_count - 1)/ BITS_PER_BLOCK + 1) * BLOCK_SIZE;
 
 	if (!(bitmap = malloc(sizeof(struct bitmap) + mem_size))) {
-		errno = ENOMEM;
-		return NULL;
+		r = -ENOMEM;
+		goto out;
 	}
 
 	bitmap->bit_count = bit_count;
@@ -71,7 +72,9 @@ struct bitmap *bitmap_create(size_t bit_count, bool invert)
 		memset(bitmap->mem, 0, mem_size);
 		bitmap->bit_set_count = 0;
 	}
-
+out:
+	if (ret_code)
+		*ret_code = r;
 	return bitmap;
 }
 
@@ -123,12 +126,16 @@ int bitmap_bit_unset(struct bitmap *bitmap, size_t bit_pos)
 	return 0;
 }
 
-bool bitmap_bit_is_set(struct bitmap *bitmap, size_t bit_pos)
+bool bitmap_bit_is_set(struct bitmap *bitmap, size_t bit_pos, int *ret_code)
 {
 	unsigned block, bit;
+	int r;
 
-	if (_get_coord(bitmap, bit_pos, &block, &bit) < 0)
+	if ((r = _get_coord(bitmap, bit_pos, &block, &bit)) < 0) {
+		if (ret_code)
+			*ret_code = r;
 		return 0;
+	}
 
 	return bitmap->mem[block] & bit;
 }
