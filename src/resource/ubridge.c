@@ -3358,8 +3358,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 			                   _master_kv_store_update, &update_arg);
 
 		_destroy_delta(rel_spec.delta);
-		free(iov);
-		iov = NULL;
+		iov = freen(iov);
 	}
 
 	r = 0;

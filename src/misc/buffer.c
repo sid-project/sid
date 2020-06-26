@@ -43,8 +43,7 @@ struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t init
 
 	return buf;
 fail:
-	free(buf);
-	return NULL;
+	return freen(buf);
 }
 
 void buffer_destroy(struct buffer *buf)

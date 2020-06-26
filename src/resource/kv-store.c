@@ -172,9 +172,8 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 					data_size += iov[i].iov_len;
 
 				if (!(p1 = malloc(data_size))) {
-					free(value);
 					errno = ENOMEM;
-					return NULL;
+					return freen(value);
 				}
 
 				for (i = 0, p2 = p1; i < iov_cnt; i++) {

@@ -252,7 +252,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		 */
 
 		_close_channels(worker_proxy_channels, worker_control->channel_spec_count);
-		free(worker_proxy_channels);
+		worker_proxy_channels = freen(worker_proxy_channels);
 
 		kickstart.pid = getpid();
 		kickstart.channels = worker_channels;
@@ -298,7 +298,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		log_debug(ID(worker_control_res), "Created new worker process with PID %d.", pid);
 
 		_close_channels(worker_channels, worker_control->channel_spec_count);
-		free(worker_channels);
+		worker_channels = freen(worker_channels);
 
 		kickstart.pid = pid;
 		kickstart.channels = worker_proxy_channels;

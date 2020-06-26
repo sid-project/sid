@@ -17,6 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "mem.h"
 #include "util.h"
 
 #include <errno.h>
@@ -263,8 +264,7 @@ char **util_str_comb_to_strv(const char *prefix, const char *str, const char *su
 	copier.strv[counter.tokens] = NULL;
 	return copier.strv;
 fail:
-	free(copier.strv);
-	return NULL;
+	return freen(copier.strv);
 }
 
 char **util_strv_copy(const char **strv)
@@ -286,10 +286,8 @@ char **util_strv_copy(const char **strv)
 	copier.s = mem + _get_strv_header_size(&counter);
 
 	for (p = strv; *p; p++) {
-		if (_copy_token_to_strv(*p, strlen(*p), &copier) < 0) {
-			free(mem);
-			return NULL;
-		}
+		if (_copy_token_to_strv(*p, strlen(*p), &copier) < 0)
+			return freen(mem);
 	}
 
 	return copier.strv;
