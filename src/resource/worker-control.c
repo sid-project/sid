@@ -417,8 +417,13 @@ static int _chan_send(const struct worker_channel *chan, worker_comms_cmd_t cmd,
 			break;
 	}
 
-	if (r != iov_data_size)
-		return -ENOBUFS;
+	/*
+	 * FIXME: this check doesn't work - the sendmsg inside comms_unix_send_iovec doesn't return
+	 * exact number of bytes sent for some reason, hence this check always fails. Needs a bit
+	 * detailed inspection why and then fix this check appropriately if possible.
+	 */
+	/*if (r != iov_data_size)
+		return -ENOBUFS;*/
 
 	return 0;
 }
