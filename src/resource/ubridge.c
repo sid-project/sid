@@ -2475,7 +2475,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 					goto out;
 			} else
 				log_error_errno(ID(cmd_res), r, "Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT ".",
-				          dirent[i]->d_name, CMD_DEV_ID(cmd));
+				                dirent[i]->d_name, CMD_DEV_ID(cmd));
 
 			free(dirent[i]);
 		}
