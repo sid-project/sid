@@ -648,19 +648,19 @@ static int _kv_overwrite(const char *full_key, struct kv_store_update_spec *spec
 	if (KV_VALUE_FLAGS(iov_old) & KV_MOD_PRIVATE) {
 		if (strcmp(KV_VALUE_OWNER(iov_old), KV_VALUE_OWNER(iov_new))) {
 			reason = "private";
-			arg->ret_code = EACCES;
+			arg->ret_code = -EACCES;
 			goto keep_old;
 		}
 	} else if (KV_VALUE_FLAGS(iov_old) & KV_MOD_PROTECTED) {
 		if (strcmp(KV_VALUE_OWNER(iov_old), KV_VALUE_OWNER(iov_new))) {
 			reason = "protected";
-			arg->ret_code = EPERM;
+			arg->ret_code = -EPERM;
 			goto keep_old;
 		}
 	} else if (KV_VALUE_FLAGS(iov_old) & KV_MOD_RESERVED) {
 		if (strcmp(KV_VALUE_OWNER(iov_old), KV_VALUE_OWNER(iov_new))) {
 			reason = "reserved";
-			arg->ret_code = EBUSY;
+			arg->ret_code = -EBUSY;
 			goto keep_old;
 		}
 	}
@@ -717,8 +717,7 @@ static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd,
 		goto out;
 
 	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec))) {
-		errno = ENOKEY;
-		r = 0;
+		r = -ENOMEM;
 		goto out;
 	}
 
@@ -811,6 +810,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 		       .id_part = ID_NULL,
 		       .key = key
 	};
+	int r;
 	void *ret = NULL;
 
 	/*
@@ -825,37 +825,31 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	 * we can't control any global reservation at the moment so it doesn't make sense
 	 * to do the check here.
 	 */
-	if (!((ns == KV_NS_UDEV) && !strcmp(owner, OWNER_CORE)) &&
-	    !_passes_global_reservation_check(cmd, owner, ns, key))
-		goto out;
-
-	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec))) {
-		errno = ENOKEY;
-		goto out;
+	if (!((ns == KV_NS_UDEV) && !strcmp(owner, OWNER_CORE))) {
+		r = _passes_global_reservation_check(cmd, owner, ns, key);
+		if (r <= 0)
+			goto out;
 	}
+
+	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec)))
+		goto out;
 
 	KV_VALUE_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, flags, (char *) owner);
 	iov[KV_VALUE_IDX_DATA] = (struct iovec) {
 		(void *) value, value ? value_size : 0
 	};
 
-	update_arg.res = cmd->kv_store_res;
-	update_arg.owner = owner;
-	update_arg.gen_buf = cmd->gen_buf;
-	update_arg.custom = NULL;
-	update_arg.ret_code = 0;
+	update_arg = (struct kv_update_arg) {
+		.res = cmd->kv_store_res,
+		.owner = owner,
+		.gen_buf = cmd->gen_buf,
+		.custom = NULL,
+		.ret_code = -EREMOTEIO
+	};
 
-	kv_value = kv_store_set_value(cmd->kv_store_res, full_key, iov, _KV_VALUE_IDX_COUNT,
-	                              KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-	                              _kv_overwrite, &update_arg);
-
-	if (!kv_value) {
-		if (errno == EADV)
-			errno = update_arg.ret_code;
-		goto out;
-	}
-
-	if (!value_size)
+	if (!(kv_value = kv_store_set_value(cmd->kv_store_res, full_key, iov, _KV_VALUE_IDX_COUNT,
+	                                    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
+	                                    _kv_overwrite, &update_arg)) || !value_size)
 		goto out;
 
 	ret = kv_value->data + _kv_value_ext_data_offset(kv_value);
@@ -867,10 +861,8 @@ out:
 void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
                              const char *key, const void *value, size_t value_size, sid_ubridge_kv_flags_t flags)
 {
-	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0])) {
-		errno = EINVAL;
+	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
-	}
 
 	if (ns == KV_NS_UDEV)
 		flags |= KV_PERSISTENT;
@@ -895,19 +887,15 @@ static const void *_do_sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cm
 	};
 	void *ret = NULL;
 
-	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec))) {
-		errno = ENOKEY;
+	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec)))
 		goto out;
-	}
 
 	if (!(kv_value = kv_store_get_value(cmd->kv_store_res, full_key, &size, NULL)))
 		goto out;
 
 	if (kv_value->flags & KV_MOD_PRIVATE) {
-		if (strcmp(kv_value->data, owner)) {
-			errno = EACCES;
+		if (strcmp(kv_value->data, owner))
 			goto out;
-		}
 	}
 
 	if (flags)
@@ -929,10 +917,9 @@ out:
 const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
                                    const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
 {
-	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0])) {
-		errno = EINVAL;
+	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
-	}
+
 	return _do_sid_ubridge_cmd_get_kv(cmd, ns, key, value_size, flags);
 }
 
@@ -952,7 +939,7 @@ static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, 
 	if (strcmp(KV_VALUE_OWNER(iov_old), KV_VALUE_OWNER(iov_new))) {
 		log_debug(ID(arg->res), "Module %s can't reserve key %s which is already reserved by %s module.",
 		          KV_VALUE_OWNER(iov_new), full_key, KV_VALUE_OWNER(iov_old));
-		arg->ret_code = EBUSY;
+		arg->ret_code = -EBUSY;
 		return 0;
 	}
 
@@ -973,7 +960,7 @@ static int _kv_unreserve(const char *full_key, struct kv_store_update_spec *spec
 	if (strcmp(KV_VALUE_OWNER(iov_old), arg->owner)) {
 		log_debug(ID(arg->res), "Module %s can't unreserve key %s which is reserved by %s module.",
 		          arg->owner, full_key, KV_VALUE_OWNER(iov_old));
-		arg->ret_code = EBUSY;
+		arg->ret_code = -EBUSY;
 		return 0;
 	}
 
@@ -1001,20 +988,19 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	};
 	int r = -1;
 
-	if (!(full_key = _buffer_compose_key(cmd_mod->gen_buf, &key_spec))) {
-		errno = ENOKEY;
+	if (!(full_key = _buffer_compose_key(cmd_mod->gen_buf, &key_spec)))
 		goto out;
-	}
 
-	if (!(cmd_mod->kv_store_res)) {
-		errno = ENOMEDIUM;
+	if (!(cmd_mod->kv_store_res))
 		goto out;
-	}
 
-	update_arg.res = cmd_mod->kv_store_res;
-	update_arg.owner = owner;
-	update_arg.custom = NULL;
-	update_arg.ret_code = 0;
+	update_arg = (struct kv_update_arg) {
+		.res = cmd_mod->kv_store_res,
+		.gen_buf = NULL,
+		.owner = owner,
+		.custom = NULL,
+		.ret_code = -EREMOTEIO
+	};
 
 	is_worker = worker_control_is_worker(cmd_mod->kv_store_res);
 
@@ -1023,21 +1009,13 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 
 	if (unset && !is_worker) {
 		kv_store_unset_value(cmd_mod->kv_store_res, full_key, _kv_unreserve, &update_arg);
-
-		if (errno == EADV)
-			errno = update_arg.ret_code;
 		goto out;
 	} else {
 		KV_VALUE_PREPARE_HEADER(iov, null_int, flags, (char *) owner);
-		kv_value = kv_store_set_value(cmd_mod->kv_store_res, full_key, iov, _KV_VALUE_IDX_COUNT - 1,
-		                              KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-		                              _kv_reserve, &update_arg);
-
-		if (!kv_value) {
-			if (errno == EADV)
-				errno = update_arg.ret_code;
+		if (!(kv_value = kv_store_set_value(cmd_mod->kv_store_res, full_key, iov, _KV_VALUE_IDX_COUNT - 1,
+		                                    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
+		                                    _kv_reserve, &update_arg)))
 			goto out;
-		}
 	}
 
 	r = 0;
@@ -1177,10 +1155,8 @@ int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
 	                        KV_STORE_VALUE_VECTOR,
 	                        0,
 	                        _kv_write_new_only,
-	                        &update_arg)) {
-		errno = update_arg.ret_code;
+	                        &update_arg))
 		goto out;
-	}
 
 	r = 0;
 out:
@@ -1251,10 +1227,8 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 	                        KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 	                        0,
 	                        _kv_delta,
-	                        &update_arg)) {
-		errno = update_arg.ret_code;
+	                        &update_arg))
 		r = -1;
-	}
 
 	_destroy_delta(rel_spec.delta);
 	buffer_rewind_mem(cmd->gen_buf, tmp_mem_start);
@@ -1347,7 +1321,7 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 	                        0,
 	                        _kv_delta,
 	                        &update_arg)) {
-		r = -update_arg.ret_code;
+		r = update_arg.ret_code;
 		goto out;
 	}
 
@@ -3334,7 +3308,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 
 			update_arg.owner = KV_VALUE_OWNER(iov);
 			update_arg.res = kv_store_res;
-			update_arg.ret_code = 0;
+			update_arg.ret_code = -EREMOTEIO;
 
 			log_debug(ID(worker_proxy_res), syncing_msg, full_key,
 			          unset ? "NULL" : "[vector]", KV_VALUE_SEQNUM(iov));
@@ -3371,7 +3345,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 
 			update_arg.owner = value->data;
 			update_arg.res = kv_store_res;
-			update_arg.ret_code = 0;
+			update_arg.ret_code = -EREMOTEIO;
 
 			log_debug(ID(worker_proxy_res), syncing_msg, full_key,
 			          unset ? "NULL"
