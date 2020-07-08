@@ -116,7 +116,18 @@ struct worker_control_resource_params {
 int worker_control_channel_send(sid_resource_t *res, const char *channel_id, struct worker_data_spec *data_spec);
 
 /* Worker creation/lookup. */
-sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, const char *id);
+struct worker_params {
+	const char *id;
+	union {
+		struct {
+			const char *exec_file;
+			const char *args;
+			const char *env;
+		} external;
+	};
+};
+
+sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params);
 sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_res);
 sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, const char *id);
 

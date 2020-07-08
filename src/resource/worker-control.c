@@ -213,7 +213,7 @@ sid_resource_t *worker_channel_get_owner(struct worker_channel *channel)
 	return channel->owner;
 }
 
-sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, const char *id)
+sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params)
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
 	struct worker_channel *worker_proxy_channels = NULL, *worker_channels = NULL;
@@ -222,7 +222,9 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 	sid_resource_t *res = NULL;
 	int signals_blocked = 0;
 	pid_t pid = -1;
+	const char *id;
 	char gen_id[16];
+	char **argv, **envp;
 	int r = -1;
 
 	if (_create_channels(worker_control_res, &worker_proxy_channels, &worker_channels) < 0) {
@@ -254,42 +256,70 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		_close_channels(worker_proxy_channels, worker_control->channel_spec_count);
 		worker_proxy_channels = freen(worker_proxy_channels);
 
-		kickstart.pid = getpid();
-		kickstart.channels = worker_channels;
-		kickstart.channel_count = worker_control->channel_spec_count;
+		if (worker_control->worker_type == WORKER_TYPE_INTERNAL) {
+			/*
+			 * WORKER_TYPE_INTERNAL
+			 */
 
-		if (!id) {
-			(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
-			id = gen_id;
+			kickstart.pid = getpid();
+			kickstart.channels = worker_channels;
+			kickstart.channel_count = worker_control->channel_spec_count;
+
+			if (!(id = params->id)) {
+				(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
+				id = gen_id;
+			}
+
+			res = sid_resource_create(SID_RESOURCE_NO_PARENT,
+			                          &sid_resource_type_worker,
+			                          SID_RESOURCE_NO_FLAGS,
+			                          id,
+			                          &kickstart,
+			                          SID_RESOURCE_NO_SERVICE_LINKS);
+
+			if (worker_control->init_cb_spec.cb)
+				(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
+
+			/*
+			 * FIXME: There seems to be a problem with a short period of time when we
+			 *        have two event loops with SIGTERM signal handler registered for
+			 *        both event loops (the one we inherited from daemon process inside
+			 *        "sid" resource and the other one we've just registered for the
+			 *        "worker" resource here with sid_resource_create call above.
+			 *        If we destroy the "sid" resource here, the SIGTERM handling
+			 *        does not work anymore - the handler is not called. It seems that
+			 *        removing the signal handler from one event loop affects the other.
+			 *        See also https://github.com/sid-project/sid-mvp/issues/33.
+			 *
+			 *        For now, we just comment out the sid_resource_destroy which
+			 *        destroys the unneeded and inherited "sid" resource from parent
+			 *        daemon process. But we should fix this correctly and we should
+			 *        know why this is causing problems!
+			 */
+			/*(void) sid_resource_destroy(sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));*/
+		} else {
+			/*
+			 * WORKER_TYPE_EXTERNAL
+			 */
+
+			if (!(argv = util_str_comb_to_strv(params->external.exec_file, params->external.args, NULL,
+			                                   UTIL_STR_DEFAULT_DELIMS, UTIL_STR_DEFAULT_QUOTES)) ||
+			    !(envp = util_str_comb_to_strv(NULL, params->external.env, NULL,
+			                                   UTIL_STR_DEFAULT_DELIMS, UTIL_STR_DEFAULT_QUOTES))) {
+				log_error(ID(worker_control_res), "Failed to convert argument and environment strings to vectors.");
+				goto out;
+			}
+
+			if (worker_control->init_cb_spec.cb)
+				(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
+
+			/* TODO: check we have all unneeded FDs closed before we call exec! */
+
+			if (execve(params->external.exec_file, argv, envp) < 0) {
+				log_sys_error(ID(worker_control_res), "execvpe", "");
+				goto out;
+			}
 		}
-
-		res = sid_resource_create(SID_RESOURCE_NO_PARENT,
-		                          &sid_resource_type_worker,
-		                          SID_RESOURCE_NO_FLAGS,
-		                          id,
-		                          &kickstart,
-		                          SID_RESOURCE_NO_SERVICE_LINKS);
-
-		if (worker_control->init_cb_spec.cb)
-			(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
-
-		/*
-		 * FIXME: There seems to be a problem with a short period of time when we
-		 *        have two event loops with SIGTERM signal handler registered for
-		 *        both event loops (the one we inherited from daemon process inside
-		 *        "sid" resource and the other one we've just registered for the
-		 *        "worker" resource here with sid_resource_create call above.
-		 *        If we destroy the "sid" resource here, the SIGTERM handling
-		 *        does not work anymore - the handler is not called. It seems that
-		 *        removing the signal handler from one event loop affects the other.
-		 *        See also https://github.com/sid-project/sid-mvp/issues/33.
-		 *
-		 *        For now, we just comment out the sid_resource_destroy which
-		 *        destroys the unneeded and inherited "sid" resource from parent
-		 *        daemon process. But we should fix this correctly and we should
-		 *        know why this is causing problems!
-		 */
-		/*(void) sid_resource_destroy(sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));*/
 	} else {
 		/*
 		 * WORKER PROXY HERE
@@ -304,7 +334,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		kickstart.channels = worker_proxy_channels;
 		kickstart.channel_count = worker_control->channel_spec_count;
 
-		if (!id) {
+		if (!(id = params->id)) {
 			(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
 			id = gen_id;
 		}
@@ -448,6 +478,12 @@ static int _chan_recv(const struct worker_channel *chan, worker_comms_cmd_t *cmd
 	struct iovec iov[2];
 	void *buf = NULL;
 	ssize_t r = 0;
+
+	/*
+	 * TODO: Handle WORKER_TYPE_EXTERNAL separately which usually does not speak the
+	 * 	 simple protocol we use for WORKER_TYPE_INTERNAL where there is a header
+	 * 	 with cmd number and data size before the actual data.
+	 */
 
 	iov[0].iov_base = cmd;
 	iov[0].iov_len = sizeof(*cmd);

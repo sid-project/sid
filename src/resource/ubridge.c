@@ -3457,8 +3457,10 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 			return -1;
 		}
 
-		if (!(worker_proxy_res = worker_control_get_new_worker(worker_control_res, uuid)))
-			return -1;
+		if (!(worker_proxy_res = worker_control_get_new_worker(worker_control_res, &((struct worker_params) {
+		.id = uuid
+	}))))
+		return -1;
 	}
 
 	/* worker never reaches this point, only worker-proxy does */
