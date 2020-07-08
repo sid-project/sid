@@ -216,14 +216,14 @@ sid_resource_t *worker_channel_get_owner(struct worker_channel *channel)
 sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, const char *id)
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
-	struct worker_channel *worker_proxy_channels, *worker_channels;
+	struct worker_channel *worker_proxy_channels = NULL, *worker_channels = NULL;
 	struct worker_kickstart kickstart;
 	sigset_t original_sigmask, new_sigmask;
 	sid_resource_t *res = NULL;
 	int signals_blocked = 0;
 	pid_t pid = -1;
 	char gen_id[16];
-	int r;
+	int r = -1;
 
 	if (_create_channels(worker_control_res, &worker_proxy_channels, &worker_channels) < 0) {
 		log_error(ID(worker_control_res), "Failed to create worker channels.");
@@ -316,7 +316,21 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		                          &kickstart,
 		                          SID_RESOURCE_NO_SERVICE_LINKS);
 	}
+
+	r = 0;
 out:
+	if (r < 0) {
+		if (worker_proxy_channels) {
+			_close_channels(worker_proxy_channels, worker_control->channel_spec_count);
+			free(worker_proxy_channels);
+		}
+
+		if (worker_channels) {
+			_close_channels(worker_channels, worker_control->channel_spec_count);
+			free(worker_channels);
+		}
+	}
+
 	if (signals_blocked && pid) {
 		if (sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
 			log_sys_error(ID(res), "sigprocmask", "after forking process");
@@ -327,7 +341,8 @@ out:
 		return res;
 
 	/* run event loop in worker's top-level resource */
-	r = sid_resource_run_event_loop(res);
+	if (r == 0)
+		r = sid_resource_run_event_loop(res);
 
 	(void) sid_resource_destroy(res);
 	exit(-r);
