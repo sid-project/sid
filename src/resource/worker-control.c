@@ -34,17 +34,17 @@
 #define DEFAULT_WORKER_IDLE_TIMEOUT_USEC   5000000
 
 typedef enum {
-	WORKER_COMMS_CMD_NOOP,
-	WORKER_COMMS_CMD_YIELD,
-	WORKER_COMMS_CMD_CUSTOM,
-} worker_comms_cmd_t;
+	WORKER_CHANNEL_CMD_NOOP,
+	WORKER_CHANNEL_CMD_YIELD,
+	WORKER_CHANNEL_CMD_CUSTOM,
+} worker_channel_cmd_t;
 
-#define COMMS_BUFFER_LEN sizeof(comms_cmd_t)
+#define WORKER_CHANNEL_MIN_DATA_SIZE sizeof(worker_channel_cmd_t)
 
-static const char *worker_comms_cmd_str[] = {[WORKER_COMMS_CMD_NOOP]   = "NOOP",
-                                             [WORKER_COMMS_CMD_YIELD]  = "YIELD",
-                                             [WORKER_COMMS_CMD_CUSTOM] = "CUSTOM"
-                                            };
+static const char *worker_channel_cmd_str[] = {[WORKER_CHANNEL_CMD_NOOP]   = "NOOP",
+                                               [WORKER_CHANNEL_CMD_YIELD]  = "YIELD",
+                                               [WORKER_CHANNEL_CMD_CUSTOM] = "CUSTOM"
+                                              };
 
 static const char *worker_state_str[] = {[WORKER_STATE_NEW]      = "WORKER_NEW",
                                          [WORKER_STATE_IDLE]     = "WORKER_IDLE",
@@ -420,7 +420,7 @@ const char *worker_control_get_worker_id(sid_resource_t *res)
 	return NULL;
 }
 
-static int _chan_send(const struct worker_channel *chan, worker_comms_cmd_t cmd, struct worker_data_spec *data_spec)
+static int _chan_send(const struct worker_channel *chan, worker_channel_cmd_t cmd, struct worker_data_spec *data_spec)
 {
 	static struct worker_data_spec null_data_spec = {0};
 	int has_data = data_spec && data_spec->data && data_spec->data_size;
@@ -471,7 +471,7 @@ static int _chan_send(const struct worker_channel *chan, worker_comms_cmd_t cmd,
 	return 0;
 }
 
-static int _chan_recv(const struct worker_channel *chan, worker_comms_cmd_t *cmd, struct worker_data_spec *data_spec)
+static int _chan_recv(const struct worker_channel *chan, worker_channel_cmd_t *cmd, struct worker_data_spec *data_spec)
 {
 	struct iovec iov[2];
 	void *buf = NULL;
@@ -588,7 +588,7 @@ int worker_control_channel_send(sid_resource_t *current_res, const char *channel
 	} else
 		return -ENOMEDIUM;
 
-	return _chan_send(chan, WORKER_COMMS_CMD_CUSTOM, data_spec);
+	return _chan_send(chan, WORKER_CHANNEL_CMD_CUSTOM, data_spec);
 }
 
 int worker_control_worker_yield(sid_resource_t *res)
@@ -609,7 +609,7 @@ int worker_control_worker_yield(sid_resource_t *res)
 		chan = &worker->channels[i];
 		if (chan->spec->wire.type == WORKER_WIRE_PIPE_TO_PROXY ||
 		    chan->spec->wire.type == WORKER_WIRE_SOCKET)
-			return _chan_send(chan, WORKER_COMMS_CMD_YIELD, NULL);
+			return _chan_send(chan, WORKER_CHANNEL_CMD_YIELD, NULL);
 	}
 
 	return -ENOTCONN;
@@ -671,7 +671,7 @@ static const char _unexpected_internal_command_msg[] = "unexpected internal comm
 static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	struct worker_channel *chan = data;
-	worker_comms_cmd_t cmd;
+	worker_channel_cmd_t cmd;
 	struct worker_data_spec data_spec = {0};
 	/*uint64_t timeout_usec;*/
 	int r = 0;
@@ -682,7 +682,7 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 	}
 
 	switch (cmd) {
-		case WORKER_COMMS_CMD_YIELD:
+		case WORKER_CHANNEL_CMD_YIELD:
 			/* FIXME: Make timeout configurable. If timeout is set to zero, exit worker right away - call _make_worker_exit.
 			 *
 			timeout_usec = util_get_now_usec(CLOCK_MONOTONIC) + DEFAULT_WORKER_IDLE_TIMEOUT_USEC;
@@ -692,14 +692,14 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 			*/
 			_make_worker_exit(chan->owner);
 			break;
-		case WORKER_COMMS_CMD_CUSTOM:
+		case WORKER_CHANNEL_CMD_CUSTOM:
 			if (chan->spec->proxy_rx_cb.cb) {
 				if (chan->spec->proxy_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->proxy_rx_cb.arg) < 0)
 					log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
 			}
 			break;
 		default:
-			log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_comms_cmd_str[cmd], _unexpected_internal_command_msg);
+			log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
 			r = -1;
 	}
 out:
@@ -712,7 +712,7 @@ out:
 static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	struct worker_channel *chan = data;
-	worker_comms_cmd_t cmd;
+	worker_channel_cmd_t cmd;
 	struct worker_data_spec data_spec = {0};
 	int r = 0;
 
@@ -722,14 +722,14 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 	}
 
 	switch (cmd) {
-		case WORKER_COMMS_CMD_CUSTOM:
+		case WORKER_CHANNEL_CMD_CUSTOM:
 			if (chan->spec->worker_rx_cb.cb) {
 				if (chan->spec->worker_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->worker_rx_cb.arg) < 0)
 					log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
 			}
 			break;
 		default:
-			log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_comms_cmd_str[cmd], _unexpected_internal_command_msg);
+			log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
 			r = -1;
 	}
 out:
