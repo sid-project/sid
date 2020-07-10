@@ -31,8 +31,6 @@
 #define WORKER_PROXY_NAME                  "worker-proxy"
 #define WORKER_NAME                        "worker"
 
-#define WORKER_CHANNEL_ID_SYS_C            "#"
-
 #define DEFAULT_WORKER_IDLE_TIMEOUT_USEC   5000000
 
 typedef enum {
