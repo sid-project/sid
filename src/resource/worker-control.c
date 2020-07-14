@@ -316,7 +316,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			/* TODO: check we have all unneeded FDs closed before we call exec! */
 
 			if (execve(params->external.exec_file, argv, envp) < 0) {
-				log_sys_error(ID(worker_control_res), "execvpe", "");
+				log_sys_error(ID(worker_control_res), "execve", "");
 				goto out;
 			}
 		}
