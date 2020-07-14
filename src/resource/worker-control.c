@@ -403,7 +403,7 @@ bool worker_control_is_worker(sid_resource_t *res)
 {
 	if (sid_resource_match(res, &sid_resource_type_worker, NULL))
 		return true;
-	else if (sid_resource_match(res, &sid_resource_type_worker, NULL))
+	else if (sid_resource_match(res, &sid_resource_type_worker_proxy, NULL))
 		return false;
 	else
 		return sid_resource_search(res, SID_RESOURCE_SEARCH_ANC, &sid_resource_type_worker, NULL) != NULL;
