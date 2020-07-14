@@ -106,12 +106,12 @@ static int _create_channel(sid_resource_t *worker_control_res, const struct work
 
 	switch (spec->wire.type) {
 		case WORKER_WIRE_NONE:
-			proxy_chan->fd = -1;
-			chan->fd = -1;
+			proxy_chan->fd = chan->fd = -1;
 			break;
 
 		case WORKER_WIRE_PIPE_TO_WORKER:
 			if (pipe(comms_fds) < 0) {
+				proxy_chan->fd = chan->fd = -1;
 				log_sys_error(ID(worker_control_res), "pipe", "Failed to create pipe to worker.");
 				return -1;
 			}
@@ -122,6 +122,7 @@ static int _create_channel(sid_resource_t *worker_control_res, const struct work
 
 		case WORKER_WIRE_PIPE_TO_PROXY:
 			if (pipe(comms_fds) < 0) {
+				proxy_chan->fd = chan->fd = -1;
 				log_sys_error(ID(worker_control_res), "pipe", "Failed to create pipe to worker proxy.");
 				return -1;
 			}
@@ -132,6 +133,7 @@ static int _create_channel(sid_resource_t *worker_control_res, const struct work
 
 		case WORKER_WIRE_SOCKET:
 			if (socketpair(AF_LOCAL, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, comms_fds) < 0) {
+				proxy_chan->fd = chan->fd = -1;
 				log_sys_error(ID(worker_control_res), "socketpair", "Failed to create socket.");
 				return -1;
 			}
