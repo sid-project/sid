@@ -210,8 +210,11 @@ static ssize_t _buffer_linear_read_plain(struct buffer *buf, int fd)
 		return -EXFULL;
 
 	n = read(fd, buf->mem + buf->used, buf->allocated - buf->used);
+
 	if (n > 0)
 		buf->used += n;
+	else if (n < 0)
+		n = -errno;
 
 	return n;
 }
@@ -229,6 +232,7 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 		return r;
 
 	n = read(fd, buf->mem + buf->used, buf->allocated - buf->used);
+
 	if (n > 0) {
 		previous_used = buf->used;
 		buf->used += n;
@@ -241,12 +245,13 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 					return -1;
 			}
 		}
-	} else if (!n) {
+	} else if (n == 0) {
 		/* Detect premature EOF when we haven't received full message yet. */
 		expected = EXPECTED(buf);
 		if ((!expected && buf->used) || (expected && buf->used != expected))
 			return -EBADE;
-	}
+	} else
+		n = -errno;
 
 	return n;
 }
@@ -259,16 +264,21 @@ static ssize_t _buffer_linear_read(struct buffer *buf, int fd)
 		case BUFFER_MODE_SIZE_PREFIX:
 			return _buffer_linear_read_with_size_prefix(buf, fd);
 	}
-
-	return -1;
 }
 
 static ssize_t _buffer_linear_write(struct buffer *buf, int fd)
 {
+	ssize_t n;
+
 	if (buf->mode == BUFFER_MODE_SIZE_PREFIX)
 		*((MSG_SIZE_PREFIX_TYPE *) buf->mem) = (MSG_SIZE_PREFIX_TYPE) buf->used;
 
-	return write(fd, buf->mem, buf->used);
+	n = write(fd, buf->mem, buf->used);
+
+	if (n < 0)
+		n = -errno;
+
+	return n;
 }
 
 const struct buffer_type buffer_type_linear = {

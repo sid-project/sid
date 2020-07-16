@@ -199,12 +199,12 @@ int _buffer_vector_get_data(struct buffer *buf, const void **data, size_t *data_
 
 static ssize_t _buffer_vector_read_plain(struct buffer *buf, int fd)
 {
-	return 0;
+	return -ENOTSUP;
 }
 
 static ssize_t _buffer_vector_read_with_size_prefix(struct buffer *buf, int fd)
 {
-	return 0;
+	return -ENOTSUP;
 }
 
 ssize_t _buffer_vector_read(struct buffer *buf, int fd)
@@ -224,6 +224,7 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd)
 	struct iovec *iov = buf->mem;
 	MSG_SIZE_PREFIX_TYPE size_prefix = 0;
 	unsigned i;
+	ssize_t n;
 
 	if (buf->mode == BUFFER_MODE_SIZE_PREFIX) {
 		for (i = 0; i < buf->used; i++)
@@ -231,7 +232,12 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd)
 		*((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
 	}
 
-	return writev(fd, (const struct iovec *) buf->mem, buf->used);
+	n = writev(fd, (const struct iovec *) buf->mem, buf->used);
+
+	if (n < 0)
+		n = -errno;
+
+	return n;
 }
 
 const struct buffer_type buffer_type_vector = {

@@ -108,7 +108,7 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 				break;
 			}
 		} else if (n < 0) {
-			if (errno == EAGAIN || errno == EINTR)
+			if (n == -EAGAIN || n == -EINTR)
 				continue;
 			log_error_errno(LOG_PREFIX, errno, "Failed to read response");
 			r = -EBADMSG;

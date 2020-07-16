@@ -3035,7 +3035,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 			(void) buffer_reset(conn->buf, 0, 1);
 		}
 	} else if (n < 0) {
-		if (errno == EAGAIN || errno == EINTR)
+		if (n == -EAGAIN || n == -EINTR)
 			return 0;
 		log_error_errno(ID(conn_res), n, "buffer_read_msg");
 		r = -1;
