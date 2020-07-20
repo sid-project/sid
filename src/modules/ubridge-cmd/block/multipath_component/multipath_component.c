@@ -18,6 +18,7 @@
 */
 
 #include "log/log.h"
+#include "base/util.h"
 #include "resource/ubridge-cmd-module.h"
 
 #include <limits.h>
@@ -70,6 +71,18 @@ static int _multipath_component_exit(struct sid_module *module, struct sid_ubrid
 }
 SID_UBRIDGE_CMD_MOD_EXIT(_multipath_component_exit)
 
+static int kernel_cmdline_allow(void)
+{
+	char *value;
+	if (!util_cmdline_get_arg("nompath", NULL, NULL) &&
+	    !util_cmdline_get_arg("nompath", &value, NULL))
+		return 1;
+	if (value && strcmp(value, "off") != 0)
+		return 1;
+	return 0;
+}
+
+
 static int _multipath_component_reload(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
 {
 	log_debug(ID, "reload");
@@ -81,6 +94,9 @@ static int _multipath_component_scan_pre(struct sid_module *module, struct sid_u
 {
 	int r;
 	log_debug(ID, "scan-pre");
+
+	if (!kernel_cmdline_allow()) // treat failure as allowed
+		return 0;
 
 	if (mpathvalid_init(-1) < 0) {
 		log_error(ID, "failed to initialize mpathvalid");
