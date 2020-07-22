@@ -98,7 +98,7 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 		goto out;
 	}
 
-	buffer_reset(buf, 0, 1);
+	buffer_reset(buf);
 
 	for (;;) {
 		n = buffer_read(buf, socket_fd);

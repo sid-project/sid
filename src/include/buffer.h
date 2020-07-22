@@ -37,7 +37,8 @@ typedef enum {
 
 struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t initial_size, size_t alloc_step, int *ret_code);
 void buffer_destroy(struct buffer *buf);
-int buffer_reset(struct buffer *buf, size_t intial_size, size_t alloc_step);
+int buffer_reset(struct buffer *buf);
+int buffer_reset_init(struct buffer *buf, size_t intial_size, size_t alloc_step);
 const void *buffer_add(struct buffer *buf, void *data, size_t len, int *ret_code);
 const void *buffer_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, ...);
 const void *buffer_vfmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap);

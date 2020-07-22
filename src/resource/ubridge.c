@@ -3032,7 +3032,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 			                         SID_RESOURCE_NO_SERVICE_LINKS))
 				log_error(ID(conn_res), "Failed to register command for processing.");
 
-			(void) buffer_reset(conn->buf, 0, 1);
+			(void) buffer_reset(conn->buf);
 		}
 	} else if (n < 0) {
 		if (n == -EAGAIN || n == -EINTR)

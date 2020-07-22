@@ -39,6 +39,7 @@ struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t init
 
 	buf->type = type;
 	buf->mode = mode;
+	buf->initial_size = initial_size;
 	buf->alloc_step = alloc_step;
 
 	if ((r = _buffer_type_registry[type]->create(buf, initial_size)) < 0)
@@ -58,10 +59,15 @@ void buffer_destroy(struct buffer *buf)
 	free(buf);
 }
 
-int buffer_reset(struct buffer *buf, size_t initial_size, size_t alloc_step)
+int buffer_reset_init(struct buffer *buf, size_t initial_size, size_t alloc_step)
 {
 	buf->alloc_step = alloc_step;
 	return _buffer_type_registry[buf->type]->reset(buf, initial_size);
+}
+
+int buffer_reset(struct buffer *buf)
+{
+	return _buffer_type_registry[buf->type]->reset(buf, buf->initial_size);
 }
 
 const void *buffer_add(struct buffer *buf, void *data, size_t len, int *ret_code)

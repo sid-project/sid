@@ -28,6 +28,7 @@ struct buffer{
 	buffer_type_t type;
         buffer_mode_t mode;
 	void *mem;
+	size_t initial_size;
 	size_t alloc_step;
         size_t allocated;          /* bytes allocated */
         size_t used;               /* bytes used */
