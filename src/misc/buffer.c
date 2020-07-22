@@ -112,6 +112,9 @@ int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
 
 int buffer_rewind_mem(struct buffer *buf, const void *mem)
 {
+	if (mem < buf->mem)
+		return -EINVAL;
+
 	return _buffer_type_registry[buf->type]->rewind_mem(buf, mem);
 }
 
