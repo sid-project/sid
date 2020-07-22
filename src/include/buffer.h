@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence);
 int buffer_rewind_mem(struct buffer *buf, const void *mem);
 bool buffer_is_complete(struct buffer *buf, int *ret_code);
 ssize_t buffer_read(struct buffer *buf, int fd);
-ssize_t buffer_write(struct buffer *buf, int fd);
+ssize_t buffer_write(struct buffer *buf, int fd, size_t pos);
 int buffer_get_data(struct buffer *buf, const void **data, size_t *data_size);
 
 #ifdef __cplusplus

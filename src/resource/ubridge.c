@@ -2975,7 +2975,8 @@ out:
 	if (r < 0)
 		response_header.status |= COMMAND_STATUS_FAILURE;
 
-	(void) buffer_write(cmd->res_buf, conn->fd);
+	// TODO: check return value and whether we have it written all or whether we need to call buffer_write again with pos
+	(void) buffer_write(cmd->res_buf, conn->fd, 0);
 
 	return r;
 }

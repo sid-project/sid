@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -266,14 +266,20 @@ static ssize_t _buffer_linear_read(struct buffer *buf, int fd)
 	}
 }
 
-static ssize_t _buffer_linear_write(struct buffer *buf, int fd)
+static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 {
 	ssize_t n;
 
 	if (buf->mode == BUFFER_MODE_SIZE_PREFIX)
 		*((MSG_SIZE_PREFIX_TYPE *) buf->mem) = (MSG_SIZE_PREFIX_TYPE) buf->used;
 
-	n = write(fd, buf->mem, buf->used);
+	if (pos == buf->used)
+		return -ENODATA;
+
+	if (pos > buf->used)
+		return -ERANGE;
+
+	n = write(fd, buf->mem + pos, buf->used - pos);
 
 	if (n < 0)
 		n = -errno;

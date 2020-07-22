@@ -133,7 +133,7 @@ ssize_t buffer_read(struct buffer *buf, int fd)
 	return _buffer_type_registry[buf->type]->read(buf, fd);
 }
 
-ssize_t buffer_write(struct buffer *buf, int fd)
+ssize_t buffer_write(struct buffer *buf, int fd, size_t pos)
 {
-	return _buffer_type_registry[buf->type]->write(buf, fd);
+	return _buffer_type_registry[buf->type]->write(buf, fd, pos);
 }

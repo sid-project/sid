@@ -45,7 +45,7 @@ struct buffer_type {
 	bool (*is_complete) (struct buffer *buf, int *ret_code);
 	int (*get_data) (struct buffer *buf, const void **data, size_t *data_size);
 	ssize_t (*read) (struct buffer *buf, int fd);
-	ssize_t (*write) (struct buffer *buf, int fd);
+	ssize_t (*write) (struct buffer *buf, int fd, size_t pos);
 };
 
 extern const struct buffer_type buffer_type_linear;

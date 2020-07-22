@@ -93,7 +93,7 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 		goto out;
 	}
 
-	if (buffer_write(buf, socket_fd) < 0) {
+	if (buffer_write(buf, socket_fd, 0) < 0) {
 		log_error(LOG_PREFIX, "Failed to send request.");
 		goto out;
 	}

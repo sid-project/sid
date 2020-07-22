@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -219,12 +219,16 @@ ssize_t _buffer_vector_read(struct buffer *buf, int fd)
 	return -1;
 }
 
-ssize_t _buffer_vector_write(struct buffer *buf, int fd)
+ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 {
 	struct iovec *iov = buf->mem;
 	MSG_SIZE_PREFIX_TYPE size_prefix = 0;
 	unsigned i;
 	ssize_t n;
+
+	// TODO: pos is byte position, but we have a vector here - make sure what writev returns and whether we need to restart operation
+	if (pos > 0)
+		return -ENOTSUP;
 
 	if (buf->mode == BUFFER_MODE_SIZE_PREFIX) {
 		for (i = 0; i < buf->used; i++)
