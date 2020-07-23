@@ -3058,7 +3058,7 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 		goto fail;
 	}
 
-	memcpy(&conn->fd, &data_spec->ext.socket.fd_pass, sizeof(conn->fd));
+	conn->fd = data_spec->ext.socket.fd_pass;
 
 	if (sid_resource_create_io_event_source(res, NULL, conn->fd, _on_connection_event, 0, "client connection", res) < 0) {
 		log_error(ID(res), "Failed to register connection event handler.");
