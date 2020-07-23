@@ -208,11 +208,6 @@ void _close_channels(struct worker_channel *channels, unsigned channel_count)
 	}
 }
 
-sid_resource_t *worker_channel_get_owner(struct worker_channel *channel)
-{
-	return channel->owner;
-}
-
 sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params)
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
