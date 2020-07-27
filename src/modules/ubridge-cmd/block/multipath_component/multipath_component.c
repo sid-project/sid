@@ -25,9 +25,12 @@
 #include <libudev.h>
 #include <mpath_valid.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define ID "multipath_component"
-#define KEY "DM_MULTIPATH_DEVICE_PATH"
+#define PATH_KEY "DM_MULTIPATH_DEVICE_PATH"
+#define VALID_KEY "SID_DM_MULTIPATH_VALID"
+#define WWID_KEY "SID_DM_MULTIPATH_WWID"
 struct udev *udev;
 int logsink = -1;
 
@@ -51,8 +54,22 @@ static int _multipath_component_init(struct sid_module *module, struct sid_ubrid
 		return -1;
 	}
 	if (sid_ubridge_cmd_mod_reserve_kv(module, cmd_mod, KV_NS_UDEV,
-	                                   KEY) < 0) {
-		log_error(ID, "Failed to reserve multipath udev key %s", KEY);
+	                                   PATH_KEY) < 0) {
+		log_error(ID, "Failed to reserve multipath udev key %s", PATH_KEY);
+		udev_unref(udev);
+		udev = NULL;
+		return -1;
+	}
+	if (sid_ubridge_cmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
+	                                   VALID_KEY) < 0) {
+		log_error(ID, "Failed to reserve multipath udev key %s", PATH_KEY);
+		udev_unref(udev);
+		udev = NULL;
+		return -1;
+	}
+	if (sid_ubridge_cmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
+	                                   WWID_KEY) < 0) {
+		log_error(ID, "Failed to reserve multipath device key %s", WWID_KEY);
 		udev_unref(udev);
 		udev = NULL;
 		return -1;
@@ -93,6 +110,8 @@ SID_UBRIDGE_CMD_MOD_RELOAD(_multipath_component_reload)
 static int _multipath_component_scan_pre(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {
 	int r;
+	char *wwid;
+	char valid_str[2];
 	log_debug(ID, "scan-pre");
 
 	if (!kernel_cmdline_allow()) // treat failure as allowed
@@ -104,15 +123,25 @@ static int _multipath_component_scan_pre(struct sid_module *module, struct sid_u
 	}
 	// currently treats MPATH_SMART like MPATH_STRICT
 	r = mpathvalid_is_path(sid_ubridge_cmd_dev_get_name(cmd), MPATH_DEFAULT,
-	                       NULL, NULL, 0);
-	log_debug(ID, "mpathvalid_is_path returned %d", r);
-	if (r == MPATH_IS_VALID || r == MPATH_IS_VALID_NO_CHECK) {
-		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, KEY, "1", 2,
+	                       &wwid, NULL, 0);
+	log_debug(ID, "%s mpathvalid_is_path returned %d",
+	          sid_ubridge_cmd_dev_get_name(cmd), r);
+	if (r == MPATH_IS_VALID || r == MPATH_IS_VALID_NO_CHECK)
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
 		                       KV_MOD_PROTECTED);
-		// mark with appropriate key=value pair
-	} else if (r != MPATH_IS_ERROR) {
-		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, KEY, "0", 2,
+	else if (r != MPATH_IS_ERROR)
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "0", 2,
 		                       KV_MOD_PROTECTED);
+
+	if (r != MPATH_IS_ERROR && snprintf(valid_str, sizeof(valid_str), "%d", r) < sizeof(valid_str) && valid_str[0])
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, VALID_KEY, valid_str,
+		                       sizeof(valid_str),
+		                       KV_MOD_PROTECTED | KV_PERSISTENT);
+	if (wwid) {
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, WWID_KEY,
+		                       wwid, strlen(wwid) + 1,
+		                       KV_MOD_PROTECTED | KV_PERSISTENT);
+		free(wwid);
 	}
 	mpathvalid_exit();
 	return (r != MPATH_IS_ERROR);
