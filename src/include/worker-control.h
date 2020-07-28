@@ -88,7 +88,7 @@ struct worker_channel_cb_spec {
 	void *arg;
 };
 
-#define NULL_WORKER_CHANNEL_CB_SPEC ((struct worker_channel_cb_spec) {.cb = NULL, .arg = NULL})
+#define NULL_WORKER_CHANNEL_CB_SPEC ((const struct worker_channel_cb_spec) {NULL})
 
 struct worker_channel_spec {
 	const char *id;                              /* channel id */
@@ -99,12 +99,7 @@ struct worker_channel_spec {
 	struct worker_channel_cb_spec proxy_rx_cb;   /* receive callback specification on proxy side */
 };
 
-#define NULL_WORKER_CHANNEL_SPEC ((const struct worker_channel_spec) {.id = NULL, \
-								      .wire = (struct worker_wire_spec) {.type = WORKER_WIRE_NONE}, \
-								      .worker_tx_cb = NULL_WORKER_CHANNEL_CB_SPEC, \
-								      .worker_rx_cb = NULL_WORKER_CHANNEL_CB_SPEC, \
-								      .proxy_tx_cb = NULL_WORKER_CHANNEL_CB_SPEC, \
-								      .proxy_rx_cb = NULL_WORKER_CHANNEL_CB_SPEC})
+#define NULL_WORKER_CHANNEL_SPEC ((const struct worker_channel_spec) {NULL})
 
 /* Worker-control resource parameters */
 struct worker_control_resource_params {
