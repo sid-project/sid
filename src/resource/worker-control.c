@@ -854,6 +854,8 @@ static int _init_worker_control(sid_resource_t *worker_control_res, const void *
 		goto fail;
 	}
 
+	worker_control->worker_type = params->worker_type;
+
 	for (channel_spec = params->channel_specs; channel_spec->wire.type != WORKER_WIRE_NONE; channel_spec++) {
 		if (!channel_spec->id || !*channel_spec->id) {
 			log_error(ID(worker_control_res), "Found channel specification without ID set.");
