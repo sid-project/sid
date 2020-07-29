@@ -1831,6 +1831,29 @@ out:
 	return r;
 }
 
+int _part_get_whole_disk(struct sid_ubridge_cmd_context *cmd,
+                         sid_resource_t *res, char *devno, size_t size)
+{
+	const char *s;
+	int r;
+
+	if (!cmd || !res || !devno || !size)
+		return -EINVAL;
+
+	if (!(s = buffer_fmt_add(cmd->gen_buf, &r, "%s%s/../dev",
+	                         SYSTEM_SYSFS_PATH, cmd->udev_dev.path))) {
+		log_error_errno(ID(res), r, "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
+		return r;
+	}
+	r = _get_sysfs_value(res, s, devno, size);
+	buffer_rewind_mem(cmd->gen_buf, s);
+	if (r < 0)
+		return r;
+
+	_canonicalize_kv_key(devno);
+	return 0;
+}
+
 static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iovec *header, size_t header_size)
 {
 	struct buffer *buf = NULL;
@@ -2734,20 +2757,10 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	};
 
 	KV_VALUE_PREPARE_HEADER(iov_to_store, cmd->udev_dev.seqnum, kv_flags_no_persist, core_owner);
-
-	if (!(s = buffer_fmt_add(cmd->gen_buf, &r,
-	                         "%s%s/../dev",
-	                         SYSTEM_SYSFS_PATH,
-	                         cmd->udev_dev.path))) {
-		log_error_errno(ID(cmd_res), r, "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
+	if (_part_get_whole_disk(cmd, cmd_res, devno_buf,
+	                         sizeof(devno_buf)) < 0)
 		goto out;
-	}
 
-	if (_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf)) < 0)
-		goto out;
-	buffer_rewind_mem(cmd->gen_buf, s);
-
-	_canonicalize_kv_key(devno_buf);
 	rel_spec.rel_key_spec->ns_part = devno_buf;
 
 	s = _buffer_compose_key_prefix(cmd->gen_buf, rel_spec.rel_key_spec);
