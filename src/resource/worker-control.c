@@ -30,7 +30,8 @@
 
 #define WORKER_CONTROL_NAME                "worker-control"
 #define WORKER_PROXY_NAME                  "worker-proxy"
-#define WORKER_NAME                        "worker"
+#define WORKER_INT_NAME                    "worker"
+#define WORKER_EXT_NAME                    "ext-worker"
 
 #define DEFAULT_WORKER_IDLE_TIMEOUT_USEC   5000000
 
@@ -365,9 +366,7 @@ out:
 	return r;
 }
 
-
-
-static int _setup_channel(sid_resource_t *owner, bool is_worker, worker_type_t type, struct worker_channel *chan)
+static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_worker, worker_type_t type, struct worker_channel *chan)
 {
 	struct buffer **buf1, **buf2;
 	buffer_mode_t buf_mode;
@@ -375,8 +374,7 @@ static int _setup_channel(sid_resource_t *owner, bool is_worker, worker_type_t t
 	int r;
 
 	if (chan->in_buf || chan->out_buf) {
-		// TODO: owner is NULL if this is external worker!
-		log_error(ID(owner), INTERNAL_ERROR "%s: Buffers already set.", __func__);
+		log_error(owner ? ID(owner) : alt_id, INTERNAL_ERROR "%s: Buffers already set.", __func__);
 		r = -EINVAL;
 		goto fail;
 	}
@@ -501,11 +499,11 @@ static int _setup_channel(sid_resource_t *owner, bool is_worker, worker_type_t t
 
 	return 0;
 fail:
-	log_error_errno(ID(owner), r, "Failed to setup worker channel");
+	log_error_errno(owner ? ID(owner) : alt_id, r, "Failed to setup worker channel");
 	return r;
 }
 
-static int _setup_channels(sid_resource_t *owner, worker_type_t type, struct worker_channel *chans, unsigned chan_count)
+static int _setup_channels(sid_resource_t *owner, const char *alt_id, worker_type_t type, struct worker_channel *chans, unsigned chan_count)
 {
 	bool is_worker;
 	unsigned i = 0;
@@ -513,7 +511,7 @@ static int _setup_channels(sid_resource_t *owner, worker_type_t type, struct wor
 	is_worker = owner ? worker_control_is_worker(owner): true;
 
 	while (i < chan_count) {
-		if (_setup_channel(owner, is_worker, type, &chans[i]) < 0)
+		if (_setup_channel(owner, alt_id, is_worker, type, &chans[i]) < 0)
 			goto fail;
 		i++;
 	}
@@ -569,7 +567,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 	int signals_blocked = 0;
 	pid_t pid = -1;
 	const char *id;
-	char gen_id[16];
+	char gen_id[32];
 	char **argv, **envp;
 	int r = -1;
 
@@ -649,15 +647,20 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			 * WORKER_TYPE_EXTERNAL
 			 */
 
+			if (params->id)
+				snprintf(gen_id, sizeof(gen_id), "%s/%s", WORKER_EXT_NAME, params->id);
+			else
+				snprintf(gen_id, sizeof(gen_id), "%s/%d", WORKER_EXT_NAME, getpid());
+
 			if (!(argv = util_str_comb_to_strv(params->external.exec_file, params->external.args, NULL,
 			                                   UTIL_STR_DEFAULT_DELIMS, UTIL_STR_DEFAULT_QUOTES)) ||
 			    !(envp = util_str_comb_to_strv(NULL, params->external.env, NULL,
 			                                   UTIL_STR_DEFAULT_DELIMS, UTIL_STR_DEFAULT_QUOTES))) {
-				log_error(ID(worker_control_res), "Failed to convert argument and environment strings to vectors.");
+				log_error(gen_id, "Failed to convert argument and environment strings to vectors.");
 				goto out;
 			}
 
-			if (_setup_channels(NULL, WORKER_TYPE_EXTERNAL, worker_channels, worker_control->channel_spec_count) < 0)
+			if (_setup_channels(NULL, gen_id, WORKER_TYPE_EXTERNAL, worker_channels, worker_control->channel_spec_count) < 0)
 				goto out;
 
 			if (worker_control->init_cb_spec.cb)
@@ -666,7 +669,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			/* TODO: check we have all unneeded FDs closed before we call exec! */
 
 			if (execve(params->external.exec_file, argv, envp) < 0) {
-				log_sys_error(ID(worker_control_res), "execve", "");
+				log_sys_error(gen_id, "execve", "");
 				goto out;
 			}
 		}
@@ -986,7 +989,7 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 		goto fail;
 	}
 
-	if (_setup_channels(worker_proxy_res, kickstart->type, kickstart->channels, kickstart->channel_count) < 0)
+	if (_setup_channels(worker_proxy_res, NULL, kickstart->type, kickstart->channels, kickstart->channel_count) < 0)
 		goto fail;
 
 	*data = worker_proxy;
@@ -1025,7 +1028,7 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 		goto fail;
 	}
 
-	if (_setup_channels(worker_res, kickstart->type, kickstart->channels, kickstart->channel_count) < 0)
+	if (_setup_channels(worker_res, NULL, kickstart->type, kickstart->channels, kickstart->channel_count) < 0)
 		goto fail;
 
 	*data = worker;
@@ -1105,7 +1108,7 @@ const sid_resource_type_t sid_resource_type_worker_proxy = {
 };
 
 const sid_resource_type_t sid_resource_type_worker = {
-	.name = WORKER_NAME,
+	.name = WORKER_INT_NAME,
 	.init = _init_worker,
 	.destroy = _destroy_worker,
 	.with_event_loop = 1,
