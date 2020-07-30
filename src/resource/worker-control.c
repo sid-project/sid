@@ -924,7 +924,7 @@ static int _on_worker_proxy_child_event(sid_resource_event_source_t *es, const s
 			break;
 		case CLD_KILLED:
 		case CLD_DUMPED:
-			log_debug(ID(worker_proxy_res), "Worker terminated by signal %d.", si->si_status);
+			log_debug(ID(worker_proxy_res), "Worker terminated by signal %d (%s).", si->si_status, strsignal(si->si_status));
 			break;
 		default:
 			log_debug(ID(worker_proxy_res), "Worker failed unexpectedly.");
