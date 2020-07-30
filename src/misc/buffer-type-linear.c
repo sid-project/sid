@@ -173,8 +173,10 @@ static bool _buffer_linear_is_complete(struct buffer *buf, int *ret_code)
 	switch (buf->mode) {
 		case BUFFER_MODE_PLAIN:
 			result = true;
+			break;
 		case BUFFER_MODE_SIZE_PREFIX:
 			result = buf->used && buf->used == EXPECTED(buf);
+			break;
 	}
 
 	if (ret_code)
