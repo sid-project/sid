@@ -60,10 +60,13 @@ typedef enum {
 
 struct worker_wire_spec {
 	worker_wire_type_t type;
-	union {
-		struct {
-			int fd_redir;                /* FD to redirect into a pipe */
-		} pipe;
+	struct {
+		bool used;
+		union {
+			struct {
+				int fd_redir;                /* FD to redirect into a pipe */
+			} pipe;
+		};
 	} ext;
 };
 

@@ -490,7 +490,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			if (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, &r)))
 				goto fail;
 
-			if (!is_worker && chan->spec->wire.ext.pipe.fd_redir >= 0) {
+			if (!is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
 				if (dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir) < 0) {
 					log_error_errno(ID(owner), errno, "Failed to redirect FD %d through channel %s",
 					                chan->spec->wire.ext.pipe.fd_redir, chan->spec->id);
@@ -512,7 +512,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			    (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, &r))))
 				goto fail;
 
-			if (chan->spec->wire.ext.pipe.fd_redir >= 0) {
+			if (chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
 				dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir);
 				close(chan->fd);
 			}
