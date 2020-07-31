@@ -215,6 +215,19 @@ static bool _chan_is_passing_cmd(const struct worker_channel *chan)
 	return worker_proxy->type == WORKER_TYPE_INTERNAL;
 }
 
+static worker_type_t _chan_get_worker_type(const struct worker_channel *chan)
+{
+	if (chan->owner) {
+		if (sid_resource_match(chan->owner, &sid_resource_type_worker, NULL))
+			return WORKER_TYPE_INTERNAL;
+
+		if (sid_resource_match(chan->owner, &sid_resource_type_worker_proxy, NULL))
+			return ((struct worker_proxy *) sid_resource_get_data(chan->owner))->type;
+	}
+
+	return WORKER_TYPE_EXTERNAL;
+}
+
 /*
  * Returns:
  *   < 0 on error
@@ -247,7 +260,14 @@ static int _chan_buf_recv(const struct worker_channel *chan, worker_channel_cmd_
 	n = buffer_read(chan->in_buf, chan->fd);
 
 	if (n > 0) {
-		// TODO: do not call buffer_is_complete if this is WORKER_TYPE_EXTERNAL - for this one, we need to wait for proper EOF
+		/*
+		 * WORKER_TYPE_EXTERNAL uses channels with plain buffers (no size prefixes),
+		 * therefore we simply need to wait for EOF (because we don't know in advance
+		 * how much data to expect).
+		 */
+		if (_chan_get_worker_type(chan) == WORKER_TYPE_EXTERNAL)
+			return 1;
+
 		if (buffer_is_complete(chan->in_buf, NULL)) {
 			(void) buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
 
@@ -271,6 +291,19 @@ static int _chan_buf_recv(const struct worker_channel *chan, worker_channel_cmd_
 		log_error_errno(ID(chan->owner), n, "Failed to read data on channel %s", chan->spec->id);
 		return n;
 	} else {
+		/*
+		 * For WORKER_TYPE_EXTERNAL, the reception is complete when we hit the EOF.
+		 */
+		if (_chan_get_worker_type(chan) == WORKER_TYPE_EXTERNAL) {
+			(void) buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
+
+			*cmd = WORKER_CHANNEL_CMD_CUSTOM;
+			data_spec->data_size = buf_data_size;
+			data_spec->data = buf_data;
+
+			return 0;
+		}
+
 		if (buffer_is_complete(chan->in_buf, NULL))
 			return 2;
 		else {
