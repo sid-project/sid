@@ -532,6 +532,16 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 
 	return 0;
 fail:
+	if (chan->in_buf) {
+		buffer_destroy(chan->in_buf);
+		chan->in_buf = NULL;
+	}
+
+	if (chan->out_buf) {
+		buffer_destroy(chan->out_buf);
+		chan->out_buf = NULL;
+	}
+
 	log_error_errno(owner ? ID(owner) : alt_id, r, "Failed to setup worker channel");
 	return r;
 }
