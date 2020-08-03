@@ -762,7 +762,8 @@ static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd,
 
 	r = 0;
 out:
-	buffer_rewind_mem(cmd->gen_buf, full_key);
+	if (full_key)
+		buffer_rewind_mem(cmd->gen_buf, full_key);
 	return r;
 }
 
@@ -888,7 +889,8 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 
 	ret = kv_value->data + _kv_value_ext_data_offset(kv_value);
 out:
-	buffer_rewind_mem(cmd->gen_buf, full_key);
+	if (full_key)
+		buffer_rewind_mem(cmd->gen_buf, full_key);
 	return ret;
 }
 
@@ -945,7 +947,8 @@ static const void *_do_sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cm
 	if (size)
 		ret = kv_value->data + data_offset;
 out:
-	buffer_rewind_mem(cmd->gen_buf, full_key);
+	if (full_key)
+		buffer_rewind_mem(cmd->gen_buf, full_key);
 	return ret;
 }
 
@@ -1064,7 +1067,8 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 
 	r = 0;
 out:
-	buffer_rewind_mem(cmd_mod->gen_buf, full_key);
+	if (full_key)
+		buffer_rewind_mem(cmd_mod->gen_buf, full_key);
 	return r;
 }
 
@@ -1192,7 +1196,8 @@ int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
 		.ret_code = 0
 	};
 
-	full_key = _buffer_compose_key(cmd->gen_buf, &key_spec);
+	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec)))
+		goto out;
 	KV_VALUE_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, kv_flags_persist, core_owner);
 
 	if (!kv_store_set_value(cmd->kv_store_res,
@@ -1207,7 +1212,8 @@ int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
 
 	r = 0;
 out:
-	buffer_rewind_mem(cmd->gen_buf, full_key);
+	if (full_key)
+		buffer_rewind_mem(cmd->gen_buf, full_key);
 	return r;
 }
 
@@ -1218,7 +1224,7 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
 	const char *cur_full_key, *rel_key_prefix;
 	struct iovec iov[KV_VALUE_IDX_DATA + 1];
-	int r = 0;
+	int r = -1;
 
 	struct kv_rel_spec rel_spec = {
 		.delta = &((struct kv_delta)
@@ -1264,23 +1270,27 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 
 	KV_VALUE_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, kv_flags_no_persist, core_owner);
 	rel_key_prefix = _buffer_compose_key_prefix(cmd->gen_buf, rel_spec.rel_key_spec);
+	if (!rel_key_prefix)
+		goto out;
 	iov[KV_VALUE_IDX_DATA] = (struct iovec) {
 		(void *) rel_key_prefix, strlen(rel_key_prefix) + 1
 	};
 
 	cur_full_key = _buffer_compose_key(cmd->gen_buf, rel_spec.cur_key_spec);
-
-	if (!kv_store_set_value(cmd->kv_store_res,
-	                        cur_full_key,
-	                        iov,
-	                        KV_VALUE_IDX_DATA + 1,
-	                        KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
-	                        KV_STORE_VALUE_NO_OP,
-	                        _kv_delta,
-	                        &update_arg))
-		r = -1;
+	if (!cur_full_key)
+		goto out;
+	if (kv_store_set_value(cmd->kv_store_res,
+	                       cur_full_key,
+	                       iov,
+	                       KV_VALUE_IDX_DATA + 1,
+	                       KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
+	                       KV_STORE_VALUE_NO_OP,
+	                       _kv_delta,
+	                       &update_arg))
+		r = 0;
 
 	_destroy_delta(rel_spec.delta);
+out:
 	buffer_rewind_mem(cmd->gen_buf, tmp_mem_start);
 	return r;
 }
@@ -1354,7 +1364,8 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_delta wrapper
 	//       to do the "is empty?" check before the actual _kv_delta operation
 
-	cur_full_key = _buffer_compose_key(cmd->gen_buf, rel_spec.cur_key_spec);
+	if (!(cur_full_key = _buffer_compose_key(cmd->gen_buf, rel_spec.cur_key_spec)))
+		goto out;
 
 	if (!(iov = kv_store_get_value(cmd->kv_store_res, cur_full_key, &size, NULL)))
 		goto out;
@@ -1381,7 +1392,8 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 	r = 0;
 out:
 	_destroy_delta(rel_spec.delta);
-	buffer_rewind_mem(cmd->gen_buf, cur_full_key);
+	if (cur_full_key)
+		buffer_rewind_mem(cmd->gen_buf, cur_full_key);
 	return r;
 }
 
@@ -2112,19 +2124,25 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 
 	rel_spec->cur_key_spec->op = KV_OP_PLUS;
 	delta_full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
-	if ((cross1.old_value = kv_store_get_value(update_arg->res, delta_full_key, &cross1.old_size, NULL))) {
+	if (!delta_full_key)
+		goto out;
+	cross1.old_value = kv_store_get_value(update_arg->res, delta_full_key, &cross1.old_size, NULL);
+	buffer_rewind_mem(update_arg->gen_buf, delta_full_key);
+	if (cross1.old_value) {
 		if (!(cross1.old_bmp = bitmap_create(cross1.old_size, true, NULL)))
 			goto out;
 	}
-	buffer_rewind_mem(update_arg->gen_buf, delta_full_key);
 
 	rel_spec->cur_key_spec->op = KV_OP_MINUS;
 	delta_full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
-	if ((cross2.old_value = kv_store_get_value(update_arg->res, delta_full_key, &cross2.old_size, NULL))) {
+	if (!delta_full_key)
+		goto out;
+	cross2.old_value = kv_store_get_value(update_arg->res, delta_full_key, &cross2.old_size, NULL);
+	buffer_rewind_mem(update_arg->gen_buf, delta_full_key);
+	if (cross2.old_value) {
 		if (!(cross2.old_bmp = bitmap_create(cross2.old_size, true, NULL)))
 			goto out;
 	}
-	buffer_rewind_mem(update_arg->gen_buf, delta_full_key);
 
 	/*
 	 * set up cross1 - old plus vs. new minus
@@ -2283,6 +2301,7 @@ static int _delta_update(struct kv_store_update_spec *spec,
 	size_t delta_iov_cnt, abs_delta_iov_cnt, i;
 	const char *key_prefix, *ns_part, *full_key;
 	struct iovec rel_iov[KV_VALUE_IDX_DATA + 1];
+	int r = 0;
 
 	if (op == KV_OP_PLUS) {
 		if (!abs_delta->plus)
@@ -2303,6 +2322,8 @@ static int _delta_update(struct kv_store_update_spec *spec,
 	rel_spec->cur_key_spec->op = op;
 	full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 	rel_spec->cur_key_spec->op = orig_op;
+	if (!full_key)
+		return -1;
 
 	_value_vector_mark_persist(abs_delta_iov, 1);
 
@@ -2338,6 +2359,10 @@ static int _delta_update(struct kv_store_update_spec *spec,
 		rel_spec->delta->flags = DELTA_WITH_DIFF;
 
 		key_prefix = _buffer_compose_key_prefix(update_arg->gen_buf, rel_spec->rel_key_spec);
+		if (!key_prefix) {
+			r = -1;
+			goto fail;
+		}
 		KV_VALUE_PREPARE_HEADER(rel_iov, seqnum, kv_flags_no_persist, (char *) update_arg->owner);
 		rel_iov[KV_VALUE_IDX_DATA] = (struct iovec) {
 			.iov_base = (void *) key_prefix, .iov_len = strlen(key_prefix) + 1
@@ -2347,7 +2372,10 @@ static int _delta_update(struct kv_store_update_spec *spec,
 			ns_part = _buffer_copy_ns_part_from_key(update_arg->gen_buf, delta_iov[i].iov_base);
 			rel_spec->cur_key_spec->ns_part = ns_part;
 			full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
-
+			if (!full_key) {
+				r = -1;
+				goto fail;
+			}
 			kv_store_set_value(update_arg->res,
 			                   full_key,
 			                   rel_iov,
@@ -2359,14 +2387,14 @@ static int _delta_update(struct kv_store_update_spec *spec,
 
 			_destroy_delta(rel_spec->delta);
 		}
-
+fail:
 		rel_spec->delta = orig_delta;
 		_flip_key_specs(rel_spec);
 	}
 
 	rel_spec->cur_key_spec->op = orig_op;
 	buffer_rewind_mem(update_arg->gen_buf, tmp_mem_start);
-	return 0;
+	return r;
 }
 
 /*
@@ -2654,15 +2682,17 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 			                        SYSTEM_SYSFS_SLAVES,
 			                        dirent[i]->d_name))) {
 
-				if (_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf)) < 0)
+				if (_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf)) < 0) {
+					buffer_rewind_mem(cmd->gen_buf, s);
 					continue;
+				}
 				buffer_rewind_mem(cmd->gen_buf, s);
 
 				_canonicalize_kv_key(devno_buf);
 				rel_spec.rel_key_spec->ns_part = devno_buf;
 
 				s = _buffer_compose_key_prefix(cmd->gen_buf, rel_spec.rel_key_spec);
-				if (!buffer_add(vec_buf, (void *) s, strlen(s) + 1, &r))
+				if (!s || !buffer_add(vec_buf, (void *) s, strlen(s) + 1, &r))
 					goto out;
 			} else
 				log_error_errno(ID(cmd_res), r, "Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT ".",
@@ -2764,6 +2794,8 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	rel_spec.rel_key_spec->ns_part = devno_buf;
 
 	s = _buffer_compose_key_prefix(cmd->gen_buf, rel_spec.rel_key_spec);
+	if (!s)
+		goto out;
 	iov_to_store[KV_VALUE_IDX_DATA] = (struct iovec) {
 		(void *) s, strlen(s) + 1
 	};
@@ -3370,6 +3402,10 @@ fail:
 	if (cmd) {
 		if (cmd->gen_buf)
 			buffer_destroy(cmd->gen_buf);
+		if (cmd->res_buf)
+			buffer_destroy(cmd->res_buf);
+		if (cmd->dev_id)
+			free(cmd->dev_id);
 		free(cmd);
 	}
 	return -1;
