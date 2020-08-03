@@ -404,10 +404,11 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 	struct buffer **buf1, **buf2;
 	buffer_mode_t buf_mode;
 	size_t buf_size, buf_alloc_step;
+	const char *id = owner ? ID(owner) : alt_id;
 	int r;
 
 	if (chan->in_buf || chan->out_buf) {
-		log_error(owner ? ID(owner) : alt_id, INTERNAL_ERROR "%s: Buffers already set.", __func__);
+		log_error(id, INTERNAL_ERROR "%s: Buffers already set.", __func__);
 		r = -EINVAL;
 		goto fail;
 	}
@@ -492,7 +493,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 
 			if (!is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
 				if (dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir) < 0) {
-					log_error_errno(ID(owner), errno, "Failed to redirect FD %d through channel %s",
+					log_error_errno(id, errno, "Failed to redirect FD %d through channel %s",
 					                chan->spec->wire.ext.pipe.fd_redir, chan->spec->id);
 					goto fail;
 				}
@@ -523,7 +524,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 		if (sid_resource_create_io_event_source(owner, NULL, chan->fd,
 		                                        is_worker ? _on_worker_channel_event : _on_worker_proxy_channel_event,
 		                                        0, chan->spec->id, chan) < 0) {
-			log_error(ID(owner), "Failed to register communication channel with ID %s.", chan->spec->id);
+			log_error(id, "Failed to register communication channel with ID %s.", chan->spec->id);
 			goto fail;
 		}
 
@@ -542,7 +543,7 @@ fail:
 		chan->out_buf = NULL;
 	}
 
-	log_error_errno(owner ? ID(owner) : alt_id, r, "Failed to setup worker channel");
+	log_error_errno(id, r, "Failed to setup worker channel");
 	return r;
 }
 
