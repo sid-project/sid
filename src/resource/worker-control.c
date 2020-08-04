@@ -921,7 +921,7 @@ int worker_control_channel_send(sid_resource_t *current_res, const char *channel
 			return -ECHRNG;
 
 		if (worker_proxy->idle_timeout_es)
-			sid_resource_destroy_event_source(res, &worker_proxy->idle_timeout_es);
+			sid_resource_destroy_event_source(&worker_proxy->idle_timeout_es);
 		if (worker_proxy->state != WORKER_STATE_ASSIGNED)
 			_change_worker_proxy_state(res, WORKER_STATE_ASSIGNED);
 

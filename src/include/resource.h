@@ -186,7 +186,7 @@ int sid_resource_create_exit_event_source(sid_resource_t *res, sid_resource_even
 					  sid_resource_generic_event_handler_t handler, int64_t prio,
 					  const char *name, void *data);
 
-int sid_resource_destroy_event_source(sid_resource_t *res, sid_resource_event_source_t **es);
+int sid_resource_destroy_event_source(sid_resource_event_source_t **es);
 
 int sid_resource_run_event_loop(sid_resource_t *res);
 int sid_resource_exit_event_loop(sid_resource_t *res);

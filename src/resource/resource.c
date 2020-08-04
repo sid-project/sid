@@ -93,7 +93,7 @@ out:
 	return r;
 }
 
-static void _destroy_event_source(sid_resource_t *res, sid_resource_event_source_t *es)
+static void _destroy_event_source(sid_resource_event_source_t *es)
 {
 	const char *name;
 
@@ -107,7 +107,7 @@ static void _destroy_event_source(sid_resource_t *res, sid_resource_event_source
 	if (sd_event_source_get_description(es->sd_es, &name) < 0)
 		name = "unknown";
 
-	log_debug(res->id, "Event source removed: %s.", name);
+	log_debug(es->res->id, "Event source removed: %s.", name);
 
 	sd_event_source_unref(es->sd_es);
 	list_del(&es->list);
@@ -214,7 +214,7 @@ fail:
 		 *        for some reason.
 		 */
 		list_iterate_items_safe(es, tmp_es, &res->event_sources)
-		_destroy_event_source(res, es);
+		_destroy_event_source(es);
 		if (res->sd_event_loop)
 			sd_event_unref(res->sd_event_loop);
 
@@ -253,7 +253,7 @@ int sid_resource_destroy(sid_resource_t *res)
 	 *        for some reason.
 	 */
 	list_iterate_items_safe(es, tmp_es, &res->event_sources)
-	_destroy_event_source(res, es);
+	_destroy_event_source(es);
 
 	if (res->type->destroy)
 		(void) res->type->destroy(res);
@@ -577,9 +577,9 @@ fail:
 	return r;
 }
 
-int sid_resource_destroy_event_source(sid_resource_t *res, sid_resource_event_source_t **es)
+int sid_resource_destroy_event_source(sid_resource_event_source_t **es)
 {
-	_destroy_event_source(res, *es);
+	_destroy_event_source(*es);
 	*es = NULL;
 	return 0;
 }
