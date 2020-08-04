@@ -1870,6 +1870,30 @@ int _part_get_whole_disk(struct sid_ubridge_cmd_context *cmd,
 	return 0;
 }
 
+const void *sid_ubridge_cmd_part_get_disk_kv(struct sid_ubridge_cmd_context *cmd, const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
+{
+	char devno_buf[16];
+	struct kv_key_spec key_spec = {
+		.op = KV_OP_SET,
+		.ns = KV_NS_DEVICE,
+		.ns_part = ID_NULL, /* will be calculated later */
+		.dom = KV_KEY_DOM_USER,
+		.id = ID_NULL,
+		.id_part = ID_NULL,
+		.key = key
+	};
+
+	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0]))
+		return NULL;
+
+	if (_part_get_whole_disk(cmd, cmd->mod_res, devno_buf,
+	                         sizeof(devno_buf)) < 0)
+		return NULL;
+	key_spec.ns_part = devno_buf;
+
+	return _cmd_get_key_spec_value(cmd, &key_spec, value_size, flags);
+}
+
 static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iovec *header, size_t header_size)
 {
 	struct buffer *buf = NULL;
