@@ -107,6 +107,33 @@ static int _multipath_component_reload(struct sid_module *module, struct sid_ubr
 }
 SID_UBRIDGE_CMD_MOD_RELOAD(_multipath_component_reload)
 
+static int _is_parent_multipathed(struct sid_ubridge_cmd_context *cmd)
+{
+	int r = MPATH_IS_ERROR;
+	const char *valid_str;
+	char *p;
+
+	valid_str = sid_ubridge_cmd_part_get_disk_kv(cmd, VALID_KEY, NULL,
+	                                             NULL);
+	if (!valid_str || !valid_str[0])
+		return 0;
+	else {
+		errno = 0;
+		r = strtol(valid_str, &p, 10);
+		if (errno || !p || *p)
+			return 0;
+	}
+	if (r == MPATH_IS_VALID || r == MPATH_IS_VALID_NO_CHECK) {
+		log_debug(ID, "%s whole disk is a multipath path",
+		          sid_ubridge_cmd_dev_get_name(cmd));
+		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
+		                       KV_MOD_PROTECTED);
+	} else
+		log_debug(ID, "%s whole disk is not a multipath path",
+		          sid_ubridge_cmd_dev_get_name(cmd));
+	return 0;
+}
+
 static int _multipath_component_scan_pre(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
 {
 	int r;
@@ -116,6 +143,12 @@ static int _multipath_component_scan_pre(struct sid_module *module, struct sid_u
 
 	if (!kernel_cmdline_allow()) // treat failure as allowed
 		return 0;
+
+	if (sid_ubridge_cmd_dev_get_type(cmd) == UDEV_DEVTYPE_UNKNOWN)
+		return 0;
+
+	if (sid_ubridge_cmd_dev_get_type(cmd) == UDEV_DEVTYPE_PARTITION)
+		return _is_parent_multipathed(cmd);
 
 	if (mpathvalid_init(-1) < 0) {
 		log_error(ID, "failed to initialize mpathvalid");
@@ -144,7 +177,7 @@ static int _multipath_component_scan_pre(struct sid_module *module, struct sid_u
 		free(wwid);
 	}
 	mpathvalid_exit();
-	return (r != MPATH_IS_ERROR);
+	return (r != MPATH_IS_ERROR)? 0 : -1;
 }
 SID_UBRIDGE_CMD_SCAN_PRE(_multipath_component_scan_pre)
 
