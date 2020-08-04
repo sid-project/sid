@@ -906,25 +906,15 @@ void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cm
 	return _do_sid_ubridge_cmd_set_kv(cmd, ns, KV_KEY_DOM_USER, key, flags, value, value_size);
 }
 
-static const void *_do_sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-                                              const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
+static const void *_cmd_get_key_spec_value(struct sid_ubridge_cmd_context *cmd, struct kv_key_spec *key_spec, size_t *value_size, sid_ubridge_kv_flags_t *flags)
 {
 	const char *owner = _res_get_mod_name(cmd->mod_res);
 	const char *full_key = NULL;
 	struct kv_value *kv_value;
 	size_t size, data_offset;
-	struct kv_key_spec key_spec = {
-		.op = KV_OP_SET,
-		.ns = ns,
-		.ns_part = _get_ns_part(cmd, ns),
-		.dom = KV_KEY_DOM_USER,
-		.id = ID_NULL,
-		.id_part = ID_NULL,
-		.key = key
-	};
 	void *ret = NULL;
 
-	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec)))
+	if (!(full_key = _buffer_compose_key(cmd->gen_buf, key_spec)))
 		goto out;
 
 	if (!(kv_value = kv_store_get_value(cmd->kv_store_res, full_key, &size, NULL)))
@@ -950,6 +940,20 @@ out:
 	if (full_key)
 		buffer_rewind_mem(cmd->gen_buf, full_key);
 	return ret;
+}
+
+static const void *_do_sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns, const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
+{
+	struct kv_key_spec key_spec = {
+		.op = KV_OP_SET,
+		.ns = ns,
+		.ns_part = _get_ns_part(cmd, ns),
+		.dom = KV_KEY_DOM_USER,
+		.id = ID_NULL,
+		.id_part = ID_NULL,
+		.key = key
+	};
+	return _cmd_get_key_spec_value(cmd, &key_spec, value_size, flags);
 }
 
 const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
