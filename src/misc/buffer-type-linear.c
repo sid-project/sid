@@ -54,7 +54,7 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 			return 0;
 
 		if (!(alloc_step = buf->alloc_step))
-			return -ENOMEM;
+			return -EXFULL;
 	} else
 		alloc_step = 1;
 
@@ -243,8 +243,8 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 			if (expected < MSG_SIZE_PREFIX_LEN)
 				return -EBADE;
 			if (previous_used < MSG_SIZE_PREFIX_LEN) {
-				if (_buffer_linear_realloc(buf, expected, 0) < 0)
-					return -1;
+				if ((r = _buffer_linear_realloc(buf, expected, 0)) < 0)
+					return r;
 			}
 		}
 	} else if (n == 0) {
