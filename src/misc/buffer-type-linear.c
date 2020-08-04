@@ -207,9 +207,11 @@ static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t
 static ssize_t _buffer_linear_read_plain(struct buffer *buf, int fd)
 {
 	ssize_t n;
+	int r;
 
-	if (buf->used == buf->allocated)
-		return -EXFULL;
+	if (buf->used == buf->allocated &&
+	    (r = _buffer_linear_realloc(buf, buf->allocated + buf->alloc_step, 0)) < 0)
+		return r;
 
 	n = read(fd, buf->mem + buf->used, buf->allocated - buf->used);
 
