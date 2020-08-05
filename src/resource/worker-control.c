@@ -200,21 +200,6 @@ fail:
 	return -1;
 }
 
-static bool _chan_is_passing_cmd(const struct worker_channel *chan)
-{
-	struct worker_proxy *worker_proxy;
-
-	/*
-	 * channel in worker - it must be WORKER_TYPE_INTERNAL so it's always passing cmd
-	 * channel in worker_proxy - passing cmd only if it's WORKER_TYPE_INTERNAL
-	 */
-	if (worker_control_is_worker(chan->owner))
-		return true;
-
-	worker_proxy = sid_resource_get_data(chan->owner);
-	return worker_proxy->type == WORKER_TYPE_INTERNAL;
-}
-
 static worker_type_t _chan_get_worker_type(const struct worker_channel *chan)
 {
 	if (chan->owner) {
@@ -228,18 +213,33 @@ static worker_type_t _chan_get_worker_type(const struct worker_channel *chan)
 	return WORKER_TYPE_EXTERNAL;
 }
 
+#define CHAN_BUF_RECV_MSG      0x1
+#define CHAN_BUF_RECV_EOF      0x2
+
 /*
  * Returns:
- *   < 0 on error
- *     0 if reception is complete - cmd and data_spec is assigned
- *     1 if awaiting more data to be received
- *     2 on EOF
+ *   < 0 error
+ *     0 expecting more data
+ *     1 MSG
+ *     2 EOF
+ *     3 MSG + EOF
  */
-static int _chan_buf_recv(const struct worker_channel *chan, worker_channel_cmd_t *cmd, struct worker_data_spec *data_spec)
+static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, worker_channel_cmd_t *cmd, struct worker_data_spec *data_spec)
 {
+	// TODO: Double check we're really interested in EPOLLRDHUP.
+	bool hup = (revents & (EPOLLHUP | EPOLLRDHUP)) && !(revents & EPOLLIN);
 	ssize_t n;
 	void *buf_data;
 	size_t buf_data_size;
+
+	if (revents & EPOLLERR) {
+		if (hup)
+			log_error(ID(chan->owner), "Peer closed channel %s prematurely.", chan->spec->id);
+		else
+			log_error(ID(chan->owner), "Error on read part of the channel %s.", chan->spec->id);
+
+		return -EPIPE;
+	}
 
 	if (chan->spec->wire.type == WORKER_WIRE_SOCKET) {
 		/* Also read ancillary data in a channel with socket wire - an FD might be passed through this way. */
@@ -249,6 +249,7 @@ static int _chan_buf_recv(const struct worker_channel *chan, worker_channel_cmd_
 		 *        Maybe extend the buffer so it can use 'recvmsg' somehow - a custom callback
 		 *        for reading the data? Then we could receive data and anc. data at once in one buffer_read call.
 		 */
+		// TODO: Read only once! _chan_buf_recv may be called several times per one message.
 		n = comms_unix_recv(chan->fd, NULL, 0, &data_spec->ext.socket.fd_pass);
 
 		if (n < 0) {
@@ -260,57 +261,38 @@ static int _chan_buf_recv(const struct worker_channel *chan, worker_channel_cmd_
 	n = buffer_read(chan->in_buf, chan->fd);
 
 	if (n > 0) {
-		/*
-		 * WORKER_TYPE_EXTERNAL uses channels with plain buffers (no size prefixes),
-		 * therefore we simply need to wait for EOF (because we don't know in advance
-		 * how much data to expect).
-		 */
-		if (_chan_get_worker_type(chan) == WORKER_TYPE_EXTERNAL)
-			return 1;
-
-		if (buffer_is_complete(chan->in_buf, NULL)) {
-			(void) buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
-
-			if (_chan_is_passing_cmd(chan)) {
-				memcpy(cmd, buf_data, sizeof(*cmd));
-				data_spec->data_size = buf_data_size - sizeof(*cmd);
-				data_spec->data = data_spec->data_size > 0 ? buf_data + sizeof(*cmd) : NULL;
-			} else {
-				*cmd = WORKER_CHANNEL_CMD_CUSTOM;
-				data_spec->data_size = buf_data_size;
-				data_spec->data = buf_data;
-			}
-
+		/* For plain buffers, we are waiting for EOF to complete the message. */
+		if (buffer_stat(chan->in_buf).mode == BUFFER_MODE_PLAIN)
 			return 0;
-		}
-		return 1;
+
+		if (!buffer_is_complete(chan->in_buf, NULL))
+			return 0;
+
+		(void) buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
+
+		memcpy(cmd, buf_data, sizeof(*cmd));
+		data_spec->data_size = buf_data_size - sizeof(*cmd);
+		data_spec->data = data_spec->data_size > 0 ? buf_data + sizeof(*cmd) : NULL;
+
+		return CHAN_BUF_RECV_MSG;
 	} else if (n < 0) {
 		if (n == -EAGAIN || n == -EINTR)
-			return 1;
+			return 0;
 
 		log_error_errno(ID(chan->owner), n, "Failed to read data on channel %s", chan->spec->id);
 		return n;
 	} else {
-		/*
-		 * For WORKER_TYPE_EXTERNAL, the reception is complete when we hit the EOF.
-		 */
-		if (_chan_get_worker_type(chan) == WORKER_TYPE_EXTERNAL) {
+		if (buffer_stat(chan->in_buf).mode == BUFFER_MODE_PLAIN) {
 			(void) buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
 
 			*cmd = WORKER_CHANNEL_CMD_CUSTOM;
 			data_spec->data_size = buf_data_size;
 			data_spec->data = buf_data;
 
-			return 0;
+			return CHAN_BUF_RECV_EOF | CHAN_BUF_RECV_MSG;
 		}
 
-		if (buffer_is_complete(chan->in_buf, NULL))
-			return 2;
-		else {
-			log_error(ID(chan->owner), "Expected and received data size on channel %s do not match.",
-			          chan->spec->id);
-			return -EBADE;
-		}
+		return CHAN_BUF_RECV_EOF;
 	}
 }
 
@@ -336,37 +318,45 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 	/*uint64_t timeout_usec;*/
 	int r;
 
-	r = _chan_buf_recv(chan, &cmd, &data_spec);
+	r = _chan_buf_recv(chan, revents, &cmd, &data_spec);
 
-	if (r > 0)
+	if (r == 0)
 		return 0;
-	else if (r < 0)
-		goto out;
 
-	switch (cmd) {
-		case WORKER_CHANNEL_CMD_YIELD:
-			/* FIXME: Make timeout configurable. If timeout is set to zero, exit worker right away - call _make_worker_exit.
-			 *
-			timeout_usec = util_get_now_usec(CLOCK_MONOTONIC) + DEFAULT_WORKER_IDLE_TIMEOUT_USEC;
-			sid_resource_create_time_event_source(chan->owner, &worker_proxy->idle_timeout_es, CLOCK_MONOTONIC,
-							      timeout_usec, 0, _on_worker_proxy_idle_timeout_event, "idle timeout", chan->owner);
-			_change_worker_proxy_state(chan->owner, WORKER_STATE_IDLE);
-			*/
-			_make_worker_exit(chan->owner);
-			break;
-		case WORKER_CHANNEL_CMD_CUSTOM:
-			if (chan->spec->proxy_rx_cb.cb) {
-				if (chan->spec->proxy_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->proxy_rx_cb.arg) < 0)
-					log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
-			}
-			break;
-		default:
-			log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
-			r = -1;
+	if (r < 0) {
+		buffer_reset(chan->in_buf);
+		return r;
 	}
-out:
-	(void) buffer_reset(chan->in_buf);
-	return r;
+
+	if (r & CHAN_BUF_RECV_MSG) {
+		switch (cmd) {
+			case WORKER_CHANNEL_CMD_YIELD:
+				/* FIXME: Make timeout configurable. If timeout is set to zero, exit worker right away - call _make_worker_exit.
+				 *
+				timeout_usec = util_get_now_usec(CLOCK_MONOTONIC) + DEFAULT_WORKER_IDLE_TIMEOUT_USEC;
+				sid_resource_create_time_event_source(chan->owner, &worker_proxy->idle_timeout_es, CLOCK_MONOTONIC,
+								      timeout_usec, 0, _on_worker_proxy_idle_timeout_event, "idle timeout", chan->owner);
+				_change_worker_proxy_state(chan->owner, WORKER_STATE_IDLE);
+				*/
+				_make_worker_exit(chan->owner);
+				break;
+			case WORKER_CHANNEL_CMD_CUSTOM:
+				if (chan->spec->proxy_rx_cb.cb) {
+					if (chan->spec->proxy_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->proxy_rx_cb.arg) < 0)
+						log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
+				}
+				break;
+			default:
+				log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
+		}
+
+		buffer_reset(chan->in_buf);
+	}
+
+	if (r & CHAN_BUF_RECV_EOF)
+		sid_resource_destroy_event_source(&es);
+
+	return 0;
 }
 
 static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
@@ -374,29 +364,37 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 	struct worker_channel *chan = data;
 	worker_channel_cmd_t cmd;
 	struct worker_data_spec data_spec = {0};
-	int r = 0;
+	int r;
 
-	r = _chan_buf_recv(chan, &cmd, &data_spec);
+	r = _chan_buf_recv(chan, revents, &cmd, &data_spec);
 
-	if (r > 0)
+	if (r == 0)
 		return 0;
-	else if (r < 0)
-		goto out;
 
-	switch (cmd) {
-		case WORKER_CHANNEL_CMD_CUSTOM:
-			if (chan->spec->worker_rx_cb.cb) {
-				if (chan->spec->worker_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->worker_rx_cb.arg) < 0)
-					log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
-			}
-			break;
-		default:
-			log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
-			r = -1;
+	if (r < 0) {
+		buffer_reset(chan->in_buf);
+		return r;
 	}
-out:
-	(void) buffer_reset(chan->in_buf);
-	return r;
+
+	if (r & CHAN_BUF_RECV_MSG) {
+		switch (cmd) {
+			case WORKER_CHANNEL_CMD_CUSTOM:
+				if (chan->spec->worker_rx_cb.cb) {
+					if (chan->spec->worker_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->worker_rx_cb.arg) < 0)
+						log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
+				}
+				break;
+			default:
+				log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
+		}
+	}
+
+	if (r & CHAN_BUF_RECV_EOF) {
+		sid_resource_destroy_event_source(&es);
+		buffer_reset(chan->in_buf);
+	}
+
+	return 0;
 }
 
 static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_worker, worker_type_t type, struct worker_channel *chan)
@@ -853,7 +851,7 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 		}
 	}
 
-	if (_chan_is_passing_cmd(chan) &&
+	if (_chan_get_worker_type(chan) == WORKER_TYPE_INTERNAL &&
 	    !buffer_add(chan->out_buf, &cmd, sizeof(cmd), &r)) {
 		r = -ENOMEM;
 		goto out;
@@ -996,7 +994,8 @@ static int _on_worker_proxy_child_event(sid_resource_event_source_t *es, const s
 	 *        And call sid_resource_destroy(worker_proxy_res) on some timeout or garbace collecting, not here.
 	 */
 
-	(void) sid_resource_destroy(worker_proxy_res);
+	// TODO: Do not destroy the proxy if it still has channels where data are incoming, destroy it after obtaining all data.
+	//(void) sid_resource_destroy(worker_proxy_res);
 	return 0;
 }
 
