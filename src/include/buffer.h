@@ -48,6 +48,7 @@ bool buffer_is_complete(struct buffer *buf, int *ret_code);
 ssize_t buffer_read(struct buffer *buf, int fd);
 ssize_t buffer_write(struct buffer *buf, int fd, size_t pos);
 int buffer_get_data(struct buffer *buf, const void **data, size_t *data_size);
+struct buffer_stat buffer_stat(struct buffer *buf);
 
 #ifdef __cplusplus
 }

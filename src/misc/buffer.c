@@ -37,10 +37,14 @@ struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t init
 		goto out;
 	}
 
-	buf->type = type;
-	buf->mode = mode;
-	buf->initial_size = initial_size;
-	buf->alloc_step = alloc_step;
+	buf->stat = (struct buffer_stat) {
+		.type = type,
+		.mode = mode,
+		.initial_size = initial_size,
+		.alloc_step = alloc_step,
+		.allocated = 0,
+		.used = 0,
+	};
 
 	if ((r = _buffer_type_registry[type]->create(buf, initial_size)) < 0)
 		goto out;
@@ -55,19 +59,19 @@ out:
 
 void buffer_destroy(struct buffer *buf)
 {
-	(void) _buffer_type_registry[buf->type]->destroy(buf);
+	(void) _buffer_type_registry[buf->stat.type]->destroy(buf);
 	free(buf);
 }
 
 int buffer_reset_init(struct buffer *buf, size_t initial_size, size_t alloc_step)
 {
-	buf->alloc_step = alloc_step;
-	return _buffer_type_registry[buf->type]->reset(buf, initial_size);
+	buf->stat.alloc_step = alloc_step;
+	return _buffer_type_registry[buf->stat.type]->reset(buf, initial_size);
 }
 
 int buffer_reset(struct buffer *buf)
 {
-	return _buffer_type_registry[buf->type]->reset(buf, buf->initial_size);
+	return _buffer_type_registry[buf->stat.type]->reset(buf, buf->stat.initial_size);
 }
 
 const void *buffer_add(struct buffer *buf, void *data, size_t len, int *ret_code)
@@ -78,7 +82,7 @@ const void *buffer_add(struct buffer *buf, void *data, size_t len, int *ret_code
 		return NULL;
 	}
 
-	return _buffer_type_registry[buf->type]->add(buf, data, len, ret_code);
+	return _buffer_type_registry[buf->stat.type]->add(buf, data, len, ret_code);
 }
 
 const void *buffer_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, ...)
@@ -87,7 +91,7 @@ const void *buffer_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, .
 	const void *p;
 
 	va_start(ap, fmt);
-	p = _buffer_type_registry[buf->type]->fmt_add(buf, ret_code, fmt, ap);
+	p = _buffer_type_registry[buf->stat.type]->fmt_add(buf, ret_code, fmt, ap);
 	va_end(ap);
 
 	return p;
@@ -95,19 +99,19 @@ const void *buffer_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, .
 
 const void *buffer_vfmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap)
 {
-	return _buffer_type_registry[buf->type]->fmt_add(buf, ret_code, fmt, ap);
+	return _buffer_type_registry[buf->stat.type]->fmt_add(buf, ret_code, fmt, ap);
 }
 
 int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
 {
 	if (whence == BUFFER_POS_REL) {
-		if (pos > buf->used)
+		if (pos > buf->stat.used)
 			return -EINVAL;
 
-		pos = buf->used - pos;
+		pos = buf->stat.used - pos;
 	}
 
-	return _buffer_type_registry[buf->type]->rewind(buf, pos);
+	return _buffer_type_registry[buf->stat.type]->rewind(buf, pos);
 }
 
 int buffer_rewind_mem(struct buffer *buf, const void *mem)
@@ -115,25 +119,30 @@ int buffer_rewind_mem(struct buffer *buf, const void *mem)
 	if (mem < buf->mem)
 		return -EINVAL;
 
-	return _buffer_type_registry[buf->type]->rewind_mem(buf, mem);
+	return _buffer_type_registry[buf->stat.type]->rewind_mem(buf, mem);
 }
 
 bool buffer_is_complete(struct buffer *buf, int *ret_code)
 {
-	return _buffer_type_registry[buf->type]->is_complete(buf, ret_code);
+	return _buffer_type_registry[buf->stat.type]->is_complete(buf, ret_code);
 }
 
 int buffer_get_data(struct buffer *buf, const void **data, size_t *data_size)
 {
-	return _buffer_type_registry[buf->type]->get_data(buf, data, data_size);
+	return _buffer_type_registry[buf->stat.type]->get_data(buf, data, data_size);
 }
 
 ssize_t buffer_read(struct buffer *buf, int fd)
 {
-	return _buffer_type_registry[buf->type]->read(buf, fd);
+	return _buffer_type_registry[buf->stat.type]->read(buf, fd);
 }
 
 ssize_t buffer_write(struct buffer *buf, int fd, size_t pos)
 {
-	return _buffer_type_registry[buf->type]->write(buf, fd, pos);
+	return _buffer_type_registry[buf->stat.type]->write(buf, fd, pos);
+}
+
+struct buffer_stat buffer_stat(struct buffer *buf)
+{
+	return buf->stat;
 }

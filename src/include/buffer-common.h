@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -40,6 +41,15 @@ typedef enum {
 	BUFFER_MODE_PLAIN,       /* plain buffer */
 	BUFFER_MODE_SIZE_PREFIX, /* has uint32_t size prefix */
 } buffer_mode_t;
+
+struct buffer_stat {
+	buffer_type_t type;
+	buffer_mode_t mode;
+	size_t initial_size;
+	size_t alloc_step;
+	size_t allocated;
+	size_t used;
+};
 
 #ifdef __cplusplus
 }

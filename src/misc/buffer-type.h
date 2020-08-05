@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,13 +25,8 @@
 #include <sys/types.h>
 
 struct buffer{
-	buffer_type_t type;
-        buffer_mode_t mode;
+	struct buffer_stat stat;
 	void *mem;
-	size_t initial_size;
-	size_t alloc_step;
-        size_t allocated;          /* bytes allocated */
-        size_t used;               /* bytes used */
 };
 
 struct buffer_type {
