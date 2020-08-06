@@ -25,15 +25,18 @@
 #include <string.h>
 #include <unistd.h>
 
-static int _buffer_linear_create(struct buffer *buf, size_t initial_size)
+static int _buffer_linear_create(struct buffer *buf)
 {
-	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
-		initial_size += MSG_SIZE_PREFIX_LEN;
+	size_t needed;
 
-	if (!(buf->mem = zalloc(initial_size)))
+	needed = buf->stat.initial_size;
+	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
+		needed += MSG_SIZE_PREFIX_LEN;
+
+	if (!(buf->mem = zalloc(needed)))
 		return -ENOMEM;
 
-	buf->stat.allocated = initial_size;
+	buf->stat.allocated = needed;
 	return 0;
 }
 
@@ -70,22 +73,26 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 	return 0;
 }
 
-static int _buffer_linear_reset(struct buffer *buf, size_t initial_size)
+static int _buffer_linear_reset(struct buffer *buf)
 {
+	size_t needed;
+
 	buf->stat.used = 0;
 
-	if (!initial_size) {
+	needed = buf->stat.initial_size;
+
+	if (!needed) {
 		switch (buf->stat.mode) {
 			case BUFFER_MODE_PLAIN:
-				/* keep initial_size = 0 */
+				/* keep needed = 0 */
 				break;
 			case BUFFER_MODE_SIZE_PREFIX:
-				initial_size = MSG_SIZE_PREFIX_LEN;
+				needed += MSG_SIZE_PREFIX_LEN;
 				break;
 		}
 	}
 
-	return _buffer_linear_realloc(buf, initial_size, 1);
+	return _buffer_linear_realloc(buf, needed, 1);
 }
 
 static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len, int *ret_code)

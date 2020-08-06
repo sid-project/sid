@@ -30,9 +30,9 @@ struct buffer{
 };
 
 struct buffer_type {
-	int (*create) (struct buffer *buf, size_t initial_size);
+	int (*create) (struct buffer *buf);
 	int (*destroy) (struct buffer *buf);
-	int (*reset) (struct buffer *buf, size_t initial_size);
+	int (*reset) (struct buffer *buf);
 	const void *(*add) (struct buffer *buf, void *data, size_t len, int *ret_code);
 	const void *(*fmt_add) (struct buffer *buf, int *ret_code, const char *fmt, va_list ap);
 	int (*rewind) (struct buffer *buf, size_t pos);
