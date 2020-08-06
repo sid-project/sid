@@ -64,6 +64,9 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 	if ((align = (needed % alloc_step)))
 		needed += alloc_step - align;
 
+	if (buf->stat.limit && needed > buf->stat.limit)
+		return -EOVERFLOW;
+
 	if (!(p = realloc(buf->mem, needed)))
 		return -errno;
 

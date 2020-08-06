@@ -47,6 +47,7 @@ struct buffer_stat {
 	buffer_mode_t mode;
 	size_t initial_size;
 	size_t alloc_step;
+	size_t limit;
 	size_t allocated;
 	size_t used;
 };

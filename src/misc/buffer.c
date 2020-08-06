@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,20 @@ static const struct buffer_type *_buffer_type_registry[] = {
 	[BUFFER_TYPE_VECTOR] = &buffer_type_vector
 };
 
-struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t initial_size, size_t alloc_step, int *ret_code)
+static bool _check_buf(struct buffer *buf)
+{
+	struct buffer_stat *stat = &buf->stat;
+
+	/* We are checking only limit right now so if no limit, nothing to check as well. */
+	if (stat->limit == 0)
+		return true;
+
+	return (stat->limit >= stat->initial_size &&
+	        stat->limit >= stat->alloc_step &&
+	        stat->limit % stat->alloc_step == 0);
+}
+
+struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t initial_size, size_t alloc_step, size_t limit, int *ret_code)
 {
 	struct buffer *buf;
 	int r = 0;
@@ -42,9 +55,15 @@ struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t init
 		.mode = mode,
 		.initial_size = initial_size,
 		.alloc_step = alloc_step,
+		.limit = limit,
 		.allocated = 0,
 		.used = 0,
 	};
+
+	if (!_check_buf(buf)) {
+		r = -EINVAL;
+		goto out;
+	}
 
 	if ((r = _buffer_type_registry[type]->create(buf)) < 0)
 		goto out;
@@ -63,10 +82,18 @@ void buffer_destroy(struct buffer *buf)
 	free(buf);
 }
 
-int buffer_reset_init(struct buffer *buf, size_t initial_size, size_t alloc_step)
+int buffer_reset_init(struct buffer *buf, size_t initial_size, size_t alloc_step, size_t limit)
 {
+	struct buffer_stat orig_stat = buf->stat;
+
 	buf->stat.initial_size = initial_size;
 	buf->stat.alloc_step = alloc_step;
+	buf->stat.limit = limit;
+
+	if (!_check_buf(buf)) {
+		buf->stat = orig_stat;
+		return -EINVAL;
+	}
 
 	return _buffer_type_registry[buf->stat.type]->reset(buf);
 }

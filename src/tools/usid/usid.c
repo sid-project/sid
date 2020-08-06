@@ -68,7 +68,7 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 	ssize_t n;
 	int r = -1;
 
-	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1, &r))) {
+	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1, 0, &r))) {
 		log_error_errno(LOG_PREFIX, r, "Failed to create request buffer.");
 		goto out;
 	}

@@ -488,7 +488,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			break;
 
 		case WORKER_WIRE_PIPE_TO_WORKER:
-			if (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, &r)))
+			if (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r)))
 				goto fail;
 
 			if (!is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
@@ -503,7 +503,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			break;
 
 		case WORKER_WIRE_PIPE_TO_PROXY:
-			if (buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, &r)))
+			if (buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r)))
 				goto fail;
 
 			if (is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
@@ -518,8 +518,8 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			break;
 
 		case WORKER_WIRE_SOCKET:
-			if ((buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, &r))) ||
-			    (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, &r))))
+			if ((buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r))) ||
+			    (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r))))
 				goto fail;
 
 			if (chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
