@@ -263,7 +263,7 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 		/* Detect premature EOF when we haven't received full message yet. */
 		expected = EXPECTED(buf);
 		if ((!expected && buf->stat.used) || (expected && buf->stat.used != expected))
-			return -EBADE;
+			return -EBADMSG;
 	} else
 		n = -errno;
 
