@@ -989,15 +989,18 @@ static int _on_worker_proxy_child_event(sid_resource_event_source_t *es, const s
 	_change_worker_proxy_state(worker_proxy_res, WORKER_STATE_EXITED);
 
 	/*
-	 * FIXME: Add config to keep worker_proxy_res with struct worker_proxy for a while to be able to catch possible status.
-	 *        At the moment, we don't need this ability, but WORKER_EXITED state is prepared here for this purpose.
-	 *        Then, that would be this assignemt here at this place:
-	 *            worker_proxy->state = WORKER_EXITED;
-	 *        And call sid_resource_destroy(worker_proxy_res) on some timeout or garbace collecting, not here.
+	 * NOTE: We have set lower priority for this _on_worker_proxy_child_event handler
+	 * for us to be able to process all remaining events (e.g. data reception on channels)
+	 * before we destroy worker_proxy_res here.
+	 *
+	 * The approach with setting lower priority for this handler has a downside. Since it
+	 * also sets the worker proxy state, then if there are other remaining events with higher
+	 * priority, the worke proxy state setting is delayed.
+	 *
+	 * If this appears as an issue in the future, setting the state and destroying the
+	 * worker proxy needs to be separated.
 	 */
-
-	// TODO: Do not destroy the proxy if it still has channels where data are incoming, destroy it after obtaining all data.
-	//(void) sid_resource_destroy(worker_proxy_res);
+	(void) sid_resource_destroy(worker_proxy_res);
 	return 0;
 }
 
@@ -1038,7 +1041,7 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	worker_proxy->channel_count = kickstart->channel_count;
 
 	if (sid_resource_create_child_event_source(worker_proxy_res, NULL, worker_proxy->pid, WEXITED,
-	                                           _on_worker_proxy_child_event, 0, "worker process monitor", worker_proxy_res) < 0) {
+	                                           _on_worker_proxy_child_event, 1, "worker process monitor", worker_proxy_res) < 0) {
 		log_error(ID(worker_proxy_res), "Failed to register worker process monitoring in worker proxy.");
 		goto fail;
 	}
