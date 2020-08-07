@@ -867,8 +867,10 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 		n = buffer_write(chan->out_buf, chan->fd, pos);
 
 		if (n < 0) {
-			if (n == -ENODATA)
+			if (n == -ENODATA) {
+				n = 0;
 				break;
+			}
 
 			if (n == -EAGAIN || n == -EINTR) {
 				n = 0;
