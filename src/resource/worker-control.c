@@ -200,19 +200,6 @@ fail:
 	return -1;
 }
 
-static worker_type_t _chan_get_worker_type(const struct worker_channel *chan)
-{
-	if (chan->owner) {
-		if (sid_resource_match(chan->owner, &sid_resource_type_worker, NULL))
-			return WORKER_TYPE_INTERNAL;
-
-		if (sid_resource_match(chan->owner, &sid_resource_type_worker_proxy, NULL))
-			return ((struct worker_proxy *) sid_resource_get_data(chan->owner))->type;
-	}
-
-	return WORKER_TYPE_EXTERNAL;
-}
-
 #define CHAN_BUF_RECV_MSG      0x1
 #define CHAN_BUF_RECV_EOF      0x2
 
@@ -272,6 +259,10 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 
 		(void) buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
 
+		/*
+		 * Internal workers and associated proxies use BUFFER_MODE_SIZE_PREFIX buffers and
+		 * they always transmit worker_channel_cmd_t as header before actual data.
+		 */
 		memcpy(cmd, buf_data, sizeof(*cmd));
 		data_spec->data_size = buf_data_size - sizeof(*cmd);
 		data_spec->data = data_spec->data_size > 0 ? buf_data + sizeof(*cmd) : NULL;
@@ -853,7 +844,11 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 		}
 	}
 
-	if (_chan_get_worker_type(chan) == WORKER_TYPE_INTERNAL &&
+	/*
+	 * Internal workers and associated proxies use BUFFER_MODE_SIZE_PREFIX buffers and
+	 * they always transmit worker_channel_cmd_t as header before actual data.
+	 */
+	if (buffer_stat(chan->out_buf).mode == BUFFER_MODE_SIZE_PREFIX &&
 	    !buffer_add(chan->out_buf, &cmd, sizeof(cmd), &r)) {
 		r = -ENOMEM;
 		goto out;
