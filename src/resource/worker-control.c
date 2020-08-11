@@ -228,6 +228,7 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 {
 	// TODO: Double check we're really interested in EPOLLRDHUP.
 	bool hup = (revents & (EPOLLHUP | EPOLLRDHUP)) && !(revents & EPOLLIN);
+	struct buffer_stat buf_stat;
 	ssize_t n;
 	void *buf_data;
 	size_t buf_data_size;
@@ -241,7 +242,9 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 		return -EPIPE;
 	}
 
-	if (chan->spec->wire.type == WORKER_WIRE_SOCKET) {
+	buf_stat = buffer_stat(chan->in_buf);
+
+	if (!buf_stat.used && chan->spec->wire.type == WORKER_WIRE_SOCKET) {
 		/* Also read ancillary data in a channel with socket wire - an FD might be passed through this way. */
 		/*
 		 * FIXME: Buffer is using 'read', but we need to use 'recvmsg' for ancillary data.
@@ -249,7 +252,6 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 		 *        Maybe extend the buffer so it can use 'recvmsg' somehow - a custom callback
 		 *        for reading the data? Then we could receive data and anc. data at once in one buffer_read call.
 		 */
-		// TODO: Read only once! _chan_buf_recv may be called several times per one message.
 		n = comms_unix_recv(chan->fd, NULL, 0, &data_spec->ext.socket.fd_pass);
 
 		if (n < 0) {
@@ -262,7 +264,7 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 
 	if (n > 0) {
 		/* For plain buffers, we are waiting for EOF to complete the message. */
-		if (buffer_stat(chan->in_buf).mode == BUFFER_MODE_PLAIN)
+		if (buf_stat.mode == BUFFER_MODE_PLAIN)
 			return 0;
 
 		if (!buffer_is_complete(chan->in_buf, NULL))
@@ -282,7 +284,7 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 		log_error_errno(ID(chan->owner), n, "Failed to read data on channel %s", chan->spec->id);
 		return n;
 	} else {
-		if (buffer_stat(chan->in_buf).mode == BUFFER_MODE_PLAIN) {
+		if (buf_stat.mode == BUFFER_MODE_PLAIN) {
 			(void) buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
 
 			*cmd = WORKER_CHANNEL_CMD_CUSTOM;
