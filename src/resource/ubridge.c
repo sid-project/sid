@@ -2784,7 +2784,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	struct worker_data_spec data_spec;
 	unsigned i;
 	ssize_t r_wr;
-	int r;
+	int r = -1;
 
 	/*
 	 * Export key-value store to udev or for sync with master kv store.
@@ -2801,7 +2801,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	if (!(iter = kv_store_iter_create(cmd->kv_store_res))) {
 		// TODO: Discard udev kv-store we've already appended to the output buffer!
 		log_error(ID(cmd_res), "Failed to create iterator for temp key-value store.");
-		return -1;
+		goto out;
 	}
 
 	export_fd = memfd_create("kv_store_export", MFD_CLOEXEC);
@@ -2841,16 +2841,16 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 			if (vector) {
 				log_error(ID(cmd_res), INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
 				          __func__, key);
-				return -1;
+				goto out;
 			}
 			key = _get_key_part(key, KEY_PART_CORE, NULL);
 			if (!buffer_add(cmd->res_buf, (void *) key, strlen(key), &r) ||
 			    !buffer_add(cmd->res_buf, KV_PAIR_C, 1, &r))
-				goto bad;
+				goto out;
 			data_offset = _kv_value_ext_data_offset(kv_value);
 			if (!buffer_add(cmd->res_buf, kv_value->data + data_offset, strlen(kv_value->data + data_offset), &r) ||
 			    !buffer_add(cmd->res_buf, KV_END_C, 1, &r))
-				goto bad;
+				goto out;
 			continue;
 		}
 
@@ -2880,23 +2880,23 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		if ((r_wr = write(export_fd, &flags, sizeof(flags))) == sizeof(flags))
 			bytes_written += r_wr;
 		else
-			goto bad;
+			goto out;
 
 
 		if ((r_wr = write(export_fd, &key_size, sizeof(key_size))) == sizeof(key_size))
 			bytes_written += r_wr;
 		else
-			goto bad;
+			goto out;
 
 		if ((r_wr = write(export_fd, &size, sizeof(size))) == sizeof(size))
 			bytes_written += r_wr;
 		else
-			goto bad;
+			goto out;
 
 		if ((r_wr = write(export_fd, key, strlen(key) + 1)) == strlen(key) + 1)
 			bytes_written += r_wr;
 		else
-			goto bad;
+			goto out;
 
 		if (flags & KV_STORE_VALUE_VECTOR) {
 			for (i = 0, size = 0; i < iov_size; i++) {
@@ -2905,18 +2905,18 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 				if ((r_wr = write(export_fd, &iov[i].iov_len, sizeof(iov->iov_len))) == sizeof(iov->iov_len))
 					bytes_written += r_wr;
 				else
-					goto bad;
+					goto out;
 
 				if ((r_wr = write(export_fd, iov[i].iov_base, iov[i].iov_len)) == iov[i].iov_len)
 					bytes_written += r_wr;
 				else
-					goto bad;
+					goto out;
 			}
 		} else {
 			if ((r_wr = write(export_fd, kv_value, size)) == size)
 				bytes_written += r_wr;
 			else
-				goto bad;
+				goto out;
 		}
 
 
@@ -2924,7 +2924,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 	lseek(export_fd, 0, SEEK_SET);
 	if ((r_wr = write(export_fd, &bytes_written, sizeof(bytes_written))) < 0)
-		goto bad;
+		goto out;
 	lseek(export_fd, 0, SEEK_SET);
 
 	data_spec.data = NULL;
@@ -2934,16 +2934,14 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	if (bytes_written)
 		worker_control_channel_send(cmd_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
 
-	kv_store_iter_destroy(iter);
-
-	close(export_fd);
-
-	return 0;
-bad:
+	r = 0;
+out:
+	if (iter)
+		kv_store_iter_destroy(iter);
 	if (export_fd >= 0)
 		close(export_fd);
 
-	return -1;
+	return r;
 }
 
 static int _cmd_handler(sid_resource_event_source_t *es, void *data)
