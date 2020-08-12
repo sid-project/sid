@@ -2898,7 +2898,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		else
 			goto out;
 
-		if (flags & KV_STORE_VALUE_VECTOR) {
+		if (vector) {
 			for (i = 0, size = 0; i < iov_size; i++) {
 				size += iov[i].iov_len;
 
