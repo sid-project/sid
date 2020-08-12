@@ -25,13 +25,25 @@
 #include <string.h>
 #include <unistd.h>
 
+static bool _check_limit(struct buffer *buf, size_t needed)
+{
+	if (buf->stat.limit && needed > buf->stat.limit)
+		return false;
+
+	return true;
+}
+
 static int _buffer_linear_create(struct buffer *buf)
 {
 	size_t needed;
 
 	needed = buf->stat.initial_size;
-	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
+
+	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX) {
 		needed += MSG_SIZE_PREFIX_LEN;
+		if (!_check_limit(buf, needed))
+			return -EOVERFLOW;
+	}
 
 	if (!(buf->mem = zalloc(needed)))
 		return -ENOMEM;
@@ -64,7 +76,7 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 	if ((align = (needed % alloc_step)))
 		needed += alloc_step - align;
 
-	if (buf->stat.limit && needed > buf->stat.limit)
+	if (!_check_limit(buf, needed))
 		return -EOVERFLOW;
 
 	if (!(p = realloc(buf->mem, needed)))
@@ -81,19 +93,10 @@ static int _buffer_linear_reset(struct buffer *buf)
 	size_t needed;
 
 	buf->stat.used = 0;
-
 	needed = buf->stat.initial_size;
 
-	if (!needed) {
-		switch (buf->stat.mode) {
-			case BUFFER_MODE_PLAIN:
-				/* keep needed = 0 */
-				break;
-			case BUFFER_MODE_SIZE_PREFIX:
-				needed += MSG_SIZE_PREFIX_LEN;
-				break;
-		}
-	}
+	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
+		needed += MSG_SIZE_PREFIX_LEN;
 
 	return _buffer_linear_realloc(buf, needed, 1);
 }
