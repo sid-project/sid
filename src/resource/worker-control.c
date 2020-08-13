@@ -266,8 +266,6 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 				for (;;) {
 					n = comms_unix_recv(chan->fd, &byte, sizeof(byte), &data_spec->ext.socket.fd_pass);
 
-					data_spec->ext.used = true;
-
 					if (n < 0) {
 						if (n == -EAGAIN || n == -EINTR)
 							continue;
@@ -279,6 +277,7 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 						return n;
 					}
 
+					data_spec->ext.used = true;
 					break;
 				}
 			}
