@@ -2929,6 +2929,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 	data_spec.data = NULL;
 	data_spec.data_size = 0;
+	data_spec.ext.used = true;
 	data_spec.ext.socket.fd_pass = export_fd;
 
 	if (bytes_written)
@@ -3386,8 +3387,13 @@ static int _worker_proxy_recv_fn(sid_resource_t *worker_proxy_res, struct worker
 	sid_resource_t *internal_ubridge_res = arg;
 	int r;
 
-	r = _sync_master_kv_store(worker_proxy_res, internal_ubridge_res, data_spec->ext.socket.fd_pass);
-	close(data_spec->ext.socket.fd_pass);
+	if (data_spec->ext.used) {
+		r = _sync_master_kv_store(worker_proxy_res, internal_ubridge_res, data_spec->ext.socket.fd_pass);
+		close(data_spec->ext.socket.fd_pass);
+	} else {
+		log_error(ID(worker_proxy_res), "Received response from worker, but database synchronization handle missing.");
+		r = -1;
+	}
 
 	return r;
 }
@@ -3396,13 +3402,18 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 {
 	sid_resource_t *conn_res;
 
-	if (!(conn_res = sid_resource_create(worker_res,
-	                                     &sid_resource_type_ubridge_connection,
-	                                     SID_RESOURCE_NO_FLAGS,
-	                                     SID_RESOURCE_NO_CUSTOM_ID,
-	                                     data_spec,
-	                                     SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(ID(worker_res), "Failed to create connection resource.");
+	if (data_spec->ext.used) {
+		if (!(conn_res = sid_resource_create(worker_res,
+		                                     &sid_resource_type_ubridge_connection,
+		                                     SID_RESOURCE_NO_FLAGS,
+		                                     SID_RESOURCE_NO_CUSTOM_ID,
+		                                     data_spec,
+		                                     SID_RESOURCE_NO_SERVICE_LINKS))) {
+			log_error(ID(worker_res), "Failed to create connection resource.");
+			return -1;
+		}
+	} else {
+		log_error(ID(worker_res), "Received command from worker proxy, but connection handle missing.");
 		return -1;
 	}
 
@@ -3464,13 +3475,14 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 
 	/* worker never reaches this point, only worker-proxy does */
 
+	data_spec.data = NULL;
+	data_spec.data_size = 0;
+	data_spec.ext.used = true;
+
 	if ((data_spec.ext.socket.fd_pass = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
 		log_sys_error(ID(internal_ubridge_res), "accept", "");
 		return -1;
 	}
-
-	data_spec.data = NULL;
-	data_spec.data_size = 0;
 
 	if ((r = worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec)) < 0) {
 		log_error_errno(ID(internal_ubridge_res), r, "worker_control_channel_send");

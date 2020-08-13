@@ -242,7 +242,10 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 		 */
 		n = comms_unix_recv(chan->fd, &byte, sizeof(byte), &data_spec->ext.socket.fd_pass);
 
+		data_spec->ext.used = true;
+
 		if (n < 0) {
+			data_spec->ext.socket.fd_pass = -1;
 			log_error_errno(ID(chan->owner), n, "Failed to read ancillary data on channel %s", chan->spec->id);
 			return n;
 		}
@@ -828,22 +831,24 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 	ssize_t n;
 	int r = 0;
 
-	if (data_spec && chan->spec->wire.type == WORKER_WIRE_SOCKET) {
-		/* Also send ancillary data in a channel with socket wire - an FD might be passed through this way. */
-		/*
-		 * FIXME: Buffer is using 'write', but we need to use 'sendmsg' (wrapped by comms_unix_send) for ancillary data.
-		 *        This is why we need to send the ancillary data separately from usual data here.
-		 *        Maybe extend the buffer so it can use 'sendmsg' somehow - a custom callback
-		 *        for writing the data? Then we could send data and anc. data at once in one buffer_write call.
-		 */
+	if (data_spec && data_spec->ext.used) {
+		if (chan->spec->wire.type == WORKER_WIRE_SOCKET) {
+			/* Also send ancillary data in a channel with socket wire - an FD might be passed through this way. */
+			/*
+			 * FIXME: Buffer is using 'write', but we need to use 'sendmsg' (wrapped by comms_unix_send) for ancillary data.
+			 *        This is why we need to send the ancillary data separately from usual data here.
+			 *        Maybe extend the buffer so it can use 'sendmsg' somehow - a custom callback
+			 *        for writing the data? Then we could send data and anc. data at once in one buffer_write call.
+			 */
 
-		byte = 0xFF;
+			byte = 0xFF;
 
-		n = comms_unix_send(chan->fd, &byte, sizeof(byte), data_spec->ext.socket.fd_pass);
+			n = comms_unix_send(chan->fd, &byte, sizeof(byte), data_spec->ext.socket.fd_pass);
 
-		if (n < 0) {
-			log_error_errno(ID(chan->owner), n, "Failed to send ancillary data on channel %s", chan->spec->id);
-			return n;
+			if (n < 0) {
+				log_error_errno(ID(chan->owner), n, "Failed to send ancillary data on channel %s", chan->spec->id);
+				return n;
+			}
 		}
 	}
 

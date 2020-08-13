@@ -64,7 +64,7 @@ struct worker_wire_spec {
 		bool used;
 		union {
 			struct {
-				int fd_redir;                /* FD to redirect into a pipe */
+				int fd_redir;         /* FD to redirect into a pipe */
 			} pipe;
 		};
 	} ext;
@@ -74,10 +74,13 @@ struct worker_wire_spec {
 struct worker_data_spec {
 	void *data;
 	size_t data_size;
-	union {
-		struct {
-			int fd_pass;                 /* FD to pass through a socket wire */
-		} socket;
+	struct {
+		bool used;
+		union {
+			struct {
+				int fd_pass;          /* FD to pass through a socket wire */
+			} socket;
+		};
 	} ext;
 };
 
