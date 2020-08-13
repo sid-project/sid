@@ -38,15 +38,15 @@
 typedef enum {
 	WORKER_CHANNEL_CMD_NOOP,
 	WORKER_CHANNEL_CMD_YIELD,
-	WORKER_CHANNEL_CMD_CUSTOM,
+	WORKER_CHANNEL_CMD_DATA,
 } worker_channel_cmd_t;
 
 #define WORKER_INT_CHANNEL_MIN_BUF_SIZE sizeof(worker_channel_cmd_t)
 #define WORKER_EXT_CHANNEL_MIN_BUF_SIZE 4096
 
-static const char *worker_channel_cmd_str[] = {[WORKER_CHANNEL_CMD_NOOP]   = "NOOP",
-                                               [WORKER_CHANNEL_CMD_YIELD]  = "YIELD",
-                                               [WORKER_CHANNEL_CMD_CUSTOM] = "CUSTOM"
+static const char *worker_channel_cmd_str[] = {[WORKER_CHANNEL_CMD_NOOP]     = "NOOP",
+                                               [WORKER_CHANNEL_CMD_YIELD]    = "YIELD",
+                                               [WORKER_CHANNEL_CMD_DATA]     = "DATA",
                                               };
 
 static const char *worker_state_str[] = {[WORKER_STATE_NEW]      = "WORKER_NEW",
@@ -282,7 +282,7 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 		if (buf_stat.mode == BUFFER_MODE_PLAIN) {
 			(void) buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
 
-			*cmd = WORKER_CHANNEL_CMD_CUSTOM;
+			*cmd = WORKER_CHANNEL_CMD_DATA;
 			data_spec->data_size = buf_data_size;
 			data_spec->data = buf_data;
 
@@ -337,7 +337,7 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 				*/
 				_make_worker_exit(chan->owner);
 				break;
-			case WORKER_CHANNEL_CMD_CUSTOM:
+			case WORKER_CHANNEL_CMD_DATA:
 				if (chan->spec->proxy_rx_cb.cb) {
 					if (chan->spec->proxy_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->proxy_rx_cb.arg) < 0)
 						log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
@@ -375,7 +375,7 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 
 	if (r & CHAN_BUF_RECV_MSG) {
 		switch (cmd) {
-			case WORKER_CHANNEL_CMD_CUSTOM:
+			case WORKER_CHANNEL_CMD_DATA:
 				if (chan->spec->worker_rx_cb.cb) {
 					if (chan->spec->worker_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->worker_rx_cb.arg) < 0)
 						log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
@@ -948,7 +948,7 @@ int worker_control_channel_send(sid_resource_t *current_res, const char *channel
 	} else
 		return -ENOMEDIUM;
 
-	return _chan_buf_send(chan, WORKER_CHANNEL_CMD_CUSTOM, data_spec);
+	return _chan_buf_send(chan, WORKER_CHANNEL_CMD_DATA, data_spec);
 }
 
 int worker_control_worker_yield(sid_resource_t *res)
