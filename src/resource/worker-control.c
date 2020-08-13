@@ -39,6 +39,7 @@ typedef enum {
 	WORKER_CHANNEL_CMD_NOOP,
 	WORKER_CHANNEL_CMD_YIELD,
 	WORKER_CHANNEL_CMD_DATA,
+	WORKER_CHANNEL_CMD_DATA_EXT,
 } worker_channel_cmd_t;
 
 #define WORKER_INT_CHANNEL_MIN_BUF_SIZE sizeof(worker_channel_cmd_t)
@@ -47,6 +48,7 @@ typedef enum {
 static const char *worker_channel_cmd_str[] = {[WORKER_CHANNEL_CMD_NOOP]     = "NOOP",
                                                [WORKER_CHANNEL_CMD_YIELD]    = "YIELD",
                                                [WORKER_CHANNEL_CMD_DATA]     = "DATA",
+                                               [WORKER_CHANNEL_CMD_DATA_EXT] = "DATA+EXT",
                                               };
 
 static const char *worker_state_str[] = {[WORKER_STATE_NEW]      = "WORKER_NEW",
@@ -215,7 +217,6 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 {
 	// TODO: Double check we're really interested in EPOLLRDHUP.
 	bool hup = (revents & (EPOLLHUP | EPOLLRDHUP)) && !(revents & EPOLLIN);
-	struct buffer_stat buf_stat;
 	ssize_t n;
 	void *buf_data;
 	size_t buf_data_size;
@@ -230,32 +231,11 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 		return -EPIPE;
 	}
 
-	buf_stat = buffer_stat(chan->in_buf);
-
-	if (!buf_stat.used && chan->spec->wire.type == WORKER_WIRE_SOCKET) {
-		/* Also read ancillary data in a channel with socket wire - an FD might be passed through this way. */
-		/*
-		 * FIXME: Buffer is using 'read', but we need to use 'recvmsg' for ancillary data.
-		 *        This is why we need to receive the ancillary data separately from usual data here.
-		 *        Maybe extend the buffer so it can use 'recvmsg' somehow - a custom callback
-		 *        for reading the data? Then we could receive data and anc. data at once in one buffer_read call.
-		 */
-		n = comms_unix_recv(chan->fd, &byte, sizeof(byte), &data_spec->ext.socket.fd_pass);
-
-		data_spec->ext.used = true;
-
-		if (n < 0) {
-			data_spec->ext.socket.fd_pass = -1;
-			log_error_errno(ID(chan->owner), n, "Failed to read ancillary data on channel %s", chan->spec->id);
-			return n;
-		}
-	}
-
 	n = buffer_read(chan->in_buf, chan->fd);
 
 	if (n > 0) {
 		/* For plain buffers, we are waiting for EOF to complete the message. */
-		if (buf_stat.mode == BUFFER_MODE_PLAIN)
+		if (buffer_stat(chan->in_buf).mode == BUFFER_MODE_PLAIN)
 			return 0;
 
 		if (!buffer_is_complete(chan->in_buf, NULL))
@@ -271,6 +251,39 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 		data_spec->data_size = buf_data_size - sizeof(*cmd);
 		data_spec->data = data_spec->data_size > 0 ? buf_data + sizeof(*cmd) : NULL;
 
+		if (*cmd == WORKER_CHANNEL_CMD_DATA_EXT) {
+			if (chan->spec->wire.type == WORKER_WIRE_SOCKET) {
+				/* Also read ancillary data in a channel with socket wire - an FD might be passed through this way. */
+				/*
+				 * FIXME: Buffer is using 'read', but we need to use 'recvmsg' for ancillary data.
+				 *        This is why we need to receive the ancillary data separately from usual data here.
+				 *        Maybe extend the buffer so it can use 'recvmsg' somehow - a custom callback
+				 *        for reading the data? Then we could receive data and anc. data at once in one
+				 *        buffer_read call.
+				 *
+				 * TODO:  Make this a part of event loop instead of looping here!
+				 */
+				for (;;) {
+					n = comms_unix_recv(chan->fd, &byte, sizeof(byte), &data_spec->ext.socket.fd_pass);
+
+					data_spec->ext.used = true;
+
+					if (n < 0) {
+						if (n == -EAGAIN || n == -EINTR)
+							continue;
+
+						data_spec->ext.socket.fd_pass = -1;
+						log_error_errno(ID(chan->owner), n, "Failed to read ancillary data on channel %s",
+						                chan->spec->id);
+
+						return n;
+					}
+
+					break;
+				}
+			}
+		}
+
 		return CHAN_BUF_RECV_MSG;
 	} else if (n < 0) {
 		if (n == -EAGAIN || n == -EINTR)
@@ -279,7 +292,7 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 		log_error_errno(ID(chan->owner), n, "Failed to read data on channel %s", chan->spec->id);
 		return n;
 	} else {
-		if (buf_stat.mode == BUFFER_MODE_PLAIN) {
+		if (buffer_stat(chan->in_buf).mode == BUFFER_MODE_PLAIN) {
 			(void) buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
 
 			*cmd = WORKER_CHANNEL_CMD_DATA;
@@ -338,13 +351,14 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 				_make_worker_exit(chan->owner);
 				break;
 			case WORKER_CHANNEL_CMD_DATA:
+			case WORKER_CHANNEL_CMD_DATA_EXT:
 				if (chan->spec->proxy_rx_cb.cb) {
 					if (chan->spec->proxy_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->proxy_rx_cb.arg) < 0)
 						log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
 				}
 				break;
 			default:
-				log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
+				log_error(ID(chan->owner), INTERNAL_ERROR "%s %s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
 		}
 
 		buffer_reset(chan->in_buf);
@@ -376,13 +390,14 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 	if (r & CHAN_BUF_RECV_MSG) {
 		switch (cmd) {
 			case WORKER_CHANNEL_CMD_DATA:
+			case WORKER_CHANNEL_CMD_DATA_EXT:
 				if (chan->spec->worker_rx_cb.cb) {
 					if (chan->spec->worker_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->worker_rx_cb.arg) < 0)
 						log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
 				}
 				break;
 			default:
-				log_error(ID(chan->owner), INTERNAL_ERROR "%s%s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
+				log_error(ID(chan->owner), INTERNAL_ERROR "%s %s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
 		}
 	}
 
@@ -823,34 +838,14 @@ const char *worker_control_get_worker_id(sid_resource_t *res)
 	return NULL;
 }
 
+/* FIXME: Consider making this a part of event loop. */
 static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_t cmd, struct worker_data_spec *data_spec)
 {
+	static unsigned char byte = 0xFF;
 	int has_data = data_spec && data_spec->data && data_spec->data_size;
-	unsigned char byte;
 	size_t pos;
 	ssize_t n;
 	int r = 0;
-
-	if (data_spec && data_spec->ext.used) {
-		if (chan->spec->wire.type == WORKER_WIRE_SOCKET) {
-			/* Also send ancillary data in a channel with socket wire - an FD might be passed through this way. */
-			/*
-			 * FIXME: Buffer is using 'write', but we need to use 'sendmsg' (wrapped by comms_unix_send) for ancillary data.
-			 *        This is why we need to send the ancillary data separately from usual data here.
-			 *        Maybe extend the buffer so it can use 'sendmsg' somehow - a custom callback
-			 *        for writing the data? Then we could send data and anc. data at once in one buffer_write call.
-			 */
-
-			byte = 0xFF;
-
-			n = comms_unix_send(chan->fd, &byte, sizeof(byte), data_spec->ext.socket.fd_pass);
-
-			if (n < 0) {
-				log_error_errno(ID(chan->owner), n, "Failed to send ancillary data on channel %s", chan->spec->id);
-				return n;
-			}
-		}
-	}
 
 	/*
 	 * Internal workers and associated proxies use BUFFER_MODE_SIZE_PREFIX buffers and
@@ -885,6 +880,32 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 			log_error_errno(ID(chan->owner), n, "Failed to write data on channel %s", chan->spec->id);
 			r = n;
 			goto out;
+		}
+	}
+
+	if (data_spec && data_spec->ext.used) {
+		if (chan->spec->wire.type == WORKER_WIRE_SOCKET) {
+			/* Also send ancillary data in a channel with socket wire - an FD might be passed through this way. */
+			/*
+			 * FIXME: Buffer is using 'write', but we need to use 'sendmsg' (wrapped by comms_unix_send) for ancillary data.
+			 *        This is why we need to send the ancillary data separately from usual data here.
+			 *        Maybe extend the buffer so it can use 'sendmsg' somehow - a custom callback
+			 *        for writing the data? Then we could send data and anc. data at once in one buffer_write call.
+			 */
+			for (;;) {
+				n = comms_unix_send(chan->fd, &byte, sizeof(byte), data_spec->ext.socket.fd_pass);
+
+				if (n < 0) {
+					if (n == -EAGAIN || n == -EINTR)
+						continue;
+
+					log_error_errno(ID(chan->owner), n, "Failed to send ancillary data on channel %s", chan->spec->id);
+					r = n;
+					goto out;
+				}
+
+				break;
+			}
 		}
 	}
 out:
@@ -948,7 +969,7 @@ int worker_control_channel_send(sid_resource_t *current_res, const char *channel
 	} else
 		return -ENOMEDIUM;
 
-	return _chan_buf_send(chan, WORKER_CHANNEL_CMD_DATA, data_spec);
+	return _chan_buf_send(chan, data_spec->ext.used ? WORKER_CHANNEL_CMD_DATA_EXT : WORKER_CHANNEL_CMD_DATA, data_spec);
 }
 
 int worker_control_worker_yield(sid_resource_t *res)
