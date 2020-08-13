@@ -399,12 +399,12 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 			default:
 				log_error(ID(chan->owner), INTERNAL_ERROR "%s %s", worker_channel_cmd_str[cmd], _unexpected_internal_command_msg);
 		}
-	}
 
-	if (r & CHAN_BUF_RECV_EOF) {
-		sid_resource_destroy_event_source(&es);
 		buffer_reset(chan->in_buf);
 	}
+
+	if (r & CHAN_BUF_RECV_EOF)
+		sid_resource_destroy_event_source(&es);
 
 	return 0;
 }
