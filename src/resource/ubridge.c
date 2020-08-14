@@ -2502,9 +2502,6 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	 * Handle delta.final vector for this device.
 	 * The delta.final is computed inside _kv_delta out of vec_buf.
 	 * The _kv_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
-	 *
-	 * Here, we set:
-	 *	SID_{LUP,LDW} for current device
 	 */
 	iov = kv_store_set_value(cmd->kv_store_res,
 	                         s,
@@ -2604,9 +2601,6 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	 * Handle delta.final vector for this device.
 	 * The delta.final is computed inside _kv_delta out of vec_buf.
 	 * The _kv_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
-	 *
-	 * Here, we set:
-	 *	SID_{LUP,LDW} for current device
 	 */
 	kv_store_set_value(cmd->kv_store_res,
 	                   s,
