@@ -136,7 +136,10 @@ static ssize_t _do_comms_unix_send(int socket_fd, struct iovec *iov, size_t iov_
 
 ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send)
 {
-	struct iovec iov = {.iov_base = buf, .iov_len = buf_len};
+	struct iovec iov = {
+		.iov_base = buf,
+		.iov_len = buf_len
+	};
 
 	return _do_comms_unix_send(socket_fd, &iov, 1, fd_to_send);
 }
@@ -178,7 +181,10 @@ static ssize_t _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_
 
 ssize_t comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
 {
-	struct iovec iov = {.iov_base = buf, .iov_len = buf_len};
+	struct iovec iov = {
+		.iov_base = buf,
+		.iov_len = buf_len
+	};
 
 	return _do_comms_unix_recv(socket_fd, &iov, 1, fd_received);
 }

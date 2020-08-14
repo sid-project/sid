@@ -703,13 +703,14 @@ static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd,
 	void *found;
 	size_t value_size;
 	kv_store_value_flags_t value_flags;
-	struct kv_key_spec key_spec = {.op = KV_OP_SET,
-		       .ns = ns,
-		       .ns_part = ID_NULL,
-		       .dom = ID_NULL,
-		       .id = ID_NULL,
-		       .id_part = ID_NULL,
-		       .key = key
+	struct kv_key_spec key_spec = {
+		.op = KV_OP_SET,
+		.ns = ns,
+		.ns_part = ID_NULL,
+		.dom = ID_NULL,
+		.id = ID_NULL,
+		.id_part = ID_NULL,
+		.key = key
 	};
 	int r = 1;
 
@@ -802,13 +803,14 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 	struct iovec iov[KV_VALUE_IDX_DATA + 1];
 	struct kv_value *kv_value;
 	struct kv_update_arg update_arg;
-	struct kv_key_spec key_spec = {.op = KV_OP_SET,
-		       .ns = ns,
-		       .ns_part = _get_ns_part(cmd, ns),
-		       .dom = dom ? : ID_NULL,
-		       .id = ID_NULL,
-		       .id_part = ID_NULL,
-		       .key = key
+	struct kv_key_spec key_spec = {
+		.op = KV_OP_SET,
+		.ns = ns,
+		.ns_part = _get_ns_part(cmd, ns),
+		.dom = dom ? : ID_NULL,
+		.id = ID_NULL,
+		.id_part = ID_NULL,
+		.key = key
 	};
 	int r;
 	void *ret = NULL;
@@ -882,13 +884,14 @@ static const void *_do_sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cm
 	const char *full_key = NULL;
 	struct kv_value *kv_value;
 	size_t size, data_offset;
-	struct kv_key_spec key_spec = {.op = KV_OP_SET,
-		       .ns = ns,
-		       .ns_part = _get_ns_part(cmd, ns),
-		       .dom = KV_KEY_DOM_USER,
-		       .id = ID_NULL,
-		       .id_part = ID_NULL,
-		       .key = key
+	struct kv_key_spec key_spec = {
+		.op = KV_OP_SET,
+		.ns = ns,
+		.ns_part = _get_ns_part(cmd, ns),
+		.dom = KV_KEY_DOM_USER,
+		.id = ID_NULL,
+		.id_part = ID_NULL,
+		.key = key
 	};
 	void *ret = NULL;
 
@@ -983,13 +986,14 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 	sid_ubridge_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
 	int is_worker;
-	struct kv_key_spec key_spec = {.op = KV_OP_SET,
-		       .ns = ns,
-		       .ns_part = ID_NULL,
-		       .dom = ID_NULL,
-		       .id = ID_NULL,
-		       .id_part = ID_NULL,
-		       .key = key
+	struct kv_key_spec key_spec = {
+		.op = KV_OP_SET,
+		.ns = ns,
+		.ns_part = ID_NULL,
+		.dom = ID_NULL,
+		.id = ID_NULL,
+		.id_part = ID_NULL,
+		.key = key
 	};
 	int r = -1;
 
@@ -1143,20 +1147,22 @@ int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
 	struct iovec iov[KV_VALUE_IDX_DATA];
 	int r = -1;
 
-	struct kv_key_spec key_spec = {.op = KV_OP_SET,
-		       .ns = group_ns,
-		       .ns_part = _get_ns_part(cmd, group_ns),
-		       .dom = ID_NULL,
-		       .id = group_id,
-		       .id_part = ID_NULL,
-		       .key = KV_KEY_GEN_GROUP_MEMBERS
+	struct kv_key_spec key_spec = {
+		.op = KV_OP_SET,
+		.ns = group_ns,
+		.ns_part = _get_ns_part(cmd, group_ns),
+		.dom = ID_NULL,
+		.id = group_id,
+		.id_part = ID_NULL,
+		.key = KV_KEY_GEN_GROUP_MEMBERS
 	};
 
-	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
-		       .owner = _res_get_mod_name(cmd->mod_res),
-		       .gen_buf = cmd->gen_buf,
-		       .custom = NULL,
-		       .ret_code = 0
+	struct kv_update_arg update_arg = {
+		.res = cmd->kv_store_res,
+		.owner = _res_get_mod_name(cmd->mod_res),
+		.gen_buf = cmd->gen_buf,
+		.custom = NULL,
+		.ret_code = 0
 	};
 
 	full_key = _buffer_compose_key(cmd->gen_buf, &key_spec);
@@ -1187,7 +1193,8 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 	struct iovec iov[KV_VALUE_IDX_DATA + 1];
 	int r = 0;
 
-	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta)
+	struct kv_rel_spec rel_spec = {
+		.delta = &((struct kv_delta)
 		{
 			.op = op,
 			.flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
@@ -1219,10 +1226,11 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 		})
 	};
 
-	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
-		       .owner = OWNER_CORE,
-		       .gen_buf = cmd->gen_buf,
-		       .custom = &rel_spec
+	struct kv_update_arg update_arg = {
+		.res = cmd->kv_store_res,
+		.owner = OWNER_CORE,
+		.gen_buf = cmd->gen_buf,
+		.custom = &rel_spec
 	};
 
 	// TODO: check return values / maybe also pass flags / use proper owner
@@ -1276,7 +1284,8 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 	struct iovec iov_blank[KV_VALUE_IDX_DATA];
 	int r = -1;
 
-	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta)
+	struct kv_rel_spec rel_spec = {
+		.delta = &((struct kv_delta)
 		{
 			.op = KV_OP_SET,
 			.flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
@@ -1308,10 +1317,11 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 		})
 	};
 
-	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
-		       .owner = OWNER_CORE,
-		       .gen_buf = cmd->gen_buf,
-		       .custom = &rel_spec
+	struct kv_update_arg update_arg = {
+		.res = cmd->kv_store_res,
+		.owner = OWNER_CORE,
+		.gen_buf = cmd->gen_buf,
+		.custom = &rel_spec
 	};
 
 	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_delta wrapper
@@ -1544,9 +1554,10 @@ static int _cmd_exec_reply(struct cmd_exec_arg *exec_arg)
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	static struct usid_version version = {.major = SID_VERSION_MAJOR,
-		       .minor = SID_VERSION_MINOR,
-		       .release = SID_VERSION_RELEASE
+	static struct usid_version version = {
+		.major = SID_VERSION_MAJOR,
+		.minor = SID_VERSION_MINOR,
+		.release = SID_VERSION_RELEASE
 	};
 	int r;
 
@@ -2374,7 +2385,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	int count = 0, i;
 	int r = -1;
 
-	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta)
+	struct kv_rel_spec rel_spec = {
+		.delta = &((struct kv_delta)
 		{
 			.op = KV_OP_SET,
 			.flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
@@ -2406,10 +2418,11 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		})
 	};
 
-	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
-		       .owner = OWNER_CORE,
-		       .gen_buf = cmd->gen_buf,
-		       .custom = &rel_spec
+	struct kv_update_arg update_arg = {
+		.res = cmd->kv_store_res,
+		.owner = OWNER_CORE,
+		.gen_buf = cmd->gen_buf,
+		.custom = &rel_spec
 	};
 
 	if (cmd->udev_dev.action != UDEV_ACTION_REMOVE) {
@@ -2530,7 +2543,8 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	const char *s;
 	int r = -1;
 
-	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta)
+	struct kv_rel_spec rel_spec = {
+		.delta = &((struct kv_delta)
 		{
 			.op = KV_OP_SET,
 			.flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
@@ -2562,10 +2576,11 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 		})
 	};
 
-	struct kv_update_arg update_arg = {.res = cmd->kv_store_res,
-		       .owner = OWNER_CORE,
-		       .gen_buf = cmd->gen_buf,
-		       .custom = &rel_spec
+	struct kv_update_arg update_arg = {
+		.res = cmd->kv_store_res,
+		.owner = OWNER_CORE,
+		.gen_buf = cmd->gen_buf,
+		.custom = &rel_spec
 	};
 
 	KV_VALUE_PREPARE_HEADER(iov_to_store, cmd->udev_dev.seqnum, kv_flags_no_persist, core_owner);
@@ -3275,12 +3290,16 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 	struct kv_value *value = NULL;
 	struct iovec *iov = NULL;
 	void *data_to_store;
-	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta)
+	struct kv_rel_spec rel_spec = {
+		.delta = &((struct kv_delta)
 		{
 			0
 		})
 	};
-	struct kv_update_arg update_arg = {.gen_buf = ubridge->cmd_mod.gen_buf, .custom = &rel_spec};
+	struct kv_update_arg update_arg = {
+		.gen_buf = ubridge->cmd_mod.gen_buf,
+		.custom = &rel_spec
+	};
 	int unset;
 	int r = -1;
 
@@ -3741,8 +3760,9 @@ static struct sid_module_symbol_params type_symbol_params[] = {
 	NULL_MODULE_SYMBOL_PARAMS
 };
 
-static const struct sid_kv_store_resource_params main_kv_store_res_params = {.backend = KV_STORE_BACKEND_HASH,
-	       .hash.initial_size = 32
+static const struct sid_kv_store_resource_params main_kv_store_res_params = {
+	.backend = KV_STORE_BACKEND_HASH,
+	.hash.initial_size = 32
 };
 
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)

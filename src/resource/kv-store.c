@@ -334,13 +334,17 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
                          kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags,
                          kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg)
 {
-	struct kv_update_fn_relay relay = {.key = key,
-		       .kv_update_fn = kv_update_fn,
-		       .kv_update_fn_arg = kv_update_fn_arg,
-		       .ret_code = -EREMOTEIO
+	struct kv_update_fn_relay relay = {
+		.key = key,
+		.kv_update_fn = kv_update_fn,
+		.kv_update_fn_arg = kv_update_fn_arg,
+		.ret_code = -EREMOTEIO
 	};
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
-	struct iovec iov_internal = {.iov_base = value, .iov_len = value_size};
+	struct iovec iov_internal = {
+		.iov_base = value,
+		.iov_len = value_size
+	};
 	struct iovec *iov;
 	int iov_cnt;
 	struct kv_store_value *kv_store_value;
