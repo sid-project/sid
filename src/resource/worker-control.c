@@ -1039,9 +1039,9 @@ static int _on_worker_proxy_idle_timeout_event(sid_resource_event_source_t *es, 
 }
 */
 
-static int _on_worker_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *userdata)
+static int _on_worker_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *arg)
 {
-	sid_resource_t *res = userdata;
+	sid_resource_t *res = arg;
 
 	log_debug(ID(res), "Received signal %d from %d.", si->ssi_signo, si->ssi_pid);
 	sid_resource_exit_event_loop(res);
