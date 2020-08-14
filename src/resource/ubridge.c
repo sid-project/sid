@@ -523,7 +523,7 @@ static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 	size_t size;
 	kv_store_value_flags_t flags;
 	void *value;
-	struct iovec tmp_iov[_KV_VALUE_IDX_COUNT];
+	struct iovec tmp_iov[KV_VALUE_IDX_DATA + 1];
 	struct iovec *iov;
 	unsigned int i = 0, j;
 
@@ -568,7 +568,7 @@ static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_
 	const char *full_key, *key, *dom, *this_dev, *ref_dev;
 
 	kv_store_value_flags_t flags;
-	struct iovec tmp_iov[_KV_VALUE_IDX_COUNT];
+	struct iovec tmp_iov[KV_VALUE_IDX_DATA + 1];
 	struct iovec *iov;
 	int i;
 
@@ -634,8 +634,8 @@ out:
 static int _kv_overwrite(const char *full_key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
-	struct iovec tmp_iov_old[_KV_VALUE_IDX_COUNT];
-	struct iovec tmp_iov_new[_KV_VALUE_IDX_COUNT];
+	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
+	struct iovec tmp_iov_new[KV_VALUE_IDX_DATA + 1];
 	struct iovec *iov_old, *iov_new;
 	const char *reason;
 
@@ -697,7 +697,7 @@ static size_t _kv_value_ext_data_offset(struct kv_value *kv_value)
 static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd, const char *owner,
                                             sid_ubridge_cmd_kv_namespace_t ns, const char *key)
 {
-	struct iovec tmp_iov[_KV_VALUE_IDX_COUNT];
+	struct iovec tmp_iov[KV_VALUE_IDX_DATA + 1];
 	struct iovec *iov;
 	const char *full_key = NULL;
 	void *found;
@@ -799,7 +799,7 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 {
 	const char *owner = _res_get_mod_name(cmd->mod_res);
 	const char *full_key = NULL;
-	struct iovec iov[_KV_VALUE_IDX_COUNT];
+	struct iovec iov[KV_VALUE_IDX_DATA + 1];
 	struct kv_value *kv_value;
 	struct kv_update_arg update_arg;
 	struct kv_key_spec key_spec = {.op = KV_OP_SET,
@@ -847,9 +847,14 @@ static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid
 		.ret_code = -EREMOTEIO
 	};
 
-	if (!(kv_value = kv_store_set_value(cmd->kv_store_res, full_key, iov, _KV_VALUE_IDX_COUNT,
-	                                    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-	                                    _kv_overwrite, &update_arg)) || !value_size)
+	if (!(kv_value = kv_store_set_value(cmd->kv_store_res,
+	                                    full_key,
+	                                    iov,
+	                                    KV_VALUE_IDX_DATA + 1,
+	                                    KV_STORE_VALUE_VECTOR,
+	                                    KV_STORE_VALUE_OP_MERGE,
+	                                    _kv_overwrite,
+	                                    &update_arg)) || !value_size)
 		goto out;
 
 	ret = kv_value->data + _kv_value_ext_data_offset(kv_value);
@@ -926,8 +931,8 @@ const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubri
 static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
-	struct iovec tmp_iov_old[_KV_VALUE_IDX_COUNT];
-	struct iovec tmp_iov_new[_KV_VALUE_IDX_COUNT];
+	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
+	struct iovec tmp_iov_new[KV_VALUE_IDX_DATA + 1];
 	struct iovec *iov_old, *iov_new;
 
 	if (!spec->old_data)
@@ -949,7 +954,7 @@ static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, 
 static int _kv_unreserve(const char *full_key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
-	struct iovec tmp_iov_old[_KV_VALUE_IDX_COUNT];
+	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
 	struct iovec *iov_old;
 
 	if (!spec->old_data)
@@ -972,7 +977,7 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 {
 	const char *owner = _get_mod_name(mod);
 	const char *full_key = NULL;
-	struct iovec iov[_KV_VALUE_IDX_COUNT - 1]; /* without KV_VALUE_IDX_DATA */
+	struct iovec iov[KV_VALUE_IDX_DATA]; /* without KV_VALUE_IDX_DATA */
 	struct kv_value *kv_value;
 	static uint64_t null_int = 0;
 	sid_ubridge_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
@@ -1008,13 +1013,21 @@ int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridg
 		flags |= KV_PERSISTENT;
 
 	if (unset && !is_worker) {
-		kv_store_unset_value(cmd_mod->kv_store_res, full_key, _kv_unreserve, &update_arg);
+		kv_store_unset_value(cmd_mod->kv_store_res,
+		                     full_key,
+		                     _kv_unreserve,
+		                     &update_arg);
 		goto out;
 	} else {
 		KV_VALUE_PREPARE_HEADER(iov, null_int, flags, (char *) owner);
-		if (!(kv_value = kv_store_set_value(cmd_mod->kv_store_res, full_key, iov, _KV_VALUE_IDX_COUNT - 1,
-		                                    KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE,
-		                                    _kv_reserve, &update_arg)))
+		if (!(kv_value = kv_store_set_value(cmd_mod->kv_store_res,
+		                                    full_key,
+		                                    iov,
+		                                    KV_VALUE_IDX_DATA,
+		                                    KV_STORE_VALUE_VECTOR,
+		                                    KV_STORE_VALUE_OP_MERGE,
+		                                    _kv_reserve,
+		                                    &update_arg)))
 			goto out;
 	}
 
@@ -1151,9 +1164,10 @@ int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
 
 	if (!kv_store_set_value(cmd->kv_store_res,
 	                        full_key,
-	                        iov, KV_VALUE_IDX_DATA,
+	                        iov,
+	                        KV_VALUE_IDX_DATA,
 	                        KV_STORE_VALUE_VECTOR,
-	                        0,
+	                        KV_STORE_VALUE_NO_OP,
 	                        _kv_write_new_only,
 	                        &update_arg))
 		goto out;
@@ -1170,7 +1184,7 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 {
 	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
 	const char *cur_full_key, *rel_key_prefix;
-	struct iovec iov[_KV_VALUE_IDX_COUNT];
+	struct iovec iov[KV_VALUE_IDX_DATA + 1];
 	int r = 0;
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta)
@@ -1223,9 +1237,10 @@ int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
 
 	if (!kv_store_set_value(cmd->kv_store_res,
 	                        cur_full_key,
-	                        iov, _KV_VALUE_IDX_COUNT,
+	                        iov,
+	                        KV_VALUE_IDX_DATA + 1,
 	                        KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
-	                        0,
+	                        KV_STORE_VALUE_NO_OP,
 	                        _kv_delta,
 	                        &update_arg))
 		r = -1;
@@ -1316,9 +1331,10 @@ int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
 
 	if (!kv_store_set_value(cmd->kv_store_res,
 	                        cur_full_key,
-	                        iov_blank, KV_VALUE_IDX_DATA,
+	                        iov_blank,
+	                        KV_VALUE_IDX_DATA,
 	                        KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
-	                        0,
+	                        KV_STORE_VALUE_NO_OP,
 	                        _kv_delta,
 	                        &update_arg)) {
 		r = update_arg.ret_code;
@@ -2205,7 +2221,7 @@ static int _delta_update(struct kv_store_update_spec *spec,
 	struct iovec *delta_iov, *abs_delta_iov;
 	size_t delta_iov_cnt, abs_delta_iov_cnt, i;
 	const char *key_prefix, *ns_part, *full_key;
-	struct iovec rel_iov[_KV_VALUE_IDX_COUNT];
+	struct iovec rel_iov[KV_VALUE_IDX_DATA + 1];
 
 	if (op == KV_OP_PLUS) {
 		if (!abs_delta->plus)
@@ -2228,7 +2244,16 @@ static int _delta_update(struct kv_store_update_spec *spec,
 	rel_spec->cur_key_spec->op = orig_op;
 
 	_value_vector_mark_persist(abs_delta_iov, 1);
-	kv_store_set_value(update_arg->res, full_key, abs_delta_iov, abs_delta_iov_cnt, KV_STORE_VALUE_VECTOR, 0, _kv_overwrite, update_arg);
+
+	kv_store_set_value(update_arg->res,
+	                   full_key,
+	                   abs_delta_iov,
+	                   abs_delta_iov_cnt,
+	                   KV_STORE_VALUE_VECTOR,
+	                   KV_STORE_VALUE_NO_OP,
+	                   _kv_overwrite,
+	                   update_arg);
+
 	_value_vector_mark_persist(abs_delta_iov, 0);
 
 	buffer_rewind_mem(update_arg->gen_buf, full_key);
@@ -2255,8 +2280,14 @@ static int _delta_update(struct kv_store_update_spec *spec,
 			rel_spec->cur_key_spec->ns_part = ns_part;
 			full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 
-			kv_store_set_value(update_arg->res, full_key, rel_iov, _KV_VALUE_IDX_COUNT,
-			                   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0, _kv_delta, update_arg);
+			kv_store_set_value(update_arg->res,
+			                   full_key,
+			                   rel_iov,
+			                   KV_VALUE_IDX_DATA + 1,
+			                   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
+			                   KV_STORE_VALUE_NO_OP,
+			                   _kv_delta,
+			                   update_arg);
 
 			_destroy_delta(rel_spec->delta);
 		}
@@ -2475,8 +2506,14 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	 * Here, we set:
 	 *	SID_{LUP,LDW} for current device
 	 */
-	iov = kv_store_set_value(cmd->kv_store_res, s, iov, iov_cnt, KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
-	                         _kv_delta, &update_arg);
+	iov = kv_store_set_value(cmd->kv_store_res,
+	                         s,
+	                         iov,
+	                         iov_cnt,
+	                         KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
+	                         KV_STORE_VALUE_NO_OP,
+	                         _kv_delta,
+	                         &update_arg);
 
 	r = 0;
 out:
@@ -2491,7 +2528,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 {
 	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
 	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
-	struct iovec iov_to_store[_KV_VALUE_IDX_COUNT];
+	struct iovec iov_to_store[KV_VALUE_IDX_DATA + 1];
 	char devno_buf[16];
 	const char *s;
 	int r = -1;
@@ -2571,8 +2608,14 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	 * Here, we set:
 	 *	SID_{LUP,LDW} for current device
 	 */
-	kv_store_set_value(cmd->kv_store_res, s, iov_to_store, _KV_VALUE_IDX_COUNT, KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF, 0,
-	                   _kv_delta, &update_arg);
+	kv_store_set_value(cmd->kv_store_res,
+	                   s,
+	                   iov_to_store,
+	                   KV_VALUE_IDX_DATA + 1,
+	                   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
+	                   KV_STORE_VALUE_NO_OP,
+	                   _kv_delta,
+	                   &update_arg);
 
 	r = 0;
 out:
@@ -3174,7 +3217,7 @@ static int _destroy_command(sid_resource_t *res)
 static int _master_kv_store_unset(const char *full_key, struct kv_store_update_spec *spec, void *garg)
 {
 	struct kv_update_arg *arg = garg;
-	struct iovec tmp_iov_old[_KV_VALUE_IDX_COUNT];
+	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
 	struct iovec *iov_old;
 
 	if (!spec->old_data)
@@ -3197,8 +3240,8 @@ static int _master_kv_store_update(const char *full_key, struct kv_store_update_
 {
 	struct kv_update_arg *arg = garg;
 	struct kv_rel_spec *rel_spec = arg->custom;
-	struct iovec tmp_iov_old[_KV_VALUE_IDX_COUNT];
-	struct iovec tmp_iov_new[_KV_VALUE_IDX_COUNT];
+	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
+	struct iovec tmp_iov_new[KV_VALUE_IDX_DATA + 1];
 	struct iovec *iov_old, *iov_new;
 	int r;
 
@@ -3358,10 +3401,19 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 		}
 
 		if (unset)
-			kv_store_unset_value(kv_store_res, full_key, _master_kv_store_unset, &update_arg);
+			kv_store_unset_value(kv_store_res,
+			                     full_key,
+			                     _master_kv_store_unset,
+			                     &update_arg);
 		else
-			kv_store_set_value(kv_store_res, full_key, data_to_store, data_size, flags, 0,
-			                   _master_kv_store_update, &update_arg);
+			kv_store_set_value(kv_store_res,
+			                   full_key,
+			                   data_to_store,
+			                   data_size,
+			                   flags,
+			                   KV_STORE_VALUE_NO_OP,
+			                   _master_kv_store_update,
+			                   &update_arg);
 
 		_destroy_delta(rel_spec.delta);
 		iov = freen(iov);
