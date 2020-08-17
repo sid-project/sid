@@ -3306,7 +3306,7 @@ static int _master_kv_store_update(const char *full_key, struct kv_store_update_
 
 static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t *internal_ubridge_res, int fd)
 {
-	static const char syncing_msg[] = "Syncing master key-value store:  %s=%s (seqnum %" PRIu64 ")";
+	static const char syncing_msg[] = "Syncing master key-value store:  %s = %s (seqnum %" PRIu64 ")";
 	struct ubridge *ubridge = sid_resource_get_data(internal_ubridge_res);
 	sid_resource_t *kv_store_res;
 	kv_store_value_flags_t flags;
