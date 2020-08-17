@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -515,6 +515,31 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 	};
 
 	return iov;
+}
+
+static const char *_get_iov_str(struct buffer *buf, bool unset, struct iovec *iov, size_t iov_size)
+{
+	size_t i;
+	const char *str;
+
+	if (unset)
+		return buffer_fmt_add(buf, NULL, "NULL");
+
+	str = buffer_add(buf, "", 0, NULL);
+
+	for (i = KV_VALUE_IDX_DATA; i < iov_size; i++) {
+		if (!buffer_add(buf, iov[i].iov_base, iov[i].iov_len - 1, NULL) ||
+		    !buffer_add(buf, " ", 1, NULL))
+			goto fail;
+	}
+
+	buffer_add(buf, "\0", 1, NULL);
+
+	return str;
+fail:
+	if (str)
+		buffer_rewind_mem(buf, str);
+	return NULL;
 }
 
 static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
@@ -3289,6 +3314,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 	char *full_key, *shm = NULL, *p, *end;
 	struct kv_value *value = NULL;
 	struct iovec *iov = NULL;
+	const char *iov_str;
 	void *data_to_store;
 	struct kv_rel_spec rel_spec = {
 		.delta = &((struct kv_delta)
@@ -3300,7 +3326,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 		.gen_buf = ubridge->cmd_mod.gen_buf,
 		.custom = &rel_spec
 	};
-	int unset;
+	bool unset;
 	int r = -1;
 
 	if (!(kv_store_res = sid_resource_search(internal_ubridge_res, SID_RESOURCE_SEARCH_IMM_DESC,
@@ -3366,8 +3392,10 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 			update_arg.res = kv_store_res;
 			update_arg.ret_code = -EREMOTEIO;
 
-			log_debug(ID(worker_proxy_res), syncing_msg, full_key,
-			          unset ? "NULL" : "[vector]", KV_VALUE_SEQNUM(iov));
+			iov_str = _get_iov_str(ubridge->cmd_mod.gen_buf, unset, iov, data_size);
+			log_debug(ID(worker_proxy_res), syncing_msg, full_key, iov_str, KV_VALUE_SEQNUM(iov));
+			if (iov_str)
+				buffer_rewind_mem(ubridge->cmd_mod.gen_buf, iov_str);
 
 			switch (rel_spec.delta->op = _get_op_from_key(full_key)) {
 				case KV_OP_PLUS:
