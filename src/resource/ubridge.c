@@ -262,8 +262,8 @@ typedef enum {
 
 typedef enum {
 	DELTA_NO_FLAGS  = 0x0,
-	DELTA_WITH_DIFF = 0x1,
-	DELTA_WITH_REL  = 0x2,
+	DELTA_WITH_DIFF = 0x1, /* calculate difference between old and new value, update records */
+	DELTA_WITH_REL  = 0x2, /* as DELTA_WITH_DIFF, but also update referenced relatives */
 } delta_flags_t;
 
 struct kv_delta {
@@ -2303,6 +2303,13 @@ static int _delta_update(struct kv_store_update_spec *spec,
 			0
 		});
 		rel_spec->delta->op = op;
+		/*
+		 * WARNING: Be careful here - never call with DELTA_WITH_REL flag otherwise
+		 *          we'd get into infinite loop. Mind that we are using _kv_delta
+		 *          here for the kv_store_set_value BUT we're already inside _kv_delta
+		 *          here. We just need to store the final and absolute vectors for
+		 *          relatives, nothing else.
+		 */
 		rel_spec->delta->flags = DELTA_WITH_DIFF;
 
 		key_prefix = _buffer_compose_key_prefix(update_arg->gen_buf, rel_spec->rel_key_spec);
@@ -2337,6 +2344,122 @@ static int _delta_update(struct kv_store_update_spec *spec,
 	return 0;
 }
 
+/*
+ * The _kv_delta function is a helper responsible for calculating changes
+ * between old and new vector values and then updating the database accordingly.
+ * It is supposed to be called as update callback in kv_store_set_value.
+ *
+ * The sequence of steps taken is this:
+ *
+ *   1) kv_store_set_value is called with _kv_delta update callback.
+ *
+ *   2) kv_store_set_value checks database content and fills in
+ *      the 'spec' with old vector (the one already written in database)
+ *      and new vector (the one with which we are trying to update
+ *      the database in certain way). How the database is actually
+ *      updated depends on combination of defined operation and flags
+ *      (described later).
+ *
+ *   3) kv_store_set_value calls _kv_delta to resolve the update.
+ *
+ *   4) _kv_delta casts 'arg' to the proper 'struct kv_update_arg'
+ *      instance, called 'update_arg' here.
+ *
+ *   5) _kv_delta casts 'update_arg->custom' to proper
+ *      'struct kv_rel_spec' instance, called 'rel_spec' here.
+ *
+ *   6) _kv_delta takes the 'spec' arg with old and new value and
+ *      calculates changes between the two, depending on which
+ *      'rel_spec->delta->op' operation is used (this is done
+ *      in _delta_step_calculate helper function that _kv_delta
+ *      calls):
+ *
+ *        - 'KV_OP_SET' overwrites old vector with new vector
+ *
+ *        - 'KV_OP_PLUS' merges items from old and new vector
+ *
+ *        - 'KV_OP_MINUS' removes items from new vector from old vector
+ *
+ *      The results are stored in 'rel_spec->delta' instance:
+ *
+ *        - 'rel_spec->delta->plus' vector containing items that are being added
+ *
+ *        - 'rel_spec->delta->minus' vector containing items that are being removed
+ *
+ *        - 'rel_spec->delta->final' vector containing resulting vector
+ *
+ *      The 'rel_spec->delta->{plus,minus} are called DELTA STEP VECTORS
+ *      because we calculate only the difference between immediate old
+ *      and new value.
+ *
+ *      If we don't need any transactions or reciprocal updates,
+ *      we stop here. We take the resulting 'rel_spec->delta->final'
+ *      vector and we return that one up to the caller so it can write
+ *      it to the database as new value (overwriting the old value).
+ *
+ *   === THE STEPS BELOW APPLY FOR TRANSACTIONS AND/OR RECIPROCAL UPDATES ===
+ *
+ *   Here, by TRANSACTIONS we mean:
+ *
+ *     - several possible updates done to snapshot database
+ *       before we do final synchronization of this snapshot database
+ *       with master database.
+ *
+ *   Here, by RECIPROCAL UPDATES we mean:
+ *
+ *     - for each item of vector A, also update all the vectors with key
+ *       that is derived from the item of vector A. For example:
+ *
+ *         - adding X and Y to vector with key A: A = +{X, Y}
+ *
+ *        and so we do reciprocal update:
+ *
+ *         - adding A to vector with derived key X: X = +{A}
+ *         - adding A to vector with derived key Y: Y = +{A}
+ *
+ *   We use rel_spec->delta->flags to define transactional and/or reciprocal updates:
+ *
+ *        - 'DELTA_WITH_DIFF' causes calculation of DELTA ABSOLUTE VECTORS
+ *          besides delta step vectors. The delta absolute vectors
+ *          contain overall change within a transaction up to current point in time.
+ *
+ *        - 'DELTA_WITH_REL' also causes calculation of DELTA ABSOLUTE VECTORS.
+ *          In addition to that, it does the reciprocal updates for each
+ *          delta step as defined by step vectors.
+ *
+ *   7) _kv_delta calculates DELTA ABSOLUTE VECTORS and it stores them
+ *      in internal 'abs_delta' variable for both DELTA_WITH_DIFF and DELTA_WITH_REL case
+ *      (this is done in _delta_step_calculate helper function that _kv_delta calls).
+ *
+ *   8) _kv_delta updates database (this is done in _delta_update helper function that
+ *      _kv_delta calls):
+ *
+ *        8_1 delta plus vectors are processed:
+ *
+ *          8_1_1) absolute delta plus vector is stored in database with
+ *                _kv_overwrite database callback (so simply overwriting any existing value)
+ *
+ *          8_1_2) if we want reciprocal updates, then for each item as defined
+ *	           by rel_spec->delta->plus vector, we store the reciprocal
+ *                 relation in database with _kv_delta database callback (because
+ *                 we need to trigger the the same kind of update just like we
+ *                 do for current update.)
+ *
+ *                 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ *                 WARNING: Here we use _kv_delta inside _kv_delta, so that's a
+ *                          recursive call!!! We have to be very careful here and
+ *                          we have to call this internal _kv_delta only with
+ *                          DELTA_WITH_DIFF flag, never with DELTA_WITH_REL!!!
+ *                          Otherwise, we'd get into infinite loop updating,
+ *                          for example:
+ *
+ *                          A = +{X} then X = +{A} then A = +{X} then X = +{A} ...
+ *                 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ *
+ *        8_2 delta minus vectors are processed:
+ *	      (the same as 8_1, just for the minus vectors instead of plus vectors)
+ *
+ */
 static int _kv_delta(const char *full_key __attribute__ ((unused)),
                      struct kv_store_update_spec *spec, void *arg)
 {
