@@ -37,5 +37,4 @@ pkginclude_HEADERS = $(top_builddir)/src/include/types.h \
 		     $(top_builddir)/src/include/comms.h \
 		     $(top_builddir)/src/include/util.h \
 		     $(top_builddir)/src/include/hash.h
-libsidmisc_la_LIBADD = $(top_builddir)/src/log/libsidlog.la \
-		       $(UUID_LIBS)
+libsidmisc_la_LIBADD = $(UUID_LIBS)
