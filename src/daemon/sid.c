@@ -40,8 +40,6 @@
 
 static volatile sig_atomic_t _shutdown_requested = 0;
 
-extern const sid_resource_type_t sid_resource_type_sid;
-
 static void _help(FILE *f)
 {
 	fprintf(f, "Usage: sid [options]\n"

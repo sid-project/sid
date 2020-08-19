@@ -29,6 +29,7 @@ extern const sid_resource_type_t sid_resource_type_ubridge;
 extern const sid_resource_type_t sid_resource_type_module_registry;
 extern const sid_resource_type_t sid_resource_type_kv_store;
 extern const sid_resource_type_t sid_resource_type_worker_control;
+extern const sid_resource_type_t sid_resource_type_sid;
 
 #ifdef __cplusplus
 }

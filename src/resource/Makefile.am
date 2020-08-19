@@ -23,7 +23,8 @@ libsidresource_la_SOURCES = resource.c \
 			    ubridge.c \
 			    module-registry.c \
 			    kv-store.c \
-			    worker-control.c
+			    worker-control.c \
+			    sid.c
 resourcedir = $(pkgincludedir)/resource
 resource_HEADERS = $(top_builddir)/src/include/base/types.h \
 		   $(top_builddir)/src/include/resource/resource.h \
