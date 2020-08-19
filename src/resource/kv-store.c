@@ -18,11 +18,12 @@
 */
 
 #include "configure.h"
-#include "hash.h"
-#include "kv-store.h"
-#include "log.h"
-#include "mem.h"
-#include "resource.h"
+
+#include "base/hash.h"
+#include "base/mem.h"
+#include "log/log.h"
+#include "resource/kv-store.h"
+#include "resource/resource.h"
 
 #include <limits.h>
 #include <stdint.h>

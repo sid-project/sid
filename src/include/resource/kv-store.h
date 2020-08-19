@@ -20,7 +20,7 @@
 #ifndef _SID_KV_STORE_H
 #define _SID_KV_STORE_H
 
-#include "resource.h"
+#include "resource/resource.h"
 
 #include <sys/uio.h>
 

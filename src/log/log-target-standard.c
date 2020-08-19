@@ -17,7 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "log.h"
+#include "log/log.h"
 
 #include <stdio.h>
 #include <unistd.h>

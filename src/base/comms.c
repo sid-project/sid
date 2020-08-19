@@ -17,7 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "comms.h"
+#include "base/comms.h"
 
 #include <errno.h>
 #include <stddef.h>

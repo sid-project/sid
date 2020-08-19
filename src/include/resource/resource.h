@@ -20,8 +20,8 @@
 #ifndef _SID_RESOURCE_H
 #define _SID_RESOURCE_H
 
-#include "service-link-iface.h"
-#include "types.h"
+#include "base/types.h"
+#include "iface/service-link.h"
 
 #include <signal.h>
 #include <stdbool.h>

@@ -17,8 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-pkglib_LTLIBRARIES = libsidmisc.la
-libsidmisc_la_SOURCES = mem.c \
+pkglib_LTLIBRARIES = libsidbase.la
+libsidbase_la_SOURCES = mem.c \
 			bitmap.c \
 			buffer-type.h \
 			buffer-type-linear.c \
@@ -28,13 +28,13 @@ libsidmisc_la_SOURCES = mem.c \
 			comms.c \
 			util.c \
 			hash.c
-pkginclude_HEADERS = $(top_builddir)/src/include/types.h \
-		     $(top_builddir)/src/include/mem.h \
-		     $(top_builddir)/src/include/bitmap.h \
-		     $(top_builddir)/src/include/buffer-common.h \
-		     $(top_builddir)/src/include/buffer.h \
-		     $(top_builddir)/src/include/list.h \
-		     $(top_builddir)/src/include/comms.h \
-		     $(top_builddir)/src/include/util.h \
-		     $(top_builddir)/src/include/hash.h
-libsidmisc_la_LIBADD = $(UUID_LIBS)
+basedir = $(pkgincludedir)/base
+base_HEADERS = $(top_builddir)/src/include/base/types.h \
+	       $(top_builddir)/src/include/base/mem.h \
+	       $(top_builddir)/src/include/base/bitmap.h \
+	       $(top_builddir)/src/include/base/buffer-common.h \
+	       $(top_builddir)/src/include/base/buffer.h \
+	       $(top_builddir)/src/include/base/list.h \
+	       $(top_builddir)/src/include/base/comms.h \
+	       $(top_builddir)/src/include/base/util.h
+libsidbase_la_LIBADD = $(UUID_LIBS)

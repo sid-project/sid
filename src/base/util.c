@@ -17,8 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "mem.h"
-#include "util.h"
+#include "base/mem.h"
+#include "base/util.h"
 
 #include <errno.h>
 #include <stdlib.h>

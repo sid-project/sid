@@ -18,8 +18,9 @@
 */
 
 #include "blkid-type.h"
-#include "ubridge-cmd-module.h"
-#include "log.h"
+
+#include "log/log.h"
+#include "resource/ubridge-cmd-module.h"
 
 #include <blkid/blkid.h>
 #include <errno.h>

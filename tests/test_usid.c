@@ -6,7 +6,7 @@
 #define main orig_main
 #include "../src/tools/usid/usid.c"
 #undef main
-#include "../src/misc/util.c"
+#include "../src/base/util.c"
 
 char *__wrap_getenv(const char *name)
 {

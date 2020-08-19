@@ -17,4 +17,4 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = log misc iface resource daemon modules tools
+SUBDIRS = base log iface resource daemon modules tools

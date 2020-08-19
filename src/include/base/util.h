@@ -20,7 +20,7 @@
 #ifndef _SID_UTIL_H
 #define _SID_UTIL_H
 
-#include "types.h"
+#include "base/types.h"
 
 #include <stdio.h>
 #include <stdint.h>

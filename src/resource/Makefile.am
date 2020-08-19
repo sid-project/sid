@@ -24,18 +24,19 @@ libsidresource_la_SOURCES = resource.c \
 			    module-registry.c \
 			    kv-store.c \
 			    worker-control.c
-pkginclude_HEADERS = $(top_builddir)/src/include/types.h \
-		     $(top_builddir)/src/include/resource.h \
-		     $(top_builddir)/src/include/resource-type-regs.h \
-		     $(top_builddir)/src/include/macros.h \
-		     $(top_builddir)/src/include/module.h \
-		     $(top_builddir)/src/include/module-registry.h \
-		     $(top_builddir)/src/include/kv-store.h \
-		     $(top_builddir)/src/include/ubridge-cmd-module.h \
-		     $(top_builddir)/src/include/worker-control.h
+resourcedir = $(pkgincludedir)/resource
+resource_HEADERS = $(top_builddir)/src/include/base/types.h \
+		   $(top_builddir)/src/include/resource/resource.h \
+		   $(top_builddir)/src/include/resource/resource-type-regs.h \
+		   $(top_builddir)/src/include/base/macros.h \
+		   $(top_builddir)/src/include/resource/module.h \
+		   $(top_builddir)/src/include/resource/module-registry.h \
+		   $(top_builddir)/src/include/resource/kv-store.h \
+		   $(top_builddir)/src/include/resource/ubridge-cmd-module.h \
+		   $(top_builddir)/src/include/resource/worker-control.h
 libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
 			   $(UDEV_CFLAGS)
-libsidresource_la_LIBADD = $(top_builddir)/src/misc/libsidmisc.la \
+libsidresource_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 			   $(top_builddir)/src/iface/libsidiface.la \
 			   $(SYSTEMD_LIBS) \
 			   $(UDEV_LIBS) \

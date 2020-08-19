@@ -18,7 +18,8 @@
 */
 
 #include "buffer-type.h"
-#include "mem.h"
+
+#include "base/mem.h"
 
 #include <errno.h>
 #include <stdio.h>

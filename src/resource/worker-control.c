@@ -17,14 +17,15 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "buffer.h"
-#include "comms.h"
 #include "configure.h"
-#include "log.h"
-#include "mem.h"
-#include "resource.h"
-#include "util.h"
-#include "worker-control.h"
+
+#include "base/buffer.h"
+#include "base/comms.h"
+#include "base/mem.h"
+#include "base/util.h"
+#include "log/log.h"
+#include "resource/resource.h"
+#include "resource/worker-control.h"
 
 #include <unistd.h>
 

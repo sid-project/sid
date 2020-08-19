@@ -18,9 +18,10 @@
 */
 
 #include "configure.h"
-#include "log.h"
-#include "resource.h"
-#include "util.h"
+
+#include "base/util.h"
+#include "log/log.h"
+#include "resource/resource.h"
 
 #include <errno.h>
 #include <getopt.h>

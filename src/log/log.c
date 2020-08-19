@@ -17,7 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "log.h"
+#include "log/log.h"
 
 static log_target_t _current_target = LOG_TARGET_NONE;
 static int _current_verbose_mode = 0;

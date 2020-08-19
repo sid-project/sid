@@ -17,10 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "buffer.h"
-#include "log.h"
-#include "mem.h"
-#include "resource.h"
+#include "base/buffer.h"
+#include "base/mem.h"
+#include "log/log.h"
+#include "resource/resource.h"
 
 #define SID_NAME "sid"
 

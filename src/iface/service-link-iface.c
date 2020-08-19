@@ -17,9 +17,9 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "buffer.h"
-#include "list.h"
-#include "service-link-iface.h"
+#include "base/buffer.h"
+#include "base/list.h"
+#include "iface/service-link.h"
 
 #include <stdlib.h>
 #include <string.h>

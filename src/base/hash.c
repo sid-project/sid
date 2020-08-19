@@ -18,8 +18,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "mem.h"
-#include "hash.h"
+#include "base/mem.h"
+#include "base/hash.h"
 
 #include <stdlib.h>
 #include <string.h>

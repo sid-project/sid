@@ -17,9 +17,11 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "buffer.h"
 #include "buffer-type.h"
-#include "mem.h"
+
+#include "base/buffer.h"
+#include "base/mem.h"
+
 #include <errno.h>
 
 static const struct buffer_type *_buffer_type_registry[] = {

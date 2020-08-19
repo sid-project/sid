@@ -20,7 +20,7 @@
 #ifndef _SID_WORKER_CONTROL_H
 #define _SID_WORKER_CONTROL_H
 
-#include "resource.h"
+#include "resource/resource.h"
 
 #ifdef __cplusplus
 extern "C" {

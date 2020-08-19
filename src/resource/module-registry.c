@@ -18,10 +18,11 @@
 */
 
 #include "configure.h"
-#include "log.h"
-#include "mem.h"
-#include "module-registry.h"
-#include "resource.h"
+
+#include "base/mem.h"
+#include "log/log.h"
+#include "resource/module-registry.h"
+#include "resource/resource.h"
 
 #include <dirent.h>
 #include <dlfcn.h>

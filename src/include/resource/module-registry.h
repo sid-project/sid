@@ -20,8 +20,8 @@
 #ifndef _SID_MODULE_REGISTRY_H
 #define _SID_MODULE_REGISTRY_H
 
-#include "module.h"
-#include "resource.h"
+#include "resource/module.h"
+#include "resource/resource.h"
 
 #ifdef __cplusplus
 extern "C" {

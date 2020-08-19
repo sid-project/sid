@@ -17,7 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "usid-iface.h"
+#include "iface/usid.h"
 
 #include <string.h>
 

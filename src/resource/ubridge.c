@@ -16,20 +16,22 @@
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
+
 #include "configure.h"
-#include "bitmap.h"
-#include "buffer.h"
-#include "comms.h"
-#include "kv-store.h"
-#include "log.h"
-#include "macros.h"
-#include "mem.h"
-#include "module-registry.h"
-#include "resource.h"
-#include "ubridge-cmd-module.h"
-#include "usid-iface.h"
-#include "util.h"
-#include "worker-control.h"
+
+#include "base/bitmap.h"
+#include "base/buffer.h"
+#include "base/comms.h"
+#include "base/macros.h"
+#include "base/mem.h"
+#include "base/util.h"
+#include "iface/usid.h"
+#include "log/log.h"
+#include "resource/kv-store.h"
+#include "resource/module-registry.h"
+#include "resource/resource.h"
+#include "resource/ubridge-cmd-module.h"
+#include "resource/worker-control.h"
 
 #include <ctype.h>
 #include <dirent.h>

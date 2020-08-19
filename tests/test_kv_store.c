@@ -4,7 +4,7 @@
 #include <setjmp.h>
 #define UNIT_TESTING /* enable cmocka memory testing in mem.c and kv-store.c*/
 #include <cmocka.h>
-#include "../src/misc/mem.c"
+#include "../src/base/mem.c"
 #include "../src/resource/kv-store.c"
 
 static void test_type_G(void **state)

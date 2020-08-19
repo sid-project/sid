@@ -17,7 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "resource.h"
+#include "resource/resource.h"
 
 #define AGGREGATE_NAME "aggregate"
 
