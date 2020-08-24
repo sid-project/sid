@@ -18,6 +18,7 @@
 ##############################################################################
 
 pkglib_LTLIBRARIES = libsidresource.la
+
 libsidresource_la_SOURCES = resource.c \
 			    aggregate.c \
 			    ubridge.c \
@@ -25,7 +26,9 @@ libsidresource_la_SOURCES = resource.c \
 			    kv-store.c \
 			    worker-control.c \
 			    sid.c
+
 resourcedir = $(pkgincludedir)/resource
+
 resource_HEADERS = $(top_builddir)/src/include/base/types.h \
 		   $(top_builddir)/src/include/resource/resource.h \
 		   $(top_builddir)/src/include/resource/resource-type-regs.h \
@@ -35,8 +38,10 @@ resource_HEADERS = $(top_builddir)/src/include/base/types.h \
 		   $(top_builddir)/src/include/resource/kv-store.h \
 		   $(top_builddir)/src/include/resource/ubridge-cmd-module.h \
 		   $(top_builddir)/src/include/resource/worker-control.h
+
 libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
 			   $(UDEV_CFLAGS)
+
 libsidresource_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 			   $(top_builddir)/src/iface/libsidiface.la \
 			   $(SYSTEMD_LIBS) \

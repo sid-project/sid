@@ -18,7 +18,9 @@
 ##############################################################################
 
 bin_PROGRAMS = sid
+
 sid_SOURCES = sid.c
+
 sid_LDADD = $(top_builddir)/src/resource/libsidresource.la \
 	    $(top_builddir)/src/base/libsidbase.la \
 	    $(top_builddir)/src/log/libsidlog.la

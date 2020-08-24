@@ -32,10 +32,13 @@ blkid-type-mapper.c: blkid-type-mapper.gperf
 	fi
 
 blkid_LTLIBRARIES = blkid.la
+
 blkid_la_SOURCES = blkid-type.h \
 		   blkid-type-mapper.c \
 		   blkid.c
+
 blkid_la_LDFLAGS = -module -avoid-version
+
 blkid_la_LIBADD = $(top_builddir)/src/log/libsidlog.la \
 		  $(BLKID_LIBS)
 

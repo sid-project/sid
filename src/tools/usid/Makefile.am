@@ -18,6 +18,7 @@
 ##############################################################################
 
 bin_PROGRAMS = usid
+
 usid_SOURCES = usid.c
 
 usid_LDADD = $(top_builddir)/src/log/libsidlog.la \

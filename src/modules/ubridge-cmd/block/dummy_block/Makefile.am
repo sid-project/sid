@@ -18,7 +18,11 @@
 ##############################################################################
 
 dummy_blockdir = $(pkglibdir)/modules/ubridge-cmd/block
+
 dummy_block_LTLIBRARIES = dummy_block.la
+
 dummy_block_la_SOURCES = dummy_block.c
+
 dummy_block_la_LDFLAGS = -module -avoid-version
+
 dummy_block_la_LIBADD = $(top_builddir)/src/log/libsidlog.la

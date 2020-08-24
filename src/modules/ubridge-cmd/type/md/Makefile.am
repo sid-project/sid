@@ -18,7 +18,11 @@
 ##############################################################################
 
 mddir = $(pkglibdir)/modules/ubridge-cmd/type
+
 md_LTLIBRARIES = md.la
+
 md_la_SOURCES = md.c
+
 md_la_LDFLAGS = -module -avoid-version
+
 md_la_LIBADD = $(top_builddir)/src/log/libsidlog.la

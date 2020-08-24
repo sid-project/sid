@@ -18,8 +18,12 @@
 ##############################################################################
 
 multipath_componentdir = $(pkglibdir)/modules/ubridge-cmd/block
+
 multipath_component_LTLIBRARIES = multipath_component.la
+
 multipath_component_la_SOURCES = multipath_component.c
+
 multipath_component_la_LDFLAGS = -module -avoid-version
+
 multipath_component_la_LIBADD = $(top_builddir)/src/log/libsidlog.la \
                                 -lmpathvalid

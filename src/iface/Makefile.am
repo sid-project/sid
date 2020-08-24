@@ -18,11 +18,15 @@
 ##############################################################################
 
 pkglib_LTLIBRARIES = libsidiface.la
+
 libsidiface_la_SOURCES = service-link-iface.c \
 			 usid-iface.c
+
 ifacedir = $(pkgincludedir)/iface
+
 iface_HEADERS = $(top_builddir)/src/include/iface/service-link.h \
 		$(top_builddir)/src/include/iface/usid.h
+
 libsidiface_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 			$(SYSTEMD_LIBS)
 

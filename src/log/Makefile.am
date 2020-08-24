@@ -18,10 +18,13 @@
 ##############################################################################
 
 pkglib_LTLIBRARIES = libsidlog.la
+
 libsidlog_la_SOURCES = log-target-standard.c \
 		       log-target-syslog.c \
 		       log.c
+
 logdir = $(pkgincludedir)/log
+
 log_HEADERS = $(top_builddir)/src/include/log/log.h
 
 uninstall-hook:
