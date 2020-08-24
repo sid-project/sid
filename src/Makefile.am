@@ -18,3 +18,7 @@
 ##############################################################################
 
 SUBDIRS = base log iface resource daemon modules tools
+
+uninstall-hook:
+	test -d ${pkglibdir} && rmdir ${pkglibdir}
+	test -d ${pkgincludedir} && rmdir ${pkgincludedir}

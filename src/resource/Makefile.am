@@ -42,3 +42,6 @@ libsidresource_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 			   $(SYSTEMD_LIBS) \
 			   $(UDEV_LIBS) \
 			   -ldl
+
+uninstall-hook:
+	test -d ${resourcedir} && rmdir ${resourcedir}

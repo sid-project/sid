@@ -18,3 +18,6 @@
 ##############################################################################
 
 SUBDIRS = dummy_type device_mapper md sd
+
+uninstall-hook:
+	test -d ${pkglibdir}/modules/ubridge-cmd/type && rmdir ${pkglibdir}/modules/ubridge-cmd/type

@@ -18,3 +18,6 @@
 ##############################################################################
 
 SUBDIRS = type block
+
+uninstall-hook:
+	test -d ${pkglibdir}/modules/ubridge-cmd && rmdir ${pkglibdir}/modules/ubridge-cmd

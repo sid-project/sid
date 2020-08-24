@@ -25,3 +25,6 @@ iface_HEADERS = $(top_builddir)/src/include/iface/service-link.h \
 		$(top_builddir)/src/include/iface/usid.h
 libsidiface_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 			$(SYSTEMD_LIBS)
+
+uninstall-hook:
+	test -d ${ifacedir} && rmdir ${ifacedir}

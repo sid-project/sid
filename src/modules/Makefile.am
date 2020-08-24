@@ -18,3 +18,6 @@
 ##############################################################################
 
 SUBDIRS = ubridge-cmd
+
+uninstall-hook:
+	test -d ${pkglibdir}/modules && rmdir ${pkglibdir}/modules
