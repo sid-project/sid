@@ -27,6 +27,8 @@ iface_servicelinkdir = ${ifacedir}
 
 iface_servicelink_HEADERS = $(top_builddir)/src/include/iface/service-link.h
 
+libsidiface_servicelink_la_CFLAGS = $(SYSTEMD_CFLAGS)
+
 libsidiface_servicelink_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 				    $(SYSTEMD_LIBS)
 
