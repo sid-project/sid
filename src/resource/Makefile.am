@@ -43,7 +43,8 @@ libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
 			   $(UDEV_CFLAGS)
 
 libsidresource_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
-			   $(top_builddir)/src/iface/libsidiface.la \
+			   $(top_builddir)/src/iface/libsidiface_servicelink.la \
+			   $(top_builddir)/src/iface/libsidiface_usid.la \
 			   $(SYSTEMD_LIBS) \
 			   $(UDEV_LIBS) \
 			   -ldl
