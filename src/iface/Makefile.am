@@ -19,8 +19,8 @@
 
 pkglib_LTLIBRARIES = libsidiface.la
 
-libsidiface_la_SOURCES = service-link-iface.c \
-			 usid-iface.c
+libsidiface_la_SOURCES = service-link.c \
+			 usid.c
 
 ifacedir = $(pkgincludedir)/iface
 
