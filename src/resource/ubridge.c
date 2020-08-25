@@ -3160,7 +3160,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	if(!buffer_add(cmd->res_buf, &response_header, sizeof(response_header), &r))
 		goto out;
 
-	if (cmd->request_header.prot <= UBRIDGE_PROTOCOL) {
+	if (cmd->request_header.prot <= USID_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
 		response_header.prot = cmd->request_header.prot;
 		exec_arg.cmd_res = cmd_res;
@@ -3776,13 +3776,13 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 		/* The very first FD passed in is the one we are interested in. */
 		fd = SERVICE_FD_ACTIVATION_FDS_START;
 
-		if (!(service_fd_is_socket_unix(fd, SOCK_STREAM, 1, UBRIDGE_SOCKET_PATH, UBRIDGE_SOCKET_PATH_LEN))) {
+		if (!(service_fd_is_socket_unix(fd, SOCK_STREAM, 1, USID_SOCKET_PATH, USID_SOCKET_PATH_LEN))) {
 			log_error(ID(ubridge_res), "Passed file descriptor is of incorrect type.");
 			return -EINVAL;
 		}
 	} else {
 		/* No systemd autoactivation - create new socket FD. */
-		if ((fd = comms_unix_create(UBRIDGE_SOCKET_PATH, UBRIDGE_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
+		if ((fd = comms_unix_create(USID_SOCKET_PATH, USID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
 			log_error_errno(ID(ubridge_res), fd, "Failed to create local server socket.");
 			return fd;
 		}

@@ -77,7 +77,7 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 	if (!buffer_add(buf,
 	&((struct usid_msg_header) {
 	.status = status,
-	.prot = UBRIDGE_PROTOCOL,
+	.prot = USID_PROTOCOL,
 	.cmd = cmd
 }), USID_MSG_HEADER_SIZE, &r))
 	goto out;
@@ -87,7 +87,7 @@ static int _sid_req(usid_cmd_t cmd, uint64_t status, sid_req_data_fn_t data_fn, 
 		goto out;
 	}
 
-	if ((socket_fd = comms_unix_init(UBRIDGE_SOCKET_PATH, UBRIDGE_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
+	if ((socket_fd = comms_unix_init(USID_SOCKET_PATH, USID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
 		r = socket_fd;
 		if (r != -ECONNREFUSED)
 			log_error_errno(LOG_PREFIX, r, "Failed to initialize connection");
@@ -149,7 +149,7 @@ static int _usid_cmd_active(struct args *args)
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
 		if ((size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) &&
-		    (hdr->prot == UBRIDGE_PROTOCOL))
+		    (hdr->prot == USID_PROTOCOL))
 			status = USID_BRIDGE_STATUS_ACTIVE;
 		else
 			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
@@ -330,7 +330,7 @@ static int _usid_cmd_version(struct args *args)
 	        KEY_USID_MAJOR "=%" PRIu16 "\n"
 	        KEY_USID_MINOR "=%" PRIu16 "\n"
 	        KEY_USID_RELEASE "=%" PRIu16 "\n",
-	        UBRIDGE_PROTOCOL,
+	        USID_PROTOCOL,
 	        SID_VERSION_MAJOR,
 	        SID_VERSION_MINOR,
 	        SID_VERSION_RELEASE);

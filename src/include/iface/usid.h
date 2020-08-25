@@ -27,6 +27,10 @@
 extern "C" {
 #endif
 
+#define USID_PROTOCOL          1
+#define USID_SOCKET_PATH       "\0sid-ubridge.socket"
+#define USID_SOCKET_PATH_LEN   (sizeof(USID_SOCKET_PATH) - 1)
+
 typedef enum {
 	_USID_CMD_START     = 0,
 	USID_CMD_UNDEFINED  = _USID_CMD_START, /* virtual cmd if cmd not defined at all */
