@@ -29,10 +29,8 @@ libsidresource_la_SOURCES = resource.c \
 
 resourcedir = $(pkgincludedir)/resource
 
-resource_HEADERS = $(top_builddir)/src/include/base/types.h \
-		   $(top_builddir)/src/include/resource/resource.h \
+resource_HEADERS = $(top_builddir)/src/include/resource/resource.h \
 		   $(top_builddir)/src/include/resource/resource-type-regs.h \
-		   $(top_builddir)/src/include/base/macros.h \
 		   $(top_builddir)/src/include/resource/module.h \
 		   $(top_builddir)/src/include/resource/module-registry.h \
 		   $(top_builddir)/src/include/resource/kv-store.h \
