@@ -17,7 +17,7 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-bin_PROGRAMS = usid
+sbin_PROGRAMS = usid
 
 usid_SOURCES = usid.c
 

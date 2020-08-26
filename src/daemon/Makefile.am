@@ -17,7 +17,7 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-bin_PROGRAMS = sid
+sbin_PROGRAMS = sid
 
 sid_SOURCES = sid.c
 
