@@ -27,6 +27,7 @@
 #include <sys/timerfd.h>
 #include <sys/types.h>
 #include <uuid/uuid.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,6 +74,11 @@ char *util_uuid_gen_str(char *buf, size_t buf_len);
  * Environment-related utilities.
  */
 int util_env_get_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val);
+
+/*
+ * Kernel cmdline-related utilities.
+ */
+bool util_cmdline_get_arg(const char *arg, char **value, int *ret_code);
 
 #ifdef __cplusplus
 }
