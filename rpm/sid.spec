@@ -1,10 +1,11 @@
-#%global commit c8e353b0ea2f9d3c2cb719f76934543e8df38a38
-#%global shortcommit %(c=%{commit}; echo ${c:0:7})
-#%global commitdate 20200828
+#global commit 13a0dd86874b5d7558a0e131f3deaa42cd7d9d23
+%{?commit:%global shortcommit %(c=%{commit}; echo ${c:0:7})}
+%{?commit:%global commitdate 20200828}
+%{?commit:%global scmsnap %{commitdate}git%{shortcommit}}
 
 Name: sid
 Version: 0.0.3
-Release: 0%{?shortcommit:.%{commitdate}git%{shortcommit}}%{?dist}
+Release: 1%{?scmsnap:.%{scmsnap}}%{?dist}
 Summary: Storage Instantiation Daemon (SID)
 
 License: GPLv2+
@@ -12,7 +13,7 @@ URL: http://sid-project.github.io
 %if %{defined commit}
 Source0: https://github.com/sid-project/%{name}/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
 %else
-Source0: https://github.com/sid-project/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
+Source0: https://github.com/sid-project/%{name}/archive/v%{version}/%{name}-%{version}.tar.gz
 %endif
 
 BuildRequires: autoconf
@@ -60,7 +61,7 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/sid/modules/ubridge-cmd/block/*.{a,la}
 rm -f $RPM_BUILD_ROOT%{_libdir}/sid/modules/ubridge-cmd/type/*.{a,la}
 
 %files
-%{_bindir}/sid
+%{_sbindir}/sid
 %{_sysconfdir}/sysconfig/sid.sysconfig
 %{_udevrulesdir}/00-sid.rules
 %{_unitdir}/sid.socket
@@ -84,6 +85,7 @@ License: GPLv2+
 %package base-libs-devel
 Summary: Development libraries and headers for Storage Instantiation Daemon (SID) base
 License: GPLv2+
+Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
 %description base-libs-devel
 %files base-libs-devel
 %{_libdir}/sid/libsidbase.so
@@ -106,6 +108,7 @@ License: GPLv2+
 %package log-libs-devel
 Summary: Development libraries and headers for Storage Instantiation Daemon (SID) logging
 License: GPLv2+
+Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
 %description log-libs-devel
 %files log-libs-devel
 %{_libdir}/sid/libsidlog.so
@@ -124,6 +127,7 @@ Requires: systemd-libs
 %package iface-libs-devel
 Summary: Development libraries and headers for Storage Instantiation Daemon (SID) interfaces
 License: GPLv2+
+Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
 %description iface-libs-devel
 %files iface-libs-devel
 %{_libdir}/sid/libsidiface_servicelink.so
@@ -144,6 +148,7 @@ Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
 %package resource-libs-devel
 Summary: Development libraries and headers for Storage Instantiation Daemon (SID) resources
 License: GPLv2+
+Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
 %description resource-libs-devel
 %files resource-libs-devel
 %{_libdir}/sid/libsidresource.so
@@ -183,8 +188,7 @@ Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
 %description tools
 %files tools
-%{_bindir}/usid
+%{_sbindir}/usid
 
 %changelog
-* Wed Aug 26 2020 Peter Rajnoha <prajnoha@redhat.com> - 0.0.3-1
-- Initial release.
+#* Fri Aug 28 2020 Peter Rajnoha <prajnoha@redhat.com> - 0.0.3-1
