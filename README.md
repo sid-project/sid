@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/sid-project/sid-mvp.svg?branch=master)](https://travis-ci.org/sid-project/sid-mvp)
+[![Build Status](https://travis-ci.org/sid-project/sid.svg?branch=master)](https://travis-ci.org/sid-project/sid)
 
 
 # Storage Instantiation Daemon

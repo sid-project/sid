@@ -697,7 +697,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			 *        If we destroy the "sid" resource here, the SIGTERM handling
 			 *        does not work anymore - the handler is not called. It seems that
 			 *        removing the signal handler from one event loop affects the other.
-			 *        See also https://github.com/sid-project/sid-mvp/issues/33.
+			 *        See also https://github.com/sid-project/sid/issues/33.
 			 *
 			 *        For now, we just comment out the sid_resource_destroy which
 			 *        destroys the unneeded and inherited "sid" resource from parent
