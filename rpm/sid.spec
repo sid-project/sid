@@ -19,19 +19,14 @@ Source0: https://github.com/sid-project/%{name}/archive/v%{version}/%{name}-%{ve
 BuildRequires: autoconf
 BuildRequires: automake
 BuildRequires: libtool
+BuildRequires: systemd-rpm-macros
 BuildRequires: systemd-devel >= 221
 BuildRequires: libudev-devel >= 174
 BuildRequires: libuuid-devel
 BuildRequires: libblkid-devel
 
-Requires: systemd-libs >= 221
-Requires: systemd-udev
-Requires: libblkid
-Requires: libuuid
-
 Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
 
 %description
@@ -141,6 +136,8 @@ License: GPLv2+
 Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
+# Systemd supports event loop since v221
+Requires: systemd-libs >= 221
 %description resource-libs
 %files resource-libs
 %{_libdir}/sid/libsidresource.so.*
