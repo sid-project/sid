@@ -17,7 +17,7 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = dummy_type device_mapper md sd
+SUBDIRS = dummy_type device_mapper
 
 uninstall-hook:
 	test -d ${pkglibdir}/modules/ubridge-cmd/type && rmdir ${pkglibdir}/modules/ubridge-cmd/type

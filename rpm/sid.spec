@@ -275,8 +275,6 @@ Instantiation Daemon (SID).
 %files mod-block-multipath-component
 %{_libdir}/sid/modules/ubridge-cmd/type/device_mapper.so
 %{_libdir}/sid/modules/ubridge-cmd/type/dummy_type.so
-%{_libdir}/sid/modules/ubridge-cmd/type/md.so
-%{_libdir}/sid/modules/ubridge-cmd/type/sd.so
 
 %changelog
 #* Fri Aug 28 2020 Peter Rajnoha <prajnoha@redhat.com> - 0.0.3-1
