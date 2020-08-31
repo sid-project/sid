@@ -23,7 +23,7 @@ dist_systemdsystemunit_DATA = sid.socket \
 dist_sysconfig_DATA = sid.sysconfig
 
 $(dist_systemdsystemunit_DATA):%:%.in
-	$(SED) -e "s|(BINDIR)|$(bindir)|" \
+	$(SED) -e "s|(SBINDIR)|$(sbindir)|" \
 	       -e "s|(SYSCONFIGDIR)|$(sysconfigdir)|" \
 	       $< >$@
 

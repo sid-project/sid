@@ -8,4 +8,4 @@ Before=sysinit.target
 Type=notify
 EnvironmentFile=(SYSCONFIGDIR)/sid.sysconfig
 Environment=SERVICE_ACTIVATION_TYPE=FD_PRELOAD
-ExecStart=(BINDIR)/sid -f
+ExecStart=(SBINDIR)/sid -f
