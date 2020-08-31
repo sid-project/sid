@@ -43,6 +43,8 @@ base_HEADERS = $(top_builddir)/src/include/base/types.h \
 
 libsidbase_la_CFLAGS = $(UUID_CFLAGS)
 
+libsidbase_la_LDFLAGS = -version-info 0:0:0
+
 libsidbase_la_LIBADD = $(UUID_LIBS)
 
 uninstall-hook:

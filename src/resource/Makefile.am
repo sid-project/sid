@@ -40,6 +40,8 @@ resource_HEADERS = $(top_builddir)/src/include/resource/resource.h \
 libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
 			   $(UDEV_CFLAGS)
 
+libsidresource_la_LDFLAGS = -version-info 0:0:0
+
 libsidresource_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 			   $(top_builddir)/src/iface/libsidiface_servicelink.la \
 			   $(top_builddir)/src/iface/libsidiface_usid.la \

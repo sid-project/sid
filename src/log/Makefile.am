@@ -27,5 +27,7 @@ logdir = $(pkgincludedir)/log
 
 log_HEADERS = $(top_builddir)/src/include/log/log.h
 
+libsidlog_la_LDFLAGS = -version-info 0:0:0
+
 uninstall-hook:
 	test -d ${logdir} && rmdir ${logdir}
