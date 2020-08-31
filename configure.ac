@@ -56,7 +56,6 @@ AC_CONFIG_FILES([Makefile
 		 src/modules/ubridge-cmd/type/Makefile
 		 src/modules/ubridge-cmd/block/Makefile
 		 src/modules/ubridge-cmd/type/dummy_type/Makefile
-		 src/modules/ubridge-cmd/type/device_mapper/Makefile
 		 src/modules/ubridge-cmd/block/dummy_block/Makefile
 		 src/modules/ubridge-cmd/block/blkid/Makefile
 		 src/modules/ubridge-cmd/block/multipath_component/Makefile
