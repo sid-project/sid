@@ -3,6 +3,12 @@
 %{?commit:%global commitdate 20200828}
 %{?commit:%global scmsnap %{commitdate}git%{shortcommit}}
 
+%global enable_multipath_support 0
+
+##############################################################################
+# SID
+##############################################################################
+
 Name: sid
 Version: 0.0.3
 Release: 1%{?scmsnap:.%{scmsnap}}%{?dist}
@@ -44,9 +50,13 @@ of devices and their layers in the stack.
 %autosetup -p1 -n sid-%{version}
 %endif
 
+%if ! %{enable_multipath_support}
+%global configure_multipath --disable-mod-multipath_component
+%endif
+
 %build
 ./autogen.sh
-%configure --disable-mod-multipath_component
+%configure %{?configure_multipath}
 %make_build
 
 %install
@@ -272,12 +282,13 @@ This package contains blkid block module for Storage Instantiation Daemon (SID).
 
 %files mod-block-blkid
 %{_libdir}/sid/modules/ubridge-cmd/block/blkid.so
-%{_libdir}/sid/modules/ubridge-cmd/block/dummy_block.so
 
 
 ##############################################################################
 # SID-MOD-BLOCK-MUTLIPATH-COMPONENT
 ##############################################################################
+
+%if %{?enable_multipath_support}
 
 %package mod-block-multipath-component
 Summary: multipath component block module for Storage Instantiation Daemon (SID)
@@ -289,8 +300,9 @@ This package contains device-mapper-multipath block module for Storage
 Instantiation Daemon (SID).
 
 %files mod-block-multipath-component
-%{_libdir}/sid/modules/ubridge-cmd/type/device_mapper.so
-%{_libdir}/sid/modules/ubridge-cmd/type/dummy_type.so
+%{_libdir}/sid/modules/ubridge-cmd/type/multipath_component.so
+
+%endif
 
 %changelog
 #* Fri Aug 28 2020 Peter Rajnoha <prajnoha@redhat.com> - 0.0.3-1
