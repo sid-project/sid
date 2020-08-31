@@ -242,6 +242,22 @@ This package contains helper tools to support Storage Instantiation Daemon (SID)
 %files tools
 %{_sbindir}/usid
 
+##############################################################################
+# SID-MOD-DUMMIES
+##############################################################################
+%package mod-dummies
+Summary: dummy block and type module for Storage Instantiation Daemon (SID)
+Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
+%description mod-dummies
+This package contains dummy block and type modules for Storage Instantiation
+Daemon (SID). Their only purpose is to test SID module functionality and hook
+execution.
+
+%files mod-dummies
+%{_libdir}/sid/modules/ubridge-cmd/block/dummy_block.so
+%{_libdir}/sid/modules/ubridge-cmd/type/dummy_type.so
+
 
 ##############################################################################
 # SID-MOD-BLOCK-BLKID
