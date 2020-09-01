@@ -251,7 +251,7 @@ Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
 This package contains helper tools to support Storage Instantiation Daemon (SID).
 
 %files tools
-%{_sbindir}/usid
+%{_udevrulesdir}/../usid
 
 ##############################################################################
 # SID-MOD-DUMMIES

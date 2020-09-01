@@ -18,9 +18,3 @@
 ##############################################################################
 
 dist_udevrules_DATA = 00-sid.rules
-
-$(dist_udevrules_DATA):%:%.in
-	$(SED) -e "s|(SBINDIR)|$(sbindir)|" $< >$@
-
-distclean-local:
-	$(RM) $(dist_udevrules_DATA)

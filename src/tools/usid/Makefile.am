@@ -17,7 +17,9 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-sbin_PROGRAMS = usid
+udevdir = $(UDEV_DIR)
+
+udev_PROGRAMS = usid
 
 usid_SOURCES = usid.c
 

@@ -1,0 +1,1 @@
+SUBSYSTEM=="block", ACTION=="add|change|remove", IMPORT{program}="usid scan"
