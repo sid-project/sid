@@ -123,7 +123,7 @@ static int _is_parent_multipathed(struct sid_ubridge_cmd_context *cmd)
 		if (errno || !p || *p)
 			return 0;
 	}
-	if (r == MPATH_IS_VALID || r == MPATH_IS_VALID_NO_CHECK) {
+	if (r == MPATH_IS_VALID) {
 		log_debug(ID, "%s whole disk is a multipath path",
 		          sid_ubridge_cmd_dev_get_name(cmd));
 		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
@@ -159,7 +159,28 @@ static int _multipath_component_scan_pre(struct sid_module *module, struct sid_u
 	                       &wwid, NULL, 0);
 	log_debug(ID, "%s mpathvalid_is_path returned %d",
 	          sid_ubridge_cmd_dev_get_name(cmd), r);
-	if (r == MPATH_IS_VALID || r == MPATH_IS_VALID_NO_CHECK)
+
+	if (r == MPATH_IS_VALID) {
+		const char *old_valid_str;
+		char *p;
+		int old_valid;
+
+		old_valid_str = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE,
+		                                       VALID_KEY, NULL, NULL);
+		if (old_valid_str && old_valid_str[0]) {
+			errno = 0;
+			old_valid = strtol(old_valid_str, &p, 10);
+			// If old_valid is garbage assume the device
+			// wasn't claimed before
+			if (errno || !p || *p || old_valid != MPATH_IS_VALID) {
+				log_debug(ID, "previously released %s. not claiming", sid_ubridge_cmd_dev_get_name(cmd));
+				r = MPATH_IS_NOT_VALID;
+			}
+		}
+	} else if (r == MPATH_IS_VALID_NO_CHECK)
+		r = MPATH_IS_VALID;
+
+	if (r == MPATH_IS_VALID)
 		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
 		                       KV_MOD_PROTECTED);
 	else if (r != MPATH_IS_ERROR)
