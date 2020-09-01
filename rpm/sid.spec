@@ -34,6 +34,7 @@ BuildRequires: libblkid-devel
 Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-tools = %{version}-%{release}
 
 %description
 Storage Instantiation Daemon (SID) aims to help with Linux storage
