@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <setjmp.h>
 #include <cmocka.h>
-#include "buffer.h"
+#include "base/buffer.h"
 
 #define TEST_STR "foo"
 #define TEST_SIZE sizeof(TEST_STR)
@@ -18,7 +18,7 @@ int test_fmt_add(int buf_size)
 	struct buffer *buf = NULL;
 	char *data;
 	size_t data_size;
-	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, buf_size, 1, NULL);
+	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, buf_size, 1, 0, NULL);
 	assert_non_null(buf);
 	assert_non_null(buffer_fmt_add(buf, NULL, TEST_STR));
 	assert_int_equal(buffer_get_data(buf, (const void **)&data, &data_size),			 0);
@@ -54,7 +54,7 @@ static void test_linear_rewind_mem(void **state)
 {
 	struct buffer *buf;
 
-	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, 1, NULL);
+	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, 1, 0, NULL);
 	do_rewind_test(buf);
 	buffer_destroy(buf);
 }
@@ -63,7 +63,7 @@ static void test_vector_rewind_mem(void **state)
 {
 	struct buffer *buf;
 
-	buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, 0, 1, NULL);
+	buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, 0, 1, 0, NULL);
 	do_rewind_test(buf);
 	buffer_destroy(buf);
 }
@@ -84,7 +84,7 @@ static void test_linear_zero_add(void **state)
 {
 	struct buffer *buf;
 
-	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, 1, NULL);
+	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, 1, 0, NULL);
 	do_test_zero_add(buf);
 }
 
@@ -92,7 +92,7 @@ static void test_vector_zero_add(void **state)
 {
 	struct buffer *buf;
 
-	buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, 0, 1, NULL);
+	buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, 0, 1, 0, NULL);
 	do_test_zero_add(buf);
 }
 

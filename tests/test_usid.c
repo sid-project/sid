@@ -32,7 +32,7 @@ static void test_checkpoint_env(void **state)
 		.argv = test_argv
 	};
 
-	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1, NULL);
+	buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1, 0, NULL);
 	assert_non_null(buf);
 	will_return(__wrap_getenv, "8");
 	will_return(__wrap_getenv, "0");

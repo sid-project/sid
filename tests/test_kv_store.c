@@ -17,7 +17,7 @@ static void test_type_G(void **state)
 	struct kv_store_value *value = _create_kv_store_value(test_iov, size,
 	                                                      KV_STORE_VALUE_REF | KV_STORE_VALUE_VECTOR, 0);
 	assert_ptr_not_equal(value, NULL);
-	assert_ptr_equal(value->data_p, test_iov);
+	assert_ptr_equal(_get_ptr(value->data), test_iov);
 	assert_int_equal(value->size, size);
 	assert_int_equal(value->int_flags, 0);
 	assert_int_equal(value->ext_flags,
@@ -41,7 +41,7 @@ static void test_type_H(void **state)
 	                               KV_STORE_VALUE_REF | KV_STORE_VALUE_VECTOR,
 	                               KV_STORE_VALUE_OP_MERGE);
 	assert_ptr_not_equal(value, NULL);
-	assert_ptr_equal(value->data_p, test_iov);
+	assert_ptr_equal(_get_ptr(value->data), test_iov);
 	assert_int_equal(value->size, size);
 	for (i = 0; i < size; i++)
 		assert_ptr_not_equal(test_iov[i].iov_base,
