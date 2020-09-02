@@ -1,7 +1,7 @@
 ##############################################################################
 # This file is part of SID.
 #
-# Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+# Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
 #
 # SID is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = ubridge-cmd
+SUBDIRS = ucmd
 
 uninstall-hook:
 	test -d ${pkglibdir}/modules && rmdir ${pkglibdir}/modules

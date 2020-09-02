@@ -19,7 +19,7 @@
 
 #include "log/log.h"
 #include "base/util.h"
-#include "resource/ubridge-cmd-module.h"
+#include "resource/ucmd-module.h"
 
 #include <limits.h>
 #include <libudev.h>
@@ -44,7 +44,7 @@ void put_multipath_config(__attribute__((unused))void *conf)
 	/* Noop */
 }
 
-static int _multipath_component_init(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
+static int _multipath_component_init(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "init");
 	/* TODO - set up dm/udev logging */
@@ -53,22 +53,22 @@ static int _multipath_component_init(struct sid_module *module, struct sid_ubrid
 		log_error(ID, "failed to allocate udev context");
 		return -1;
 	}
-	if (sid_ubridge_cmd_mod_reserve_kv(module, cmd_mod, KV_NS_UDEV,
-	                                   PATH_KEY) < 0) {
+	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_UDEV,
+	                            PATH_KEY) < 0) {
 		log_error(ID, "Failed to reserve multipath udev key %s", PATH_KEY);
 		udev_unref(udev);
 		udev = NULL;
 		return -1;
 	}
-	if (sid_ubridge_cmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
-	                                   VALID_KEY) < 0) {
+	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
+	                            VALID_KEY) < 0) {
 		log_error(ID, "Failed to reserve multipath udev key %s", PATH_KEY);
 		udev_unref(udev);
 		udev = NULL;
 		return -1;
 	}
-	if (sid_ubridge_cmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
-	                                   WWID_KEY) < 0) {
+	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
+	                            WWID_KEY) < 0) {
 		log_error(ID, "Failed to reserve multipath device key %s", WWID_KEY);
 		udev_unref(udev);
 		udev = NULL;
@@ -76,9 +76,9 @@ static int _multipath_component_init(struct sid_module *module, struct sid_ubrid
 	}
 	return 0;
 }
-SID_UBRIDGE_CMD_MOD_INIT(_multipath_component_init)
+SID_UCMD_MOD_INIT(_multipath_component_init)
 
-static int _multipath_component_exit(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
+static int _multipath_component_exit(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "exit");
 	// Do we need to unreserve the key here?
@@ -86,7 +86,7 @@ static int _multipath_component_exit(struct sid_module *module, struct sid_ubrid
 	udev = NULL;
 	return 0;
 }
-SID_UBRIDGE_CMD_MOD_EXIT(_multipath_component_exit)
+SID_UCMD_MOD_EXIT(_multipath_component_exit)
 
 static int kernel_cmdline_allow(void)
 {
@@ -100,21 +100,21 @@ static int kernel_cmdline_allow(void)
 }
 
 
-static int _multipath_component_reload(struct sid_module *module, struct sid_ubridge_cmd_mod_context *cmd_mod)
+static int _multipath_component_reload(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "reload");
 	return 0;
 }
-SID_UBRIDGE_CMD_MOD_RELOAD(_multipath_component_reload)
+SID_UCMD_MOD_RELOAD(_multipath_component_reload)
 
-static int _is_parent_multipathed(struct sid_ubridge_cmd_context *cmd)
+static int _is_parent_multipathed(struct sid_ucmd_ctx *cmd)
 {
 	int r = MPATH_IS_ERROR;
 	const char *valid_str;
 	char *p;
 
-	valid_str = sid_ubridge_cmd_part_get_disk_kv(cmd, VALID_KEY, NULL,
-	                                             NULL);
+	valid_str = sid_ucmd_part_get_disk_kv(cmd, VALID_KEY, NULL,
+	                                      NULL);
 	if (!valid_str || !valid_str[0])
 		return 0;
 	else {
@@ -125,16 +125,16 @@ static int _is_parent_multipathed(struct sid_ubridge_cmd_context *cmd)
 	}
 	if (r == MPATH_IS_VALID) {
 		log_debug(ID, "%s whole disk is a multipath path",
-		          sid_ubridge_cmd_dev_get_name(cmd));
-		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
-		                       KV_MOD_PROTECTED);
+		          sid_ucmd_dev_get_name(cmd));
+		sid_ucmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
+		                KV_MOD_PROTECTED);
 	} else
 		log_debug(ID, "%s whole disk is not a multipath path",
-		          sid_ubridge_cmd_dev_get_name(cmd));
+		          sid_ucmd_dev_get_name(cmd));
 	return 0;
 }
 
-static int _multipath_component_scan_pre(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
+static int _multipath_component_scan_pre(struct sid_module *module, struct sid_ucmd_ctx *cmd)
 {
 	int r;
 	char *wwid;
@@ -144,10 +144,10 @@ static int _multipath_component_scan_pre(struct sid_module *module, struct sid_u
 	if (!kernel_cmdline_allow()) // treat failure as allowed
 		return 0;
 
-	if (sid_ubridge_cmd_dev_get_type(cmd) == UDEV_DEVTYPE_UNKNOWN)
+	if (sid_ucmd_dev_get_type(cmd) == UDEV_DEVTYPE_UNKNOWN)
 		return 0;
 
-	if (sid_ubridge_cmd_dev_get_type(cmd) == UDEV_DEVTYPE_PARTITION)
+	if (sid_ucmd_dev_get_type(cmd) == UDEV_DEVTYPE_PARTITION)
 		return _is_parent_multipathed(cmd);
 
 	if (mpathvalid_init(-1) < 0) {
@@ -155,25 +155,25 @@ static int _multipath_component_scan_pre(struct sid_module *module, struct sid_u
 		return -1;
 	}
 	// currently treats MPATH_SMART like MPATH_STRICT
-	r = mpathvalid_is_path(sid_ubridge_cmd_dev_get_name(cmd), MPATH_DEFAULT,
+	r = mpathvalid_is_path(sid_ucmd_dev_get_name(cmd), MPATH_DEFAULT,
 	                       &wwid, NULL, 0);
 	log_debug(ID, "%s mpathvalid_is_path returned %d",
-	          sid_ubridge_cmd_dev_get_name(cmd), r);
+	          sid_ucmd_dev_get_name(cmd), r);
 
 	if (r == MPATH_IS_VALID) {
 		const char *old_valid_str;
 		char *p;
 		int old_valid;
 
-		old_valid_str = sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE,
-		                                       VALID_KEY, NULL, NULL);
+		old_valid_str = sid_ucmd_get_kv(cmd, KV_NS_DEVICE,
+		                                VALID_KEY, NULL, NULL);
 		if (old_valid_str && old_valid_str[0]) {
 			errno = 0;
 			old_valid = strtol(old_valid_str, &p, 10);
 			// If old_valid is garbage assume the device
 			// wasn't claimed before
 			if (errno || !p || *p || old_valid != MPATH_IS_VALID) {
-				log_debug(ID, "previously released %s. not claiming", sid_ubridge_cmd_dev_get_name(cmd));
+				log_debug(ID, "previously released %s. not claiming", sid_ucmd_dev_get_name(cmd));
 				r = MPATH_IS_NOT_VALID;
 			}
 		}
@@ -181,30 +181,30 @@ static int _multipath_component_scan_pre(struct sid_module *module, struct sid_u
 		r = MPATH_IS_VALID;
 
 	if (r == MPATH_IS_VALID)
-		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
-		                       KV_MOD_PROTECTED);
+		sid_ucmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
+		                KV_MOD_PROTECTED);
 	else if (r != MPATH_IS_ERROR)
-		sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "0", 2,
-		                       KV_MOD_PROTECTED);
+		sid_ucmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "0", 2,
+		                KV_MOD_PROTECTED);
 
 	if (r != MPATH_IS_ERROR && snprintf(valid_str, sizeof(valid_str), "%d", r) < sizeof(valid_str) && valid_str[0])
-		sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, VALID_KEY, valid_str,
-		                       sizeof(valid_str),
-		                       KV_MOD_PROTECTED | KV_PERSISTENT);
+		sid_ucmd_set_kv(cmd, KV_NS_DEVICE, VALID_KEY, valid_str,
+		                sizeof(valid_str),
+		                KV_MOD_PROTECTED | KV_PERSISTENT);
 	if (wwid) {
-		sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, WWID_KEY,
-		                       wwid, strlen(wwid) + 1,
-		                       KV_MOD_PROTECTED | KV_PERSISTENT);
+		sid_ucmd_set_kv(cmd, KV_NS_DEVICE, WWID_KEY,
+		                wwid, strlen(wwid) + 1,
+		                KV_MOD_PROTECTED | KV_PERSISTENT);
 		free(wwid);
 	}
 	mpathvalid_exit();
 	return (r != MPATH_IS_ERROR)? 0 : -1;
 }
-SID_UBRIDGE_CMD_SCAN_PRE(_multipath_component_scan_pre)
+SID_UCMD_SCAN_PRE(_multipath_component_scan_pre)
 
-static int _multipath_component_error(struct sid_module *module, struct sid_ubridge_cmd_context *cmd)
+static int _multipath_component_error(struct sid_module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "error");
 	return 0;
 }
-SID_UBRIDGE_CMD_ERROR(_multipath_component_error)
+SID_UCMD_ERROR(_multipath_component_error)

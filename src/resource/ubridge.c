@@ -30,7 +30,7 @@
 #include "resource/kv-store.h"
 #include "resource/module-registry.h"
 #include "resource/resource.h"
-#include "resource/ubridge-cmd-module.h"
+#include "resource/ucmd-module.h"
 #include "resource/worker-control.h"
 
 #include <ctype.h>
@@ -60,19 +60,19 @@
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
 #define COMMAND_STATUS_FAILURE       UINT64_C(0x0000000000000001)
 
-#define UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY LIBDIR "/" PACKAGE "/modules/ubridge-cmd/block"
-#define UBRIDGE_CMD_TYPE_MODULE_DIRECTORY  LIBDIR "/" PACKAGE "/modules/ubridge-cmd/type"
+#define UCMD_BLOCK_MODULE_DIRECTORY LIBDIR "/" PACKAGE "/modules/ucmd/block"
+#define UCMD_TYPE_MODULE_DIRECTORY  LIBDIR "/" PACKAGE "/modules/ucmd/type"
 
-#define UBRIDGE_CMD_MODULE_FN_NAME_IDENT                  "sid_ubridge_cmd_ident"
-#define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_PRE               "sid_ubridge_cmd_scan_pre"
-#define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_CURRENT           "sid_ubridge_cmd_scan_current"
-#define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_NEXT              "sid_ubridge_cmd_scan_next"
-#define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_CURRENT      "sid_ubridge_cmd_scan_post_current"
-#define UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_NEXT         "sid_ubridge_cmd_scan_post_next"
+#define UCMD_MODULE_FN_NAME_IDENT                  "sid_ucmd_ident"
+#define UCMD_MODULE_FN_NAME_SCAN_PRE               "sid_ucmd_scan_pre"
+#define UCMD_MODULE_FN_NAME_SCAN_CURRENT           "sid_ucmd_scan_current"
+#define UCMD_MODULE_FN_NAME_SCAN_NEXT              "sid_ucmd_scan_next"
+#define UCMD_MODULE_FN_NAME_SCAN_POST_CURRENT      "sid_ucmd_scan_post_current"
+#define UCMD_MODULE_FN_NAME_SCAN_POST_NEXT         "sid_ucmd_scan_post_next"
 
-#define UBRIDGE_CMD_MODULE_FN_NAME_ERROR                  "sid_ubridge_cmd_error"
-#define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ubridge_cmd_trigger_action_current"
-#define UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ubridge_cmd_trigger_action_next"
+#define UCMD_MODULE_FN_NAME_ERROR                  "sid_ucmd_error"
+#define UCMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ucmd_trigger_action_current"
+#define UCMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ucmd_trigger_action_next"
 
 #define MAIN_KV_STORE_NAME     "main"
 #define MAIN_WORKER_CHANNEL_ID "main"
@@ -98,7 +98,7 @@
 #define KV_KEY_DEV_READY         KEY_SYS_C "RDY"
 #define KV_KEY_DEV_RESERVED      KEY_SYS_C "RES"
 #define KV_KEY_DEV_MOD           KEY_SYS_C "MOD"
-#define KV_KEY_DEV_NEXT_MOD      SID_UBRIDGE_CMD_KEY_DEVICE_NEXT_MOD
+#define KV_KEY_DEV_NEXT_MOD      SID_UCMD_KEY_DEVICE_NEXT_MOD
 
 #define KV_KEY_DOM_LAYER         "LYR"
 #define KV_KEY_DOM_USER          "USR"
@@ -128,7 +128,7 @@
 const sid_resource_type_t sid_resource_type_ubridge_connection;
 const sid_resource_type_t sid_resource_type_ubridge_command;
 
-struct sid_ubridge_cmd_mod_context {
+struct sid_ucmd_mod_ctx {
 	sid_resource_t *kv_store_res;
 	struct buffer *gen_buf;
 };
@@ -140,7 +140,7 @@ struct umonitor {
 
 struct ubridge {
 	int socket_fd;
-	struct sid_ubridge_cmd_mod_context cmd_mod;
+	struct sid_ucmd_mod_ctx cmd_mod;
 	struct umonitor umonitor;
 };
 
@@ -184,7 +184,7 @@ struct connection {
 	struct buffer *buf;
 };
 
-struct sid_ubridge_cmd_context {
+struct sid_ucmd_ctx {
 	union {
 		cmd_scan_phase_t scan_phase;
 	};
@@ -198,15 +198,15 @@ struct sid_ubridge_cmd_context {
 };
 
 struct cmd_mod_fns {
-	sid_ubridge_cmd_fn_t *ident;
-	sid_ubridge_cmd_fn_t *scan_pre;
-	sid_ubridge_cmd_fn_t *scan_current;
-	sid_ubridge_cmd_fn_t *scan_next;
-	sid_ubridge_cmd_fn_t *scan_post_current;
-	sid_ubridge_cmd_fn_t *scan_post_next;
-	sid_ubridge_cmd_fn_t *trigger_action_current;
-	sid_ubridge_cmd_fn_t *trigger_action_next;
-	sid_ubridge_cmd_fn_t *error;
+	sid_ucmd_fn_t *ident;
+	sid_ucmd_fn_t *scan_pre;
+	sid_ucmd_fn_t *scan_current;
+	sid_ucmd_fn_t *scan_next;
+	sid_ucmd_fn_t *scan_post_current;
+	sid_ucmd_fn_t *scan_post_next;
+	sid_ucmd_fn_t *trigger_action_current;
+	sid_ucmd_fn_t *trigger_action_next;
+	sid_ucmd_fn_t *error;
 } __attribute__((packed));
 
 struct cmd_exec_arg {
@@ -225,7 +225,7 @@ struct cmd_reg {
 
 struct kv_value {
 	uint64_t seqnum;
-	sid_ubridge_kv_flags_t flags;
+	sid_ucmd_kv_flags_t flags;
 	char data[]; /* contains both internal and external data */
 } __attribute__((packed));
 
@@ -243,7 +243,7 @@ enum {
 		iov[KV_VALUE_IDX_OWNER] = (struct iovec) {owner, strlen(owner) + 1};
 
 #define KV_VALUE_SEQNUM(iov) (*((uint64_t *) ((struct iovec *) iov)[KV_VALUE_IDX_SEQNUM].iov_base))
-#define KV_VALUE_FLAGS(iov) (*((sid_ubridge_kv_flags_t *) ((struct iovec *) iov)[KV_VALUE_IDX_FLAGS].iov_base))
+#define KV_VALUE_FLAGS(iov) (*((sid_ucmd_kv_flags_t *) ((struct iovec *) iov)[KV_VALUE_IDX_FLAGS].iov_base))
 #define KV_VALUE_OWNER(iov) ((char *) ((struct iovec *) iov)[KV_VALUE_IDX_OWNER].iov_base)
 #define KV_VALUE_DATA(iov) (((struct iovec *) iov)[KV_VALUE_IDX_DATA].iov_base)
 
@@ -290,7 +290,7 @@ typedef enum {
 
 struct kv_key_spec {
 	kv_op_t op;
-	sid_ubridge_cmd_kv_namespace_t ns;
+	sid_ucmd_kv_namespace_t ns;
 	const char *ns_part;
 	const char *dom;
 	const char *id;
@@ -305,7 +305,7 @@ struct kv_rel_spec {
 };
 
 struct kv_key_res_def {
-	sid_ubridge_cmd_kv_namespace_t ns;
+	sid_ucmd_kv_namespace_t ns;
 	const char *key;
 };
 
@@ -322,44 +322,44 @@ struct cross_bitmap_calc_arg {
 #define CMD_SCAN_CAP_RES UINT32_C(0x000000002) /* can set reserved state */
 
 static struct cmd_reg _cmd_scan_phase_regs[];
-static sid_ubridge_kv_flags_t kv_flags_no_persist = (DEFAULT_KV_FLAGS_CORE) & ~KV_PERSISTENT;
-static sid_ubridge_kv_flags_t kv_flags_persist = DEFAULT_KV_FLAGS_CORE;
+static sid_ucmd_kv_flags_t kv_flags_no_persist = (DEFAULT_KV_FLAGS_CORE) & ~KV_PERSISTENT;
+static sid_ucmd_kv_flags_t kv_flags_persist = DEFAULT_KV_FLAGS_CORE;
 static char *core_owner = OWNER_CORE;
 
 static int _kv_delta(const char *full_key, struct kv_store_update_spec *spec, void *arg);
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
 
-udev_action_t sid_ubridge_cmd_dev_get_action(struct sid_ubridge_cmd_context *cmd)
+udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *cmd)
 {
 	return cmd->udev_dev.action;
 }
 
-int sid_ubridge_cmd_cmd_dev_get_major(struct sid_ubridge_cmd_context *cmd)
+int sid_ucmd_cmd_dev_get_major(struct sid_ucmd_ctx *cmd)
 {
 	return cmd->udev_dev.major;
 }
 
-int sid_ubridge_cmd_cmd_dev_get_minor(struct sid_ubridge_cmd_context *cmd)
+int sid_ucmd_cmd_dev_get_minor(struct sid_ucmd_ctx *cmd)
 {
 	return cmd->udev_dev.minor;
 }
 
-const char *sid_ubridge_cmd_dev_get_name(struct sid_ubridge_cmd_context *cmd)
+const char *sid_ucmd_dev_get_name(struct sid_ucmd_ctx *cmd)
 {
 	return cmd->udev_dev.name;
 }
 
-udev_devtype_t sid_ubridge_cmd_dev_get_type(struct sid_ubridge_cmd_context *cmd)
+udev_devtype_t sid_ucmd_dev_get_type(struct sid_ucmd_ctx *cmd)
 {
 	return cmd->udev_dev.type;
 }
 
-uint64_t sid_ubridge_cmd_dev_get_seqnum(struct sid_ubridge_cmd_context *cmd)
+uint64_t sid_ucmd_dev_get_seqnum(struct sid_ucmd_ctx *cmd)
 {
 	return cmd->udev_dev.seqnum;
 }
 
-const char *sid_ubridge_cmd_dev_get_synth_uuid(struct sid_ubridge_cmd_context *cmd)
+const char *sid_ucmd_dev_get_synth_uuid(struct sid_ucmd_ctx *cmd)
 {
 	return cmd->udev_dev.synth_uuid;
 }
@@ -458,7 +458,7 @@ static kv_op_t _get_op_from_key(const char *key)
 	return KV_OP_ILLEGAL;
 }
 
-static sid_ubridge_cmd_kv_namespace_t _get_ns_from_key(const char *key)
+static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
 {
 	const char *str;
 	size_t len;
@@ -700,7 +700,7 @@ keep_old:
 	return 0;
 }
 
-static int _flags_indicate_mod_owned(sid_ubridge_kv_flags_t flags)
+static int _flags_indicate_mod_owned(sid_ucmd_kv_flags_t flags)
 {
 	return flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED);
 }
@@ -721,8 +721,8 @@ static size_t _kv_value_ext_data_offset(struct kv_value *kv_value)
 	return strlen(kv_value->data) + 1;
 }
 
-static int _passes_global_reservation_check(struct sid_ubridge_cmd_context *cmd, const char *owner,
-                                            sid_ubridge_cmd_kv_namespace_t ns, const char *key)
+static int _passes_global_reservation_check(struct sid_ucmd_ctx *cmd, const char *owner,
+                                            sid_ucmd_kv_namespace_t ns, const char *key)
 {
 	struct iovec tmp_iov[KV_VALUE_IDX_DATA + 1];
 	struct iovec *iov;
@@ -767,7 +767,7 @@ out:
 	return r;
 }
 
-static const char *_get_ns_part(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns)
+static const char *_get_ns_part(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns)
 {
 	switch (ns) {
 		case KV_NS_UDEV:
@@ -823,8 +823,8 @@ static void _destroy_unused_delta(struct kv_delta *delta)
 	}
 }
 
-static void *_do_sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns, const char *dom,
-                                        const char *key, sid_ubridge_kv_flags_t flags, const void *value, size_t value_size)
+static void *_do_sid_ucmd_set_kv(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns, const char *dom,
+                                 const char *key, sid_ucmd_kv_flags_t flags, const void *value, size_t value_size)
 {
 	const char *owner = _res_get_mod_name(cmd->mod_res);
 	const char *full_key = NULL;
@@ -894,8 +894,8 @@ out:
 	return ret;
 }
 
-void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-                             const char *key, const void *value, size_t value_size, sid_ubridge_kv_flags_t flags)
+void *sid_ucmd_set_kv(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
+                      const char *key, const void *value, size_t value_size, sid_ucmd_kv_flags_t flags)
 {
 	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
@@ -903,10 +903,10 @@ void *sid_ubridge_cmd_set_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cm
 	if (ns == KV_NS_UDEV)
 		flags |= KV_PERSISTENT;
 
-	return _do_sid_ubridge_cmd_set_kv(cmd, ns, KV_KEY_DOM_USER, key, flags, value, value_size);
+	return _do_sid_ucmd_set_kv(cmd, ns, KV_KEY_DOM_USER, key, flags, value, value_size);
 }
 
-static const void *_cmd_get_key_spec_value(struct sid_ubridge_cmd_context *cmd, struct kv_key_spec *key_spec, size_t *value_size, sid_ubridge_kv_flags_t *flags)
+static const void *_cmd_get_key_spec_value(struct sid_ucmd_ctx *cmd, struct kv_key_spec *key_spec, size_t *value_size, sid_ucmd_kv_flags_t *flags)
 {
 	const char *owner = _res_get_mod_name(cmd->mod_res);
 	const char *full_key = NULL;
@@ -942,7 +942,8 @@ out:
 	return ret;
 }
 
-static const void *_do_sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns, const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
+static const void *_do_sid_ucmd_get_kv(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
+                                       const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags)
 {
 	struct kv_key_spec key_spec = {
 		.op = KV_OP_SET,
@@ -956,13 +957,13 @@ static const void *_do_sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cm
 	return _cmd_get_key_spec_value(cmd, &key_spec, value_size, flags);
 }
 
-const void *sid_ubridge_cmd_get_kv(struct sid_ubridge_cmd_context *cmd, sid_ubridge_cmd_kv_namespace_t ns,
-                                   const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
+const void *sid_ucmd_get_kv(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
+                            const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags)
 {
 	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
 
-	return _do_sid_ubridge_cmd_get_kv(cmd, ns, key, value_size, flags);
+	return _do_sid_ucmd_get_kv(cmd, ns, key, value_size, flags);
 }
 
 static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, void *arg)
@@ -1009,15 +1010,15 @@ static int _kv_unreserve(const char *full_key, struct kv_store_update_spec *spec
 	return 1;
 }
 
-int _do_sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
-                                       sid_ubridge_cmd_kv_namespace_t ns, const char *key, int unset)
+int _do_sid_ucmd_mod_reserve_kv(struct sid_module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+                                sid_ucmd_kv_namespace_t ns, const char *key, int unset)
 {
 	const char *owner = _get_mod_name(mod);
 	const char *full_key = NULL;
 	struct iovec iov[KV_VALUE_IDX_DATA]; /* without KV_VALUE_IDX_DATA */
 	struct kv_value *kv_value;
 	static uint64_t null_int = 0;
-	sid_ubridge_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
+	sid_ucmd_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
 	int is_worker;
 	struct kv_key_spec key_spec = {
@@ -1076,25 +1077,25 @@ out:
 	return r;
 }
 
-int sid_ubridge_cmd_mod_reserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
-                                   sid_ubridge_cmd_kv_namespace_t ns, const char *key)
+int sid_ucmd_mod_reserve_kv(struct sid_module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+                            sid_ucmd_kv_namespace_t ns, const char *key)
 {
 	if (!mod || !cmd_mod || !key || !*key)
 		return -EINVAL;
 
-	return _do_sid_ubridge_cmd_mod_reserve_kv(mod, cmd_mod, ns, key, 0);
+	return _do_sid_ucmd_mod_reserve_kv(mod, cmd_mod, ns, key, 0);
 }
 
-int sid_ubridge_cmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ubridge_cmd_mod_context *cmd_mod,
-                                     sid_ubridge_cmd_kv_namespace_t ns, const char *key)
+int sid_ucmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+                              sid_ucmd_kv_namespace_t ns, const char *key)
 {
 	if (!mod || !cmd_mod || !key || !*key)
 		return -EINVAL;
 
-	return _do_sid_ubridge_cmd_mod_reserve_kv(mod, cmd_mod, ns, key, 1);
+	return _do_sid_ucmd_mod_reserve_kv(mod, cmd_mod, ns, key, 1);
 }
 
-int sid_ubridge_cmd_dev_set_ready(struct sid_ubridge_cmd_context *cmd, dev_ready_t ready)
+int sid_ucmd_dev_set_ready(struct sid_ucmd_ctx *cmd, dev_ready_t ready)
 {
 	sid_resource_t *orig_mod_res;
 
@@ -1107,13 +1108,13 @@ int sid_ubridge_cmd_dev_set_ready(struct sid_ubridge_cmd_context *cmd, dev_ready
 	orig_mod_res = cmd->mod_res;
 	cmd->mod_res = NULL;
 
-	_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_READY, DEFAULT_KV_FLAGS_CORE, &ready, sizeof(ready));
+	_do_sid_ucmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_READY, DEFAULT_KV_FLAGS_CORE, &ready, sizeof(ready));
 
 	cmd->mod_res = orig_mod_res;
 	return 0;
 }
 
-dev_ready_t sid_ubridge_cmd_dev_get_ready(struct sid_ubridge_cmd_context *cmd)
+dev_ready_t sid_ucmd_dev_get_ready(struct sid_ucmd_ctx *cmd)
 {
 	sid_resource_t *orig_mod_res;
 	const dev_ready_t *p_ready;
@@ -1122,7 +1123,7 @@ dev_ready_t sid_ubridge_cmd_dev_get_ready(struct sid_ubridge_cmd_context *cmd)
 	orig_mod_res = cmd->mod_res;
 	cmd->mod_res = NULL;
 
-	if (!(p_ready = _do_sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
+	if (!(p_ready = _do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
 		result = DEV_NOT_RDY_UNPROCESSED;
 	else
 		result = *p_ready;
@@ -1131,7 +1132,7 @@ dev_ready_t sid_ubridge_cmd_dev_get_ready(struct sid_ubridge_cmd_context *cmd)
 	return result;
 }
 
-int sid_ubridge_cmd_dev_set_reserved(struct sid_ubridge_cmd_context *cmd, dev_reserved_t reserved)
+int sid_ucmd_dev_set_reserved(struct sid_ucmd_ctx *cmd, dev_reserved_t reserved)
 {
 	sid_resource_t *orig_mod_res;
 
@@ -1141,13 +1142,13 @@ int sid_ubridge_cmd_dev_set_reserved(struct sid_ubridge_cmd_context *cmd, dev_re
 	orig_mod_res = cmd->mod_res;
 	cmd->mod_res = NULL;
 
-	_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_RESERVED, DEFAULT_KV_FLAGS_CORE, &reserved, sizeof(reserved));
+	_do_sid_ucmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_RESERVED, DEFAULT_KV_FLAGS_CORE, &reserved, sizeof(reserved));
 
 	cmd->mod_res = orig_mod_res;
 	return 0;
 }
 
-dev_reserved_t sid_ubridge_cmd_dev_get_reserved(struct sid_ubridge_cmd_context *cmd)
+dev_reserved_t sid_ucmd_dev_get_reserved(struct sid_ucmd_ctx *cmd)
 {
 	sid_resource_t *orig_mod_res;
 	const dev_reserved_t *p_reserved;
@@ -1156,7 +1157,7 @@ dev_reserved_t sid_ubridge_cmd_dev_get_reserved(struct sid_ubridge_cmd_context *
 	orig_mod_res = cmd->mod_res;
 	cmd->mod_res = NULL;
 
-	if (!(p_reserved = _do_sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
+	if (!(p_reserved = _do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
 		result = DEV_RES_UNPROCESSED;
 	else
 		result = *p_reserved;
@@ -1173,10 +1174,10 @@ static int _kv_write_new_only(const char *full_key, struct kv_store_update_spec 
 	return 1;
 }
 
-int sid_ubridge_cmd_group_create(struct sid_ubridge_cmd_context *cmd,
-                                 sid_ubridge_cmd_kv_namespace_t group_ns,
-                                 const char *group_id,
-                                 sid_ubridge_kv_flags_t group_flags)
+int sid_ucmd_group_create(struct sid_ucmd_ctx *cmd,
+                          sid_ucmd_kv_namespace_t group_ns,
+                          const char *group_id,
+                          sid_ucmd_kv_flags_t group_flags)
 {
 	const char *full_key = NULL;
 	struct iovec iov[KV_VALUE_IDX_DATA];
@@ -1221,8 +1222,8 @@ out:
 	return r;
 }
 
-int _handle_current_dev_for_group(struct sid_ubridge_cmd_context *cmd,
-                                  sid_ubridge_cmd_kv_namespace_t group_ns,
+int _handle_current_dev_for_group(struct sid_ucmd_ctx *cmd,
+                                  sid_ucmd_kv_namespace_t group_ns,
                                   const char *group_id, kv_op_t op)
 {
 	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
@@ -1299,26 +1300,26 @@ out:
 	return r;
 }
 
-int sid_ubridge_cmd_group_add_current_dev(struct sid_ubridge_cmd_context *cmd,
-                                          sid_ubridge_cmd_kv_namespace_t group_ns,
-                                          const char *group_id)
+int sid_ucmd_group_add_current_dev(struct sid_ucmd_ctx *cmd,
+                                   sid_ucmd_kv_namespace_t group_ns,
+                                   const char *group_id)
 {
 	return _handle_current_dev_for_group(cmd, group_ns, group_id, KV_OP_PLUS);
 }
 
-int sid_ubridge_cmd_group_remove_current_dev(struct sid_ubridge_cmd_context *cmd,
-                                             sid_ubridge_cmd_kv_namespace_t group_ns,
-                                             const char *group_id)
+int sid_ucmd_group_remove_current_dev(struct sid_ucmd_ctx *cmd,
+                                      sid_ucmd_kv_namespace_t group_ns,
+                                      const char *group_id)
 {
 	return _handle_current_dev_for_group(cmd, group_ns, group_id, KV_OP_MINUS);
 }
 
-int sid_ubridge_cmd_group_destroy(struct sid_ubridge_cmd_context *cmd,
-                                  sid_ubridge_cmd_kv_namespace_t group_ns,
-                                  const char *group_id,
-                                  int force)
+int sid_ucmd_group_destroy(struct sid_ucmd_ctx *cmd,
+                           sid_ucmd_kv_namespace_t group_ns,
+                           const char *group_id,
+                           int force)
 {
-	static sid_ubridge_kv_flags_t kv_flags_persist_no_reserved = (DEFAULT_KV_FLAGS_CORE) & ~KV_MOD_RESERVED;
+	static sid_ucmd_kv_flags_t kv_flags_persist_no_reserved = (DEFAULT_KV_FLAGS_CORE) & ~KV_MOD_RESERVED;
 	const char *cur_full_key = NULL;
 	size_t size;
 	struct iovec *iov;
@@ -1401,7 +1402,7 @@ out:
 	return r;
 }
 
-static int _device_add_field(struct sid_ubridge_cmd_context *cmd, const char *start)
+static int _device_add_field(struct sid_ucmd_ctx *cmd, const char *start)
 {
 	const char *key;
 	const char *value;
@@ -1413,7 +1414,7 @@ static int _device_add_field(struct sid_ubridge_cmd_context *cmd, const char *st
 	if (!(key = buffer_fmt_add(cmd->gen_buf, &r, "%.*s", value - start - 1, start)))
 		return r;;
 
-	if (!(value = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, NULL, key, 0, value, strlen(value) + 1)))
+	if (!(value = _do_sid_ucmd_set_kv(cmd, KV_NS_UDEV, NULL, key, 0, value, strlen(value) + 1)))
 		goto out;
 
 	/* Common key=value pairs are also directly in the cmd->udev_dev structure. */
@@ -1436,7 +1437,7 @@ out:
 	return r;
 };
 
-static int _parse_cmd_nullstr_udev_env(struct sid_ubridge_cmd_context *cmd, const char *env, size_t env_size)
+static int _parse_cmd_nullstr_udev_env(struct sid_ucmd_ctx *cmd, const char *env, size_t env_size)
 {
 	dev_t devno;
 	const char *end;
@@ -1496,7 +1497,7 @@ static void _canonicalize_kv_key(char *id)
  */
 static const char *_lookup_module_name(sid_resource_t *cmd_res)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
 	char buf[PATH_MAX];
 	const char *mod_name = NULL;
 	FILE *f = NULL;
@@ -1506,7 +1507,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	int major;
 	size_t len;
 
-	if ((mod_name = _do_sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL)))
+	if ((mod_name = _do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL)))
 		goto out;
 
 	if (!(f = fopen(SYSTEM_PROC_DEVICES_PATH, "r"))) {
@@ -1576,7 +1577,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	buf[len + SID_MODULE_NAME_SUFFIX_LEN] = '\0';
 	_canonicalize_module_name(buf);
 
-	if (!(mod_name = _do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_MOD, DEFAULT_KV_FLAGS_CORE, buf, strlen(buf) + 1)))
+	if (!(mod_name = _do_sid_ucmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_MOD, DEFAULT_KV_FLAGS_CORE, buf, strlen(buf) + 1)))
 		log_error_errno(ID(cmd_res), errno, "Failed to store device " CMD_DEV_ID_FMT " module name.", CMD_DEV_ID(cmd));
 out:
 	if (f)
@@ -1596,7 +1597,7 @@ static int _cmd_exec_reply(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	static struct usid_version version = {
 		.major = SID_VERSION_MAJOR,
 		.minor = SID_VERSION_MINOR,
@@ -1610,7 +1611,7 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 
 static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_t phase)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *orig_mod_res = cmd->mod_res;
 	sid_resource_t *block_mod_res;
 	struct sid_module *block_mod;
@@ -1680,7 +1681,7 @@ out:
 
 static int _cmd_exec_ident(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
@@ -1696,7 +1697,7 @@ static int _cmd_exec_ident(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
@@ -1710,7 +1711,7 @@ static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
@@ -1725,13 +1726,13 @@ static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 	const char *next_mod_name;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
 
-	if ((next_mod_name = _do_sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_NEXT_MOD, NULL, NULL))) {
+	if ((next_mod_name = _do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_NEXT_MOD, NULL, NULL))) {
 		if (!(exec_arg->type_mod_res_next = sid_module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name))) {
 			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
 			return -1;
@@ -1750,7 +1751,7 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	cmd->mod_res = exec_arg->type_mod_res_current;
@@ -1766,7 +1767,7 @@ static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	cmd->mod_res = exec_arg->type_mod_res_next;
@@ -1782,7 +1783,7 @@ static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_trigger_action_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 
 	cmd->mod_res = exec_arg->type_mod_res_current;
 	return 0;
@@ -1790,7 +1791,7 @@ static int _cmd_exec_trigger_action_current(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 
 	cmd->mod_res = exec_arg->type_mod_res_next;
 	return 0;
@@ -1798,7 +1799,7 @@ static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 	int r = 0;
 
@@ -1847,8 +1848,7 @@ out:
 	return r;
 }
 
-int _part_get_whole_disk(struct sid_ubridge_cmd_context *cmd,
-                         sid_resource_t *res, char *devno, size_t size)
+int _part_get_whole_disk(struct sid_ucmd_ctx *cmd, sid_resource_t *res, char *devno, size_t size)
 {
 	const char *s;
 	int r;
@@ -1870,7 +1870,7 @@ int _part_get_whole_disk(struct sid_ubridge_cmd_context *cmd,
 	return 0;
 }
 
-const void *sid_ubridge_cmd_part_get_disk_kv(struct sid_ubridge_cmd_context *cmd, const char *key, size_t *value_size, sid_ubridge_kv_flags_t *flags)
+const void *sid_ucmd_part_get_disk_kv(struct sid_ucmd_ctx *cmd, const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags)
 {
 	char devno_buf[16];
 	struct kv_key_spec key_spec = {
@@ -2603,7 +2603,7 @@ out:
 static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
 	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
 	const char *s;
 	struct dirent **dirent = NULL;
@@ -2767,7 +2767,7 @@ out:
 
 static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
 	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
 	struct iovec iov_to_store[KV_VALUE_IDX_DATA + 1];
 	char devno_buf[16];
@@ -2858,7 +2858,7 @@ out:
 
 static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
 
 	switch (cmd->udev_dev.type) {
 		case UDEV_DEVTYPE_DISK:
@@ -2878,17 +2878,17 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 static int _set_device_kv_records(sid_resource_t *cmd_res)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
 	dev_ready_t ready;
 	const dev_ready_t *p_ready;
 	dev_reserved_t reserved;
 
-	if (!(p_ready = _do_sid_ubridge_cmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL))) {
+	if (!(p_ready = _do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL))) {
 		ready = DEV_NOT_RDY_UNPROCESSED;
 		reserved = DEV_RES_UNPROCESSED;
 
-		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_READY, DEFAULT_KV_FLAGS_CORE, &ready, sizeof(ready));
-		_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_RESERVED, DEFAULT_KV_FLAGS_CORE, &reserved, sizeof(reserved));
+		_do_sid_ucmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_READY, DEFAULT_KV_FLAGS_CORE, &ready, sizeof(ready));
+		_do_sid_ucmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_RESERVED, DEFAULT_KV_FLAGS_CORE, &reserved, sizeof(reserved));
 	}
 
 	_refresh_device_hierarchy_from_sysfs(cmd_res);
@@ -2972,7 +2972,7 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 
 static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *block_mod_registry_res;
 	const char *mod_name;
 	cmd_scan_phase_t phase;
@@ -3045,7 +3045,7 @@ static struct cmd_reg _cmd_regs[] = {
 
 static int _export_kv_store(sid_resource_t *cmd_res)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
 	struct kv_value *kv_value;
 	kv_store_iter_t *iter;
 	const char *key;
@@ -3223,7 +3223,7 @@ out:
 static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
 	sid_resource_t *cmd_res = data;
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(cmd_res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
 	struct connection *conn = sid_resource_get_data(sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct usid_msg_header response_header = {0};
 	struct cmd_exec_arg exec_arg = {0};
@@ -3373,7 +3373,7 @@ static int _destroy_connection(sid_resource_t *res)
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct usid_msg *msg = kickstart_data;
-	struct sid_ubridge_cmd_context *cmd = NULL;
+	struct sid_ucmd_ctx *cmd = NULL;
 	const char *worker_id;
 	int r;
 
@@ -3413,7 +3413,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!_do_sid_ubridge_cmd_set_kv(cmd, KV_NS_UDEV, NULL, KV_KEY_UDEV_SID_SESSION_ID, KV_PERSISTENT, worker_id, strlen(worker_id) + 1)) {
+	if (!_do_sid_ucmd_set_kv(cmd, KV_NS_UDEV, NULL, KV_KEY_UDEV_SID_SESSION_ID, KV_PERSISTENT, worker_id, strlen(worker_id) + 1)) {
 		log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
 		goto fail;
 	}
@@ -3441,7 +3441,7 @@ fail:
 
 static int _destroy_command(sid_resource_t *res)
 {
-	struct sid_ubridge_cmd_context *cmd = sid_resource_get_data(res);
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(res);
 
 	buffer_destroy(cmd->gen_buf);
 	buffer_destroy(cmd->res_buf);
@@ -3909,39 +3909,39 @@ fail:
 
 static struct sid_module_symbol_params block_symbol_params[] = {
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
+		UCMD_MODULE_FN_NAME_IDENT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_SCAN_PRE,
+		UCMD_MODULE_FN_NAME_SCAN_PRE,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_SCAN_CURRENT,
+		UCMD_MODULE_FN_NAME_SCAN_CURRENT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_SCAN_NEXT,
+		UCMD_MODULE_FN_NAME_SCAN_NEXT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_CURRENT,
+		UCMD_MODULE_FN_NAME_SCAN_POST_CURRENT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_NEXT,
+		UCMD_MODULE_FN_NAME_SCAN_POST_NEXT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT,
+		UCMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT,
+		UCMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_ERROR,
+		UCMD_MODULE_FN_NAME_ERROR,
 		SID_MODULE_SYMBOL_FAIL_ON_MISSING |
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
@@ -3950,40 +3950,40 @@ static struct sid_module_symbol_params block_symbol_params[] = {
 
 static struct sid_module_symbol_params type_symbol_params[] = {
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_IDENT,
+		UCMD_MODULE_FN_NAME_IDENT,
 		SID_MODULE_SYMBOL_FAIL_ON_MISSING |
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_SCAN_PRE,
+		UCMD_MODULE_FN_NAME_SCAN_PRE,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_SCAN_CURRENT,
+		UCMD_MODULE_FN_NAME_SCAN_CURRENT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_SCAN_NEXT,
+		UCMD_MODULE_FN_NAME_SCAN_NEXT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_CURRENT,
+		UCMD_MODULE_FN_NAME_SCAN_POST_CURRENT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_SCAN_POST_NEXT,
+		UCMD_MODULE_FN_NAME_SCAN_POST_NEXT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT,
+		UCMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT,
+		UCMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT,
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
 	{
-		UBRIDGE_CMD_MODULE_FN_NAME_ERROR,
+		UCMD_MODULE_FN_NAME_ERROR,
 		SID_MODULE_SYMBOL_FAIL_ON_MISSING |
 		SID_MODULE_SYMBOL_INDIRECT,
 	},
@@ -4083,7 +4083,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	ubridge->cmd_mod = (struct sid_ubridge_cmd_mod_context) {
+	ubridge->cmd_mod = (struct sid_ucmd_mod_ctx) {
 		.kv_store_res = kv_store_res,
 		.gen_buf = buf,
 	};
@@ -4099,14 +4099,14 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	struct sid_module_registry_resource_params block_res_mod_params = {
-		.directory     = UBRIDGE_CMD_BLOCK_MODULE_DIRECTORY,
+		.directory     = UCMD_BLOCK_MODULE_DIRECTORY,
 		.flags         = SID_MODULE_REGISTRY_PRELOAD,
 		.symbol_params = block_symbol_params,
 		.cb_arg        = &ubridge->cmd_mod,
 	};
 
 	struct sid_module_registry_resource_params type_res_mod_params = {
-		.directory     = UBRIDGE_CMD_TYPE_MODULE_DIRECTORY,
+		.directory     = UCMD_TYPE_MODULE_DIRECTORY,
 		.flags         = SID_MODULE_REGISTRY_PRELOAD,
 		.symbol_params = type_symbol_params,
 		.cb_arg        = &ubridge->cmd_mod,

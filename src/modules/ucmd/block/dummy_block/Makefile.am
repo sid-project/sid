@@ -17,7 +17,7 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-dummy_blockdir = $(pkglibdir)/modules/ubridge-cmd/block
+dummy_blockdir = $(pkglibdir)/modules/ucmd/block
 
 dummy_block_LTLIBRARIES = dummy_block.la
 

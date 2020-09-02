@@ -17,7 +17,12 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = type block
+dummy_typedir = $(pkglibdir)/modules/ucmd/type
 
-uninstall-hook:
-	test -d ${pkglibdir}/modules/ubridge-cmd && rmdir ${pkglibdir}/modules/ubridge-cmd
+dummy_type_LTLIBRARIES = dummy_type.la
+
+dummy_type_la_SOURCES = dummy_type.c
+
+dummy_type_la_LDFLAGS = -module -avoid-version
+
+dummy_type_la_LIBADD = $(top_builddir)/src/log/libsidlog.la

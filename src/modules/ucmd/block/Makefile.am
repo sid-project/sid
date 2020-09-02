@@ -19,9 +19,9 @@
 
 SUBDIRS = dummy_block blkid
 
-if BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT
+if BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT
 SUBDIRS += multipath_component
 endif
 
 uninstall-hook:
-	test -d ${pkglibdir}/modules/ubridge-cmd/block && rmdir ${pkglibdir}/modules/ubridge-cmd/block
+	test -d ${pkglibdir}/modules/ucmd/block && rmdir ${pkglibdir}/modules/ucmd/block

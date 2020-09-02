@@ -34,7 +34,7 @@ resource_HEADERS = $(top_builddir)/src/include/resource/resource.h \
 		   $(top_builddir)/src/include/resource/module.h \
 		   $(top_builddir)/src/include/resource/module-registry.h \
 		   $(top_builddir)/src/include/resource/kv-store.h \
-		   $(top_builddir)/src/include/resource/ubridge-cmd-module.h \
+		   $(top_builddir)/src/include/resource/ucmd-module.h \
 		   $(top_builddir)/src/include/resource/worker-control.h
 
 libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \

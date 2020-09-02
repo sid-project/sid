@@ -17,7 +17,7 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-multipath_componentdir = $(pkglibdir)/modules/ubridge-cmd/block
+multipath_componentdir = $(pkglibdir)/modules/ucmd/block
 
 multipath_component_LTLIBRARIES = multipath_component.la
 

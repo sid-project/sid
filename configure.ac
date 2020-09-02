@@ -1,7 +1,7 @@
 ##############################################################################
 # This file is part of SID.
 #
-# Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
+# Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
 #
 # SID is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -52,13 +52,13 @@ AC_CONFIG_FILES([Makefile
 		 src/resource/Makefile
 		 src/daemon/Makefile
 		 src/modules/Makefile
-		 src/modules/ubridge-cmd/Makefile
-		 src/modules/ubridge-cmd/type/Makefile
-		 src/modules/ubridge-cmd/block/Makefile
-		 src/modules/ubridge-cmd/type/dummy_type/Makefile
-		 src/modules/ubridge-cmd/block/dummy_block/Makefile
-		 src/modules/ubridge-cmd/block/blkid/Makefile
-		 src/modules/ubridge-cmd/block/multipath_component/Makefile
+		 src/modules/ucmd/Makefile
+		 src/modules/ucmd/type/Makefile
+		 src/modules/ucmd/block/Makefile
+		 src/modules/ucmd/type/dummy_type/Makefile
+		 src/modules/ucmd/block/dummy_block/Makefile
+		 src/modules/ucmd/block/blkid/Makefile
+		 src/modules/ucmd/block/multipath_component/Makefile
 		 src/tools/Makefile
 		 src/tools/usid/Makefile
 		 udev/Makefile
@@ -129,14 +129,14 @@ AC_MSG_RESULT([$udevrulesdir])
 AC_MSG_CHECKING(whether to build multipath_component module)
 AC_ARG_ENABLE(mod-multipath_component,
 	      AS_HELP_STRING([--enable-mod-multipath_component], [enable multipath component module]),
-	      BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT=$enableval,
-	      BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT=yes)
-AC_MSG_RESULT($BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT)
-if test x$BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT = xyes; then
+	      BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT=$enableval,
+	      BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT=yes)
+AC_MSG_RESULT($BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT)
+if test x$BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT = xyes; then
 	AC_CHECK_HEADER([mpath_valid.h], , [AC_MSG_ERROR(--enable-mod-multipath_component requires mpath_valid.h)])
-	AC_DEFINE([MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT], 1, [Define to 1 to enable multipath component module.])
+	AC_DEFINE([MOD_UCMD_BLOCK_MULTIPATH_COMPONENT], 1, [Define to 1 to enable multipath component module.])
 fi
-AM_CONDITIONAL([BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT], [test x$BUILD_MOD_UBRIDGE_CMD_BLOCK_MULTIPATH_COMPONENT = xyes])
+AM_CONDITIONAL([BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT], [test x$BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT = xyes])
 
 AC_SUBST([sysconfigdir])
 AC_SUBST([systemdsystemunitdir])

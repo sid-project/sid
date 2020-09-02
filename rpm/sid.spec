@@ -62,8 +62,8 @@ of devices and their layers in the stack.
 %install
 make DESTDIR=%{buildroot} install
 rm -f $RPM_BUILD_ROOT%{_libdir}/sid/*.{a,la}
-rm -f $RPM_BUILD_ROOT%{_libdir}/sid/modules/ubridge-cmd/block/*.{a,la}
-rm -f $RPM_BUILD_ROOT%{_libdir}/sid/modules/ubridge-cmd/type/*.{a,la}
+rm -f $RPM_BUILD_ROOT%{_libdir}/sid/modules/ucmd/block/*.{a,la}
+rm -f $RPM_BUILD_ROOT%{_libdir}/sid/modules/ucmd/type/*.{a,la}
 
 %files
 %{_sbindir}/sid
@@ -233,7 +233,7 @@ resource libraries.
 %{_includedir}/sid/resource/module.h
 %{_includedir}/sid/resource/resource-type-regs.h
 %{_includedir}/sid/resource/resource.h
-%{_includedir}/sid/resource/ubridge-cmd-module.h
+%{_includedir}/sid/resource/ucmd-module.h
 %{_includedir}/sid/resource/worker-control.h
 
 
@@ -265,8 +265,8 @@ Daemon (SID). Their only purpose is to test SID module functionality and hook
 execution.
 
 %files mod-dummies
-%{_libdir}/sid/modules/ubridge-cmd/block/dummy_block.so
-%{_libdir}/sid/modules/ubridge-cmd/type/dummy_type.so
+%{_libdir}/sid/modules/ucmd/block/dummy_block.so
+%{_libdir}/sid/modules/ucmd/type/dummy_type.so
 
 
 ##############################################################################
@@ -281,7 +281,7 @@ Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
 This package contains blkid block module for Storage Instantiation Daemon (SID).
 
 %files mod-block-blkid
-%{_libdir}/sid/modules/ubridge-cmd/block/blkid.so
+%{_libdir}/sid/modules/ucmd/block/blkid.so
 
 
 ##############################################################################
@@ -300,7 +300,7 @@ This package contains device-mapper-multipath block module for Storage
 Instantiation Daemon (SID).
 
 %files mod-block-multipath-component
-%{_libdir}/sid/modules/ubridge-cmd/type/multipath_component.so
+%{_libdir}/sid/modules/ucmd/type/multipath_component.so
 
 %endif
 

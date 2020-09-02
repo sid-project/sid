@@ -20,4 +20,4 @@
 SUBDIRS = dummy_type
 
 uninstall-hook:
-	test -d ${pkglibdir}/modules/ubridge-cmd/type && rmdir ${pkglibdir}/modules/ubridge-cmd/type
+	test -d ${pkglibdir}/modules/ucmd/type && rmdir ${pkglibdir}/modules/ucmd/type
