@@ -34,8 +34,8 @@ extern "C" {
 struct sid_ucmd_mod_ctx;
 struct sid_ucmd_ctx;
 
-typedef int sid_ucmd_fn_t(struct sid_module *module, struct sid_ucmd_ctx *cmd);
-typedef int sid_ucmd_mod_fn_t(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_mod);
+typedef int sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *cmd);
+typedef int sid_ucmd_mod_fn_t(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod);
 
 /*
  * Macros to register module's management functions.
@@ -44,18 +44,18 @@ typedef int sid_ucmd_mod_fn_t(struct sid_module *module, struct sid_ucmd_mod_ctx
 
 #ifdef __GNUC__
 
-#define _SID_UCMD_MOD_FN_TO_SID_MODULE_FN_SAFE_CAST(fn) \
-	(__builtin_choose_expr(__builtin_types_compatible_p(typeof(fn), sid_ucmd_mod_fn_t), (sid_module_fn_t *) fn, (void) 0))
+#define _SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn) \
+	(__builtin_choose_expr(__builtin_types_compatible_p(typeof(fn), sid_ucmd_mod_fn_t), (module_fn_t *) fn, (void) 0))
 
-#define SID_UCMD_MOD_INIT(fn)               SID_MODULE_INIT(_SID_UCMD_MOD_FN_TO_SID_MODULE_FN_SAFE_CAST(fn))
-#define SID_UCMD_MOD_RELOAD(fn)             SID_MODULE_RELOAD(_SID_UCMD_MOD_FN_TO_SID_MODULE_FN_SAFE_CAST(fn))
-#define SID_UCMD_MOD_EXIT(fn)               SID_MODULE_EXIT(_SID_UCMD_MOD_FN_TO_SID_MODULE_FN_SAFE_CAST(fn))
+#define SID_UCMD_MOD_INIT(fn)               MODULE_INIT(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
+#define SID_UCMD_MOD_RELOAD(fn)             MODULE_RELOAD(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
+#define SID_UCMD_MOD_EXIT(fn)               MODULE_EXIT(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
 
 #else /* __GNUC__ */
 
-#define SID_UCMD_MOD_INIT(fn)               SID_UCMD_MOD_FN(mod_init, fn)   SID_MODULE_INIT((sid_module_fn_t *) fn)
-#define SID_UCMD_MOD_RELOAD(fn)             SID_UCMD_MOD_FN(mod_reload, fn) SID_MODULE_RELOAD((sid_module_fn_t *) fn)
-#define SID_UCMD_MOD_EXIT(fn)               SID_UCMD_MOD_FN(mod_exit, fn)   SID_MODULE_EXIT((sid_module_fn_t *) fn)
+#define SID_UCMD_MOD_INIT(fn)               SID_UCMD_MOD_FN(mod_init, fn)   MODULE_INIT((module_fn_t *) fn)
+#define SID_UCMD_MOD_RELOAD(fn)             SID_UCMD_MOD_FN(mod_reload, fn) MODULE_RELOAD((module_fn_t *) fn)
+#define SID_UCMD_MOD_EXIT(fn)               SID_UCMD_MOD_FN(mod_exit, fn)   MODULE_EXIT((module_fn_t *) fn)
 
 #endif /* __GNUC__ */
 
@@ -120,9 +120,9 @@ const void *sid_ucmd_get_kv(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns
 			    const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags);
 const void *sid_ucmd_part_get_disk_kv(struct sid_ucmd_ctx *cmd, const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags);
 
-int sid_ucmd_mod_reserve_kv(struct sid_module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
 			    sid_ucmd_kv_namespace_t ns, const char *key);
-int sid_ucmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
 			      sid_ucmd_kv_namespace_t ns, const char *key);
 
 typedef enum {

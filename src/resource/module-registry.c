@@ -39,14 +39,15 @@ struct module_registry {
 	uint64_t flags;
 	void *cb_arg;
 	unsigned symbol_count;
-	struct sid_module_symbol_params *symbol_params;
+	struct module_symbol_params *symbol_params;
 	sid_resource_iter_t *module_iter;
 };
 
-struct sid_module {
-	sid_module_fn_t *init_fn;
-	sid_module_fn_t *exit_fn;
-	sid_module_fn_t *reload_fn;
+struct module
+{
+	module_fn_t *init_fn;
+	module_fn_t *exit_fn;
+	module_fn_t *reload_fn;
 	char *name;
 	void *handle;
 	void **symbols;
@@ -61,7 +62,7 @@ static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const c
 	sid_resource_iter_reset(registry->module_iter);
 	while ((res = sid_resource_iter_next(registry->module_iter))) {
 		if (sid_resource_match(res, &sid_resource_type_module, NULL)) {
-			if (!strcmp(((struct sid_module *) sid_resource_get_data(res))->name, module_name)) {
+			if (!strcmp(((struct module *) sid_resource_get_data(res))->name, module_name)) {
 				found = res;
 				break;
 			}
@@ -71,7 +72,7 @@ static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const c
 	return found;
 }
 
-sid_resource_t *sid_module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name)
+sid_resource_t *module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
 	sid_resource_t *module_res;
@@ -94,19 +95,19 @@ sid_resource_t *sid_module_registry_load_module(sid_resource_t *module_registry_
 	return module_res;
 }
 
-sid_resource_t *sid_module_registry_get_module(sid_resource_t *module_registry_res, const char *module_name)
+sid_resource_t *module_registry_get_module(sid_resource_t *module_registry_res, const char *module_name)
 {
 	return _find_module(module_registry_res, module_name);
 }
 
-int sid_module_registry_unload_module(sid_resource_t *module_res)
+int module_registry_unload_module(sid_resource_t *module_res)
 {
 	return sid_resource_destroy(module_res);
 }
 
-int sid_module_registry_get_module_symbols(sid_resource_t *module_res, const void ***ret)
+int module_registry_get_module_symbols(sid_resource_t *module_res, const void ***ret)
 {
-	struct sid_module *module;
+	struct module *module;
 
 	if (!module_res) {
 		*ret = NULL;
@@ -121,11 +122,11 @@ int sid_module_registry_get_module_symbols(sid_resource_t *module_res, const voi
 
 static const char module_reload_failed_msg[]= "Module-specific reload failed.";
 
-int sid_module_registry_reload_modules(sid_resource_t *module_registry_res)
+int module_registry_reload_modules(sid_resource_t *module_registry_res)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
 	sid_resource_t *res;
-	struct sid_module *module;
+	struct module *module;
 
 	sid_resource_iter_reset(registry->module_iter);
 
@@ -138,10 +139,10 @@ int sid_module_registry_reload_modules(sid_resource_t *module_registry_res)
 	return 0;
 }
 
-int sid_module_registry_reload_module(sid_resource_t *module_res)
+int module_registry_reload_module(sid_resource_t *module_res)
 {
 	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
-	struct sid_module *module = sid_resource_get_data(module_res);
+	struct module *module = sid_resource_get_data(module_res);
 
 	if (module->reload_fn && module->reload_fn(module, registry->cb_arg) < 0) {
 		log_error(ID(module_res), module_reload_failed_msg);
@@ -151,17 +152,17 @@ int sid_module_registry_reload_module(sid_resource_t *module_res)
 	return 0;
 }
 
-const char *sid_module_get_name(struct sid_module *module)
+const char *module_get_name(struct module *module)
 {
 	return module->name;
 }
 
-void sid_module_set_data(struct sid_module *module, void *data)
+void module_set_data(struct module *module, void *data)
 {
 	module->data = data;
 }
 
-void *sid_module_get_data(struct sid_module *module)
+void *module_get_data(struct module *module)
 {
 	return module->data;
 }
@@ -196,7 +197,7 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 	}
 
 	for (i = 0; i < count; i++) {
-		if (dirent[i]->d_name[0] != '.' && _has_suffix(dirent[i]->d_name, SID_MODULE_NAME_SUFFIX, 1)) {
+		if (dirent[i]->d_name[0] != '.' && _has_suffix(dirent[i]->d_name, MODULE_NAME_SUFFIX, 1)) {
 			if (!(module_res = sid_resource_create(module_registry_res,
 			                                       &sid_resource_type_module,
 			                                       SID_RESOURCE_DISALLOW_ISOLATION,
@@ -214,35 +215,35 @@ out:
 
 typedef void (*generic_t) (void);
 
-static int _load_module_symbol(sid_resource_t *module_res, void *dl_handle, const struct sid_module_symbol_params *params, void **symbol_store)
+static int _load_module_symbol(sid_resource_t *module_res, void *dl_handle, const struct module_symbol_params *params, void **symbol_store)
 {
 	void *symbol;
 
 	if (!(symbol = dlsym(dl_handle, params->name))) {
-		if (params->flags & SID_MODULE_SYMBOL_FAIL_ON_MISSING) {
+		if (params->flags & MODULE_SYMBOL_FAIL_ON_MISSING) {
 			log_error(ID(module_res), "Failed to load symbol %s: %s.", params->name, dlerror());
 			return -1;
-		} else if (params->flags & SID_MODULE_SYMBOL_WARN_ON_MISSING)
+		} else if (params->flags & MODULE_SYMBOL_WARN_ON_MISSING)
 			log_warning(ID(module_res), "Symbol %s not loaded.", params->name);
 	}
 
-	if (params->flags & SID_MODULE_SYMBOL_INDIRECT)
+	if (params->flags & MODULE_SYMBOL_INDIRECT)
 		symbol = symbol ? *((generic_t **) symbol) : NULL;
 
 	*symbol_store = symbol;
 	return 0;
 }
 
-#define SID_MODULE_INIT_NAME   "sid_module_init"
-#define SID_MODULE_EXIT_NAME   "sid_module_exit"
-#define SID_MODULE_RELOAD_NAME "sid_module_reload"
+#define MODULE_INIT_NAME   "module_init"
+#define MODULE_EXIT_NAME   "module_exit"
+#define MODULE_RELOAD_NAME "module_reload"
 
 static int _init_module(sid_resource_t *module_res, const void *kickstart_data, void **data)
 {
 	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
-	struct sid_module_symbol_params symbol_params = {0};
+	struct module_symbol_params symbol_params = {0};
 	const char *module_name = kickstart_data;
-	struct sid_module *module = NULL;
+	struct module *module = NULL;
 	char path[PATH_MAX];
 	unsigned i;
 
@@ -263,17 +264,17 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 		goto fail;
 	}
 
-	symbol_params.flags = SID_MODULE_SYMBOL_INDIRECT;
-	symbol_params.name = SID_MODULE_RELOAD_NAME;
+	symbol_params.flags = MODULE_SYMBOL_INDIRECT;
+	symbol_params.name = MODULE_RELOAD_NAME;
 	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &module->reload_fn) < 0)
 		goto fail;
 
-	symbol_params.flags |= SID_MODULE_SYMBOL_FAIL_ON_MISSING;
-	symbol_params.name = SID_MODULE_INIT_NAME;
+	symbol_params.flags |= MODULE_SYMBOL_FAIL_ON_MISSING;
+	symbol_params.name = MODULE_INIT_NAME;
 	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &module->init_fn) < 0)
 		goto fail;
 
-	symbol_params.name = SID_MODULE_EXIT_NAME;
+	symbol_params.name = MODULE_EXIT_NAME;
 	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &module->exit_fn) < 0)
 		goto fail;
 
@@ -303,7 +304,7 @@ fail:
 static int _destroy_module(sid_resource_t *module_res)
 {
 	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
-	struct sid_module *module = sid_resource_get_data(module_res);
+	struct module *module = sid_resource_get_data(module_res);
 
 	if (module->exit_fn(module, registry->cb_arg) < 0)
 		log_error(ID(module_res), "Module-specific finalization failed.");
@@ -338,7 +339,7 @@ static void _free_module_registry(struct module_registry *registry)
 
 static int _init_module_registry(sid_resource_t *module_registry_res, const void *kickstart_data, void **data)
 {
-	const struct sid_module_registry_resource_params *params = kickstart_data;
+	const struct module_registry_resource_params *params = kickstart_data;
 	struct module_registry *registry = NULL;
 	unsigned i, symbol_count = 0;
 
@@ -372,7 +373,7 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	if (!(registry->symbol_params = zalloc(symbol_count * sizeof(struct sid_module_symbol_params)))) {
+	if (!(registry->symbol_params = zalloc(symbol_count * sizeof(struct module_symbol_params)))) {
 		log_error(ID(module_registry_res), "Failed to allocate memory for symbol parameters.");
 		goto fail;
 	}
@@ -395,7 +396,7 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	if ((registry->flags & SID_MODULE_REGISTRY_PRELOAD) && _preload_modules(module_registry_res, registry) < 0) {
+	if ((registry->flags & MODULE_REGISTRY_PRELOAD) && _preload_modules(module_registry_res, registry) < 0) {
 		log_error(ID(module_registry_res), "Failed to preload modules from directory %s.", registry->directory);
 		goto fail;
 	}

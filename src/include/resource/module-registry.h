@@ -27,38 +27,38 @@
 extern "C" {
 #endif
 
-#define SID_MODULE_NAME_SUFFIX                 ".so"
-#define SID_MODULE_NAME_SUFFIX_LEN             (sizeof(SID_MODULE_NAME_SUFFIX) - 1)
+#define MODULE_NAME_SUFFIX                 ".so"
+#define MODULE_NAME_SUFFIX_LEN             (sizeof(MODULE_NAME_SUFFIX) - 1)
 
-/* For use in struct sid_module_registry_resource_resource_module_params.flags field. */
-#define SID_MODULE_REGISTRY_PRELOAD            UINT64_C(0x0000000000000001)
+/* For use in struct module_registry_resource_resource_module_params.flags field. */
+#define MODULE_REGISTRY_PRELOAD            UINT64_C(0x0000000000000001)
 
-/* For use in struct sid_module_symbol_params.flags field. */
-#define SID_MODULE_SYMBOL_WARN_ON_MISSING      UINT64_C(0x0000000000000001)
-#define SID_MODULE_SYMBOL_FAIL_ON_MISSING      UINT64_C(0x0000000000000002)
-#define SID_MODULE_SYMBOL_INDIRECT             UINT64_C(0x0000000000000004)
+/* For use in struct module_symbol_params.flags field. */
+#define MODULE_SYMBOL_WARN_ON_MISSING      UINT64_C(0x0000000000000001)
+#define MODULE_SYMBOL_FAIL_ON_MISSING      UINT64_C(0x0000000000000002)
+#define MODULE_SYMBOL_INDIRECT             UINT64_C(0x0000000000000004)
 
-struct sid_module_symbol_params {
+struct module_symbol_params {
 	const char *name;
 	uint64_t flags;
 };
 
-#define NULL_MODULE_SYMBOL_PARAMS ((const struct sid_module_symbol_params) {.name = NULL, .flags = 0})
+#define NULL_MODULE_SYMBOL_PARAMS ((const struct module_symbol_params) {.name = NULL, .flags = 0})
 
-struct sid_module_registry_resource_params {
+struct module_registry_resource_params {
 	const char *directory;
 	uint64_t flags;
-	void *cb_arg;                                         /* custom arg passed to sid_module_fn_t (init/exit/reload callbacks) */
-	const struct sid_module_symbol_params *symbol_params; /* NULL-terminated list of symbol params */
+	void *cb_arg;                                         /* custom arg passed to module_fn_t (init/exit/reload callbacks) */
+	const struct module_symbol_params *symbol_params; /* NULL-terminated list of symbol params */
 };
 
-sid_resource_t *sid_module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name);
-sid_resource_t *sid_module_registry_get_module(sid_resource_t *module_registry_res, const char *module_name);
-int sid_module_registry_unload_module(sid_resource_t *module_res);
-int sid_module_registry_get_module_symbols(sid_resource_t *module_res, const void ***ret);
+sid_resource_t *module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name);
+sid_resource_t *module_registry_get_module(sid_resource_t *module_registry_res, const char *module_name);
+int module_registry_unload_module(sid_resource_t *module_res);
+int module_registry_get_module_symbols(sid_resource_t *module_res, const void ***ret);
 
-int sid_module_registry_reload_modules(sid_resource_t *module_registry_res);
-int sid_module_registry_reload_module(sid_resource_t *module_res);
+int module_registry_reload_modules(sid_resource_t *module_registry_res);
+int module_registry_reload_module(sid_resource_t *module_res);
 
 #ifdef __cplusplus
 }

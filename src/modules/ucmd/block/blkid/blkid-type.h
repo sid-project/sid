@@ -22,21 +22,21 @@
 
 #include <stddef.h>
 
-#define SID_MOD_NAME_SUFFIX  ".so"
+#define MOD_NAME_SUFFIX  ".so"
 
-#define SID_MOD_NAME_NONE    "-"
-#define SID_MOD_NAME_MD      "md" 		SID_MOD_NAME_SUFFIX
-#define SID_MOD_NAME_BCACHE  "bcache"		SID_MOD_NAME_SUFFIX
-#define SID_MOD_NAME_DRBD    "drbd"		SID_MOD_NAME_SUFFIX
-#define SID_MOD_NAME_DM      "device_mapper"	SID_MOD_NAME_SUFFIX
-#define SID_MOD_NAME_VDO     "vdo"		SID_MOD_NAME_SUFFIX
-#define SID_MOD_NAME_STRATIS "stratis"		SID_MOD_NAME_SUFFIX
-#define SID_MOD_NAME_SWAP    "swap"		SID_MOD_NAME_SUFFIX
-#define SID_MOD_NAME_FS      "fs"		SID_MOD_NAME_SUFFIX
+#define MOD_NAME_NONE    "-"
+#define MOD_NAME_MD      "md"            MOD_NAME_SUFFIX
+#define MOD_NAME_BCACHE  "bcache"        MOD_NAME_SUFFIX
+#define MOD_NAME_DRBD    "drbd"          MOD_NAME_SUFFIX
+#define MOD_NAME_DM      "device_mapper" MOD_NAME_SUFFIX
+#define MOD_NAME_VDO     "vdo"           MOD_NAME_SUFFIX
+#define MOD_NAME_STRATIS "stratis"       MOD_NAME_SUFFIX
+#define MOD_NAME_SWAP    "swap"          MOD_NAME_SUFFIX
+#define MOD_NAME_FS      "fs"            MOD_NAME_SUFFIX
 
 struct blkid_type {
 	const char *blkid_type_name;
-	const char *sid_module_name;
+	const char *module_name;
 };
 
 const struct blkid_type *blkid_type_lookup(const char *key, size_t len);

@@ -705,9 +705,9 @@ static int _flags_indicate_mod_owned(sid_ucmd_kv_flags_t flags)
 	return flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED);
 }
 
-static const char *_get_mod_name(struct sid_module *mod)
+static const char *_get_mod_name(struct module *mod)
 {
-	return mod ? sid_module_get_name(mod) : MOD_NAME_CORE;
+	return mod ? module_get_name(mod) : MOD_NAME_CORE;
 }
 
 static const char *_res_get_mod_name(sid_resource_t *mod_res)
@@ -1010,7 +1010,7 @@ static int _kv_unreserve(const char *full_key, struct kv_store_update_spec *spec
 	return 1;
 }
 
-int _do_sid_ucmd_mod_reserve_kv(struct sid_module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+int _do_sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
                                 sid_ucmd_kv_namespace_t ns, const char *key, int unset)
 {
 	const char *owner = _get_mod_name(mod);
@@ -1077,7 +1077,7 @@ out:
 	return r;
 }
 
-int sid_ucmd_mod_reserve_kv(struct sid_module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
                             sid_ucmd_kv_namespace_t ns, const char *key)
 {
 	if (!mod || !cmd_mod || !key || !*key)
@@ -1086,7 +1086,7 @@ int sid_ucmd_mod_reserve_kv(struct sid_module *mod, struct sid_ucmd_mod_ctx *cmd
 	return _do_sid_ucmd_mod_reserve_kv(mod, cmd_mod, ns, key, 0);
 }
 
-int sid_ucmd_mod_unreserve_kv(struct sid_module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
                               sid_ucmd_kv_namespace_t ns, const char *key)
 {
 	if (!mod || !cmd_mod || !key || !*key)
@@ -1565,7 +1565,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 
 	len = p - found;
 
-	if (len >= (sizeof(buf) - strlen(SID_MODULE_NAME_SUFFIX))) {
+	if (len >= (sizeof(buf) - strlen(MODULE_NAME_SUFFIX))) {
 		log_error(ID(cmd_res), "Insufficient result buffer for device lookup in %s, "
 		          "found string \"%s\", buffer size is only %zu.", SYSTEM_PROC_DEVICES_PATH,
 		          found, sizeof(buf));
@@ -1573,8 +1573,8 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	}
 
 	memcpy(buf, found, len);
-	memcpy(buf + len, SID_MODULE_NAME_SUFFIX, SID_MODULE_NAME_SUFFIX_LEN);
-	buf[len + SID_MODULE_NAME_SUFFIX_LEN] = '\0';
+	memcpy(buf + len, MODULE_NAME_SUFFIX, MODULE_NAME_SUFFIX_LEN);
+	buf[len + MODULE_NAME_SUFFIX_LEN] = '\0';
 	_canonicalize_module_name(buf);
 
 	if (!(mod_name = _do_sid_ucmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_MOD, DEFAULT_KV_FLAGS_CORE, buf, strlen(buf) + 1)))
@@ -1614,14 +1614,14 @@ static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *orig_mod_res = cmd->mod_res;
 	sid_resource_t *block_mod_res;
-	struct sid_module *block_mod;
+	struct module *block_mod;
 	const struct cmd_mod_fns *block_mod_fns;
 	int r = -1;
 
 	sid_resource_iter_reset(exec_arg->block_mod_iter);
 
 	while ((block_mod_res = sid_resource_iter_next(exec_arg->block_mod_iter))) {
-		if (sid_module_registry_get_module_symbols(block_mod_res, (const void ***) &block_mod_fns) < 0) {
+		if (module_registry_get_module_symbols(block_mod_res, (const void ***) &block_mod_fns) < 0) {
 			log_error(ID(exec_arg->cmd_res), "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
 			goto out;
 		}
@@ -1688,7 +1688,7 @@ static int _cmd_exec_ident(struct cmd_exec_arg *exec_arg)
 
 	//sid_resource_dump_all_in_dot(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->ident)
 		return mod_fns->ident(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -1702,7 +1702,7 @@ static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
 
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_pre)
 		return mod_fns->scan_pre(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -1716,7 +1716,7 @@ static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
 
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_current)
 		if (mod_fns->scan_current(sid_resource_get_data(cmd->mod_res), cmd))
 			return -1;
@@ -1733,7 +1733,7 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
 
 	if ((next_mod_name = _do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_NEXT_MOD, NULL, NULL))) {
-		if (!(exec_arg->type_mod_res_next = sid_module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name))) {
+		if (!(exec_arg->type_mod_res_next = module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name))) {
 			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
 			return -1;
 		}
@@ -1742,7 +1742,7 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 
 	cmd->mod_res = exec_arg->type_mod_res_next;
 
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_next)
 		return mod_fns->scan_next(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -1758,7 +1758,7 @@ static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_CURRENT);
 
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_current)
 		return mod_fns->scan_post_current(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -1774,7 +1774,7 @@ static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_NEXT);
 
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_next)
 		return mod_fns->scan_post_next(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -1806,12 +1806,12 @@ static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_ERROR);
 
 	cmd->mod_res = exec_arg->type_mod_res_current;
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->error)
 		r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
 
 	cmd->mod_res = exec_arg->type_mod_res_next;
-	sid_module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->error)
 		r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
 
@@ -3005,7 +3005,7 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 	if (!(mod_name = _lookup_module_name(exec_arg->cmd_res)))
 		goto out;
 
-	if (!(cmd->mod_res = exec_arg->type_mod_res_current = sid_module_registry_get_module(exec_arg->type_mod_registry_res, mod_name))) {
+	if (!(cmd->mod_res = exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name))) {
 		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
 		goto out;
 	}
@@ -3907,85 +3907,85 @@ fail:
 	return -1;
 }
 
-static struct sid_module_symbol_params block_symbol_params[] = {
+static struct module_symbol_params block_symbol_params[] = {
 	{
 		UCMD_MODULE_FN_NAME_IDENT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_SCAN_PRE,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_SCAN_CURRENT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_SCAN_NEXT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_SCAN_POST_CURRENT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_SCAN_POST_NEXT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_ERROR,
-		SID_MODULE_SYMBOL_FAIL_ON_MISSING |
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_FAIL_ON_MISSING |
+		MODULE_SYMBOL_INDIRECT,
 	},
 	NULL_MODULE_SYMBOL_PARAMS
 };
 
-static struct sid_module_symbol_params type_symbol_params[] = {
+static struct module_symbol_params type_symbol_params[] = {
 	{
 		UCMD_MODULE_FN_NAME_IDENT,
-		SID_MODULE_SYMBOL_FAIL_ON_MISSING |
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_FAIL_ON_MISSING |
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_SCAN_PRE,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_SCAN_CURRENT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_SCAN_NEXT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_SCAN_POST_CURRENT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_SCAN_POST_NEXT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_TRIGGER_ACTION_CURRENT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_TRIGGER_ACTION_NEXT,
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_INDIRECT,
 	},
 	{
 		UCMD_MODULE_FN_NAME_ERROR,
-		SID_MODULE_SYMBOL_FAIL_ON_MISSING |
-		SID_MODULE_SYMBOL_INDIRECT,
+		MODULE_SYMBOL_FAIL_ON_MISSING |
+		MODULE_SYMBOL_INDIRECT,
 	},
 	NULL_MODULE_SYMBOL_PARAMS
 };
@@ -4098,16 +4098,16 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	struct sid_module_registry_resource_params block_res_mod_params = {
+	struct module_registry_resource_params block_res_mod_params = {
 		.directory     = UCMD_BLOCK_MODULE_DIRECTORY,
-		.flags         = SID_MODULE_REGISTRY_PRELOAD,
+		.flags         = MODULE_REGISTRY_PRELOAD,
 		.symbol_params = block_symbol_params,
 		.cb_arg        = &ubridge->cmd_mod,
 	};
 
-	struct sid_module_registry_resource_params type_res_mod_params = {
+	struct module_registry_resource_params type_res_mod_params = {
 		.directory     = UCMD_TYPE_MODULE_DIRECTORY,
-		.flags         = SID_MODULE_REGISTRY_PRELOAD,
+		.flags         = MODULE_REGISTRY_PRELOAD,
 		.symbol_params = type_symbol_params,
 		.cb_arg        = &ubridge->cmd_mod,
 	};

@@ -24,19 +24,19 @@
 extern "C" {
 #endif
 
-struct sid_module;
+struct module;
 
-typedef int sid_module_fn_t(struct sid_module *module, void *cb_arg);
+typedef int module_fn_t(struct module *module, void *cb_arg);
 
-#define SID_MODULE_FN(name, fn) sid_module_fn_t *sid_module_ ## name = fn;
+#define MODULE_FN(name, fn) module_fn_t *module_ ## name = fn;
 
-#define SID_MODULE_INIT(fn)     SID_MODULE_FN(init, fn)
-#define SID_MODULE_EXIT(fn)     SID_MODULE_FN(exit, fn)
-#define SID_MODULE_RELOAD(fn)   SID_MODULE_FN(reload, fn)
+#define MODULE_INIT(fn)     MODULE_FN(init, fn)
+#define MODULE_EXIT(fn)     MODULE_FN(exit, fn)
+#define MODULE_RELOAD(fn)   MODULE_FN(reload, fn)
 
-const char *sid_module_get_name(struct sid_module *module);
-void sid_module_set_data(struct sid_module *module, void *data);
-void *sid_module_get_data(struct sid_module *module);
+const char *module_get_name(struct module *module);
+void module_set_data(struct module *module, void *data);
+void *module_get_data(struct module *module);
 
 #ifdef __cplusplus
 }

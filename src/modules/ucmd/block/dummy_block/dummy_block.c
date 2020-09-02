@@ -22,84 +22,84 @@
 
 #define ID "dummy_block"
 
-static int _dummy_block_init(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dummy_block_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "init");
 	return 0;
 }
 SID_UCMD_MOD_INIT(_dummy_block_init)
 
-static int _dummy_block_exit(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dummy_block_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "exit");
 	return 0;
 }
 SID_UCMD_MOD_EXIT(_dummy_block_exit)
 
-static int _dummy_block_reload(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dummy_block_reload(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "reload");
 	return 0;
 }
 SID_UCMD_MOD_RELOAD(_dummy_block_reload)
 
-static int _dummy_block_ident(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _dummy_block_ident(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "ident");
 	return 0;
 }
 SID_UCMD_IDENT(_dummy_block_ident)
 
-static int _dummy_block_scan_pre(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _dummy_block_scan_pre(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "scan-pre");
 	return 0;
 }
 SID_UCMD_SCAN_PRE(_dummy_block_scan_pre)
 
-static int _dummy_block_scan_current(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _dummy_block_scan_current(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "scan-current");
 	return 0;
 }
 SID_UCMD_SCAN_CURRENT(_dummy_block_scan_current)
 
-static int _dummy_block_scan_next(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _dummy_block_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "scan-next");
 	return 0;
 }
 SID_UCMD_SCAN_NEXT(_dummy_block_scan_next)
 
-static int _dummy_block_scan_post_current(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _dummy_block_scan_post_current(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "scan-post-current");
 	return 0;
 }
 SID_UCMD_SCAN_POST_CURRENT(_dummy_block_scan_post_current)
 
-static int _dummy_block_scan_post_next(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _dummy_block_scan_post_next(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "scan-post-next");
 	return 0;
 }
 SID_UCMD_SCAN_POST_NEXT(_dummy_block_scan_post_next)
 
-static int _dummy_block_trigger_action_current(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _dummy_block_trigger_action_current(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "trigger-action-current");
 	return 0;
 }
 SID_UCMD_TRIGGER_ACTION_CURRENT(_dummy_block_trigger_action_current)
 
-static int _dummy_block_trigger_action_next(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _dummy_block_trigger_action_next(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "trigger-action-next");
 	return 0;
 }
 SID_UCMD_TRIGGER_ACTION_NEXT(_dummy_block_trigger_action_next)
 
-static int _dummy_block_error(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _dummy_block_error(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "error");
 	return 0;

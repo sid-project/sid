@@ -84,7 +84,7 @@ static const char *keys[_NUM_KEYS] = {
 	[SID_NEXT_MOD]         = SID_UCMD_KEY_DEVICE_NEXT_MOD,
 };
 
-static int _blkid_init(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _blkid_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	unsigned i;
 
@@ -108,7 +108,7 @@ static int _blkid_init(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_m
 }
 SID_UCMD_MOD_INIT(_blkid_init)
 
-static int _blkid_exit(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _blkid_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "exit");
 
@@ -133,7 +133,7 @@ static int _blkid_exit(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_m
 }
 SID_UCMD_MOD_EXIT(_blkid_exit)
 
-static int _blkid_reload(struct sid_module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _blkid_reload(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "reload");
 	return 0;
@@ -155,7 +155,7 @@ static void _add_property(struct sid_ucmd_ctx *cmd, const char *name, const char
 
 		/* Translate blkid type name to sid module name and save the result in SID_UCMD_KEY_DEVICE_NEXT_MOD variable in KV_NS_DEVICE. */
 		if ((blkid_type = blkid_type_lookup(value, len)))
-			sid_ucmd_set_kv(cmd, KV_NS_DEVICE, keys[SID_NEXT_MOD], blkid_type->sid_module_name, strlen(blkid_type->sid_module_name) + 1, KV_PERSISTENT | KV_MOD_PROTECTED);
+			sid_ucmd_set_kv(cmd, KV_NS_DEVICE, keys[SID_NEXT_MOD], blkid_type->module_name, strlen(blkid_type->module_name) + 1, KV_PERSISTENT | KV_MOD_PROTECTED);
 	} else if (!strcmp(name, "USAGE")) {
 		sid_ucmd_set_kv(cmd, KV_NS_UDEV, keys[ID_FS_USAGE], value, strlen(value) + 1, KV_MOD_PROTECTED);
 	} else if (!strcmp(name, "VERSION")) {
@@ -236,7 +236,7 @@ static int _probe_superblocks(blkid_probe pr)
 	return blkid_do_safeprobe(pr);
 }
 
-static int _blkid_scan_next(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _blkid_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	char dev_path[PATH_MAX];
 	int64_t offset = 0;
@@ -297,7 +297,7 @@ out:
 }
 SID_UCMD_SCAN_NEXT(_blkid_scan_next)
 
-static int _blkid_error(struct sid_module *module, struct sid_ucmd_ctx *cmd)
+static int _blkid_error(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "error");
 	return 0;
