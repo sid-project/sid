@@ -267,7 +267,7 @@ char **util_str_comb_to_strv(const char *prefix, const char *str, const char *su
 	copier.strv[counter.tokens] = NULL;
 	return copier.strv;
 fail:
-	return freen(copier.strv);
+	return mem_freen(copier.strv);
 }
 
 char **util_strv_copy(const char **strv)
@@ -290,7 +290,7 @@ char **util_strv_copy(const char **strv)
 
 	for (p = strv; *p; p++) {
 		if (_copy_token_to_strv(*p, strlen(*p), &copier) < 0)
-			return freen(mem);
+			return mem_freen(mem);
 	}
 
 	return copier.strv;

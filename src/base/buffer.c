@@ -47,7 +47,7 @@ struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t init
 	struct buffer *buf;
 	int r = 0;
 
-	if (!(buf = zalloc(sizeof(*buf)))) {
+	if (!(buf = mem_zalloc(sizeof(*buf)))) {
 		r = -ENOMEM;
 		goto out;
 	}
@@ -73,7 +73,7 @@ out:
 	if (ret_code)
 		*ret_code = r;
 	if (r < 0)
-		return freen(buf);
+		return mem_freen(buf);
 	else
 		return buf;
 }

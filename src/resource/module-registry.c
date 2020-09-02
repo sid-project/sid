@@ -247,9 +247,9 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 	char path[PATH_MAX];
 	unsigned i;
 
-	if (!(module = zalloc(sizeof(*module))) ||
+	if (!(module = mem_zalloc(sizeof(*module))) ||
 	    !(module->name = strdup(module_name)) ||
-	    !(module->symbols = zalloc(registry->symbol_count * sizeof(void *)))) {
+	    !(module->symbols = mem_zalloc(registry->symbol_count * sizeof(void *)))) {
 		log_error(ID(module_res), "Failed to allocate array to store symbol pointers.");
 		goto fail;
 	}
@@ -361,7 +361,7 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	if (!(registry = zalloc(sizeof(*registry)))) {
+	if (!(registry = mem_zalloc(sizeof(*registry)))) {
 		log_error(ID(module_registry_res), "Failed to allocate module reigistry structure.");
 		goto fail;
 	}
@@ -373,7 +373,7 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	if (!(registry->symbol_params = zalloc(symbol_count * sizeof(struct module_symbol_params)))) {
+	if (!(registry->symbol_params = mem_zalloc(symbol_count * sizeof(struct module_symbol_params)))) {
 		log_error(ID(module_registry_res), "Failed to allocate memory for symbol parameters.");
 		goto fail;
 	}

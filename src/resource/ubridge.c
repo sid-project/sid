@@ -3328,7 +3328,7 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 	struct connection *conn;
 	int r;
 
-	if (!(conn = zalloc(sizeof(*conn)))) {
+	if (!(conn = mem_zalloc(sizeof(*conn)))) {
 		log_error(ID(res), "Failed to allocate new connection structure.");
 		goto fail;
 	}
@@ -3377,7 +3377,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	const char *worker_id;
 	int r;
 
-	if (!(cmd = zalloc(sizeof(*cmd)))) {
+	if (!(cmd = mem_zalloc(sizeof(*cmd)))) {
 		log_error(ID(res), "Failed to allocate new command structure.");
 		return -1;
 	}
@@ -3659,7 +3659,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 			                   &update_arg);
 
 		_destroy_delta(rel_spec.delta);
-		iov = freen(iov);
+		iov = mem_freen(iov);
 	}
 
 	r = 0;
@@ -4002,7 +4002,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	struct buffer *buf;
 	int r;
 
-	if (!(ubridge = zalloc(sizeof(struct ubridge)))) {
+	if (!(ubridge = mem_zalloc(sizeof(struct ubridge)))) {
 		log_error(ID(res), "Failed to allocate memory for interface structure.");
 		goto fail;
 	}

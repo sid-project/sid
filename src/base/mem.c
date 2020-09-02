@@ -21,7 +21,7 @@
 
 #include <string.h>
 
-void *zalloc(size_t size)
+void *mem_zalloc(size_t size)
 {
 	void *p;
 
@@ -31,7 +31,7 @@ void *zalloc(size_t size)
 	return p;
 }
 
-void *alloc_copy(void *mem, size_t size)
+void *mem_alloc_copy(void *mem, size_t size)
 {
 	void *p;
 
@@ -41,7 +41,7 @@ void *alloc_copy(void *mem, size_t size)
 	return p;
 }
 
-void *freen(void *mem)
+void *mem_freen(void *mem)
 {
 	free(mem);
 	return NULL;

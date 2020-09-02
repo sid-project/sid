@@ -36,12 +36,12 @@ static int _buffer_vector_create(struct buffer *buf)
 	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
 		needed += 1;
 
-	if (!(buf->mem = zalloc(needed * VECTOR_ITEM_SIZE)))
+	if (!(buf->mem = mem_zalloc(needed * VECTOR_ITEM_SIZE)))
 		return -ENOMEM;
 
 	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX) {
 		iov = buf->mem;
-		if (!(iov[0].iov_base = zalloc(MSG_SIZE_PREFIX_LEN))) {
+		if (!(iov[0].iov_base = mem_zalloc(MSG_SIZE_PREFIX_LEN))) {
 			free(buf->mem);
 			return -ENOMEM;
 		}

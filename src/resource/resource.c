@@ -169,7 +169,7 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 
 	log_debug(id, "Creating resource.");
 
-	if (!(res = zalloc(sizeof(*res))))
+	if (!(res = mem_zalloc(sizeof(*res))))
 		goto fail;
 
 	res->id = id;

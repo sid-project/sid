@@ -162,7 +162,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		if (flags & KV_STORE_VALUE_REF) {
-			if (!(value = zalloc(sizeof(*value) + sizeof(intptr_t))))
+			if (!(value = mem_zalloc(sizeof(*value) + sizeof(intptr_t))))
 				return NULL;
 
 			if (op_flags & KV_STORE_VALUE_OP_MERGE) {
@@ -171,7 +171,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 					data_size += iov[i].iov_len;
 
 				if (!(p1 = malloc(data_size)))
-					return freen(value);
+					return mem_freen(value);
 
 				for (i = 0, p2 = p1; i < iov_cnt; i++) {
 					memcpy(p2, iov[i].iov_base, iov[i].iov_len);
@@ -192,7 +192,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 
 			if (op_flags & KV_STORE_VALUE_OP_MERGE) {
 				/* F */
-				if (!(value = zalloc(sizeof(*value) + data_size)))
+				if (!(value = mem_zalloc(sizeof(*value) + data_size)))
 					return NULL;
 
 				for (i = 0, p1 = value->data; i < iov_cnt; i++) {
@@ -205,7 +205,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 				value->int_flags = KV_STORE_VALUE_INT_ALLOC;
 			} else {
 				/* E */
-				if (!(value = zalloc(sizeof(*value) + iov_cnt * sizeof(struct iovec) + data_size)))
+				if (!(value = mem_zalloc(sizeof(*value) + iov_cnt * sizeof(struct iovec) + data_size)))
 					return NULL;
 
 				iov2 = (struct iovec *) value->data;
@@ -225,13 +225,13 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 	} else {
 		if (flags & KV_STORE_VALUE_REF) {
 			/* C,D */
-			if (!(value = zalloc(sizeof(*value) + sizeof(intptr_t))))
+			if (!(value = mem_zalloc(sizeof(*value) + sizeof(intptr_t))))
 				return NULL;
 
 			_set_ptr(value->data, iov[0].iov_base);
 		} else {
 			/* A,B */
-			if (!(value = zalloc(sizeof(*value) + iov[0].iov_len)))
+			if (!(value = mem_zalloc(sizeof(*value) + iov[0].iov_len)))
 				return NULL;
 
 			memcpy(value->data, iov[0].iov_base, iov[0].iov_len);
@@ -473,7 +473,7 @@ static int _init_kv_store(sid_resource_t *kv_store_res, const void *kickstart_da
 	const struct sid_kv_store_resource_params *params = kickstart_data;
 	struct kv_store *kv_store;
 
-	if (!(kv_store = zalloc(sizeof(*kv_store)))) {
+	if (!(kv_store = mem_zalloc(sizeof(*kv_store)))) {
 		log_error(ID(kv_store_res), "Failed to allocate key-value store structure.");
 		goto out;
 	}

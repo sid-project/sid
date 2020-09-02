@@ -26,9 +26,9 @@
 extern "C" {
 #endif
 
-void *zalloc(size_t size) __attribute__((__malloc__));
-void *alloc_copy(void *mem, size_t size) __attribute__((__malloc__));
-void *freen(void *mem);
+void *mem_zalloc(size_t size) __attribute__((__malloc__));
+void *mem_alloc_copy(void *mem, size_t size) __attribute__((__malloc__));
+void *mem_freen(void *mem);
 
 #ifdef __cplusplus
 }

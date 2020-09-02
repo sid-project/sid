@@ -46,7 +46,7 @@ static int _buffer_linear_create(struct buffer *buf)
 			return -EOVERFLOW;
 	}
 
-	if (!(buf->mem = zalloc(needed)))
+	if (!(buf->mem = mem_zalloc(needed)))
 		return -ENOMEM;
 
 	buf->stat.allocated = needed;

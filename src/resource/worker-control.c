@@ -1055,7 +1055,7 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	const struct worker_kickstart *kickstart = kickstart_data;
 	struct worker_proxy *worker_proxy = NULL;
 
-	if (!(worker_proxy = zalloc(sizeof(*worker_proxy)))) {
+	if (!(worker_proxy = mem_zalloc(sizeof(*worker_proxy)))) {
 		log_error(ID(worker_proxy_res), "Failed to allocate worker_proxy structure.");
 		goto fail;
 	}
@@ -1097,7 +1097,7 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 	const struct worker_kickstart *kickstart = kickstart_data;
 	struct worker *worker = NULL;
 
-	if (!(worker = zalloc(sizeof(*worker)))) {
+	if (!(worker = mem_zalloc(sizeof(*worker)))) {
 		log_error(ID(worker_res), "Failed to allocate new worker structure.");
 		goto fail;
 	}
@@ -1138,7 +1138,7 @@ static int _init_worker_control(sid_resource_t *worker_control_res, const void *
 	const struct worker_channel_spec *channel_spec;
 	unsigned i, channel_spec_count = 0;
 
-	if (!(worker_control = zalloc(sizeof(*worker_control)))) {
+	if (!(worker_control = mem_zalloc(sizeof(*worker_control)))) {
 		log_error(ID(worker_control_res), "Failed to allocate memory for worker control structure.");
 		goto fail;
 	}
@@ -1154,7 +1154,7 @@ static int _init_worker_control(sid_resource_t *worker_control_res, const void *
 		channel_spec_count++;
 	}
 
-	if (!(worker_control->channel_specs = zalloc(channel_spec_count * sizeof(struct worker_channel_spec)))) {
+	if (!(worker_control->channel_specs = mem_zalloc(channel_spec_count * sizeof(struct worker_channel_spec)))) {
 		log_error(ID(worker_control_res), "Failed to allocate memory for channel specifications.");
 		goto fail;
 	}

@@ -100,7 +100,7 @@ struct hash_table *hash_create(unsigned size_hint)
 {
 	size_t len;
 	unsigned new_size = 16u;
-	struct hash_table *hc = zalloc(sizeof(*hc));
+	struct hash_table *hc = mem_zalloc(sizeof(*hc));
 
 	if (!hc)
 		return NULL;
@@ -111,7 +111,7 @@ struct hash_table *hash_create(unsigned size_hint)
 
 	hc->num_slots = new_size;
 	len = sizeof(*(hc->slots)) * new_size;
-	if (!(hc->slots = zalloc(len)))
+	if (!(hc->slots = mem_zalloc(len)))
 		goto bad;
 
 	return hc;
