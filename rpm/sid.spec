@@ -3,7 +3,7 @@
 %{?commit:%global commitdate 20200828}
 %{?commit:%global scmsnap %{commitdate}git%{shortcommit}}
 
-%global enable_multipath_support 0
+%global enable_multipath_support 1
 
 ##############################################################################
 # SID
@@ -301,7 +301,7 @@ This package contains device-mapper-multipath block module for Storage
 Instantiation Daemon (SID).
 
 %files mod-block-multipath-component
-%{_libdir}/sid/modules/ucmd/type/multipath_component.so
+%{_libdir}/sid/modules/ucmd/block/multipath_component.so
 
 %endif
 
