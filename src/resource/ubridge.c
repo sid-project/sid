@@ -4161,6 +4161,12 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
+	/*
+	 * Call util_cmdline_get_arg here to only read the kernel command line
+	 * so we already have that preloaded for any possible workers.
+	 */
+	(void) util_cmdline_get_arg("root", NULL, NULL);
+
 	//sid_resource_dump_all_in_dot(sid_resource_search(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
 	*data = ubridge;
