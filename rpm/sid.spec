@@ -3,7 +3,7 @@
 %{?commit:%global commitdate 20200828}
 %{?commit:%global scmsnap %{commitdate}git%{shortcommit}}
 
-%global enable_multipath_support 1
+%global enable_dm_mpath_support 1
 
 ##############################################################################
 # SID
@@ -51,13 +51,13 @@ of devices and their layers in the stack.
 %autosetup -p1 -n sid-%{version}
 %endif
 
-%if ! %{enable_multipath_support}
-%global configure_multipath --disable-mod-multipath_component
+%if ! %{enable_dm_mpath_support}
+%global configure_dm_mpath --disable-mod-dm_mpath
 %endif
 
 %build
 ./autogen.sh
-%configure %{?configure_multipath}
+%configure %{?configure_dm_mpath}
 %make_build
 
 %install
@@ -286,22 +286,22 @@ This package contains blkid block module for Storage Instantiation Daemon (SID).
 
 
 ##############################################################################
-# SID-MOD-BLOCK-MUTLIPATH-COMPONENT
+# SID-MOD-BLOCK-DM_MPATH
 ##############################################################################
 
-%if %{?enable_multipath_support}
+%if %{?enable_dm_mpath_support}
 
-%package mod-block-multipath-component
-Summary: multipath component block module for Storage Instantiation Daemon (SID)
+%package mod-block-dm-mpath
+Summary: Device-mapper multipath block module for Storage Instantiation Daemon (SID)
 Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
 Requires: device-mapper-multipath-libs
-%description mod-block-multipath-component
-This package contains device-mapper-multipath block module for Storage
+%description mod-block-dm-mpath
+This package contains device-mapper multipath block module for Storage
 Instantiation Daemon (SID).
 
-%files mod-block-multipath-component
-%{_libdir}/sid/modules/ucmd/block/multipath_component.so
+%files mod-block-dm-mpath
+%{_libdir}/sid/modules/ucmd/block/dm_mpath.so
 
 %endif
 

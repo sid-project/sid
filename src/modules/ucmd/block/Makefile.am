@@ -19,8 +19,8 @@
 
 SUBDIRS = dummy_block blkid
 
-if BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT
-SUBDIRS += multipath_component
+if BUILD_MOD_UCMD_BLOCK_DM_MPATH
+SUBDIRS += dm_mpath
 endif
 
 uninstall-hook:

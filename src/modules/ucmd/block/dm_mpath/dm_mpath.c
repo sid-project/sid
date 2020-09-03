@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define ID "multipath_component"
+#define ID "dm_mpath"
 #define PATH_KEY "DM_MULTIPATH_DEVICE_PATH"
 #define VALID_KEY "SID_DM_MULTIPATH_VALID"
 #define WWID_KEY "SID_DM_MULTIPATH_WWID"
@@ -44,7 +44,7 @@ void put_multipath_config(__attribute__((unused))void *conf)
 	/* Noop */
 }
 
-static int _multipath_component_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dm_mpath_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "init");
 	/* TODO - set up dm/udev logging */
@@ -76,9 +76,9 @@ static int _multipath_component_init(struct module *module, struct sid_ucmd_mod_
 	}
 	return 0;
 }
-SID_UCMD_MOD_INIT(_multipath_component_init)
+SID_UCMD_MOD_INIT(_dm_mpath_init)
 
-static int _multipath_component_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dm_mpath_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "exit");
 	// Do we need to unreserve the key here?
@@ -86,7 +86,7 @@ static int _multipath_component_exit(struct module *module, struct sid_ucmd_mod_
 	udev = NULL;
 	return 0;
 }
-SID_UCMD_MOD_EXIT(_multipath_component_exit)
+SID_UCMD_MOD_EXIT(_dm_mpath_exit)
 
 static int kernel_cmdline_allow(void)
 {
@@ -100,12 +100,12 @@ static int kernel_cmdline_allow(void)
 }
 
 
-static int _multipath_component_reload(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dm_mpath_reload(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "reload");
 	return 0;
 }
-SID_UCMD_MOD_RELOAD(_multipath_component_reload)
+SID_UCMD_MOD_RELOAD(_dm_mpath_reload)
 
 static int _is_parent_multipathed(struct sid_ucmd_ctx *cmd)
 {
@@ -134,7 +134,7 @@ static int _is_parent_multipathed(struct sid_ucmd_ctx *cmd)
 	return 0;
 }
 
-static int _multipath_component_scan_pre(struct module *module, struct sid_ucmd_ctx *cmd)
+static int _dm_mpath_scan_pre(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	int r;
 	char *wwid;
@@ -200,11 +200,11 @@ static int _multipath_component_scan_pre(struct module *module, struct sid_ucmd_
 	mpathvalid_exit();
 	return (r != MPATH_IS_ERROR)? 0 : -1;
 }
-SID_UCMD_SCAN_PRE(_multipath_component_scan_pre)
+SID_UCMD_SCAN_PRE(_dm_mpath_scan_pre)
 
-static int _multipath_component_error(struct module *module, struct sid_ucmd_ctx *cmd)
+static int _dm_mpath_error(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	log_debug(ID, "error");
 	return 0;
 }
-SID_UCMD_ERROR(_multipath_component_error)
+SID_UCMD_ERROR(_dm_mpath_error)

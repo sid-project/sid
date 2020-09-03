@@ -1,5 +1,5 @@
 alias autogen-sid='echo -e "\n ========== AUTOGENERATING =====\n ..."; ./autogen.sh'
-alias configure-sid='echo -e "\n ========== CONFIGURING ========\n ..."; ./configure --with-systemdsystemunitdir=/etc/systemd/system --with-udevrulesdir=/etc/udev/rules.d --disable-mod-multipath_component CC=clang'
+alias configure-sid='echo -e "\n ========== CONFIGURING ========\n ..."; ./configure --with-systemdsystemunitdir=/etc/systemd/system --with-udevrulesdir=/etc/udev/rules.d CC=clang'
 alias build-sid='echo -e "\n ========== BUILDING ===========\n ..."; make V=1 2>&1 | tee .mk.log; \
                  echo -e "\n ========== ERROR LOG ==========\n ..."; grep -E "Error [0-9]*|.*:[0-9]*:[0-9]*: error:" < .mk.log; \
 		 echo -e "\n ========== WARNING LOG ========\n ..."; grep -E ".*:[0-9]*:[0-9]*: warning:" < .mk.log; \

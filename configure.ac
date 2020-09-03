@@ -58,7 +58,7 @@ AC_CONFIG_FILES([Makefile
 		 src/modules/ucmd/type/dummy_type/Makefile
 		 src/modules/ucmd/block/dummy_block/Makefile
 		 src/modules/ucmd/block/blkid/Makefile
-		 src/modules/ucmd/block/multipath_component/Makefile
+		 src/modules/ucmd/block/dm_mpath/Makefile
 		 src/tools/Makefile
 		 src/tools/usid/Makefile
 		 udev/Makefile
@@ -126,17 +126,17 @@ AC_ARG_WITH(udevrulesdir,
 			   [udevrulesdir="${UDEV_DIR}/rules.d"])
 AC_MSG_RESULT([$udevrulesdir])
 
-AC_MSG_CHECKING(whether to build multipath_component module)
-AC_ARG_ENABLE(mod-multipath_component,
-	      AS_HELP_STRING([--enable-mod-multipath_component], [enable multipath component module]),
-	      BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT=$enableval,
-	      BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT=yes)
-AC_MSG_RESULT($BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT)
-if test x$BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT = xyes; then
-	AC_CHECK_HEADER([mpath_valid.h], , [AC_MSG_ERROR(--enable-mod-multipath_component requires mpath_valid.h)])
-	AC_DEFINE([MOD_UCMD_BLOCK_MULTIPATH_COMPONENT], 1, [Define to 1 to enable multipath component module.])
+AC_MSG_CHECKING(whether to build dm_mpath module)
+AC_ARG_ENABLE(mod-dm_mpath,
+	      AS_HELP_STRING([--enable-mod-dm_mpath], [enable device-mapper multipath module]),
+	      BUILD_MOD_UCMD_BLOCK_DM_MPATH=$enableval,
+	      BUILD_MOD_UCMD_BLOCK_DM_MPATH=yes)
+AC_MSG_RESULT($BUILD_MOD_UCMD_BLOCK_DM_MPATH)
+if test x$BUILD_MOD_UCMD_BLOCK_DM_MPATH = xyes; then
+	AC_CHECK_HEADER([mpath_valid.h], , [AC_MSG_ERROR(--enable-mod-dm_mpath requires mpath_valid.h)])
+	AC_DEFINE([MOD_UCMD_BLOCK_DM_MPATH], 1, [Define to 1 to enable device-mapper multipath module.])
 fi
-AM_CONDITIONAL([BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT], [test x$BUILD_MOD_UCMD_BLOCK_MULTIPATH_COMPONENT = xyes])
+AM_CONDITIONAL([BUILD_MOD_UCMD_BLOCK_DM_MPATH], [test x$BUILD_MOD_UCMD_BLOCK_DM_MPATH = xyes])
 
 AC_SUBST([sysconfigdir])
 AC_SUBST([systemdsystemunitdir])

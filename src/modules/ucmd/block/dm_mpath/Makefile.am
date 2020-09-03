@@ -17,13 +17,13 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-multipath_componentdir = $(pkglibdir)/modules/ucmd/block
+dm_mpathdir = $(pkglibdir)/modules/ucmd/block
 
-multipath_component_LTLIBRARIES = multipath_component.la
+dm_mpath_LTLIBRARIES = dm_mpath.la
 
-multipath_component_la_SOURCES = multipath_component.c
+dm_mpath_la_SOURCES = dm_mpath.c
 
-multipath_component_la_LDFLAGS = -module -avoid-version
+dm_mpath_la_LDFLAGS = -module -avoid-version
 
-multipath_component_la_LIBADD = $(top_builddir)/src/log/libsidlog.la \
-                                -lmpathvalid
+dm_mpath_la_LIBADD = $(top_builddir)/src/log/libsidlog.la \
+		     -lmpathvalid
