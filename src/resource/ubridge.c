@@ -1688,6 +1688,9 @@ static int _cmd_exec_ident(struct cmd_exec_arg *exec_arg)
 
 	//sid_resource_dump_all_in_dot(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
+	if (!cmd->mod_res)
+		return 0;
+
 	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->ident)
 		return mod_fns->ident(sid_resource_get_data(cmd->mod_res), cmd);
@@ -1702,6 +1705,9 @@ static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
 
+	if (!cmd->mod_res)
+		return 0;
+
 	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_pre)
 		return mod_fns->scan_pre(sid_resource_get_data(cmd->mod_res), cmd);
@@ -1715,6 +1721,9 @@ static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
+
+	if (!cmd->mod_res)
+		return 0;
 
 	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_current)
@@ -1733,14 +1742,15 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
 
 	if ((next_mod_name = _do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_NEXT_MOD, NULL, NULL))) {
-		if (!(exec_arg->type_mod_res_next = module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name))) {
+		if (!(exec_arg->type_mod_res_next = module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name)))
 			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
-			return -1;
-		}
 	} else
 		exec_arg->type_mod_res_next = NULL;
 
 	cmd->mod_res = exec_arg->type_mod_res_next;
+
+	if (!cmd->mod_res)
+		return 0;
 
 	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_next)
@@ -1758,6 +1768,9 @@ static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_CURRENT);
 
+	if (!cmd->mod_res)
+		return 0;
+
 	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_current)
 		return mod_fns->scan_post_current(sid_resource_get_data(cmd->mod_res), cmd);
@@ -1773,6 +1786,9 @@ static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 	cmd->mod_res = exec_arg->type_mod_res_next;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_NEXT);
+
+	if (!cmd->mod_res)
+		return 0;
 
 	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_next)
@@ -1805,15 +1821,19 @@ static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_ERROR);
 
-	cmd->mod_res = exec_arg->type_mod_res_current;
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->error)
-		r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
+	if (exec_arg->type_mod_res_current) {
+		cmd->mod_res = exec_arg->type_mod_res_current;
+		module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+		if (mod_fns && mod_fns->error)
+			r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
+	}
 
-	cmd->mod_res = exec_arg->type_mod_res_next;
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->error)
-		r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
+	if (exec_arg->type_mod_res_next) {
+		cmd->mod_res = exec_arg->type_mod_res_next;
+		module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+		if (mod_fns && mod_fns->error)
+			r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
+	}
 
 	return r;
 }
@@ -3005,10 +3025,8 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 	if (!(mod_name = _lookup_module_name(exec_arg->cmd_res)))
 		goto out;
 
-	if (!(cmd->mod_res = exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name))) {
+	if (!(cmd->mod_res = exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
 		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
-		goto out;
-	}
 
 	for (phase = __CMD_SCAN_PHASE_A_START; phase <= __CMD_SCAN_PHASE_A_END; phase++) {
 		log_debug(ID(exec_arg->cmd_res), "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
