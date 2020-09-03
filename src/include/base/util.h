@@ -78,6 +78,7 @@ int util_env_get_ull(const char *key, unsigned long long min, unsigned long long
 /*
  * Kernel cmdline-related utilities.
  */
+/* Note: util_cmdline_get_arg reads kernel config line only once, then it is stored in internal static variable. */
 bool util_cmdline_get_arg(const char *arg, char **value, int *ret_code);
 
 #ifdef __cplusplus
