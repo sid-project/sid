@@ -266,7 +266,7 @@ static int _blkid_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ucmd_dev_get_name(cmd));
 
 	if ((fd = open(dev_path, O_RDONLY|O_CLOEXEC)) < 0) {
-		log_error_errno(ID, errno, "Failed to open device %s.", dev_path);
+		log_error_errno(ID, errno, "Failed to open device %s", dev_path);
 		goto out;
 	}
 

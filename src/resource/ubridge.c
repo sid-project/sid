@@ -1578,7 +1578,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	_canonicalize_module_name(buf);
 
 	if (!(mod_name = _do_sid_ucmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_MOD, DEFAULT_KV_FLAGS_CORE, buf, strlen(buf) + 1)))
-		log_error_errno(ID(cmd_res), errno, "Failed to store device " CMD_DEV_ID_FMT " module name.", CMD_DEV_ID(cmd));
+		log_error_errno(ID(cmd_res), errno, "Failed to store device " CMD_DEV_ID_FMT " module name", CMD_DEV_ID(cmd));
 out:
 	if (f)
 		fclose(f);
@@ -1878,7 +1878,7 @@ int _part_get_whole_disk(struct sid_ucmd_ctx *cmd, sid_resource_t *res, char *de
 
 	if (!(s = buffer_fmt_add(cmd->gen_buf, &r, "%s%s/../dev",
 	                         SYSTEM_SYSFS_PATH, cmd->udev_dev.path))) {
-		log_error_errno(ID(res), r, "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
+		log_error_errno(ID(res), r, "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT, CMD_DEV_ID(cmd));
 		return r;
 	}
 	r = _get_sysfs_value(res, s, devno, size);
@@ -2680,7 +2680,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		                         SYSTEM_SYSFS_PATH,
 		                         cmd->udev_dev.path,
 		                         SYSTEM_SYSFS_SLAVES))) {
-			log_error_errno(ID(cmd_res), r, "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT ".", SYSTEM_SYSFS_SLAVES, CMD_DEV_ID(cmd));
+			log_error_errno(ID(cmd_res), r, "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT, SYSTEM_SYSFS_SLAVES, CMD_DEV_ID(cmd));
 			goto out;
 		}
 
@@ -2705,7 +2705,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	 * +3 for "seqnum|flags|owner" header
 	 */
 	if (!(vec_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 1, 0, &r))) {
-		log_error_errno(ID(cmd_res), r, "Failed to create buffer to record hierarchy for device " CMD_DEV_ID_FMT ".", CMD_DEV_ID(cmd));
+		log_error_errno(ID(cmd_res), r, "Failed to create buffer to record hierarchy for device " CMD_DEV_ID_FMT, CMD_DEV_ID(cmd));
 		goto out;
 	}
 
@@ -2743,7 +2743,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				if (!s || !buffer_add(vec_buf, (void *) s, strlen(s) + 1, &r))
 					goto out;
 			} else
-				log_error_errno(ID(cmd_res), r, "Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT ".",
+				log_error_errno(ID(cmd_res), r, "Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT,
 				                dirent[i]->d_name, CMD_DEV_ID(cmd));
 
 			free(dirent[i]);
@@ -3359,7 +3359,7 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 	}
 
 	if (!(conn->buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1, 0, &r))) {
-		log_error_errno(ID(res), r, "Failed to create connection buffer.");
+		log_error_errno(ID(res), r, "Failed to create connection buffer");
 		goto fail;
 	}
 
@@ -3401,14 +3401,14 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	if (!(cmd->res_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 0, 1, 0, &r))) {
-		log_error_errno(ID(res), r, "Failed to create response buffer.");
+		log_error_errno(ID(res), r, "Failed to create response buffer");
 		goto fail;
 	}
 
 	cmd->request_header = *msg->header;
 
 	if (!(cmd->gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX, 0, &r))) {
-		log_error_errno(ID(res), r, "Failed to create generic buffer.");
+		log_error_errno(ID(res), r, "Failed to create generic buffer");
 		goto fail;
 	}
 
@@ -3421,7 +3421,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	if (msg->header->cmd == USID_CMD_SCAN) {
 		/* currently, we only parse udev environment for the SCAN command */
 		if ((r = _parse_cmd_nullstr_udev_env(cmd, msg->header->data, msg->size - sizeof(*msg->header))) < 0) {
-			log_error_errno(ID(res), r, "Failed to parse udev environment variables.");
+			log_error_errno(ID(res), r, "Failed to parse udev environment variables");
 			goto fail;
 		}
 	}
@@ -3878,7 +3878,7 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 	} else {
 		/* No systemd autoactivation - create new socket FD. */
 		if ((fd = comms_unix_create(USID_SOCKET_PATH, USID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
-			log_error_errno(ID(ubridge_res), fd, "Failed to create local server socket.");
+			log_error_errno(ID(ubridge_res), fd, "Failed to create local server socket");
 			return fd;
 		}
 	}
@@ -4097,7 +4097,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX, 0, &r))) {
-		log_error_errno(ID(res), r, "Failed to create generic buffer.");
+		log_error_errno(ID(res), r, "Failed to create generic buffer");
 		goto fail;
 	}
 
