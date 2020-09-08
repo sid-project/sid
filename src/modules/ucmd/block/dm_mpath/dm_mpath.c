@@ -88,9 +88,10 @@ static int _dm_mpath_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mo
 }
 SID_UCMD_MOD_EXIT(_dm_mpath_exit)
 
-static int kernel_cmdline_allow(void)
+static int _kernel_cmdline_allow(void)
 {
-	char *value;
+	char *value = NULL;
+
 	if (!util_cmdline_get_arg("nompath", NULL, NULL) &&
 	    !util_cmdline_get_arg("nompath", &value, NULL))
 		return 1;
@@ -141,7 +142,7 @@ static int _dm_mpath_scan_pre(struct module *module, struct sid_ucmd_ctx *cmd)
 	char valid_str[2];
 	log_debug(ID, "scan-pre");
 
-	if (!kernel_cmdline_allow()) // treat failure as allowed
+	if (!_kernel_cmdline_allow()) // treat failure as allowed
 		return 0;
 
 	if (sid_ucmd_dev_get_type(cmd) == UDEV_DEVTYPE_UNKNOWN)
