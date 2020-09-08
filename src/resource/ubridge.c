@@ -144,20 +144,15 @@ struct ubridge {
 };
 
 typedef enum {
-	CMD_SCAN_PHASE_A_INIT = 0,                                     /* initializing phase "A" */
-
-	__CMD_SCAN_PHASE_A_START = 1,                                  /* phase "A" module processing starts */
-	CMD_SCAN_PHASE_A_IDENT = __CMD_SCAN_PHASE_A_START,             /* module */
+	CMD_SCAN_PHASE_A_INIT = 0,                                     /* core initializes phase "A" */
+	CMD_SCAN_PHASE_A_IDENT,                                        /* module */
 	CMD_SCAN_PHASE_A_SCAN_PRE,                                     /* module */
 	CMD_SCAN_PHASE_A_SCAN_CURRENT,                                 /* module */
 	CMD_SCAN_PHASE_A_SCAN_NEXT,                                    /* module */
 	CMD_SCAN_PHASE_A_SCAN_POST_CURRENT,                            /* module */
 	CMD_SCAN_PHASE_A_SCAN_POST_NEXT,                               /* module */
-	__CMD_SCAN_PHASE_A_END = CMD_SCAN_PHASE_A_SCAN_POST_NEXT,     /* phase "A" module processing ends */
-
-	CMD_SCAN_PHASE_A_WAITING,                                      /* phase "A" waiting for confirmation */
-
-	CMD_SCAN_PHASE_A_EXIT,                                         /* exiting phase "A" */
+	CMD_SCAN_PHASE_A_WAITING,                                      /* core waits for confirmation */
+	CMD_SCAN_PHASE_A_EXIT,                                         /* core exits phase "A" */
 
 	CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT,
 	__CMD_SCAN_PHASE_B_TRIGGER_ACTION_START = CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT,
@@ -1608,235 +1603,6 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	return r;
 }
 
-static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_t phase)
-{
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	sid_resource_t *orig_mod_res = cmd->mod_res;
-	sid_resource_t *block_mod_res;
-	struct module *block_mod;
-	const struct cmd_mod_fns *block_mod_fns;
-	int r = -1;
-
-	sid_resource_iter_reset(exec_arg->block_mod_iter);
-
-	while ((block_mod_res = sid_resource_iter_next(exec_arg->block_mod_iter))) {
-		if (module_registry_get_module_symbols(block_mod_res, (const void ***) &block_mod_fns) < 0) {
-			log_error(ID(exec_arg->cmd_res), "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
-			goto out;
-		}
-
-		cmd->mod_res = block_mod_res;
-		block_mod = sid_resource_get_data(block_mod_res);
-
-		switch (phase) {
-			case CMD_SCAN_PHASE_A_IDENT:
-				if (block_mod_fns->ident && block_mod_fns->ident(block_mod, cmd) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_A_SCAN_PRE:
-				if (block_mod_fns->scan_pre && block_mod_fns->scan_pre(block_mod, cmd) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_A_SCAN_CURRENT:
-				if (block_mod_fns->scan_current && block_mod_fns->scan_current(block_mod, cmd) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_A_SCAN_NEXT:
-				if (block_mod_fns->scan_next && block_mod_fns->scan_next(block_mod, cmd) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_A_SCAN_POST_CURRENT:
-				if (block_mod_fns->scan_post_current && block_mod_fns->scan_post_current(block_mod, cmd) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_A_SCAN_POST_NEXT:
-				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(block_mod, cmd) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT:
-				if (block_mod_fns->trigger_action_current && block_mod_fns->trigger_action_current(block_mod, cmd) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT:
-				if (block_mod_fns->trigger_action_next && block_mod_fns->trigger_action_next(block_mod, cmd) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_ERROR:
-				if (block_mod_fns->error && block_mod_fns->error(block_mod, cmd) < 0)
-					goto out;
-				break;
-			default:
-				log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
-				          __func__, _cmd_scan_phase_regs[phase].name);
-				break;
-		}
-	}
-
-	r = 0;
-out:
-	cmd->mod_res = orig_mod_res;
-	return r;
-}
-
-static int _cmd_exec_ident(struct cmd_exec_arg *exec_arg)
-{
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
-
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
-
-	//sid_resource_dump_all_in_dot(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
-
-	if (!cmd->mod_res)
-		return 0;
-
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->ident)
-		return mod_fns->ident(sid_resource_get_data(cmd->mod_res), cmd);
-
-	return 0;
-}
-
-static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
-{
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
-
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
-
-	if (!cmd->mod_res)
-		return 0;
-
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_pre)
-		return mod_fns->scan_pre(sid_resource_get_data(cmd->mod_res), cmd);
-
-	return 0;
-}
-
-static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
-{
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
-
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
-
-	if (!cmd->mod_res)
-		return 0;
-
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_current)
-		if (mod_fns->scan_current(sid_resource_get_data(cmd->mod_res), cmd))
-			return -1;
-
-	return 0;
-}
-
-static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
-{
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
-	const char *next_mod_name;
-
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
-
-	if ((next_mod_name = _do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, SID_UCMD_KEY_DEVICE_NEXT_MOD, NULL, NULL))) {
-		if (!(exec_arg->type_mod_res_next = module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name)))
-			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
-	} else
-		exec_arg->type_mod_res_next = NULL;
-
-	cmd->mod_res = exec_arg->type_mod_res_next;
-
-	if (!cmd->mod_res)
-		return 0;
-
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_next)
-		return mod_fns->scan_next(sid_resource_get_data(cmd->mod_res), cmd);
-
-	return 0;
-}
-
-static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
-{
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
-
-	cmd->mod_res = exec_arg->type_mod_res_current;
-
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_CURRENT);
-
-	if (!cmd->mod_res)
-		return 0;
-
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_post_current)
-		return mod_fns->scan_post_current(sid_resource_get_data(cmd->mod_res), cmd);
-
-	return 0;
-}
-
-static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
-{
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
-
-	cmd->mod_res = exec_arg->type_mod_res_next;
-
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_NEXT);
-
-	if (!cmd->mod_res)
-		return 0;
-
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_post_next)
-		return mod_fns->scan_post_next(sid_resource_get_data(cmd->mod_res), cmd);
-
-	return 0;
-}
-
-static int _cmd_exec_trigger_action_current(struct cmd_exec_arg *exec_arg)
-{
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-
-	cmd->mod_res = exec_arg->type_mod_res_current;
-	return 0;
-}
-
-static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
-{
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-
-	cmd->mod_res = exec_arg->type_mod_res_next;
-	return 0;
-}
-
-static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
-{
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
-	int r = 0;
-
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_ERROR);
-
-	if (exec_arg->type_mod_res_current) {
-		cmd->mod_res = exec_arg->type_mod_res_current;
-		module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-		if (mod_fns && mod_fns->error)
-			r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
-	}
-
-	if (exec_arg->type_mod_res_next) {
-		cmd->mod_res = exec_arg->type_mod_res_next;
-		module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
-		if (mod_fns && mod_fns->error)
-			r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
-	}
-
-	return r;
-}
-
 static int _get_sysfs_value(sid_resource_t *res, const char *path, char *buf, size_t buf_size)
 {
 	FILE *fp;
@@ -2895,6 +2661,76 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	return 0;
 }
 
+static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_t phase)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	sid_resource_t *orig_mod_res = cmd->mod_res;
+	sid_resource_t *block_mod_res;
+	struct module *block_mod;
+	const struct cmd_mod_fns *block_mod_fns;
+	int r = -1;
+
+	sid_resource_iter_reset(exec_arg->block_mod_iter);
+
+	while ((block_mod_res = sid_resource_iter_next(exec_arg->block_mod_iter))) {
+		if (module_registry_get_module_symbols(block_mod_res, (const void ***) &block_mod_fns) < 0) {
+			log_error(ID(exec_arg->cmd_res), "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
+			goto out;
+		}
+
+		cmd->mod_res = block_mod_res;
+		block_mod = sid_resource_get_data(block_mod_res);
+
+		switch (phase) {
+			case CMD_SCAN_PHASE_A_IDENT:
+				if (block_mod_fns->ident && block_mod_fns->ident(block_mod, cmd) < 0)
+					goto out;
+				break;
+			case CMD_SCAN_PHASE_A_SCAN_PRE:
+				if (block_mod_fns->scan_pre && block_mod_fns->scan_pre(block_mod, cmd) < 0)
+					goto out;
+				break;
+			case CMD_SCAN_PHASE_A_SCAN_CURRENT:
+				if (block_mod_fns->scan_current && block_mod_fns->scan_current(block_mod, cmd) < 0)
+					goto out;
+				break;
+			case CMD_SCAN_PHASE_A_SCAN_NEXT:
+				if (block_mod_fns->scan_next && block_mod_fns->scan_next(block_mod, cmd) < 0)
+					goto out;
+				break;
+			case CMD_SCAN_PHASE_A_SCAN_POST_CURRENT:
+				if (block_mod_fns->scan_post_current && block_mod_fns->scan_post_current(block_mod, cmd) < 0)
+					goto out;
+				break;
+			case CMD_SCAN_PHASE_A_SCAN_POST_NEXT:
+				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(block_mod, cmd) < 0)
+					goto out;
+				break;
+			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT:
+				if (block_mod_fns->trigger_action_current && block_mod_fns->trigger_action_current(block_mod, cmd) < 0)
+					goto out;
+				break;
+			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT:
+				if (block_mod_fns->trigger_action_next && block_mod_fns->trigger_action_next(block_mod, cmd) < 0)
+					goto out;
+				break;
+			case CMD_SCAN_PHASE_ERROR:
+				if (block_mod_fns->error && block_mod_fns->error(block_mod, cmd) < 0)
+					goto out;
+				break;
+			default:
+				log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
+				          __func__, _cmd_scan_phase_regs[phase].name);
+				break;
+		}
+	}
+
+	r = 0;
+out:
+	cmd->mod_res = orig_mod_res;
+	return r;
+}
+
 static int _set_device_kv_records(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
@@ -2915,17 +2751,235 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	return 0;
 }
 
+static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	sid_resource_t *block_mod_registry_res;
+	const char *mod_name;
+
+	if (!(block_mod_registry_res = sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_GENUS,
+	                                                   &sid_resource_type_module_registry, MODULES_BLOCK_ID))) {
+		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
+		goto fail;
+	}
+
+	if (!(exec_arg->block_mod_iter = sid_resource_iter_create(block_mod_registry_res))) {
+		log_error(ID(exec_arg->cmd_res), "Failed to create block module iterator.");
+		goto fail;
+	}
+
+	if (!(exec_arg->type_mod_registry_res = sid_resource_search(block_mod_registry_res, SID_RESOURCE_SEARCH_SIB,
+	                                                            &sid_resource_type_module_registry, MODULES_TYPE_ID))) {
+		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
+		goto fail;
+	}
+
+	if (_set_device_kv_records(exec_arg->cmd_res) < 0) {
+		log_error(ID(exec_arg->cmd_res), "Failed to set device hierarchy.");
+		goto fail;
+	}
+
+	if (!(mod_name = _lookup_module_name(exec_arg->cmd_res)))
+		goto fail;
+
+	if (!(cmd->mod_res = exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
+		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
+
+	return 0;
+fail:
+	if (exec_arg->block_mod_iter) {
+		sid_resource_iter_destroy(exec_arg->block_mod_iter);
+		exec_arg->block_mod_iter = NULL;
+	}
+
+	return -1;
+}
+
+static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
+
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
+
+	//sid_resource_dump_all_in_dot(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
+
+	if (!cmd->mod_res)
+		return 0;
+
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->ident)
+		return mod_fns->ident(sid_resource_get_data(cmd->mod_res), cmd);
+
+	return 0;
+}
+
+static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
+
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
+
+	if (!cmd->mod_res)
+		return 0;
+
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_pre)
+		return mod_fns->scan_pre(sid_resource_get_data(cmd->mod_res), cmd);
+
+	return 0;
+}
+
+static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
+
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
+
+	if (!cmd->mod_res)
+		return 0;
+
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_current)
+		if (mod_fns->scan_current(sid_resource_get_data(cmd->mod_res), cmd))
+			return -1;
+
+	return 0;
+}
+
+static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
+	const char *next_mod_name;
+
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
+
+	if ((next_mod_name = _do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, SID_UCMD_KEY_DEVICE_NEXT_MOD, NULL, NULL))) {
+		if (!(exec_arg->type_mod_res_next = module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name)))
+			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
+	} else
+		exec_arg->type_mod_res_next = NULL;
+
+	cmd->mod_res = exec_arg->type_mod_res_next;
+
+	if (!cmd->mod_res)
+		return 0;
+
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_next)
+		return mod_fns->scan_next(sid_resource_get_data(cmd->mod_res), cmd);
+
+	return 0;
+}
+
+static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
+
+	cmd->mod_res = exec_arg->type_mod_res_current;
+
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_CURRENT);
+
+	if (!cmd->mod_res)
+		return 0;
+
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_post_current)
+		return mod_fns->scan_post_current(sid_resource_get_data(cmd->mod_res), cmd);
+
+	return 0;
+}
+
+static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
+
+	cmd->mod_res = exec_arg->type_mod_res_next;
+
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_NEXT);
+
+	if (!cmd->mod_res)
+		return 0;
+
+	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_post_next)
+		return mod_fns->scan_post_next(sid_resource_get_data(cmd->mod_res), cmd);
+
+	return 0;
+}
+
+static int _cmd_exec_scan_wait(struct cmd_exec_arg *exec_arg)
+{
+	return 0;
+}
+
+static int _cmd_exec_scan_exit(struct cmd_exec_arg *exec_arg)
+{
+	if (exec_arg->block_mod_iter) {
+		sid_resource_iter_destroy(exec_arg->block_mod_iter);
+		exec_arg->block_mod_iter = NULL;
+	}
+
+	return 0;
+}
+
+static int _cmd_exec_trigger_action_current(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+
+	cmd->mod_res = exec_arg->type_mod_res_current;
+	return 0;
+}
+
+static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+
+	cmd->mod_res = exec_arg->type_mod_res_next;
+	return 0;
+}
+
+static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
+	const struct cmd_mod_fns *mod_fns;
+	int r = 0;
+
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_ERROR);
+
+	if (exec_arg->type_mod_res_current) {
+		cmd->mod_res = exec_arg->type_mod_res_current;
+		module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+		if (mod_fns && mod_fns->error)
+			r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
+	}
+
+	if (exec_arg->type_mod_res_next) {
+		cmd->mod_res = exec_arg->type_mod_res_next;
+		module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+		if (mod_fns && mod_fns->error)
+			r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
+	}
+
+	return r;
+}
+
 static struct cmd_reg _cmd_scan_phase_regs[] = {
 	[CMD_SCAN_PHASE_A_INIT]                   = {
 		.name = "init",
 		.flags = CMD_SCAN_CAP_RDY | CMD_SCAN_CAP_RES,
-		.exec = NULL
+		.exec = _cmd_exec_scan_init
 	},
 
 	[CMD_SCAN_PHASE_A_IDENT]                  = {
 		.name = "ident",
 		.flags = 0,
-		.exec = _cmd_exec_ident
+		.exec = _cmd_exec_scan_ident
 	},
 
 	[CMD_SCAN_PHASE_A_SCAN_PRE]               = {
@@ -2961,13 +3015,13 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 	[CMD_SCAN_PHASE_A_WAITING]                = {
 		.name = "waiting",
 		.flags = 0,
-		.exec = NULL
+		.exec = _cmd_exec_scan_wait
 	},
 
 	[CMD_SCAN_PHASE_A_EXIT]                   = {
 		.name = "exit",
 		.flags = CMD_SCAN_CAP_RDY | CMD_SCAN_CAP_RES,
-		.exec = NULL
+		.exec = _cmd_exec_scan_exit
 	},
 
 	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT] = {
@@ -2992,58 +3046,26 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	sid_resource_t *block_mod_registry_res;
-	const char *mod_name;
 	cmd_scan_phase_t phase;
-	int r = -1;
 
-	cmd->scan_phase = CMD_SCAN_PHASE_A_INIT;
-
-	if (!(block_mod_registry_res = sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_GENUS,
-	                                                   &sid_resource_type_module_registry, MODULES_BLOCK_ID))) {
-		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
-		goto out;
-	}
-
-	if (!(exec_arg->block_mod_iter = sid_resource_iter_create(block_mod_registry_res))) {
-		log_error(ID(exec_arg->cmd_res), "Failed to create block module iterator.");
-		goto out;
-	}
-
-	if (!(exec_arg->type_mod_registry_res = sid_resource_search(block_mod_registry_res, SID_RESOURCE_SEARCH_SIB,
-	                                                            &sid_resource_type_module_registry, MODULES_TYPE_ID))) {
-		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
-		goto out;
-	}
-
-	if (_set_device_kv_records(exec_arg->cmd_res) < 0) {
-		log_error(ID(exec_arg->cmd_res), "Failed to set device hierarchy.");
-		goto out;
-	}
-
-	if (!(mod_name = _lookup_module_name(exec_arg->cmd_res)))
-		goto out;
-
-	if (!(cmd->mod_res = exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
-		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
-
-	for (phase = __CMD_SCAN_PHASE_A_START; phase <= __CMD_SCAN_PHASE_A_END; phase++) {
+	for (phase = CMD_SCAN_PHASE_A_INIT; phase <= CMD_SCAN_PHASE_A_EXIT; phase++) {
 		log_debug(ID(exec_arg->cmd_res), "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
 		cmd->scan_phase = phase;
-		if ((r = _cmd_scan_phase_regs[phase].exec(exec_arg)) < 0) {
+
+		if (_cmd_scan_phase_regs[phase].exec(exec_arg) < 0) {
 			log_error(ID(exec_arg->cmd_res), "%s phase failed.", _cmd_scan_phase_regs[phase].name);
+
+			/* if init or exit phase fails, there's nothing else we can do */
+			if (phase == CMD_SCAN_PHASE_A_INIT || phase == CMD_SCAN_PHASE_A_EXIT)
+				return -1;
+
+			/* otherwise, call out modules to handle the error case */
 			if (_cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].exec(exec_arg) < 0)
 				log_error(ID(exec_arg->cmd_res), "error phase failed.");
-			goto out;
 		}
 	}
-out:
-	if (exec_arg->block_mod_iter) {
-		(void) sid_resource_iter_destroy(exec_arg->block_mod_iter);
-		exec_arg->block_mod_iter = NULL;
-	}
 
-	return r;
+	return 0;
 }
 
 static int _cmd_exec_checkpoint(struct cmd_exec_arg *exec_arg)
