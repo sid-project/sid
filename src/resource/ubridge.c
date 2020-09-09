@@ -312,8 +312,12 @@ struct cross_bitmap_calc_arg {
 	struct bitmap *new_bmp;
 };
 
-#define CMD_SCAN_CAP_RDY UINT32_C(0x000000001) /* can set ready state */
-#define CMD_SCAN_CAP_RES UINT32_C(0x000000002) /* can set reserved state */
+/*
+ * Capability flags for scan phases.
+ */
+#define CMD_SCAN_CAP_RDY UINT32_C(0x00000001) /* can set ready state */
+#define CMD_SCAN_CAP_RES UINT32_C(0x00000002) /* can set reserved state */
+#define CMD_SCAN_CAP_ALL UINT32_C(0xFFFFFFFF) /* can set anything */
 
 static struct cmd_reg _cmd_scan_phase_regs[];
 static sid_ucmd_kv_flags_t kv_flags_no_persist = (DEFAULT_KV_FLAGS_CORE) & ~KV_PERSISTENT;
@@ -2969,7 +2973,7 @@ static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 static struct cmd_reg _cmd_scan_phase_regs[] = {
 	[CMD_SCAN_PHASE_A_INIT]                   = {
 		.name = "init",
-		.flags = CMD_SCAN_CAP_RDY | CMD_SCAN_CAP_RES,
+		.flags = CMD_SCAN_CAP_ALL,
 		.exec = _cmd_exec_scan_init
 	},
 
@@ -3017,7 +3021,7 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 
 	[CMD_SCAN_PHASE_A_EXIT]                   = {
 		.name = "exit",
-		.flags = CMD_SCAN_CAP_RDY | CMD_SCAN_CAP_RES,
+		.flags = CMD_SCAN_CAP_ALL,
 		.exec = _cmd_exec_scan_exit
 	},
 
