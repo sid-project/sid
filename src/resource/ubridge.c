@@ -2753,9 +2753,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 
 static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *block_mod_registry_res;
-	const char *mod_name;
 
 	if (!(block_mod_registry_res = sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_GENUS,
 	                                                   &sid_resource_type_module_registry, MODULES_BLOCK_ID))) {
@@ -2779,12 +2777,6 @@ static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 		goto fail;
 	}
 
-	if (!(mod_name = _lookup_module_name(exec_arg->cmd_res)))
-		goto fail;
-
-	if (!(cmd->mod_res = exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
-		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
-
 	return 0;
 fail:
 	if (exec_arg->block_mod_iter) {
@@ -2799,6 +2791,11 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
+	const char *mod_name;
+
+	if ((mod_name = _lookup_module_name(exec_arg->cmd_res)) &&
+	    !(cmd->mod_res = exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
+		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
 
