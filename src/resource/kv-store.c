@@ -17,8 +17,6 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "configure.h"
-
 #include "base/hash.h"
 #include "base/mem.h"
 #include "log/log.h"
