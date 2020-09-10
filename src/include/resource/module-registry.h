@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,16 +39,16 @@ extern "C" {
 #define MODULE_SYMBOL_INDIRECT             UINT64_C(0x0000000000000004)
 
 struct module_symbol_params {
-	const char *name;
-	uint64_t flags;
+	const char *name; /* module name (without suffix) */
+	uint64_t flags;   /* MODULE_SYMBOL_* flags */
 };
 
 #define NULL_MODULE_SYMBOL_PARAMS ((const struct module_symbol_params) {.name = NULL, .flags = 0})
 
 struct module_registry_resource_params {
-	const char *directory;
-	uint64_t flags;
-	void *cb_arg;                                         /* custom arg passed to module_fn_t (init/exit/reload callbacks) */
+	const char *directory;                            /* directory with modules */
+	uint64_t flags;                                   /* MODULE_REGISTRY_* flags */
+	void *cb_arg;                                     /* custom arg passed to module_fn_t (init/exit/reload callbacks) */
 	const struct module_symbol_params *symbol_params; /* NULL-terminated list of symbol params */
 };
 
