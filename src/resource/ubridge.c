@@ -179,16 +179,14 @@ struct connection {
 };
 
 struct sid_ucmd_ctx {
-	union {
-		cmd_scan_phase_t scan_phase;
-	};
-	char *dev_id;
-	struct udevice udev_dev;
-	sid_resource_t *kv_store_res;
-	sid_resource_t *mod_res; /* the module that is processed at the moment */
-	struct buffer *gen_buf;
-	struct buffer *res_buf;
-	struct usid_msg_header request_header;
+	char *dev_id;                          /* device identifier (major_minor) */
+	struct udevice udev_dev;               /* udev context for currently processed device */
+	cmd_scan_phase_t scan_phase;           /* current phase at the time of use of this context */
+	sid_resource_t *kv_store_res;          /* KV store snapshot */
+	sid_resource_t *mod_res;               /* the module that is processed at the moment */
+	struct buffer *gen_buf;                /* generic buffer */
+	struct buffer *res_buf;                /* result buffer */
+	struct usid_msg_header request_header; /* original request header (keep last, contains flexible array) */
 };
 
 struct cmd_mod_fns {
