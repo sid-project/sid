@@ -4041,7 +4041,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	int r;
 
 	if (!(ubridge = mem_zalloc(sizeof(struct ubridge)))) {
-		log_error(ID(res), "Failed to allocate memory for interface structure.");
+		log_error(ID(res), "Failed to allocate memory for ubridge structure.");
 		goto fail;
 	}
 	ubridge->socket_fd = -1;
