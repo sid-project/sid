@@ -51,6 +51,7 @@ udev_devtype_t util_udev_str_to_udev_devtype(const char *str);
 #define UTIL_STR_DEFAULT_QUOTES "\"\'"
 
 char *util_str_rstr(const char *haystack, const char *needle);
+char *util_str_combstr(const char *haystack, const char *prefix, const char *needle, const char *suffix, bool ignorecase);
 
 typedef int (*util_str_token_fn_t) (const char *token, size_t len, void *data);
 int util_str_iterate_tokens(const char *str, const char *delims, const char *quotes, util_str_token_fn_t token_fn, void *token_fn_data);

@@ -17,6 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "configure.h"
+
 #include "base/mem.h"
 #include "base/util.h"
 
@@ -113,6 +115,41 @@ char *util_str_rstr(const char *haystack, const char *needle)
 	for (pos = haystack_len - needle_len; pos > 0; pos--)
 		if (!strncmp(haystack + pos, needle, needle_len))
 			return (char *) haystack + pos;
+
+	return NULL;
+}
+
+char *util_str_combstr(const char *haystack, const char *prefix, const char *needle, const char *suffix, bool ignorecase)
+{
+	size_t haystack_len, prefix_len, needle_len, suffix_len;
+	bool prefix_match, suffix_match;
+	char *needle_in_haystack;
+
+	haystack_len = strlen(haystack);
+	prefix_len = prefix ? strlen(prefix) : 0;
+	needle_len = needle ? strlen(needle) : 0;
+	suffix_len = suffix ? strlen(suffix) : 0;
+
+	if (prefix_len + needle_len + suffix_len > haystack_len)
+		return NULL;
+
+	if (ignorecase) {
+		prefix_match = !prefix_len || (strncasecmp(haystack, prefix, prefix_len) == 0);
+		suffix_match = !suffix_len || (strncasecmp(haystack + haystack_len - suffix_len, suffix, suffix_len) == 0);
+		needle_in_haystack = needle ? strcasestr(haystack + prefix_len, needle) : NULL;
+	} else {
+		prefix_match = !prefix_len || (strncmp(haystack, prefix, prefix_len) == 0);
+		suffix_match = !suffix_len || (strncmp(haystack + haystack_len - suffix_len, suffix, suffix_len) == 0);
+		needle_in_haystack = needle ? strstr(haystack + prefix_len, needle) : NULL;
+	}
+
+	if (needle) {
+		if (prefix_match && suffix_match && (needle_in_haystack = strcasestr(haystack + prefix_len, needle)))
+			return needle_in_haystack;
+	} else {
+		if (prefix_match && suffix_match)
+			return (char *) haystack;
+	}
 
 	return NULL;
 }
