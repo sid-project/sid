@@ -1489,7 +1489,7 @@ static void _canonicalize_kv_key(char *id)
 }
 
 /*
- *  Module name is equal to the name as exposed in SYSTEM_PROC_DEVICES_PATH + MODULE_NAME_SUFFIX.
+ *  Module name is equal to the name as exposed in SYSTEM_PROC_DEVICES_PATH.
  */
 static const char *_lookup_module_name(sid_resource_t *cmd_res)
 {
@@ -1561,7 +1561,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 
 	len = p - found;
 
-	if (len >= (sizeof(buf) - strlen(MODULE_NAME_SUFFIX))) {
+	if (len >= sizeof(buf)) {
 		log_error(ID(cmd_res), "Insufficient result buffer for device lookup in %s, "
 		          "found string \"%s\", buffer size is only %zu.", SYSTEM_PROC_DEVICES_PATH,
 		          found, sizeof(buf));
@@ -1569,8 +1569,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	}
 
 	memcpy(buf, found, len);
-	memcpy(buf + len, MODULE_NAME_SUFFIX, MODULE_NAME_SUFFIX_LEN);
-	buf[len + MODULE_NAME_SUFFIX_LEN] = '\0';
+	buf[len] = '\0';
 	_canonicalize_module_name(buf);
 
 	if (!(mod_name = _do_sid_ucmd_set_kv(cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_MOD, DEFAULT_KV_FLAGS_CORE, buf, strlen(buf) + 1)))
@@ -4138,6 +4137,8 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 
 	struct module_registry_resource_params block_res_mod_params = {
 		.directory     = UCMD_BLOCK_MODULE_DIRECTORY,
+		.module_prefix = NULL,
+		.module_suffix = ".so",
 		.flags         = MODULE_REGISTRY_PRELOAD,
 		.symbol_params = block_symbol_params,
 		.cb_arg        = &ubridge->cmd_mod,
@@ -4145,6 +4146,8 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 
 	struct module_registry_resource_params type_res_mod_params = {
 		.directory     = UCMD_TYPE_MODULE_DIRECTORY,
+		.module_prefix = NULL,
+		.module_suffix = ".so",
 		.flags         = MODULE_REGISTRY_PRELOAD,
 		.symbol_params = type_symbol_params,
 		.cb_arg        = &ubridge->cmd_mod,

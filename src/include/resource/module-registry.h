@@ -27,9 +27,6 @@
 extern "C" {
 #endif
 
-#define MODULE_NAME_SUFFIX                 ".so"
-#define MODULE_NAME_SUFFIX_LEN             (sizeof(MODULE_NAME_SUFFIX) - 1)
-
 /* For use in struct module_registry_resource_resource_module_params.flags field. */
 #define MODULE_REGISTRY_PRELOAD            UINT64_C(0x0000000000000001)
 
@@ -47,6 +44,8 @@ struct module_symbol_params {
 
 struct module_registry_resource_params {
 	const char *directory;                            /* directory with modules */
+	const char *module_prefix;                        /* common prefix for all modules */
+	const char *module_suffix;                        /* common suffix for all modules */
 	uint64_t flags;                                   /* MODULE_REGISTRY_* flags */
 	void *cb_arg;                                     /* custom arg passed to module_fn_t (init/exit/reload callbacks) */
 	const struct module_symbol_params *symbol_params; /* NULL-terminated list of symbol params */

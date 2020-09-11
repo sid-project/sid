@@ -37,6 +37,10 @@ const sid_resource_type_t sid_resource_type_module;
 
 struct module_registry {
 	const char *directory;
+	size_t module_prefix_len;
+	const char *module_prefix;
+	size_t module_suffix_len;
+	const char *module_suffix;
 	uint64_t flags;
 	void *cb_arg;
 	unsigned symbol_count;
@@ -184,7 +188,7 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 	}
 
 	for (i = 0; i < count; i++) {
-		if (dirent[i]->d_name[0] != '.' && util_str_combstr(dirent[i]->d_name, NULL, NULL, MODULE_NAME_SUFFIX, 1)) {
+		if (dirent[i]->d_name[0] != '.' && util_str_combstr(dirent[i]->d_name, registry->module_prefix, NULL, registry->module_suffix, 1)) {
 			if (!(module_res = sid_resource_create(module_registry_res,
 			                                       &sid_resource_type_module,
 			                                       SID_RESOURCE_DISALLOW_ISOLATION,
@@ -229,19 +233,33 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 {
 	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct module_symbol_params symbol_params = {0};
-	const char *module_name = kickstart_data;
+	const char *module_filename = kickstart_data;
+	size_t module_name_len;
 	struct module *module = NULL;
 	char path[PATH_MAX];
 	unsigned i;
 
-	if (!(module = mem_zalloc(sizeof(*module))) ||
-	    !(module->name = strdup(module_name)) ||
-	    !(module->symbols = mem_zalloc(registry->symbol_count * sizeof(void *)))) {
+	if (!(module = mem_zalloc(sizeof(*module)))) {
+		log_error(ID(module_res), "Failed to allocate module structure.");
+		goto fail;
+	}
+
+	module_name_len = strlen(module_filename) - registry->module_prefix_len - registry->module_suffix_len;
+
+	if (!(module->name = malloc(module_name_len + 1))) {
+		log_error(ID(module_res), "Failed to allocate memory to store module name.");
+		goto fail;
+	}
+
+	strncpy(module->name, module_filename + registry->module_prefix_len, module_name_len);
+	module->name[module_name_len] = '\0';
+
+	if (!(module->symbols = mem_zalloc(registry->symbol_count * sizeof(void *)))) {
 		log_error(ID(module_res), "Failed to allocate array to store symbol pointers.");
 		goto fail;
 	}
 
-	if (snprintf(path, sizeof(path) - 1, "%s/%s", registry->directory, module_name) < 0) {
+	if (snprintf(path, sizeof(path) - 1, "%s/%s", registry->directory, module_filename) < 0) {
 		log_error(ID(module_res), "Failed to create module directory path.");
 		goto fail;
 	}
@@ -321,6 +339,8 @@ static void _free_module_registry(struct module_registry *registry)
 	}
 
 	free((void *) registry->directory);
+	free((void *) registry->module_prefix);
+	free((void *) registry->module_suffix);
 	free(registry);
 }
 
@@ -358,6 +378,22 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 	if (!(registry->directory = strdup(params->directory))) {
 		log_error(ID(module_registry_res), "Failed to copy module directory name.");
 		goto fail;
+	}
+
+	if (params->module_prefix && *params->module_prefix) {
+		if (!(registry->module_prefix = strdup(params->module_prefix))) {
+			log_error(ID(module_registry_res), "Failed to copy common module prefix.");
+			goto fail;
+		}
+		registry->module_prefix_len = strlen(registry->module_prefix);
+	}
+
+	if (params->module_suffix && *params->module_suffix) {
+		if (!(registry->module_suffix = strdup(params->module_suffix))) {
+			log_error(ID(module_registry_res), "Failed to copy common module suffix.");
+			goto fail;
+		}
+		registry->module_suffix_len = strlen(registry->module_suffix);
 	}
 
 	if (!(registry->symbol_params = mem_zalloc(symbol_count * sizeof(struct module_symbol_params)))) {
