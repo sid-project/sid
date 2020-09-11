@@ -20,6 +20,7 @@
 #include "configure.h"
 
 #include "base/mem.h"
+#include "base/util.h"
 #include "log/log.h"
 #include "resource/module-registry.h"
 #include "resource/resource.h"
@@ -167,20 +168,6 @@ void *module_get_data(struct module *module)
 	return module->data;
 }
 
-static int _has_suffix(const char *s, const char *suffix, int no_case)
-{
-	size_t len_s, len_suffix;
-
-	len_s = strlen(s);
-	len_suffix = strlen(suffix);
-
-	if (len_s == 0 || len_suffix > len_s)
-		return 0;
-
-	return no_case ? strcasecmp(s + len_s - len_suffix, suffix) == 0
-	       : strcmp(s + len_s - len_suffix, suffix) == 0;
-}
-
 static int _preload_modules(sid_resource_t *module_registry_res, struct module_registry *registry)
 {
 	sid_resource_t *module_res;
@@ -197,7 +184,7 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 	}
 
 	for (i = 0; i < count; i++) {
-		if (dirent[i]->d_name[0] != '.' && _has_suffix(dirent[i]->d_name, MODULE_NAME_SUFFIX, 1)) {
+		if (dirent[i]->d_name[0] != '.' && util_str_combstr(dirent[i]->d_name, NULL, NULL, MODULE_NAME_SUFFIX, 1)) {
 			if (!(module_res = sid_resource_create(module_registry_res,
 			                                       &sid_resource_type_module,
 			                                       SID_RESOURCE_DISALLOW_ISOLATION,
