@@ -144,7 +144,7 @@ char *util_str_combstr(const char *haystack, const char *prefix, const char *nee
 	}
 
 	if (needle) {
-		if (prefix_match && suffix_match && (needle_in_haystack = strcasestr(haystack + prefix_len, needle)))
+		if (prefix_match && suffix_match && needle_in_haystack)
 			return needle_in_haystack;
 	} else {
 		if (prefix_match && suffix_match)
