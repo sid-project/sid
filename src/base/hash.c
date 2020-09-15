@@ -170,6 +170,10 @@ static int _do_hash_insert_binary(struct hash_table *t, struct hash_node **c, co
 	if (!n)
 		return -1;
 
+	/* A hash_update_fn may have added another hash node to this slot */
+	while (*c != NULL)
+		c = &((*c)->next);
+
 	n->data = data;
 	n->next = 0;
 	*c = n;
@@ -406,6 +410,10 @@ int hash_update_binary(struct hash_table *t, const void *key, uint32_t len, void
 {
 	struct hash_node **c = _find(t, key, len);
 
+	/*
+	 * the hash_update_fn may add nodes to the hash table, but it must not
+	 * add this key to the hash table or remove any nodes.
+	 */
 	if (*c) {
 		if (!hash_update_fn || hash_update_fn(key, len, (*c)->data, data, hash_update_fn_arg))
 			(*c)->data = data ? *data : NULL;
