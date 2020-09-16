@@ -37,6 +37,7 @@ typedef struct sid_resource {
 	sid_resource_t *parent;
 	struct list children;
 	sid_resource_flags_t flags;
+	int64_t prio;
 	sd_event *sd_event_loop;
 	struct list event_sources;
 	struct service_link_group *slg;
@@ -148,9 +149,26 @@ out:
 	return r;
 }
 
+static void _add_res_to_parent_res(sid_resource_t *res, sid_resource_t *parent_res)
+{
+	sid_resource_t *child_res;
+	struct list *child_lh;
+
+	if ((res->parent = parent_res)) {
+		list_iterate(child_lh, &parent_res->children) {
+			child_res = list_item(child_lh, sid_resource_t);
+			if (res->prio < child_res->prio)
+				break;
+		}
+
+		list_add(child_lh, &res->list);
+		res->ref_count++;
+	}
+}
+
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_type_t *type,
                                     sid_resource_flags_t flags, const char *id_part, const void *kickstart_data,
-                                    sid_resource_service_link_def_t service_link_defs[])
+                                    int64_t prio, sid_resource_service_link_def_t service_link_defs[])
 {
 	sid_resource_t *res = NULL;
 	size_t id_size;
@@ -180,6 +198,7 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 	res->flags = flags;
 	list_init(&res->children);
 	res->type = type;
+	res->prio = prio;
 	res->sd_event_loop = NULL;
 	res->pid_created = getpid(); /* FIXME: Use cached pid instead? Check latency... */
 
@@ -188,10 +207,7 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 
 	list_init(&res->event_sources);
 
-	if ((res->parent = parent_res)) {
-		list_add(&parent_res->children, &res->list);
-		res->ref_count++;
-	}
+	_add_res_to_parent_res(res, parent_res);
 
 	if (type->with_event_loop && type->with_watchdog &&
 	    sd_event_set_watchdog(res->sd_event_loop, 1) < 0)
@@ -324,6 +340,34 @@ const char *sid_resource_get_id(sid_resource_t *res)
 void *sid_resource_get_data(sid_resource_t *res)
 {
 	return res->data;
+}
+
+int sid_resource_set_prio(sid_resource_t *res, int64_t prio)
+{
+	sid_resource_t *parent_res;
+	int64_t orig_prio;
+
+	if (prio == res->prio)
+		return 0;
+
+	if ((parent_res = res->parent)) {
+		list_del(&res->list);
+		res->ref_count--;
+
+		orig_prio = res->prio;
+		res->prio = prio;
+
+		_add_res_to_parent_res(res, parent_res);
+
+		log_debug(res->id, "Resource priority changed from %" PRId64 " to %" PRId64 ".", orig_prio, prio);
+	}
+
+	return 0;
+}
+
+int64_t sid_resource_get_prio(sid_resource_t *res)
+{
+	return res->prio;
 }
 
 sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_not_found)
@@ -687,8 +731,7 @@ int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child)
 		return -EINVAL;
 
 	child->parent = res;
-	list_add(&res->children, &child->list);
-	child->ref_count++;
+	_add_res_to_parent_res(child, res);
 
 	log_debug(res->id, "Child %s added.", child->id);
 	return 0;
@@ -705,7 +748,7 @@ int sid_resource_isolate(sid_resource_t *res)
 	/* Reparent and isolate. */
 	list_iterate_items_safe(child_res, tmp_child_res, &res->children) {
 		list_del(&child_res->list);
-		list_add(&res->parent->children, &child_res->list);
+		_add_res_to_parent_res(child_res, res->parent);
 	}
 	list_del(&res->list);
 	res->parent = NULL;

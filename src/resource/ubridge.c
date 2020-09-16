@@ -3338,6 +3338,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 			                         SID_RESOURCE_NO_FLAGS,
 			                         id,
 			                         &msg,
+			                         SID_RESOURCE_PRIO_NORMAL,
 			                         SID_RESOURCE_NO_SERVICE_LINKS))
 				log_error(ID(conn_res), "Failed to register command for processing.");
 
@@ -3735,6 +3736,7 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 		                         SID_RESOURCE_NO_FLAGS,
 		                         SID_RESOURCE_NO_CUSTOM_ID,
 		                         data_spec,
+		                         SID_RESOURCE_PRIO_NORMAL,
 		                         SID_RESOURCE_NO_SERVICE_LINKS)) {
 			log_error(ID(worker_res), "Failed to create connection resource.");
 			return -1;
@@ -4047,6 +4049,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                                         SID_RESOURCE_DISALLOW_ISOLATION,
 	                                         INTERNAL_AGGREGATE_ID,
 	                                         ubridge,
+	                                         SID_RESOURCE_PRIO_NORMAL,
 	                                         SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create internal ubridge resource.");
 		goto fail;
@@ -4057,6 +4060,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                                         SID_RESOURCE_RESTRICT_WALK_UP,
 	                                         MAIN_KV_STORE_NAME,
 	                                         &main_kv_store_res_params,
+	                                         SID_RESOURCE_PRIO_NORMAL,
 	                                         SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create main key-value store.");
 		goto fail;
@@ -4105,6 +4109,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                         SID_RESOURCE_NO_FLAGS,
 	                         SID_RESOURCE_NO_CUSTOM_ID,
 	                         &worker_control_res_params,
+	                         SID_RESOURCE_PRIO_NORMAL,
 	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
 		log_error(ID(res), "Failed to create worker control.");
 		goto fail;
@@ -4125,6 +4130,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                                        SID_RESOURCE_NO_FLAGS,
 	                                        MODULES_AGGREGATE_ID,
 	                                        SID_RESOURCE_NO_PARAMS,
+	                                        SID_RESOURCE_PRIO_NORMAL,
 	                                        SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
 		goto fail;
@@ -4153,12 +4159,14 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                          SID_RESOURCE_DISALLOW_ISOLATION,
 	                          MODULES_BLOCK_ID,
 	                          &block_res_mod_params,
+	                          SID_RESOURCE_PRIO_NORMAL,
 	                          SID_RESOURCE_NO_SERVICE_LINKS)) ||
 	    !(sid_resource_create(modules_res,
 	                          &sid_resource_type_module_registry,
 	                          SID_RESOURCE_DISALLOW_ISOLATION,
 	                          MODULES_TYPE_ID,
 	                          &type_res_mod_params,
+	                          SID_RESOURCE_PRIO_NORMAL,
 	                          SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create module handler.");
 		goto fail;

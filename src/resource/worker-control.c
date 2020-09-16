@@ -687,6 +687,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			                          SID_RESOURCE_NO_FLAGS,
 			                          id,
 			                          &kickstart,
+			                          SID_RESOURCE_PRIO_NORMAL,
 			                          SID_RESOURCE_NO_SERVICE_LINKS);
 
 			if (worker_control->init_cb_spec.cb)
@@ -765,6 +766,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		                          SID_RESOURCE_DISALLOW_ISOLATION,
 		                          id,
 		                          &kickstart,
+		                          SID_RESOURCE_PRIO_NORMAL,
 		                          SID_RESOURCE_NO_SERVICE_LINKS);
 	}
 

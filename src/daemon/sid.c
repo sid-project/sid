@@ -186,6 +186,7 @@ int main(int argc, char *argv[])
 	                                                     SID_RESOURCE_NO_FLAGS,
 	                                                     SID_RESOURCE_NO_CUSTOM_ID,
 	                                                     SID_RESOURCE_NO_PARAMS,
+	                                                     SID_RESOURCE_PRIO_NORMAL,
 	                                                     service_link_defs))))
 		goto out;
 

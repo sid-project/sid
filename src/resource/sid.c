@@ -55,6 +55,7 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 	                         SID_RESOURCE_RESTRICT_WALK_UP,
 	                         SID_RESOURCE_NO_CUSTOM_ID,
 	                         SID_RESOURCE_NO_PARAMS,
+	                         SID_RESOURCE_PRIO_NORMAL,
 	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
 		log_error(ID(res), "Failed to create udev bridge interface.");
 		goto fail;

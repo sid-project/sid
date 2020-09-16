@@ -61,6 +61,7 @@ typedef enum {
 #define SID_RESOURCE_NO_CUSTOM_ID     NULL
 #define SID_RESOURCE_NO_PARAMS        NULL
 #define SID_RESOURCE_NO_SERVICE_LINKS NULL
+#define SID_RESOURCE_PRIO_NORMAL      0
 
 typedef struct sid_resource_service_link_def {
 	const char *name;
@@ -75,7 +76,7 @@ typedef struct sid_resource_service_link_def {
 /* Note: service_link_defs[] array must always be terminated by NULL_SERVICE_LINK */
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_type_t *type,
 				    sid_resource_flags_t flags, const char *id, const void *kickstart_data,
-				    sid_resource_service_link_def_t service_link_defs[]);
+				    int64_t prio, sid_resource_service_link_def_t service_link_defs[]);
 
 int sid_resource_destroy(sid_resource_t *res);
 
@@ -86,11 +87,15 @@ sid_resource_t *sid_resource_ref(sid_resource_t *res);
 int sid_resource_unref(sid_resource_t *res);
 
 /*
- * basic property retrieval functions
+ * basic property get/set functions
  */
 void *sid_resource_get_data(sid_resource_t *res);
+
 const char *sid_resource_get_full_id(sid_resource_t *res);
 const char *sid_resource_get_id(sid_resource_t *res);
+
+int sid_resource_set_prio(sid_resource_t *res, int64_t prio);
+int64_t sid_resource_get_prio(sid_resource_t *res);
 
 #define ID(res) sid_resource_get_full_id(res)
 
