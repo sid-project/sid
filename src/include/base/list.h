@@ -44,6 +44,9 @@ struct list {
 #define list_struct_base(v, t, head) \
 	((t *)((const char *)(v) - (const char *)&((t *) 0)->head))
 
+#define list_item(v, t) \
+	list_struct_base((v), t, list)
+
 #define list_iterate_items_gen(v, head, field) \
 	for (v = list_struct_base((head)->n, __typeof__(*v), field); \
 	     &v->field != (head); \
