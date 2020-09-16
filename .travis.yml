@@ -1,6 +1,5 @@
-dist: bionic
+dist: focal
 language: c
-sudo: true
 compiler: gcc
 notifications:
   email:
