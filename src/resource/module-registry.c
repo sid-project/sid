@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -226,6 +226,7 @@ static int _load_module_symbol(sid_resource_t *module_res, void *dl_handle, cons
 	return 0;
 }
 
+#define MODULE_PRIO_NAME   "module_prio"
 #define MODULE_INIT_NAME   "module_init"
 #define MODULE_EXIT_NAME   "module_exit"
 #define MODULE_RELOAD_NAME "module_reload"
@@ -238,6 +239,7 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 	size_t module_name_len;
 	struct module *module = NULL;
 	char path[PATH_MAX];
+	int64_t *p_prio;
 	unsigned i;
 
 	if (!(module = mem_zalloc(sizeof(*module)))) {
@@ -270,7 +272,17 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 		goto fail;
 	}
 
+	/* module priority value is direct symbol */
+	symbol_params.name = MODULE_PRIO_NAME;
+	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &p_prio) < 0)
+		goto fail;
+
+	if (p_prio && (sid_resource_set_prio(module_res, *p_prio) < 0))
+		goto fail;
+
+	/* function symbols are indirect symbols */
 	symbol_params.flags = MODULE_SYMBOL_INDIRECT;
+
 	symbol_params.name = MODULE_RELOAD_NAME;
 	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &module->reload_fn) < 0)
 		goto fail;

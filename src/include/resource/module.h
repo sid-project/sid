@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,16 +20,20 @@
 #ifndef _SID_MODULE_H
 #define _SID_MODULE_H
 
+#include <inttypes.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct module;
 
+typedef int64_t module_prio_t;
 typedef int module_fn_t(struct module *module, void *cb_arg);
 
 #define MODULE_FN(name, fn) module_fn_t *module_ ## name = fn;
 
+#define MODULE_PRIO(val)    module_prio_t module_prio = val;
 #define MODULE_INIT(fn)     MODULE_FN(init, fn)
 #define MODULE_EXIT(fn)     MODULE_FN(exit, fn)
 #define MODULE_RELOAD(fn)   MODULE_FN(reload, fn)

@@ -34,13 +34,16 @@ extern "C" {
 struct sid_ucmd_mod_ctx;
 struct sid_ucmd_ctx;
 
-typedef int sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *cmd);
+typedef module_prio_t sid_ucmd_mod_prio_t;
 typedef int sid_ucmd_mod_fn_t(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod);
+typedef int sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *cmd);
 
 /*
  * Macros to register module's management functions.
  */
 #define SID_UCMD_MOD_FN(name, fn)           sid_ucmd_mod_fn_t *sid_ucmd_mod_ ## name = fn;
+
+#define SID_UCMD_MOD_PRIO(val)              MODULE_PRIO(val)
 
 #ifdef __GNUC__
 
