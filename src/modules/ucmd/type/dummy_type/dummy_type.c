@@ -22,6 +22,8 @@
 
 #define ID "dummy_type"
 
+SID_UCMD_MOD_PRIO(1)
+
 static int _dummy_type_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "init");

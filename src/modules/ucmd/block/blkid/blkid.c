@@ -35,6 +35,8 @@
 
 #define ID "blkid"
 
+SID_UCMD_MOD_PRIO(0)
+
 enum {
 	ID_FS_TYPE = 0,
 	ID_FS_USAGE,

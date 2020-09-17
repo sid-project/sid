@@ -28,6 +28,9 @@
 #include <stdlib.h>
 
 #define ID "dm_mpath"
+
+SID_UCMD_MOD_PRIO(-1)
+
 #define PATH_KEY "DM_MULTIPATH_DEVICE_PATH"
 #define VALID_KEY "SID_DM_MULTIPATH_VALID"
 #define WWID_KEY "SID_DM_MULTIPATH_WWID"
