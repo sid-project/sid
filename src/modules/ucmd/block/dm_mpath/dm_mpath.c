@@ -138,12 +138,12 @@ static int _is_parent_multipathed(struct sid_ucmd_ctx *cmd)
 	return 0;
 }
 
-static int _dm_mpath_scan_pre(struct module *module, struct sid_ucmd_ctx *cmd)
+static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 {
 	int r;
 	char *wwid;
 	char valid_str[2];
-	log_debug(ID, "scan-pre");
+	log_debug(ID, "scan-next");
 
 	if (!_kernel_cmdline_allow()) // treat failure as allowed
 		return 0;
@@ -204,7 +204,7 @@ static int _dm_mpath_scan_pre(struct module *module, struct sid_ucmd_ctx *cmd)
 	mpathvalid_exit();
 	return (r != MPATH_IS_ERROR)? 0 : -1;
 }
-SID_UCMD_SCAN_PRE(_dm_mpath_scan_pre)
+SID_UCMD_SCAN_NEXT(_dm_mpath_scan_next)
 
 static int _dm_mpath_error(struct module *module, struct sid_ucmd_ctx *cmd)
 {
