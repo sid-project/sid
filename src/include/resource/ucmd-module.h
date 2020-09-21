@@ -34,6 +34,15 @@ extern "C" {
 #define SID_UCMD_BLOCK_MOD_DIR LIBDIR "/" PACKAGE "/modules/ucmd/block"
 #define SID_UCMD_TYPE_MOD_DIR  LIBDIR "/" PACKAGE "/modules/ucmd/type"
 
+#define SID_UCMD_MOD_FN_NAME_IDENT                  "sid_ucmd_ident"
+#define SID_UCMD_MOD_FN_NAME_SCAN_PRE               "sid_ucmd_scan_pre"
+#define SID_UCMD_MOD_FN_NAME_SCAN_CURRENT           "sid_ucmd_scan_current"
+#define SID_UCMD_MOD_FN_NAME_SCAN_NEXT              "sid_ucmd_scan_next"
+#define SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT      "sid_ucmd_scan_post_current"
+#define SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT         "sid_ucmd_scan_post_next"
+
+#define SID_UCMD_MOD_FN_NAME_ERROR                  "sid_ucmd_error"
+
 struct sid_ucmd_mod_ctx;
 struct sid_ucmd_ctx;
 
