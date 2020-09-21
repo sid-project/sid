@@ -1,7 +1,7 @@
 ##############################################################################
 # This file is part of SID.
 #
-# Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+# Copyright (C) 2020 Red Hat, Inc. All rights reserved.
 #
 # SID is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +17,13 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = dummy_type dm
+dmdir = $(pkglibdir)/modules/ucmd/type
 
-uninstall-hook:
-	test -d ${pkglibdir}/modules/ucmd/type && rmdir ${pkglibdir}/modules/ucmd/type
+dm_LTLIBRARIES = dm.la
+
+dm_la_SOURCES = dm.c
+
+dm_la_LDFLAGS = -module -avoid-version
+
+dm_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
+	       $(top_builddir)/src/log/libsidlog.la
