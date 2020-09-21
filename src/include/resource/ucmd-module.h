@@ -31,6 +31,9 @@
 extern "C" {
 #endif
 
+#define SID_UCMD_BLOCK_MOD_DIR LIBDIR "/" PACKAGE "/modules/ucmd/block"
+#define SID_UCMD_TYPE_MOD_DIR  LIBDIR "/" PACKAGE "/modules/ucmd/type"
+
 struct sid_ucmd_mod_ctx;
 struct sid_ucmd_ctx;
 

@@ -60,9 +60,6 @@
 #define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
 #define COMMAND_STATUS_FAILURE       UINT64_C(0x0000000000000001)
 
-#define UCMD_BLOCK_MODULE_DIRECTORY LIBDIR "/" PACKAGE "/modules/ucmd/block"
-#define UCMD_TYPE_MODULE_DIRECTORY  LIBDIR "/" PACKAGE "/modules/ucmd/type"
-
 #define UCMD_MODULE_FN_NAME_IDENT                  "sid_ucmd_ident"
 #define UCMD_MODULE_FN_NAME_SCAN_PRE               "sid_ucmd_scan_pre"
 #define UCMD_MODULE_FN_NAME_SCAN_CURRENT           "sid_ucmd_scan_current"
@@ -4137,7 +4134,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	struct module_registry_resource_params block_res_mod_params = {
-		.directory     = UCMD_BLOCK_MODULE_DIRECTORY,
+		.directory     = SID_UCMD_BLOCK_MOD_DIR,
 		.module_prefix = NULL,
 		.module_suffix = ".so",
 		.flags         = MODULE_REGISTRY_PRELOAD,
@@ -4146,7 +4143,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	};
 
 	struct module_registry_resource_params type_res_mod_params = {
-		.directory     = UCMD_TYPE_MODULE_DIRECTORY,
+		.directory     = SID_UCMD_TYPE_MOD_DIR,
 		.module_prefix = NULL,
 		.module_suffix = ".so",
 		.flags         = MODULE_REGISTRY_PRELOAD,
