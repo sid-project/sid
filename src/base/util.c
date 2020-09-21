@@ -17,7 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "configure.h"
+#include "base/common.h"
 
 #include "base/mem.h"
 #include "base/util.h"
@@ -83,9 +83,9 @@ udev_action_t util_udev_str_to_udev_action(const char *str)
 		return UDEV_ACTION_UNKNOWN;
 }
 
-static const char *udev_devtype_str[] = {[UDEV_DEVTYPE_DISK]      = "disk",
-                                         [UDEV_DEVTYPE_PARTITION] = "partition",
-                                         [UDEV_DEVTYPE_UNKNOWN]   = "unknown"
+static const char *udev_devtype_str[] = {[UDEV_DEVTYPE_DISK]      = UDEV_VALUE_DEVTYPE_DISK,
+                                         [UDEV_DEVTYPE_PARTITION] = UDEV_VALUE_DEVTYPE_PARTITION,
+                                         [UDEV_DEVTYPE_UNKNOWN]   = UDEV_VALUE_DEVTYPE_UNKNOWN,
                                         };
 
 udev_devtype_t util_udev_str_to_udev_devtype(const char *str)

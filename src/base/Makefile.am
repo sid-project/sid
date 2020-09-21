@@ -32,7 +32,7 @@ libsidbase_la_SOURCES = mem.c \
 
 basedir = $(pkgincludedir)/base
 
-base_HEADERS = $(top_builddir)/src/include/base/types.h \
+base_HEADERS = $(top_builddir)/src/include/base/common.h \
 	       $(top_builddir)/src/include/base/mem.h \
 	       $(top_builddir)/src/include/base/bitmap.h \
 	       $(top_builddir)/src/include/base/buffer-common.h \

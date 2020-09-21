@@ -20,8 +20,8 @@
 #ifndef _SID_UCMD_MODULE_H
 #define _SID_UCMD_MODULE_H
 
-#include "base/macros.h"
-#include "base/types.h"
+#include "base/common.h"
+
 #include "resource/module.h"
 
 #include <inttypes.h>

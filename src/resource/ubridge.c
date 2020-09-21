@@ -17,12 +17,11 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "configure.h"
+#include "base/common.h"
 
 #include "base/bitmap.h"
 #include "base/buffer.h"
 #include "base/comms.h"
-#include "base/macros.h"
 #include "base/mem.h"
 #include "base/util.h"
 #include "iface/usid.h"
@@ -97,17 +96,6 @@
 #define MOD_NAME_CORE         "core"
 #define OWNER_CORE             MOD_NAME_CORE
 #define DEFAULT_KV_FLAGS_CORE  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
-
-#define UDEV_KEY_ACTION     "ACTION"
-#define UDEV_KEY_DEVPATH    "DEVPATH"
-#define UDEV_KEY_DEVTYPE    "DEVTYPE"
-#define UDEV_KEY_MAJOR      "MAJOR"
-#define UDEV_KEY_MINOR      "MINOR"
-#define UDEV_KEY_SEQNUM     "SEQNUM"
-#define UDEV_KEY_SYNTH_UUID "SYNTH_UUID"
-
-#define UDEV_VALUE_DEVTYPE_DISK      "disk"
-#define UDEV_VALUE_DEVTYPE_PARTITION "partition"
 
 #define CMD_DEV_ID_FMT  "%s (%d:%d)"
 #define CMD_DEV_ID(cmd) cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor

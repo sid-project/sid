@@ -12,8 +12,8 @@
 **/.libs
 
 src/include/stamp-h1
-src/include/configure.h.in
-src/include/configure.h
+src/include/config.h.in
+src/include/config.h
 
 **/am--include-marker
 **/\#

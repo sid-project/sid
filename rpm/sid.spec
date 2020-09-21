@@ -113,13 +113,14 @@ base libraries.
 
 %files base-libs-devel
 %{_libdir}/sid/libsidbase.so
+%{_includedir}/sid/config.h
 %{_includedir}/sid/base/bitmap.h
 %{_includedir}/sid/base/buffer-common.h
 %{_includedir}/sid/base/buffer.h
+%{_includedir}/sid/base/common.h
 %{_includedir}/sid/base/comms.h
 %{_includedir}/sid/base/list.h
 %{_includedir}/sid/base/mem.h
-%{_includedir}/sid/base/types.h
 %{_includedir}/sid/base/util.h
 
 

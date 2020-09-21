@@ -17,11 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "configure.h"
+#include "base/common.h"
 
 #include "base/buffer.h"
 #include "base/comms.h"
-#include "base/macros.h"
 #include "base/util.h"
 #include "log/log.h"
 #include "iface/usid.h"

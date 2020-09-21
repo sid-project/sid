@@ -65,7 +65,7 @@ AC_CONFIG_FILES([Makefile
 		 systemd/Makefile
 		 tests/Makefile])
 
-AC_CONFIG_HEADERS([src/include/configure.h])
+AC_CONFIG_HEADERS([src/include/config.h])
 AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
 AC_CHECK_HEADER_STDBOOL
 AC_CHECK_FUNCS([clock_gettime dup2 memchr memset mkdir munmap select socket strcasecmp strchr strdup strerror strspn strstr strtoul strtoull])

@@ -17,7 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "configure.h"
+#include "base/common.h"
 
 #include "base/mem.h"
 #include "base/util.h"
