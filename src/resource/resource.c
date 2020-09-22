@@ -166,6 +166,15 @@ static void _add_res_to_parent_res(sid_resource_t *res, sid_resource_t *parent_r
 	}
 }
 
+static void _remove_res_from_parent_res(sid_resource_t *res)
+{
+	if (res->parent) {
+		list_del(&res->list);
+		res->parent = NULL;
+		res->ref_count--;
+	}
+}
+
 sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resource_type_t *type,
                                     sid_resource_flags_t flags, const char *id_part, const void *kickstart_data,
                                     int64_t prio, sid_resource_service_link_def_t service_link_defs[])
@@ -277,10 +286,7 @@ int sid_resource_destroy(sid_resource_t *res)
 	if (res->sd_event_loop)
 		res->sd_event_loop = sd_event_unref(res->sd_event_loop);
 
-	if (res->parent) {
-		list_del(&res->list);
-		res->ref_count--;
-	}
+	_remove_res_from_parent_res(res);
 
 	if (res->ref_count > 0)
 		log_error(res->id, INTERNAL_ERROR "%s: Resource has %u references left while destroying it.", __func__, res->ref_count);
@@ -351,8 +357,7 @@ int sid_resource_set_prio(sid_resource_t *res, int64_t prio)
 		return 0;
 
 	if ((parent_res = res->parent)) {
-		list_del(&res->list);
-		res->ref_count--;
+		_remove_res_from_parent_res(res);
 
 		orig_prio = res->prio;
 		res->prio = prio;
@@ -747,13 +752,11 @@ int sid_resource_isolate(sid_resource_t *res)
 
 	/* Reparent and isolate. */
 	list_iterate_items_safe(child_res, tmp_child_res, &res->children) {
-		list_del(&child_res->list);
+		_remove_res_from_parent_res(child_res);
 		_add_res_to_parent_res(child_res, res->parent);
 	}
-	list_del(&res->list);
-	res->parent = NULL;
-	res->ref_count--;
 
+	_remove_res_from_parent_res(res);
 	return 0;
 }
 
@@ -763,10 +766,7 @@ int sid_resource_isolate_with_children(sid_resource_t *res)
 	if (res->sd_event_loop || !res->parent || (res->flags & SID_RESOURCE_DISALLOW_ISOLATION))
 		return -EPERM;
 
-	list_del(&res->list);
-	res->parent = NULL;
-	res->ref_count--;
-
+	_remove_res_from_parent_res(res);
 	return 0;
 }
 
