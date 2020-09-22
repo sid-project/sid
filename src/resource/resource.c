@@ -201,6 +201,18 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 
 	res->id = id;
 
+	/*
+	 * Take temporary reference!
+	 *
+	 * This is to avoid automatic resource destruction in case we use ref counts
+	 * in the code that follows and at the same time something fails,  mainly in
+	 * the type->init initializer. In case of failure, we would drop other references
+	 * and the last one would trigger automatic resource destruction. We'd better do
+	 * the cleanup here in this function during resource creation stage, not automatically
+	 * anywhere else which would be confusing.
+	 */
+	res->ref_count++;
+
 	if (_create_service_link_group(res, service_link_defs) < 0)
 		goto fail;
 
@@ -226,6 +238,9 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 		goto fail;
 
 	log_debug(res->id, "Resource created.");
+
+	/* Drop the temporary reference! */
+	res->ref_count--;
 	return res;
 fail:
 	if (res) {
@@ -245,6 +260,12 @@ fail:
 
 		if (res->slg)
 			service_link_group_destroy_with_members(res->slg);
+
+		/* Drop the termporary reference! */
+		res->ref_count--;
+
+		if (res->ref_count > 0)
+			log_error(res->id, INTERNAL_ERROR "%s: Resource has %u references left while destroying it because of a failure.", __func__, res->ref_count);
 
 		free(res);
 	}
