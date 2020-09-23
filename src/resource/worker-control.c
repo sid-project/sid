@@ -496,13 +496,16 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			break;
 
 		case WORKER_WIRE_PIPE_TO_WORKER:
-			if (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r)))
+			if (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r))) {
+				log_error_errno(id, r, "Failed to create buffer for channel with ID %s.", chan->spec->id);
 				goto fail;
+			}
 
 			if (!is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
 				if (dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir) < 0) {
 					log_error_errno(id, errno, "Failed to redirect FD %d through channel %s",
 					                chan->spec->wire.ext.pipe.fd_redir, chan->spec->id);
+					r = -errno;
 					goto fail;
 				}
 				close(chan->fd);
@@ -518,6 +521,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 				if (dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir) < 0) {
 					log_error_errno(id, errno, "Failed to redirect FD %d through channel %s",
 					                chan->spec->wire.ext.pipe.fd_redir, chan->spec->id);
+					r = -errno;
 					goto fail;
 				}
 				close(chan->fd);
@@ -527,8 +531,10 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 
 		case WORKER_WIRE_SOCKET:
 			if ((buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r))) ||
-			    (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r))))
+			    (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r)))) {
+				log_error_errno(id, r, "Failed to create buffer for channel with ID %s.", chan->spec->id);
 				goto fail;
+			}
 
 			if (chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
 				dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir);
@@ -542,6 +548,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 		                                        is_worker ? _on_worker_channel_event : _on_worker_proxy_channel_event,
 		                                        0, chan->spec->id, chan) < 0) {
 			log_error(id, "Failed to register communication channel with ID %s.", chan->spec->id);
+			r = -1;
 			goto fail;
 		}
 
@@ -560,7 +567,6 @@ fail:
 		chan->out_buf = NULL;
 	}
 
-	log_error_errno(id, r, "Failed to setup worker channel");
 	return r;
 }
 
