@@ -156,6 +156,7 @@ static const void *_buffer_linear_fmt_add(struct buffer *buf, int *ret_code, con
 
 	start = buf->mem + used;
 	buf->stat.used = used + printed + 1;
+	r = 0;
 out:
 	if (ret_code)
 		*ret_code = r;
