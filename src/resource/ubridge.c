@@ -1012,7 +1012,6 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd
 	const char *owner = _get_mod_name(mod);
 	const char *full_key = NULL;
 	struct iovec iov[KV_VALUE_IDX_DATA]; /* without KV_VALUE_IDX_DATA */
-	struct kv_value *kv_value;
 	static uint64_t null_int = 0;
 	sid_ucmd_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
@@ -1055,14 +1054,14 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd
 		goto out;
 	} else {
 		KV_VALUE_PREPARE_HEADER(iov, null_int, flags, (char *) owner);
-		if (!(kv_value = kv_store_set_value(cmd_mod->kv_store_res,
-		                                    full_key,
-		                                    iov,
-		                                    KV_VALUE_IDX_DATA,
-		                                    KV_STORE_VALUE_VECTOR,
-		                                    KV_STORE_VALUE_OP_MERGE,
-		                                    _kv_reserve,
-		                                    &update_arg)))
+		if (!kv_store_set_value(cmd_mod->kv_store_res,
+		                        full_key,
+		                        iov,
+		                        KV_VALUE_IDX_DATA,
+		                        KV_STORE_VALUE_VECTOR,
+		                        KV_STORE_VALUE_OP_MERGE,
+		                        _kv_reserve,
+		                        &update_arg))
 			goto out;
 	}
 
@@ -1318,7 +1317,6 @@ int sid_ucmd_group_destroy(struct sid_ucmd_ctx *cmd,
 	static sid_ucmd_kv_flags_t kv_flags_persist_no_reserved = (DEFAULT_KV_FLAGS_CORE) & ~KV_MOD_RESERVED;
 	const char *cur_full_key = NULL;
 	size_t size;
-	struct iovec *iov;
 	struct iovec iov_blank[KV_VALUE_IDX_DATA];
 	int r = -1;
 
@@ -1368,7 +1366,7 @@ int sid_ucmd_group_destroy(struct sid_ucmd_ctx *cmd,
 	if (!(cur_full_key = _buffer_compose_key(cmd->gen_buf, rel_spec.cur_key_spec)))
 		goto out;
 
-	if (!(iov = kv_store_get_value(cmd->kv_store_res, cur_full_key, &size, NULL)))
+	if (!kv_store_get_value(cmd->kv_store_res, cur_full_key, &size, NULL))
 		goto out;
 
 	if (size > KV_VALUE_IDX_DATA && !force) {
@@ -2736,10 +2734,9 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
 	dev_ready_t ready;
-	const dev_ready_t *p_ready;
 	dev_reserved_t reserved;
 
-	if (!(p_ready = _do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL))) {
+	if (!_do_sid_ucmd_get_kv(cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)) {
 		ready = DEV_NOT_RDY_UNPROCESSED;
 		reserved = DEV_RES_UNPROCESSED;
 
@@ -3235,7 +3232,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	}
 
 	lseek(export_fd, 0, SEEK_SET);
-	if ((r_wr = write(export_fd, &bytes_written, sizeof(bytes_written))) < 0)
+	if (write(export_fd, &bytes_written, sizeof(bytes_written)) < 0)
 		goto out;
 	lseek(export_fd, 0, SEEK_SET);
 
@@ -3732,15 +3729,13 @@ static int _worker_proxy_recv_fn(sid_resource_t *worker_proxy_res, struct worker
 
 static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *chan, struct worker_data_spec *data_spec, void *arg)
 {
-	sid_resource_t *conn_res;
-
 	if (data_spec->ext.used) {
-		if (!(conn_res = sid_resource_create(worker_res,
-		                                     &sid_resource_type_ubridge_connection,
-		                                     SID_RESOURCE_NO_FLAGS,
-		                                     SID_RESOURCE_NO_CUSTOM_ID,
-		                                     data_spec,
-		                                     SID_RESOURCE_NO_SERVICE_LINKS))) {
+		if (!sid_resource_create(worker_res,
+		                         &sid_resource_type_ubridge_connection,
+		                         SID_RESOURCE_NO_FLAGS,
+		                         SID_RESOURCE_NO_CUSTOM_ID,
+		                         data_spec,
+		                         SID_RESOURCE_NO_SERVICE_LINKS)) {
 			log_error(ID(worker_res), "Failed to create connection resource.");
 			return -1;
 		}
@@ -3830,7 +3825,7 @@ static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int f
 {
 	sid_resource_t *internal_ubridge_res = data;
 	struct ubridge *ubridge = sid_resource_get_data(internal_ubridge_res);
-	sid_resource_t *worker_control_res, *worker_proxy_res;
+	sid_resource_t *worker_control_res;
 	struct udev_device *udev_dev;
 	const char *worker_id;
 	int r = -1;
@@ -3845,7 +3840,7 @@ static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int f
 	                                               &sid_resource_type_worker_control, NULL)))
 		goto out;
 
-	if (!(worker_proxy_res = worker_control_find_worker(worker_control_res, worker_id)))
+	if (!worker_control_find_worker(worker_control_res, worker_id))
 		goto out;
 
 	r = 0;
@@ -4035,7 +4030,7 @@ static const struct sid_kv_store_resource_params main_kv_store_res_params = {
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	struct ubridge *ubridge = NULL;
-	sid_resource_t *internal_res, *kv_store_res, *modules_res, *worker_control_res;
+	sid_resource_t *internal_res, *kv_store_res, *modules_res;
 	struct buffer *buf;
 	int r;
 
@@ -4105,12 +4100,12 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		.channel_specs = channel_specs,
 	};
 
-	if (!(worker_control_res = sid_resource_create(internal_res,
-	                                               &sid_resource_type_worker_control,
-	                                               SID_RESOURCE_NO_FLAGS,
-	                                               SID_RESOURCE_NO_CUSTOM_ID,
-	                                               &worker_control_res_params,
-	                                               SID_RESOURCE_NO_SERVICE_LINKS))) {
+	if (!sid_resource_create(internal_res,
+	                         &sid_resource_type_worker_control,
+	                         SID_RESOURCE_NO_FLAGS,
+	                         SID_RESOURCE_NO_CUSTOM_ID,
+	                         &worker_control_res_params,
+	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
 		log_error(ID(res), "Failed to create worker control.");
 		goto fail;
 	}

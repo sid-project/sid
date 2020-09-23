@@ -174,7 +174,6 @@ void *module_get_data(struct module *module)
 
 static int _preload_modules(sid_resource_t *module_registry_res, struct module_registry *registry)
 {
-	sid_resource_t *module_res;
 	struct dirent **dirent = NULL;
 	int count, i;
 	int r = 0;
@@ -189,12 +188,12 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 
 	for (i = 0; i < count; i++) {
 		if (dirent[i]->d_name[0] != '.' && util_str_combstr(dirent[i]->d_name, registry->module_prefix, NULL, registry->module_suffix, 1)) {
-			if (!(module_res = sid_resource_create(module_registry_res,
-			                                       &sid_resource_type_module,
-			                                       SID_RESOURCE_DISALLOW_ISOLATION,
-			                                       dirent[i]->d_name,
-			                                       dirent[i]->d_name,
-			                                       SID_RESOURCE_NO_SERVICE_LINKS)))
+			if (!sid_resource_create(module_registry_res,
+			                         &sid_resource_type_module,
+			                         SID_RESOURCE_DISALLOW_ISOLATION,
+			                         dirent[i]->d_name,
+			                         dirent[i]->d_name,
+			                         SID_RESOURCE_NO_SERVICE_LINKS))
 				log_error(ID(module_registry_res), "Failed to preload module %s/%s.", registry->directory, dirent[i]->d_name);
 		}
 		free(dirent[i]);

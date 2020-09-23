@@ -143,7 +143,6 @@ static const char *_get_arg_value(const char *str, const char *key_eq, size_t *s
 	if (!str || !key_eq)
 		goto out;
 
-	str_end = str + strlen(str);
 	for (str_end = str + strlen(str); str < str_end; str = line_end + 1) {
 		line_end = strchr(str, '\n') ? : str_end;
 
