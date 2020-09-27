@@ -34,50 +34,34 @@ SID_UCMD_MOD_PRIO(-1)
 #define PATH_KEY "DM_MULTIPATH_DEVICE_PATH"
 #define VALID_KEY "SID_DM_MULTIPATH_VALID"
 #define WWID_KEY "SID_DM_MULTIPATH_WWID"
-struct udev *udev;
-int logsink = -1;
-
-struct config *get_multipath_config(void)
-{
-	return mpathvalid_conf;
-}
-
-void put_multipath_config(__attribute__((unused))void *conf)
-{
-	/* Noop */
-}
 
 static int _dm_mpath_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	log_debug(ID, "init");
 	/* TODO - set up dm/udev logging */
-	udev = udev_new();
-	if (!udev) {
-		log_error(ID, "failed to allocate udev context");
+	if (mpathvalid_init(-1, MPATH_LOG_STDIO)) {
+		log_error(ID, "failed to initialize mpathvalid");
 		return -1;
 	}
 	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_UDEV,
 	                            PATH_KEY) < 0) {
 		log_error(ID, "Failed to reserve multipath udev key %s", PATH_KEY);
-		udev_unref(udev);
-		udev = NULL;
-		return -1;
+		goto fail;
 	}
 	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
 	                            VALID_KEY) < 0) {
 		log_error(ID, "Failed to reserve multipath udev key %s", PATH_KEY);
-		udev_unref(udev);
-		udev = NULL;
-		return -1;
+		goto fail;
 	}
 	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
 	                            WWID_KEY) < 0) {
 		log_error(ID, "Failed to reserve multipath device key %s", WWID_KEY);
-		udev_unref(udev);
-		udev = NULL;
-		return -1;
+		goto fail;
 	}
 	return 0;
+fail:
+	mpathvalid_exit();
+	return -1;
 }
 SID_UCMD_MOD_INIT(_dm_mpath_init)
 
@@ -85,8 +69,7 @@ static int _dm_mpath_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mo
 {
 	log_debug(ID, "exit");
 	// Do we need to unreserve the key here?
-	udev_unref(udev);
-	udev = NULL;
+	mpathvalid_exit();
 	return 0;
 }
 SID_UCMD_MOD_EXIT(_dm_mpath_exit)
@@ -154,8 +137,8 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 	if (sid_ucmd_dev_get_type(cmd) == UDEV_DEVTYPE_PARTITION)
 		return _is_parent_multipathed(cmd);
 
-	if (mpathvalid_init(-1) < 0) {
-		log_error(ID, "failed to initialize mpathvalid");
+	if (mpathvalid_reload_config() < 0) {
+		log_error(ID, "failed to reinitialize mpathvalid");
 		return -1;
 	}
 	// currently treats MPATH_SMART like MPATH_STRICT
@@ -201,7 +184,6 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 		                KV_MOD_PROTECTED | KV_PERSISTENT);
 		free(wwid);
 	}
-	mpathvalid_exit();
 	return (r != MPATH_IS_ERROR)? 0 : -1;
 }
 SID_UCMD_SCAN_NEXT(_dm_mpath_scan_next)
