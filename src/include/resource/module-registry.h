@@ -36,7 +36,7 @@ extern "C" {
 #define MODULE_SYMBOL_INDIRECT             UINT64_C(0x0000000000000004)
 
 struct module_symbol_params {
-	const char *name; /* module name (without suffix) */
+	const char *name; /* module symbol name */
 	uint64_t flags;   /* MODULE_SYMBOL_* flags */
 };
 
