@@ -246,8 +246,9 @@ fail:
 	if (res) {
 		list_iterate_items_safe_back(child_res, tmp_child_res, &res->children)
 		(void) sid_resource_destroy(child_res);
-		if (res->parent)
-			list_del(&res->list);
+
+		_remove_res_from_parent_res(res);
+
 		/* FIXME: Normally, we'd use list_iterate_items_safe_back here but
 		 *        it causes problems. One known problem is that when signal
 		 *        event sources are destroyed, signal handling is then messed up
@@ -255,6 +256,7 @@ fail:
 		 */
 		list_iterate_items_safe(es, tmp_es, &res->event_sources)
 		_destroy_event_source(es);
+
 		if (res->sd_event_loop)
 			sd_event_unref(res->sd_event_loop);
 
