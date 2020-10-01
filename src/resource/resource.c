@@ -758,7 +758,6 @@ int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child)
 	if (child->parent)
 		return -EBUSY;
 
-	child->parent = res;
 	_add_res_to_parent_res(child, res);
 
 	log_debug(res->id, "Child %s added.", child->id);
