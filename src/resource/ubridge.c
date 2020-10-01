@@ -3677,7 +3677,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 	r = 0;
 
 	//_dump_kv_store(__func__, kv_store_res);
-	_dump_kv_store_dev_stack_in_dot(__func__, kv_store_res);
+	//_dump_kv_store_dev_stack_in_dot(__func__, kv_store_res);
 out:
 	free(iov);
 
