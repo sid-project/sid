@@ -755,8 +755,8 @@ sid_resource_t *sid_resource_search(sid_resource_t *res, sid_resource_search_met
 
 int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child)
 {
-	if (!res || child->parent)
-		return -EINVAL;
+	if (child->parent)
+		return -EBUSY;
 
 	child->parent = res;
 	_add_res_to_parent_res(child, res);
