@@ -135,12 +135,12 @@ static int _blkid_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 }
 SID_UCMD_MOD_EXIT(_blkid_exit)
 
-static int _blkid_reload(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _blkid_reset(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
-	log_debug(MID, "reload");
+	log_debug(MID, "reset");
 	return 0;
 }
-SID_UCMD_MOD_RELOAD(_blkid_reload)
+SID_UCMD_MOD_RESET(_blkid_reset)
 
 /* TODO: Also add ID_PART_GPT_AUTO_ROOT_UUID - see udev-builtin-blkid in systemd source tree. */
 static void _add_property(struct sid_ucmd_ctx *cmd, const char *name, const char *value)

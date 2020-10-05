@@ -38,12 +38,12 @@ static int _dummy_type_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_
 }
 SID_UCMD_MOD_EXIT(_dummy_type_exit)
 
-static int _dummy_type_reload(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dummy_type_reset(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
-	log_debug(MID, "reload");
+	log_debug(MID, "reset");
 	return 0;
 }
-SID_UCMD_MOD_RELOAD(_dummy_type_reload)
+SID_UCMD_MOD_RESET(_dummy_type_reset)
 
 static int _dummy_type_ident(struct module *module, struct sid_ucmd_ctx *cmd)
 {

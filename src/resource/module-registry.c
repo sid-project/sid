@@ -52,7 +52,7 @@ struct module
 {
 	module_fn_t *init_fn;
 	module_fn_t *exit_fn;
-	module_fn_t *reload_fn;
+	module_fn_t *reset_fn;
 	char *name;
 	void *handle;
 	void **symbols;
@@ -126,9 +126,9 @@ int module_registry_get_module_symbols(sid_resource_t *module_res, const void **
 	return 0;
 }
 
-static const char module_reload_failed_msg[]= "Module-specific reload failed.";
+static const char module_reset_failed_msg[]= "Module-specific reset failed.";
 
-int module_registry_reload_modules(sid_resource_t *module_registry_res)
+int module_registry_reset_modules(sid_resource_t *module_registry_res)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
 	sid_resource_t *res;
@@ -138,20 +138,20 @@ int module_registry_reload_modules(sid_resource_t *module_registry_res)
 
 	while ((res = sid_resource_iter_next(registry->module_iter))) {
 		module = sid_resource_get_data(res);
-		if (module->reload_fn && module->reload_fn(module, registry->cb_arg) < 0)
-			log_error(ID(res), module_reload_failed_msg);
+		if (module->reset_fn && module->reset_fn(module, registry->cb_arg) < 0)
+			log_error(ID(res), module_reset_failed_msg);
 	}
 
 	return 0;
 }
 
-int module_registry_reload_module(sid_resource_t *module_res)
+int module_registry_reset_module(sid_resource_t *module_res)
 {
 	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct module *module = sid_resource_get_data(module_res);
 
-	if (module->reload_fn && module->reload_fn(module, registry->cb_arg) < 0) {
-		log_error(ID(module_res), module_reload_failed_msg);
+	if (module->reset_fn && module->reset_fn(module, registry->cb_arg) < 0) {
+		log_error(ID(module_res), module_reset_failed_msg);
 		return -1;
 	}
 
@@ -226,10 +226,10 @@ static int _load_module_symbol(sid_resource_t *module_res, void *dl_handle, cons
 	return 0;
 }
 
-#define MODULE_PRIO_NAME   "module_prio"
-#define MODULE_INIT_NAME   "module_init"
-#define MODULE_EXIT_NAME   "module_exit"
-#define MODULE_RELOAD_NAME "module_reload"
+#define MODULE_PRIO_NAME  "module_prio"
+#define MODULE_INIT_NAME  "module_init"
+#define MODULE_EXIT_NAME  "module_exit"
+#define MODULE_RESET_NAME "module_reset"
 
 static int _init_module(sid_resource_t *module_res, const void *kickstart_data, void **data)
 {
@@ -283,8 +283,8 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 	/* function symbols are indirect symbols */
 	symbol_params.flags = MODULE_SYMBOL_INDIRECT;
 
-	symbol_params.name = MODULE_RELOAD_NAME;
-	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &module->reload_fn) < 0)
+	symbol_params.name = MODULE_RESET_NAME;
+	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &module->reset_fn) < 0)
 		goto fail;
 
 	symbol_params.flags |= MODULE_SYMBOL_FAIL_ON_MISSING;

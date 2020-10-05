@@ -63,14 +63,14 @@ typedef int sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *cmd);
 	(__builtin_choose_expr(__builtin_types_compatible_p(typeof(fn), sid_ucmd_mod_fn_t), (module_fn_t *) fn, (void) 0))
 
 #define SID_UCMD_MOD_INIT(fn)               MODULE_INIT(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
-#define SID_UCMD_MOD_RELOAD(fn)             MODULE_RELOAD(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
+#define SID_UCMD_MOD_RESET(fn)              MODULE_RESET(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
 #define SID_UCMD_MOD_EXIT(fn)               MODULE_EXIT(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
 
 #else /* __GNUC__ */
 
-#define SID_UCMD_MOD_INIT(fn)               SID_UCMD_MOD_FN(mod_init, fn)   MODULE_INIT((module_fn_t *) fn)
-#define SID_UCMD_MOD_RELOAD(fn)             SID_UCMD_MOD_FN(mod_reload, fn) MODULE_RELOAD((module_fn_t *) fn)
-#define SID_UCMD_MOD_EXIT(fn)               SID_UCMD_MOD_FN(mod_exit, fn)   MODULE_EXIT((module_fn_t *) fn)
+#define SID_UCMD_MOD_INIT(fn)               SID_UCMD_MOD_FN(mod_init, fn)  MODULE_INIT((module_fn_t *) fn)
+#define SID_UCMD_MOD_RESET(fn)              SID_UCMD_MOD_FN(mod_reset, fn) MODULE_RESET((module_fn_t *) fn)
+#define SID_UCMD_MOD_EXIT(fn)               SID_UCMD_MOD_FN(mod_exit, fn)  MODULE_EXIT((module_fn_t *) fn)
 
 #endif /* __GNUC__ */
 

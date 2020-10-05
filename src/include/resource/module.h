@@ -36,7 +36,7 @@ typedef int module_fn_t(struct module *module, void *cb_arg);
 #define MODULE_PRIO(val)    module_prio_t module_prio = val;
 #define MODULE_INIT(fn)     MODULE_FN(init, fn)
 #define MODULE_EXIT(fn)     MODULE_FN(exit, fn)
-#define MODULE_RELOAD(fn)   MODULE_FN(reload, fn)
+#define MODULE_RESET(fn)    MODULE_FN(reset, fn)
 
 const char *module_get_name(struct module *module);
 void module_set_data(struct module *module, void *data);

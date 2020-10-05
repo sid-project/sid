@@ -87,12 +87,12 @@ static int _kernel_cmdline_allow(void)
 }
 
 
-static int _dm_mpath_reload(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dm_mpath_reset(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
-	log_debug(MID, "reload");
+	log_debug(MID, "reset");
 	return 0;
 }
-SID_UCMD_MOD_RELOAD(_dm_mpath_reload)
+SID_UCMD_MOD_RESET(_dm_mpath_reset)
 
 static int _is_parent_multipathed(struct sid_ucmd_ctx *cmd)
 {

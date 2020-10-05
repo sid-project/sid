@@ -47,7 +47,7 @@ struct module_registry_resource_params {
 	const char *module_prefix;                        /* common prefix for all modules */
 	const char *module_suffix;                        /* common suffix for all modules */
 	uint64_t flags;                                   /* MODULE_REGISTRY_* flags */
-	void *cb_arg;                                     /* custom arg passed to module_fn_t (init/exit/reload callbacks) */
+	void *cb_arg;                                     /* custom arg passed to module_fn_t (init/exit/reset callbacks) */
 	const struct module_symbol_params *symbol_params; /* NULL-terminated list of symbol params */
 };
 
@@ -56,8 +56,8 @@ sid_resource_t *module_registry_get_module(sid_resource_t *module_registry_res, 
 int module_registry_unload_module(sid_resource_t *module_res);
 int module_registry_get_module_symbols(sid_resource_t *module_res, const void ***ret);
 
-int module_registry_reload_modules(sid_resource_t *module_registry_res);
-int module_registry_reload_module(sid_resource_t *module_res);
+int module_registry_reset_modules(sid_resource_t *module_registry_res);
+int module_registry_reset_module(sid_resource_t *module_res);
 
 #ifdef __cplusplus
 }
