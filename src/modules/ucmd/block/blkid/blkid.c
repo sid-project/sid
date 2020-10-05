@@ -33,7 +33,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define ID "blkid"
+#define MID "blkid"
 
 SID_UCMD_MOD_PRIO(0)
 
@@ -90,18 +90,18 @@ static int _blkid_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
 	unsigned i;
 
-	log_debug(ID, "init");
+	log_debug(MID, "init");
 
 	for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
 		if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_UDEV, keys[i]) < 0) {
-			log_error(ID, "Failed to reserve blkid udev key %s.", keys[i]);
+			log_error(MID, "Failed to reserve blkid udev key %s.", keys[i]);
 			return -1;
 		}
 	}
 
 	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
 		if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE, keys[i]) < 0) {
-			log_error(ID, "Failed to reserve blkid device key %s.", keys[i]);
+			log_error(MID, "Failed to reserve blkid device key %s.", keys[i]);
 			return -1;
 		}
 	}
@@ -112,7 +112,7 @@ SID_UCMD_MOD_INIT(_blkid_init)
 
 static int _blkid_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
-	log_debug(ID, "exit");
+	log_debug(MID, "exit");
 
 	/*
 	 * 	TODO: Do not unreserve KVs in worker if we have modules preloaded in master process.
@@ -137,7 +137,7 @@ SID_UCMD_MOD_EXIT(_blkid_exit)
 
 static int _blkid_reload(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
-	log_debug(ID, "reload");
+	log_debug(MID, "reload");
 	return 0;
 }
 SID_UCMD_MOD_RELOAD(_blkid_reload)
@@ -268,14 +268,14 @@ static int _blkid_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ucmd_dev_get_name(cmd));
 
 	if ((fd = open(dev_path, O_RDONLY|O_CLOEXEC)) < 0) {
-		log_error_errno(ID, errno, "Failed to open device %s", dev_path);
+		log_error_errno(MID, errno, "Failed to open device %s", dev_path);
 		goto out;
 	}
 
 	if ((r = blkid_probe_set_device(pr, fd, offset, 0)) < 0)
 		goto out;
 
-	log_debug(ID, "Probe %s %sraid offset=%"PRIi64, dev_path, noraid ? "no" : "", offset);
+	log_debug(MID, "Probe %s %sraid offset=%"PRIi64, dev_path, noraid ? "no" : "", offset);
 
 	if ((r = _probe_superblocks(pr)) < 0)
 		goto out;
@@ -301,7 +301,7 @@ SID_UCMD_SCAN_NEXT(_blkid_scan_next)
 
 static int _blkid_error(struct module *module, struct sid_ucmd_ctx *cmd)
 {
-	log_debug(ID, "error");
+	log_debug(MID, "error");
 	return 0;
 }
 SID_UCMD_ERROR(_blkid_error)

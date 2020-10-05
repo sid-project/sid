@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define ID "dm_mpath"
+#define MID "dm_mpath"
 
 SID_UCMD_MOD_PRIO(-1)
 
@@ -37,25 +37,25 @@ SID_UCMD_MOD_PRIO(-1)
 
 static int _dm_mpath_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
-	log_debug(ID, "init");
+	log_debug(MID, "init");
 	/* TODO - set up dm/udev logging */
 	if (mpathvalid_init(-1, MPATH_LOG_STDIO)) {
-		log_error(ID, "failed to initialize mpathvalid");
+		log_error(MID, "failed to initialize mpathvalid");
 		return -1;
 	}
 	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_UDEV,
 	                            PATH_KEY) < 0) {
-		log_error(ID, "Failed to reserve multipath udev key %s", PATH_KEY);
+		log_error(MID, "Failed to reserve multipath udev key %s", PATH_KEY);
 		goto fail;
 	}
 	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
 	                            VALID_KEY) < 0) {
-		log_error(ID, "Failed to reserve multipath udev key %s", PATH_KEY);
+		log_error(MID, "Failed to reserve multipath udev key %s", PATH_KEY);
 		goto fail;
 	}
 	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
 	                            WWID_KEY) < 0) {
-		log_error(ID, "Failed to reserve multipath device key %s", WWID_KEY);
+		log_error(MID, "Failed to reserve multipath device key %s", WWID_KEY);
 		goto fail;
 	}
 	return 0;
@@ -67,7 +67,7 @@ SID_UCMD_MOD_INIT(_dm_mpath_init)
 
 static int _dm_mpath_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
-	log_debug(ID, "exit");
+	log_debug(MID, "exit");
 	// Do we need to unreserve the key here?
 	mpathvalid_exit();
 	return 0;
@@ -89,7 +89,7 @@ static int _kernel_cmdline_allow(void)
 
 static int _dm_mpath_reload(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
 {
-	log_debug(ID, "reload");
+	log_debug(MID, "reload");
 	return 0;
 }
 SID_UCMD_MOD_RELOAD(_dm_mpath_reload)
@@ -111,12 +111,12 @@ static int _is_parent_multipathed(struct sid_ucmd_ctx *cmd)
 			return 0;
 	}
 	if (r == MPATH_IS_VALID) {
-		log_debug(ID, "%s whole disk is a multipath path",
+		log_debug(MID, "%s whole disk is a multipath path",
 		          sid_ucmd_dev_get_name(cmd));
 		sid_ucmd_set_kv(cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
 		                KV_MOD_PROTECTED);
 	} else
-		log_debug(ID, "%s whole disk is not a multipath path",
+		log_debug(MID, "%s whole disk is not a multipath path",
 		          sid_ucmd_dev_get_name(cmd));
 	return 0;
 }
@@ -126,7 +126,7 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 	int r;
 	char *wwid;
 	char valid_str[2];
-	log_debug(ID, "scan-next");
+	log_debug(MID, "scan-next");
 
 	if (!_kernel_cmdline_allow()) // treat failure as allowed
 		return 0;
@@ -138,13 +138,13 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 		return _is_parent_multipathed(cmd);
 
 	if (mpathvalid_reload_config() < 0) {
-		log_error(ID, "failed to reinitialize mpathvalid");
+		log_error(MID, "failed to reinitialize mpathvalid");
 		return -1;
 	}
 	// currently treats MPATH_SMART like MPATH_STRICT
 	r = mpathvalid_is_path(sid_ucmd_dev_get_name(cmd), MPATH_DEFAULT,
 	                       &wwid, NULL, 0);
-	log_debug(ID, "%s mpathvalid_is_path returned %d",
+	log_debug(MID, "%s mpathvalid_is_path returned %d",
 	          sid_ucmd_dev_get_name(cmd), r);
 
 	if (r == MPATH_IS_VALID) {
@@ -160,7 +160,7 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 			// If old_valid is garbage assume the device
 			// wasn't claimed before
 			if (errno || !p || *p || old_valid != MPATH_IS_VALID) {
-				log_debug(ID, "previously released %s. not claiming", sid_ucmd_dev_get_name(cmd));
+				log_debug(MID, "previously released %s. not claiming", sid_ucmd_dev_get_name(cmd));
 				r = MPATH_IS_NOT_VALID;
 			}
 		}
@@ -190,7 +190,7 @@ SID_UCMD_SCAN_NEXT(_dm_mpath_scan_next)
 
 static int _dm_mpath_error(struct module *module, struct sid_ucmd_ctx *cmd)
 {
-	log_debug(ID, "error");
+	log_debug(MID, "error");
 	return 0;
 }
 SID_UCMD_ERROR(_dm_mpath_error)
