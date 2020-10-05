@@ -307,12 +307,12 @@ udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *cmd)
 	return cmd->udev_dev.action;
 }
 
-int sid_ucmd_cmd_dev_get_major(struct sid_ucmd_ctx *cmd)
+int sid_ucmd_dev_get_major(struct sid_ucmd_ctx *cmd)
 {
 	return cmd->udev_dev.major;
 }
 
-int sid_ucmd_cmd_dev_get_minor(struct sid_ucmd_ctx *cmd)
+int sid_ucmd_dev_get_minor(struct sid_ucmd_ctx *cmd)
 {
 	return cmd->udev_dev.minor;
 }
