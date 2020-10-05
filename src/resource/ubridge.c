@@ -3742,8 +3742,8 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 	(void) sid_resource_isolate_with_children(modules_res);
 	(void) sid_resource_isolate_with_children(kv_store_res);
 
-	(void) sid_resource_add_child(worker_res, modules_res);
-	(void) sid_resource_add_child(worker_res, kv_store_res);
+	(void) sid_resource_add_child(worker_res, modules_res, SID_RESOURCE_NO_FLAGS);
+	(void) sid_resource_add_child(worker_res, kv_store_res, SID_RESOURCE_RESTRICT_WALK_UP);
 
 	return 0;
 }

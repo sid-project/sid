@@ -753,11 +753,12 @@ sid_resource_t *sid_resource_search(sid_resource_t *res, sid_resource_search_met
 	return NULL;
 }
 
-int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child)
+int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child, sid_resource_flags_t flags)
 {
 	if (child->parent)
 		return -EBUSY;
 
+	child->flags = flags;
 	_add_res_to_parent_res(child, res);
 
 	log_debug(res->id, "Child %s added.", child->id);

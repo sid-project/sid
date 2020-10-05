@@ -149,7 +149,7 @@ sid_resource_t *sid_resource_search(sid_resource_t *root_res, sid_resource_searc
 /*
  * structure/tree modification functions
  */
-int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child);
+int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child, sid_resource_flags_t flags);
 int sid_resource_isolate(sid_resource_t *res);
 int sid_resource_isolate_with_children(sid_resource_t *res);
 
