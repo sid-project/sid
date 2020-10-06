@@ -10,7 +10,7 @@
 ##############################################################################
 
 Name: sid
-Version: 0.0.3
+Version: 0.0.4
 Release: 1%{?scmsnap:.%{scmsnap}}%{?dist}
 Summary: Storage Instantiation Daemon (SID)
 
