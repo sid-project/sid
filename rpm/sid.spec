@@ -30,6 +30,9 @@ BuildRequires: systemd-devel >= 221
 BuildRequires: libudev-devel >= 174
 BuildRequires: libuuid-devel
 BuildRequires: libblkid-devel
+%if %{enable_dm_mpath_support}
+BuildRequires: device-mapper-multipath-devel >= 0.8.4-7
+%endif
 
 Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
@@ -67,13 +70,13 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/sid/modules/ucmd/block/*.{a,la}
 rm -f $RPM_BUILD_ROOT%{_libdir}/sid/modules/ucmd/type/*.{a,la}
 
 %files
+%license COPYING
 %{_sbindir}/sid
-%{_sysconfdir}/sysconfig/sid.sysconfig
+%config(noreplace) %{_sysconfdir}/sysconfig/sid.sysconfig
 %{_udevrulesdir}/00-sid.rules
 %{_unitdir}/sid.socket
 %{_unitdir}/sid.service
-
-%license COPYING
+%doc README.md
 
 %post
 %systemd_post sid.socket sid.service
@@ -97,6 +100,7 @@ handling and other helper functions.
 
 %files base-libs
 %{_libdir}/sid/libsidbase.so.*
+%doc README.md
 
 
 ##############################################################################
@@ -104,7 +108,7 @@ handling and other helper functions.
 ##############################################################################
 
 %package base-libs-devel
-Summary: Development libraries and headers for Storage Instantiation Daemon (SID) base
+Summary: Development files for Storage Instantiation Daemon (SID) base
 License: GPLv2+
 Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
 %description base-libs-devel
@@ -122,6 +126,7 @@ base libraries.
 %{_includedir}/sid/base/list.h
 %{_includedir}/sid/base/mem.h
 %{_includedir}/sid/base/util.h
+%doc README.md
 
 
 ##############################################################################
@@ -137,6 +142,7 @@ Instantiation daemon (SID), its modules and related tools.
 
 %files log-libs
 %{_libdir}/sid/libsidlog.so.*
+%doc README.md
 
 
 ##############################################################################
@@ -144,7 +150,7 @@ Instantiation daemon (SID), its modules and related tools.
 ##############################################################################
 
 %package log-libs-devel
-Summary: Development libraries and headers for Storage Instantiation Daemon (SID) logging
+Summary: Development files for Storage Instantiation Daemon (SID) logging
 License: GPLv2+
 Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
 %description log-libs-devel
@@ -154,6 +160,7 @@ logging libraries.
 %files log-libs-devel
 %{_libdir}/sid/libsidlog.so
 %{_includedir}/sid/log/log.h
+%doc README.md
 
 
 ##############################################################################
@@ -164,7 +171,6 @@ logging libraries.
 Summary: Libraries for Storage Instantiation Daemon (SID) interfaces
 License: GPLv2+
 Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
-Requires: systemd-libs
 %description iface-libs
 This package contains shared libraries to support interfaces used in Storage
 Instatiation Daemon (SID), its modules and related tools.
@@ -172,6 +178,7 @@ Instatiation Daemon (SID), its modules and related tools.
 %files iface-libs
 %{_libdir}/sid/libsidiface_servicelink.so.*
 %{_libdir}/sid/libsidiface_usid.so.*
+%doc README.md
 
 
 ##############################################################################
@@ -179,7 +186,7 @@ Instatiation Daemon (SID), its modules and related tools.
 ##############################################################################
 
 %package iface-libs-devel
-Summary: Development libraries and headers for Storage Instantiation Daemon (SID) interfaces
+Summary: Development files for Storage Instantiation Daemon (SID) interfaces
 License: GPLv2+
 Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
 %description iface-libs-devel
@@ -191,6 +198,7 @@ interface libraries.
 %{_libdir}/sid/libsidiface_usid.so
 %{_includedir}/sid/iface/service-link.h
 %{_includedir}/sid/iface/usid.h
+%doc README.md
 
 
 ##############################################################################
@@ -214,6 +222,7 @@ control, bridging SID core and udev and creating an instance of SID as a whole.
 
 %files resource-libs
 %{_libdir}/sid/libsidresource.so.*
+%doc README.md
 
 
 ##############################################################################
@@ -221,7 +230,7 @@ control, bridging SID core and udev and creating an instance of SID as a whole.
 ##############################################################################
 
 %package resource-libs-devel
-Summary: Development libraries and headers for Storage Instantiation Daemon (SID) resources
+Summary: Development files for Storage Instantiation Daemon (SID) resources
 License: GPLv2+
 Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
 %description resource-libs-devel
@@ -237,6 +246,7 @@ resource libraries.
 %{_includedir}/sid/resource/resource.h
 %{_includedir}/sid/resource/ucmd-module.h
 %{_includedir}/sid/resource/worker-control.h
+%doc README.md
 
 
 ##############################################################################
@@ -249,16 +259,18 @@ Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
 %description tools
-This package contains helper tools to support Storage Instantiation Daemon (SID).
+This package contains tools to support Storage Instantiation Daemon (SID).
 
 %files tools
 %{_udevrulesdir}/../usid
+%doc README.md
+
 
 ##############################################################################
 # SID-MOD-DUMMIES
 ##############################################################################
 %package mod-dummies
-Summary: dummy block and type module for Storage Instantiation Daemon (SID)
+Summary: Dummy block and type module for Storage Instantiation Daemon (SID)
 Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
 %description mod-dummies
@@ -269,6 +281,7 @@ execution.
 %files mod-dummies
 %{_libdir}/sid/modules/ucmd/block/dummy_block.so
 %{_libdir}/sid/modules/ucmd/type/dummy_type.so
+%doc README.md
 
 
 ##############################################################################
@@ -276,7 +289,7 @@ execution.
 ##############################################################################
 
 %package mod-block-blkid
-Summary: blkid block module for Storage Instantiation Daemon (SID)
+Summary: Blkid block module for Storage Instantiation Daemon (SID)
 Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
 %description mod-block-blkid
@@ -284,27 +297,31 @@ This package contains blkid block module for Storage Instantiation Daemon (SID).
 
 %files mod-block-blkid
 %{_libdir}/sid/modules/ucmd/block/blkid.so
+%doc README.md
 
 
 ##############################################################################
 # SID-MOD-BLOCK-DM_MPATH
 ##############################################################################
 
-%if %{?enable_dm_mpath_support}
+%if %{enable_dm_mpath_support}
 
 %package mod-block-dm-mpath
 Summary: Device-mapper multipath block module for Storage Instantiation Daemon (SID)
 Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
-Requires: device-mapper-multipath-libs
+Requires: device-mapper-multipath-libs >= 0.8.4-7
 %description mod-block-dm-mpath
 This package contains device-mapper multipath block module for Storage
 Instantiation Daemon (SID).
 
 %files mod-block-dm-mpath
 %{_libdir}/sid/modules/ucmd/block/dm_mpath.so
+%doc README.md
 
 %endif
 
+
 %changelog
-#* Fri Aug 28 2020 Peter Rajnoha <prajnoha@redhat.com> - 0.0.3-1
+* Tue Oct 06 2020 Peter Rajnoha <prajnoha@redhat.com> - 0.0.4-1
+- Initial release.
