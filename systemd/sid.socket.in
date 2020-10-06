@@ -7,3 +7,6 @@ After=systemd-udevd-kernel.socket
 [Socket]
 ListenStream=@sid-ubridge.socket
 PassCredentials=yes
+
+[Install]
+WantedBy=sockets.target
