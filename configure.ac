@@ -63,6 +63,7 @@ AC_CONFIG_FILES([Makefile
 		 src/tools/usid/Makefile
 		 udev/Makefile
 		 systemd/Makefile
+		 man/Makefile
 		 tests/Makefile])
 
 AC_CONFIG_HEADERS([src/include/config.h])

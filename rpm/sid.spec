@@ -76,6 +76,7 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/sid/modules/ucmd/type/*.{a,la}
 %{_udevrulesdir}/00-sid.rules
 %{_unitdir}/sid.socket
 %{_unitdir}/sid.service
+%{_mandir}/man8/sid.8.gz
 %doc README.md
 
 %post

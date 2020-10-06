@@ -40,6 +40,7 @@ src/tools/usid
 systemd/sid.service
 systemd/sid.socket
 systemd/sid.sysconfig
+man/sid.8
 udev/00-sid.rules
 
 libtool
