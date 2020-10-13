@@ -867,7 +867,7 @@ out:
 	return ret;
 }
 
-void *sid_ucmd_set_kv(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
+void *sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
                       const char *key, const void *value, size_t value_size, sid_ucmd_kv_flags_t flags)
 {
 	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0]))
@@ -930,7 +930,7 @@ static const void *_do_sid_ucmd_get_kv(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_nam
 	return _cmd_get_key_spec_value(cmd, &key_spec, value_size, flags);
 }
 
-const void *sid_ucmd_get_kv(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
+const void *sid_ucmd_get_kv(struct module *mod, struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
                             const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags)
 {
 	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0]))
@@ -1067,7 +1067,7 @@ int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_m
 	return _do_sid_ucmd_mod_reserve_kv(mod, cmd_mod, ns, key, 1);
 }
 
-int sid_ucmd_dev_set_ready(struct sid_ucmd_ctx *cmd, dev_ready_t ready)
+int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *cmd, dev_ready_t ready)
 {
 	sid_resource_t *orig_mod_res;
 
@@ -1086,7 +1086,7 @@ int sid_ucmd_dev_set_ready(struct sid_ucmd_ctx *cmd, dev_ready_t ready)
 	return 0;
 }
 
-dev_ready_t sid_ucmd_dev_get_ready(struct sid_ucmd_ctx *cmd)
+dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *cmd)
 {
 	sid_resource_t *orig_mod_res;
 	const dev_ready_t *p_ready;
@@ -1104,7 +1104,7 @@ dev_ready_t sid_ucmd_dev_get_ready(struct sid_ucmd_ctx *cmd)
 	return result;
 }
 
-int sid_ucmd_dev_set_reserved(struct sid_ucmd_ctx *cmd, dev_reserved_t reserved)
+int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *cmd, dev_reserved_t reserved)
 {
 	sid_resource_t *orig_mod_res;
 
@@ -1120,7 +1120,7 @@ int sid_ucmd_dev_set_reserved(struct sid_ucmd_ctx *cmd, dev_reserved_t reserved)
 	return 0;
 }
 
-dev_reserved_t sid_ucmd_dev_get_reserved(struct sid_ucmd_ctx *cmd)
+dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx *cmd)
 {
 	sid_resource_t *orig_mod_res;
 	const dev_reserved_t *p_reserved;
@@ -1146,9 +1146,8 @@ static int _kv_write_new_only(const char *full_key, struct kv_store_update_spec 
 	return 1;
 }
 
-int sid_ucmd_group_create(struct sid_ucmd_ctx *cmd,
-                          sid_ucmd_kv_namespace_t group_ns,
-                          const char *group_id,
+int sid_ucmd_group_create(struct module *mod, struct sid_ucmd_ctx *cmd,
+                          sid_ucmd_kv_namespace_t group_ns, const char *group_id,
                           sid_ucmd_kv_flags_t group_flags)
 {
 	const char *full_key = NULL;
@@ -1272,23 +1271,20 @@ out:
 	return r;
 }
 
-int sid_ucmd_group_add_current_dev(struct sid_ucmd_ctx *cmd,
-                                   sid_ucmd_kv_namespace_t group_ns,
-                                   const char *group_id)
+int sid_ucmd_group_add_current_dev(struct module *mod, struct sid_ucmd_ctx *cmd,
+                                   sid_ucmd_kv_namespace_t group_ns, const char *group_id)
 {
 	return _handle_current_dev_for_group(cmd, group_ns, group_id, KV_OP_PLUS);
 }
 
-int sid_ucmd_group_remove_current_dev(struct sid_ucmd_ctx *cmd,
-                                      sid_ucmd_kv_namespace_t group_ns,
-                                      const char *group_id)
+int sid_ucmd_group_remove_current_dev(struct module *mod, struct sid_ucmd_ctx *cmd,
+                                      sid_ucmd_kv_namespace_t group_ns, const char *group_id)
 {
 	return _handle_current_dev_for_group(cmd, group_ns, group_id, KV_OP_MINUS);
 }
 
-int sid_ucmd_group_destroy(struct sid_ucmd_ctx *cmd,
-                           sid_ucmd_kv_namespace_t group_ns,
-                           const char *group_id,
+int sid_ucmd_group_destroy(struct module *mod, struct sid_ucmd_ctx *cmd,
+                           sid_ucmd_kv_namespace_t group_ns, const char *group_id,
                            int force)
 {
 	static sid_ucmd_kv_flags_t kv_flags_persist_no_reserved = (DEFAULT_KV_FLAGS_CORE) & ~KV_MOD_RESERVED;
@@ -1631,7 +1627,8 @@ int _part_get_whole_disk(struct sid_ucmd_ctx *cmd, sid_resource_t *res, char *de
 	return 0;
 }
 
-const void *sid_ucmd_part_get_disk_kv(struct sid_ucmd_ctx *cmd, const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags)
+const void *sid_ucmd_part_get_disk_kv(struct module *mod, struct sid_ucmd_ctx *cmd, const char *key,
+                                      size_t *value_size, sid_ucmd_kv_flags_t *flags)
 {
 	char devno_buf[16];
 	struct kv_key_spec key_spec = {

@@ -129,11 +129,12 @@ typedef enum {
 
 #define SID_UCMD_KEY_DEVICE_NEXT_MOD "SID_NEXT_MOD"
 
-void *sid_ucmd_set_kv(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
+void *sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
 		      const char *key, const void *value, size_t value_size, sid_ucmd_kv_flags_t flags);
-const void *sid_ucmd_get_kv(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
+const void *sid_ucmd_get_kv(struct module *mod, struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t ns,
 			    const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags);
-const void *sid_ucmd_part_get_disk_kv(struct sid_ucmd_ctx *cmd, const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags);
+const void *sid_ucmd_part_get_disk_kv(struct module *mod, struct sid_ucmd_ctx *cmd, const char *key,
+				      size_t *value_size, sid_ucmd_kv_flags_t *flags);
 
 int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
 			    sid_ucmd_kv_namespace_t ns, const char *key);
@@ -155,22 +156,24 @@ typedef enum {
 	DEV_RES_RESERVED,         /* reserved by a layer above */
 } dev_reserved_t;
 
-int sid_ucmd_dev_set_ready(struct sid_ucmd_ctx *cmd, dev_ready_t ready);
-dev_ready_t sid_ucmd_dev_get_ready(struct sid_ucmd_ctx *cmd);
-int sid_ucmd_dev_set_reserved(struct sid_ucmd_ctx *cmd, dev_reserved_t reserved);
-dev_reserved_t sid_ucmd_dev_get_reserved(struct sid_ucmd_ctx *cmd);
+int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *cmd, dev_ready_t ready);
+dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *cmd);
+int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *cmd, dev_reserved_t reserved);
+dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx *cmd);
 
-int sid_ucmd_group_create(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t group_ns,
-			  const char *group_id, sid_ucmd_kv_flags_t group_flags);
+int sid_ucmd_group_create(struct module *mod, struct sid_ucmd_ctx *cmd,
+			  sid_ucmd_kv_namespace_t group_ns, const char *group_id,
+			  sid_ucmd_kv_flags_t group_flags);
 
-int sid_ucmd_group_add_current_dev(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t group_ns,
-				   const char *group_id);
+int sid_ucmd_group_add_current_dev(struct module *mod, struct sid_ucmd_ctx *cmd,
+				   sid_ucmd_kv_namespace_t group_ns, const char *group_id);
 
-int sid_ucmd_group_remove_current_dev(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t group_ns,
-				      const char *group_id);
+int sid_ucmd_group_remove_current_dev(struct module *mod, struct sid_ucmd_ctx *cmd,
+				     sid_ucmd_kv_namespace_t group_ns, const char *group_id);
 
-int sid_ucmd_group_destroy(struct sid_ucmd_ctx *cmd, sid_ucmd_kv_namespace_t group_ns,
-			   const char *group_id, int force);
+int sid_ucmd_group_destroy(struct module *mod, struct sid_ucmd_ctx *cmd,
+			   sid_ucmd_kv_namespace_t group_ns, const char *group_id,
+			   int force);
 
 #ifdef __cplusplus
 }
