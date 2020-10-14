@@ -37,6 +37,7 @@ const sid_resource_type_t sid_resource_type_module;
 
 struct module_registry {
 	const char *directory;
+	const char *base_name;
 	size_t module_prefix_len;
 	const char *module_prefix;
 	size_t module_suffix_len;
@@ -53,11 +54,32 @@ struct module
 	module_fn_t *init_fn;
 	module_fn_t *exit_fn;
 	module_fn_t *reset_fn;
+	char *full_name;
 	char *name;
 	void *handle;
 	void **symbols;
 	void *data;
 };
+
+static int _set_module_name(struct module_registry *registry, struct module *module, const char *name)
+{
+	char *orig_full_name = module->full_name;
+	char *orig_name = module->name;
+
+	if (!(module->full_name = util_str_comb_to_str(registry->base_name, "/", name))) {
+		if (orig_full_name) {
+			module->full_name = orig_full_name;
+			module->name = orig_name;
+		}
+
+		return -ENOMEM;
+	}
+
+	module->name = strrchr(module->full_name, '/') + 1;
+	free(orig_full_name);
+
+	return 0;
+}
 
 static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const char *module_name)
 {
@@ -91,7 +113,7 @@ sid_resource_t *module_registry_load_module(sid_resource_t *module_registry_res,
 	                                       &sid_resource_type_module,
 	                                       SID_RESOURCE_DISALLOW_ISOLATION,
 	                                       module_name,
-	                                       module_name,
+	                                       NULL,
 	                                       SID_RESOURCE_PRIO_NORMAL,
 	                                       SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(module_registry_res), "Failed to load module %s/%s.", registry->directory, module_name);
@@ -158,6 +180,11 @@ int module_registry_reset_module(sid_resource_t *module_res)
 	return 0;
 }
 
+const char *module_get_full_name(struct module *module)
+{
+	return module->full_name;
+}
+
 const char *module_get_name(struct module *module)
 {
 	return module->name;
@@ -176,6 +203,8 @@ void *module_get_data(struct module *module)
 static int _preload_modules(sid_resource_t *module_registry_res, struct module_registry *registry)
 {
 	struct dirent **dirent = NULL;
+	size_t prefix_len, suffix_len;
+	char *name;
 	int count, i;
 	int r = 0;
 
@@ -187,17 +216,30 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 		goto out;
 	}
 
+	prefix_len = registry->module_prefix ? strlen(registry->module_prefix) : 0;
+	suffix_len = registry->module_suffix ? strlen(registry->module_suffix) : 0;
+
 	for (i = 0; i < count; i++) {
 		if (dirent[i]->d_name[0] != '.' && util_str_combstr(dirent[i]->d_name, registry->module_prefix, NULL, registry->module_suffix, 1)) {
+
+			if (!(name = util_str_copy_substr(dirent[i]->d_name, prefix_len, strlen(dirent[i]->d_name) - prefix_len - suffix_len))) {
+				log_error(ID(module_registry_res), "Failed to copy name out of %s.", dirent[i]->d_name);
+				free(dirent[i]);
+				continue;
+			}
+
 			if (!sid_resource_create(module_registry_res,
 			                         &sid_resource_type_module,
 			                         SID_RESOURCE_DISALLOW_ISOLATION,
-			                         dirent[i]->d_name,
-			                         dirent[i]->d_name,
+			                         name,
+			                         NULL,
 			                         SID_RESOURCE_PRIO_NORMAL,
 			                         SID_RESOURCE_NO_SERVICE_LINKS))
 				log_error(ID(module_registry_res), "Failed to preload module %s/%s.", registry->directory, dirent[i]->d_name);
+
+			free(name);
 		}
+
 		free(dirent[i]);
 	}
 out:
@@ -235,34 +277,29 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 {
 	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct module_symbol_params symbol_params = {0};
-	const char *module_filename = kickstart_data;
-	size_t module_name_len;
 	struct module *module = NULL;
 	char path[PATH_MAX];
 	int64_t *p_prio;
 	unsigned i;
+	int r;
 
 	if (!(module = mem_zalloc(sizeof(*module)))) {
 		log_error(ID(module_res), "Failed to allocate module structure.");
 		goto fail;
 	}
 
-	module_name_len = strlen(module_filename) - registry->module_prefix_len - registry->module_suffix_len;
-
-	if (!(module->name = malloc(module_name_len + 1))) {
-		log_error(ID(module_res), "Failed to allocate memory to store module name.");
+	if ((r = _set_module_name(registry, module, sid_resource_get_id(module_res))) < 0) {
+		log_error_errno(ID(module_res), r, "Failed to set module name");
 		goto fail;
 	}
-
-	strncpy(module->name, module_filename + registry->module_prefix_len, module_name_len);
-	module->name[module_name_len] = '\0';
 
 	if (!(module->symbols = mem_zalloc(registry->symbol_count * sizeof(void *)))) {
 		log_error(ID(module_res), "Failed to allocate array to store symbol pointers.");
 		goto fail;
 	}
 
-	if (snprintf(path, sizeof(path) - 1, "%s/%s", registry->directory, module_filename) < 0) {
+	if (snprintf(path, sizeof(path) - 1, "%s/%s%s%s", registry->directory,
+	             registry->module_prefix ? : "", module->name, registry->module_suffix ? : "") < 0) {
 		log_error(ID(module_res), "Failed to create module directory path.");
 		goto fail;
 	}
@@ -312,7 +349,7 @@ fail:
 	if (module) {
 		if (module->handle)
 			(void) dlclose(module->handle);
-		free(module->name);
+		free(module->full_name);
 		free(module->symbols);
 		free(module);
 	}
@@ -331,7 +368,7 @@ static int _destroy_module(sid_resource_t *module_res)
 		log_error(ID(module_res), "Failed to close %s module handle: %s.", module->name, dlerror());
 
 	free(module->symbols);
-	free(module->name);
+	free(module->full_name);
 	free(module);
 	return 0;
 }
@@ -351,6 +388,7 @@ static void _free_module_registry(struct module_registry *registry)
 		free(registry->symbol_params);
 	}
 
+	free((void *) registry->base_name);
 	free((void *) registry->directory);
 	free((void *) registry->module_prefix);
 	free((void *) registry->module_suffix);
@@ -383,6 +421,11 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 
 	if (!(registry = mem_zalloc(sizeof(*registry)))) {
 		log_error(ID(module_registry_res), "Failed to allocate module reigistry structure.");
+		goto fail;
+	}
+
+	if (!(registry->base_name = strdup(sid_resource_get_id(module_registry_res)))) {
+		log_error(ID(module_registry_res), "Failed to set base name.");
 		goto fail;
 	}
 

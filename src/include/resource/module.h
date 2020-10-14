@@ -38,6 +38,7 @@ typedef int module_fn_t(struct module *module, void *cb_arg);
 #define MODULE_EXIT(fn)     MODULE_FN(exit, fn)
 #define MODULE_RESET(fn)    MODULE_FN(reset, fn)
 
+const char *module_get_full_name(struct module *module);
 const char *module_get_name(struct module *module);
 void module_set_data(struct module *module, void *data);
 void *module_get_data(struct module *module);
