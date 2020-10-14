@@ -1064,72 +1064,50 @@ int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_m
 
 int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *cmd, dev_ready_t ready)
 {
-	sid_resource_t *orig_mod_res;
-
 	if (!(_cmd_scan_phase_regs[cmd->scan_phase].flags & CMD_SCAN_CAP_RDY))
 		return -EPERM;
 
 	if (ready == DEV_NOT_RDY_UNPROCESSED)
 		return -EINVAL;
 
-	orig_mod_res = cmd->mod_res;
-	cmd->mod_res = NULL;
+	_do_sid_ucmd_set_kv(NULL, cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_READY, DEFAULT_KV_FLAGS_CORE, &ready, sizeof(ready));
 
-	_do_sid_ucmd_set_kv(mod, cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_READY, DEFAULT_KV_FLAGS_CORE, &ready, sizeof(ready));
-
-	cmd->mod_res = orig_mod_res;
 	return 0;
 }
 
 dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *cmd)
 {
-	sid_resource_t *orig_mod_res;
 	const dev_ready_t *p_ready;
 	dev_ready_t result;
 
-	orig_mod_res = cmd->mod_res;
-	cmd->mod_res = NULL;
-
-	if (!(p_ready = _do_sid_ucmd_get_kv(mod, cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
+	if (!(p_ready = _do_sid_ucmd_get_kv(NULL, cmd, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
 		result = DEV_NOT_RDY_UNPROCESSED;
 	else
 		result = *p_ready;
 
-	cmd->mod_res = orig_mod_res;
 	return result;
 }
 
 int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *cmd, dev_reserved_t reserved)
 {
-	sid_resource_t *orig_mod_res;
-
 	if (!(_cmd_scan_phase_regs[cmd->scan_phase].flags & CMD_SCAN_CAP_RES))
 		return -EPERM;
 
-	orig_mod_res = cmd->mod_res;
-	cmd->mod_res = NULL;
+	_do_sid_ucmd_set_kv(NULL, cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_RESERVED, DEFAULT_KV_FLAGS_CORE, &reserved, sizeof(reserved));
 
-	_do_sid_ucmd_set_kv(mod, cmd, KV_NS_DEVICE, NULL, KV_KEY_DEV_RESERVED, DEFAULT_KV_FLAGS_CORE, &reserved, sizeof(reserved));
-
-	cmd->mod_res = orig_mod_res;
 	return 0;
 }
 
 dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx *cmd)
 {
-	sid_resource_t *orig_mod_res;
 	const dev_reserved_t *p_reserved;
 	dev_reserved_t result;
 
-	orig_mod_res = cmd->mod_res;
-	cmd->mod_res = NULL;
-
-	if (!(p_reserved = _do_sid_ucmd_get_kv(mod, cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
+	if (!(p_reserved = _do_sid_ucmd_get_kv(NULL, cmd, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
 		result = DEV_RES_UNPROCESSED;
 	else
 		result = *p_reserved;
 
-	cmd->mod_res = orig_mod_res;
 	return result;
 }
 
