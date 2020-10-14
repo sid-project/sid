@@ -93,7 +93,7 @@
 #define KV_KEY_GEN_GROUP_MEMBERS KEY_SYS_C "GMB"
 #define KV_KEY_GEN_GROUP_IN      KEY_SYS_C "GIN"
 
-#define MOD_NAME_CORE         "core"
+#define MOD_NAME_CORE         "#core"
 #define OWNER_CORE             MOD_NAME_CORE
 #define DEFAULT_KV_FLAGS_CORE  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
 
