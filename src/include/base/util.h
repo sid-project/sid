@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,8 +56,11 @@ char *util_str_combstr(const char *haystack, const char *prefix, const char *nee
 typedef int (*util_str_token_fn_t) (const char *token, size_t len, void *data);
 int util_str_iterate_tokens(const char *str, const char *delims, const char *quotes, util_str_token_fn_t token_fn, void *token_fn_data);
 
+char *util_str_comb_to_str(const char *prefix, const char *str, const char *suffix);
+
 char **util_str_comb_to_strv(const char *prefix, const char *str, const char *suffix, const char *delims, const char *quotes);
 char **util_strv_copy(const char **strv);
+
 
 /*
  * Time-related utilities.

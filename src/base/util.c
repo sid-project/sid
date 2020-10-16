@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2019 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -227,6 +227,35 @@ int util_str_iterate_tokens(const char *str, const char *delims, const char *quo
 	}
 
 	return 0;
+}
+
+char *util_str_comb_to_str(const char *prefix, const char *str, const char *suffix)
+{
+	size_t prefix_len = prefix ? strlen(prefix) : 0;
+	size_t str_len = str ? strlen(str) : 0;
+	size_t suffix_len = suffix ? strlen(suffix) : 0;
+	char *p, *ret_str;
+
+	if (!(p = ret_str = malloc(prefix_len + str_len + suffix_len + 1)))
+		return NULL;
+
+	if (prefix_len) {
+		memcpy(p, prefix, prefix_len);
+		p += prefix_len;
+	}
+
+	if (str_len) {
+		memcpy(p, str, str_len);
+		p += str_len;
+	}
+
+	if (suffix_len) {
+		memcpy(p, suffix, suffix_len);
+		p += suffix_len;
+	}
+
+	*p = '\0';
+	return ret_str;
 }
 
 struct token_counter {
