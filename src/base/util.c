@@ -362,6 +362,26 @@ char **util_strv_copy(const char **strv)
 	return copier.strv;
 }
 
+char *util_str_copy_substr(const char *str, size_t offset, size_t len)
+{
+	size_t str_len = strlen(str);
+	char *ret_str;
+
+	if ((offset + len) > str_len)
+		return NULL;
+
+	if (offset == 0 && len == str_len)
+		return strdup(str);
+
+	if (!(ret_str = malloc(len + 1)))
+		return NULL;
+
+	memcpy(ret_str, str + offset, len);
+	ret_str[len] = '\0';
+
+	return ret_str;
+}
+
 /*
  * Time-related utilities.
  */

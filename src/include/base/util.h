@@ -61,6 +61,8 @@ char *util_str_comb_to_str(const char *prefix, const char *str, const char *suff
 char **util_str_comb_to_strv(const char *prefix, const char *str, const char *suffix, const char *delims, const char *quotes);
 char **util_strv_copy(const char **strv);
 
+char *util_str_copy_substr(const char *str, size_t start, size_t len);
+
 
 /*
  * Time-related utilities.
