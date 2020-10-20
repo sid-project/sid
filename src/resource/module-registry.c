@@ -37,7 +37,7 @@ const sid_resource_type_t sid_resource_type_module;
 
 struct module_registry {
 	const char *directory;
-	const char *base_name;
+	char *base_name;
 	const char *module_prefix;
 	const char *module_suffix;
 	uint64_t flags;
@@ -158,6 +158,11 @@ int module_registry_reset_modules(sid_resource_t *module_registry_res)
 
 	while ((res = sid_resource_iter_next(registry->module_iter))) {
 		module = sid_resource_get_data(res);
+
+		/* detect changed registry base name and reset modules' full name if needed accordingly */
+		if (strncmp(module->full_name, registry->base_name, strlen(registry->base_name)))
+			_set_module_name(registry, module, module->name);
+
 		if (module->reset_fn && module->reset_fn(module, registry->cb_arg) < 0)
 			log_error(ID(res), module_reset_failed_msg);
 	}
@@ -196,6 +201,55 @@ void module_set_data(struct module *module, void *data)
 void *module_get_data(struct module *module)
 {
 	return module->data;
+}
+
+int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resource_t *module_subregistry_res)
+{
+	struct module *module;
+	struct module_registry *subregistry;
+	char *orig_base_name;
+
+	/*
+	 * Check subregistry does not have any existing parent,
+	 * because we need to make the module as subregistry's parent here.
+	 */
+	if (sid_resource_search(module_subregistry_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL))
+		return -EINVAL;
+
+	module = sid_resource_get_data(module_res);
+	subregistry = sid_resource_get_data(module_subregistry_res);
+
+	orig_base_name = subregistry->base_name;
+
+	/*
+	 * Subregistry's new base name is:
+	 *   <module full name>/<subregistry base name>
+	 *
+	 * If setting the new base name fails, revert to the original base name.
+	 */
+	if (!(subregistry->base_name = util_str_comb_to_str(module->full_name, "/", subregistry->base_name))) {
+		subregistry->base_name = orig_base_name;
+		return -ENOMEM;
+	}
+
+	/*
+	 * Reset any modules that the subregistry might have already loaded to account
+	 * for the new base name and finally attach the subregistry to the module.
+	 *
+	 * If anything fails, revert to the original base name and reset again.
+	 */
+	if (module_registry_reset_modules(module_subregistry_res) < 0 ||
+	    sid_resource_add_child(module_res, module_subregistry_res,
+	                           SID_RESOURCE_RESTRICT_WALK_UP |
+	                           SID_RESOURCE_DISALLOW_ISOLATION)) {
+		free(subregistry->base_name);
+		subregistry->base_name = orig_base_name;
+		(void) module_registry_reset_modules(module_subregistry_res);
+		return -1;
+	}
+
+	free(orig_base_name);
+	return 0;
 }
 
 static int _preload_modules(sid_resource_t *module_registry_res, struct module_registry *registry)

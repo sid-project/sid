@@ -59,6 +59,8 @@ int module_registry_get_module_symbols(sid_resource_t *module_res, const void **
 int module_registry_reset_modules(sid_resource_t *module_registry_res);
 int module_registry_reset_module(sid_resource_t *module_res);
 
+int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resource_t *module_subregistry_res);
+
 #ifdef __cplusplus
 }
 #endif
