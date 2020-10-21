@@ -45,6 +45,7 @@ extern "C" {
 
 struct sid_ucmd_mod_ctx;
 struct sid_ucmd_ctx;
+typedef struct sid_resource sid_resource_t;
 
 typedef module_prio_t sid_ucmd_mod_prio_t;
 typedef int sid_ucmd_mod_fn_t(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx);
@@ -140,6 +141,9 @@ int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mo
 			    sid_ucmd_kv_namespace_t ns, const char *key);
 int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
 			      sid_ucmd_kv_namespace_t ns, const char *key);
+
+int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
+				     sid_resource_t *mod_subregistry);
 
 typedef enum {
 	DEV_NOT_RDY_UNPROCESSED,  /* not ready and not yet processed by SID */

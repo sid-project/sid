@@ -1063,6 +1063,26 @@ int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_
 	return _do_sid_ucmd_mod_reserve_kv(mod, ucmd_mod_ctx, ns, key, 1);
 }
 
+int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
+                                     sid_resource_t *mod_subregistry)
+{
+	sid_resource_t *res;
+	char **pathv, **name;
+
+	if (!(pathv = util_str_comb_to_strv(NULL, NULL, module_get_full_name(mod), NULL, MODULE_NAME_DELIM, NULL)))
+		return -ENOMEM;
+
+	for (res = ucmd_mod_ctx->modules_res, name = pathv; *name; name++) {
+		if (!(res = sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_DESC, NULL, *name))) {
+			free(pathv);
+			return -ENOLINK;
+		}
+	}
+
+	free(pathv);
+	return module_registry_add_module_subregistry(res, mod_subregistry);
+}
+
 int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan_phase].flags & CMD_SCAN_CAP_RDY))
