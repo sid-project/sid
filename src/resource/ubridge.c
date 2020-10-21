@@ -160,7 +160,6 @@ struct sid_ucmd_ctx {
 	struct udevice udev_dev;               /* udev context for currently processed device */
 	cmd_scan_phase_t scan_phase;           /* current phase at the time of use of this context */
 	sid_resource_t *kv_store_res;          /* KV store snapshot */
-	sid_resource_t *mod_res;               /* the module that is processed at the moment */
 	struct buffer *gen_buf;                /* generic buffer */
 	struct buffer *res_buf;                /* result buffer */
 	struct usid_msg_header request_header; /* original request header (keep last, contains flexible array) */
@@ -1549,19 +1548,19 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	return r;
 }
 
-static int _get_sysfs_value(sid_resource_t *res, const char *path, char *buf, size_t buf_size)
+static int _get_sysfs_value(struct module *mod, const char *path, char *buf, size_t buf_size)
 {
 	FILE *fp;
 	size_t len;
 	int r = -1;
 
 	if (!(fp = fopen(path, "r"))) {
-		log_sys_error(ID(res), "fopen", path);
+		log_sys_error(_get_mod_name(mod), "fopen", path);
 		goto out;
 	}
 
 	if (!(fgets(buf, buf_size, fp))) {
-		log_sys_error(ID(res), "fgets", path);
+		log_sys_error(_get_mod_name(mod), "fgets", path);
 		goto out;
 	}
 
@@ -1569,7 +1568,7 @@ static int _get_sysfs_value(sid_resource_t *res, const char *path, char *buf, si
 		buf[--len] = '\0';
 
 	if (!len)
-		log_error(ID(res), "No value found in %s.", path);
+		log_error(_get_mod_name(mod), "No value found in %s.", path);
 	else
 		r = 0;
 out:
@@ -1579,20 +1578,20 @@ out:
 	return r;
 }
 
-int _part_get_whole_disk(struct sid_ucmd_ctx *cmd, sid_resource_t *res, char *devno, size_t size)
+int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *cmd, char *devno, size_t size)
 {
 	const char *s;
 	int r;
 
-	if (!cmd || !res || !devno || !size)
+	if (!cmd || !mod || !devno || !size)
 		return -EINVAL;
 
 	if (!(s = buffer_fmt_add(cmd->gen_buf, &r, "%s%s/../dev",
 	                         SYSTEM_SYSFS_PATH, cmd->udev_dev.path))) {
-		log_error_errno(ID(res), r, "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT, CMD_DEV_ID(cmd));
+		log_error_errno(_get_mod_name(mod), r, "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT, CMD_DEV_ID(cmd));
 		return r;
 	}
-	r = _get_sysfs_value(res, s, devno, size);
+	r = _get_sysfs_value(mod, s, devno, size);
 	buffer_rewind_mem(cmd->gen_buf, s);
 	if (r < 0)
 		return r;
@@ -1618,9 +1617,9 @@ const void *sid_ucmd_part_get_disk_kv(struct module *mod, struct sid_ucmd_ctx *c
 	if (!cmd || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
 
-	if (_part_get_whole_disk(cmd, cmd->mod_res, devno_buf,
-	                         sizeof(devno_buf)) < 0)
+	if (_part_get_whole_disk(mod, cmd, devno_buf, sizeof(devno_buf)) < 0)
 		return NULL;
+
 	key_spec.ns_part = devno_buf;
 
 	return _cmd_get_key_spec_value(mod, cmd, &key_spec, value_size, flags);
@@ -2442,7 +2441,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 			                        SYSTEM_SYSFS_SLAVES,
 			                        dirent[i]->d_name))) {
 
-				if (_get_sysfs_value(cmd_res, s, devno_buf, sizeof(devno_buf)) < 0) {
+				if (_get_sysfs_value(NULL, s, devno_buf, sizeof(devno_buf)) < 0) {
 					buffer_rewind_mem(cmd->gen_buf, s);
 					continue;
 				}
@@ -2547,8 +2546,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	};
 
 	KV_VALUE_PREPARE_HEADER(iov_to_store, cmd->udev_dev.seqnum, kv_flags_no_persist, core_owner);
-	if (_part_get_whole_disk(cmd, cmd_res, devno_buf,
-	                         sizeof(devno_buf)) < 0)
+	if (_part_get_whole_disk(NULL, cmd, devno_buf, sizeof(devno_buf)) < 0)
 		goto out;
 
 	rel_spec.rel_key_spec->ns_part = devno_buf;
@@ -2611,7 +2609,6 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_t phase)
 {
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-	sid_resource_t *orig_mod_res = cmd->mod_res;
 	sid_resource_t *block_mod_res;
 	struct module *block_mod;
 	const struct cmd_mod_fns *block_mod_fns;
@@ -2625,7 +2622,6 @@ static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_
 			goto out;
 		}
 
-		cmd->mod_res = block_mod_res;
 		block_mod = sid_resource_get_data(block_mod_res);
 
 		switch (phase) {
@@ -2674,7 +2670,6 @@ static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_
 
 	r = 0;
 out:
-	cmd->mod_res = orig_mod_res;
 	return r;
 }
 
@@ -2740,19 +2735,19 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 	const char *mod_name;
 
 	if ((mod_name = _lookup_module_name(exec_arg->cmd_res)) &&
-	    !(cmd->mod_res = exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
+	    !(exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
 		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
 
 	//sid_resource_dump_all_in_dot(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
-	if (!cmd->mod_res)
+	if (!exec_arg->type_mod_res_current)
 		return 0;
 
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(exec_arg->type_mod_res_current, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->ident)
-		return mod_fns->ident(sid_resource_get_data(cmd->mod_res), cmd);
+		return mod_fns->ident(sid_resource_get_data(exec_arg->type_mod_res_current), cmd);
 
 	return 0;
 }
@@ -2764,12 +2759,12 @@ static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
 
-	if (!cmd->mod_res)
+	if (!exec_arg->type_mod_res_current)
 		return 0;
 
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(exec_arg->type_mod_res_current, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_pre)
-		return mod_fns->scan_pre(sid_resource_get_data(cmd->mod_res), cmd);
+		return mod_fns->scan_pre(sid_resource_get_data(exec_arg->type_mod_res_current), cmd);
 
 	return 0;
 }
@@ -2781,12 +2776,12 @@ static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
 
-	if (!cmd->mod_res)
+	if (!exec_arg->type_mod_res_current)
 		return 0;
 
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(exec_arg->type_mod_res_current, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_current)
-		if (mod_fns->scan_current(sid_resource_get_data(cmd->mod_res), cmd))
+		if (mod_fns->scan_current(sid_resource_get_data(exec_arg->type_mod_res_current), cmd))
 			return -1;
 
 	return 0;
@@ -2806,14 +2801,12 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 	} else
 		exec_arg->type_mod_res_next = NULL;
 
-	cmd->mod_res = exec_arg->type_mod_res_next;
-
-	if (!cmd->mod_res)
+	if (!exec_arg->type_mod_res_next)
 		return 0;
 
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(exec_arg->type_mod_res_next, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_next)
-		return mod_fns->scan_next(sid_resource_get_data(cmd->mod_res), cmd);
+		return mod_fns->scan_next(sid_resource_get_data(exec_arg->type_mod_res_next), cmd);
 
 	return 0;
 }
@@ -2823,16 +2816,14 @@ static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
-	cmd->mod_res = exec_arg->type_mod_res_current;
-
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_CURRENT);
 
-	if (!cmd->mod_res)
+	if (!exec_arg->type_mod_res_current)
 		return 0;
 
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(exec_arg->type_mod_res_current, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_current)
-		return mod_fns->scan_post_current(sid_resource_get_data(cmd->mod_res), cmd);
+		return mod_fns->scan_post_current(sid_resource_get_data(exec_arg->type_mod_res_current), cmd);
 
 	return 0;
 }
@@ -2842,16 +2833,14 @@ static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
-	cmd->mod_res = exec_arg->type_mod_res_next;
-
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_NEXT);
 
-	if (!cmd->mod_res)
+	if (!exec_arg->type_mod_res_next)
 		return 0;
 
-	module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(exec_arg->type_mod_res_next, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_post_next)
-		return mod_fns->scan_post_next(sid_resource_get_data(cmd->mod_res), cmd);
+		return mod_fns->scan_post_next(sid_resource_get_data(exec_arg->type_mod_res_next), cmd);
 
 	return 0;
 }
@@ -2873,17 +2862,11 @@ static int _cmd_exec_scan_exit(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_trigger_action_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-
-	cmd->mod_res = exec_arg->type_mod_res_current;
 	return 0;
 }
 
 static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *cmd = sid_resource_get_data(exec_arg->cmd_res);
-
-	cmd->mod_res = exec_arg->type_mod_res_next;
 	return 0;
 }
 
@@ -2896,17 +2879,15 @@ static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_ERROR);
 
 	if (exec_arg->type_mod_res_current) {
-		cmd->mod_res = exec_arg->type_mod_res_current;
-		module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+		module_registry_get_module_symbols(exec_arg->type_mod_res_current, (const void ***) &mod_fns);
 		if (mod_fns && mod_fns->error)
-			r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
+			r |= mod_fns->error(sid_resource_get_data(exec_arg->type_mod_res_current), cmd);
 	}
 
 	if (exec_arg->type_mod_res_next) {
-		cmd->mod_res = exec_arg->type_mod_res_next;
-		module_registry_get_module_symbols(cmd->mod_res, (const void ***) &mod_fns);
+		module_registry_get_module_symbols(exec_arg->type_mod_res_next, (const void ***) &mod_fns);
 		if (mod_fns && mod_fns->error)
-			r |= mod_fns->error(sid_resource_get_data(cmd->mod_res), cmd);
+			r |= mod_fns->error(sid_resource_get_data(exec_arg->type_mod_res_next), cmd);
 	}
 
 	return r;

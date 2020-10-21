@@ -352,7 +352,7 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 
 	if (snprintf(path, sizeof(path) - 1, "%s/%s%s%s", registry->directory,
 	             registry->module_prefix ? : "", module->name, registry->module_suffix ? : "") < 0) {
-		log_error(ID(module_res), "Failed to create module directory path.");
+		log_error(ID(module_res), "Failed to create module path.");
 		goto fail;
 	}
 
