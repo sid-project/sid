@@ -105,8 +105,8 @@ const sid_resource_type_t sid_resource_type_ubridge_connection;
 const sid_resource_type_t sid_resource_type_ubridge_command;
 
 struct sid_ucmd_mod_ctx {
-	sid_resource_t *kv_store_res;
-	struct buffer *gen_buf;
+	sid_resource_t *kv_store_res;          /* KV store master or snapshot */
+	struct buffer *gen_buf;                /* generic buffer */
 };
 
 struct umonitor {
@@ -159,8 +159,7 @@ struct sid_ucmd_ctx {
 	char *dev_id;                          /* device identifier (major_minor) */
 	struct udevice udev_dev;               /* udev context for currently processed device */
 	cmd_scan_phase_t scan_phase;           /* current phase at the time of use of this context */
-	sid_resource_t *kv_store_res;          /* KV store snapshot */
-	struct buffer *gen_buf;                /* generic buffer */
+	struct sid_ucmd_mod_ctx ucmd_mod_ctx;  /* commod module context */
 	struct buffer *res_buf;                /* result buffer */
 	struct usid_msg_header request_header; /* original request header (keep last, contains flexible array) */
 };
@@ -710,12 +709,12 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx *cmd, const char
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
 		goto out;
 
-	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec))) {
+	if (!(full_key = _buffer_compose_key(cmd->ucmd_mod_ctx.gen_buf, &key_spec))) {
 		r = -ENOMEM;
 		goto out;
 	}
 
-	if (!(found = kv_store_get_value(cmd->kv_store_res, full_key, &value_size, &value_flags)))
+	if (!(found = kv_store_get_value(cmd->ucmd_mod_ctx.kv_store_res, full_key, &value_size, &value_flags)))
 		goto out;
 
 	iov = _get_value_vector(value_flags, found, value_size, tmp_iov);
@@ -723,13 +722,14 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx *cmd, const char
 	if ((KV_VALUE_FLAGS(iov) & KV_MOD_RESERVED) && (!strcmp(KV_VALUE_OWNER(iov), owner)))
 		goto out;
 
-	log_debug(ID(cmd->kv_store_res), "Module %s can't overwrite value with key %s which is reserved and attached to %s module.",
+	log_debug(ID(cmd->ucmd_mod_ctx.kv_store_res),
+	          "Module %s can't overwrite value with key %s which is reserved and attached to %s module.",
 	          owner, full_key, KV_VALUE_OWNER(iov));
 
 	r = 0;
 out:
 	if (full_key)
-		buffer_rewind_mem(cmd->gen_buf, full_key);
+		buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, full_key);
 	return r;
 }
 
@@ -827,7 +827,7 @@ static void *_do_sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *cmd, s
 			goto out;
 	}
 
-	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec)))
+	if (!(full_key = _buffer_compose_key(cmd->ucmd_mod_ctx.gen_buf, &key_spec)))
 		goto out;
 
 	KV_VALUE_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, flags, (char *) owner);
@@ -836,14 +836,14 @@ static void *_do_sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *cmd, s
 	};
 
 	update_arg = (struct kv_update_arg) {
-		.res = cmd->kv_store_res,
+		.res = cmd->ucmd_mod_ctx.kv_store_res,
 		.owner = owner,
-		.gen_buf = cmd->gen_buf,
+		.gen_buf = cmd->ucmd_mod_ctx.gen_buf,
 		.custom = NULL,
 		.ret_code = -EREMOTEIO
 	};
 
-	if (!(kv_value = kv_store_set_value(cmd->kv_store_res,
+	if (!(kv_value = kv_store_set_value(cmd->ucmd_mod_ctx.kv_store_res,
 	                                    full_key,
 	                                    iov,
 	                                    KV_VALUE_IDX_DATA + 1,
@@ -856,7 +856,7 @@ static void *_do_sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *cmd, s
 	ret = kv_value->data + _kv_value_ext_data_offset(kv_value);
 out:
 	if (full_key)
-		buffer_rewind_mem(cmd->gen_buf, full_key);
+		buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, full_key);
 	return ret;
 }
 
@@ -881,10 +881,10 @@ static const void *_cmd_get_key_spec_value(struct module *mod, struct sid_ucmd_c
 	size_t size, data_offset;
 	void *ret = NULL;
 
-	if (!(full_key = _buffer_compose_key(cmd->gen_buf, key_spec)))
+	if (!(full_key = _buffer_compose_key(cmd->ucmd_mod_ctx.gen_buf, key_spec)))
 		goto out;
 
-	if (!(kv_value = kv_store_get_value(cmd->kv_store_res, full_key, &size, NULL)))
+	if (!(kv_value = kv_store_get_value(cmd->ucmd_mod_ctx.kv_store_res, full_key, &size, NULL)))
 		goto out;
 
 	if (kv_value->flags & KV_MOD_PRIVATE) {
@@ -905,7 +905,7 @@ static const void *_cmd_get_key_spec_value(struct module *mod, struct sid_ucmd_c
 		ret = kv_value->data + data_offset;
 out:
 	if (full_key)
-		buffer_rewind_mem(cmd->gen_buf, full_key);
+		buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, full_key);
 	return ret;
 }
 
@@ -1137,18 +1137,18 @@ int sid_ucmd_group_create(struct module *mod, struct sid_ucmd_ctx *cmd,
 	};
 
 	struct kv_update_arg update_arg = {
-		.res = cmd->kv_store_res,
+		.res = cmd->ucmd_mod_ctx.kv_store_res,
 		.owner = _get_mod_name(mod),
-		.gen_buf = cmd->gen_buf,
+		.gen_buf = cmd->ucmd_mod_ctx.gen_buf,
 		.custom = NULL,
 		.ret_code = 0
 	};
 
-	if (!(full_key = _buffer_compose_key(cmd->gen_buf, &key_spec)))
+	if (!(full_key = _buffer_compose_key(cmd->ucmd_mod_ctx.gen_buf, &key_spec)))
 		goto out;
 	KV_VALUE_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, kv_flags_persist, core_owner);
 
-	if (!kv_store_set_value(cmd->kv_store_res,
+	if (!kv_store_set_value(cmd->ucmd_mod_ctx.kv_store_res,
 	                        full_key,
 	                        iov,
 	                        KV_VALUE_IDX_DATA,
@@ -1161,7 +1161,7 @@ int sid_ucmd_group_create(struct module *mod, struct sid_ucmd_ctx *cmd,
 	r = 0;
 out:
 	if (full_key)
-		buffer_rewind_mem(cmd->gen_buf, full_key);
+		buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, full_key);
 	return r;
 }
 
@@ -1170,7 +1170,7 @@ int _handle_current_dev_for_group(struct module *mod,
                                   sid_ucmd_kv_namespace_t group_ns,
                                   const char *group_id, kv_op_t op)
 {
-	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
+	const char *tmp_mem_start = buffer_add(cmd->ucmd_mod_ctx.gen_buf, "", 0, NULL);
 	const char *cur_full_key, *rel_key_prefix;
 	struct iovec iov[KV_VALUE_IDX_DATA + 1];
 	int r = -1;
@@ -1209,26 +1209,26 @@ int _handle_current_dev_for_group(struct module *mod,
 	};
 
 	struct kv_update_arg update_arg = {
-		.res = cmd->kv_store_res,
+		.res = cmd->ucmd_mod_ctx.kv_store_res,
 		.owner = OWNER_CORE,
-		.gen_buf = cmd->gen_buf,
+		.gen_buf = cmd->ucmd_mod_ctx.gen_buf,
 		.custom = &rel_spec
 	};
 
 	// TODO: check return values / maybe also pass flags / use proper owner
 
 	KV_VALUE_PREPARE_HEADER(iov, cmd->udev_dev.seqnum, kv_flags_no_persist, core_owner);
-	rel_key_prefix = _buffer_compose_key_prefix(cmd->gen_buf, rel_spec.rel_key_spec);
+	rel_key_prefix = _buffer_compose_key_prefix(cmd->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
 	if (!rel_key_prefix)
 		goto out;
 	iov[KV_VALUE_IDX_DATA] = (struct iovec) {
 		(void *) rel_key_prefix, strlen(rel_key_prefix) + 1
 	};
 
-	cur_full_key = _buffer_compose_key(cmd->gen_buf, rel_spec.cur_key_spec);
+	cur_full_key = _buffer_compose_key(cmd->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec);
 	if (!cur_full_key)
 		goto out;
-	if (kv_store_set_value(cmd->kv_store_res,
+	if (kv_store_set_value(cmd->ucmd_mod_ctx.kv_store_res,
 	                       cur_full_key,
 	                       iov,
 	                       KV_VALUE_IDX_DATA + 1,
@@ -1240,7 +1240,7 @@ int _handle_current_dev_for_group(struct module *mod,
 
 	_destroy_delta(rel_spec.delta);
 out:
-	buffer_rewind_mem(cmd->gen_buf, tmp_mem_start);
+	buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, tmp_mem_start);
 	return r;
 }
 
@@ -1300,19 +1300,19 @@ int sid_ucmd_group_destroy(struct module *mod, struct sid_ucmd_ctx *cmd,
 	};
 
 	struct kv_update_arg update_arg = {
-		.res = cmd->kv_store_res,
+		.res = cmd->ucmd_mod_ctx.kv_store_res,
 		.owner = OWNER_CORE,
-		.gen_buf = cmd->gen_buf,
+		.gen_buf = cmd->ucmd_mod_ctx.gen_buf,
 		.custom = &rel_spec
 	};
 
 	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_delta wrapper
 	//       to do the "is empty?" check before the actual _kv_delta operation
 
-	if (!(cur_full_key = _buffer_compose_key(cmd->gen_buf, rel_spec.cur_key_spec)))
+	if (!(cur_full_key = _buffer_compose_key(cmd->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec)))
 		goto out;
 
-	if (!kv_store_get_value(cmd->kv_store_res, cur_full_key, &size, NULL))
+	if (!kv_store_get_value(cmd->ucmd_mod_ctx.kv_store_res, cur_full_key, &size, NULL))
 		goto out;
 
 	if (size > KV_VALUE_IDX_DATA && !force) {
@@ -1322,7 +1322,7 @@ int sid_ucmd_group_destroy(struct module *mod, struct sid_ucmd_ctx *cmd,
 
 	KV_VALUE_PREPARE_HEADER(iov_blank, cmd->udev_dev.seqnum, kv_flags_persist_no_reserved, core_owner);
 
-	if (!kv_store_set_value(cmd->kv_store_res,
+	if (!kv_store_set_value(cmd->ucmd_mod_ctx.kv_store_res,
 	                        cur_full_key,
 	                        iov_blank,
 	                        KV_VALUE_IDX_DATA,
@@ -1338,7 +1338,7 @@ int sid_ucmd_group_destroy(struct module *mod, struct sid_ucmd_ctx *cmd,
 out:
 	_destroy_delta(rel_spec.delta);
 	if (cur_full_key)
-		buffer_rewind_mem(cmd->gen_buf, cur_full_key);
+		buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, cur_full_key);
 	return r;
 }
 
@@ -1351,7 +1351,7 @@ static int _device_add_field(struct sid_ucmd_ctx *cmd, const char *start)
 	if (!(value = strchr(start, KV_PAIR_C[0])) || !*(++value))
 		return -1;
 
-	if (!(key = buffer_fmt_add(cmd->gen_buf, &r, "%.*s", value - start - 1, start)))
+	if (!(key = buffer_fmt_add(cmd->ucmd_mod_ctx.gen_buf, &r, "%.*s", value - start - 1, start)))
 		return r;;
 
 	if (!(value = _do_sid_ucmd_set_kv(NULL, cmd, KV_NS_UDEV, NULL, key, 0, value, strlen(value) + 1)))
@@ -1373,7 +1373,7 @@ static int _device_add_field(struct sid_ucmd_ctx *cmd, const char *start)
 
 	r = 0;
 out:
-	buffer_rewind_mem(cmd->gen_buf, key);
+	buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, key);
 	return r;
 };
 
@@ -1586,13 +1586,13 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *cmd, char *dev
 	if (!cmd || !mod || !devno || !size)
 		return -EINVAL;
 
-	if (!(s = buffer_fmt_add(cmd->gen_buf, &r, "%s%s/../dev",
+	if (!(s = buffer_fmt_add(cmd->ucmd_mod_ctx.gen_buf, &r, "%s%s/../dev",
 	                         SYSTEM_SYSFS_PATH, cmd->udev_dev.path))) {
 		log_error_errno(_get_mod_name(mod), r, "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT, CMD_DEV_ID(cmd));
 		return r;
 	}
 	r = _get_sysfs_value(mod, s, devno, size);
-	buffer_rewind_mem(cmd->gen_buf, s);
+	buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, s);
 	if (r < 0)
 		return r;
 
@@ -2335,7 +2335,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
-	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
+	const char *tmp_mem_start = buffer_add(cmd->ucmd_mod_ctx.gen_buf, "", 0, NULL);
 	const char *s;
 	struct dirent **dirent = NULL;
 	struct buffer *vec_buf = NULL;
@@ -2379,14 +2379,14 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	};
 
 	struct kv_update_arg update_arg = {
-		.res = cmd->kv_store_res,
+		.res = cmd->ucmd_mod_ctx.kv_store_res,
 		.owner = OWNER_CORE,
-		.gen_buf = cmd->gen_buf,
+		.gen_buf = cmd->ucmd_mod_ctx.gen_buf,
 		.custom = &rel_spec
 	};
 
 	if (cmd->udev_dev.action != UDEV_ACTION_REMOVE) {
-		if (!(s = buffer_fmt_add(cmd->gen_buf, &r,
+		if (!(s = buffer_fmt_add(cmd->ucmd_mod_ctx.gen_buf, &r,
 		                         "%s%s/%s",
 		                         SYSTEM_SYSFS_PATH,
 		                         cmd->udev_dev.path,
@@ -2406,7 +2406,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 			goto out;
 		}
 
-		buffer_rewind_mem(cmd->gen_buf, s);
+		buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, s);
 	}
 
 	/*
@@ -2434,7 +2434,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				continue;
 			}
 
-			if ((s = buffer_fmt_add(cmd->gen_buf, &r,
+			if ((s = buffer_fmt_add(cmd->ucmd_mod_ctx.gen_buf, &r,
 			                        "%s%s/%s/%s/dev",
 			                        SYSTEM_SYSFS_PATH,
 			                        cmd->udev_dev.path,
@@ -2442,15 +2442,15 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 			                        dirent[i]->d_name))) {
 
 				if (_get_sysfs_value(NULL, s, devno_buf, sizeof(devno_buf)) < 0) {
-					buffer_rewind_mem(cmd->gen_buf, s);
+					buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, s);
 					continue;
 				}
-				buffer_rewind_mem(cmd->gen_buf, s);
+				buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, s);
 
 				_canonicalize_kv_key(devno_buf);
 				rel_spec.rel_key_spec->ns_part = devno_buf;
 
-				s = _buffer_compose_key_prefix(cmd->gen_buf, rel_spec.rel_key_spec);
+				s = _buffer_compose_key_prefix(cmd->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
 				if (!s || !buffer_add(vec_buf, (void *) s, strlen(s) + 1, &r))
 					goto out;
 			} else
@@ -2468,7 +2468,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
 	qsort(iov + 3, iov_cnt - 3, sizeof(struct iovec), _iov_str_item_cmp);
 
-	if (!(s = _buffer_compose_key(cmd->gen_buf, rel_spec.cur_key_spec))) {
+	if (!(s = _buffer_compose_key(cmd->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
 	}
@@ -2478,7 +2478,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	 * The delta.final is computed inside _kv_delta out of vec_buf.
 	 * The _kv_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
 	 */
-	iov = kv_store_set_value(cmd->kv_store_res,
+	iov = kv_store_set_value(cmd->ucmd_mod_ctx.kv_store_res,
 	                         s,
 	                         iov,
 	                         iov_cnt,
@@ -2492,14 +2492,14 @@ out:
 	_destroy_delta(rel_spec.delta);
 	if (vec_buf)
 		buffer_destroy(vec_buf);
-	buffer_rewind_mem(cmd->gen_buf, tmp_mem_start);
+	buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, tmp_mem_start);
 	return r;
 }
 
 static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(cmd_res);
-	const char *tmp_mem_start = buffer_add(cmd->gen_buf, "", 0, NULL);
+	const char *tmp_mem_start = buffer_add(cmd->ucmd_mod_ctx.gen_buf, "", 0, NULL);
 	struct iovec iov_to_store[KV_VALUE_IDX_DATA + 1];
 	char devno_buf[16];
 	const char *s;
@@ -2539,9 +2539,9 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	};
 
 	struct kv_update_arg update_arg = {
-		.res = cmd->kv_store_res,
+		.res = cmd->ucmd_mod_ctx.kv_store_res,
 		.owner = OWNER_CORE,
-		.gen_buf = cmd->gen_buf,
+		.gen_buf = cmd->ucmd_mod_ctx.gen_buf,
 		.custom = &rel_spec
 	};
 
@@ -2551,7 +2551,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 
 	rel_spec.rel_key_spec->ns_part = devno_buf;
 
-	s = _buffer_compose_key_prefix(cmd->gen_buf, rel_spec.rel_key_spec);
+	s = _buffer_compose_key_prefix(cmd->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
 	if (!s)
 		goto out;
 	iov_to_store[KV_VALUE_IDX_DATA] = (struct iovec) {
@@ -2560,7 +2560,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 
 	rel_spec.rel_key_spec->ns_part = ID_NULL;
 
-	if (!(s = _buffer_compose_key(cmd->gen_buf, rel_spec.cur_key_spec))) {
+	if (!(s = _buffer_compose_key(cmd->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res), _key_prefix_err_msg, cmd->udev_dev.name, cmd->udev_dev.major, cmd->udev_dev.minor);
 		goto out;
 	}
@@ -2570,7 +2570,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	 * The delta.final is computed inside _kv_delta out of vec_buf.
 	 * The _kv_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
 	 */
-	kv_store_set_value(cmd->kv_store_res,
+	kv_store_set_value(cmd->ucmd_mod_ctx.kv_store_res,
 	                   s,
 	                   iov_to_store,
 	                   KV_VALUE_IDX_DATA + 1,
@@ -2582,7 +2582,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	r = 0;
 out:
 	_destroy_delta(rel_spec.delta);
-	buffer_rewind_mem(cmd->gen_buf, tmp_mem_start);
+	buffer_rewind_mem(cmd->ucmd_mod_ctx.gen_buf, tmp_mem_start);
 	return r;
 }
 
@@ -3036,7 +3036,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	 *
 	 * We only send key=value pairs which are marked with KV_PERSISTENT flag.
 	 */
-	if (!(iter = kv_store_iter_create(cmd->kv_store_res))) {
+	if (!(iter = kv_store_iter_create(cmd->ucmd_mod_ctx.kv_store_res))) {
 		// TODO: Discard udev kv-store we've already appended to the output buffer!
 		log_error(ID(cmd_res), "Failed to create iterator for temp key-value store.");
 		goto out;
@@ -3353,13 +3353,13 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 
 	cmd->request_header = *msg->header;
 
-	if (!(cmd->gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX, 0, &r))) {
+	if (!(cmd->ucmd_mod_ctx.gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX, 0, &r))) {
 		log_error_errno(ID(res), r, "Failed to create generic buffer");
 		goto fail;
 	}
 
-	if (!(cmd->kv_store_res = sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS,
-	                                              &sid_resource_type_kv_store, MAIN_KV_STORE_NAME))) {
+	if (!(cmd->ucmd_mod_ctx.kv_store_res = sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS,
+	                                                           &sid_resource_type_kv_store, MAIN_KV_STORE_NAME))) {
 		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find key-value store.", __func__);
 		goto fail;
 	}
@@ -3392,8 +3392,8 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	return 0;
 fail:
 	if (cmd) {
-		if (cmd->gen_buf)
-			buffer_destroy(cmd->gen_buf);
+		if (cmd->ucmd_mod_ctx.gen_buf)
+			buffer_destroy(cmd->ucmd_mod_ctx.gen_buf);
 		if (cmd->res_buf)
 			buffer_destroy(cmd->res_buf);
 		if (cmd->dev_id)
@@ -3407,7 +3407,7 @@ static int _destroy_command(sid_resource_t *res)
 {
 	struct sid_ucmd_ctx *cmd = sid_resource_get_data(res);
 
-	buffer_destroy(cmd->gen_buf);
+	buffer_destroy(cmd->ucmd_mod_ctx.gen_buf);
 	buffer_destroy(cmd->res_buf);
 	free(cmd->dev_id);
 	free(cmd);
