@@ -47,7 +47,7 @@ struct sid_ucmd_mod_ctx;
 struct sid_ucmd_ctx;
 
 typedef module_prio_t sid_ucmd_mod_prio_t;
-typedef int sid_ucmd_mod_fn_t(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod);
+typedef int sid_ucmd_mod_fn_t(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx);
 typedef int sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *cmd);
 
 /*
@@ -136,9 +136,9 @@ const void *sid_ucmd_get_kv(struct module *mod, struct sid_ucmd_ctx *cmd, sid_uc
 const void *sid_ucmd_part_get_disk_kv(struct module *mod, struct sid_ucmd_ctx *cmd, const char *key,
 				      size_t *value_size, sid_ucmd_kv_flags_t *flags);
 
-int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
 			    sid_ucmd_kv_namespace_t ns, const char *key);
-int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
 			      sid_ucmd_kv_namespace_t ns, const char *key);
 
 typedef enum {

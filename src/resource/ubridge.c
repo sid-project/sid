@@ -116,7 +116,7 @@ struct umonitor {
 
 struct ubridge {
 	int socket_fd;
-	struct sid_ucmd_mod_ctx cmd_mod;
+	struct sid_ucmd_mod_ctx ucmd_mod_ctx;
 	struct umonitor umonitor;
 };
 
@@ -977,7 +977,7 @@ static int _kv_unreserve(const char *full_key, struct kv_store_update_spec *spec
 	return 1;
 }
 
-int _do_sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+int _do_sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
                                 sid_ucmd_kv_namespace_t ns, const char *key, int unset)
 {
 	const char *owner = _get_mod_name(mod);
@@ -998,34 +998,34 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd
 	};
 	int r = -1;
 
-	if (!(full_key = _buffer_compose_key(cmd_mod->gen_buf, &key_spec)))
+	if (!(full_key = _buffer_compose_key(ucmd_mod_ctx->gen_buf, &key_spec)))
 		goto out;
 
-	if (!(cmd_mod->kv_store_res))
+	if (!(ucmd_mod_ctx->kv_store_res))
 		goto out;
 
 	update_arg = (struct kv_update_arg) {
-		.res = cmd_mod->kv_store_res,
+		.res = ucmd_mod_ctx->kv_store_res,
 		.gen_buf = NULL,
 		.owner = owner,
 		.custom = NULL,
 		.ret_code = -EREMOTEIO
 	};
 
-	is_worker = worker_control_is_worker(cmd_mod->kv_store_res);
+	is_worker = worker_control_is_worker(ucmd_mod_ctx->kv_store_res);
 
 	if (is_worker)
 		flags |= KV_PERSISTENT;
 
 	if (unset && !is_worker) {
-		kv_store_unset_value(cmd_mod->kv_store_res,
+		kv_store_unset_value(ucmd_mod_ctx->kv_store_res,
 		                     full_key,
 		                     _kv_unreserve,
 		                     &update_arg);
 		goto out;
 	} else {
 		KV_VALUE_PREPARE_HEADER(iov, null_int, flags, (char *) owner);
-		if (!kv_store_set_value(cmd_mod->kv_store_res,
+		if (!kv_store_set_value(ucmd_mod_ctx->kv_store_res,
 		                        full_key,
 		                        iov,
 		                        KV_VALUE_IDX_DATA,
@@ -1039,26 +1039,26 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd
 	r = 0;
 out:
 	if (full_key)
-		buffer_rewind_mem(cmd_mod->gen_buf, full_key);
+		buffer_rewind_mem(ucmd_mod_ctx->gen_buf, full_key);
 	return r;
 }
 
-int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
                             sid_ucmd_kv_namespace_t ns, const char *key)
 {
-	if (!mod || !cmd_mod || !key || !*key)
+	if (!mod || !ucmd_mod_ctx || !key || !*key)
 		return -EINVAL;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, cmd_mod, ns, key, 0);
+	return _do_sid_ucmd_mod_reserve_kv(mod, ucmd_mod_ctx, ns, key, 0);
 }
 
-int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *cmd_mod,
+int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
                               sid_ucmd_kv_namespace_t ns, const char *key)
 {
-	if (!mod || !cmd_mod || !key || !*key)
+	if (!mod || !ucmd_mod_ctx || !key || !*key)
 		return -EINVAL;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, cmd_mod, ns, key, 1);
+	return _do_sid_ucmd_mod_reserve_kv(mod, ucmd_mod_ctx, ns, key, 1);
 }
 
 int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *cmd, dev_ready_t ready)
@@ -3489,7 +3489,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 		})
 	};
 	struct kv_update_arg update_arg = {
-		.gen_buf = ubridge->cmd_mod.gen_buf,
+		.gen_buf = ubridge->ucmd_mod_ctx.gen_buf,
 		.custom = &rel_spec
 	};
 	bool unset;
@@ -3558,10 +3558,10 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 			update_arg.res = kv_store_res;
 			update_arg.ret_code = -EREMOTEIO;
 
-			iov_str = _get_iov_str(ubridge->cmd_mod.gen_buf, unset, iov, data_size);
+			iov_str = _get_iov_str(ubridge->ucmd_mod_ctx.gen_buf, unset, iov, data_size);
 			log_debug(ID(worker_proxy_res), syncing_msg, full_key, iov_str, KV_VALUE_SEQNUM(iov));
 			if (iov_str)
-				buffer_rewind_mem(ubridge->cmd_mod.gen_buf, iov_str);
+				buffer_rewind_mem(ubridge->ucmd_mod_ctx.gen_buf, iov_str);
 
 			switch (rel_spec.delta->op = _get_op_from_key(full_key)) {
 				case KV_OP_PLUS:
@@ -4049,7 +4049,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	ubridge->cmd_mod = (struct sid_ucmd_mod_ctx) {
+	ubridge->ucmd_mod_ctx = (struct sid_ucmd_mod_ctx) {
 		.kv_store_res = kv_store_res,
 		.gen_buf = buf,
 	};
@@ -4071,7 +4071,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		.module_suffix = ".so",
 		.flags         = MODULE_REGISTRY_PRELOAD,
 		.symbol_params = block_symbol_params,
-		.cb_arg        = &ubridge->cmd_mod,
+		.cb_arg        = &ubridge->ucmd_mod_ctx,
 	};
 
 	struct module_registry_resource_params type_res_mod_params = {
@@ -4080,7 +4080,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		.module_suffix = ".so",
 		.flags         = MODULE_REGISTRY_PRELOAD,
 		.symbol_params = type_symbol_params,
-		.cb_arg        = &ubridge->cmd_mod,
+		.cb_arg        = &ubridge->ucmd_mod_ctx,
 	};
 
 	if (!(sid_resource_create(modules_res,
@@ -4128,8 +4128,8 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	return 0;
 fail:
 	if (ubridge) {
-		if (ubridge->cmd_mod.gen_buf)
-			buffer_destroy(ubridge->cmd_mod.gen_buf);
+		if (ubridge->ucmd_mod_ctx.gen_buf)
+			buffer_destroy(ubridge->ucmd_mod_ctx.gen_buf);
 		if (ubridge->socket_fd >= 0)
 			(void) close(ubridge->socket_fd);
 		free(ubridge);
@@ -4143,8 +4143,8 @@ static int _destroy_ubridge(sid_resource_t *res)
 
 	_destroy_udev_monitor(res, &ubridge->umonitor);
 
-	if (ubridge->cmd_mod.gen_buf)
-		buffer_destroy(ubridge->cmd_mod.gen_buf);
+	if (ubridge->ucmd_mod_ctx.gen_buf)
+		buffer_destroy(ubridge->ucmd_mod_ctx.gen_buf);
 
 	if (ubridge->socket_fd != -1)
 		(void) close(ubridge->socket_fd);
