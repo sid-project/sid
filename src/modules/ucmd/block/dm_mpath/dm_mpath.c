@@ -94,13 +94,13 @@ static int _dm_mpath_reset(struct module *module, struct sid_ucmd_mod_ctx *ucmd_
 }
 SID_UCMD_MOD_RESET(_dm_mpath_reset)
 
-static int _is_parent_multipathed(struct module *mod, struct sid_ucmd_ctx *cmd)
+static int _is_parent_multipathed(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	int r = MPATH_IS_ERROR;
 	const char *valid_str;
 	char *p;
 
-	valid_str = sid_ucmd_part_get_disk_kv(mod, cmd, VALID_KEY, NULL, NULL);
+	valid_str = sid_ucmd_part_get_disk_kv(mod, ucmd_ctx, VALID_KEY, NULL, NULL);
 	if (!valid_str || !valid_str[0])
 		return 0;
 	else {
@@ -111,16 +111,16 @@ static int _is_parent_multipathed(struct module *mod, struct sid_ucmd_ctx *cmd)
 	}
 	if (r == MPATH_IS_VALID) {
 		log_debug(MID, "%s whole disk is a multipath path",
-		          sid_ucmd_dev_get_name(cmd));
-		sid_ucmd_set_kv(mod, cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
+		          sid_ucmd_dev_get_name(ucmd_ctx));
+		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, PATH_KEY, "1", 2,
 		                KV_MOD_PROTECTED);
 	} else
 		log_debug(MID, "%s whole disk is not a multipath path",
-		          sid_ucmd_dev_get_name(cmd));
+		          sid_ucmd_dev_get_name(ucmd_ctx));
 	return 0;
 }
 
-static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
+static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	int r;
 	char *wwid;
@@ -130,28 +130,28 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 	if (!_kernel_cmdline_allow()) // treat failure as allowed
 		return 0;
 
-	if (sid_ucmd_dev_get_type(cmd) == UDEV_DEVTYPE_UNKNOWN)
+	if (sid_ucmd_dev_get_type(ucmd_ctx) == UDEV_DEVTYPE_UNKNOWN)
 		return 0;
 
-	if (sid_ucmd_dev_get_type(cmd) == UDEV_DEVTYPE_PARTITION)
-		return _is_parent_multipathed(module, cmd);
+	if (sid_ucmd_dev_get_type(ucmd_ctx) == UDEV_DEVTYPE_PARTITION)
+		return _is_parent_multipathed(module, ucmd_ctx);
 
 	if (mpathvalid_reload_config() < 0) {
 		log_error(MID, "failed to reinitialize mpathvalid");
 		return -1;
 	}
 	// currently treats MPATH_SMART like MPATH_STRICT
-	r = mpathvalid_is_path(sid_ucmd_dev_get_name(cmd), MPATH_DEFAULT,
+	r = mpathvalid_is_path(sid_ucmd_dev_get_name(ucmd_ctx), MPATH_DEFAULT,
 	                       &wwid, NULL, 0);
 	log_debug(MID, "%s mpathvalid_is_path returned %d",
-	          sid_ucmd_dev_get_name(cmd), r);
+	          sid_ucmd_dev_get_name(ucmd_ctx), r);
 
 	if (r == MPATH_IS_VALID) {
 		const char *old_valid_str;
 		char *p;
 		int old_valid;
 
-		old_valid_str = sid_ucmd_get_kv(module, cmd, KV_NS_DEVICE,
+		old_valid_str = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_DEVICE,
 		                                VALID_KEY, NULL, NULL);
 		if (old_valid_str && old_valid_str[0]) {
 			errno = 0;
@@ -159,7 +159,7 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 			// If old_valid is garbage assume the device
 			// wasn't claimed before
 			if (errno || !p || *p || old_valid != MPATH_IS_VALID) {
-				log_debug(MID, "previously released %s. not claiming", sid_ucmd_dev_get_name(cmd));
+				log_debug(MID, "previously released %s. not claiming", sid_ucmd_dev_get_name(ucmd_ctx));
 				r = MPATH_IS_NOT_VALID;
 			}
 		}
@@ -167,18 +167,18 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 		r = MPATH_IS_VALID;
 
 	if (r == MPATH_IS_VALID)
-		sid_ucmd_set_kv(module, cmd, KV_NS_UDEV, PATH_KEY, "1", 2,
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, PATH_KEY, "1", 2,
 		                KV_MOD_PROTECTED);
 	else if (r != MPATH_IS_ERROR)
-		sid_ucmd_set_kv(module, cmd, KV_NS_UDEV, PATH_KEY, "0", 2,
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, PATH_KEY, "0", 2,
 		                KV_MOD_PROTECTED);
 
 	if (r != MPATH_IS_ERROR && snprintf(valid_str, sizeof(valid_str), "%d", r) < sizeof(valid_str) && valid_str[0])
-		sid_ucmd_set_kv(module, cmd, KV_NS_DEVICE, VALID_KEY, valid_str,
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVICE, VALID_KEY, valid_str,
 		                sizeof(valid_str),
 		                KV_MOD_PROTECTED | KV_PERSISTENT);
 	if (wwid) {
-		sid_ucmd_set_kv(module, cmd, KV_NS_DEVICE, WWID_KEY,
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVICE, WWID_KEY,
 		                wwid, strlen(wwid) + 1,
 		                KV_MOD_PROTECTED | KV_PERSISTENT);
 		free(wwid);
@@ -187,7 +187,7 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *cmd)
 }
 SID_UCMD_SCAN_NEXT(_dm_mpath_scan_next)
 
-static int _dm_mpath_error(struct module *module, struct sid_ucmd_ctx *cmd)
+static int _dm_mpath_error(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	log_debug(MID, "error");
 	return 0;
