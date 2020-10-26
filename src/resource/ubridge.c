@@ -106,6 +106,7 @@ const sid_resource_type_t sid_resource_type_ubridge_command;
 
 struct sid_ucmd_mod_ctx {
 	sid_resource_t *kv_store_res;          /* KV store master or snapshot */
+	sid_resource_t *modules_res;           /* top-level resource for all ucmd module registries */
 	struct buffer *gen_buf;                /* generic buffer */
 };
 
@@ -2704,9 +2705,10 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 
 static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 {
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *block_mod_registry_res;
 
-	if (!(block_mod_registry_res = sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_GENUS,
+	if (!(block_mod_registry_res = sid_resource_search(ucmd_ctx->ucmd_mod_ctx.modules_res, SID_RESOURCE_SEARCH_IMM_DESC,
 	                                                   &sid_resource_type_module_registry, MODULES_BLOCK_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
 		goto fail;
@@ -2717,7 +2719,7 @@ static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 		goto fail;
 	}
 
-	if (!(exec_arg->type_mod_registry_res = sid_resource_search(block_mod_registry_res, SID_RESOURCE_SEARCH_SIB,
+	if (!(exec_arg->type_mod_registry_res = sid_resource_search(ucmd_ctx->ucmd_mod_ctx.modules_res, SID_RESOURCE_SEARCH_IMM_DESC,
 	                                                            &sid_resource_type_module_registry, MODULES_TYPE_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
 		goto fail;
@@ -3365,6 +3367,12 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 
 	if (!(ucmd_ctx->ucmd_mod_ctx.gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX, 0, &r))) {
 		log_error_errno(ID(res), r, "Failed to create generic buffer");
+		goto fail;
+	}
+
+	if (!(ucmd_ctx->ucmd_mod_ctx.modules_res = sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS,
+	                                                               &sid_resource_type_aggregate, MODULES_AGGREGATE_ID))) {
+		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find module registry aggregator.", __func__);
 		goto fail;
 	}
 
@@ -4060,11 +4068,6 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	ubridge->ucmd_mod_ctx = (struct sid_ucmd_mod_ctx) {
-		.kv_store_res = kv_store_res,
-		.gen_buf = buf,
-	};
-
 	if (!(modules_res = sid_resource_create(internal_res,
 	                                        &sid_resource_type_aggregate,
 	                                        SID_RESOURCE_NO_FLAGS,
@@ -4075,6 +4078,12 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
 		goto fail;
 	}
+
+	ubridge->ucmd_mod_ctx = (struct sid_ucmd_mod_ctx) {
+		.kv_store_res = kv_store_res,
+		.modules_res = modules_res,
+		.gen_buf = buf,
+	};
 
 	struct module_registry_resource_params block_res_mod_params = {
 		.directory     = SID_UCMD_BLOCK_MOD_DIR,
