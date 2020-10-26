@@ -35,7 +35,7 @@ SID_UCMD_MOD_PRIO(-1)
 #define VALID_KEY "SID_DM_MULTIPATH_VALID"
 #define WWID_KEY "SID_DM_MULTIPATH_WWID"
 
-static int _dm_mpath_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dm_mpath_init(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
 {
 	log_debug(MID, "init");
 	/* TODO - set up dm/udev logging */
@@ -43,17 +43,17 @@ static int _dm_mpath_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mo
 		log_error(MID, "failed to initialize mpathvalid");
 		return -1;
 	}
-	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_UDEV,
+	if (sid_ucmd_mod_reserve_kv(module, ucmd_mod_ctx, KV_NS_UDEV,
 	                            PATH_KEY) < 0) {
 		log_error(MID, "Failed to reserve multipath udev key %s", PATH_KEY);
 		goto fail;
 	}
-	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
+	if (sid_ucmd_mod_reserve_kv(module, ucmd_mod_ctx, KV_NS_DEVICE,
 	                            VALID_KEY) < 0) {
 		log_error(MID, "Failed to reserve multipath udev key %s", PATH_KEY);
 		goto fail;
 	}
-	if (sid_ucmd_mod_reserve_kv(module, cmd_mod, KV_NS_DEVICE,
+	if (sid_ucmd_mod_reserve_kv(module, ucmd_mod_ctx, KV_NS_DEVICE,
 	                            WWID_KEY) < 0) {
 		log_error(MID, "Failed to reserve multipath device key %s", WWID_KEY);
 		goto fail;
@@ -65,7 +65,7 @@ fail:
 }
 SID_UCMD_MOD_INIT(_dm_mpath_init)
 
-static int _dm_mpath_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dm_mpath_exit(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
 {
 	log_debug(MID, "exit");
 	// Do we need to unreserve the key here?
@@ -87,7 +87,7 @@ static int _kernel_cmdline_allow(void)
 }
 
 
-static int _dm_mpath_reset(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dm_mpath_reset(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
 {
 	log_debug(MID, "reset");
 	return 0;

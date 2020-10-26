@@ -24,21 +24,21 @@
 
 SID_UCMD_MOD_PRIO(1)
 
-static int _dummy_type_init(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dummy_type_init(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
 {
 	log_debug(MID, "init");
 	return 0;
 }
 SID_UCMD_MOD_INIT(_dummy_type_init)
 
-static int _dummy_type_exit(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dummy_type_exit(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
 {
 	log_debug(MID, "exit");
 	return 0;
 }
 SID_UCMD_MOD_EXIT(_dummy_type_exit)
 
-static int _dummy_type_reset(struct module *module, struct sid_ucmd_mod_ctx *cmd_mod)
+static int _dummy_type_reset(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
 {
 	log_debug(MID, "reset");
 	return 0;
