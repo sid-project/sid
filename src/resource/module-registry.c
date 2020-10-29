@@ -254,6 +254,8 @@ int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resou
 
 static int _preload_modules(sid_resource_t *module_registry_res, struct module_registry *registry)
 {
+	char name_buf[MODULE_NAME_MAX_LEN + 1];
+	util_mem_t mem = {.base = name_buf, .size = sizeof(name_buf)};
 	struct dirent **dirent = NULL;
 	size_t prefix_len, suffix_len;
 	char *name;
@@ -274,7 +276,7 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 	for (i = 0; i < count; i++) {
 		if (dirent[i]->d_name[0] != '.' && util_str_combstr(dirent[i]->d_name, registry->module_prefix, NULL, registry->module_suffix, 1)) {
 
-			if (!(name = util_str_copy_substr(NULL, dirent[i]->d_name, prefix_len, strlen(dirent[i]->d_name) - prefix_len - suffix_len))) {
+			if (!(name = util_str_copy_substr(&mem, dirent[i]->d_name, prefix_len, strlen(dirent[i]->d_name) - prefix_len - suffix_len))) {
 				log_error(ID(module_registry_res), "Failed to copy name out of %s.", dirent[i]->d_name);
 				free(dirent[i]);
 				continue;
@@ -288,8 +290,6 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 			                         SID_RESOURCE_PRIO_NORMAL,
 			                         SID_RESOURCE_NO_SERVICE_LINKS))
 				log_error(ID(module_registry_res), "Failed to preload module %s/%s.", registry->directory, dirent[i]->d_name);
-
-			free(name);
 		}
 
 		free(dirent[i]);
