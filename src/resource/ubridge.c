@@ -3722,6 +3722,7 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	char uuid[UTIL_UUID_STR_SIZE];
+	util_mem_t mem = {.base = uuid, .size = sizeof(uuid)};
 	sid_resource_t *internal_ubridge_res = data;
 	sid_resource_t *worker_control_res, *worker_proxy_res;
 	struct ubridge *ubridge = sid_resource_get_data(internal_ubridge_res);
@@ -3739,7 +3740,7 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	if (!(worker_proxy_res = worker_control_get_idle_worker(worker_control_res))) {
 		log_debug(ID(internal_ubridge_res), "Idle worker not found, creating a new one.");
 
-		if (!util_uuid_gen_str(uuid, sizeof(uuid))) {
+		if (!util_uuid_gen_str(&mem)) {
 			log_error(ID(internal_ubridge_res), "Failed to generate UUID for new worker.");
 			return -1;
 		}

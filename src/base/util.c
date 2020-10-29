@@ -31,6 +31,14 @@
 #include <fcntl.h>
 
 /*
+ * Common code.
+ */
+static bool _mem_avail(util_mem_t *mem)
+{
+	return mem && mem->base;
+}
+
+/*
  * Process-related utilities.
  */
 
@@ -229,15 +237,24 @@ int util_str_iterate_tokens(const char *str, const char *delims, const char *quo
 	return 0;
 }
 
-char *util_str_comb_to_str(const char *prefix, const char *str, const char *suffix)
+char *util_str_comb_to_str(util_mem_t *mem, const char *prefix, const char *str, const char *suffix)
 {
 	size_t prefix_len = prefix ? strlen(prefix) : 0;
 	size_t str_len = str ? strlen(str) : 0;
 	size_t suffix_len = suffix ? strlen(suffix) : 0;
 	char *p, *ret_str;
 
-	if (!(p = ret_str = malloc(prefix_len + str_len + suffix_len + 1)))
-		return NULL;
+	if (_mem_avail(mem)) {
+		if (prefix_len + str_len + suffix_len + 1 > mem->size)
+			return NULL;
+
+		ret_str = mem->base;
+	} else {
+		if (!(ret_str = malloc(prefix_len + str_len + suffix_len + 1)))
+			return NULL;
+	}
+
+	p = ret_str;
 
 	if (prefix_len) {
 		memcpy(p, prefix, prefix_len);
@@ -310,7 +327,7 @@ static size_t _get_strv_full_mem_size(struct token_counter *counter)
 	return _get_strv_header_size(counter) + counter->chars + counter->tokens;
 }
 
-char **util_str_comb_to_strv(const char *prefix, const char *str, const char *suffix, const char *delims, const char *quotes)
+char **util_str_comb_to_strv(util_mem_t *mem, const char *prefix, const char *str, const char *suffix, const char *delims, const char *quotes)
 {
 	struct token_counter counter = {0};
 	struct strv_iter copier = {0};
@@ -320,8 +337,15 @@ char **util_str_comb_to_strv(const char *prefix, const char *str, const char *su
 	    util_str_iterate_tokens(suffix, delims, quotes, _count_token, &counter) < 0)
 		goto fail;
 
-	if (!(copier.strv = malloc(_get_strv_full_mem_size(&counter))))
-		goto fail;
+	if (_mem_avail(mem)) {
+		if (_get_strv_full_mem_size(&counter) > mem->size)
+			goto fail;
+
+		copier.strv = mem->base;
+	} else {
+		if (!(copier.strv = malloc(_get_strv_full_mem_size(&counter))))
+			goto fail;
+	}
 
 	copier.s = (char *) copier.strv + _get_strv_header_size(&counter);
 
@@ -333,26 +357,36 @@ char **util_str_comb_to_strv(const char *prefix, const char *str, const char *su
 	copier.strv[counter.tokens] = NULL;
 	return copier.strv;
 fail:
-	return mem_freen(copier.strv);
+	if (_mem_avail(mem))
+		return NULL;
+	else
+		return mem_freen(copier.strv);
 }
 
-char **util_strv_copy(const char **strv)
+char **util_strv_copy(util_mem_t *mem, const char **strv)
 {
 	const char **p;
 	struct token_counter counter = {0};
 	struct strv_iter copier = {0};
-	char *mem;
+	char *ret_strv;
 
 	for (p = strv; *p; p++) {
 		if (_count_token(*p, strlen(*p), &counter) < 0)
 			return NULL;
 	}
 
-	if (!(mem = malloc(_get_strv_full_mem_size(&counter))))
-		return NULL;
+	if (_mem_avail(mem)) {
+		if (_get_strv_full_mem_size(&counter) > mem->size)
+			return NULL;
 
-	copier.strv = (char **) mem;
-	copier.s = mem + _get_strv_header_size(&counter);
+		ret_strv = mem->base;
+	} else {
+		if (!(ret_strv = malloc(_get_strv_full_mem_size(&counter))))
+			return NULL;
+	}
+
+	copier.strv = (char **) ret_strv;
+	copier.s = ret_strv + _get_strv_header_size(&counter);
 
 	for (p = strv; *p; p++) {
 		if (_copy_token_to_strv(*p, strlen(*p), &copier) < 0)
@@ -362,7 +396,7 @@ char **util_strv_copy(const char **strv)
 	return copier.strv;
 }
 
-char *util_str_copy_substr(const char *str, size_t offset, size_t len)
+char *util_str_copy_substr(util_mem_t *mem, const char *str, size_t offset, size_t len)
 {
 	size_t str_len = strlen(str);
 	char *ret_str;
@@ -370,11 +404,18 @@ char *util_str_copy_substr(const char *str, size_t offset, size_t len)
 	if ((offset + len) > str_len)
 		return NULL;
 
-	if (offset == 0 && len == str_len)
-		return strdup(str);
+	if (mem && mem->base) {
+		if (len + 1 > mem->size)
+			return NULL;
 
-	if (!(ret_str = malloc(len + 1)))
-		return NULL;
+		ret_str = mem->base;
+	} else {
+		if (offset == 0 && len == str_len)
+			return strdup(str);
+
+		if (!(ret_str = malloc(len + 1)))
+			return NULL;
+	}
 
 	memcpy(ret_str, str + offset, len);
 	ret_str[len] = '\0';
@@ -398,15 +439,16 @@ uint64_t util_time_get_now_usec(clockid_t clock_id)
  * UUID-related utilities.
  */
 
-char *util_uuid_gen_str(char *buf, size_t buf_len)
+char *util_uuid_gen_str(util_mem_t *mem)
 {
 	uuid_t uu;
 	char *str;
 
-	if (buf) {
-		if (buf_len < UUID_STR_LEN)
+	if (_mem_avail(mem)) {
+		if (UUID_STR_LEN > mem->size)
 			return NULL;
-		str = buf;
+
+		str = mem->base;
 	} else {
 		if (!(str = malloc(UUID_STR_LEN)))
 			return NULL;

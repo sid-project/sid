@@ -34,6 +34,18 @@ extern "C" {
 #endif
 
 /*
+ *   All functions that need to use allocated memory and they provide a
+ *   possibility to use preallocated memory contain 'util_mem_t *mem'
+ *   parameter to pass this preallocated memory for use.
+ *   If 'mem' or 'mem->base' is NULL, the functions allocate the memory
+ *   by themselves.
+ */
+typedef struct util_mem {
+	void *base;
+	size_t size;
+} util_mem_t;
+
+/*
  * Process-related utilities.
  */
 int util_process_pid_to_str(pid_t pid, char *buf, size_t buf_size);
@@ -56,12 +68,12 @@ char *util_str_combstr(const char *haystack, const char *prefix, const char *nee
 typedef int (*util_str_token_fn_t) (const char *token, size_t len, void *data);
 int util_str_iterate_tokens(const char *str, const char *delims, const char *quotes, util_str_token_fn_t token_fn, void *token_fn_data);
 
-char *util_str_comb_to_str(const char *prefix, const char *str, const char *suffix);
+char *util_str_comb_to_str(util_mem_t *mem, const char *prefix, const char *str, const char *suffix);
 
-char **util_str_comb_to_strv(const char *prefix, const char *str, const char *suffix, const char *delims, const char *quotes);
-char **util_strv_copy(const char **strv);
+char **util_str_comb_to_strv(util_mem_t *mem, const char *prefix, const char *str, const char *suffix, const char *delims, const char *quotes);
+char **util_strv_copy(util_mem_t *mem, const char **strv);
 
-char *util_str_copy_substr(const char *str, size_t start, size_t len);
+char *util_str_copy_substr(util_mem_t *mem, const char *str, size_t start, size_t len);
 
 
 /*
@@ -74,7 +86,7 @@ uint64_t util_time_get_now_usec(clockid_t clock_id);
  */
 #define UTIL_UUID_STR_SIZE UUID_STR_LEN
 
-char *util_uuid_gen_str(char *buf, size_t buf_len);
+char *util_uuid_gen_str(util_mem_t *mem);
 
 /*
  * Environment-related utilities.

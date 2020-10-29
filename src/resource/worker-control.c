@@ -720,9 +720,9 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			else
 				snprintf(gen_id, sizeof(gen_id), "%s/%d", WORKER_EXT_NAME, getpid());
 
-			if (!(argv = util_str_comb_to_strv(params->external.exec_file, params->external.args, NULL,
+			if (!(argv = util_str_comb_to_strv(NULL, params->external.exec_file, params->external.args, NULL,
 			                                   UTIL_STR_DEFAULT_DELIMS, UTIL_STR_DEFAULT_QUOTES)) ||
-			    !(envp = util_str_comb_to_strv(NULL, params->external.env, NULL,
+			    !(envp = util_str_comb_to_strv(NULL, NULL, params->external.env, NULL,
 			                                   UTIL_STR_DEFAULT_DELIMS, UTIL_STR_DEFAULT_QUOTES))) {
 				log_error(gen_id, "Failed to convert argument and environment strings to vectors.");
 				goto out;

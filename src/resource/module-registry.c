@@ -64,7 +64,7 @@ static int _set_module_name(struct module_registry *registry, struct module *mod
 	char *orig_full_name = module->full_name;
 	char *orig_name = module->name;
 
-	if (!(module->full_name = util_str_comb_to_str(registry->base_name, "/", name))) {
+	if (!(module->full_name = util_str_comb_to_str(NULL, registry->base_name, "/", name))) {
 		if (orig_full_name) {
 			module->full_name = orig_full_name;
 			module->name = orig_name;
@@ -227,7 +227,7 @@ int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resou
 	 *
 	 * If setting the new base name fails, revert to the original base name.
 	 */
-	if (!(subregistry->base_name = util_str_comb_to_str(module->full_name, "/", subregistry->base_name))) {
+	if (!(subregistry->base_name = util_str_comb_to_str(NULL, module->full_name, "/", subregistry->base_name))) {
 		subregistry->base_name = orig_base_name;
 		return -ENOMEM;
 	}
@@ -274,7 +274,7 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 	for (i = 0; i < count; i++) {
 		if (dirent[i]->d_name[0] != '.' && util_str_combstr(dirent[i]->d_name, registry->module_prefix, NULL, registry->module_suffix, 1)) {
 
-			if (!(name = util_str_copy_substr(dirent[i]->d_name, prefix_len, strlen(dirent[i]->d_name) - prefix_len - suffix_len))) {
+			if (!(name = util_str_copy_substr(NULL, dirent[i]->d_name, prefix_len, strlen(dirent[i]->d_name) - prefix_len - suffix_len))) {
 				log_error(ID(module_registry_res), "Failed to copy name out of %s.", dirent[i]->d_name);
 				free(dirent[i]);
 				continue;
