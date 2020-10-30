@@ -38,9 +38,7 @@ const sid_resource_type_t sid_resource_type_module;
 struct module_registry {
 	const char *directory;
 	const char *base_name;
-	size_t module_prefix_len;
 	const char *module_prefix;
-	size_t module_suffix_len;
 	const char *module_suffix;
 	uint64_t flags;
 	void *cb_arg;
@@ -436,20 +434,16 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	if (params->module_prefix && *params->module_prefix) {
-		if (!(registry->module_prefix = strdup(params->module_prefix))) {
-			log_error(ID(module_registry_res), "Failed to copy common module prefix.");
-			goto fail;
-		}
-		registry->module_prefix_len = strlen(registry->module_prefix);
+	if (params->module_prefix && *params->module_prefix &&
+	    !(registry->module_prefix = strdup(params->module_prefix))) {
+		log_error(ID(module_registry_res), "Failed to copy common module prefix.");
+		goto fail;
 	}
 
-	if (params->module_suffix && *params->module_suffix) {
-		if (!(registry->module_suffix = strdup(params->module_suffix))) {
-			log_error(ID(module_registry_res), "Failed to copy common module suffix.");
-			goto fail;
-		}
-		registry->module_suffix_len = strlen(registry->module_suffix);
+	if (params->module_suffix && *params->module_suffix &&
+	    !(registry->module_suffix = strdup(params->module_suffix))) {
+		log_error(ID(module_registry_res), "Failed to copy common module suffix.");
+		goto fail;
 	}
 
 	if (!(registry->symbol_params = mem_zalloc(symbol_count * sizeof(struct module_symbol_params)))) {
