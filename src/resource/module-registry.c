@@ -390,12 +390,13 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 			goto fail;
 	}
 
+	*data = module;
+
 	if (module->init_fn(module, registry->cb_arg) < 0) {
 		log_error(ID(module_res), "Module-specific initialization failed.");
 		goto fail;
 	}
 
-	*data = module;
 	return 0;
 fail:
 	if (module) {
