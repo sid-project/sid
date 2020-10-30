@@ -64,7 +64,7 @@ static int _set_module_name(struct module_registry *registry, struct module *mod
 	char *orig_full_name = module->full_name;
 	char *orig_name = module->name;
 
-	if (!(module->full_name = util_str_comb_to_str(NULL, registry->base_name, "/", name))) {
+	if (!(module->full_name = util_str_comb_to_str(NULL, registry->base_name, MODULE_NAME_DELIM, name))) {
 		if (orig_full_name) {
 			module->full_name = orig_full_name;
 			module->name = orig_name;
@@ -227,7 +227,7 @@ int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resou
 	 *
 	 * If setting the new base name fails, revert to the original base name.
 	 */
-	if (!(subregistry->base_name = util_str_comb_to_str(NULL, module->full_name, "/", subregistry->base_name))) {
+	if (!(subregistry->base_name = util_str_comb_to_str(NULL, module->full_name, MODULE_NAME_DELIM, subregistry->base_name))) {
 		subregistry->base_name = orig_base_name;
 		return -ENOMEM;
 	}

@@ -32,6 +32,7 @@ typedef int64_t module_prio_t;
 typedef int module_fn_t(struct module *module, void *cb_arg);
 
 #define MODULE_NAME_MAX_LEN 255
+#define MODULE_NAME_DELIM   "/"
 
 #define MODULE_FN(name, fn) module_fn_t *module_ ## name = fn;
 
