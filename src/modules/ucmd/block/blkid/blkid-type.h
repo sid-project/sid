@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,20 +22,18 @@
 
 #include <stddef.h>
 
-#define MOD_NAME_SUFFIX    ".so"
-
 #define MOD_NAME_NONE      "-"
-#define MOD_NAME_MD        "md"            MOD_NAME_SUFFIX
-#define MOD_NAME_BCACHE    "bcache"        MOD_NAME_SUFFIX
-#define MOD_NAME_CEPH      "ceph"          MOD_NAME_SUFFIX
-#define MOD_NAME_DRBD      "drbd"          MOD_NAME_SUFFIX
-#define MOD_NAME_DM        "dm"            MOD_NAME_SUFFIX
-#define MOD_NAME_UBI       "ubi"           MOD_NAME_SUFFIX
-#define MOD_NAME_VDO       "vdo"           MOD_NAME_SUFFIX
-#define MOD_NAME_STRATIS   "stratis"       MOD_NAME_SUFFIX
-#define MOD_NAME_BITLOCKER "bitlocker"     MOD_NAME_SUFFIX
-#define MOD_NAME_SWAP      "swap"          MOD_NAME_SUFFIX
-#define MOD_NAME_FS        "fs"            MOD_NAME_SUFFIX
+#define MOD_NAME_MD        "md"
+#define MOD_NAME_BCACHE    "bcache"
+#define MOD_NAME_CEPH      "ceph"
+#define MOD_NAME_DRBD      "drbd"
+#define MOD_NAME_DM        "dm"
+#define MOD_NAME_UBI       "ubi"
+#define MOD_NAME_VDO       "vdo"
+#define MOD_NAME_STRATIS   "stratis"
+#define MOD_NAME_BITLOCKER "bitlocker"
+#define MOD_NAME_SWAP      "swap"
+#define MOD_NAME_FS        "fs"
 
 struct blkid_type {
 	const char *blkid_type_name;
