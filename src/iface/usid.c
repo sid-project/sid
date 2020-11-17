@@ -18,8 +18,10 @@
 */
 
 #include "iface/usid.h"
-
+#include "log/log.h"
+#include "base/comms.h"
 #include <string.h>
+#include <unistd.h>
 
 usid_cmd_t usid_cmd_name_to_type(const char *cmd_name)
 {
@@ -34,4 +36,77 @@ usid_cmd_t usid_cmd_name_to_type(const char *cmd_name)
 	}
 
 	return USID_CMD_UNKNOWN;
+}
+
+int usid_req(const char *prefix, usid_cmd_t cmd, uint64_t status,
+             usid_req_data_fn_t data_fn, void *data_fn_arg,
+             struct buffer **resp_buf)
+{
+	int socket_fd = -1;
+	struct buffer *buf = NULL;
+	ssize_t n;
+	int r = -1;
+
+	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1, 0, &r))) {
+		log_error_errno(prefix, r, "Failed to create request buffer");
+		goto out;
+	}
+
+	if (!buffer_add(buf,
+	&((struct usid_msg_header) {
+	.status = status,
+	.prot = USID_PROTOCOL,
+	.cmd = cmd
+}), USID_MSG_HEADER_SIZE, &r))
+	goto out;
+
+	if (data_fn && (data_fn(buf, data_fn_arg) < 0)) {
+		log_error(prefix, "Failed to add data to request.");
+		goto out;
+	}
+
+	if ((socket_fd = comms_unix_init(USID_SOCKET_PATH, USID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
+		r = socket_fd;
+		if (r != -ECONNREFUSED)
+			log_error_errno(prefix, r, "Failed to initialize connection");
+		goto out;
+	}
+
+	if (buffer_write(buf, socket_fd, 0) < 0) {
+		log_error(prefix, "Failed to send request.");
+		goto out;
+	}
+
+	buffer_reset(buf);
+
+	for (;;) {
+		n = buffer_read(buf, socket_fd);
+		if (n > 0) {
+			if (buffer_is_complete(buf, NULL)) {
+				r = 0;
+				break;
+			}
+		} else if (n < 0) {
+			if (n == -EAGAIN || n == -EINTR)
+				continue;
+			log_error_errno(prefix, errno, "Failed to read response");
+			r = -EBADMSG;
+			break;
+		} else {
+			if (!buffer_is_complete(buf, NULL))
+				log_error(prefix, "Unexpected reponse end.");
+			break;
+		}
+	}
+out:
+	if (socket_fd >= 0)
+		close(socket_fd);
+
+	if (r < 0) {
+		if (buf)
+			buffer_destroy(buf);
+	} else
+		*resp_buf = buf;
+
+	return r;
 }

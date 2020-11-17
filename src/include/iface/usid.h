@@ -20,6 +20,7 @@
 #ifndef _SID_USID_IFACE_H
 #define _SID_USID_IFACE_H
 
+#include "base/buffer.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -74,7 +75,12 @@ struct usid_version {
 #define USID_MSG_HEADER_SIZE sizeof(struct usid_msg_header)
 #define USID_VERSION_SIZE sizeof(struct usid_version)
 
+typedef int (*usid_req_data_fn_t) (struct buffer *buf, void *data);
+
 usid_cmd_t usid_cmd_name_to_type(const char *cmd_name);
+int usid_req(const char *prefix, usid_cmd_t cmd, uint64_t status,
+	     usid_req_data_fn_t data_fn, void *data_fn_arg,
+	     struct buffer **resp_buf);
 
 #ifdef __cplusplus
 }
