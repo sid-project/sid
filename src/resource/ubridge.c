@@ -865,7 +865,7 @@ out:
 void *sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_kv_namespace_t ns,
                       const char *key, const void *value, size_t value_size, sid_ucmd_kv_flags_t flags)
 {
-	if (!ucmd_ctx || !key || !*key || (key[0] == KEY_SYS_C[0]))
+	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
 
 	if (ns == KV_NS_UDEV)
@@ -929,7 +929,7 @@ static const void *_do_sid_ucmd_get_kv(struct module *mod, struct sid_ucmd_ctx *
 const void *sid_ucmd_get_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_kv_namespace_t ns,
                             const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags)
 {
-	if (!ucmd_ctx || !key || !*key || (key[0] == KEY_SYS_C[0]))
+	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
 
 	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, ns, key, value_size, flags);
