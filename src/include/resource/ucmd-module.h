@@ -146,6 +146,7 @@ int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_mod_ctx
 				     sid_resource_t *mod_subregistry);
 
 typedef enum {
+	DEV_NOT_RDY_UNDEFINED,    /* undefined or invalid */
 	DEV_NOT_RDY_UNPROCESSED,  /* not ready and not yet processed by SID */
 	DEV_NOT_RDY_INACCESSIBLE, /* not ready and not able to perform IO */
 	DEV_NOT_RDY_ACCESSIBLE,   /* not ready and able to perform IO */
@@ -155,6 +156,7 @@ typedef enum {
 } dev_ready_t;
 
 typedef enum {
+	DEV_RES_UNDEFINED,        /* undefined or invalid */
 	DEV_RES_UNPROCESSED,	  /* not yet processed by SID */
 	DEV_RES_FREE,             /* not yet reserved by a layer above */
 	DEV_RES_RESERVED,         /* reserved by a layer above */
