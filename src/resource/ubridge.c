@@ -3393,12 +3393,33 @@ static int _destroy_connection(sid_resource_t *res)
 	return 0;
 }
 
+static bool _socket_client_is_capable(int fd, usid_cmd_t cmd)
+{
+	socklen_t len = 0;
+	struct ucred uc;
+
+	len = sizeof(struct ucred);
+	/* root can run any command */
+	if ((fd >= 0) &&
+	    (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &len) == 0) &&
+	    (uc.uid == 0))
+		return true;
+	return !usid_cmd_root_only[cmd];
+}
+
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct usid_msg *msg = kickstart_data;
 	struct sid_ucmd_ctx *ucmd_ctx = NULL;
+	struct connection *conn = sid_resource_get_data(sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	const char *worker_id;
 	int r;
+
+	if (!conn || !_socket_client_is_capable(conn->fd, msg->header->cmd)) {
+		log_error(ID(res), "client does not have permission to run %s",
+		          usid_cmd_names[msg->header->cmd]);
+		return -1;
+	}
 
 	if (!(ucmd_ctx = mem_zalloc(sizeof(*ucmd_ctx)))) {
 		log_error(ID(res), "Failed to allocate new command structure.");
