@@ -54,6 +54,16 @@ static const char * const usid_cmd_names[] = {
 	[USID_CMD_VERSION]    = "version",
 };
 
+bool usid_cmd_root_only[] = {
+	[USID_CMD_UNDEFINED]  = false,
+	[USID_CMD_UNKNOWN]    = false,
+	[USID_CMD_ACTIVE]     = false,
+	[USID_CMD_CHECKPOINT] = true,
+	[USID_CMD_REPLY]      = false,
+	[USID_CMD_SCAN]       = true,
+	[USID_CMD_VERSION]    = false,
+};
+
 struct usid_msg_header {
 	uint64_t status;
 	uint8_t prot;
