@@ -3292,6 +3292,28 @@ static int _connection_cleanup(sid_resource_t *conn_res)
 	return 0;
 }
 
+static int _reply_failure(sid_resource_t *conn_res)
+{
+	struct connection *conn = sid_resource_get_data(conn_res);
+	struct usid_msg msg;
+	uint8_t prot;
+	struct usid_msg_header response_header = { .status = COMMAND_STATUS_FAILURE, };
+	int r = -1;
+
+	(void) buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
+	prot = msg.header->prot;
+	(void) buffer_rewind(conn->buf, MSG_SIZE_PREFIX_LEN, BUFFER_POS_ABS);
+	if (prot <= USID_PROTOCOL) {
+		response_header.prot = prot;
+		if (buffer_add(conn->buf, &response_header, sizeof(response_header), &r)) {
+			(void)buffer_write(conn->buf, conn->fd, 0);
+			r = 0;
+		}
+	}
+out:
+	return r;
+}
+
 static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *conn_res = data;
@@ -3327,9 +3349,13 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 			                         id,
 			                         &msg,
 			                         SID_RESOURCE_PRIO_NORMAL,
-			                         SID_RESOURCE_NO_SERVICE_LINKS))
+			                         SID_RESOURCE_NO_SERVICE_LINKS)) {
 				log_error(ID(conn_res), "Failed to register command for processing.");
-
+				if (_reply_failure(conn_res) < 0) {
+					(void)_connection_cleanup(conn_res);
+					return -1;
+				}
+			}
 			(void) buffer_reset(conn->buf);
 		}
 	} else if (n < 0) {
