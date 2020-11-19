@@ -1048,7 +1048,7 @@ out:
 int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
                             sid_ucmd_kv_namespace_t ns, const char *key)
 {
-	if (!mod || !ucmd_mod_ctx || !key || !*key)
+	if (!mod || !ucmd_mod_ctx || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return -EINVAL;
 
 	return _do_sid_ucmd_mod_reserve_kv(mod, ucmd_mod_ctx, ns, key, 0);
@@ -1057,7 +1057,7 @@ int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mo
 int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
                               sid_ucmd_kv_namespace_t ns, const char *key)
 {
-	if (!mod || !ucmd_mod_ctx || !key || !*key)
+	if (!mod || !ucmd_mod_ctx || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return -EINVAL;
 
 	return _do_sid_ucmd_mod_reserve_kv(mod, ucmd_mod_ctx, ns, key, 1);
@@ -1068,6 +1068,9 @@ int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_mod_ctx
 {
 	sid_resource_t *res;
 	char **pathv, **name;
+
+	if (!mod || !ucmd_mod_ctx || !mod_subregistry)
+		return -EINVAL;
 
 	if (!(pathv = util_str_comb_to_strv(NULL, NULL, module_get_full_name(mod), NULL, MODULE_NAME_DELIM, NULL)))
 		return -ENOMEM;
@@ -1085,6 +1088,9 @@ int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_mod_ctx
 
 int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
+	if (!mod || !ucmd_ctx || (ready == DEV_NOT_RDY_UNDEFINED))
+		return -EINVAL;
+
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan_phase].flags & CMD_SCAN_CAP_RDY))
 		return -EPERM;
 
@@ -1101,6 +1107,9 @@ dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd
 	const dev_ready_t *p_ready;
 	dev_ready_t result;
 
+	if (!mod || !ucmd_ctx)
+		return DEV_NOT_RDY_UNDEFINED;
+
 	if (!(p_ready = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
 		result = DEV_NOT_RDY_UNPROCESSED;
 	else
@@ -1111,6 +1120,9 @@ dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd
 
 int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved)
 {
+	if (!mod || !ucmd_ctx || (reserved == DEV_RES_UNDEFINED))
+		return -EINVAL;
+
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan_phase].flags & CMD_SCAN_CAP_RES))
 		return -EPERM;
 
@@ -1123,6 +1135,9 @@ dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx
 {
 	const dev_reserved_t *p_reserved;
 	dev_reserved_t result;
+
+	if (!mod || !ucmd_ctx)
+		return DEV_RES_UNDEFINED;
 
 	if (!(p_reserved = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
 		result = DEV_RES_UNPROCESSED;
@@ -1147,6 +1162,9 @@ int sid_ucmd_group_create(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
 	const char *full_key = NULL;
 	struct iovec iov[KV_VALUE_IDX_DATA];
 	int r = -1;
+
+	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
+		return -EINVAL;
 
 	struct kv_key_spec key_spec = {
 		.op = KV_OP_SET,
@@ -1269,12 +1287,18 @@ out:
 int sid_ucmd_group_add_current_dev(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
                                    sid_ucmd_kv_namespace_t group_ns, const char *group_id)
 {
+	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
+		return -EINVAL;
+
 	return _handle_current_dev_for_group(mod, ucmd_ctx, group_ns, group_id, KV_OP_PLUS);
 }
 
 int sid_ucmd_group_remove_current_dev(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
                                       sid_ucmd_kv_namespace_t group_ns, const char *group_id)
 {
+	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
+		return -EINVAL;
+
 	return _handle_current_dev_for_group(mod, ucmd_ctx, group_ns, group_id, KV_OP_MINUS);
 }
 
@@ -1287,6 +1311,9 @@ int sid_ucmd_group_destroy(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
 	size_t size;
 	struct iovec iov_blank[KV_VALUE_IDX_DATA];
 	int r = -1;
+
+	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
+		return -EINVAL;
 
 	struct kv_rel_spec rel_spec = {
 		.delta = &((struct kv_delta)
