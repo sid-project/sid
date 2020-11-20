@@ -231,12 +231,13 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 {
 	struct iovec *iov = buf->mem;
 	MSG_SIZE_PREFIX_TYPE size_prefix = 0;
-	unsigned i;
+	unsigned i, start_idx = 0;
+	void *save_base;
+	size_t save_len, start_off = pos;
 	ssize_t n;
 
-	// TODO: pos is byte position, but we have a vector here - make sure what writev returns and whether we need to restart operation
-	if (pos > 0)
-		return -ENOTSUP;
+	if (pos < 0)
+		return -ERANGE;
 
 	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX) {
 		for (i = 0; i < buf->stat.used; i++)
@@ -244,8 +245,32 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 		*((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
 	}
 
-	n = writev(fd, (const struct iovec *) buf->mem, buf->stat.used);
+	i = 0;
+	if (pos) {
+		for ( ; i < buf->stat.used; i++) {
+			if (iov[i].iov_len > start_off) {
+				start_idx = i;
+				save_base = iov[i].iov_base;
+				save_len = iov[i].iov_len;
+				iov[i].iov_base += start_off;
+				iov[i].iov_len -= start_off;
+				break;
+			}
+			start_off -= iov[i].iov_len;
+		}
+	}
+	if (i == buf->stat.used) {
+		if (start_off == 0)
+			return -ENODATA;
+		else
+			return -ERANGE;
+	}
 
+	n = writev(fd, &iov[start_idx], buf->stat.used - start_idx);
+	if (pos) {
+		iov[start_idx].iov_base = save_base;
+		iov[start_idx].iov_len = save_len;
+	}
 	if (n < 0)
 		n = -errno;
 
