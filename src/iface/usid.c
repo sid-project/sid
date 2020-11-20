@@ -72,8 +72,8 @@ int usid_req(const char *prefix, usid_cmd_t cmd, uint64_t status,
 		goto out;
 	}
 
-	if (buffer_write(buf, socket_fd, 0) < 0) {
-		log_error(prefix, "Failed to send request.");
+	if ((n = buffer_write_all(buf, socket_fd)) < 0) {
+		log_error_errno(prefix, n, "Failed to send request");
 		goto out;
 	}
 

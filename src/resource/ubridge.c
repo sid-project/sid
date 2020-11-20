@@ -3242,11 +3242,27 @@ out:
 	return r;
 }
 
+static int _connection_cleanup(sid_resource_t *conn_res)
+{
+	sid_resource_t *worker_res = sid_resource_search(conn_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
+
+	sid_resource_destroy(conn_res);
+
+	// TODO: If there are more connections per worker used,
+	// 	 then check if this is the last connection.
+	// 	 If it's not the last one, then do not yield the worker.
+
+	(void) worker_control_worker_yield(worker_res);
+
+	return 0;
+}
+
 static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
 	sid_resource_t *cmd_res = data;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	struct connection *conn = sid_resource_get_data(sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	sid_resource_t *conn_res = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
+	struct connection *conn = sid_resource_get_data(conn_res);
 	struct usid_msg_header response_header = {0};
 	struct cmd_exec_arg exec_arg = {0};
 
@@ -3271,25 +3287,10 @@ out:
 	if (r < 0)
 		response_header.status |= COMMAND_STATUS_FAILURE;
 
-	// TODO: check return value and whether we have it written all or whether we need to call buffer_write again with pos
-	(void) buffer_write(ucmd_ctx->res_buf, conn->fd, 0);
+	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0)
+		(void)_connection_cleanup(conn_res);
 
 	return r;
-}
-
-static int _connection_cleanup(sid_resource_t *conn_res)
-{
-	sid_resource_t *worker_res = sid_resource_search(conn_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
-
-	sid_resource_destroy(conn_res);
-
-	// TODO: If there are more connections per worker used,
-	// 	 then check if this is the last connection.
-	// 	 If it's not the last one, then do not yield the worker.
-
-	(void) worker_control_worker_yield(worker_res);
-
-	return 0;
 }
 
 static int _reply_failure(sid_resource_t *conn_res)
@@ -3305,10 +3306,8 @@ static int _reply_failure(sid_resource_t *conn_res)
 	(void) buffer_rewind(conn->buf, MSG_SIZE_PREFIX_LEN, BUFFER_POS_ABS);
 	if (prot <= USID_PROTOCOL) {
 		response_header.prot = prot;
-		if (buffer_add(conn->buf, &response_header, sizeof(response_header), &r)) {
-			(void)buffer_write(conn->buf, conn->fd, 0);
-			r = 0;
-		}
+		if (buffer_add(conn->buf, &response_header, sizeof(response_header), &r))
+			r = buffer_write_all(conn->buf, conn->fd);
 	}
 out:
 	return r;
