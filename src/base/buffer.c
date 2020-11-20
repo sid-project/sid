@@ -177,3 +177,28 @@ struct buffer_stat buffer_stat(struct buffer *buf)
 {
 	return buf->stat;
 }
+
+int buffer_write_all(struct buffer *buf, int fd)
+{
+	size_t pos;
+	ssize_t n;
+
+	if (!buf || fd < 0)
+		return -EINVAL;
+
+	for (pos = 0; ; pos += n) {
+		n = buffer_write(buf, fd, pos);
+
+		if (n < 0) {
+			if (n == -ENODATA)
+				break;
+
+			if (n == -EAGAIN || n == -EINTR) {
+				n = 0;
+				continue;
+			}
+			return n;
+		}
+	}
+	return 0;
+}

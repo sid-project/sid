@@ -849,7 +849,6 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 {
 	static unsigned char byte = 0xFF;
 	int has_data = data_spec && data_spec->data && data_spec->data_size;
-	size_t pos;
 	ssize_t n;
 	int r = 0;
 
@@ -869,22 +868,9 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 		goto out;
 	}
 
-	for (pos = 0; ; pos += n) {
-		n = buffer_write(chan->out_buf, chan->fd, pos);
-
-		if (n < 0) {
-			if (n == -ENODATA)
-				break;
-
-			if (n == -EAGAIN || n == -EINTR) {
-				n = 0;
-				continue;
-			}
-
-			log_error_errno(ID(chan->owner), n, "Failed to write data on channel %s", chan->spec->id);
-			r = n;
-			goto out;
-		}
+	if ((r = buffer_write_all(chan->out_buf, chan->fd)) < 0) {
+		log_error_errno(ID(chan->owner), r, "Failed to write data on channel %s", chan->spec->id);
+		goto out;
 	}
 
 	if (data_spec && data_spec->ext.used) {

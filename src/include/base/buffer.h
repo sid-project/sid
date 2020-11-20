@@ -49,6 +49,7 @@ ssize_t buffer_read(struct buffer *buf, int fd);
 ssize_t buffer_write(struct buffer *buf, int fd, size_t pos);
 int buffer_get_data(struct buffer *buf, const void **data, size_t *data_size);
 struct buffer_stat buffer_stat(struct buffer *buf);
+int buffer_write_all(struct buffer *buf, int fd);
 
 #ifdef __cplusplus
 }
