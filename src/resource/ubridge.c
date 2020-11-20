@@ -3451,7 +3451,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		return -1;
 	}
 
-	if (!(ucmd_ctx->res_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 0, 1, 0, &r))) {
+	if (!(ucmd_ctx->res_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 1, 1, 0, &r))) {
 		log_error_errno(ID(res), r, "Failed to create response buffer");
 		goto fail;
 	}
