@@ -286,6 +286,7 @@ This package contains tools to support Storage Instantiation Daemon (SID).
 
 
 %files tools
+%{_sbindir}/sidctl
 %{_udevrulesdir}/../usid
 %doc README.md
 

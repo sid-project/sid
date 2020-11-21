@@ -1,7 +1,7 @@
 ##############################################################################
 # This file is part of SID.
 #
-# Copyright (C) 2019 Red Hat, Inc. All rights reserved.
+# Copyright (C) 2020 Red Hat, Inc. All rights reserved.
 #
 # SID is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,4 +17,11 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = usid sidctl
+sbin_PROGRAMS = sidctl
+
+sidctl_SOURCES = sidctl.c
+
+sidctl_LDADD = $(top_builddir)/src/base/libsidbase.la \
+	       $(top_builddir)/src/iface/libsidiface_usid.la \
+	       $(top_builddir)/src/log/libsidlog.la
+

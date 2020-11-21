@@ -512,6 +512,59 @@ fail:
 	return NULL;
 }
 
+static int _write_kv_store_dump(struct buffer *buf, sid_resource_t *kv_store_res)
+{
+	kv_store_iter_t *iter;
+	const char *key = "<NO KEY>";
+	struct usid_dump_header header;
+	size_t size;
+	kv_store_value_flags_t flags;
+	void *value;
+	struct iovec tmp_iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec *iov;
+	unsigned int i, r = 0;
+	uint32_t len;
+	void *data;
+
+	if (!(iter = kv_store_iter_create(kv_store_res))) {
+		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
+		return -ENOMEM;
+	}
+
+	while ((value = kv_store_iter_next(iter, &size, &flags))) {
+		key = kv_store_iter_current_key(iter);
+		if (!strncmp(key, "U:", 2))
+			continue;
+		iov = _get_value_vector(flags, value, size, tmp_iov);
+		header.seqnum = KV_VALUE_SEQNUM(iov);
+		header.flags = KV_VALUE_FLAGS(iov);
+		header.data_count = (flags & KV_STORE_VALUE_VECTOR)? size - KV_VALUE_IDX_DATA : 1;
+		if (!buffer_add(buf, &header, sizeof(header), &r))
+			goto out;
+		len = strlen(key) + 1;
+		if (!buffer_add(buf, &len, sizeof(len), &r))
+			goto out;
+		if (!buffer_add(buf, (void *)key, len, &r))
+			goto out;
+		for (i = 0; i < header.data_count + 1; i++) {
+			data = iov[KV_VALUE_IDX_OWNER + i].iov_base;
+			len = iov[KV_VALUE_IDX_OWNER + i].iov_len;
+			if (!buffer_add(buf, &len, sizeof(len), &r))
+				goto out;
+			if (!buffer_add(buf, data, len, &r))
+				goto out;
+		}
+	}
+	/* add zeroed header to signal the end of the dump */
+	memset(&header, 0, sizeof(header));
+	buffer_add(buf, &header, sizeof(header), &r);
+out:
+	if (r < 0)
+		log_error_errno(ID(kv_store_res), r, "%s: failed to add value for key: %s", __func__, key);
+	kv_store_iter_destroy(iter);
+	return r;
+}
+
 static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 {
 	kv_store_iter_t *iter;
@@ -1590,6 +1643,20 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	int r;
 
 	buffer_add(ucmd_ctx->res_buf, &version, sizeof(version), &r);
+	return r;
+}
+
+static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
+{
+	int r;
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	char *dump_data;
+	size_t size;
+
+	if ((r = _write_kv_store_dump(ucmd_ctx->ucmd_mod_ctx.gen_buf, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0) {
+		buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **)&dump_data, &size);
+		buffer_add(ucmd_ctx->res_buf, dump_data, size, &r);
+	}
 	return r;
 }
 
@@ -3059,6 +3126,7 @@ static struct cmd_reg _cmd_regs[] = {
 	[USID_CMD_SCAN] =       {.name = NULL, .flags = 0, .exec = _cmd_exec_scan},
 	[USID_CMD_UNKNOWN] =    {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
 	[USID_CMD_VERSION] =    {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
+	[USID_CMD_DUMP] =       {.name = NULL, .flags = 0, .exec = _cmd_exec_dump},
 };
 
 static int _export_kv_store(sid_resource_t *cmd_res)

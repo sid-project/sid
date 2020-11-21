@@ -62,6 +62,7 @@ AC_CONFIG_FILES([Makefile
 		 src/modules/ucmd/block/dm_mpath/Makefile
 		 src/tools/Makefile
 		 src/tools/usid/Makefile
+		 src/tools/sidctl/Makefile
 		 udev/Makefile
 		 systemd/Makefile
 		 man/Makefile
