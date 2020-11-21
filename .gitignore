@@ -36,7 +36,8 @@ m4/libtool.m4
 **/*~
 
 src/daemon/sid
-src/tools/usid
+src/tools/usid/usid
+src/tools/sidctl/sidctl
 systemd/sid.service
 systemd/sid.socket
 systemd/sid.sysconfig
