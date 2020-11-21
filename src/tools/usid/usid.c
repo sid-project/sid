@@ -360,8 +360,13 @@ int main(int argc, char *argv[])
 				return EXIT_SUCCESS;
 			default:
 				_help(stderr);
-				return -EINVAL;
+				return EXIT_FAILURE;
 		}
+	}
+
+	if (optind >= argc) {
+		_help(stderr);
+		return EXIT_FAILURE;
 	}
 
 	log_init(LOG_TARGET_STANDARD, verbose);
