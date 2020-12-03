@@ -3339,8 +3339,14 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		/* If client speaks older protocol, reply using this protocol, if possible. */
 		response_header.prot = ucmd_ctx->request_header.prot;
 		exec_arg.cmd_res = cmd_res;
-		if ((r = _cmd_regs[ucmd_ctx->request_header.cmd].exec(&exec_arg)) < 0)
+		if ((r = _cmd_regs[ucmd_ctx->request_header.cmd].exec(&exec_arg)) < 0) {
 			log_error(ID(cmd_res), "Failed to execute command");
+			goto out;
+		}
+	} else {
+		log_error(ID(cmd_res), "Client protocol unknown verion: %u > %u ", ucmd_ctx->request_header.prot, USID_PROTOCOL);
+		(void)_connection_cleanup(conn_res);
+		return -1;
 	}
 
 	if ((r = _export_kv_store(cmd_res)) < 0) {
