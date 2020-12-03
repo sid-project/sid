@@ -64,6 +64,10 @@ bool usid_cmd_root_only[] = {
 	[USID_CMD_VERSION]    = false,
 };
 
+#define COMMAND_STATUS_MASK_OVERALL  UINT64_C(0x0000000000000001)
+#define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
+#define COMMAND_STATUS_FAILURE       UINT64_C(0x0000000000000001)
+
 struct usid_msg_header {
 	uint64_t status;
 	uint8_t prot;
