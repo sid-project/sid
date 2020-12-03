@@ -522,7 +522,8 @@ static int _write_kv_store_dump(struct buffer *buf, sid_resource_t *kv_store_res
 	void *value;
 	struct iovec tmp_iov[KV_VALUE_IDX_DATA + 1];
 	struct iovec *iov;
-	unsigned int i, r = 0;
+	unsigned int i;
+	int r = 0;
 	uint32_t len;
 	void *data;
 
