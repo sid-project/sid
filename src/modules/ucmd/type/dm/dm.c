@@ -140,8 +140,6 @@ SID_UCMD_MOD_RESET(_dm_reset)
 
 static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	struct dm_mod_ctx *dm_mod;
-
 	log_debug(DM_ID, "ident");
 	return 0;
 }

@@ -3380,7 +3380,7 @@ static int _reply_failure(sid_resource_t *conn_res)
 		if (buffer_add(conn->buf, &response_header, sizeof(response_header), &r))
 			r = buffer_write_all(conn->buf, conn->fd);
 	}
-out:
+
 	return r;
 }
 
