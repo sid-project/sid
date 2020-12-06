@@ -45,6 +45,7 @@ static void _help(FILE *f)
 	fprintf(f, "Usage: sid [options]\n"
 	        "\n"
 	        "    -f|--foreground  Run in foreground.\n"
+	        "    -j|--journal     Log to the journal.\n"
 	        "    -h|--help        Show this help information.\n"
 	        "    -v|--verbose     Verbose mode, repeat to increase level.\n"
 	        "    -V|--version     Show SID version.\n"
@@ -139,18 +140,20 @@ int main(int argc, char *argv[])
 	int opt;
 	int verbose = 0;
 	int foreground = 0;
+	int journal = 0;
 	sid_resource_t *sid_res = NULL;
 	int r = -1;
 
 	struct option longopts[] = {
 		{ "foreground",         0, NULL, 'f' },
+		{ "journal",            0, NULL, 'j' },
 		{ "help",		0, NULL, 'h' },
 		{ "verbose",            0, NULL, 'v' },
 		{ "version",		0, NULL, 'V' },
 		{ NULL,			0, NULL,  0  }
 	};
 
-	while ((opt = getopt_long(argc, argv, "fhvV", longopts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "fjhvV", longopts, NULL)) != -1) {
 		switch (opt) {
 			case 'f':
 				foreground = 1;
@@ -158,6 +161,9 @@ int main(int argc, char *argv[])
 			case 'h':
 				_help(stdout);
 				return EXIT_SUCCESS;
+			case 'j':
+				journal = 1;
+				break;
 			case 'v':
 				verbose++;
 				break;
@@ -173,10 +179,16 @@ int main(int argc, char *argv[])
 	if (util_env_get_ull(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
 		verbose = val;
 
-	if (foreground)
-		log_init(LOG_TARGET_STANDARD, verbose);
-	else {
-		log_init(LOG_TARGET_SYSLOG, verbose);
+	if (foreground) {
+		if (journal)
+			log_init(LOG_TARGET_JOURNAL, verbose);
+		else
+			log_init(LOG_TARGET_STANDARD, verbose);
+	} else {
+		if (journal)
+			log_init(LOG_TARGET_JOURNAL, verbose);
+		else
+			log_init(LOG_TARGET_SYSLOG, verbose);
 		_become_daemon();
 	}
 
