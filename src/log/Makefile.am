@@ -21,11 +21,14 @@ pkglib_LTLIBRARIES = libsidlog.la
 
 libsidlog_la_SOURCES = log-target-standard.c \
 		       log-target-syslog.c \
+		       log-target-journal.c \
 		       log.c
 
 logdir = $(pkgincludedir)/log
 
 log_HEADERS = $(top_builddir)/src/include/log/log.h
+
+libsidlog_la_LIBADD = $(SYSTEMD_LIBS)
 
 libsidlog_la_LDFLAGS = -version-info 0:0:0
 
