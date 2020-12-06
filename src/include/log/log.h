@@ -33,6 +33,7 @@ typedef enum {
 	LOG_TARGET_NONE,
 	LOG_TARGET_STANDARD,
 	LOG_TARGET_SYSLOG,
+	LOG_TARGET_JOURNAL,
 	_LOG_TARGET_COUNT
 } log_target_t;
 
@@ -53,6 +54,7 @@ struct log_target {
 
 extern const struct log_target log_target_standard;
 extern const struct log_target log_target_syslog;
+extern const struct log_target log_target_journal;
 
 void log_init(log_target_t target, int verbose_mode);
 void log_change_target(log_target_t new_target);

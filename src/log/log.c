@@ -24,7 +24,8 @@ static int _current_verbose_mode = 0;
 
 static const struct log_target *log_target_registry[] = {
 	[LOG_TARGET_STANDARD] = &log_target_standard,
-	[LOG_TARGET_SYSLOG] = &log_target_syslog
+	[LOG_TARGET_SYSLOG] = &log_target_syslog,
+	[LOG_TARGET_JOURNAL] = &log_target_journal
 };
 
 void log_init(log_target_t target, int verbose_mode)
