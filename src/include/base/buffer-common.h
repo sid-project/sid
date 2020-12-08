@@ -33,6 +33,10 @@ extern "C" {
 #define MSG_SIZE_PREFIX_LEN (sizeof(uint32_t))
 
 typedef enum {
+	BUFFER_BACKEND_MALLOC,
+} buffer_backend_t;
+
+typedef enum {
 	BUFFER_TYPE_LINEAR,
 	BUFFER_TYPE_VECTOR,
 } buffer_type_t;
@@ -43,6 +47,7 @@ typedef enum {
 } buffer_mode_t;
 
 struct buffer_spec {
+	buffer_backend_t backend;
 	buffer_type_t type;
 	buffer_mode_t mode;
 };

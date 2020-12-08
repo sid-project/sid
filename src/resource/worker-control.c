@@ -412,7 +412,7 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_worker, worker_type_t type, struct worker_channel *chan)
 {
 	struct buffer **buf1, **buf2;
-	struct buffer_spec buf_spec = {.type = BUFFER_TYPE_LINEAR, .mode = 0};
+	struct buffer_spec buf_spec = {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = 0};
 	struct buffer_init buf_init = {0};
 	const char *id = owner ? ID(owner) : alt_id;
 	int r;
