@@ -42,7 +42,7 @@ static bool _check_buf(struct buffer *buf)
 	        stat->init.limit % stat->init.alloc_step == 0);
 }
 
-struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, struct buffer_init *init, int *ret_code)
+struct buffer *buffer_create(struct buffer_spec *spec, struct buffer_init *init, int *ret_code)
 {
 	struct buffer *buf;
 	int r = 0;
@@ -53,8 +53,7 @@ struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, struct buff
 	}
 
 	buf->stat = (struct buffer_stat) {
-		.type = type,
-		.mode = mode,
+		.spec = *spec,
 		.init = *init,
 		.usage = (struct buffer_usage) {0},
 	};
@@ -64,7 +63,7 @@ struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, struct buff
 		goto out;
 	}
 
-	if ((r = _buffer_type_registry[type]->create(buf)) < 0)
+	if ((r = _buffer_type_registry[spec->type]->create(buf)) < 0)
 		goto out;
 out:
 	if (ret_code)
@@ -77,7 +76,7 @@ out:
 
 void buffer_destroy(struct buffer *buf)
 {
-	(void) _buffer_type_registry[buf->stat.type]->destroy(buf);
+	(void) _buffer_type_registry[buf->stat.spec.type]->destroy(buf);
 	free(buf);
 }
 
@@ -92,12 +91,12 @@ int buffer_reset_init(struct buffer *buf, struct buffer_init *init)
 		return -EINVAL;
 	}
 
-	return _buffer_type_registry[buf->stat.type]->reset(buf);
+	return _buffer_type_registry[buf->stat.spec.type]->reset(buf);
 }
 
 int buffer_reset(struct buffer *buf)
 {
-	return _buffer_type_registry[buf->stat.type]->reset(buf);
+	return _buffer_type_registry[buf->stat.spec.type]->reset(buf);
 }
 
 const void *buffer_add(struct buffer *buf, void *data, size_t len, int *ret_code)
@@ -108,7 +107,7 @@ const void *buffer_add(struct buffer *buf, void *data, size_t len, int *ret_code
 		return NULL;
 	}
 
-	return _buffer_type_registry[buf->stat.type]->add(buf, data, len, ret_code);
+	return _buffer_type_registry[buf->stat.spec.type]->add(buf, data, len, ret_code);
 }
 
 const void *buffer_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, ...)
@@ -117,7 +116,7 @@ const void *buffer_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, .
 	const void *p;
 
 	va_start(ap, fmt);
-	p = _buffer_type_registry[buf->stat.type]->fmt_add(buf, ret_code, fmt, ap);
+	p = _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, ret_code, fmt, ap);
 	va_end(ap);
 
 	return p;
@@ -125,7 +124,7 @@ const void *buffer_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, .
 
 const void *buffer_vfmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap)
 {
-	return _buffer_type_registry[buf->stat.type]->fmt_add(buf, ret_code, fmt, ap);
+	return _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, ret_code, fmt, ap);
 }
 
 int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
@@ -137,7 +136,7 @@ int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
 		pos = buf->stat.usage.used - pos;
 	}
 
-	return _buffer_type_registry[buf->stat.type]->rewind(buf, pos);
+	return _buffer_type_registry[buf->stat.spec.type]->rewind(buf, pos);
 }
 
 int buffer_rewind_mem(struct buffer *buf, const void *mem)
@@ -145,27 +144,27 @@ int buffer_rewind_mem(struct buffer *buf, const void *mem)
 	if (mem < buf->mem)
 		return -EINVAL;
 
-	return _buffer_type_registry[buf->stat.type]->rewind_mem(buf, mem);
+	return _buffer_type_registry[buf->stat.spec.type]->rewind_mem(buf, mem);
 }
 
 bool buffer_is_complete(struct buffer *buf, int *ret_code)
 {
-	return _buffer_type_registry[buf->stat.type]->is_complete(buf, ret_code);
+	return _buffer_type_registry[buf->stat.spec.type]->is_complete(buf, ret_code);
 }
 
 int buffer_get_data(struct buffer *buf, const void **data, size_t *data_size)
 {
-	return _buffer_type_registry[buf->stat.type]->get_data(buf, data, data_size);
+	return _buffer_type_registry[buf->stat.spec.type]->get_data(buf, data, data_size);
 }
 
 ssize_t buffer_read(struct buffer *buf, int fd)
 {
-	return _buffer_type_registry[buf->stat.type]->read(buf, fd);
+	return _buffer_type_registry[buf->stat.spec.type]->read(buf, fd);
 }
 
 ssize_t buffer_write(struct buffer *buf, int fd, size_t pos)
 {
-	return _buffer_type_registry[buf->stat.type]->write(buf, fd, pos);
+	return _buffer_type_registry[buf->stat.spec.type]->write(buf, fd, pos);
 }
 
 struct buffer_stat buffer_stat(struct buffer *buf)

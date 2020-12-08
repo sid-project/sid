@@ -60,7 +60,7 @@ static int _buffer_linear_create(struct buffer *buf)
 {
 	size_t needed = buf->stat.init.size;
 
-	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
+	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		needed += MSG_SIZE_PREFIX_LEN;
 
 	return _buffer_linear_realloc(buf, needed, 1);
@@ -79,7 +79,7 @@ static int _buffer_linear_reset(struct buffer *buf)
 	buf->stat.usage.used = 0;
 	needed = buf->stat.init.size;
 
-	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
+	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		needed += MSG_SIZE_PREFIX_LEN;
 
 	return _buffer_linear_realloc(buf, needed, 1);
@@ -91,7 +91,7 @@ static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len
 	void *start = NULL;
 	int r;
 
-	if (!used && buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
+	if (!used && buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		used = MSG_SIZE_PREFIX_LEN;
 
 	if ((r = _buffer_linear_realloc(buf, used + len, 0)) < 0)
@@ -117,7 +117,7 @@ static const void *_buffer_linear_fmt_add(struct buffer *buf, int *ret_code, con
 
 	va_copy(ap_copy, ap);
 
-	if (!used && buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
+	if (!used && buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		used = MSG_SIZE_PREFIX_LEN;
 
 	available = buf->stat.usage.allocated - used;
@@ -148,7 +148,7 @@ out:
 
 static int _buffer_linear_rewind(struct buffer *buf, size_t pos)
 {
-	size_t min_pos = (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX) ? MSG_SIZE_PREFIX_LEN : 0;
+	size_t min_pos = (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX) ? MSG_SIZE_PREFIX_LEN : 0;
 
 	if (pos > buf->stat.usage.used || pos < min_pos)
 		return -EINVAL;
@@ -171,7 +171,7 @@ static bool _buffer_linear_is_complete(struct buffer *buf, int *ret_code)
 {
 	bool result;
 
-	switch (buf->stat.mode) {
+	switch (buf->stat.spec.mode) {
 		case BUFFER_MODE_PLAIN:
 			result = true;
 			break;
@@ -187,7 +187,7 @@ static bool _buffer_linear_is_complete(struct buffer *buf, int *ret_code)
 
 static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t *data_size)
 {
-	switch (buf->stat.mode) {
+	switch (buf->stat.spec.mode) {
 		case BUFFER_MODE_PLAIN:
 			if (data)
 				*data = buf->mem;
@@ -263,7 +263,7 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 
 static ssize_t _buffer_linear_read(struct buffer *buf, int fd)
 {
-	switch (buf->stat.mode) {
+	switch (buf->stat.spec.mode) {
 		case BUFFER_MODE_PLAIN:
 			return _buffer_linear_read_plain(buf, fd);
 		case BUFFER_MODE_SIZE_PREFIX:
@@ -275,7 +275,7 @@ static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 {
 	ssize_t n;
 
-	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
+	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		*((MSG_SIZE_PREFIX_TYPE *) buf->mem) = (MSG_SIZE_PREFIX_TYPE) buf->stat.usage.used;
 
 	if (pos == buf->stat.usage.used)

@@ -171,12 +171,12 @@ int _do_service_link_notify(struct service_link *sl, struct service_link_group *
 	int unset = 0;
 	int iter_r, r = 0;
 
-	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN,
+	if (!(buf = buffer_create(&((struct buffer_spec) {.type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
 				  &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}), &r)))
 		goto out;
 
 	if (fmt && *fmt) {
-		if (!(fmt_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN,
+		if (!(fmt_buf = buffer_create(&((struct buffer_spec) {.type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
 					      &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}), &r)))
 			goto out;
 

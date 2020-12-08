@@ -236,7 +236,7 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 
 	if (n > 0) {
 		/* For plain buffers, we are waiting for EOF to complete the message. */
-		if (buffer_stat(chan->in_buf).mode == BUFFER_MODE_PLAIN)
+		if (buffer_stat(chan->in_buf).spec.mode == BUFFER_MODE_PLAIN)
 			return 0;
 
 		if (!buffer_is_complete(chan->in_buf, NULL))
@@ -292,7 +292,7 @@ static int _chan_buf_recv(const struct worker_channel *chan, uint32_t revents, w
 		log_error_errno(ID(chan->owner), n, "Failed to read data on channel %s", chan->spec->id);
 		return n;
 	} else {
-		if (buffer_stat(chan->in_buf).mode == BUFFER_MODE_PLAIN) {
+		if (buffer_stat(chan->in_buf).spec.mode == BUFFER_MODE_PLAIN) {
 			(void) buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
 
 			*cmd = WORKER_CHANNEL_CMD_DATA;
@@ -412,7 +412,7 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_worker, worker_type_t type, struct worker_channel *chan)
 {
 	struct buffer **buf1, **buf2;
-	buffer_mode_t buf_mode;
+	struct buffer_spec buf_spec = {.type = BUFFER_TYPE_LINEAR, .mode = 0};
 	struct buffer_init buf_init = {0};
 	const char *id = owner ? ID(owner) : alt_id;
 	int r;
@@ -475,7 +475,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 				 * use of data size prefixes on both sides of the channel so we always know how much data
 				 * to receive on the other side and we can preallocate proper buffer size for it.
 				 */
-				buf_mode = BUFFER_MODE_SIZE_PREFIX;
+				buf_spec.mode = BUFFER_MODE_SIZE_PREFIX;
 				buf_init.size = WORKER_INT_CHANNEL_MIN_BUF_SIZE;
 				buf_init.alloc_step = 1;
 				break;
@@ -486,7 +486,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 				 * and then we extend the buffer with WORKER_EXT_CHANNEL_MIN_BUF_SIZE each time it's filled up
 				 * and data are still incoming.
 				 */
-				buf_mode = BUFFER_MODE_PLAIN;
+				buf_spec.mode = BUFFER_MODE_PLAIN;
 				buf_init.size = WORKER_EXT_CHANNEL_MIN_BUF_SIZE;
 				buf_init.alloc_step = WORKER_EXT_CHANNEL_MIN_BUF_SIZE;
 				break;
@@ -498,7 +498,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			break;
 
 		case WORKER_WIRE_PIPE_TO_WORKER:
-			if (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, &buf_init, &r))) {
+			if (buf2 && !(*buf2 = buffer_create(&buf_spec, &buf_init, &r))) {
 				log_error_errno(id, r, "Failed to create buffer for channel with ID %s.", chan->spec->id);
 				goto fail;
 			}
@@ -516,7 +516,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			break;
 
 		case WORKER_WIRE_PIPE_TO_PROXY:
-			if (buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, &buf_init, &r)))
+			if (buf1 && !(*buf1 = buffer_create(&buf_spec, &buf_init, &r)))
 				goto fail;
 
 			if (is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
@@ -532,8 +532,8 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			break;
 
 		case WORKER_WIRE_SOCKET:
-			if ((buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, &buf_init, &r))) ||
-			    (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, &buf_init, &r)))) {
+			if ((buf1 && !(*buf1 = buffer_create(&buf_spec, &buf_init, &r))) ||
+			    (buf2 && !(*buf2 = buffer_create(&buf_spec, &buf_init, &r)))) {
 				log_error_errno(id, r, "Failed to create buffer for channel with ID %s.", chan->spec->id);
 				goto fail;
 			}
@@ -854,7 +854,7 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 	 * Internal workers and associated proxies use BUFFER_MODE_SIZE_PREFIX buffers and
 	 * they always transmit worker_channel_cmd_t as header before actual data.
 	 */
-	if (buffer_stat(chan->out_buf).mode == BUFFER_MODE_SIZE_PREFIX &&
+	if (buffer_stat(chan->out_buf).spec.mode == BUFFER_MODE_SIZE_PREFIX &&
 	    !buffer_add(chan->out_buf, &cmd, sizeof(cmd), &r)) {
 		r = -ENOMEM;
 		goto out;

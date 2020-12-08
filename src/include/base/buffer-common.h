@@ -42,6 +42,11 @@ typedef enum {
 	BUFFER_MODE_SIZE_PREFIX, /* has uint32_t size prefix */
 } buffer_mode_t;
 
+struct buffer_spec {
+	buffer_type_t type;
+	buffer_mode_t mode;
+};
+
 struct buffer_init {
 	size_t size;
 	size_t alloc_step;
@@ -54,8 +59,7 @@ struct buffer_usage {
 };
 
 struct buffer_stat {
-	buffer_type_t type;
-	buffer_mode_t mode;
+	struct buffer_spec spec;
 	struct buffer_init init;
 	struct buffer_usage usage;
 };

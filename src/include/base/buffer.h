@@ -35,7 +35,7 @@ typedef enum {
 	BUFFER_POS_REL,
 } buffer_pos_t;
 
-struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, struct buffer_init *init, int *ret_code);
+struct buffer *buffer_create(struct buffer_spec *spec, struct buffer_init *init, int *ret_code);
 void buffer_destroy(struct buffer *buf);
 int buffer_reset(struct buffer *buf);
 int buffer_reset_init(struct buffer *buf, struct buffer_init *init);
