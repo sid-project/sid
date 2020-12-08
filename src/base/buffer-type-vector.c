@@ -35,31 +35,31 @@ static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
 	if (force)
 		alloc_step = 1;
 	else {
-		if (buf->stat.allocated >= needed)
+		if (buf->stat.usage.allocated >= needed)
 			return 0;
 
-		if (!(alloc_step = buf->stat.alloc_step))
+		if (!(alloc_step = buf->stat.init.alloc_step))
 			return -EXFULL;
 	}
 
 	if ((align = (needed % alloc_step)))
 		needed += alloc_step - align;
 
-	if (buf->stat.limit && needed > buf->stat.limit)
+	if (buf->stat.init.limit && needed > buf->stat.init.limit)
 		return -EOVERFLOW;
 
 	if (!(p = realloc(buf->mem, needed * VECTOR_ITEM_SIZE)))
 		return -errno;
 
 	buf->mem = p;
-	buf->stat.allocated = needed;
+	buf->stat.usage.allocated = needed;
 
 	return 0;
 }
 
 static int _buffer_vector_create(struct buffer *buf)
 {
-	size_t needed = buf->stat.initial_size;
+	size_t needed = buf->stat.init.size;
 	int r;
 
 	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
@@ -77,6 +77,7 @@ static int _buffer_vector_create(struct buffer *buf)
 		((struct iovec *) buf->mem)[0].iov_len = MSG_SIZE_PREFIX_LEN;
 	}
 
+	buf->stat.usage.allocated = needed;
 	return 0;
 }
 
@@ -97,9 +98,9 @@ int _buffer_vector_reset(struct buffer *buf)
 {
 	size_t needed;
 
-	buf->stat.used = 0;
+	buf->stat.usage.used = 0;
 
-	needed = buf->stat.initial_size;
+	needed = buf->stat.init.size;
 
 	if (!needed) {
 		switch (buf->stat.mode) {
@@ -117,7 +118,7 @@ int _buffer_vector_reset(struct buffer *buf)
 
 const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len, int *ret_code)
 {
-	size_t used = buf->stat.used;
+	size_t used = buf->stat.usage.used;
 	struct iovec *iov;
 	int r;
 
@@ -130,14 +131,14 @@ const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len, int *
 	iov = buf->mem;
 	iov[used].iov_base = data;
 	iov[used].iov_len = len;
-	buf->stat.used = used + 1;
+	buf->stat.usage.used = used + 1;
 out:
 	if (ret_code)
 		*ret_code = r;
 	if (r < 0)
 		return NULL;
 	else
-		return &iov[buf->stat.used - 1];
+		return &iov[buf->stat.usage.used - 1];
 }
 
 const void *_buffer_vector_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap)
@@ -151,10 +152,10 @@ int _buffer_vector_rewind(struct buffer *buf, size_t pos)
 {
 	size_t min_pos = (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX) ? 1 : 0;
 
-	if (pos > buf->stat.used || pos < min_pos)
+	if (pos > buf->stat.usage.used || pos < min_pos)
 		return -EINVAL;
 
-	buf->stat.used = pos;
+	buf->stat.usage.used = pos;
 	return 0;
 }
 
@@ -193,13 +194,13 @@ int _buffer_vector_get_data(struct buffer *buf, const void **data, size_t *data_
 			if (data)
 				*data = buf->mem;
 			if (data_size)
-				*data_size = buf->stat.used;
+				*data_size = buf->stat.usage.used;
 			break;
 		case BUFFER_MODE_SIZE_PREFIX:
 			if (data)
 				*data = buf->mem + VECTOR_ITEM_SIZE;
 			if (data_size)
-				*data_size = buf->stat.used - 1;
+				*data_size = buf->stat.usage.used - 1;
 			break;
 	}
 
@@ -241,14 +242,14 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 		return -ERANGE;
 
 	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX) {
-		for (i = 0; i < buf->stat.used; i++)
+		for (i = 0; i < buf->stat.usage.used; i++)
 			size_prefix += iov[i].iov_len;
 		*((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
 	}
 
 	i = 0;
 	if (pos) {
-		for ( ; i < buf->stat.used; i++) {
+		for ( ; i < buf->stat.usage.used; i++) {
 			if (iov[i].iov_len > start_off) {
 				start_idx = i;
 				save_base = iov[i].iov_base;
@@ -260,14 +261,14 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 			start_off -= iov[i].iov_len;
 		}
 	}
-	if (i == buf->stat.used) {
+	if (i == buf->stat.usage.used) {
 		if (start_off == 0)
 			return -ENODATA;
 		else
 			return -ERANGE;
 	}
 
-	n = writev(fd, &iov[start_idx], buf->stat.used - start_idx);
+	n = writev(fd, &iov[start_idx], buf->stat.usage.used - start_idx);
 	if (pos) {
 		iov[start_idx].iov_base = save_base;
 		iov[start_idx].iov_len = save_len;

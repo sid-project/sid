@@ -1754,7 +1754,8 @@ static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iov
 		goto out;
 	}
 
-	if (!(buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, size, 0, 0, &r)))
+	if (!(buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN,
+				  &((struct buffer_init) {.size = size, .alloc_step = 0, .limit = 0}), &r)))
 		goto out;
 
 	for (i = 0; i < header_size; i++) {
@@ -2532,7 +2533,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	 * -2 to subtract "." and ".." directory which we're not interested in
 	 * +3 for "seqnum|flags|owner" header
 	 */
-	if (!(vec_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN, count + 1, 1, 0, &r))) {
+	if (!(vec_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_PLAIN,
+				      &((struct buffer_init) {.size = count + 1, .alloc_step = 1, .limit = 0}), &r))) {
 		log_error_errno(ID(cmd_res), r,
 		                "Failed to create buffer to record hierarchy for device "
 		                CMD_DEV_ID_FMT, CMD_DEV_ID(ucmd_ctx));
@@ -3459,7 +3461,8 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 		goto fail;
 	}
 
-	if (!(conn->buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1, 0, &r))) {
+	if (!(conn->buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX,
+					&((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}), &r))) {
 		log_error_errno(ID(res), r, "Failed to create connection buffer");
 		goto fail;
 	}
@@ -3522,14 +3525,16 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		return -1;
 	}
 
-	if (!(ucmd_ctx->res_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX, 1, 1, 0, &r))) {
+	if (!(ucmd_ctx->res_buf = buffer_create(BUFFER_TYPE_VECTOR, BUFFER_MODE_SIZE_PREFIX,
+						&((struct buffer_init) {.size = 1, .alloc_step = 1, .limit = 0}), &r))) {
 		log_error_errno(ID(res), r, "Failed to create response buffer");
 		goto fail;
 	}
 
 	ucmd_ctx->request_header = *msg->header;
 
-	if (!(ucmd_ctx->ucmd_mod_ctx.gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX, 0, &r))) {
+	if (!(ucmd_ctx->ucmd_mod_ctx.gen_buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN,
+							     &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}), &r))) {
 		log_error_errno(ID(res), r, "Failed to create generic buffer");
 		goto fail;
 	}
@@ -4227,7 +4232,8 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN, 0, PATH_MAX, 0, &r))) {
+	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_PLAIN,
+				  &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}), &r))) {
 		log_error_errno(ID(res), r, "Failed to create generic buffer");
 		goto fail;
 	}

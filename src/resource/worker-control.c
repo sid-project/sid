@@ -413,7 +413,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 {
 	struct buffer **buf1, **buf2;
 	buffer_mode_t buf_mode;
-	size_t buf_size, buf_alloc_step;
+	struct buffer_init buf_init = {0};
 	const char *id = owner ? ID(owner) : alt_id;
 	int r;
 
@@ -476,8 +476,8 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 				 * to receive on the other side and we can preallocate proper buffer size for it.
 				 */
 				buf_mode = BUFFER_MODE_SIZE_PREFIX;
-				buf_size = WORKER_INT_CHANNEL_MIN_BUF_SIZE;
-				buf_alloc_step = 1;
+				buf_init.size = WORKER_INT_CHANNEL_MIN_BUF_SIZE;
+				buf_init.alloc_step = 1;
 				break;
 			case WORKER_TYPE_EXTERNAL:
 				/*
@@ -487,8 +487,8 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 				 * and data are still incoming.
 				 */
 				buf_mode = BUFFER_MODE_PLAIN;
-				buf_size = WORKER_EXT_CHANNEL_MIN_BUF_SIZE;
-				buf_alloc_step = WORKER_EXT_CHANNEL_MIN_BUF_SIZE;
+				buf_init.size = WORKER_EXT_CHANNEL_MIN_BUF_SIZE;
+				buf_init.alloc_step = WORKER_EXT_CHANNEL_MIN_BUF_SIZE;
 				break;
 		}
 	}
@@ -498,7 +498,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			break;
 
 		case WORKER_WIRE_PIPE_TO_WORKER:
-			if (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r))) {
+			if (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, &buf_init, &r))) {
 				log_error_errno(id, r, "Failed to create buffer for channel with ID %s.", chan->spec->id);
 				goto fail;
 			}
@@ -516,7 +516,7 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			break;
 
 		case WORKER_WIRE_PIPE_TO_PROXY:
-			if (buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r)))
+			if (buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, &buf_init, &r)))
 				goto fail;
 
 			if (is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
@@ -532,8 +532,8 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			break;
 
 		case WORKER_WIRE_SOCKET:
-			if ((buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r))) ||
-			    (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, buf_size, buf_alloc_step, 0, &r)))) {
+			if ((buf1 && !(*buf1 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, &buf_init, &r))) ||
+			    (buf2 && !(*buf2 = buffer_create(BUFFER_TYPE_LINEAR, buf_mode, &buf_init, &r)))) {
 				log_error_errno(id, r, "Failed to create buffer for channel with ID %s.", chan->spec->id);
 				goto fail;
 			}

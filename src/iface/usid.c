@@ -47,7 +47,8 @@ int usid_req(const char *prefix, usid_cmd_t cmd, uint64_t status,
 	ssize_t n;
 	int r = -1;
 
-	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX, 0, 1, 0, &r))) {
+	if (!(buf = buffer_create(BUFFER_TYPE_LINEAR, BUFFER_MODE_SIZE_PREFIX,
+				  &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}), &r))) {
 		log_error_errno(prefix, r, "Failed to create request buffer");
 		goto out;
 	}

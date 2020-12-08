@@ -42,14 +42,22 @@ typedef enum {
 	BUFFER_MODE_SIZE_PREFIX, /* has uint32_t size prefix */
 } buffer_mode_t;
 
+struct buffer_init {
+	size_t size;
+	size_t alloc_step;
+	size_t limit;
+};
+
+struct buffer_usage {
+	size_t allocated;
+	size_t used;
+};
+
 struct buffer_stat {
 	buffer_type_t type;
 	buffer_mode_t mode;
-	size_t initial_size;
-	size_t alloc_step;
-	size_t limit;
-	size_t allocated;
-	size_t used;
+	struct buffer_init init;
+	struct buffer_usage usage;
 };
 
 #ifdef __cplusplus

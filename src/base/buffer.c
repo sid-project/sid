@@ -34,15 +34,15 @@ static bool _check_buf(struct buffer *buf)
 	struct buffer_stat *stat = &buf->stat;
 
 	/* We are checking only limit right now so if no limit, nothing to check as well. */
-	if (stat->limit == 0)
+	if (stat->init.limit == 0)
 		return true;
 
-	return (stat->limit >= stat->initial_size &&
-	        stat->limit >= stat->alloc_step &&
-	        stat->limit % stat->alloc_step == 0);
+	return (stat->init.limit >= stat->init.size &&
+	        stat->init.limit >= stat->init.alloc_step &&
+	        stat->init.limit % stat->init.alloc_step == 0);
 }
 
-struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t initial_size, size_t alloc_step, size_t limit, int *ret_code)
+struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, struct buffer_init *init, int *ret_code)
 {
 	struct buffer *buf;
 	int r = 0;
@@ -55,11 +55,8 @@ struct buffer *buffer_create(buffer_type_t type, buffer_mode_t mode, size_t init
 	buf->stat = (struct buffer_stat) {
 		.type = type,
 		.mode = mode,
-		.initial_size = initial_size,
-		.alloc_step = alloc_step,
-		.limit = limit,
-		.allocated = 0,
-		.used = 0,
+		.init = *init,
+		.usage = (struct buffer_usage) {0},
 	};
 
 	if (!_check_buf(buf)) {
@@ -84,13 +81,11 @@ void buffer_destroy(struct buffer *buf)
 	free(buf);
 }
 
-int buffer_reset_init(struct buffer *buf, size_t initial_size, size_t alloc_step, size_t limit)
+int buffer_reset_init(struct buffer *buf, struct buffer_init *init)
 {
 	struct buffer_stat orig_stat = buf->stat;
 
-	buf->stat.initial_size = initial_size;
-	buf->stat.alloc_step = alloc_step;
-	buf->stat.limit = limit;
+	buf->stat.init = *init;
 
 	if (!_check_buf(buf)) {
 		buf->stat = orig_stat;
@@ -136,10 +131,10 @@ const void *buffer_vfmt_add(struct buffer *buf, int *ret_code, const char *fmt, 
 int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
 {
 	if (whence == BUFFER_POS_REL) {
-		if (pos > buf->stat.used)
+		if (pos > buf->stat.usage.used)
 			return -EINVAL;
 
-		pos = buf->stat.used - pos;
+		pos = buf->stat.usage.used - pos;
 	}
 
 	return _buffer_type_registry[buf->stat.type]->rewind(buf, pos);
