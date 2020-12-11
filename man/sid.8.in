@@ -55,6 +55,9 @@ Run in foreground.
 .BR \-h ", " \-\-help
 Display the help text.
 .TP
+.BR \-j ", " \-\-journal
+Log to the journal.
+.TP
 .BR \-v ", " \-\-verbose
 Run in verbose mode. Repeat up to 4 times to increase the level of detail
 of log messages.
