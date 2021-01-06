@@ -26,58 +26,25 @@
 #include <string.h>
 #include <unistd.h>
 
-static bool _check_limit(struct buffer *buf, size_t needed)
-{
-	if (buf->stat.limit && needed > buf->stat.limit)
-		return false;
-
-	return true;
-}
-
-static int _buffer_linear_create(struct buffer *buf)
-{
-	size_t needed;
-
-	needed = buf->stat.initial_size;
-
-	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX) {
-		needed += MSG_SIZE_PREFIX_LEN;
-		if (!_check_limit(buf, needed))
-			return -EOVERFLOW;
-	}
-
-	if (!(buf->mem = mem_zalloc(needed)))
-		return -ENOMEM;
-
-	buf->stat.allocated = needed;
-	return 0;
-}
-
-static int _buffer_linear_destroy(struct buffer *buf)
-{
-	free(buf->mem);
-	return 0;
-}
-
 static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 {
 	char *p;
 	size_t align;
 	size_t alloc_step;
 
-	if (!force) {
+	if (force)
+		alloc_step = 1;
+	else {
 		if (buf->stat.allocated >= needed)
 			return 0;
-
 		if (!(alloc_step = buf->stat.alloc_step))
 			return -EXFULL;
-	} else
-		alloc_step = 1;
+	}
 
 	if ((align = (needed % alloc_step)))
 		needed += alloc_step - align;
 
-	if (!_check_limit(buf, needed))
+	if (buf->stat.limit && needed > buf->stat.limit)
 		return -EOVERFLOW;
 
 	if (!(p = realloc(buf->mem, needed)))
@@ -86,6 +53,22 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 	buf->mem = p;
 	buf->stat.allocated = needed;
 
+	return 0;
+}
+
+static int _buffer_linear_create(struct buffer *buf)
+{
+	size_t needed = buf->stat.initial_size;
+
+	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
+		needed += MSG_SIZE_PREFIX_LEN;
+
+	return _buffer_linear_realloc(buf, needed, 1);
+}
+
+static int _buffer_linear_destroy(struct buffer *buf)
+{
+	free(buf->mem);
 	return 0;
 }
 
