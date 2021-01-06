@@ -120,10 +120,11 @@ void log_journal_output(int level_id,
 			    "CODE_FUNC=%s", function_name,
 			    NULL);
 		else
-			sd_journal_print(level_id,
-			                 "MESSAGE=%s", msg,
-			                 "PREFIX=%s", prefix,
-			                 NULL);
+			sd_journal_send(
+			    "MESSAGE=%s", msg,
+			    "PREFIX=%s", prefix,
+			    "PRIORITY=%d", level_id,
+			    NULL);
 	}
 }
 
