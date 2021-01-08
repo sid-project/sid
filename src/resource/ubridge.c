@@ -204,7 +204,7 @@ enum {
 #define KV_VALUE_PREPARE_HEADER(iov, seqnum, flags, owner) \
 		iov[KV_VALUE_IDX_SEQNUM] = (struct iovec) {&(seqnum), sizeof(seqnum)}; \
 		iov[KV_VALUE_IDX_FLAGS] = (struct iovec) {&(flags), sizeof(flags)}; \
-		iov[KV_VALUE_IDX_OWNER] = (struct iovec) {owner, strlen(owner) + 1};
+		iov[KV_VALUE_IDX_OWNER] = (struct iovec) {owner, strlen(owner) + 1}
 
 #define KV_VALUE_SEQNUM(iov) (*((uint64_t *) ((struct iovec *) iov)[KV_VALUE_IDX_SEQNUM].iov_base))
 #define KV_VALUE_FLAGS(iov) (*((sid_ucmd_kv_flags_t *) ((struct iovec *) iov)[KV_VALUE_IDX_FLAGS].iov_base))
@@ -479,7 +479,7 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 	kv_value = value;
 	owner_size = strlen(kv_value->data) + 1;
 
-	KV_VALUE_PREPARE_HEADER(iov, kv_value->seqnum, kv_value->flags, kv_value->data)
+	KV_VALUE_PREPARE_HEADER(iov, kv_value->seqnum, kv_value->flags, kv_value->data);
 	iov[KV_VALUE_IDX_DATA] = (struct iovec) {
 		kv_value->data + owner_size, value_size - sizeof(*kv_value) - owner_size
 	};
