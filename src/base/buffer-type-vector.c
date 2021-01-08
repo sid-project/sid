@@ -26,29 +26,56 @@
 
 #define VECTOR_ITEM_SIZE sizeof(struct iovec)
 
+static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
+{
+	void *p;
+	size_t align;
+	size_t alloc_step;
+
+	if (force)
+		alloc_step = 1;
+	else {
+		if (buf->stat.allocated >= needed)
+			return 0;
+
+		if (!(alloc_step = buf->stat.alloc_step))
+			return -EXFULL;
+	}
+
+	if ((align = (needed % alloc_step)))
+		needed += alloc_step - align;
+
+	if (buf->stat.limit && needed > buf->stat.limit)
+		return -EOVERFLOW;
+
+	if (!(p = realloc(buf->mem, needed * VECTOR_ITEM_SIZE)))
+		return -errno;
+
+	buf->mem = p;
+	buf->stat.allocated = needed;
+
+	return 0;
+}
+
 static int _buffer_vector_create(struct buffer *buf)
 {
-	size_t needed;
+	size_t needed = buf->stat.initial_size;
+	int r;
 
-	struct iovec *iov;
-
-	needed = buf->stat.initial_size;
 	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
 		needed += 1;
 
-	if (!(buf->mem = mem_zalloc(needed * VECTOR_ITEM_SIZE)))
-		return -ENOMEM;
+	if ((r = _buffer_vector_realloc(buf, needed, 1)) < 0)
+		return r;
 
-	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX) {
-		iov = buf->mem;
-		if (!(iov[0].iov_base = mem_zalloc(MSG_SIZE_PREFIX_LEN))) {
-			free(buf->mem);
-			return -ENOMEM;
-		}
-		iov[0].iov_len = MSG_SIZE_PREFIX_LEN;
+	if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(MSG_SIZE_PREFIX_LEN))) {
+		free(buf->mem);
+		return -ENOMEM;
 	}
 
-	buf->stat.allocated = needed;
+	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
+		((struct iovec *) buf->mem)[0].iov_len = MSG_SIZE_PREFIX_LEN;
+
 	return 0;
 }
 
@@ -62,33 +89,6 @@ int _buffer_vector_destroy(struct buffer *buf)
 	}
 
 	free(buf->mem);
-	return 0;
-}
-
-static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
-{
-	void *p;
-	size_t align;
-	size_t alloc_step;
-
-	if (!force) {
-		if (buf->stat.allocated >= needed)
-			return 0;
-
-		if (!(alloc_step = buf->stat.alloc_step))
-			return -ENOMEM;
-	} else
-		alloc_step = 1;
-
-	if ((align = (needed % alloc_step)))
-		needed += alloc_step - align;
-
-	if (!(p = realloc(buf->mem, needed * VECTOR_ITEM_SIZE)))
-		return -errno;
-
-	buf->mem = p;
-	buf->stat.allocated = needed;
-
 	return 0;
 }
 
