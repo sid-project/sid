@@ -68,13 +68,14 @@ static int _buffer_vector_create(struct buffer *buf)
 	if ((r = _buffer_vector_realloc(buf, needed, 1)) < 0)
 		return r;
 
-	if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(MSG_SIZE_PREFIX_LEN))) {
-		free(buf->mem);
-		return -ENOMEM;
-	}
+	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX) {
+		if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(MSG_SIZE_PREFIX_LEN))) {
+			free(buf->mem);
+			return -ENOMEM;
+		}
 
-	if (buf->stat.mode == BUFFER_MODE_SIZE_PREFIX)
 		((struct iovec *) buf->mem)[0].iov_len = MSG_SIZE_PREFIX_LEN;
+	}
 
 	return 0;
 }
