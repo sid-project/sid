@@ -57,7 +57,7 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 
 		case BUFFER_BACKEND_MEMFD:
 			if (buf->fd == -1 &&
-			    (buf->fd = memfd_create("buffer", MFD_CLOEXEC)) < 0)
+			    (buf->fd = memfd_create("buffer", MFD_CLOEXEC | MFD_ALLOW_SEALING)) < 0)
 				return -errno;
 
 			if (ftruncate(buf->fd, needed) < 0)
