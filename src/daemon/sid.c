@@ -38,8 +38,6 @@
 
 #define KEY_VERBOSE "VERBOSE"
 
-static volatile sig_atomic_t _shutdown_requested = 0;
-
 static void _help(FILE *f)
 {
 	fprintf(f, "Usage: sid [options]\n"
@@ -60,34 +58,19 @@ static void _version(FILE *f)
 	        SID_COMPILATION_HOST, SID_COMPILER);
 }
 
-static void _shutdown_signal_handler(int sig __attribute__((unused)))
-{
-	_shutdown_requested = 1;
-}
 
 static void _become_daemon()
 {
-	pid_t pid = 0;
-	int child_status;
-	struct timeval tval;
 	int fd;
 
-	signal(SIGTERM, &_shutdown_signal_handler);
-
-	if ((pid = fork()) < 0) {
-		log_error_errno(LOG_PREFIX, errno, "Failed to fork daemon");
-		exit(EXIT_FAILURE);
-	}
-
-	if (pid > 0) {
-		log_debug(LOG_PREFIX, "Forked SID with pid=%d", pid);
-		while (!waitpid(pid, &child_status, WNOHANG) && !_shutdown_requested) {
-			tval.tv_sec = 1;
-			tval.tv_usec = 0;
-			select(0, NULL, NULL, NULL, &tval);
-		}
-
-		exit(_shutdown_requested ? EXIT_SUCCESS : WEXITSTATUS(child_status));
+	switch (fork()) {
+		case -1:
+			log_error_errno(LOG_PREFIX, errno, "Failed to fork daemon");
+			exit(EXIT_FAILURE);
+		case 0:
+			break;
+		default:
+			exit(EXIT_SUCCESS);
 	}
 
 	if (!setsid()) {
@@ -122,8 +105,6 @@ static void _become_daemon()
 
 	umask(SID_DEFAULT_UMASK);
 
-	if (kill(getppid(), SIGTERM) < 0)
-		log_error_errno(LOG_PREFIX, errno, "Failed to send SIGTERM signal to parent");
 }
 
 static sid_resource_service_link_def_t service_link_defs[] = {{
