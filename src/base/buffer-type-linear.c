@@ -17,13 +17,15 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "buffer-type.h"
+#include "base/common.h"
 
 #include "base/mem.h"
+#include "buffer-type.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
@@ -47,8 +49,40 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 	if (buf->stat.init.limit && needed > buf->stat.init.limit)
 		return -EOVERFLOW;
 
-	if (!(p = realloc(buf->mem, needed)))
-		return -errno;
+	switch (buf->stat.spec.backend) {
+		case BUFFER_BACKEND_MALLOC:
+			if (!(p = realloc(buf->mem, needed)))
+				return -errno;
+			break;
+
+		case BUFFER_BACKEND_MEMFD:
+			if (buf->fd == -1 &&
+			    (buf->fd = memfd_create("buffer", MFD_CLOEXEC)) < 0)
+				return -errno;
+
+			if (ftruncate(buf->fd, needed) < 0)
+				return -errno;
+
+			if (needed > 0) {
+				if (buf->mem)
+					p = mremap(buf->mem, buf->stat.usage.allocated, needed, MREMAP_MAYMOVE);
+				else
+					p = mmap(NULL, needed, PROT_READ | PROT_WRITE, MAP_SHARED, buf->fd, 0);
+
+				if (p == MAP_FAILED)
+					return -errno;
+			} else {
+				if (buf->stat.usage.allocated > 0) {
+					if (munmap(buf->mem, buf->stat.usage.allocated) < 0)
+						return -errno;
+				}
+				p = NULL;
+			}
+			break;
+
+		default:
+			return -ENOTSUP;
+	}
 
 	buf->mem = p;
 	buf->stat.usage.allocated = needed;
@@ -59,17 +93,39 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 static int _buffer_linear_create(struct buffer *buf)
 {
 	size_t needed = buf->stat.init.size;
+	int r;
 
 	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		needed += MSG_SIZE_PREFIX_LEN;
 
-	return _buffer_linear_realloc(buf, needed, 1);
+	if ((r = _buffer_linear_realloc(buf, needed, 1)) < 0) {
+		if (buf->fd > -1)
+			(void) close(buf->fd);
+	}
+
+	return r;
 }
 
 static int _buffer_linear_destroy(struct buffer *buf)
 {
-	free(buf->mem);
-	return 0;
+	int r;
+
+	switch (buf->stat.spec.backend) {
+		case BUFFER_BACKEND_MALLOC:
+			free(buf->mem);
+			r = 0;
+			break;
+
+		case BUFFER_BACKEND_MEMFD:
+			(void) close(buf->fd);
+			r = munmap(buf->mem, buf->stat.usage.allocated);
+			break;
+
+		default:
+			r = -ENOTSUP;
+	}
+
+	return r;
 }
 
 static int _buffer_linear_reset(struct buffer *buf)
