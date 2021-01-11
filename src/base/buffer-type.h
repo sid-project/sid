@@ -27,6 +27,7 @@
 struct buffer{
 	struct buffer_stat stat;
 	void *mem;
+	int fd;
 };
 
 struct buffer_type {

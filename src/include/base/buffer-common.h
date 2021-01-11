@@ -34,6 +34,7 @@ extern "C" {
 
 typedef enum {
 	BUFFER_BACKEND_MALLOC,
+	BUFFER_BACKEND_MEMFD,
 } buffer_backend_t;
 
 typedef enum {

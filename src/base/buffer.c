@@ -47,7 +47,7 @@ struct buffer *buffer_create(struct buffer_spec *spec, struct buffer_init *init,
 	struct buffer *buf;
 	int r = 0;
 
-	if (!(buf = mem_zalloc(sizeof(*buf)))) {
+	if (!(buf = malloc(sizeof(*buf)))) {
 		r = -ENOMEM;
 		goto out;
 	}
@@ -57,6 +57,9 @@ struct buffer *buffer_create(struct buffer_spec *spec, struct buffer_init *init,
 		.init = *init,
 		.usage = (struct buffer_usage) {0},
 	};
+
+	buf->mem = NULL;
+	buf->fd = -1;
 
 	if (!_check_buf(buf)) {
 		r = -EINVAL;
@@ -155,6 +158,11 @@ bool buffer_is_complete(struct buffer *buf, int *ret_code)
 int buffer_get_data(struct buffer *buf, const void **data, size_t *data_size)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->get_data(buf, data, data_size);
+}
+
+int buffer_get_fd(struct buffer *buf)
+{
+	return buf->fd;
 }
 
 ssize_t buffer_read(struct buffer *buf, int fd)
