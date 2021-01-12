@@ -693,23 +693,8 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			if (worker_control->init_cb_spec.cb)
 				(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
 
-			/*
-			 * FIXME: There seems to be a problem with a short period of time when we
-			 *        have two event loops with SIGTERM signal handler registered for
-			 *        both event loops (the one we inherited from daemon process inside
-			 *        "sid" resource and the other one we've just registered for the
-			 *        "worker" resource here with sid_resource_create call above.
-			 *        If we destroy the "sid" resource here, the SIGTERM handling
-			 *        does not work anymore - the handler is not called. It seems that
-			 *        removing the signal handler from one event loop affects the other.
-			 *        See also https://github.com/sid-project/sid/issues/33.
-			 *
-			 *        For now, we just comment out the sid_resource_destroy which
-			 *        destroys the unneeded and inherited "sid" resource from parent
-			 *        daemon process. But we should fix this correctly and we should
-			 *        know why this is causing problems!
-			 */
-			/*(void) sid_resource_destroy(sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));*/
+			/* destroy the unneeded and inherited "sid" resource from parent */
+			(void) sid_resource_destroy(sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 		} else {
 			/*
 			 * WORKER_TYPE_EXTERNAL
