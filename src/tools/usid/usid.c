@@ -26,6 +26,7 @@
 
 #include <getopt.h>
 #include <inttypes.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/sysmacros.h>
@@ -280,6 +281,29 @@ static int _usid_cmd_version(struct args *args)
 	return r;
 }
 
+static int _init_usid()
+{
+	sigset_t sig_set;
+
+	if (sigemptyset(&sig_set) < 0) {
+		log_error(LOG_PREFIX, "sigemptyset failed");
+		goto fail;
+	}
+
+	if (sigaddset(&sig_set, SIGPIPE) < 0) {
+		log_error(LOG_PREFIX,"siggaddset failed");
+		goto fail;
+	}
+
+	if (sigprocmask(SIG_BLOCK, &sig_set, NULL) < 0) {
+		log_error(LOG_PREFIX,"sigprocmask", "");
+		goto fail;
+	}
+
+	return 0;
+fail:
+	return -1;
+}
 static void _help(FILE *f)
 {
 	fprintf(f, "Usage: usid [-h|--help] [-v|--verbose] [-V|--version] [command] [arguments]\n"
@@ -334,6 +358,11 @@ int main(int argc, char *argv[])
 	int verbose = 0;
 	struct args subcmd_args;
 	int r = -1;
+
+	if (_init_usid()) {
+		log_error(LOG_PREFIX,"_init_usid failed");
+		return EXIT_FAILURE;
+	}
 
 	struct option longopts[] = {
 		{ "help",       0, NULL, 'h'},
