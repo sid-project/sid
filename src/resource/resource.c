@@ -886,8 +886,10 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 
 int sid_resource_exit_event_loop(sid_resource_t *res)
 {
-	if (!res->sd_event_loop)
+	if (!res->sd_event_loop) {
+		log_debug(res->id, "sid_resource_exit_event_loop call with NULL event loop.");
 		return -ENOMEDIUM;
+	}
 
 	return sd_event_exit(res->sd_event_loop, 0);
 }
