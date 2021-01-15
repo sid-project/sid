@@ -286,17 +286,17 @@ static int _init_usid()
 	sigset_t sig_set;
 
 	if (sigemptyset(&sig_set) < 0) {
-		log_error(LOG_PREFIX, "sigemptyset failed");
+		log_error_errno(LOG_PREFIX, errno, "sigemptyset failed");
 		goto fail;
 	}
 
 	if (sigaddset(&sig_set, SIGPIPE) < 0) {
-		log_error(LOG_PREFIX,"siggaddset failed");
+		log_error_errno(LOG_PREFIX, errno, "siggaddset failed");
 		goto fail;
 	}
 
 	if (sigprocmask(SIG_BLOCK, &sig_set, NULL) < 0) {
-		log_error(LOG_PREFIX,"sigprocmask", "");
+		log_error_errno(LOG_PREFIX, errno, "sigprocmask failed");
 		goto fail;
 	}
 
