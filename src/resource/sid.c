@@ -24,10 +24,14 @@
 
 #define SID_NAME "sid"
 
-static int _sid_signal_handler(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *data)
+static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *arg)
 {
+	sid_resource_t *res = arg;
+
 	switch (si->ssi_signo) {
+		case SIGTERM:
 		case SIGINT:
+			sid_resource_exit_event_loop(res);
 			break;
 		case SIGPIPE:
 			break;
@@ -38,12 +42,8 @@ static int _sid_signal_handler(sid_resource_event_source_t *es, const struct sig
 		default:
 			break;
 	};
-}
 
-static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *arg)
-{
-	sid_resource_t *res = arg;
-	sid_resource_exit_event_loop(res);
+	return 0;
 }
 
 static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **data)
@@ -70,10 +70,10 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 	}
 
 	if (sid_resource_create_signal_event_source(res, NULL, SIGTERM, _on_sid_signal_event, 0, "sigterm", res) < 0 ||
-	    sid_resource_create_signal_event_source(res, NULL, SIGINT, _sid_signal_handler, 0, "sigint", NULL) < 0 ||
-	    sid_resource_create_signal_event_source(res, NULL, SIGPIPE,_sid_signal_handler, 0, "sigpipe", NULL) < 0 ||
-	    sid_resource_create_signal_event_source(res, NULL, SIGHUP, _sid_signal_handler, 0, "sighup", NULL) < 0 ||
-	    sid_resource_create_signal_event_source(res, NULL, SIGCHLD, _sid_signal_handler, 0, "sigchld", NULL) < 0) {
+	    sid_resource_create_signal_event_source(res, NULL, SIGINT, _on_sid_signal_event, 0, "sigint", res) < 0 ||
+	    sid_resource_create_signal_event_source(res, NULL, SIGPIPE,_on_sid_signal_event, 0, "sigpipe", res) < 0 ||
+	    sid_resource_create_signal_event_source(res, NULL, SIGHUP, _on_sid_signal_event, 0, "sighup", res) < 0 ||
+	    sid_resource_create_signal_event_source(res, NULL, SIGCHLD, _on_sid_signal_event, 0, "sigchld", res) < 0) {
 		log_error(ID(res), "Failed to create signal handlers.");
 		goto fail;
 	}
