@@ -1106,47 +1106,67 @@ static int _destroy_worker(sid_resource_t *worker_res)
 	return 0;
 }
 
+static int _set_channel_specs(struct worker_control *worker_control, const struct worker_channel_spec *channel_specs)
+{
+	const struct worker_channel_spec *spec;
+	unsigned spec_count;
+	size_t ids_size;
+	char *p;
+	unsigned i;
+	int r;
+
+	for (spec = channel_specs, ids_size = 0, spec_count = 0; spec->wire.type != WORKER_WIRE_NONE; spec++) {
+		if (!spec->id || !*spec->id) {
+			r = -EINVAL;
+			goto fail;
+		}
+
+		ids_size += strlen(spec->id) + 1; /* +1 to include '\0' at the end of each string! */
+		spec_count++;
+	}
+
+	/* Allocate overall memory to keep deep copy of all specs, including each spec.id. */
+	if (!(worker_control->channel_specs = malloc(spec_count * sizeof(struct worker_channel_spec) + ids_size))) {
+		r = -ENOMEM;
+		goto fail;
+	}
+
+	for (i = 0, p = (char *) worker_control->channel_specs + spec_count * sizeof(struct worker_channel_spec); i < spec_count; i++) {
+		worker_control->channel_specs[i] = channel_specs[i];
+		worker_control->channel_specs[i].id = p;
+		p = stpcpy(p, channel_specs[i].id) + 1;
+	}
+
+	worker_control->channel_spec_count = spec_count;
+	return 0;
+fail:
+	worker_control->channel_specs = mem_freen(worker_control->channel_specs);
+	return -1;
+}
+
 static int _init_worker_control(sid_resource_t *worker_control_res, const void *kickstart_data, void **data)
 {
 	const struct worker_control_resource_params *params = kickstart_data;
 	struct worker_control *worker_control;
-	const struct worker_channel_spec *channel_spec;
-	unsigned i, channel_spec_count = 0;
+	int r;
 
 	if (!(worker_control = mem_zalloc(sizeof(*worker_control)))) {
 		log_error(ID(worker_control_res), "Failed to allocate memory for worker control structure.");
 		goto fail;
 	}
 
-	worker_control->worker_type = params->worker_type;
-
-	for (channel_spec = params->channel_specs; channel_spec->wire.type != WORKER_WIRE_NONE; channel_spec++) {
-		if (!channel_spec->id || !*channel_spec->id) {
-			log_error(ID(worker_control_res), "Found channel specification without ID set.");
-			goto fail;
-		}
-
-		channel_spec_count++;
-	}
-
-	if (!(worker_control->channel_specs = mem_zalloc(channel_spec_count * sizeof(struct worker_channel_spec)))) {
-		log_error(ID(worker_control_res), "Failed to allocate memory for channel specifications.");
+	if ((r = _set_channel_specs(worker_control, params->channel_specs)) < 0) {
+		log_error_errno(ID(worker_control_res), r, "Failed to set channel specs while initializing worker control.");
 		goto fail;
 	}
 
-	for (i = 0; i < channel_spec_count; i++)
-		worker_control->channel_specs[i] = params->channel_specs[i];
-
+	worker_control->worker_type = params->worker_type;
 	worker_control->init_cb_spec = params->init_cb_spec;
-	worker_control->channel_spec_count = channel_spec_count;
 
 	*data = worker_control;
 	return 0;
 fail:
-	if (worker_control) {
-		free(worker_control->channel_specs);
-		free(worker_control);
-	}
+	free(worker_control);
 	return -1;
 }
 
