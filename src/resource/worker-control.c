@@ -78,6 +78,7 @@ struct worker_channel {
 struct worker_kickstart {
 	worker_type_t type;
 	pid_t pid;
+	struct worker_channel_spec *channel_specs;
 	struct worker_channel *channels;
 	unsigned channel_count;
 };
@@ -92,6 +93,7 @@ struct worker_proxy {
 };
 
 struct worker {
+	struct worker_channel_spec *channel_specs;
 	struct worker_channel *channels;              /* NULL-terminated array of worker --> worker_proxy channels */
 	unsigned channel_count;
 };
@@ -677,6 +679,17 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 			kickstart.channels = worker_channels;
 			kickstart.channel_count = worker_control->channel_spec_count;
 
+			/*
+			 * We are going to destroy the worker_control so hand over the reference
+			 * to channel_specs from worker_control to worker.
+			 *
+			 * We need to do this because worker->channels reference the specs and
+			 * after destroying the worker_control we'd be left with incorrect
+			 * references to already freed specs.
+			 */
+			kickstart.channel_specs = worker_control->channel_specs;
+			worker_control->channel_specs = NULL;
+
 			if (!(id = params->id)) {
 				(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
 				id = gen_id;
@@ -1077,6 +1090,7 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 		goto fail;
 	}
 
+	worker->channel_specs = kickstart->channel_specs;
 	worker->channels = kickstart->channels;
 	worker->channel_count = kickstart->channel_count;
 
@@ -1101,6 +1115,7 @@ static int _destroy_worker(sid_resource_t *worker_res)
 	struct worker *worker = sid_resource_get_data(worker_res);
 
 	_destroy_channels(worker->channels, worker->channel_count);
+	free(worker->channel_specs);
 	free(worker);
 
 	return 0;
