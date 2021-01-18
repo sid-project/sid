@@ -4157,7 +4157,6 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 
 	if (!(internal_res = sid_resource_create(res,
 	                                         &sid_resource_type_aggregate,
-	                                         SID_RESOURCE_RESTRICT_WALK_UP |
 	                                         SID_RESOURCE_RESTRICT_WALK_DOWN |
 	                                         SID_RESOURCE_DISALLOW_ISOLATION,
 	                                         INTERNAL_AGGREGATE_ID,
