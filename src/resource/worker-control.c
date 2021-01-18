@@ -707,7 +707,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 				(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
 
 			/* destroy the unneeded and inherited "sid" resource from parent */
-			(void) sid_resource_destroy(sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
+			(void) sid_resource_unref(sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 		} else {
 			/*
 			 * WORKER_TYPE_EXTERNAL
