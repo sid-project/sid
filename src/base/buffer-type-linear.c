@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/sendfile.h>
 #include <unistd.h>
 
 static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
@@ -330,6 +331,7 @@ static ssize_t _buffer_linear_read(struct buffer *buf, int fd)
 static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 {
 	ssize_t n;
+	off_t offset;
 
 	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		*((MSG_SIZE_PREFIX_TYPE *) buf->mem) = (MSG_SIZE_PREFIX_TYPE) buf->stat.usage.used;
@@ -340,7 +342,19 @@ static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 	if (pos > buf->stat.usage.used)
 		return -ERANGE;
 
-	n = write(fd, buf->mem + pos, buf->stat.usage.used - pos);
+	switch (buf->stat.spec.backend) {
+		case BUFFER_BACKEND_MALLOC:
+			n = write(fd, buf->mem + pos, buf->stat.usage.used - pos);
+			break;
+
+		case BUFFER_BACKEND_MEMFD:
+			offset = pos;
+			n = sendfile(fd, buf->fd, &offset, buf->stat.usage.used - pos);
+			break;
+
+		default:
+			return -ENOTSUP;
+	}
 
 	if (n < 0)
 		n = -errno;
