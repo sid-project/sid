@@ -333,14 +333,14 @@ static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 	ssize_t n;
 	off_t offset;
 
-	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
-		*((MSG_SIZE_PREFIX_TYPE *) buf->mem) = (MSG_SIZE_PREFIX_TYPE) buf->stat.usage.used;
-
 	if (pos == buf->stat.usage.used)
 		return -ENODATA;
 
 	if (pos > buf->stat.usage.used)
 		return -ERANGE;
+
+	if ((pos < MSG_SIZE_PREFIX_LEN) && (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX))
+		*((MSG_SIZE_PREFIX_TYPE *) buf->mem) = (MSG_SIZE_PREFIX_TYPE) buf->stat.usage.used;
 
 	switch (buf->stat.spec.backend) {
 		case BUFFER_BACKEND_MALLOC:
