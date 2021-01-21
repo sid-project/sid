@@ -298,12 +298,6 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 	size_t save_len, start_off = pos;
 	ssize_t n;
 
-	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX) {
-		for (i = 0; i < buf->stat.usage.used; i++)
-			size_prefix += iov[i].iov_len;
-		*((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
-	}
-
 	i = 0;
 	if (pos) {
 		for ( ; i < buf->stat.usage.used; i++) {
@@ -323,6 +317,12 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 			return -ENODATA;
 		else
 			return -ERANGE;
+	}
+
+	if ((pos == 0) && (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)) {
+		for (i = 0; i < buf->stat.usage.used; i++)
+			size_prefix += iov[i].iov_len;
+		*((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
 	}
 
 	/*
