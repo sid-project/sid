@@ -328,6 +328,12 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 			return -ERANGE;
 	}
 
+	/*
+	 * Be aware that if we have BUFFER_BACKEND_MEMFD, we still have
+	 * to use writev and not the sendfile. This is because the buf->fd
+	 * only represents the memfd that stores the vector itself, but not
+	 * the contents of the memory that each iov.base points to!
+	 */
 	n = writev(fd, &iov[start_idx], buf->stat.usage.used - start_idx);
 	if (pos) {
 		iov[start_idx].iov_base = save_base;
