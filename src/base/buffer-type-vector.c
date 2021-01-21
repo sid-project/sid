@@ -298,9 +298,6 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 	size_t save_len, start_off = pos;
 	ssize_t n;
 
-	if (pos < 0)
-		return -ERANGE;
-
 	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX) {
 		for (i = 0; i < buf->stat.usage.used; i++)
 			size_prefix += iov[i].iov_len;
