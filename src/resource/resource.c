@@ -75,6 +75,8 @@ static int _create_event_source(sid_resource_t *res, const char *name, sd_event_
 	new_es->sd_es = sd_es;
 	new_es->handler = handler;
 	new_es->data = data;
+	new_es->list.n = new_es;
+	new_es->list.p = new_es;
 
 	sd_event_source_set_userdata(sd_es, new_es);
 	if (name)
@@ -83,7 +85,7 @@ static int _create_event_source(sid_resource_t *res, const char *name, sd_event_
 		name = "unnamed";
 
 	log_debug(res->id, "Event source created: %s.", name);
-
+	list_init(&res->event_sources);
 	list_add(&res->event_sources, &new_es->list);
 out:
 	if (r < 0)
