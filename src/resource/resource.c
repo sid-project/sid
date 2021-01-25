@@ -110,8 +110,6 @@ out:
 
 static void _destroy_event_source(sid_resource_event_source_t *es)
 {
-	const char *name;
-
 	log_debug(es->res->id, "Event source removed: %s.", es->name);
 
 	sd_event_source_unref(es->sd_es);
