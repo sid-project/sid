@@ -101,7 +101,7 @@ const sid_resource_type_t sid_resource_type_ubridge_connection;
 const sid_resource_type_t sid_resource_type_ubridge_command;
 
 struct sid_ucmd_mod_ctx {
-	sid_resource_t *kv_store_res;          /* KV store master or snapshot */
+	sid_resource_t *kv_store_res;          /* KV store main or snapshot */
 	sid_resource_t *modules_res;           /* top-level resource for all ucmd module registries */
 	struct buffer *gen_buf;                /* generic buffer */
 };
@@ -2333,7 +2333,7 @@ fail:
  *
  *     - several possible updates done to snapshot database
  *       before we do final synchronization of this snapshot database
- *       with master database.
+ *       with main database.
  *
  *   Here, by RECIPROCAL UPDATES we mean:
  *
@@ -3155,14 +3155,14 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	int r = -1;
 
 	/*
-	 * Export key-value store to udev or for sync with master kv store.
+	 * Export key-value store to udev or for sync with main kv store.
 	 *
 	 * For udev, we append key=value pairs to the output buffer that is sent back
 	 * to udev as result of "usid scan" command.
 	 *
 	 * For others, we serialize the temp key-value store to an anonymous file in memory
 	 * created by memfd_create. Then we pass the file FD over to worker proxy that reads
-	 * it and it updates the "master" key-value store.
+	 * it and it updates the "main" key-value store.
 	 *
 	 * We only send key=value pairs which are marked with KV_PERSISTENT flag.
 	 */
@@ -3223,7 +3223,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		}
 
 		/*
-		 * Export keys with data to master process.
+		 * Export keys with data to main process.
 		 *
 		 * Serialization format fields:
 		 *
@@ -3612,7 +3612,7 @@ static int _destroy_command(sid_resource_t *res)
 	return 0;
 }
 
-static int _master_kv_store_unset(const char *full_key, struct kv_store_update_spec *spec, void *arg)
+static int _main_kv_store_unset(const char *full_key, struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
 	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
@@ -3634,7 +3634,7 @@ static int _master_kv_store_unset(const char *full_key, struct kv_store_update_s
 	return 1;
 }
 
-static int _master_kv_store_update(const char *full_key, struct kv_store_update_spec *spec, void *arg)
+static int _main_kv_store_update(const char *full_key, struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
 	struct kv_rel_spec *rel_spec = update_arg->custom;
@@ -3668,9 +3668,9 @@ static int _master_kv_store_update(const char *full_key, struct kv_store_update_
 	return r;
 }
 
-static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t *internal_ubridge_res, int fd)
+static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t *internal_ubridge_res, int fd)
 {
-	static const char syncing_msg[] = "Syncing master key-value store:  %s = %s (seqnum %" PRIu64 ")";
+	static const char syncing_msg[] = "Syncing main key-value store:  %s = %s (seqnum %" PRIu64 ")";
 	struct ubridge *ubridge = sid_resource_get_data(internal_ubridge_res);
 	sid_resource_t *kv_store_res;
 	kv_store_value_flags_t flags;
@@ -3733,13 +3733,13 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 
 		if (flags & KV_STORE_VALUE_VECTOR) {
 			if (data_size < KV_VALUE_IDX_DATA) {
-				log_error(ID(worker_proxy_res), "Received incorrect vector of size %zu to sync with master key-value store.",
+				log_error(ID(worker_proxy_res), "Received incorrect vector of size %zu to sync with main key-value store.",
 				          data_size);
 				goto out;
 			}
 
 			if (!(iov = malloc(data_size * sizeof(struct iovec)))) {
-				log_error(ID(worker_proxy_res), "Failed to allocate vector to sync master key-value store.");
+				log_error(ID(worker_proxy_res), "Failed to allocate vector to sync main key-value store.");
 				goto out;
 			}
 
@@ -3772,14 +3772,14 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 					break;
 				case KV_OP_ILLEGAL:
 					log_error(ID(worker_proxy_res), INTERNAL_ERROR
-					          "Illegal operator found for key %s while trying to sync master key-value store.", full_key);
+					          "Illegal operator found for key %s while trying to sync main key-value store.", full_key);
 					goto out;
 			}
 
 			data_to_store = iov;
 		} else {
 			if (data_size <= sizeof(struct kv_value)) {
-				log_error(ID(worker_proxy_res), "Received incorrect value of size %zu to sync with master key-value store.",
+				log_error(ID(worker_proxy_res), "Received incorrect value of size %zu to sync with main key-value store.",
 				          data_size);
 				goto out;
 			}
@@ -3808,7 +3808,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 		if (unset)
 			kv_store_unset_value(kv_store_res,
 			                     full_key,
-			                     _master_kv_store_unset,
+			                     _main_kv_store_unset,
 			                     &update_arg);
 		else
 			kv_store_set_value(kv_store_res,
@@ -3817,7 +3817,7 @@ static int _sync_master_kv_store(sid_resource_t *worker_proxy_res, sid_resource_
 			                   data_size,
 			                   flags,
 			                   KV_STORE_VALUE_NO_OP,
-			                   _master_kv_store_update,
+			                   _main_kv_store_update,
 			                   &update_arg);
 
 		_destroy_delta(rel_spec.delta);
@@ -3845,7 +3845,7 @@ static int _worker_proxy_recv_fn(sid_resource_t *worker_proxy_res, struct worker
 	int r;
 
 	if (data_spec->ext.used) {
-		r = _sync_master_kv_store(worker_proxy_res, internal_ubridge_res, data_spec->ext.socket.fd_pass);
+		r = _sync_main_kv_store(worker_proxy_res, internal_ubridge_res, data_spec->ext.socket.fd_pass);
 		close(data_spec->ext.socket.fd_pass);
 	} else {
 		log_error(ID(worker_proxy_res), "Received response from worker, but database synchronization handle missing.");

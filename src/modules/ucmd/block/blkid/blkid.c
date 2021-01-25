@@ -115,7 +115,7 @@ static int _blkid_exit(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_
 	log_debug(MID, "exit");
 
 	/*
-	 * 	TODO: Do not unreserve KVs in worker if we have modules preloaded in master process.
+	 * 	TODO: Do not unreserve KVs in worker if we have modules preloaded in main process.
 		for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
 			if (sid_ucmd_mod_unreserve_kv(module, ucmd_mod_ctx, KV_NS_UDEV, keys[i]) < 0) {
 				log_error("Failed to unreserve blkid udev key %s.", keys[i]);
