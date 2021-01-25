@@ -39,7 +39,7 @@ static int _dm_mpath_init(struct module *module, struct sid_ucmd_mod_ctx *ucmd_m
 {
 	log_debug(MID, "init");
 	/* TODO - set up dm/udev logging */
-	if (mpathvalid_init(-1, MPATH_LOG_STDIO)) {
+	if (mpathvalid_init(MPATH_LOG_PRIO_NOLOG, MPATH_LOG_STDERR)) {
 		log_error(MID, "failed to initialize mpathvalid");
 		return -1;
 	}
