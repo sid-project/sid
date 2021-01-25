@@ -56,6 +56,7 @@ typedef struct sid_resource_event_source {
 	struct list list;
 	sid_resource_t *res;
 	sd_event_source *sd_es;
+	const char *name;
 	void *handler;
 	void *data;
 } sid_resource_event_source_t;
@@ -63,6 +64,7 @@ typedef struct sid_resource_event_source {
 static int _create_event_source(sid_resource_t *res, const char *name, sd_event_source *sd_es,
                                 void *handler, void *data, sid_resource_event_source_t **es)
 {
+	static const char unnamed[] = "unnamed";
 	sid_resource_event_source_t *new_es;
 	int r = 0;
 
@@ -77,10 +79,22 @@ static int _create_event_source(sid_resource_t *res, const char *name, sd_event_
 	new_es->data = data;
 
 	sd_event_source_set_userdata(sd_es, new_es);
-	if (name)
-		(void) sd_event_source_set_description(sd_es, name);
-	else
-		name = "unnamed";
+	if (name) {
+		/*
+		 * A little workaround here...
+		 *
+		 * Set the name in sd-event, then get the name as stored there and
+		 * reference it in new_es->name. This way, we can still put the name
+		 * in logs even after the PID has changed (after forking) - in this
+		 * case the sd-event API functions would exit immediately,
+		 * including sd_event_source_get_description we might want to use
+		 * in a process with that different PID.
+		 */
+		if (sd_event_source_set_description(sd_es, name) < 0 ||
+		    sd_event_source_get_description(sd_es, &new_es->name) < 0)
+			name = new_es->name = unnamed;
+	} else
+		name = unnamed;
 
 	log_debug(res->id, "Event source created: %s.", name);
 
@@ -98,17 +112,7 @@ static void _destroy_event_source(sid_resource_event_source_t *es)
 {
 	const char *name;
 
-	/* FIXME: When destroying event source in a different process than the one
-	 *        where it was created, systemd return with -ECHLD failure here because
-	 *        it doesn't allow access to event sources if PIDs of creation and use
-	 *        differ. However, systemd allows unref for the event source at least.
-	 *        Maybe just save the event name in our sid_resource_event_source_t
-	 *        structure and don't bother with systemd here...
-	 */
-	if (sd_event_source_get_description(es->sd_es, &name) < 0)
-		name = "unknown";
-
-	log_debug(es->res->id, "Event source removed: %s.", name);
+	log_debug(es->res->id, "Event source removed: %s.", es->name);
 
 	sd_event_source_unref(es->sd_es);
 	list_del(&es->list);
