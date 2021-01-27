@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.com/sid-project/sid.svg?branch=main)](https://travis-ci.com/sid-project/sid)
 
 
-# Storage Instantiation Daemon
+# Storage Instantiation Daemon - SID
 
 Storage Instantiation Daemon (SID) is a project that aims to help with
 Linux storage device state tracking that encompasses device layers,
