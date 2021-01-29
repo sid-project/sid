@@ -10,6 +10,9 @@
 ##############################################################################
 
 Name: sid
+%if 0%{?rhel}
+Epoch: %{rhel}
+%endif
 Version: 0.0.4
 Release: 1%{?scmsnap:.%{scmsnap}}%{?dist}
 Summary: Storage Instantiation Daemon (SID)
@@ -37,10 +40,10 @@ BuildRequires: device-mapper-multipath-devel >= 0.8.4-7
 
 Requires: systemd
 Requires: systemd-udev
-Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-tools = %{version}-%{release}
+Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-tools = %{?epoch}:%{version}-%{release}
 
 %description
 Storage Instantiation Daemon (SID) aims to help with Linux storage
@@ -117,7 +120,7 @@ handling and other helper functions.
 %package base-libs-devel
 Summary: Development files for Storage Instantiation Daemon (SID) base
 License: GPLv2+
-Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description base-libs-devel
 This package contains development files for Storage Instantiation Daemon (SID)
 base libraries.
@@ -163,7 +166,7 @@ Instantiation daemon (SID), its modules and related tools.
 %package log-libs-devel
 Summary: Development files for Storage Instantiation Daemon (SID) logging
 License: GPLv2+
-Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description log-libs-devel
 This package contains development files for Storage Instantiation Daemon (SID)
 logging libraries.
@@ -184,7 +187,7 @@ logging libraries.
 %package iface-libs
 Summary: Libraries for Storage Instantiation Daemon (SID) interfaces
 License: GPLv2+
-Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description iface-libs
 This package contains shared libraries to support interfaces used in Storage
 Instantiation Daemon (SID), its modules and related tools.
@@ -203,7 +206,7 @@ Instantiation Daemon (SID), its modules and related tools.
 %package iface-libs-devel
 Summary: Development files for Storage Instantiation Daemon (SID) interfaces
 License: GPLv2+
-Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-iface-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description iface-libs-devel
 This package contains development files for Storage Instantiation Daemon (SID)
 interface libraries.
@@ -226,9 +229,9 @@ interface libraries.
 %package resource-libs
 Summary: Libraries for Storage Instantiation Daemon (SID) resources
 License: GPLv2+
-Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-iface-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 # Systemd supports event loop since v221
 Requires: systemd-libs >= 221
 %description resource-libs
@@ -251,7 +254,7 @@ control, bridging SID core and udev and creating an instance of SID as a whole.
 %package resource-libs-devel
 Summary: Development files for Storage Instantiation Daemon (SID) resources
 License: GPLv2+
-Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description resource-libs-devel
 This package contains development files for Storage Instantiation Daemon (SID)
 resource libraries.
@@ -277,9 +280,9 @@ resource libraries.
 
 %package tools
 Summary: Storage Instantiation Daemon (SID) supporting tools
-Requires: %{name}-base-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-iface-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-iface-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: systemd-udev
 %description tools
 This package contains tools to support Storage Instantiation Daemon (SID).
@@ -296,8 +299,8 @@ This package contains tools to support Storage Instantiation Daemon (SID).
 ##############################################################################
 %package mod-dummies
 Summary: Dummy block and type module for Storage Instantiation Daemon (SID)
-Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description mod-dummies
 This package contains dummy block and type modules for Storage Instantiation
 Daemon (SID). Their only purpose is to test SID module functionality and hook
@@ -320,8 +323,8 @@ execution.
 
 %package mod-block-blkid
 Summary: Blkid block module for Storage Instantiation Daemon (SID)
-Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description mod-block-blkid
 This package contains blkid block module for Storage Instantiation Daemon (SID).
 
@@ -342,8 +345,8 @@ This package contains blkid block module for Storage Instantiation Daemon (SID).
 
 %package mod-block-dm-mpath
 Summary: Device-mapper multipath block module for Storage Instantiation Daemon (SID)
-Requires: %{name}-log-libs%{?_isa} = %{version}-%{release}
-Requires: %{name}-resource-libs%{?_isa} = %{version}-%{release}
+Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: device-mapper-multipath-libs >= 0.8.4-7
 %description mod-block-dm-mpath
 This package contains device-mapper multipath block module for Storage
