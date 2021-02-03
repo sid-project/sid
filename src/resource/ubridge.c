@@ -3889,11 +3889,16 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 	                                         &sid_resource_type_kv_store, MAIN_KV_STORE_NAME)))
 		return -ENOMEDIUM;
 
+	/* we take only inherited modules and kv_store for the worker */
 	(void) sid_resource_isolate_with_children(modules_res);
 	(void) sid_resource_isolate_with_children(kv_store_res);
 
 	(void) sid_resource_add_child(worker_res, modules_res, SID_RESOURCE_NO_FLAGS);
 	(void) sid_resource_add_child(worker_res, kv_store_res, SID_RESOURCE_RESTRICT_WALK_UP);
+
+
+	/* destroy the rest */
+	(void) sid_resource_unref(sid_resource_search(ubridge_internal_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
 	return 0;
 }
