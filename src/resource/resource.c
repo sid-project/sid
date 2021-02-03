@@ -463,12 +463,19 @@ int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_ev
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es = NULL;
+	sigset_t ss;
 	int r;
 
 	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
 		r = -ENOMEDIUM;
 		goto fail;
 	}
+
+	/* sd_event_add_signal requires the signal to be blocked before! */
+	if ((r = sigemptyset(&ss)) < 0 ||
+	    (r = sigaddset(&ss, signal)) < 0 ||
+	    (r = sigprocmask(SIG_BLOCK, &ss, NULL) < 0))
+		goto fail;
 
 	if ((r = sd_event_add_signal(res_event_loop->sd_event_loop, &sd_es, signal, handler ? _sd_signal_event_handler : NULL, NULL)) < 0)
 		goto fail;

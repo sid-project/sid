@@ -48,27 +48,6 @@ static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct si
 
 static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **data)
 {
-	sigset_t sig_set;
-
-	if (sigemptyset(&sig_set) < 0) {
-		log_sys_error(ID(res), "sigemptyset", "");
-		goto fail;
-	}
-
-	if (sigaddset(&sig_set, SIGTERM) < 0 ||
-	    sigaddset(&sig_set, SIGINT) < 0 ||
-	    sigaddset(&sig_set, SIGPIPE) < 0 ||
-	    sigaddset(&sig_set, SIGHUP) < 0 ||
-	    sigaddset(&sig_set, SIGCHLD) < 0) {
-		log_sys_error(ID(res), "siggaddset", "");
-		goto fail;
-	}
-
-	if (sigprocmask(SIG_BLOCK, &sig_set, NULL) < 0) {
-		log_sys_error(ID(res), "sigprocmask", "");
-		goto fail;
-	}
-
 	if (sid_resource_create_signal_event_source(res, NULL, SIGTERM, _on_sid_signal_event, 0, "sigterm", res) < 0 ||
 	    sid_resource_create_signal_event_source(res, NULL, SIGINT, _on_sid_signal_event, 0, "sigint", res) < 0 ||
 	    sid_resource_create_signal_event_source(res, NULL, SIGPIPE,_on_sid_signal_event, 0, "sigpipe", res) < 0 ||
