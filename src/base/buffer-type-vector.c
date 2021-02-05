@@ -302,8 +302,8 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 	struct iovec *iov = buf->mem;
 	MSG_SIZE_PREFIX_TYPE size_prefix = 0;
 	unsigned i, start_idx = 0;
-	void *save_base;
-	size_t save_len, start_off = pos;
+	void *save_base = NULL;
+	size_t save_len = 0, start_off = pos;
 	ssize_t n;
 
 	i = 0;
