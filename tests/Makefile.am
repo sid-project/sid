@@ -1,13 +1,17 @@
 if HAVE_CMOCKA
 check_PROGRAMS = \
 	test_buffer \
+	test_hash \
 	test_notify \
 	test_kv_store \
 	test_bitmap \
 	test_usid
+
 TESTS = $(check_PROGRAMS)
 test_buffer_SOURCES = test_buffer.c
 test_buffer_LDADD = $(top_builddir)/src/base/libsidbase.la -lcmocka
+test_hash_SOURCES = test_hash.c
+test_hash_LDADD = $(top_builddir)/src/base/libsidbase.la -lcmocka
 test_kv_store_SOURCES = test_kv_store.c
 test_kv_store_LDADD = \
 	$(top_builddir)/src/base/libsidbase.la \
