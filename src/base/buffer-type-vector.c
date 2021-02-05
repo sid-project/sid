@@ -68,12 +68,12 @@ static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
 			if (needed > 0) {
 				if (buf->mem)
 					p = mremap(buf->mem,
-						   buf->stat.usage.allocated * VECTOR_ITEM_SIZE,
-						   needed * VECTOR_ITEM_SIZE,
-						   MREMAP_MAYMOVE);
+					           buf->stat.usage.allocated * VECTOR_ITEM_SIZE,
+					           needed * VECTOR_ITEM_SIZE,
+					           MREMAP_MAYMOVE);
 				else
 					p = mmap(NULL, needed * VECTOR_ITEM_SIZE, PROT_READ | PROT_WRITE,
-						 MAP_SHARED, buf->fd, 0);
+					         MAP_SHARED, buf->fd, 0);
 
 				if (p == MAP_FAILED)
 					return -errno;
@@ -183,6 +183,12 @@ const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len, int *
 	size_t used = buf->stat.usage.used;
 	struct iovec *iov;
 	int r;
+
+	if (buf == NULL || buf->mem == NULL) {
+		if (ret_code)
+			*ret_code = EINVAL;
+		return NULL;
+	}
 
 	if (!used && buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		used = 1;
