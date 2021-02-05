@@ -226,7 +226,7 @@ static int _buffer_linear_rewind_mem(struct buffer *buf, const void *mem)
 
 static bool _buffer_linear_is_complete(struct buffer *buf, int *ret_code)
 {
-	bool result;
+	bool result = false;
 
 	switch (buf->stat.spec.mode) {
 		case BUFFER_MODE_PLAIN:
