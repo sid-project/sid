@@ -1153,7 +1153,7 @@ static int _set_channel_specs(struct worker_control *worker_control, const struc
 	return 0;
 fail:
 	worker_control->channel_specs = mem_freen(worker_control->channel_specs);
-	return -1;
+	return r;
 }
 
 static int _init_worker_control(sid_resource_t *worker_control_res, const void *kickstart_data, void **data)
