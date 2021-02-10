@@ -539,7 +539,10 @@ static int _setup_channel(sid_resource_t *owner, const char *alt_id, bool is_wor
 			}
 
 			if (chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
-				dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir);
+				if (dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir) < 0) {
+					log_error_errno(id, errno, "Failed to redirect FD %d through channel %s : WORKER_WIRE_SOCKET",
+					                chan->spec->wire.ext.pipe.fd_redir, chan->spec->id);
+				}
 				close(chan->fd);
 			}
 			break;
