@@ -3175,7 +3175,10 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	export_fd = memfd_create("kv_store_export", MFD_CLOEXEC);
 
 	/* Reserve space to write the overall data size. */
-	lseek(export_fd, sizeof(bytes_written), SEEK_SET);
+	if (lseek(export_fd, sizeof(bytes_written), SEEK_SET) < 0) {
+		log_error_errno(ID(cmd_res), errno, "lseek failed");
+		goto out;
+	};
 
 	// FIXME: maybe buffer first so there's only single write
 	while ((value = kv_store_iter_next(iter, &size, &flags))) {
@@ -3247,24 +3250,32 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		/* FIXME: Try to reduce the "write" calls. */
 		if ((r_wr = write(export_fd, &flags, sizeof(flags))) == sizeof(flags))
 			bytes_written += r_wr;
-		else
+		else {
+			log_error_errno(ID(cmd_res), errno, "write failed");
 			goto out;
+		}
 
 
 		if ((r_wr = write(export_fd, &key_size, sizeof(key_size))) == sizeof(key_size))
 			bytes_written += r_wr;
-		else
+		else {
+			log_error_errno(ID(cmd_res), errno, "write failed");
 			goto out;
+		}
 
 		if ((r_wr = write(export_fd, &size, sizeof(size))) == sizeof(size))
 			bytes_written += r_wr;
-		else
+		else {
+			log_error_errno(ID(cmd_res), errno, "write failed");
 			goto out;
+		}
 
 		if ((r_wr = write(export_fd, key, strlen(key) + 1)) == strlen(key) + 1)
 			bytes_written += r_wr;
-		else
+		else {
+			log_error_errno(ID(cmd_res), errno, "write failed");
 			goto out;
+		}
 
 		if (vector) {
 			for (i = 0, size = 0; i < iov_size; i++) {
@@ -3272,28 +3283,42 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 				if ((r_wr = write(export_fd, &iov[i].iov_len, sizeof(iov->iov_len))) == sizeof(iov->iov_len))
 					bytes_written += r_wr;
-				else
+				else {
+					log_error_errno(ID(cmd_res), errno, "write failed");
 					goto out;
+				}
 
 				if ((r_wr = write(export_fd, iov[i].iov_base, iov[i].iov_len)) == iov[i].iov_len)
 					bytes_written += r_wr;
-				else
+				else {
+					log_error_errno(ID(cmd_res), errno, "write failed");
 					goto out;
+				}
 			}
 		} else {
 			if ((r_wr = write(export_fd, kv_value, size)) == size)
 				bytes_written += r_wr;
-			else
+			else {
+				log_error_errno(ID(cmd_res), errno, "write failed");
 				goto out;
+			}
 		}
 
 
 	}
 
-	lseek(export_fd, 0, SEEK_SET);
-	if (write(export_fd, &bytes_written, sizeof(bytes_written)) < 0)
+	if (lseek(export_fd, 0, SEEK_SET) < 0) {
+		log_error_errno(ID(cmd_res), errno, "lseek failed");
 		goto out;
-	lseek(export_fd, 0, SEEK_SET);
+	}
+	if (write(export_fd, &bytes_written, sizeof(bytes_written)) < 0) {
+		log_error_errno(ID(cmd_res), errno, "write failed");
+		goto out;
+	}
+	if (lseek(export_fd, 0, SEEK_SET) < 0) {
+		log_error_errno(ID(cmd_res), errno, "lseek failed");
+		goto out;
+	}
 
 	data_spec.data = NULL;
 	data_spec.data_size = 0;
