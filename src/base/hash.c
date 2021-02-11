@@ -2,7 +2,7 @@
  * This file is part of SID.
  *
  * Copyright (C) 2001-2004 Sistina Software, Inc. All rights reserved.
- * Copyright (C) 2004-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2004-2021 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,9 +26,9 @@
 
 struct hash_node {
 	struct hash_node *next;
+	size_t data_len;
 	void *data;
-	unsigned data_len;
-	unsigned keylen;
+	unsigned key_len;
 	char key[];
 };
 
@@ -66,26 +66,29 @@ static unsigned char _nums[] = {
 	209
 };
 
-static struct hash_node *_create_node(const char *str, unsigned len)
+static struct hash_node *_create_node(const char *key, unsigned key_len,
+				      void *data, size_t data_len)
 {
-	struct hash_node *n = malloc(sizeof(*n) + len);
+	struct hash_node *n = malloc(sizeof(*n) + key_len);
 
 	if (n) {
-		memcpy(n->key, str, len);
-		n->keylen = len;
+		n->key_len = key_len;
+		memcpy(n->key, key, key_len);
+		n->data_len = data_len;
+		n->data = data;
 	}
 
 	return n;
 }
 
-static unsigned long _hash(const char *str, unsigned len)
+static unsigned long _hash(const char *key, unsigned key_len)
 {
 	unsigned long h = 0, g;
 	unsigned i;
 
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < key_len; i++) {
 		h <<= 4;
-		h += _nums[(unsigned char) *str++];
+		h += _nums[(unsigned char) *key++];
 		g = h & ((unsigned long) 0xf << 16u);
 		if (g) {
 			h ^= g >> 16u;
@@ -140,32 +143,45 @@ void hash_destroy(struct hash_table *t)
 	free(t);
 }
 
-static struct hash_node **_find(struct hash_table *t, const void *key, uint32_t len)
+static struct hash_node **_find(struct hash_table *t,
+				const void *key, uint32_t key_len)
 {
-	unsigned h = _hash(key, len) & (t->num_slots - 1);
+	unsigned h = _hash(key, key_len) & (t->num_slots - 1);
 	struct hash_node **c;
 
 	for (c = &t->slots[h]; *c; c = &((*c)->next)) {
-		if ((*c)->keylen != len)
+		if ((*c)->key_len != key_len)
 			continue;
 
-		if (!memcmp(key, (*c)->key, len))
+		if (!memcmp(key, (*c)->key, key_len))
 			break;
 	}
 
 	return c;
 }
 
-void *hash_lookup_binary(struct hash_table *t, const void *key, uint32_t len)
+void *hash_lookup(struct hash_table *t,
+		  const void *key, uint32_t key_len,
+		  size_t *data_len)
 {
-	struct hash_node **c = _find(t, key, len);
+	struct hash_node **c = _find(t, key, key_len);
 
-	return *c ? (*c)->data : NULL;
+	if (*c) {
+		if (data_len)
+			*data_len = (*c)->data_len;
+		return (*c)->data;
+	}
+
+	if (data_len)
+		*data_len = 0;
+	return NULL;
 }
 
-static int _do_hash_insert_binary(struct hash_table *t, struct hash_node **c, const void *key, uint32_t len, void *data)
+static int _do_hash_insert(struct hash_table *t, struct hash_node **c,
+			   const void *key, uint32_t key_len,
+			   void *data, size_t data_len)
 {
-	struct hash_node *n = _create_node(key, len);
+	struct hash_node *n = _create_node(key, key_len, data, data_len);
 
 	if (!n)
 		return -1;
@@ -174,7 +190,6 @@ static int _do_hash_insert_binary(struct hash_table *t, struct hash_node **c, co
 	while (*c != NULL)
 		c = &((*c)->next);
 
-	n->data = data;
 	n->next = 0;
 	*c = n;
 	t->num_nodes++;
@@ -182,22 +197,24 @@ static int _do_hash_insert_binary(struct hash_table *t, struct hash_node **c, co
 	return 0;
 }
 
-int hash_insert_binary(struct hash_table *t, const void *key, uint32_t len, void *data)
+int hash_insert(struct hash_table *t,
+		const void *key, uint32_t key_len,
+		void *data, size_t data_len)
 {
-	struct hash_node **c = _find(t, key, len);
+	struct hash_node **c = _find(t, key, key_len);
 
-	if (*c)
+	if (*c) {
 		(*c)->data = data;
-	else
-		return _do_hash_insert_binary(t, c, key, len, data);
+		return 0;
+	}
 
-	return 0;
+	return _do_hash_insert(t, c, key, key_len, data, data_len);
 }
 
-void hash_remove_binary(struct hash_table *t, const void *key,
-                        uint32_t len)
+void hash_remove(struct hash_table *t,
+		 const void *key, uint32_t key_len)
 {
-	struct hash_node **c = _find(t, key, len);
+	struct hash_node **c = _find(t, key, key_len);
 
 	if (*c) {
 		struct hash_node *old = *c;
@@ -207,35 +224,22 @@ void hash_remove_binary(struct hash_table *t, const void *key,
 	}
 }
 
-void *hash_lookup(struct hash_table *t, const char *key)
-{
-	return hash_lookup_binary(t, key, strlen(key) + 1);
-}
-
-int hash_insert(struct hash_table *t, const char *key, void *data)
-{
-	return hash_insert_binary(t, key, strlen(key) + 1, data);
-}
-
-void hash_remove(struct hash_table *t, const char *key)
-{
-	hash_remove_binary(t, key, strlen(key) + 1);
-}
-
-static struct hash_node **_find_str_with_val(struct hash_table *t, const void *key, const void *val, uint32_t len, uint32_t val_len)
+static struct hash_node **_find_with_data(struct hash_table *t,
+					  const void *key, uint32_t key_len,
+					  const void *data, size_t data_len)
 {
 	struct hash_node **c;
 	unsigned h;
 
-	h = _hash(key, len) & (t->num_slots - 1);
+	h = _hash(key, key_len) & (t->num_slots - 1);
 
 	for (c = &t->slots[h]; *c; c = &((*c)->next)) {
-		if ((*c)->keylen != len)
+		if ((*c)->key_len != key_len)
 			continue;
 
-		if (!memcmp(key, (*c)->key, len) && (*c)->data) {
-			if (((*c)->data_len == val_len) &&
-			    !memcmp(val, (*c)->data, val_len))
+		if (!memcmp(key, (*c)->key, key_len) && (*c)->data) {
+			if (((*c)->data_len == data_len) &&
+			    !memcmp(data, (*c)->data, data_len))
 				return c;
 		}
 	}
@@ -243,21 +247,19 @@ static struct hash_node **_find_str_with_val(struct hash_table *t, const void *k
 	return NULL;
 }
 
-int hash_insert_allow_multiple(struct hash_table *t, const char *key, const void *val, uint32_t val_len)
+int hash_insert_allow_multiple(struct hash_table *t,
+			       const char *key, uint32_t key_len,
+			       void *data, size_t data_len)
 {
 	struct hash_node *n;
 	struct hash_node *first;
-	int len = strlen(key) + 1;
 	unsigned h;
 
-	n = _create_node(key, len);
+	n = _create_node(key, key_len, data, data_len);
 	if (!n)
 		return -1;
 
-	n->data = (void *)val;
-	n->data_len = val_len;
-
-	h = _hash(key, len) & (t->num_slots - 1);
+	h = _hash(key, key_len) & (t->num_slots - 1);
 
 	first = t->slots[h];
 
@@ -273,26 +275,30 @@ int hash_insert_allow_multiple(struct hash_table *t, const char *key, const void
 
 /*
  * Look through multiple entries with the same key for one that has a
- * matching val and return that.  If none have maching val, return NULL.
+ * matching data and return that.  If none have maching data, return NULL.
  */
-void *hash_lookup_with_val(struct hash_table *t, const char *key, const void *val, uint32_t val_len)
+void *hash_lookup_with_data(struct hash_table *t,
+			    const char *key, uint32_t key_len,
+			    void *data, size_t data_len)
 {
 	struct hash_node **c;
 
-	c = _find_str_with_val(t, key, val, strlen(key) + 1, val_len);
+	c = _find_with_data(t, key, key_len, data, data_len);
 
 	return (c && *c) ? (*c)->data : NULL;
 }
 
 /*
  * Look through multiple entries with the same key for one that has a
- * matching val and remove that.
+ * matching data and remove that.
  */
-void hash_remove_with_val(struct hash_table *t, const char *key, const void *val, uint32_t val_len)
+void hash_remove_with_data(struct hash_table *t,
+			   const char *key, uint32_t key_len,
+			   void *data, size_t data_len)
 {
 	struct hash_node **c;
 
-	c = _find_str_with_val(t, key, val, strlen(key) + 1, val_len);
+	c = _find_with_data(t, key, key_len, data, data_len);
 
 	if (c && *c) {
 		struct hash_node *old = *c;
@@ -303,18 +309,20 @@ void hash_remove_with_val(struct hash_table *t, const char *key, const void *val
 }
 
 /*
- * Look up the value for a key and count how many
+ * Look up the data for a key and count how many
  * entries have the same key.
  *
  * If no entries have key, return NULL and set count to 0.
  *
- * If one entry has the key, the function returns the val,
+ * If one entry has the key, the function returns the data,
  * and sets count to 1.
  *
- * If N entries have the key, the function returns the val
+ * If N entries have the key, the function returns the data
  * from the first entry, and sets count to N.
  */
-void *hash_lookup_with_count(struct hash_table *t, const char *key, int *count)
+void *hash_lookup_with_count(struct hash_table *t,
+			     const char *key, uint32_t key_len,
+			     size_t *data_len, unsigned *count)
 {
 	struct hash_node **c;
 	struct hash_node **c1 = NULL;
@@ -326,7 +334,7 @@ void *hash_lookup_with_count(struct hash_table *t, const char *key, int *count)
 	h = _hash(key, len) & (t->num_slots - 1);
 
 	for (c = &t->slots[h]; *c; c = &((*c)->next)) {
-		if ((*c)->keylen != len)
+		if ((*c)->key_len != len)
 			continue;
 
 		if (!memcmp(key, (*c)->key, len)) {
@@ -336,10 +344,15 @@ void *hash_lookup_with_count(struct hash_table *t, const char *key, int *count)
 		}
 	}
 
-	if (!c1)
-		return NULL;
-	else
-		return *c1 ? (*c1)->data : NULL;
+	if (c1 && *c1) {
+		if (data_len)
+			*data_len = (*c1)->data_len;
+		return (*c1)->data;
+	}
+
+	if (data_len)
+		*data_len = 0;
+	return NULL;
 }
 
 unsigned hash_get_num_entries(struct hash_table *t)
@@ -366,14 +379,19 @@ void hash_wipe(struct hash_table *t)
 	t->num_nodes = 0u;
 }
 
-char *hash_get_key(struct hash_table *t __attribute__((unused)), struct hash_node *n)
+char *hash_get_key(struct hash_table *t __attribute__((unused)), struct hash_node *n, uint32_t *key_len)
 {
+	if (key_len)
+		*key_len = n->key_len;
+
 	return n->key;
 }
 
-void *hash_get_data(struct hash_table *t __attribute__((unused)),
-                    struct hash_node *n)
+void *hash_get_data(struct hash_table *t __attribute__((unused)), struct hash_node *n, size_t *data_len)
 {
+	if (data_len)
+		*data_len = n->data_len;
+
 	return n->data;
 }
 
@@ -395,32 +413,39 @@ struct hash_node *hash_get_first(struct hash_table *t)
 
 struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n)
 {
-	unsigned h = _hash(n->key, n->keylen) & (t->num_slots - 1);
+	unsigned h = _hash(n->key, n->key_len) & (t->num_slots - 1);
 
 	return n->next ? n->next : _next_slot(t, h + 1);
 }
 
 
-/*
- * THE FUNCTIONS BELOW ARE EXTRA TO ORIGINAL CODE TAKEN FROM LVM2 SOURCETREE AND ITS dm_hash_table IMPLEMENTATION.
- */
-
-int hash_update_binary(struct hash_table *t, const void *key, uint32_t len, void **data,
-                       hash_update_fn_t hash_update_fn, void *hash_update_fn_arg)
+int hash_update(struct hash_table *t,
+		const void *key, uint32_t key_len,
+		void **data, size_t *data_len,
+                hash_update_fn_t hash_update_fn, void *hash_update_fn_arg)
 {
-	struct hash_node **c = _find(t, key, len);
+	struct hash_node **c = _find(t, key, key_len);
 
 	/*
 	 * the hash_update_fn may add nodes to the hash table, but it must not
 	 * add this key to the hash table or remove any nodes.
 	 */
 	if (*c) {
-		if (!hash_update_fn || hash_update_fn(key, len, (*c)->data, data, hash_update_fn_arg))
+		if (!hash_update_fn || hash_update_fn(key, key_len,
+						      (*c)->data, (*c)->data_len,
+						      data, data_len,
+						      hash_update_fn_arg)) {
 			(*c)->data = data ? *data : NULL;
+			(*c)->data_len = data_len ? *data_len : 0;
+		}
 		return 0;
 	} else {
-		if (!hash_update_fn || hash_update_fn(key, len, NULL, data, hash_update_fn_arg))
-			return _do_hash_insert_binary(t, c, key, len, *data);
+		if (!hash_update_fn || hash_update_fn(key, key_len,
+						      NULL, 0,
+						      data, data_len,
+						      hash_update_fn_arg))
+			return _do_hash_insert(t, c, key, key_len,
+					       data ? *data : NULL, data_len ? *data_len : 0);
 	}
 
 	return 0;

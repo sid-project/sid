@@ -244,7 +244,8 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 }
 
 static int _hash_update_fn(const char *key, uint32_t key_len,
-                           struct kv_store_value *old_value, struct kv_store_value **new_value,
+                           struct kv_store_value *old_value, size_t old_value_len,
+			   struct kv_store_value **new_value, size_t *new_value_len,
                            struct kv_update_fn_relay *relay)
 {
 	/*
@@ -359,8 +360,10 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
 	if (!(kv_store_value = _create_kv_store_value(iov, iov_cnt, flags, op_flags)))
 		return NULL;
 
-	if (hash_update_binary(kv_store->ht, key, strlen(key) + 1, (void **) &kv_store_value,
-	                       (hash_update_fn_t) _hash_update_fn, &relay))
+	if (hash_update(kv_store->ht,
+			key, strlen(key) + 1,
+			(void **) &kv_store_value, 0,
+			(hash_update_fn_t) _hash_update_fn, &relay))
 		return NULL;
 
 	if (relay.ret_code < 0)
@@ -375,7 +378,7 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key,
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_store_value *found;
 
-	if (!(found = hash_lookup(kv_store->ht, key)))
+	if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
 		return NULL;
 
 	if (value_size)
@@ -398,7 +401,7 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key,
 	 * FIXME: hash_lookup and hash_remove are two searches inside hash - maybe try to do
 	 *        this in one step (...that requires hash interface extension).
 	 */
-	if (!(found = hash_lookup(kv_store->ht, key)))
+	if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
 		return -ENODATA;
 
 	update_spec.old_data = _get_data(found);
@@ -409,7 +412,7 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key,
 		return -EREMOTEIO;
 
 	_destroy_kv_store_value(found);
-	hash_remove(kv_store->ht, key);
+	hash_remove(kv_store->ht, key, strlen(key) + 1);
 
 	return 0;
 }
@@ -431,7 +434,7 @@ void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_
 {
 	struct kv_store_value *value;
 
-	if (!(value = iter->current ? hash_get_data(iter->store->ht, iter->current) : NULL))
+	if (!(value = iter->current ? hash_get_data(iter->store->ht, iter->current, NULL) : NULL))
 		return NULL;
 
 	if (size)
@@ -445,7 +448,7 @@ void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_
 
 const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 {
-	return iter->current ? hash_get_key(iter->store->ht, iter->current) : NULL;
+	return iter->current ? hash_get_key(iter->store->ht, iter->current, NULL) : NULL;
 }
 
 void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags)
