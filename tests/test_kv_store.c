@@ -14,8 +14,11 @@ static void test_type_G(void **state)
 		{"value", sizeof("value")}
 	};
 	size_t size = sizeof(test_iov)/sizeof(test_iov[0]);
+	size_t value_size;
 	struct kv_store_value *value = _create_kv_store_value(test_iov, size,
-	                                                      KV_STORE_VALUE_REF | KV_STORE_VALUE_VECTOR, 0);
+	                                                      KV_STORE_VALUE_REF | KV_STORE_VALUE_VECTOR,
+							      KV_STORE_VALUE_NO_OP,
+							      &value_size);
 	assert_ptr_not_equal(value, NULL);
 	assert_ptr_equal(_get_ptr(value->data), test_iov);
 	assert_int_equal(value->size, size);
@@ -32,6 +35,7 @@ static void test_type_H(void **state)
 		{"value", sizeof("value")}
 	};
 	size_t size = sizeof(test_iov)/sizeof(test_iov[0]);
+	size_t value_size;
 	struct iovec old_iov[size];
 	struct kv_store_value *value;
 	int i;
@@ -39,7 +43,8 @@ static void test_type_H(void **state)
 	memcpy(old_iov, test_iov, sizeof(old_iov));
 	value = _create_kv_store_value(test_iov, size,
 	                               KV_STORE_VALUE_REF | KV_STORE_VALUE_VECTOR,
-	                               KV_STORE_VALUE_OP_MERGE);
+	                               KV_STORE_VALUE_OP_MERGE,
+				       &value_size);
 	assert_ptr_not_equal(value, NULL);
 	assert_ptr_equal(_get_ptr(value->data), test_iov);
 	assert_int_equal(value->size, size);

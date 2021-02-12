@@ -24,11 +24,11 @@ char *test_array[KEY_COUNT] = {
 
 static void test_hash_add()
 {
-	int count = 0;
+	unsigned count = 0;
 	struct hash_table *t = hash_create(5);
 
 	for (int i = 0; i < KEY_COUNT; i++)
-		assert_int_equal(hash_insert_binary(t, test_array[i], strlen(test_array[i])+ 1, test_array[i]), 0);
+		assert_int_equal(hash_insert(t, test_array[i], strlen(test_array[i])+ 1, test_array[i], strlen(test_array[i])+ 1), 0);
 
 	assert_int_equal(hash_get_num_entries(t), KEY_COUNT);
 
@@ -36,13 +36,13 @@ static void test_hash_add()
 	assert_int_equal(hash_get_num_entries(t), 0);
 
 	for (int i = 0; i < KEY_COUNT; i++)
-		assert_int_equal(hash_insert_binary(t, test_array[i], strlen(test_array[i])+ 1, test_array[i]), 0);
+		assert_int_equal(hash_insert(t, test_array[i], strlen(test_array[i])+ 1, test_array[i], strlen(test_array[i])+ 1), 0);
 
 	for (int i = 0; i < KEY_COUNT; i++)
-		assert_int_equal(hash_insert_allow_multiple(t, test_array[i], test_array[i],  strlen(test_array[i])+ 1), 0);
+		assert_int_equal(hash_insert_allow_multiple(t, test_array[i], strlen(test_array[i])+ 1, test_array[i],  strlen(test_array[i])+ 1), 0);
 
 	for (int i = 0; i < KEY_COUNT; i++) {
-		assert_string_equal(hash_lookup_with_count(t, test_array[i],  &count), test_array[i]);
+		assert_string_equal(hash_lookup_with_count(t, test_array[i], strlen(test_array[i])+ 1, NULL, &count), test_array[i]);
 		assert_int_equal(count, 2);
 	}
 
@@ -57,10 +57,10 @@ static void test_hash_lookup()
 	struct hash_table *t = hash_create(10);;
 
 	for (int i = 0; i < KEY_COUNT; i++)
-		assert_int_equal(hash_insert_binary(t, test_array[i], strlen(test_array[i])+ 1, test_array[i]), 0);
+		assert_int_equal(hash_insert(t, test_array[i], strlen(test_array[i])+ 1, test_array[i], strlen(test_array[i])+ 1), 0);
 
 	for (int i = 0; i < KEY_COUNT; i++) {
-		assert_string_equal(hash_lookup_with_val(t, test_array[i], test_array[i], strlen(test_array[i])+ 1), test_array[i]);
+		assert_string_equal(hash_lookup_with_data(t, test_array[i], strlen(test_array[i])+ 1, test_array[i], strlen(test_array[i])+ 1), test_array[i]);
 	}
 
 	hash_destroy(t);
