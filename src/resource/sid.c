@@ -22,6 +22,8 @@
 #include "log/log.h"
 #include "resource/resource.h"
 
+#include <signal.h>
+
 #define SID_NAME "sid"
 
 static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *arg)
@@ -48,11 +50,16 @@ static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct si
 
 static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **data)
 {
-	if (sid_resource_create_signal_event_source(res, NULL, SIGTERM, _on_sid_signal_event, 0, "sigterm", res) < 0 ||
-	    sid_resource_create_signal_event_source(res, NULL, SIGINT, _on_sid_signal_event, 0, "sigint", res) < 0 ||
-	    sid_resource_create_signal_event_source(res, NULL, SIGPIPE,_on_sid_signal_event, 0, "sigpipe", res) < 0 ||
-	    sid_resource_create_signal_event_source(res, NULL, SIGHUP, _on_sid_signal_event, 0, "sighup", res) < 0 ||
-	    sid_resource_create_signal_event_source(res, NULL, SIGCHLD, _on_sid_signal_event, 0, "sigchld", res) < 0) {
+	sigset_t mask;
+
+	sigemptyset (&mask);
+	sigaddset (&mask, SIGTERM);
+	sigaddset (&mask, SIGINT);
+	sigaddset (&mask, SIGPIPE);
+	sigaddset (&mask, SIGHUP);
+	sigaddset (&mask, SIGCHLD);
+
+	if (sid_resource_create_signal_event_source(res, NULL, mask, _on_sid_signal_event, 0, "signal_handler", NULL) < 0) {
 		log_error(ID(res), "Failed to create signal handlers.");
 		goto fail;
 	}

@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <systemd/sd-daemon.h>
 #include <systemd/sd-event.h>
@@ -38,7 +39,10 @@ typedef struct sid_resource {
 	struct list children;
 	sid_resource_flags_t flags;
 	int64_t prio;
-	sd_event *sd_event_loop;
+	struct {
+		sd_event *sd_event_loop;
+		int signalfd;
+	} event_loop;
 	struct list event_sources;
 	struct service_link_group *slg;
 	pid_t pid_created;
@@ -222,10 +226,11 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 	list_init(&res->children);
 	res->type = type;
 	res->prio = prio;
-	res->sd_event_loop = NULL;
+	res->event_loop.sd_event_loop = NULL;
+	res->event_loop.signalfd = -1;
 	res->pid_created = getpid(); /* FIXME: Use cached pid instead? Check latency... */
 
-	if (type->with_event_loop && sd_event_new(&res->sd_event_loop) < 0)
+	if (type->with_event_loop && sd_event_new(&res->event_loop.sd_event_loop) < 0)
 		goto fail;
 
 	list_init(&res->event_sources);
@@ -233,7 +238,7 @@ sid_resource_t *sid_resource_create(sid_resource_t *parent_res, const sid_resour
 	_add_res_to_parent_res(res, parent_res);
 
 	if (type->with_event_loop && type->with_watchdog &&
-	    sd_event_set_watchdog(res->sd_event_loop, 1) < 0)
+	    sd_event_set_watchdog(res->event_loop.sd_event_loop, 1) < 0)
 		goto fail;
 
 	if (type->init && type->init(res, kickstart_data, &res->data) < 0)
@@ -259,8 +264,8 @@ fail:
 		list_iterate_items_safe(es, tmp_es, &res->event_sources)
 		_destroy_event_source(es);
 
-		if (res->sd_event_loop)
-			sd_event_unref(res->sd_event_loop);
+		if (res->event_loop.sd_event_loop)
+			sd_event_unref(res->event_loop.sd_event_loop);
 
 		if (res->slg)
 			service_link_group_destroy_with_members(res->slg);
@@ -308,8 +313,13 @@ int sid_resource_destroy(sid_resource_t *res)
 	if (res->type->destroy)
 		(void) res->type->destroy(res);
 
-	if (res->sd_event_loop)
-		res->sd_event_loop = sd_event_unref(res->sd_event_loop);
+	if (res->event_loop.sd_event_loop)
+		res->event_loop.sd_event_loop = sd_event_unref(res->event_loop.sd_event_loop);
+
+	if (res->event_loop.signalfd != -1) {
+		close(res->event_loop.signalfd);
+		res->event_loop.signalfd = -1;
+	}
 
 	_remove_res_from_parent_res(res);
 
@@ -405,7 +415,7 @@ sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_
 	sid_resource_t *tmp_res = res;
 
 	do {
-		if (tmp_res->sd_event_loop)
+		if (tmp_res->event_loop.sd_event_loop)
 			return tmp_res;
 		tmp_res = tmp_res->parent;
 	} while (tmp_res);
@@ -435,7 +445,7 @@ int sid_resource_create_io_event_source(sid_resource_t *res, sid_resource_event_
 		goto fail;
 	}
 
-	if ((r = sd_event_add_io(res_event_loop->sd_event_loop, &sd_es, fd, EPOLLIN, _sd_io_event_handler, NULL)) < 0)
+	if ((r = sd_event_add_io(res_event_loop->event_loop.sd_event_loop, &sd_es, fd, EPOLLIN, _sd_io_event_handler, NULL)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -451,19 +461,33 @@ fail:
 	return r;
 }
 
-static int _sd_signal_event_handler(sd_event_source *sd_es, const struct signalfd_siginfo *si, void *data)
+static int _sd_signal_event_handler(sd_event_source *sd_es, int sfd, uint32_t revents, void *data)
 {
-	sid_resource_event_source_t *es = data;
-	return ((sid_resource_signal_event_handler_t) es->handler)(es, si, es->data);
+	sid_resource_event_source_t *es =  sd_event_source_get_userdata(sd_es);
+	struct signalfd_siginfo si;
+	ssize_t res;
+
+	res = read (sfd, &si, sizeof(si));
+
+	if (res < 0) {
+		log_error("SIGNAL", "failed to read signal");
+		return 1;
+	}
+	if (res != sizeof(si)) {
+		log_error("SIGNAL", "failed to read size of return data");
+		return 1;
+	}
+
+	return ((sid_resource_signal_event_handler_t) es->handler)(es, &si, es->res);
 }
 
-int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_event_source_t **es, int signal,
+int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_event_source_t **es, sigset_t mask,
                                             sid_resource_signal_event_handler_t handler, int64_t prio,
                                             const char *name, void *data)
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es = NULL;
-	sigset_t ss;
+	sigset_t original_sigmask, ss;
 	int r;
 
 	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
@@ -471,23 +495,40 @@ int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_ev
 		goto fail;
 	}
 
-	/* sd_event_add_signal requires the signal to be blocked before! */
-	if ((r = sigemptyset(&ss)) < 0 ||
-	    (r = sigaddset(&ss, signal)) < 0 ||
-	    (r = sigprocmask(SIG_BLOCK, &ss, NULL) < 0))
+	if (sigprocmask(SIG_BLOCK, &mask, &original_sigmask) < 0) {
+		log_error(ID(res), "Failed to set sigprocmask().");
 		goto fail;
+	}
 
-	if ((r = sd_event_add_signal(res_event_loop->sd_event_loop, &sd_es, signal, handler ? _sd_signal_event_handler : NULL, NULL)) < 0)
+	if (res_event_loop->event_loop.signalfd == -1) {
+		res_event_loop->event_loop.signalfd = signalfd (-1, &mask, 0);
+		if (res_event_loop->event_loop.signalfd < 0) {
+			log_error(ID(res), "Failed to create signalfd.");
+			goto fail;
+		}
+	} else {
+		r = EADDRINUSE;
+		goto fail;
+	}
+
+
+	if (sd_event_add_io(res_event_loop->event_loop.sd_event_loop, &sd_es, res_event_loop->event_loop.signalfd,
+	                    EPOLLIN, _sd_signal_event_handler, NULL) < 0) {
+		log_error(ID(res), "Failed sd_event_add_io().");
+		goto fail;
+	}
+
+	if ((r = _create_event_source(res, name, sd_es, handler, NULL, es)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
-		goto fail;
-
 	return 0;
 fail:
+	if (sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
+		log_error(ID(res), "Failed to restore original sigprocmask().");
+
 	if (sd_es)
 		sd_event_source_unref(sd_es);
 	return r;
@@ -512,7 +553,7 @@ int sid_resource_create_child_event_source(sid_resource_t *res, sid_resource_eve
 		goto fail;
 	}
 
-	if ((r = sd_event_add_child(res_event_loop->sd_event_loop, &sd_es, pid, options, handler ? _sd_child_event_handler : NULL, NULL)) < 0)
+	if ((r = sd_event_add_child(res_event_loop->event_loop.sd_event_loop, &sd_es, pid, options, handler ? _sd_child_event_handler : NULL, NULL)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -548,7 +589,7 @@ int sid_resource_create_time_event_source(sid_resource_t *res, sid_resource_even
 		goto fail;
 	}
 
-	if ((r = sd_event_add_time(res_event_loop->sd_event_loop, &sd_es, clock, usec, accuracy, handler ? _sd_time_event_handler : NULL, NULL)) < 0)
+	if ((r = sd_event_add_time(res_event_loop->event_loop.sd_event_loop, &sd_es, clock, usec, accuracy, handler ? _sd_time_event_handler : NULL, NULL)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -584,7 +625,7 @@ int sid_resource_create_deferred_event_source(sid_resource_t *res, sid_resource_
 		goto fail;
 	}
 
-	if ((r = sd_event_add_defer(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
+	if ((r = sd_event_add_defer(res_event_loop->event_loop.sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -613,7 +654,7 @@ int sid_resource_create_post_event_source(sid_resource_t *res, sid_resource_even
 		goto fail;
 	}
 
-	if ((r = sd_event_add_post(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
+	if ((r = sd_event_add_post(res_event_loop->event_loop.sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -642,7 +683,7 @@ int sid_resource_create_exit_event_source(sid_resource_t *res, sid_resource_even
 		goto fail;
 	}
 
-	if ((r = sd_event_add_exit(res_event_loop->sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
+	if ((r = sd_event_add_exit(res_event_loop->event_loop.sd_event_loop, &sd_es, handler ? _sd_generic_event_handler : NULL, NULL)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -779,7 +820,7 @@ int sid_resource_isolate(sid_resource_t *res)
 	sid_resource_t *tmp_child_res, *child_res;
 
 	/* Only allow to isolate resource with parent and without event loop! */
-	if (res->sd_event_loop || !res->parent || (res->flags & SID_RESOURCE_DISALLOW_ISOLATION))
+	if (res->event_loop.sd_event_loop || !res->parent || (res->flags & SID_RESOURCE_DISALLOW_ISOLATION))
 		return -EPERM;
 
 	/* Reparent and isolate. */
@@ -795,7 +836,7 @@ int sid_resource_isolate(sid_resource_t *res)
 int sid_resource_isolate_with_children(sid_resource_t *res)
 {
 
-	if (res->sd_event_loop || !res->parent || (res->flags & SID_RESOURCE_DISALLOW_ISOLATION))
+	if (res->event_loop.sd_event_loop || !res->parent || (res->flags & SID_RESOURCE_DISALLOW_ISOLATION))
 		return -EPERM;
 
 	_remove_res_from_parent_res(res);
@@ -877,14 +918,14 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 {
 	int r;
 
-	if (!res->sd_event_loop)
+	if (!res->event_loop.sd_event_loop)
 		return -ENOMEDIUM;
 
 	log_debug(res->id, "Entering event loop.");
 
 	(void) service_link_group_notify(res->slg, SERVICE_NOTIFICATION_READY, NULL);
 
-	if ((r = sd_event_loop(res->sd_event_loop)) < 0) {
+	if ((r = sd_event_loop(res->event_loop.sd_event_loop)) < 0) {
 		log_error_errno(res->id, r, "Event loop failed");
 		return r;
 	}
@@ -895,12 +936,12 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 
 int sid_resource_exit_event_loop(sid_resource_t *res)
 {
-	if (!res->sd_event_loop) {
+	if (!res->event_loop.sd_event_loop) {
 		log_debug(res->id, "sid_resource_exit_event_loop call with NULL event loop.");
 		return -ENOMEDIUM;
 	}
 
-	return sd_event_exit(res->sd_event_loop, 0);
+	return sd_event_exit(res->event_loop.sd_event_loop, 0);
 }
 
 void _dump_children_recursively_in_dot(sid_resource_t *res)
