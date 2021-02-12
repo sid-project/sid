@@ -150,9 +150,10 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
  * For vectors, this also means that both the struct iovec and values reference by iovec.iov_base have
  * been allocated by "malloc" too.
  */
-static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_cnt, kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags)
+static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_cnt, kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags, size_t *size)
 {
 	struct kv_store_value *value;
+	size_t value_size;
 	size_t data_size;
 	char *p1, *p2;
 	struct iovec *iov2;
@@ -160,7 +161,9 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		if (flags & KV_STORE_VALUE_REF) {
-			if (!(value = mem_zalloc(sizeof(*value) + sizeof(intptr_t))))
+			value_size = sizeof(*value) + sizeof(intptr_t);
+
+			if (!(value = mem_zalloc(value_size)))
 				return NULL;
 
 			if (op_flags & KV_STORE_VALUE_OP_MERGE) {
@@ -190,7 +193,9 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 
 			if (op_flags & KV_STORE_VALUE_OP_MERGE) {
 				/* F */
-				if (!(value = mem_zalloc(sizeof(*value) + data_size)))
+				value_size = sizeof(*value) + data_size;
+
+				if (!(value = mem_zalloc(value_size)))
 					return NULL;
 
 				for (i = 0, p1 = value->data; i < iov_cnt; i++) {
@@ -203,7 +208,9 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 				value->int_flags = KV_STORE_VALUE_INT_ALLOC;
 			} else {
 				/* E */
-				if (!(value = mem_zalloc(sizeof(*value) + iov_cnt * sizeof(struct iovec) + data_size)))
+				value_size = sizeof(*value) + iov_cnt * sizeof(struct iovec) + data_size;
+
+				if (!(value = mem_zalloc(value_size)))
 					return NULL;
 
 				iov2 = (struct iovec *) value->data;
@@ -223,13 +230,17 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 	} else {
 		if (flags & KV_STORE_VALUE_REF) {
 			/* C,D */
-			if (!(value = mem_zalloc(sizeof(*value) + sizeof(intptr_t))))
+			value_size = sizeof(*value) + sizeof(intptr_t);
+
+			if (!(value = mem_zalloc(value_size)))
 				return NULL;
 
 			_set_ptr(value->data, iov[0].iov_base);
 		} else {
 			/* A,B */
-			if (!(value = mem_zalloc(sizeof(*value) + iov[0].iov_len)))
+			value_size = sizeof(*value) + iov[0].iov_len;
+
+			if (!(value = mem_zalloc(value_size)))
 				return NULL;
 
 			memcpy(value->data, iov[0].iov_base, iov[0].iov_len);
@@ -240,6 +251,8 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 	}
 
 	value->ext_flags = flags;
+	*size = value_size;
+
 	return value;
 }
 
@@ -262,6 +275,7 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 	struct iovec tmp_iov[1];
 	struct iovec *iov;
 	size_t iov_cnt;
+	size_t kv_store_value_size;
 	int r = 1;
 
 	if (relay->kv_update_fn) {
@@ -285,14 +299,14 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 		     update_spec.op_flags)) {
 			if ((update_spec.new_flags == orig_new_flags) &&
 			    (update_spec.new_flags & KV_STORE_VALUE_REF) &&
+			    (update_spec.new_data_size == orig_new_data_size) &&
 			    !update_spec.op_flags) {
 				/*
-				 * If kv_store_value stores value as reference and we haven't changed the ext_flags
-				 * nor op_flags, we just need to rewrite the ptr stored in data and size, no need
-				 * to recreate the whole kv_store_value...
+				 * If kv_store_value stores value as reference and we haven't changed the size,
+				 * KV_STORE_VALUE_REF flag nor op_flags, we just need to rewrite the ptr stored
+				 * in data, no need to recreate the whole kv_store_value...
 				 */
 				_set_ptr(orig_new_value->data, update_spec.new_data);
-				orig_new_value->size = update_spec.new_data_size;
 				orig_new_value->ext_flags = update_spec.new_flags;
 			} else {
 				/* ...otherwise we need to recreate the whole kv_store_value container with data. */
@@ -306,13 +320,18 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 					iov = tmp_iov;
 				}
 
-				if (!(edited_new_value = _create_kv_store_value(iov, iov_cnt, update_spec.new_flags, update_spec.op_flags))) {
+				if (!(edited_new_value = _create_kv_store_value(iov, iov_cnt,
+										update_spec.new_flags,
+										update_spec.op_flags,
+										&kv_store_value_size))) {
 					relay->ret_code = -ENOMEM;
 					return 0;
 				}
 
 				_destroy_kv_store_value(orig_new_value);
+
 				*new_value = edited_new_value;
+				*new_value_len = kv_store_value_size;
 			}
 		}
 	}
@@ -347,6 +366,7 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
 	};
 	struct iovec *iov;
 	int iov_cnt;
+	size_t kv_store_value_size;
 	struct kv_store_value *kv_store_value;
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
@@ -357,12 +377,12 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
 		iov_cnt = 1;
 	}
 
-	if (!(kv_store_value = _create_kv_store_value(iov, iov_cnt, flags, op_flags)))
+	if (!(kv_store_value = _create_kv_store_value(iov, iov_cnt, flags, op_flags, &kv_store_value_size)))
 		return NULL;
 
 	if (hash_update(kv_store->ht,
 			key, strlen(key) + 1,
-			(void **) &kv_store_value, 0,
+			(void **) &kv_store_value, &kv_store_value_size,
 			(hash_update_fn_t) _hash_update_fn, &relay))
 		return NULL;
 
