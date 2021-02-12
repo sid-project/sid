@@ -168,9 +168,9 @@ int sid_resource_create_io_event_source(sid_resource_t *res, sid_resource_event_
 					sid_resource_io_event_handler_t handler, int64_t prio,
 					const char *name, void *data);
 
-int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_event_source_t **es, int signal,
-					    sid_resource_signal_event_handler_t handler, int64_t prio,
-					    const char *name, void *data);
+int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_event_source_t **es, sigset_t mask,
+                                            sid_resource_signal_event_handler_t handler, int64_t prio,
+                                            const char *name, void *data);
 
 int sid_resource_create_child_event_source(sid_resource_t *res, sid_resource_event_source_t **es, pid_t pid, int options,
 					   sid_resource_child_event_handler_t handler, int64_t prio,

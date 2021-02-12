@@ -1084,6 +1084,11 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 {
 	const struct worker_kickstart *kickstart = kickstart_data;
 	struct worker *worker = NULL;
+	sigset_t mask;
+
+	sigemptyset (&mask);
+	sigaddset (&mask, SIGTERM);
+	sigaddset (&mask, SIGINT);
 
 	if (!(worker = mem_zalloc(sizeof(*worker)))) {
 		log_error(ID(worker_res), "Failed to allocate new worker structure.");
@@ -1094,8 +1099,7 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 	worker->channels = kickstart->channels;
 	worker->channel_count = kickstart->channel_count;
 
-	if (sid_resource_create_signal_event_source(worker_res, NULL, SIGTERM, _on_worker_signal_event, 0, "sigterm", worker_res) < 0 ||
-	    sid_resource_create_signal_event_source(worker_res, NULL, SIGINT, _on_worker_signal_event, 0, "sigint", worker_res) < 0) {
+	if (sid_resource_create_signal_event_source(worker_res, NULL, mask, _on_worker_signal_event, 0, "worker_signal_handler", NULL) < 0) {
 		log_error(ID(worker_res), "Failed to create signal handlers.");
 		goto fail;
 	}
