@@ -487,7 +487,7 @@ int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_ev
 {
 	sid_resource_t *res_event_loop;
 	sd_event_source *sd_es = NULL;
-	sigset_t original_sigmask, ss;
+	sigset_t original_sigmask;
 	int r;
 
 	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
@@ -497,6 +497,7 @@ int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_ev
 
 	if (sigprocmask(SIG_BLOCK, &mask, &original_sigmask) < 0) {
 		log_error(ID(res), "Failed to set sigprocmask().");
+		r = -errno;
 		goto fail;
 	}
 
@@ -504,16 +505,17 @@ int sid_resource_create_signal_event_source(sid_resource_t *res, sid_resource_ev
 		res_event_loop->event_loop.signalfd = signalfd (-1, &mask, 0);
 		if (res_event_loop->event_loop.signalfd < 0) {
 			log_error(ID(res), "Failed to create signalfd.");
+			r = -errno;
 			goto fail;
 		}
 	} else {
-		r = EADDRINUSE;
+		r = -EADDRINUSE;
 		goto fail;
 	}
 
 
-	if (sd_event_add_io(res_event_loop->event_loop.sd_event_loop, &sd_es, res_event_loop->event_loop.signalfd,
-	                    EPOLLIN, _sd_signal_event_handler, NULL) < 0) {
+	if ((r = sd_event_add_io(res_event_loop->event_loop.sd_event_loop, &sd_es, res_event_loop->event_loop.signalfd,
+	                    EPOLLIN, _sd_signal_event_handler, NULL)) < 0) {
 		log_error(ID(res), "Failed sd_event_add_io().");
 		goto fail;
 	}
