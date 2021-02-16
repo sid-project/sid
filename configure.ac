@@ -25,6 +25,7 @@ AC_INIT([sid], [VERSION_MAJOR.VERSION_MINOR.VERSION_RELEASE], [prajnoha@redhat.c
 AC_CONFIG_AUX_DIR(autoconf)
 AC_CONFIG_MACRO_DIRS([m4])
 AC_USE_SYSTEM_EXTENSIONS([_GNU_SOURCE])
+AC_REQUIRE_AUX_FILE([tap-driver.sh])
 CONFIGURE_LINE="$(echo "$0 $ac_configure_args")"
 AM_INIT_AUTOMAKE([foreign -Wall -Werror -Wno-portability])
 AM_SILENT_RULES([yes])

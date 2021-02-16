@@ -1,4 +1,7 @@
 if HAVE_CMOCKA
+
+LOG_DRIVER = CMOCKA_MESSAGE_OUTPUT=TAP $(top_srcdir)/autoconf/tap-driver.sh
+
 check_PROGRAMS = \
 	test_buffer \
 	test_hash \
