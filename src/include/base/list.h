@@ -25,6 +25,7 @@
 #define _SID_LIST_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +43,7 @@ struct list {
 	for (v = (head)->p; v != head; v = v->p)
 
 #define list_struct_base(v, t, head) \
-	((t *)((const char *)(v) - (const char *)&((t *) 0)->head))
+	((t *)((char *)(v) - offsetof(t, head)))
 
 #define list_item(v, t) \
 	list_struct_base((v), t, list)
