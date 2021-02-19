@@ -1,10 +1,11 @@
 #include "base/buffer.h"
 
-#include <cmocka.h>
 #include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
+
+#include <cmocka.h>
 
 #define TEST_STR   "foo"
 #define TEST_SIZE  sizeof(TEST_STR)

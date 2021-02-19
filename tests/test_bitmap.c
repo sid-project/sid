@@ -1,10 +1,11 @@
 #include <base/bitmap.h>
-#include <cmocka.h>
 #include <errno.h>
 #include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
+
+#include <cmocka.h>
 
 static void test_invert_bitmap(void **state)
 {

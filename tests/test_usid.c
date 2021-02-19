@@ -1,10 +1,11 @@
 #define _GNU_SOURCE
-#include <cmocka.h>
 #include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <cmocka.h>
 #define main orig_main
 #include "../src/tools/usid/usid.c"
 #undef main
