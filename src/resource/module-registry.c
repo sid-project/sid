@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/common.h"
 
@@ -31,43 +31,42 @@
 #include <stdio.h>
 
 #define MODULE_REGISTRY_NAME "module-registry"
-#define MODULE_NAME "module"
+#define MODULE_NAME          "module"
 
 const sid_resource_type_t sid_resource_type_module;
 
 struct module_registry {
-	const char *directory;
-	char *base_name;
-	const char *module_prefix;
-	const char *module_suffix;
-	uint64_t flags;
-	void *cb_arg;
-	unsigned symbol_count;
+	const char *                 directory;
+	char *                       base_name;
+	const char *                 module_prefix;
+	const char *                 module_suffix;
+	uint64_t                     flags;
+	void *                       cb_arg;
+	unsigned                     symbol_count;
 	struct module_symbol_params *symbol_params;
-	sid_resource_iter_t *module_iter;
+	sid_resource_iter_t *        module_iter;
 };
 
-struct module
-{
+struct module {
 	module_fn_t *init_fn;
 	module_fn_t *exit_fn;
 	module_fn_t *reset_fn;
-	char *full_name;
-	char *name;
-	void *handle;
-	void **symbols;
-	void *data;
+	char *       full_name;
+	char *       name;
+	void *       handle;
+	void **      symbols;
+	void *       data;
 };
 
 static int _set_module_name(struct module_registry *registry, struct module *module, const char *name)
 {
 	char *orig_full_name = module->full_name;
-	char *orig_name = module->name;
+	char *orig_name      = module->name;
 
 	if (!(module->full_name = util_str_comb_to_str(NULL, registry->base_name, MODULE_NAME_DELIM, name))) {
 		if (orig_full_name) {
 			module->full_name = orig_full_name;
-			module->name = orig_name;
+			module->name      = orig_name;
 		}
 
 		return -ENOMEM;
@@ -82,7 +81,7 @@ static int _set_module_name(struct module_registry *registry, struct module *mod
 static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const char *module_name)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
-	sid_resource_t *res, *found = NULL;
+	sid_resource_t *        res, *found = NULL;
 
 	sid_resource_iter_reset(registry->module_iter);
 	while ((res = sid_resource_iter_next(registry->module_iter))) {
@@ -100,10 +99,13 @@ static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const c
 sid_resource_t *module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
-	sid_resource_t *module_res;
+	sid_resource_t *        module_res;
 
 	if ((module_res = _find_module(module_registry_res, module_name))) {
-		log_debug(ID(module_registry_res), "Module %s/%s already loaded, skipping load request.", registry->directory, module_name);
+		log_debug(ID(module_registry_res),
+		          "Module %s/%s already loaded, skipping load request.",
+		          registry->directory,
+		          module_name);
 		return module_res;
 	}
 
@@ -141,18 +143,18 @@ int module_registry_get_module_symbols(sid_resource_t *module_res, const void **
 	}
 
 	module = sid_resource_get_data(module_res);
-	*ret = (const void **) module->symbols;
+	*ret   = (const void **) module->symbols;
 
 	return 0;
 }
 
-static const char module_reset_failed_msg[]= "Module-specific reset failed.";
+static const char module_reset_failed_msg[] = "Module-specific reset failed.";
 
 int module_registry_reset_modules(sid_resource_t *module_registry_res)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
-	sid_resource_t *res;
-	struct module *module;
+	sid_resource_t *        res;
+	struct module *         module;
 
 	sid_resource_iter_reset(registry->module_iter);
 
@@ -172,7 +174,8 @@ int module_registry_reset_modules(sid_resource_t *module_registry_res)
 
 int module_registry_reset_module(sid_resource_t *module_res)
 {
-	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	struct module_registry *registry =
+		sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct module *module = sid_resource_get_data(module_res);
 
 	if (module->reset_fn && module->reset_fn(module, registry->cb_arg) < 0) {
@@ -205,9 +208,9 @@ void *module_get_data(struct module *module)
 
 int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resource_t *module_subregistry_res)
 {
-	struct module *module;
+	struct module *         module;
 	struct module_registry *subregistry;
-	char *orig_base_name;
+	char *                  orig_base_name;
 
 	/*
 	 * Check subregistry does not have any existing parent,
@@ -216,7 +219,7 @@ int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resou
 	if (sid_resource_search(module_subregistry_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL))
 		return -EINVAL;
 
-	module = sid_resource_get_data(module_res);
+	module      = sid_resource_get_data(module_res);
 	subregistry = sid_resource_get_data(module_subregistry_res);
 
 	orig_base_name = subregistry->base_name;
@@ -239,9 +242,9 @@ int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resou
 	 * If anything fails, revert to the original base name and reset again.
 	 */
 	if (module_registry_reset_modules(module_subregistry_res) < 0 ||
-	    sid_resource_add_child(module_res, module_subregistry_res,
-	                           SID_RESOURCE_RESTRICT_WALK_UP |
-	                           SID_RESOURCE_DISALLOW_ISOLATION)) {
+	    sid_resource_add_child(module_res,
+	                           module_subregistry_res,
+	                           SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_DISALLOW_ISOLATION)) {
 		free(subregistry->base_name);
 		subregistry->base_name = orig_base_name;
 		(void) module_registry_reset_modules(module_subregistry_res);
@@ -254,13 +257,13 @@ int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resou
 
 static int _preload_modules(sid_resource_t *module_registry_res, struct module_registry *registry)
 {
-	char name_buf[MODULE_NAME_MAX_LEN + 1];
-	util_mem_t mem = {.base = name_buf, .size = sizeof(name_buf)};
+	char            name_buf[MODULE_NAME_MAX_LEN + 1];
+	util_mem_t      mem    = {.base = name_buf, .size = sizeof(name_buf)};
 	struct dirent **dirent = NULL;
-	size_t prefix_len, suffix_len;
-	char *name;
-	int count, i;
-	int r = 0;
+	size_t          prefix_len, suffix_len;
+	char *          name;
+	int             count, i;
+	int             r = 0;
 
 	count = scandir(registry->directory, &dirent, NULL, versionsort);
 
@@ -274,9 +277,12 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 	suffix_len = registry->module_suffix ? strlen(registry->module_suffix) : 0;
 
 	for (i = 0; i < count; i++) {
-		if (dirent[i]->d_name[0] != '.' && util_str_combstr(dirent[i]->d_name, registry->module_prefix, NULL, registry->module_suffix, 1)) {
-
-			if (!(name = util_str_copy_substr(&mem, dirent[i]->d_name, prefix_len, strlen(dirent[i]->d_name) - prefix_len - suffix_len))) {
+		if (dirent[i]->d_name[0] != '.' &&
+		    util_str_combstr(dirent[i]->d_name, registry->module_prefix, NULL, registry->module_suffix, 1)) {
+			if (!(name = util_str_copy_substr(&mem,
+			                                  dirent[i]->d_name,
+			                                  prefix_len,
+			                                  strlen(dirent[i]->d_name) - prefix_len - suffix_len))) {
 				log_error(ID(module_registry_res), "Failed to copy name out of %s.", dirent[i]->d_name);
 				free(dirent[i]);
 				continue;
@@ -289,7 +295,10 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 			                         NULL,
 			                         SID_RESOURCE_PRIO_NORMAL,
 			                         SID_RESOURCE_NO_SERVICE_LINKS))
-				log_error(ID(module_registry_res), "Failed to preload module %s/%s.", registry->directory, dirent[i]->d_name);
+				log_error(ID(module_registry_res),
+				          "Failed to preload module %s/%s.",
+				          registry->directory,
+				          dirent[i]->d_name);
 		}
 
 		free(dirent[i]);
@@ -299,9 +308,12 @@ out:
 	return r;
 }
 
-typedef void (*generic_t) (void);
+typedef void (*generic_t)(void);
 
-static int _load_module_symbol(sid_resource_t *module_res, void *dl_handle, const struct module_symbol_params *params, void **symbol_store)
+static int _load_module_symbol(sid_resource_t *                   module_res,
+                               void *                             dl_handle,
+                               const struct module_symbol_params *params,
+                               void **                            symbol_store)
 {
 	void *symbol;
 
@@ -327,13 +339,14 @@ static int _load_module_symbol(sid_resource_t *module_res, void *dl_handle, cons
 
 static int _init_module(sid_resource_t *module_res, const void *kickstart_data, void **data)
 {
-	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	struct module_registry *registry =
+		sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct module_symbol_params symbol_params = {0};
-	struct module *module = NULL;
-	char path[PATH_MAX];
-	int64_t *p_prio;
-	unsigned i;
-	int r;
+	struct module *             module        = NULL;
+	char                        path[PATH_MAX];
+	int64_t *                   p_prio;
+	unsigned                    i;
+	int                         r;
 
 	if (!(module = mem_zalloc(sizeof(*module)))) {
 		log_error(ID(module_res), "Failed to allocate module structure.");
@@ -350,8 +363,13 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 		goto fail;
 	}
 
-	if (snprintf(path, sizeof(path) - 1, "%s/%s%s%s", registry->directory,
-	             registry->module_prefix ? : "", module->name, registry->module_suffix ? : "") < 0) {
+	if (snprintf(path,
+	             sizeof(path) - 1,
+	             "%s/%s%s%s",
+	             registry->directory,
+	             registry->module_prefix ?: "",
+	             module->name,
+	             registry->module_suffix ?: "") < 0) {
 		log_error(ID(module_res), "Failed to create module path.");
 		goto fail;
 	}
@@ -411,7 +429,8 @@ fail:
 
 static int _destroy_module(sid_resource_t *module_res)
 {
-	struct module_registry *registry = sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	struct module_registry *registry =
+		sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct module *module = sid_resource_get_data(module_res);
 
 	if (module->exit_fn(module, registry->cb_arg) < 0)
@@ -450,9 +469,9 @@ static void _free_module_registry(struct module_registry *registry)
 
 static int _init_module_registry(sid_resource_t *module_registry_res, const void *kickstart_data, void **data)
 {
-	const struct module_registry_resource_params *params = kickstart_data;
-	struct module_registry *registry = NULL;
-	unsigned i, symbol_count = 0;
+	const struct module_registry_resource_params *params   = kickstart_data;
+	struct module_registry *                      registry = NULL;
+	unsigned                                      i, symbol_count = 0;
 
 	if (!params) {
 		log_error(ID(module_registry_res), "Module resource parameters not specified.");
@@ -489,14 +508,12 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	if (params->module_prefix && *params->module_prefix &&
-	    !(registry->module_prefix = strdup(params->module_prefix))) {
+	if (params->module_prefix && *params->module_prefix && !(registry->module_prefix = strdup(params->module_prefix))) {
 		log_error(ID(module_registry_res), "Failed to copy common module prefix.");
 		goto fail;
 	}
 
-	if (params->module_suffix && *params->module_suffix &&
-	    !(registry->module_suffix = strdup(params->module_suffix))) {
+	if (params->module_suffix && *params->module_suffix && !(registry->module_suffix = strdup(params->module_suffix))) {
 		log_error(ID(module_registry_res), "Failed to copy common module suffix.");
 		goto fail;
 	}
@@ -514,7 +531,7 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		registry->symbol_params[i].flags = params->symbol_params[i].flags;
 	}
 
-	registry->flags = params->flags;
+	registry->flags  = params->flags;
 	registry->cb_arg = params->cb_arg;
 
 	*data = registry;
@@ -542,13 +559,13 @@ static int _destroy_module_registry(sid_resource_t *module_registry_res)
 }
 
 const sid_resource_type_t sid_resource_type_module = {
-	.name = MODULE_NAME,
-	.init = _init_module,
+	.name    = MODULE_NAME,
+	.init    = _init_module,
 	.destroy = _destroy_module,
 };
 
 const sid_resource_type_t sid_resource_type_module_registry = {
-	.name = MODULE_REGISTRY_NAME,
-	.init = _init_module_registry,
+	.name    = MODULE_REGISTRY_NAME,
+	.init    = _init_module_registry,
 	.destroy = _destroy_module_registry,
 };

@@ -15,16 +15,16 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "log/log.h"
 
 #include <stdio.h>
 #include <unistd.h>
 
-static int _max_level_id = -1;
+static int _max_level_id  = -1;
 static int _force_err_out = 0;
-static int _with_pids = 0;
+static int _with_pids     = 0;
 static int _with_src_info = 0;
 
 void log_standard_open(int verbose_mode)
@@ -40,15 +40,15 @@ void log_standard_open(int verbose_mode)
 			_max_level_id = LOG_DEBUG;
 			break;
 		case 3:
-			_max_level_id = LOG_DEBUG;
+			_max_level_id  = LOG_DEBUG;
 			_with_src_info = 1;
 			_force_err_out = 1;
 			break;
 		default:
-			_max_level_id = LOG_DEBUG;
+			_max_level_id  = LOG_DEBUG;
 			_with_src_info = 1;
 			_force_err_out = 1;
-			_with_pids = 1;
+			_with_pids     = 1;
 			break;
 	}
 }
@@ -59,15 +59,15 @@ void log_standard_close(void)
 	fflush(stderr);
 }
 
-void log_standard_output(int level_id,
+void log_standard_output(int         level_id,
                          const char *prefix,
-                         int class_id,
-                         int errno_id,
+                         int         class_id,
+                         int         errno_id,
                          const char *src_file_name,
-                         int src_line_number,
+                         int         src_line_number,
                          const char *function_name,
                          const char *format,
-                         va_list ap)
+                         va_list     ap)
 {
 	FILE *out_file;
 
@@ -80,8 +80,7 @@ void log_standard_output(int level_id,
 		fprintf(out_file, "[%d:%d]:", getppid(), getpid());
 
 	if (_with_src_info)
-		fprintf(out_file, "%s:%d%s%s\t", src_file_name, src_line_number,
-		        function_name ? ":" : "", function_name ? : "");
+		fprintf(out_file, "%s:%d%s%s\t", src_file_name, src_line_number, function_name ? ":" : "", function_name ?: "");
 
 	if (prefix)
 		fprintf(out_file, "<%s> ", prefix);
@@ -94,9 +93,7 @@ void log_standard_output(int level_id,
 	fputc('\n', out_file);
 }
 
-const struct log_target log_target_standard = {
-	.name = "standard",
-	.open = log_standard_open,
-	.close = log_standard_close,
-	.output = log_standard_output
-};
+const struct log_target log_target_standard = {.name   = "standard",
+                                               .open   = log_standard_open,
+                                               .close  = log_standard_close,
+                                               .output = log_standard_output};

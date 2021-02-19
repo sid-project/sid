@@ -15,12 +15,13 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef _SID_USID_IFACE_H
 #define _SID_USID_IFACE_H
 
 #include "base/buffer.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -28,11 +29,12 @@
 extern "C" {
 #endif
 
-#define USID_PROTOCOL          1
-#define USID_SOCKET_PATH       "\0sid-ubridge.socket"
-#define USID_SOCKET_PATH_LEN   (sizeof(USID_SOCKET_PATH) - 1)
+#define USID_PROTOCOL        1
+#define USID_SOCKET_PATH     "\0sid-ubridge.socket"
+#define USID_SOCKET_PATH_LEN (sizeof(USID_SOCKET_PATH) - 1)
 
-typedef enum {
+typedef enum
+{
 	_USID_CMD_START     = 0,
 	USID_CMD_UNDEFINED  = _USID_CMD_START, /* virtual cmd if cmd not defined at all */
 	USID_CMD_UNKNOWN    = 1,               /* virtual cmd if cmd defined, but not recognized */
@@ -45,7 +47,7 @@ typedef enum {
 	_USID_CMD_END       = USID_CMD_DUMP,
 } usid_cmd_t;
 
-static const char * const usid_cmd_names[] = {
+static const char *const usid_cmd_names[] = {
 	[USID_CMD_UNDEFINED]  = "undefined",
 	[USID_CMD_UNKNOWN]    = "unknown",
 	[USID_CMD_ACTIVE]     = "active",
@@ -67,19 +69,19 @@ bool usid_cmd_root_only[] = {
 	[USID_CMD_DUMP]       = false,
 };
 
-#define COMMAND_STATUS_MASK_OVERALL  UINT64_C(0x0000000000000001)
-#define COMMAND_STATUS_SUCCESS       UINT64_C(0x0000000000000000)
-#define COMMAND_STATUS_FAILURE       UINT64_C(0x0000000000000001)
+#define COMMAND_STATUS_MASK_OVERALL UINT64_C(0x0000000000000001)
+#define COMMAND_STATUS_SUCCESS      UINT64_C(0x0000000000000000)
+#define COMMAND_STATUS_FAILURE      UINT64_C(0x0000000000000001)
 
 struct usid_msg_header {
 	uint64_t status;
-	uint8_t prot;
-	uint8_t cmd;
-	char data[];
+	uint8_t  prot;
+	uint8_t  cmd;
+	char     data[];
 } __attribute__((packed));
 
 struct usid_msg {
-	size_t size; /* header + data */
+	size_t                  size; /* header + data */
 	struct usid_msg_header *header;
 };
 
@@ -92,18 +94,21 @@ struct usid_version {
 struct usid_dump_header {
 	uint64_t seqnum;
 	uint64_t flags;
-	uint32_t data_count;	/* the number of data iovs */
+	uint32_t data_count; /* the number of data iovs */
 } __attribute__((packed));
 
 #define USID_MSG_HEADER_SIZE sizeof(struct usid_msg_header)
-#define USID_VERSION_SIZE sizeof(struct usid_version)
+#define USID_VERSION_SIZE    sizeof(struct usid_version)
 
-typedef int (*usid_req_data_fn_t) (struct buffer *buf, void *data);
+typedef int (*usid_req_data_fn_t)(struct buffer *buf, void *data);
 
 usid_cmd_t usid_cmd_name_to_type(const char *cmd_name);
-int usid_req(const char *prefix, usid_cmd_t cmd, uint64_t status,
-	     usid_req_data_fn_t data_fn, void *data_fn_arg,
-	     struct buffer **resp_buf);
+int        usid_req(const char *       prefix,
+                    usid_cmd_t         cmd,
+                    uint64_t           status,
+                    usid_req_data_fn_t data_fn,
+                    void *             data_fn_arg,
+                    struct buffer **   resp_buf);
 
 #ifdef __cplusplus
 }

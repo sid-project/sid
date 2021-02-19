@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/buffer.h"
 #include "base/mem.h"
@@ -52,12 +52,12 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 {
 	sigset_t mask;
 
-	sigemptyset (&mask);
-	sigaddset (&mask, SIGTERM);
-	sigaddset (&mask, SIGINT);
-	sigaddset (&mask, SIGPIPE);
-	sigaddset (&mask, SIGHUP);
-	sigaddset (&mask, SIGCHLD);
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGTERM);
+	sigaddset(&mask, SIGINT);
+	sigaddset(&mask, SIGPIPE);
+	sigaddset(&mask, SIGHUP);
+	sigaddset(&mask, SIGCHLD);
 
 	if (sid_resource_create_signal_event_source(res, NULL, mask, _on_sid_signal_event, 0, "signal_handler", NULL) < 0) {
 		log_error(ID(res), "Failed to create signal handlers.");
@@ -81,8 +81,8 @@ fail:
 }
 
 const sid_resource_type_t sid_resource_type_sid = {
-	.name = SID_NAME,
+	.name            = SID_NAME,
 	.with_event_loop = 1,
-	.with_watchdog = 1,
-	.init = _init_sid,
+	.with_watchdog   = 1,
+	.init            = _init_sid,
 };

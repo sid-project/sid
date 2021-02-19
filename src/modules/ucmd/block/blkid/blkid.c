@@ -15,10 +15,9 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "blkid-type.h"
-
 #include "log/log.h"
 #include "resource/ucmd-module.h"
 
@@ -37,7 +36,8 @@
 
 SID_UCMD_MOD_PRIO(0)
 
-enum {
+enum
+{
 	ID_FS_TYPE = 0,
 	ID_FS_USAGE,
 	ID_FS_VERSION,
@@ -56,11 +56,11 @@ enum {
 	ID_FS_APPLICATION_ID,
 	ID_FS_BOOT_SYSTEM_ID,
 	_UDEV_KEY_START = ID_FS_TYPE,
-	_UDEV_KEY_END = ID_FS_BOOT_SYSTEM_ID,
+	_UDEV_KEY_END   = ID_FS_BOOT_SYSTEM_ID,
 
 	SID_NEXT_MOD,
 	_DEVICE_KEY_START = SID_NEXT_MOD,
-	_DEVICE_KEY_END = SID_NEXT_MOD,
+	_DEVICE_KEY_END   = SID_NEXT_MOD,
 
 	_NUM_KEYS
 };
@@ -116,19 +116,19 @@ static int _blkid_exit(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_
 
 	/*
 	 * 	TODO: Do not unreserve KVs in worker if we have modules preloaded in main process.
-		for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
-			if (sid_ucmd_mod_unreserve_kv(module, ucmd_mod_ctx, KV_NS_UDEV, keys[i]) < 0) {
-				log_error("Failed to unreserve blkid udev key %s.", keys[i]);
-				return -1;
-			}
-		}
+	        for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
+	                if (sid_ucmd_mod_unreserve_kv(module, ucmd_mod_ctx, KV_NS_UDEV, keys[i]) < 0) {
+	                        log_error("Failed to unreserve blkid udev key %s.", keys[i]);
+	                        return -1;
+	                }
+	        }
 
-		for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
-			if (sid_ucmd_mod_unreserve_kv(module, ucmd_mod_ctx, KV_NS_DEVICE, keys[i]) < 0) {
-				log_error("Failed to unreserve blkid device key %s.", keys[i]);
-				return -1;
-			}
-		}
+	        for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
+	                if (sid_ucmd_mod_unreserve_kv(module, ucmd_mod_ctx, KV_NS_DEVICE, keys[i]) < 0) {
+	                        log_error("Failed to unreserve blkid device key %s.", keys[i]);
+	                        return -1;
+	                }
+	        }
 	*/
 
 	return 0;
@@ -145,9 +145,9 @@ SID_UCMD_MOD_RESET(_blkid_reset)
 /* TODO: Also add ID_PART_GPT_AUTO_ROOT_UUID - see udev-builtin-blkid in systemd source tree. */
 static void _add_property(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *name, const char *value)
 {
-	char s[256];
+	char                     s[256];
 	const struct blkid_type *blkid_type;
-	size_t len;
+	size_t                   len;
 
 	s[0] = '\0';
 
@@ -155,9 +155,16 @@ static void _add_property(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, con
 		len = strlen(value);
 		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, keys[ID_FS_TYPE], value, len + 1, KV_MOD_PROTECTED);
 
-		/* Translate blkid type name to sid module name and save the result in SID_UCMD_KEY_DEVICE_NEXT_MOD variable in KV_NS_DEVICE. */
+		/* Translate blkid type name to sid module name and save the result in SID_UCMD_KEY_DEVICE_NEXT_MOD variable in
+		 * KV_NS_DEVICE. */
 		if ((blkid_type = blkid_type_lookup(value, len)))
-			sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_DEVICE, keys[SID_NEXT_MOD], blkid_type->module_name, strlen(blkid_type->module_name) + 1, KV_PERSISTENT | KV_MOD_PROTECTED);
+			sid_ucmd_set_kv(mod,
+			                ucmd_ctx,
+			                KV_NS_DEVICE,
+			                keys[SID_NEXT_MOD],
+			                blkid_type->module_name,
+			                strlen(blkid_type->module_name) + 1,
+			                KV_PERSISTENT | KV_MOD_PROTECTED);
 	} else if (!strcmp(name, "USAGE")) {
 		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, keys[ID_FS_USAGE], value, strlen(value) + 1, KV_MOD_PROTECTED);
 	} else if (!strcmp(name, "VERSION")) {
@@ -188,7 +195,7 @@ static void _add_property(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, con
 		blkid_encode_string(value, s, sizeof(s));
 		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, keys[ID_PART_ENTRY_TYPE], s, strlen(s) + 1, KV_MOD_PROTECTED);
 	} else if (!strncmp(name, "PART_ENTRY_", strlen("PART_ENTRY_"))) {
-		snprintf(s, sizeof(s), "ID_%s",	name);
+		snprintf(s, sizeof(s), "ID_%s", name);
 		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, s, value, strlen(value) + 1, KV_MOD_PROTECTED);
 	} else if (!strcmp(name, "SYSTEM_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
@@ -208,16 +215,14 @@ static void _add_property(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, con
 static int _probe_superblocks(blkid_probe pr)
 {
 	struct stat st;
-	int rc;
+	int         rc;
 
 	if (fstat(blkid_probe_get_fd(pr), &st))
 		return -errno;
 
 	blkid_probe_enable_partitions(pr, 1);
 
-	if (!S_ISCHR(st.st_mode) &&
-	    blkid_probe_get_size(pr) <= 1024 * 1440 &&
-	    blkid_probe_is_wholedisk(pr)) {
+	if (!S_ISCHR(st.st_mode) && blkid_probe_get_size(pr) <= 1024 * 1440 && blkid_probe_is_wholedisk(pr)) {
 		/*
 		 * check if the small disk is partitioned, if yes then
 		 * don't probe for filesystems.
@@ -226,10 +231,10 @@ static int _probe_superblocks(blkid_probe pr)
 
 		rc = blkid_do_fullprobe(pr);
 		if (rc < 0)
-			return rc;        /* -1 = error, 1 = nothing, 0 = success */
+			return rc; /* -1 = error, 1 = nothing, 0 = success */
 
 		if (blkid_probe_lookup_value(pr, "PTTYPE", NULL, NULL) == 0)
-			return 0;        /* partition table detected */
+			return 0; /* partition table detected */
 	}
 
 	blkid_probe_set_partitions_flags(pr, BLKID_PARTS_ENTRY_DETAILS);
@@ -240,25 +245,24 @@ static int _probe_superblocks(blkid_probe pr)
 
 static int _blkid_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	char dev_path[PATH_MAX];
-	int64_t offset = 0;
-	int noraid = 0;
-	int fd = -1;
-	blkid_probe pr = NULL;
+	char        dev_path[PATH_MAX];
+	int64_t     offset = 0;
+	int         noraid = 0;
+	int         fd     = -1;
+	blkid_probe pr     = NULL;
 	const char *data;
 	const char *name;
-	int nvals;
-	int i;
-	int r = -1;
+	int         nvals;
+	int         i;
+	int         r = -1;
 
 	pr = blkid_new_probe();
 	if (!pr)
 		goto out;
 
 	blkid_probe_set_superblocks_flags(pr,
-	                                  BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
-	                                  BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
-	                                  BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
+	                                  BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID | BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
+	                                          BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
 
 	// TODO: Also decide when to use offset (including exact value) and noraid options.
 
@@ -267,7 +271,7 @@ static int _blkid_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx
 
 	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ucmd_dev_get_name(ucmd_ctx));
 
-	if ((fd = open(dev_path, O_RDONLY|O_CLOEXEC)) < 0) {
+	if ((fd = open(dev_path, O_RDONLY | O_CLOEXEC)) < 0) {
 		log_error_errno(MID, errno, "Failed to open device %s", dev_path);
 		goto out;
 	}
@@ -275,7 +279,7 @@ static int _blkid_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx
 	if ((r = blkid_probe_set_device(pr, fd, offset, 0)) < 0)
 		goto out;
 
-	log_debug(MID, "Probe %s %sraid offset=%"PRIi64, dev_path, noraid ? "no" : "", offset);
+	log_debug(MID, "Probe %s %sraid offset=%" PRIi64, dev_path, noraid ? "no" : "", offset);
 
 	if ((r = _probe_superblocks(pr)) < 0)
 		goto out;

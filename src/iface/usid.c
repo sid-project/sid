@@ -15,11 +15,13 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "iface/usid.h"
-#include "log/log.h"
+
 #include "base/comms.h"
+#include "log/log.h"
+
 #include <string.h>
 #include <unistd.h>
 
@@ -38,30 +40,32 @@ usid_cmd_t usid_cmd_name_to_type(const char *cmd_name)
 	return USID_CMD_UNKNOWN;
 }
 
-int usid_req(const char *prefix, usid_cmd_t cmd, uint64_t status,
-             usid_req_data_fn_t data_fn, void *data_fn_arg,
-             struct buffer **resp_buf)
+int usid_req(const char *       prefix,
+             usid_cmd_t         cmd,
+             uint64_t           status,
+             usid_req_data_fn_t data_fn,
+             void *             data_fn_arg,
+             struct buffer **   resp_buf)
 {
-	int socket_fd = -1;
-	struct buffer *buf = NULL;
-	ssize_t n;
-	int r = -1;
+	int            socket_fd = -1;
+	struct buffer *buf       = NULL;
+	ssize_t        n;
+	int            r = -1;
 
 	if (!(buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-							  .type = BUFFER_TYPE_LINEAR,
-							  .mode = BUFFER_MODE_SIZE_PREFIX}),
-				  &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}), &r))) {
+	                                                  .type    = BUFFER_TYPE_LINEAR,
+	                                                  .mode    = BUFFER_MODE_SIZE_PREFIX}),
+	                          &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                          &r))) {
 		log_error_errno(prefix, r, "Failed to create request buffer");
 		goto out;
 	}
 
 	if (!buffer_add(buf,
-	&((struct usid_msg_header) {
-	.status = status,
-	.prot = USID_PROTOCOL,
-	.cmd = cmd
-}), USID_MSG_HEADER_SIZE, &r))
-	goto out;
+	                &((struct usid_msg_header) {.status = status, .prot = USID_PROTOCOL, .cmd = cmd}),
+	                USID_MSG_HEADER_SIZE,
+	                &r))
+		goto out;
 
 	if (data_fn && (data_fn(buf, data_fn_arg) < 0)) {
 		log_error(prefix, "Failed to add data to request.");

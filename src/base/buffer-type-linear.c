@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/common.h"
 
@@ -31,7 +31,7 @@
 
 static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 {
-	char *p;
+	char * p;
 	size_t align;
 	size_t alloc_step;
 
@@ -57,8 +57,7 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 			break;
 
 		case BUFFER_BACKEND_MEMFD:
-			if (buf->fd == -1 &&
-			    (buf->fd = memfd_create("buffer", MFD_CLOEXEC | MFD_ALLOW_SEALING)) < 0)
+			if (buf->fd == -1 && (buf->fd = memfd_create("buffer", MFD_CLOEXEC | MFD_ALLOW_SEALING)) < 0)
 				return -errno;
 
 			if (ftruncate(buf->fd, needed) < 0)
@@ -85,7 +84,7 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 			return -ENOTSUP;
 	}
 
-	buf->mem = p;
+	buf->mem                  = p;
 	buf->stat.usage.allocated = needed;
 
 	return 0;
@@ -94,7 +93,7 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 static int _buffer_linear_create(struct buffer *buf)
 {
 	size_t needed = buf->stat.init.size;
-	int r;
+	int    r;
 
 	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		needed += MSG_SIZE_PREFIX_LEN;
@@ -134,7 +133,7 @@ static int _buffer_linear_reset(struct buffer *buf)
 	size_t needed;
 
 	buf->stat.usage.used = 0;
-	needed = buf->stat.init.size;
+	needed               = buf->stat.init.size;
 
 	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		needed += MSG_SIZE_PREFIX_LEN;
@@ -144,9 +143,9 @@ static int _buffer_linear_reset(struct buffer *buf)
 
 static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len, int *ret_code)
 {
-	size_t used = buf->stat.usage.used;
-	void *start = NULL;
-	int r;
+	size_t used  = buf->stat.usage.used;
+	void * start = NULL;
+	int    r;
 
 	if (!used && buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
 		used = MSG_SIZE_PREFIX_LEN;
@@ -165,12 +164,12 @@ out:
 
 static const void *_buffer_linear_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap)
 {
-	va_list ap_copy;
-	size_t used = buf->stat.usage.used;
-	size_t available;
-	int printed;
+	va_list     ap_copy;
+	size_t      used = buf->stat.usage.used;
+	size_t      available;
+	int         printed;
 	const void *start = NULL;
-	int r;
+	int         r;
 
 	va_copy(ap_copy, ap);
 
@@ -178,7 +177,7 @@ static const void *_buffer_linear_fmt_add(struct buffer *buf, int *ret_code, con
 		used = MSG_SIZE_PREFIX_LEN;
 
 	available = buf->stat.usage.allocated - used;
-	printed = vsnprintf(buf->mem + used, available, fmt, ap_copy);
+	printed   = vsnprintf(buf->mem + used, available, fmt, ap_copy);
 	va_end(ap_copy);
 
 	if (printed < 0) {
@@ -194,9 +193,9 @@ static const void *_buffer_linear_fmt_add(struct buffer *buf, int *ret_code, con
 		}
 	}
 
-	start = buf->mem + used;
+	start                = buf->mem + used;
 	buf->stat.usage.used = used + printed + 1;
-	r = 0;
+	r                    = 0;
 out:
 	if (ret_code)
 		*ret_code = r;
@@ -265,7 +264,7 @@ static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t
 static ssize_t _buffer_linear_read_plain(struct buffer *buf, int fd)
 {
 	ssize_t n;
-	int r;
+	int     r;
 
 	if (buf->stat.usage.used == buf->stat.usage.allocated &&
 	    (r = _buffer_linear_realloc(buf, buf->stat.usage.allocated + buf->stat.init.alloc_step, 0)) < 0)
@@ -284,9 +283,9 @@ static ssize_t _buffer_linear_read_plain(struct buffer *buf, int fd)
 static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 {
 	ssize_t n;
-	size_t previous_used;
-	size_t expected;
-	int r;
+	size_t  previous_used;
+	size_t  expected;
+	int     r;
 
 	if (_buffer_linear_is_complete(buf, &r)) {
 		return r < 0 ? r : -EXFULL;
@@ -331,7 +330,7 @@ static ssize_t _buffer_linear_read(struct buffer *buf, int fd)
 static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 {
 	ssize_t n;
-	off_t offset;
+	off_t   offset;
 
 	if (pos == buf->stat.usage.used)
 		return -ENODATA;
@@ -349,7 +348,7 @@ static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 
 		case BUFFER_BACKEND_MEMFD:
 			offset = pos;
-			n = sendfile(fd, buf->fd, &offset, buf->stat.usage.used - pos);
+			n      = sendfile(fd, buf->fd, &offset, buf->stat.usage.used - pos);
 			break;
 
 		default:
@@ -362,16 +361,14 @@ static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 	return n;
 }
 
-const struct buffer_type buffer_type_linear = {
-	.create = _buffer_linear_create,
-	.destroy = _buffer_linear_destroy,
-	.reset = _buffer_linear_reset,
-	.add = _buffer_linear_add,
-	.fmt_add = _buffer_linear_fmt_add,
-	.rewind = _buffer_linear_rewind,
-	.rewind_mem = _buffer_linear_rewind_mem,
-	.is_complete = _buffer_linear_is_complete,
-	.get_data = _buffer_linear_get_data,
-	.read = _buffer_linear_read,
-	.write = _buffer_linear_write
-};
+const struct buffer_type buffer_type_linear = {.create      = _buffer_linear_create,
+                                               .destroy     = _buffer_linear_destroy,
+                                               .reset       = _buffer_linear_reset,
+                                               .add         = _buffer_linear_add,
+                                               .fmt_add     = _buffer_linear_fmt_add,
+                                               .rewind      = _buffer_linear_rewind,
+                                               .rewind_mem  = _buffer_linear_rewind_mem,
+                                               .is_complete = _buffer_linear_is_complete,
+                                               .get_data    = _buffer_linear_get_data,
+                                               .read        = _buffer_linear_read,
+                                               .write       = _buffer_linear_write};

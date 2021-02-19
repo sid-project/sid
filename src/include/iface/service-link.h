@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef _SID_SERVICE_LINK_IFACE_H
 #define _SID_SERVICE_LINK_IFACE_H
@@ -27,33 +27,35 @@
 extern "C" {
 #endif
 
-typedef enum {
+typedef enum
+{
 	SERVICE_TYPE_NONE,
 	SERVICE_TYPE_SYSTEMD,
 	_SERVICE_TYPE_COUNT
 } service_link_type_t;
 
-typedef enum {
+typedef enum
+{
 	/* no notification */
-	SERVICE_NOTIFICATION_NONE             = UINT64_C(0x0000000000000000),
+	SERVICE_NOTIFICATION_NONE = UINT64_C(0x0000000000000000),
 
 	/* discard any further service notifications; no arg */
-	SERVICE_NOTIFICATION_UNSET            = UINT64_C(0x0000000000000001),
+	SERVICE_NOTIFICATION_UNSET = UINT64_C(0x0000000000000001),
 
 	/* notify about service status; arg is STATUS=<message> */
-	SERVICE_NOTIFICATION_STATUS           = UINT64_C(0x0000000000000002),
+	SERVICE_NOTIFICATION_STATUS = UINT64_C(0x0000000000000002),
 
 	/* notify about service reaching an error with errno; arg is 'ERRNO=<errno>' or 'ERRNO=<errno_identifier>' */
-	SERVICE_NOTIFICATION_ERRNO            = UINT64_C(0x0000000000000004),
+	SERVICE_NOTIFICATION_ERRNO = UINT64_C(0x0000000000000004),
 
 	/* notify about service being ready; no arg */
-	SERVICE_NOTIFICATION_READY            = UINT64_C(0x0000000000000008),
+	SERVICE_NOTIFICATION_READY = UINT64_C(0x0000000000000008),
 
 	/* notify about service being reloaded; no arg */
-	SERVICE_NOTIFICATION_RELOADING        = UINT64_C(0x0000000000000010),
+	SERVICE_NOTIFICATION_RELOADING = UINT64_C(0x0000000000000010),
 
 	/* notify about service being stopped; no arg */
-	SERVICE_NOTIFICATION_STOPPING         = UINT64_C(0x0000000000000020),
+	SERVICE_NOTIFICATION_STOPPING = UINT64_C(0x0000000000000020),
 
 	/* notify about service being still alive; no arg */
 	SERVICE_NOTIFICATION_WATCHDOG_REFRESH = UINT64_C(0x0000000000000040),
@@ -65,11 +67,11 @@ typedef enum {
 struct service_link;
 struct service_link_group;
 
-#define SERVICE_KEY_STATUS           "STATUS"
-#define SERVICE_KEY_ERRNO            "ERRNO"
+#define SERVICE_KEY_STATUS "STATUS"
+#define SERVICE_KEY_ERRNO  "ERRNO"
 
-#define SERVICE_KEY_ACTIVATION_TYPE  "SERVICE_ACTIVATION_TYPE"
-#define SERVICE_VALUE_ACTIVATION_FD  "FD_PRELOAD"
+#define SERVICE_KEY_ACTIVATION_TYPE "SERVICE_ACTIVATION_TYPE"
+#define SERVICE_VALUE_ACTIVATION_FD "FD_PRELOAD"
 
 #define SERVICE_FD_ACTIVATION_FDS_START SD_LISTEN_FDS_START
 
@@ -80,14 +82,14 @@ struct service_link_group;
 #define service_fd_is_socket_unix sd_is_socket_unix
 
 struct service_link *service_link_create(service_link_type_t type, const char *name);
-void service_link_destroy(struct service_link *sl);
+void                 service_link_destroy(struct service_link *sl);
 
 int service_link_add_notification(struct service_link *sl, service_link_notification_t notification);
 int service_link_remove_notification(struct service_link *sl, service_link_notification_t notification);
 
 struct service_link_group *service_link_group_create(const char *name);
-void service_link_group_destroy(struct service_link_group *slg);
-void service_link_group_destroy_with_members(struct service_link_group *slg);
+void                       service_link_group_destroy(struct service_link_group *slg);
+void                       service_link_group_destroy_with_members(struct service_link_group *slg);
 
 int service_link_group_add_member(struct service_link_group *slg, struct service_link *sl);
 int service_link_group_remove_member(struct service_link_group *slg, struct service_link *sl);

@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/mem.h"
 #include "log/log.h"
@@ -24,7 +24,7 @@
 
 #include <stdlib.h>
 
-#define DM_ID "dm"
+#define DM_ID            "dm"
 #define DM_SUBMODULES_ID DM_ID "_sub"
 
 SID_UCMD_MOD_PRIO(0)
@@ -74,7 +74,7 @@ struct dm_mod_ctx {
 static int _dm_init(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
 {
 	struct dm_mod_ctx *dm_mod = NULL;
-	int r;
+	int                r;
 
 	log_debug(DM_ID, "init");
 
@@ -84,12 +84,12 @@ static int _dm_init(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx
 	}
 
 	struct module_registry_resource_params dm_submod_registry_res_mod_params = {
-		.directory = SID_UCMD_TYPE_MOD_DIR "/" DM_ID,
+		.directory     = SID_UCMD_TYPE_MOD_DIR "/" DM_ID,
 		.module_prefix = NULL,
 		.module_suffix = ".so",
-		.flags = MODULE_REGISTRY_PRELOAD,
+		.flags         = MODULE_REGISTRY_PRELOAD,
 		.symbol_params = dm_submod_symbol_params,
-		.cb_arg = NULL,
+		.cb_arg        = NULL,
 	};
 
 	if (!(dm_mod->submod_registry = sid_resource_create(NULL,

@@ -15,20 +15,20 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
-#include "log/log.h"
 #include "base/buffer.h"
+#include "log/log.h"
 
-#include <systemd/sd-journal.h>
 #include <stdio.h>
+#include <systemd/sd-journal.h>
 #include <unistd.h>
 
 #define BUFFER_SIZE 4096
 
-static int _max_level_id = -1;
+static int _max_level_id  = -1;
 static int _force_err_out = 0;
-static int _with_pids = 0;
+static int _with_pids     = 0;
 static int _with_src_info = 1;
 
 void log_journal_open(int verbose_mode)
@@ -44,15 +44,15 @@ void log_journal_open(int verbose_mode)
 			_max_level_id = LOG_DEBUG;
 			break;
 		case 3:
-			_max_level_id = LOG_DEBUG;
+			_max_level_id  = LOG_DEBUG;
 			_with_src_info = 1;
 			_force_err_out = 1;
 			break;
 		default:
-			_max_level_id = LOG_DEBUG;
+			_max_level_id  = LOG_DEBUG;
 			_with_src_info = 1;
 			_force_err_out = 1;
-			_with_pids = 1;
+			_with_pids     = 1;
 			break;
 	}
 }
@@ -63,19 +63,19 @@ void log_journal_close(void)
 	fflush(stderr);
 }
 
-void log_journal_output(int level_id,
+void log_journal_output(int         level_id,
                         const char *prefix,
-                        int class_id,
-                        int errno_id,
+                        int         class_id,
+                        int         errno_id,
                         const char *src_file_name,
-                        int src_line_number,
+                        int         src_line_number,
                         const char *function_name,
                         const char *format,
-                        va_list ap)
+                        va_list     ap)
 {
-	char msg[4096];
+	char   msg[4096];
 	size_t prefix_len, remaining_len;
-	int r;
+	int    r;
 
 	if (level_id > _max_level_id)
 		return;
@@ -84,13 +84,16 @@ void log_journal_output(int level_id,
 	prefix_len = strlen(prefix) + 3;
 
 	if (prefix_len >= sizeof(msg)) {
-		sd_journal_send(
-		    "MESSAGE=%s: (log prefix too long)",
-		    "PRIORITY=%d", level_id,
-		    "CODE_FILE=%s", src_file_name,
-		    "CODE_LINE=%d", src_line_number,
-		    "CODE_FUNC=%s", function_name,
-		    NULL);
+		sd_journal_send("MESSAGE=%s: (log prefix too long)",
+		                "PRIORITY=%d",
+		                level_id,
+		                "CODE_FILE=%s",
+		                src_file_name,
+		                "CODE_LINE=%d",
+		                src_line_number,
+		                "CODE_FUNC=%s",
+		                function_name,
+		                NULL);
 
 		return;
 	}
@@ -101,36 +104,38 @@ void log_journal_output(int level_id,
 	r = vsnprintf(msg + prefix_len, remaining_len, format, ap);
 
 	if (r < 0 || r >= remaining_len)
-		sd_journal_send(
-		    "MESSAGE=%s: (log message truncated)",
-		    "PRIORITY=%d", level_id,
-		    "CODE_FILE=%s", src_file_name,
-		    "CODE_LINE=%d", src_line_number,
-		    "CODE_FUNC=%s", function_name,
-		    NULL);
+		sd_journal_send("MESSAGE=%s: (log message truncated)",
+		                "PRIORITY=%d",
+		                level_id,
+		                "CODE_FILE=%s",
+		                src_file_name,
+		                "CODE_LINE=%d",
+		                src_line_number,
+		                "CODE_FUNC=%s",
+		                function_name,
+		                NULL);
 
 	if (r > 0) {
 		if (_with_src_info)
-			sd_journal_send(
-			    "MESSAGE=%s", msg,
-			    "PREFIX=%s", prefix,
-			    "PRIORITY=%d", level_id,
-			    "CODE_FILE=%s", src_file_name,
-			    "CODE_LINE=%d", src_line_number,
-			    "CODE_FUNC=%s", function_name,
-			    NULL);
+			sd_journal_send("MESSAGE=%s",
+			                msg,
+			                "PREFIX=%s",
+			                prefix,
+			                "PRIORITY=%d",
+			                level_id,
+			                "CODE_FILE=%s",
+			                src_file_name,
+			                "CODE_LINE=%d",
+			                src_line_number,
+			                "CODE_FUNC=%s",
+			                function_name,
+			                NULL);
 		else
-			sd_journal_send(
-			    "MESSAGE=%s", msg,
-			    "PREFIX=%s", prefix,
-			    "PRIORITY=%d", level_id,
-			    NULL);
+			sd_journal_send("MESSAGE=%s", msg, "PREFIX=%s", prefix, "PRIORITY=%d", level_id, NULL);
 	}
 }
 
-const struct log_target log_target_journal = {
-	.name = "journal",
-	.open = log_journal_open,
-	.close = log_journal_close,
-	.output = log_journal_output
-};
+const struct log_target log_target_journal = {.name   = "journal",
+                                              .open   = log_journal_open,
+                                              .close  = log_journal_close,
+                                              .output = log_journal_output};

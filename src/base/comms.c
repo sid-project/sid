@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/comms.h"
 
@@ -35,10 +35,10 @@ static void _comms_unix_addr_init(const char *path, size_t path_len, struct sock
 
 int comms_unix_create(const char *path, size_t path_len, int type)
 {
-	int socket_fd = -1;
+	int                socket_fd = -1;
 	struct sockaddr_un addr;
-	socklen_t addr_len;
-	int r;
+	socklen_t          addr_len;
+	int                r;
 
 	if (!path_len) {
 		r = -EINVAL;
@@ -74,9 +74,9 @@ fail:
 int comms_unix_init(const char *path, size_t path_len, int type)
 {
 	struct sockaddr_un addr;
-	int socket_fd = -1;
-	socklen_t addr_len;
-	int r;
+	int                socket_fd = -1;
+	socklen_t          addr_len;
+	int                r;
 
 	if (!path_len) {
 		r = -EINVAL;
@@ -107,24 +107,24 @@ fail:
 
 static ssize_t _do_comms_unix_send(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send)
 {
-	struct msghdr msg = {0};
+	struct msghdr   msg = {0};
 	struct cmsghdr *cmsg;
 	union {
-		char control[CMSG_SPACE(sizeof(int))];
+		char           control[CMSG_SPACE(sizeof(int))];
 		struct cmsghdr alignment;
 	} u = {0};
 	ssize_t r;
 
-	msg.msg_iov = iov;
+	msg.msg_iov    = iov;
 	msg.msg_iovlen = iov_len;
 
 	if (fd_to_send > -1) {
-		msg.msg_control = u.control;
+		msg.msg_control    = u.control;
 		msg.msg_controllen = sizeof(u.control);
-		cmsg = CMSG_FIRSTHDR(&msg);
-		cmsg->cmsg_level = SOL_SOCKET;
-		cmsg->cmsg_type = SCM_RIGHTS;
-		cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+		cmsg               = CMSG_FIRSTHDR(&msg);
+		cmsg->cmsg_level   = SOL_SOCKET;
+		cmsg->cmsg_type    = SCM_RIGHTS;
+		cmsg->cmsg_len     = CMSG_LEN(sizeof(int));
 		memcpy(CMSG_DATA(cmsg), &fd_to_send, sizeof(int));
 	}
 
@@ -136,10 +136,7 @@ static ssize_t _do_comms_unix_send(int socket_fd, struct iovec *iov, size_t iov_
 
 ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send)
 {
-	struct iovec iov = {
-		.iov_base = buf,
-		.iov_len = buf_len
-	};
+	struct iovec iov = {.iov_base = buf, .iov_len = buf_len};
 
 	return _do_comms_unix_send(socket_fd, &iov, 1, fd_to_send);
 }
@@ -151,17 +148,17 @@ ssize_t comms_unix_send_iovec(int socket_fd, struct iovec *iov, size_t iov_len, 
 
 static ssize_t _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
 {
-	struct msghdr msg = {0};
+	struct msghdr   msg = {0};
 	struct cmsghdr *cmsg;
 	union {
-		char control[CMSG_SPACE(sizeof(int))];
+		char           control[CMSG_SPACE(sizeof(int))];
 		struct cmsghdr alignment;
 	} u;
 	ssize_t r;
 
-	msg.msg_iov = iov;
-	msg.msg_iovlen = iov_len;
-	msg.msg_control = u.control;
+	msg.msg_iov        = iov;
+	msg.msg_iovlen     = iov_len;
+	msg.msg_control    = u.control;
 	msg.msg_controllen = sizeof(u.control);
 
 	*fd_received = -1;
@@ -170,10 +167,7 @@ static ssize_t _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_
 		return -errno;
 
 	cmsg = CMSG_FIRSTHDR(&msg);
-	if (cmsg &&
-	    cmsg->cmsg_len == CMSG_LEN(sizeof(int)) &&
-	    cmsg->cmsg_level == SOL_SOCKET &&
-	    cmsg->cmsg_type == SCM_RIGHTS)
+	if (cmsg && cmsg->cmsg_len == CMSG_LEN(sizeof(int)) && cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS)
 		memcpy(fd_received, CMSG_DATA(cmsg), sizeof(int));
 
 	return r;
@@ -181,10 +175,7 @@ static ssize_t _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_
 
 ssize_t comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
 {
-	struct iovec iov = {
-		.iov_base = buf,
-		.iov_len = buf_len
-	};
+	struct iovec iov = {.iov_base = buf, .iov_len = buf_len};
 
 	return _do_comms_unix_recv(socket_fd, &iov, 1, fd_received);
 }

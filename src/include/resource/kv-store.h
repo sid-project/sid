@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef _SID_KV_STORE_H
 #define _SID_KV_STORE_H
@@ -28,21 +28,24 @@
 extern "C" {
 #endif
 
-#define KV_STORE_KEY_JOIN ":"
+#define KV_STORE_KEY_JOIN     ":"
 #define KV_STORE_KEY_JOIN_LEN (sizeof(KV_STORE_KEY_JOIN) - 1)
 
-typedef enum {
+typedef enum
+{
 	KV_STORE_BACKEND_HASH,
 } kv_store_backend_t;
 
-typedef enum {
+typedef enum
+{
 	KV_STORE_VALUE_NO_FLAGS = UINT32_C(0x00000000),
 	KV_STORE_VALUE_VECTOR   = UINT32_C(0x00000001),
 	KV_STORE_VALUE_REF      = UINT32_C(0x00000002),
 	KV_STORE_VALUE_AUTOFREE = UINT32_C(0x00000004),
 } kv_store_value_flags_t;
 
-typedef enum {
+typedef enum
+{
 	KV_STORE_VALUE_NO_OP    = UINT32_C(0x00000000),
 	KV_STORE_VALUE_OP_MERGE = UINT32_C(0x00000001),
 } kv_store_value_op_flags_t;
@@ -59,12 +62,12 @@ struct sid_kv_store_resource_params {
 };
 
 struct kv_store_update_spec {
-	void *old_data;
-	size_t old_data_size;
-	kv_store_value_flags_t old_flags;
-	void *new_data;
-	size_t new_data_size;
-	kv_store_value_flags_t new_flags;
+	void *                    old_data;
+	size_t                    old_data_size;
+	kv_store_value_flags_t    old_flags;
+	void *                    new_data;
+	size_t                    new_data_size;
+	kv_store_value_flags_t    new_flags;
 	kv_store_value_op_flags_t op_flags;
 };
 
@@ -73,10 +76,9 @@ struct kv_store_update_spec {
  *   0 to keep old_data
  *   1 to update old_data with new_data
  */
-typedef int (*kv_store_update_fn_t) (const char *key,
-				     struct kv_store_update_spec *update_spec,
-				     void *arg);
+typedef int (*kv_store_update_fn_t)(const char *key, struct kv_store_update_spec *update_spec, void *arg);
 
+// clang-format off
 /*
  * Sets key-value pair:
  *   - kv_update_fn callback with kv_update_fn_arg is called before updating the value.
@@ -119,17 +121,21 @@ typedef int (*kv_store_update_fn_t) (const char *key,
  * Returns:
  *   The value that has been set.
  */
-void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
-			 void *value, size_t value_size,
-			 kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags,
-			 kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg);
+// clang-format on
+void *kv_store_set_value(sid_resource_t *          kv_store_res,
+                         const char *              key,
+                         void *                    value,
+                         size_t                    value_size,
+                         kv_store_value_flags_t    flags,
+                         kv_store_value_op_flags_t op_flags,
+                         kv_store_update_fn_t      kv_update_fn,
+                         void *                    kv_update_fn_arg);
 /*
  * Gets value for given key.
  *   - If value_size is not NULL, the function returns the size of the value through this output argument.
  *   - If flags is not NULL, the function returns the flags attached to the value through this output argument.
  */
 void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *value_size, kv_store_value_flags_t *flags);
-
 
 /*
  * Unsets value for given key.
@@ -139,17 +145,16 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *
  *    0 if value unset
  *   -1 if value not unset
  */
-int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key,
-			 kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg);
+int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg);
 
 typedef struct kv_store_iter kv_store_iter_t;
 
 kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res);
-const char *kv_store_iter_current_key(kv_store_iter_t *iter);
-void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags);
-void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags);
-void kv_store_iter_reset(kv_store_iter_t *iter);
-void kv_store_iter_destroy(kv_store_iter_t *iter);
+const char *     kv_store_iter_current_key(kv_store_iter_t *iter);
+void *           kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags);
+void *           kv_store_iter_next(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags);
+void             kv_store_iter_reset(kv_store_iter_t *iter);
+void             kv_store_iter_destroy(kv_store_iter_t *iter);
 
 #ifdef __cplusplus
 }

@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/common.h"
 
@@ -31,7 +31,7 @@
 
 static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
 {
-	void *p;
+	void * p;
 	size_t align;
 	size_t alloc_step;
 
@@ -58,8 +58,7 @@ static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
 			break;
 
 		case BUFFER_BACKEND_MEMFD:
-			if (buf->fd == -1 &&
-			    (buf->fd = memfd_create("buffer", MFD_CLOEXEC | MFD_ALLOW_SEALING)) < 0)
+			if (buf->fd == -1 && (buf->fd = memfd_create("buffer", MFD_CLOEXEC | MFD_ALLOW_SEALING)) < 0)
 				return -errno;
 
 			if (ftruncate(buf->fd, needed * VECTOR_ITEM_SIZE) < 0)
@@ -72,8 +71,7 @@ static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
 					           needed * VECTOR_ITEM_SIZE,
 					           MREMAP_MAYMOVE);
 				else
-					p = mmap(NULL, needed * VECTOR_ITEM_SIZE, PROT_READ | PROT_WRITE,
-					         MAP_SHARED, buf->fd, 0);
+					p = mmap(NULL, needed * VECTOR_ITEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, buf->fd, 0);
 
 				if (p == MAP_FAILED)
 					return -errno;
@@ -90,7 +88,7 @@ static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
 			return -ENOTSUP;
 	}
 
-	buf->mem = p;
+	buf->mem                  = p;
 	buf->stat.usage.allocated = needed;
 
 	return 0;
@@ -99,7 +97,7 @@ static int _buffer_vector_realloc(struct buffer *buf, size_t needed, int force)
 static int _buffer_vector_create(struct buffer *buf)
 {
 	size_t needed = buf->stat.init.size;
-	int r;
+	int    r;
 
 	if (buf == NULL)
 		return EINVAL;
@@ -131,7 +129,7 @@ static int _buffer_vector_create(struct buffer *buf)
 int _buffer_vector_destroy(struct buffer *buf)
 {
 	struct iovec *iov;
-	int r;
+	int           r;
 
 	switch (buf->stat.spec.backend) {
 		case BUFFER_BACKEND_MALLOC:
@@ -180,9 +178,9 @@ int _buffer_vector_reset(struct buffer *buf)
 
 const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len, int *ret_code)
 {
-	size_t used = buf->stat.usage.used;
+	size_t        used = buf->stat.usage.used;
 	struct iovec *iov;
-	int r;
+	int           r;
 
 	if (buf == NULL || buf->mem == NULL) {
 		if (ret_code)
@@ -194,11 +192,12 @@ const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len, int *
 		used = 1;
 
 	if ((r = _buffer_vector_realloc(buf, used + 1, 0)) < 0)
-		goto out;;
+		goto out;
+	;
 
-	iov = buf->mem;
-	iov[used].iov_base = data;
-	iov[used].iov_len = len;
+	iov                  = buf->mem;
+	iov[used].iov_base   = data;
+	iov[used].iov_len    = len;
 	buf->stat.usage.used = used + 1;
 out:
 	if (ret_code)
@@ -229,26 +228,26 @@ int _buffer_vector_rewind(struct buffer *buf, size_t pos)
 
 int _buffer_vector_rewind_mem(struct buffer *buf, const void *mem)
 {
-	return _buffer_vector_rewind(buf, (struct iovec *)mem - (struct iovec *)buf->mem);
+	return _buffer_vector_rewind(buf, (struct iovec *) mem - (struct iovec *) buf->mem);
 }
 
 bool _buffer_vector_is_complete(struct buffer *buf, int *ret_code)
 {
 	/*	struct iovec *iov;
-		MSG_SIZE_PREFIX_TYPE size_prefix;
-		size_t size = 0;
-		unsigned i;
+	        MSG_SIZE_PREFIX_TYPE size_prefix;
+	        size_t size = 0;
+	        unsigned i;
 
-		switch (buf->mode) {
-			case BUFFER_MODE_PLAIN:
-				return true;
-			case BUFFER_MODE_SIZE_PREFIX:
-				iov = buf->mem;
-				size_prefix = *((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base);
-				for (i = 1; i < buf->used; i++)
-					size += iov[i].iov_len;
-				return buf->used && size_prefix == size;
-		}
+	        switch (buf->mode) {
+	                case BUFFER_MODE_PLAIN:
+	                        return true;
+	                case BUFFER_MODE_SIZE_PREFIX:
+	                        iov = buf->mem;
+	                        size_prefix = *((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base);
+	                        for (i = 1; i < buf->used; i++)
+	                                size += iov[i].iov_len;
+	                        return buf->used && size_prefix == size;
+	        }
 	*/
 	if (*ret_code)
 		*ret_code = -ENOTSUP;
@@ -299,20 +298,20 @@ ssize_t _buffer_vector_read(struct buffer *buf, int fd)
 
 ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 {
-	struct iovec *iov = buf->mem;
+	struct iovec *       iov         = buf->mem;
 	MSG_SIZE_PREFIX_TYPE size_prefix = 0;
-	unsigned i, start_idx = 0;
-	void *save_base = NULL;
-	size_t save_len = 0, start_off = pos;
-	ssize_t n;
+	unsigned             i, start_idx = 0;
+	void *               save_base = NULL;
+	size_t               save_len = 0, start_off = pos;
+	ssize_t              n;
 
 	i = 0;
 	if (pos) {
-		for ( ; i < buf->stat.usage.used; i++) {
+		for (; i < buf->stat.usage.used; i++) {
 			if (iov[i].iov_len > start_off) {
 				start_idx = i;
 				save_base = iov[i].iov_base;
-				save_len = iov[i].iov_len;
+				save_len  = iov[i].iov_len;
 				iov[i].iov_base += start_off;
 				iov[i].iov_len -= start_off;
 				break;
@@ -342,7 +341,7 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 	n = writev(fd, &iov[start_idx], buf->stat.usage.used - start_idx);
 	if (pos) {
 		iov[start_idx].iov_base = save_base;
-		iov[start_idx].iov_len = save_len;
+		iov[start_idx].iov_len  = save_len;
 	}
 	if (n < 0)
 		n = -errno;
@@ -350,16 +349,14 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 	return n;
 }
 
-const struct buffer_type buffer_type_vector = {
-	.create = _buffer_vector_create,
-	.destroy = _buffer_vector_destroy,
-	.reset = _buffer_vector_reset,
-	.add = _buffer_vector_add,
-	.fmt_add = _buffer_vector_fmt_add,
-	.rewind = _buffer_vector_rewind,
-	.rewind_mem = _buffer_vector_rewind_mem,
-	.is_complete = _buffer_vector_is_complete,
-	.get_data = _buffer_vector_get_data,
-	.read = _buffer_vector_read,
-	.write = _buffer_vector_write
-};
+const struct buffer_type buffer_type_vector = {.create      = _buffer_vector_create,
+                                               .destroy     = _buffer_vector_destroy,
+                                               .reset       = _buffer_vector_reset,
+                                               .add         = _buffer_vector_add,
+                                               .fmt_add     = _buffer_vector_fmt_add,
+                                               .rewind      = _buffer_vector_rewind,
+                                               .rewind_mem  = _buffer_vector_rewind_mem,
+                                               .is_complete = _buffer_vector_is_complete,
+                                               .get_data    = _buffer_vector_get_data,
+                                               .read        = _buffer_vector_read,
+                                               .write       = _buffer_vector_write};

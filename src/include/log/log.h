@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef _SID_LOG_H
 #define _SID_LOG_H
@@ -29,7 +29,8 @@
 extern "C" {
 #endif
 
-typedef enum {
+typedef enum
+{
 	LOG_TARGET_NONE,
 	LOG_TARGET_STANDARD,
 	LOG_TARGET_SYSLOG,
@@ -39,17 +40,17 @@ typedef enum {
 
 struct log_target {
 	const char *name;
-	void (*open) (int verbose_mode);
-	void (*close) (void);
-	void (*output) (int level_id,
-			const char *prefix,
-			int class_id,
-			int errno_id,
-			const char *src_file_name,
-			int src_line_number,
-			const char *function_name,
-			const char *format,
-			va_list ap);
+	void (*open)(int verbose_mode);
+	void (*close)(void);
+	void (*output)(int         level_id,
+	               const char *prefix,
+	               int         class_id,
+	               int         errno_id,
+	               const char *src_file_name,
+	               int         src_line_number,
+	               const char *function_name,
+	               const char *format,
+	               va_list     ap);
 };
 
 extern const struct log_target log_target_standard;
@@ -59,27 +60,32 @@ extern const struct log_target log_target_journal;
 void log_init(log_target_t target, int verbose_mode);
 void log_change_target(log_target_t new_target);
 
-__attribute__ ((format(printf, 8, 9)))
-void log_output(int level_id, const char *prefix, int class_id, int errno_id,
-		const char *file_name, int line_number, const char *function_name,
-		const char *format, ...);
+__attribute__((format(printf, 8, 9))) void log_output(int         level_id,
+                                                      const char *prefix,
+                                                      int         class_id,
+                                                      int         errno_id,
+                                                      const char *file_name,
+                                                      int         line_number,
+                                                      const char *function_name,
+                                                      const char *format,
+                                                      ...);
 
-#define LOG_CLASS_UNCLASSIFIED          0x0001
+#define LOG_CLASS_UNCLASSIFIED 0x0001
 
-#define LOG_PRINT                       LOG_LOCAL0
+#define LOG_PRINT LOG_LOCAL0
 
-#define LOG_LINE(l, p, c, e, ...)	log_output(l, p, c, e, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define LOG_LINE(l, p, c, e, ...) log_output(l, p, c, e, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
-#define log_debug(p, ...)               LOG_LINE(LOG_DEBUG,   p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
-#define log_info(p, ...)                LOG_LINE(LOG_INFO,    p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
-#define log_notice(p, ...)              LOG_LINE(LOG_NOTICE,  p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
-#define log_warning(p, ...)             LOG_LINE(LOG_WARNING, p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
-#define log_error(p, ...)               LOG_LINE(LOG_ERR,     p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
-#define log_print(p, ...)               LOG_LINE(LOG_PRINT,   p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
-#define log_error_errno(p, e, ...)      LOG_LINE(LOG_ERR,     p, LOG_CLASS_UNCLASSIFIED, e, __VA_ARGS__)
-#define log_sys_error(p, x, y)          log_error_errno(p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
+#define log_debug(p, ...)          LOG_LINE(LOG_DEBUG, p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
+#define log_info(p, ...)           LOG_LINE(LOG_INFO, p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
+#define log_notice(p, ...)         LOG_LINE(LOG_NOTICE, p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
+#define log_warning(p, ...)        LOG_LINE(LOG_WARNING, p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
+#define log_error(p, ...)          LOG_LINE(LOG_ERR, p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
+#define log_print(p, ...)          LOG_LINE(LOG_PRINT, p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
+#define log_error_errno(p, e, ...) LOG_LINE(LOG_ERR, p, LOG_CLASS_UNCLASSIFIED, e, __VA_ARGS__)
+#define log_sys_error(p, x, y)     log_error_errno(p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
 
-#define INTERNAL_ERROR                  "Internal error: "
+#define INTERNAL_ERROR "Internal error: "
 
 #ifdef __cplusplus
 }

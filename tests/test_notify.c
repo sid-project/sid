@@ -1,10 +1,11 @@
-#include <stdlib.h>
+#include "../src/iface/service-link.c"
+
+#include <cmocka.h>
+#include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include <setjmp.h>
-#include <cmocka.h>
+#include <stdlib.h>
 #include <systemd/sd-daemon.h>
-#include "../src/iface/service-link.c"
 
 int __wrap_sd_notify(int unset_environment, const char *state)
 {
@@ -12,11 +13,9 @@ int __wrap_sd_notify(int unset_environment, const char *state)
 	return 0;
 }
 
-int __real_buffer_get_data(struct buffer *buf, const void **data,
-                           size_t *data_size);
+int __real_buffer_get_data(struct buffer *buf, const void **data, size_t *data_size);
 
-int __wrap_buffer_get_data(struct buffer *buf, const void **data,
-                           size_t *data_size)
+int __wrap_buffer_get_data(struct buffer *buf, const void **data, size_t *data_size)
 {
 	int r = __real_buffer_get_data(buf, data, data_size);
 	assert_true(!*data || *data_size);
@@ -25,8 +24,7 @@ int __wrap_buffer_get_data(struct buffer *buf, const void **data,
 
 static void test_notify_ready(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD,
-	                                              "systemd");
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
 	assert_int_equal(service_link_add_notification(sl, SERVICE_NOTIFICATION_READY), 0);
@@ -37,8 +35,7 @@ static void test_notify_ready(void **state)
 
 static void test_notify_ready_reloading(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD,
-	                                              "systemd");
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
 	assert_int_equal(service_link_add_notification(sl, SERVICE_NOTIFICATION_READY), 0);
@@ -50,8 +47,7 @@ static void test_notify_ready_reloading(void **state)
 
 static void test_notify_blank(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD,
-	                                              "systemd");
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
 	assert_int_equal(service_link_add_notification(sl, SERVICE_NOTIFICATION_STATUS), 0);
@@ -62,8 +58,7 @@ static void test_notify_blank(void **state)
 
 static void test_notify_errno(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD,
-	                                              "systemd");
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
 	assert_int_equal(service_link_add_notification(sl, SERVICE_NOTIFICATION_ERRNO), 0);
@@ -74,14 +69,15 @@ static void test_notify_errno(void **state)
 
 static void test_notify_errno_status(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD,
-	                                              "systemd");
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
 	assert_int_equal(service_link_add_notification(sl, SERVICE_NOTIFICATION_ERRNO), 0);
 	assert_int_equal(service_link_add_notification(sl, SERVICE_NOTIFICATION_STATUS), 0);
 	will_return(__wrap_sd_notify, "STATUS=testing\nERRNO=2\n");
-	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_ERRNO | SERVICE_NOTIFICATION_STATUS, "ERRNO=%d\nSTATUS=testing", 2), 0);
+	assert_int_equal(
+		service_link_notify(sl, SERVICE_NOTIFICATION_ERRNO | SERVICE_NOTIFICATION_STATUS, "ERRNO=%d\nSTATUS=testing", 2),
+		0);
 	service_link_destroy(sl);
 }
 

@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef _SID_BUFFER_TYPE_H
 #define _SID_BUFFER_TYPE_H
@@ -24,24 +24,24 @@
 
 #include <sys/types.h>
 
-struct buffer{
+struct buffer {
 	struct buffer_stat stat;
-	void *mem;
-	int fd;
+	void *             mem;
+	int                fd;
 };
 
 struct buffer_type {
-	int (*create) (struct buffer *buf);
-	int (*destroy) (struct buffer *buf);
-	int (*reset) (struct buffer *buf);
-	const void *(*add) (struct buffer *buf, void *data, size_t len, int *ret_code);
-	const void *(*fmt_add) (struct buffer *buf, int *ret_code, const char *fmt, va_list ap);
-	int (*rewind) (struct buffer *buf, size_t pos);
-	int (*rewind_mem) (struct buffer *buf, const void *mem);
-	bool (*is_complete) (struct buffer *buf, int *ret_code);
-	int (*get_data) (struct buffer *buf, const void **data, size_t *data_size);
-	ssize_t (*read) (struct buffer *buf, int fd);
-	ssize_t (*write) (struct buffer *buf, int fd, size_t pos);
+	int (*create)(struct buffer *buf);
+	int (*destroy)(struct buffer *buf);
+	int (*reset)(struct buffer *buf);
+	const void *(*add)(struct buffer *buf, void *data, size_t len, int *ret_code);
+	const void *(*fmt_add)(struct buffer *buf, int *ret_code, const char *fmt, va_list ap);
+	int (*rewind)(struct buffer *buf, size_t pos);
+	int (*rewind_mem)(struct buffer *buf, const void *mem);
+	bool (*is_complete)(struct buffer *buf, int *ret_code);
+	int (*get_data)(struct buffer *buf, const void **data, size_t *data_size);
+	ssize_t (*read)(struct buffer *buf, int fd);
+	ssize_t (*write)(struct buffer *buf, int fd, size_t pos);
 };
 
 extern const struct buffer_type buffer_type_linear;

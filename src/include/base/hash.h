@@ -16,7 +16,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 /*
  * Code adopted and redacted from lvm2 source tree (https://sourceware.org/lvm2).
@@ -35,23 +35,18 @@ extern "C" {
 struct hash_table;
 struct hash_node;
 
-typedef void (*hash_iterate_fn) (void *data);
+typedef void (*hash_iterate_fn)(void *data);
 
 struct hash_table *hash_create(unsigned size_hint);
-void hash_wipe(struct hash_table *t);
-void hash_destroy(struct hash_table *t);
+void               hash_wipe(struct hash_table *t);
+void               hash_destroy(struct hash_table *t);
 
-int hash_insert(struct hash_table *t,
-		const void *key, uint32_t key_len,
-		void *data, size_t data_len);
-void *hash_lookup(struct hash_table *t,
-		  const void *key, uint32_t key_len,
-		  size_t *data_len);
-void hash_remove(struct hash_table *t,
-		 const void *key, uint32_t key_len);
+int   hash_insert(struct hash_table *t, const void *key, uint32_t key_len, void *data, size_t data_len);
+void *hash_lookup(struct hash_table *t, const void *key, uint32_t key_len, size_t *data_len);
+void  hash_remove(struct hash_table *t, const void *key, uint32_t key_len);
 
 unsigned hash_get_num_entries(struct hash_table *t);
-void hash_iter(struct hash_table *t, hash_iterate_fn f);
+void     hash_iter(struct hash_table *t, hash_iterate_fn f);
 
 struct hash_node *hash_get_first(struct hash_table *t);
 struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n);
@@ -103,22 +98,12 @@ void *hash_get_data(struct hash_table *t, struct hash_node *n, size_t *data_len)
  *   returned and count is set to N.
  */
 
-int hash_insert_allow_multiple(struct hash_table *t,
-			       const char *key, uint32_t key_len,
-			       void *data, size_t data_len);
-void *hash_lookup_with_data(struct hash_table *t,
-			    const char *key, uint32_t key_len,
-			    void *data, size_t data_len);
-void *hash_lookup_with_count(struct hash_table *t,
-			     const char *key, uint32_t key_len,
-			     size_t *data_len, unsigned *count);
-void hash_remove_with_data(struct hash_table *t,
-			  const char *key, uint32_t key_len,
-			  void *data, size_t data_len);
+int   hash_insert_allow_multiple(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
+void *hash_lookup_with_data(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
+void *hash_lookup_with_count(struct hash_table *t, const char *key, uint32_t key_len, size_t *data_len, unsigned *count);
+void  hash_remove_with_data(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
 
-#define hash_iterate(v, h) \
-	for (v = hash_get_first((h)); v; \
-	     v = hash_get_next((h), v))
+#define hash_iterate(v, h) for (v = hash_get_first((h)); v; v = hash_get_next((h), v))
 
 /*
  * THE FUNCTIONS BELOW ARE EXTRA TO ORIGINAL CODE TAKEN FROM LVM2 SOURCE TREE AND ITS dm_hash_table IMPLEMENTATION.
@@ -130,19 +115,25 @@ void hash_remove_with_data(struct hash_table *t,
  * 	0 for hash table to keep old_data
  * 	1 for hash table to update old_data with new_data (new_data may be modified and/or newly allocated by this function)
  */
-typedef int (* hash_update_fn_t) (const void *key, uint32_t key_len,
-				  void *old_data, size_t old_data_len,
-				  void **new_data, size_t *new_data_len,
-				  void *hash_update_fn_arg);
+typedef int (*hash_update_fn_t)(const void *key,
+                                uint32_t    key_len,
+                                void *      old_data,
+                                size_t      old_data_len,
+                                void **     new_data,
+                                size_t *    new_data_len,
+                                void *      hash_update_fn_arg);
 
 /*
  * hash_update function calls hash_update_fn callback with hash_update_fn_arg right before the update
  * and based on callback's return value, it either keeps the old data or updates with new data.
  */
 int hash_update(struct hash_table *t,
-		const void *key, uint32_t key_len,
-		void **data, size_t *data_len,
-		hash_update_fn_t hash_update_fn, void *hash_update_fn_arg);
+                const void *       key,
+                uint32_t           key_len,
+                void **            data,
+                size_t *           data_len,
+                hash_update_fn_t   hash_update_fn,
+                void *             hash_update_fn_arg);
 
 #ifdef __cplusplus
 }

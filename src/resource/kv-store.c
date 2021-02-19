@@ -15,12 +15,13 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
+
+#include "resource/kv-store.h"
 
 #include "base/hash.h"
 #include "base/mem.h"
 #include "log/log.h"
-#include "resource/kv-store.h"
 #include "resource/resource.h"
 
 #include <limits.h>
@@ -29,7 +30,8 @@
 
 #define KV_STORE_NAME "kv-store"
 
-typedef enum {
+typedef enum
+{
 	KV_STORE_VALUE_INT_ALLOC = UINT32_C(0x00000001),
 } kv_store_value_int_flags_t;
 
@@ -38,21 +40,21 @@ struct kv_store {
 };
 
 struct kv_store_value {
-	size_t size;
+	size_t                     size;
 	kv_store_value_int_flags_t int_flags;
-	kv_store_value_flags_t ext_flags;
-	char data[];
+	kv_store_value_flags_t     ext_flags;
+	char                       data[];
 };
 
 struct kv_update_fn_relay {
-	const char *key;
+	const char *         key;
 	kv_store_update_fn_t kv_update_fn;
-	void *kv_update_fn_arg;
-	int ret_code;
+	void *               kv_update_fn_arg;
+	int                  ret_code;
 };
 
 struct kv_store_iter {
-	struct kv_store *store;
+	struct kv_store * store;
 	struct hash_node *current;
 };
 
@@ -80,7 +82,7 @@ static void *_get_data(struct kv_store_value *value)
 static void _destroy_kv_store_value(struct kv_store_value *value)
 {
 	struct iovec *iov;
-	size_t i;
+	size_t        i;
 
 	if (!value)
 		return;
@@ -98,7 +100,7 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 				else
 					for (i = 0; i < value->size; i++) {
 						iov[i].iov_base = NULL;
-						iov[i].iov_len = 0;
+						iov[i].iov_len  = 0;
 					}
 			} else if (value->ext_flags & KV_STORE_VALUE_AUTOFREE) {
 				/* G */
@@ -135,13 +137,14 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
  * #  VECTOR  REF  MERGE      VALUE        SIZE    VECTOR  REF  ALLOC       VALUE                  SIZE
  * ---------------------------------------------------------------------------------------------------------------------------------------------------------------
  * A     0     0     0     value ref    value size    0     0     1      value copy ref         value size
- * B     0     0     1     value ref    value size    0     0     1      value copy ref         value size   merge flag has no effect: B == A
- * C     0     1     0     value ref    value size    0     1     0      value ref              value size
- * D     0     1     1     value ref    value size    0     1     0      value ref              value size   merge flag has no effect: D == C
- * E     1     0     0     iovec ref    iovec size    1     0     1      iovec deep copy ref    iovec size   allocated both iovec copy and value parts
- * F     1     0     1     iovec ref    iovec size    0     0     1      value merger ref       value size   iovec members merged into single value
- * G     1     1     0     iovec ref    iovec size    1     1     0      iovec ref              iovec size
- * H     1     1     1     iovec ref    iovec size    1     1     1      value merger iovec ref iovec size   iovec members merged into single value, iovec has refs to merged value parts
+ * B     0     0     1     value ref    value size    0     0     1      value copy ref         value size   merge flag has no
+ * effect: B == A C     0     1     0     value ref    value size    0     1     0      value ref              value size D     0 1
+ * 1     value ref    value size    0     1     0      value ref              value size   merge flag has no effect: D == C E     1
+ * 0     0     iovec ref    iovec size    1     0     1      iovec deep copy ref    iovec size   allocated both iovec copy and value
+ * parts F     1     0     1     iovec ref    iovec size    0     0     1      value merger ref       value size   iovec members
+ * merged into single value G     1     1     0     iovec ref    iovec size    1     1     0      iovec ref              iovec size
+ * H     1     1     1     iovec ref    iovec size    1     1     1      value merger iovec ref iovec size   iovec members merged
+ * into single value, iovec has refs to merged value parts
  *
  *
  * The AUTOFREE flag may be used together with REF flag (it has no effect otherwise). Then, if the reference to the
@@ -150,14 +153,18 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
  * For vectors, this also means that both the struct iovec and values reference by iovec.iov_base have
  * been allocated by "malloc" too.
  */
-static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_cnt, kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags, size_t *size)
+static struct kv_store_value *_create_kv_store_value(struct iovec *            iov,
+                                                     int                       iov_cnt,
+                                                     kv_store_value_flags_t    flags,
+                                                     kv_store_value_op_flags_t op_flags,
+                                                     size_t *                  size)
 {
 	struct kv_store_value *value;
-	size_t value_size;
-	size_t data_size;
-	char *p1, *p2;
-	struct iovec *iov2;
-	int i;
+	size_t                 value_size;
+	size_t                 data_size;
+	char *                 p1, *p2;
+	struct iovec *         iov2;
+	int                    i;
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		if (flags & KV_STORE_VALUE_REF) {
@@ -214,16 +221,16 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 					return NULL;
 
 				iov2 = (struct iovec *) value->data;
-				p1 = value->data + iov_cnt * sizeof(struct iovec);
+				p1   = value->data + iov_cnt * sizeof(struct iovec);
 
 				for (i = 0; i < iov_cnt; i++) {
 					memcpy(p1, iov[i].iov_base, iov[i].iov_len);
 					iov2[i].iov_base = p1;
-					iov2[i].iov_len = iov[i].iov_len;
+					iov2[i].iov_len  = iov[i].iov_len;
 					p1 += iov[i].iov_len;
 				}
 
-				value->size = iov_cnt;
+				value->size      = iov_cnt;
 				value->int_flags = KV_STORE_VALUE_INT_ALLOC;
 			}
 		}
@@ -251,14 +258,17 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *iov, int iov_
 	}
 
 	value->ext_flags = flags;
-	*size = value_size;
+	*size            = value_size;
 
 	return value;
 }
 
-static int _hash_update_fn(const char *key, uint32_t key_len,
-                           struct kv_store_value *old_value, size_t old_value_len,
-			   struct kv_store_value **new_value, size_t *new_value_len,
+static int _hash_update_fn(const char *               key,
+                           uint32_t                   key_len,
+                           struct kv_store_value *    old_value,
+                           size_t                     old_value_len,
+                           struct kv_store_value **   new_value,
+                           size_t *                   new_value_len,
                            struct kv_update_fn_relay *relay)
 {
 	/*
@@ -266,23 +276,23 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 	 *   '*new_value' is always non-NULL here
 	 *   'old_value' can be NULL if there wasn't any previous record
 	 */
-	struct kv_store_value *orig_new_value = *new_value;
-	struct kv_store_value *edited_new_value;
-	void *orig_new_data = NULL;
-	size_t orig_new_data_size = 0;
-	kv_store_value_flags_t orig_new_flags = 0;
-	struct kv_store_update_spec update_spec = {0};
-	struct iovec tmp_iov[1];
-	struct iovec *iov;
-	size_t iov_cnt;
-	size_t kv_store_value_size;
-	int r = 1;
+	struct kv_store_value *     orig_new_value = *new_value;
+	struct kv_store_value *     edited_new_value;
+	void *                      orig_new_data      = NULL;
+	size_t                      orig_new_data_size = 0;
+	kv_store_value_flags_t      orig_new_flags     = 0;
+	struct kv_store_update_spec update_spec        = {0};
+	struct iovec                tmp_iov[1];
+	struct iovec *              iov;
+	size_t                      iov_cnt;
+	size_t                      kv_store_value_size;
+	int                         r = 1;
 
 	if (relay->kv_update_fn) {
 		if (old_value) {
-			update_spec.old_data = _get_data(old_value);
+			update_spec.old_data      = _get_data(old_value);
 			update_spec.old_data_size = old_value->size;
-			update_spec.old_flags = old_value->ext_flags;
+			update_spec.old_flags     = old_value->ext_flags;
 		}
 
 		update_spec.new_data = orig_new_data = _get_data(orig_new_value);
@@ -292,15 +302,10 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 		r = relay->kv_update_fn(relay->key, &update_spec, relay->kv_update_fn_arg);
 
 		/* Check if there has been any change... */
-		if ((r > 0) &&
-		    ((update_spec.new_data != orig_new_data) ||
-		     (update_spec.new_data_size != orig_new_data_size) ||
-		     (update_spec.new_flags != orig_new_flags) ||
-		     update_spec.op_flags)) {
-			if ((update_spec.new_flags == orig_new_flags) &&
-			    (update_spec.new_flags & KV_STORE_VALUE_REF) &&
-			    (update_spec.new_data_size == orig_new_data_size) &&
-			    !update_spec.op_flags) {
+		if ((r > 0) && ((update_spec.new_data != orig_new_data) || (update_spec.new_data_size != orig_new_data_size) ||
+		                (update_spec.new_flags != orig_new_flags) || update_spec.op_flags)) {
+			if ((update_spec.new_flags == orig_new_flags) && (update_spec.new_flags & KV_STORE_VALUE_REF) &&
+			    (update_spec.new_data_size == orig_new_data_size) && !update_spec.op_flags) {
 				/*
 				 * If kv_store_value stores value as reference and we haven't changed the size,
 				 * KV_STORE_VALUE_REF flag nor op_flags, we just need to rewrite the ptr stored
@@ -311,26 +316,27 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 			} else {
 				/* ...otherwise we need to recreate the whole kv_store_value container with data. */
 				if (update_spec.new_flags & KV_STORE_VALUE_VECTOR) {
-					iov = update_spec.new_data;
+					iov     = update_spec.new_data;
 					iov_cnt = update_spec.new_data_size;
 				} else {
 					tmp_iov[0].iov_base = update_spec.new_data;
-					tmp_iov[0].iov_len = update_spec.new_data_size;
-					iov_cnt = 1;
-					iov = tmp_iov;
+					tmp_iov[0].iov_len  = update_spec.new_data_size;
+					iov_cnt             = 1;
+					iov                 = tmp_iov;
 				}
 
-				if (!(edited_new_value = _create_kv_store_value(iov, iov_cnt,
-										update_spec.new_flags,
-										update_spec.op_flags,
-										&kv_store_value_size))) {
+				if (!(edited_new_value = _create_kv_store_value(iov,
+				                                                iov_cnt,
+				                                                update_spec.new_flags,
+				                                                update_spec.op_flags,
+				                                                &kv_store_value_size))) {
 					relay->ret_code = -ENOMEM;
 					return 0;
 				}
 
 				_destroy_kv_store_value(orig_new_value);
 
-				*new_value = edited_new_value;
+				*new_value     = edited_new_value;
 				*new_value_len = kv_store_value_size;
 			}
 		}
@@ -348,32 +354,31 @@ static int _hash_update_fn(const char *key, uint32_t key_len,
 	return r;
 }
 
-void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
-                         void *value, size_t value_size,
-                         kv_store_value_flags_t flags, kv_store_value_op_flags_t op_flags,
-                         kv_store_update_fn_t kv_update_fn, void *kv_update_fn_arg)
+void *kv_store_set_value(sid_resource_t *          kv_store_res,
+                         const char *              key,
+                         void *                    value,
+                         size_t                    value_size,
+                         kv_store_value_flags_t    flags,
+                         kv_store_value_op_flags_t op_flags,
+                         kv_store_update_fn_t      kv_update_fn,
+                         void *                    kv_update_fn_arg)
 {
-	struct kv_update_fn_relay relay = {
-		.key = key,
-		.kv_update_fn = kv_update_fn,
-		.kv_update_fn_arg = kv_update_fn_arg,
-		.ret_code = -EREMOTEIO
-	};
-	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
-	struct iovec iov_internal = {
-		.iov_base = value,
-		.iov_len = value_size
-	};
-	struct iovec *iov;
-	int iov_cnt;
-	size_t kv_store_value_size;
-	struct kv_store_value *kv_store_value;
+	struct kv_update_fn_relay relay        = {.key              = key,
+                                           .kv_update_fn     = kv_update_fn,
+                                           .kv_update_fn_arg = kv_update_fn_arg,
+                                           .ret_code         = -EREMOTEIO};
+	struct kv_store *         kv_store     = sid_resource_get_data(kv_store_res);
+	struct iovec              iov_internal = {.iov_base = value, .iov_len = value_size};
+	struct iovec *            iov;
+	int                       iov_cnt;
+	size_t                    kv_store_value_size;
+	struct kv_store_value *   kv_store_value;
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
-		iov = value;
+		iov     = value;
 		iov_cnt = value_size;
 	} else {
-		iov = &iov_internal;
+		iov     = &iov_internal;
 		iov_cnt = 1;
 	}
 
@@ -381,9 +386,12 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
 		return NULL;
 
 	if (hash_update(kv_store->ht,
-			key, strlen(key) + 1,
-			(void **) &kv_store_value, &kv_store_value_size,
-			(hash_update_fn_t) _hash_update_fn, &relay))
+	                key,
+	                strlen(key) + 1,
+	                (void **) &kv_store_value,
+	                &kv_store_value_size,
+	                (hash_update_fn_t) _hash_update_fn,
+	                &relay))
 		return NULL;
 
 	if (relay.ret_code < 0)
@@ -392,10 +400,9 @@ void *kv_store_set_value(sid_resource_t *kv_store_res, const char *key,
 	return _get_data(kv_store_value);
 }
 
-void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key,
-                         size_t *value_size, kv_store_value_flags_t *flags)
+void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *value_size, kv_store_value_flags_t *flags)
 {
-	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+	struct kv_store *      kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_store_value *found;
 
 	if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
@@ -410,11 +417,10 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key,
 	return _get_data(found);
 }
 
-int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key,
-                         kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg)
+int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg)
 {
-	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
-	struct kv_store_value *found;
+	struct kv_store *           kv_store = sid_resource_get_data(kv_store_res);
+	struct kv_store_value *     found;
 	struct kv_store_update_spec update_spec = {0};
 
 	/*
@@ -424,9 +430,9 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key,
 	if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
 		return -ENODATA;
 
-	update_spec.old_data = _get_data(found);
+	update_spec.old_data      = _get_data(found);
 	update_spec.old_data_size = found->size;
-	update_spec.old_flags = found->ext_flags;
+	update_spec.old_flags     = found->ext_flags;
 
 	if (kv_unset_fn && !kv_unset_fn(key, &update_spec, kv_unset_fn_arg))
 		return -EREMOTEIO;
@@ -444,7 +450,7 @@ kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res)
 	if (!(iter = malloc(sizeof(*iter))))
 		return NULL;
 
-	iter->store = sid_resource_get_data(kv_store_res);
+	iter->store   = sid_resource_get_data(kv_store_res);
 	iter->current = NULL;
 
 	return iter;
@@ -473,8 +479,7 @@ const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 
 void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags)
 {
-	iter->current = iter->current ? hash_get_next(iter->store->ht, iter->current)
-	                : hash_get_first(iter->store->ht);
+	iter->current = iter->current ? hash_get_next(iter->store->ht, iter->current) : hash_get_first(iter->store->ht);
 
 	return kv_store_iter_current(iter, size, flags);
 }
@@ -492,7 +497,7 @@ void kv_store_iter_destroy(kv_store_iter_t *iter)
 static int _init_kv_store(sid_resource_t *kv_store_res, const void *kickstart_data, void **data)
 {
 	const struct sid_kv_store_resource_params *params = kickstart_data;
-	struct kv_store *kv_store;
+	struct kv_store *                          kv_store;
 
 	if (!(kv_store = mem_zalloc(sizeof(*kv_store)))) {
 		log_error(ID(kv_store_res), "Failed to allocate key-value store structure.");
@@ -527,7 +532,7 @@ static int _destroy_kv_store(sid_resource_t *kv_store_res)
 }
 
 const sid_resource_type_t sid_resource_type_kv_store = {
-	.name = KV_STORE_NAME,
-	.init = _init_kv_store,
+	.name    = KV_STORE_NAME,
+	.init    = _init_kv_store,
 	.destroy = _destroy_kv_store,
 };

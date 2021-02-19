@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "log/log.h"
 
@@ -47,19 +47,19 @@ void log_syslog_close(void)
 	closelog();
 }
 
-void log_syslog_output(int level_id,
+void log_syslog_output(int         level_id,
                        const char *prefix,
-                       int class_id,
-                       int errno_id,
+                       int         class_id,
+                       int         errno_id,
                        const char *src_file_name,
-                       int src_line_number,
+                       int         src_line_number,
                        const char *function_name,
                        const char *format,
-                       va_list ap)
+                       va_list     ap)
 {
-	char msg[4096];
+	char   msg[4096];
 	size_t prefix_len, remaining_len;
-	int r;
+	int    r;
 
 	if (level_id > _max_level_id)
 		return;
@@ -85,9 +85,7 @@ void log_syslog_output(int level_id,
 		syslog(level_id, "%s", msg);
 }
 
-const struct log_target log_target_syslog = {
-	.name = "syslog",
-	.open = log_syslog_open,
-	.close = log_syslog_close,
-	.output = log_syslog_output
-};
+const struct log_target log_target_syslog = {.name   = "syslog",
+                                             .open   = log_syslog_open,
+                                             .close  = log_syslog_close,
+                                             .output = log_syslog_output};

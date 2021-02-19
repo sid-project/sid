@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/common.h"
 
@@ -23,12 +23,11 @@
 #include "base/util.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
 /*
  * Common code.
@@ -66,8 +65,7 @@ static const char *udev_action_str[] = {[UDEV_ACTION_ADD]     = "add",
                                         [UDEV_ACTION_OFFLINE] = "offline",
                                         [UDEV_ACTION_BIND]    = "bind",
                                         [UDEV_ACTION_UNBIND]  = "unbind",
-                                        [UDEV_ACTION_UNKNOWN] = "unknown"
-                                       };
+                                        [UDEV_ACTION_UNKNOWN] = "unknown"};
 
 udev_action_t util_udev_str_to_udev_action(const char *str)
 {
@@ -91,10 +89,11 @@ udev_action_t util_udev_str_to_udev_action(const char *str)
 		return UDEV_ACTION_UNKNOWN;
 }
 
-static const char *udev_devtype_str[] = {[UDEV_DEVTYPE_DISK]      = UDEV_VALUE_DEVTYPE_DISK,
-                                         [UDEV_DEVTYPE_PARTITION] = UDEV_VALUE_DEVTYPE_PARTITION,
-                                         [UDEV_DEVTYPE_UNKNOWN]   = UDEV_VALUE_DEVTYPE_UNKNOWN,
-                                        };
+static const char *udev_devtype_str[] = {
+	[UDEV_DEVTYPE_DISK]      = UDEV_VALUE_DEVTYPE_DISK,
+	[UDEV_DEVTYPE_PARTITION] = UDEV_VALUE_DEVTYPE_PARTITION,
+	[UDEV_DEVTYPE_UNKNOWN]   = UDEV_VALUE_DEVTYPE_UNKNOWN,
+};
 
 udev_devtype_t util_udev_str_to_udev_devtype(const char *str)
 {
@@ -115,7 +114,7 @@ char *util_str_rstr(const char *haystack, const char *needle)
 	size_t haystack_len, needle_len, pos;
 
 	haystack_len = strlen(haystack);
-	needle_len = strlen(needle);
+	needle_len   = strlen(needle);
 
 	if (needle_len > haystack_len)
 		return NULL;
@@ -130,24 +129,24 @@ char *util_str_rstr(const char *haystack, const char *needle)
 char *util_str_combstr(const char *haystack, const char *prefix, const char *needle, const char *suffix, bool ignorecase)
 {
 	size_t haystack_len, prefix_len, needle_len, suffix_len;
-	bool prefix_match, suffix_match;
-	char *needle_in_haystack;
+	bool   prefix_match, suffix_match;
+	char * needle_in_haystack;
 
 	haystack_len = strlen(haystack);
-	prefix_len = prefix ? strlen(prefix) : 0;
-	needle_len = needle ? strlen(needle) : 0;
-	suffix_len = suffix ? strlen(suffix) : 0;
+	prefix_len   = prefix ? strlen(prefix) : 0;
+	needle_len   = needle ? strlen(needle) : 0;
+	suffix_len   = suffix ? strlen(suffix) : 0;
 
 	if (prefix_len + needle_len + suffix_len > haystack_len)
 		return NULL;
 
 	if (ignorecase) {
-		prefix_match = !prefix_len || (strncasecmp(haystack, prefix, prefix_len) == 0);
-		suffix_match = !suffix_len || (strncasecmp(haystack + haystack_len - suffix_len, suffix, suffix_len) == 0);
+		prefix_match       = !prefix_len || (strncasecmp(haystack, prefix, prefix_len) == 0);
+		suffix_match       = !suffix_len || (strncasecmp(haystack + haystack_len - suffix_len, suffix, suffix_len) == 0);
 		needle_in_haystack = needle ? strcasestr(haystack + prefix_len, needle) : NULL;
 	} else {
-		prefix_match = !prefix_len || (strncmp(haystack, prefix, prefix_len) == 0);
-		suffix_match = !suffix_len || (strncmp(haystack + haystack_len - suffix_len, suffix, suffix_len) == 0);
+		prefix_match       = !prefix_len || (strncmp(haystack, prefix, prefix_len) == 0);
+		suffix_match       = !suffix_len || (strncmp(haystack + haystack_len - suffix_len, suffix, suffix_len) == 0);
 		needle_in_haystack = needle ? strstr(haystack + prefix_len, needle) : NULL;
 	}
 
@@ -165,7 +164,7 @@ char *util_str_combstr(const char *haystack, const char *prefix, const char *nee
 const char *_get_quote(const char *str, const char *quotes, const char quote)
 {
 	const char *prev;
-	size_t esc_count;
+	size_t      esc_count;
 
 	if (!(str = quote ? strchr(str, quote) : strpbrk(str, quotes)))
 		return NULL;
@@ -181,11 +180,15 @@ const char *_get_quote(const char *str, const char *quotes, const char quote)
 	return _get_quote(str + 1, quotes, quote);
 }
 
-int util_str_iterate_tokens(const char *str, const char *delims, const char *quotes, util_str_token_fn_t token_fn, void *token_fn_data)
+int util_str_iterate_tokens(const char *        str,
+                            const char *        delims,
+                            const char *        quotes,
+                            util_str_token_fn_t token_fn,
+                            void *              token_fn_data)
 {
 	const char *start_quote, *end_quote;
-	size_t len;
-	int r;
+	size_t      len;
+	int         r;
 
 	if (!str)
 		return 0;
@@ -221,7 +224,7 @@ int util_str_iterate_tokens(const char *str, const char *delims, const char *quo
 			if ((r = token_fn(str, len, token_fn_data)) < 0)
 				return r;
 			str += len;
-			str += strspn(str, delims);  /* delims */
+			str += strspn(str, delims); /* delims */
 		}
 
 		/* skip the start quote */
@@ -240,9 +243,9 @@ int util_str_iterate_tokens(const char *str, const char *delims, const char *quo
 char *util_str_comb_to_str(util_mem_t *mem, const char *prefix, const char *str, const char *suffix)
 {
 	size_t prefix_len = prefix ? strlen(prefix) : 0;
-	size_t str_len = str ? strlen(str) : 0;
+	size_t str_len    = str ? strlen(str) : 0;
 	size_t suffix_len = suffix ? strlen(suffix) : 0;
-	char *p, *ret_str;
+	char * p, *ret_str;
 
 	if (_mem_avail(mem)) {
 		if (prefix_len + str_len + suffix_len + 1 > mem->size)
@@ -293,7 +296,7 @@ static int _count_token(const char *token, size_t len, void *data)
 struct strv_iter {
 	char **strv;
 	size_t i;
-	char *s;
+	char * s;
 };
 
 static int _copy_token_to_strv(const char *token, size_t len, void *data)
@@ -327,10 +330,15 @@ static size_t _get_strv_full_mem_size(struct token_counter *counter)
 	return _get_strv_header_size(counter) + counter->chars + counter->tokens;
 }
 
-char **util_str_comb_to_strv(util_mem_t *mem, const char *prefix, const char *str, const char *suffix, const char *delims, const char *quotes)
+char **util_str_comb_to_strv(util_mem_t *mem,
+                             const char *prefix,
+                             const char *str,
+                             const char *suffix,
+                             const char *delims,
+                             const char *quotes)
 {
 	struct token_counter counter = {0};
-	struct strv_iter copier = {0};
+	struct strv_iter     copier  = {0};
 
 	if (util_str_iterate_tokens(prefix, delims, quotes, _count_token, &counter) < 0 ||
 	    util_str_iterate_tokens(str, delims, quotes, _count_token, &counter) < 0 ||
@@ -365,10 +373,10 @@ fail:
 
 char **util_strv_copy(util_mem_t *mem, const char **strv)
 {
-	const char **p;
+	const char **        p;
 	struct token_counter counter = {0};
-	struct strv_iter copier = {0};
-	char *ret_strv;
+	struct strv_iter     copier  = {0};
+	char *               ret_strv;
 
 	for (p = strv; *p; p++) {
 		if (_count_token(*p, strlen(*p), &counter) < 0)
@@ -386,7 +394,7 @@ char **util_strv_copy(util_mem_t *mem, const char **strv)
 	}
 
 	copier.strv = (char **) ret_strv;
-	copier.s = ret_strv + _get_strv_header_size(&counter);
+	copier.s    = ret_strv + _get_strv_header_size(&counter);
 
 	for (p = strv; *p; p++) {
 		if (_copy_token_to_strv(*p, strlen(*p), &copier) < 0)
@@ -399,7 +407,7 @@ char **util_strv_copy(util_mem_t *mem, const char **strv)
 char *util_str_copy_substr(util_mem_t *mem, const char *str, size_t offset, size_t len)
 {
 	size_t str_len = strlen(str);
-	char *ret_str;
+	char * ret_str;
 
 	if ((offset + len) > str_len)
 		return NULL;
@@ -442,7 +450,7 @@ uint64_t util_time_get_now_usec(clockid_t clock_id)
 char *util_uuid_gen_str(util_mem_t *mem)
 {
 	uuid_t uu;
-	char *str;
+	char * str;
 
 	if (_mem_avail(mem)) {
 		if (UUID_STR_LEN > mem->size)
@@ -467,14 +475,14 @@ char *util_uuid_gen_str(util_mem_t *mem)
 int util_env_get_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val)
 {
 	unsigned long long ret;
-	char *env_val;
-	char *p;
+	char *             env_val;
+	char *             p;
 
 	if (!(env_val = getenv(key)))
 		return -ENOKEY;
 
 	errno = 0;
-	ret = strtoull(env_val, &p, 10);
+	ret   = strtoull(env_val, &p, 10);
 	if (errno || !p || *p)
 		return -EINVAL;
 
@@ -492,8 +500,8 @@ int util_env_get_ull(const char *key, unsigned long long min, unsigned long long
 
 int _get_proc_cmdline(char *buf, off_t size)
 {
-	int fd, r = 0;
-	off_t len = 0;
+	int     fd, r = 0;
+	off_t   len = 0;
 	ssize_t bytes;
 
 	if (!buf || !size)
@@ -501,7 +509,7 @@ int _get_proc_cmdline(char *buf, off_t size)
 
 	fd = open("/proc/cmdline", O_RDONLY);
 	if (fd < 0) {
-		return (errno)? -errno : -1;
+		return (errno) ? -errno : -1;
 	}
 	while (len < size) {
 		bytes = read(fd, buf + len, size - len);
@@ -510,7 +518,7 @@ int _get_proc_cmdline(char *buf, off_t size)
 		if (bytes < 0) {
 			if (errno == EINTR || errno == EAGAIN)
 				continue;
-			r = (errno)? -errno : -1;
+			r = (errno) ? -errno : -1;
 			goto out;
 		}
 		len += bytes;
@@ -525,9 +533,9 @@ out:
 #define DELIM " \t\n"
 bool util_cmdline_get_arg(const char *arg, char **value, int *ret_code)
 {
-	int r = 0;
+	int         r = 0;
 	static char buf[4097];
-	char *ptr, *limit, *next, *val, *end;
+	char *      ptr, *limit, *next, *val, *end;
 
 	if (!arg) {
 		r = -EINVAL;
@@ -539,28 +547,27 @@ bool util_cmdline_get_arg(const char *arg, char **value, int *ret_code)
 	if (r)
 		goto out;
 
-	end = buf + strlen(buf);
+	end  = buf + strlen(buf);
 	next = buf;
 	while (next) {
 		while (*next && strchr(DELIM, *next))
 			next++;
 		if (!*next)
 			goto out;
-		ptr = next;
+		ptr  = next;
 		next = strpbrk(ptr, DELIM);
-		val = strchr(ptr, '=');
+		val  = strchr(ptr, '=');
 		if (next && val >= next)
 			val = NULL;
-		limit = (val)?: (next)?: end;
-		if (strlen(arg) != limit - ptr ||
-		    strncmp(arg, ptr, limit - ptr))
+		limit = (val) ?: (next) ?: end;
+		if (strlen(arg) != limit - ptr || strncmp(arg, ptr, limit - ptr))
 			continue;
 		if (value) {
 			if (!val) {
 				r = -EINVAL;
 				goto out;
 			}
-			limit = (next)?: end;
+			limit  = (next) ?: end;
 			*value = strndup(val, limit - val);
 			if (!*value) {
 				r = -ENOMEM;
@@ -573,6 +580,6 @@ bool util_cmdline_get_arg(const char *arg, char **value, int *ret_code)
 
 out:
 	if (ret_code)
-		*ret_code = (r < 0)? r : 0;
+		*ret_code = (r < 0) ? r : 0;
 	return (r > 0);
 }

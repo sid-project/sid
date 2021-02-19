@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/common.h"
 
@@ -24,23 +24,24 @@
 #include "resource/resource.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 #define SID_DEFAULT_UMASK 0077
-#define LOG_PREFIX "main"
+#define LOG_PREFIX        "main"
 
 #define KEY_VERBOSE "VERBOSE"
 
 static void _help(FILE *f)
 {
-	fprintf(f, "Usage: sid [options]\n"
+	fprintf(f,
+	        "Usage: sid [options]\n"
 	        "\n"
 	        "    -f|--foreground  Run in foreground.\n"
 	        "    -j|--journal     Log to the journal.\n"
@@ -54,10 +55,8 @@ static void _version(FILE *f)
 {
 	fprintf(f, PACKAGE_STRING "\n");
 	fprintf(f, "Configuration line: %s\n", SID_CONFIGURE_LINE);
-	fprintf(f, "Compiled by: %s on %s with %s\n", SID_COMPILED_BY,
-	        SID_COMPILATION_HOST, SID_COMPILER);
+	fprintf(f, "Compiled by: %s on %s with %s\n", SID_COMPILED_BY, SID_COMPILATION_HOST, SID_COMPILER);
 }
-
 
 static void _become_daemon()
 {
@@ -88,9 +87,7 @@ static void _become_daemon()
 		exit(EXIT_FAILURE);
 	}
 
-	if ((dup2(fd, STDIN_FILENO) < 0) ||
-	    (dup2(fd, STDOUT_FILENO) < 0) ||
-	    (dup2(fd, STDERR_FILENO) < 0)) {
+	if ((dup2(fd, STDIN_FILENO) < 0) || (dup2(fd, STDOUT_FILENO) < 0) || (dup2(fd, STDERR_FILENO) < 0)) {
 		log_error_errno(LOG_PREFIX, errno, "Failed to duplicate standard IO streams");
 		exit(EXIT_FAILURE);
 	}
@@ -104,35 +101,31 @@ static void _become_daemon()
 	}
 
 	umask(SID_DEFAULT_UMASK);
-
 }
 
 static sid_resource_service_link_def_t service_link_defs[] = {{
-		.name = "systemd",
-		.type = SERVICE_TYPE_SYSTEMD,
-		.notification = SERVICE_NOTIFICATION_READY,
-	},
-	NULL_SERVICE_LINK
-};
+								      .name         = "systemd",
+								      .type         = SERVICE_TYPE_SYSTEMD,
+								      .notification = SERVICE_NOTIFICATION_READY,
+							      },
+                                                              NULL_SERVICE_LINK};
 
 int main(int argc, char *argv[])
 {
 	unsigned long long val;
-	int opt;
-	int verbose = 0;
-	int foreground = 0;
-	int journal = 0;
-	sid_resource_t *sid_res = NULL;
-	int r = -1;
+	int                opt;
+	int                verbose    = 0;
+	int                foreground = 0;
+	int                journal    = 0;
+	sid_resource_t *   sid_res    = NULL;
+	int                r          = -1;
 
-	struct option longopts[] = {
-		{ "foreground",         0, NULL, 'f' },
-		{ "journal",            0, NULL, 'j' },
-		{ "help",		0, NULL, 'h' },
-		{ "verbose",            0, NULL, 'v' },
-		{ "version",		0, NULL, 'V' },
-		{ NULL,			0, NULL,  0  }
-	};
+	struct option longopts[] = {{"foreground", 0, NULL, 'f'},
+	                            {"journal", 0, NULL, 'j'},
+	                            {"help", 0, NULL, 'h'},
+	                            {"verbose", 0, NULL, 'v'},
+	                            {"version", 0, NULL, 'V'},
+	                            {NULL, 0, NULL, 0}};
 
 	while ((opt = getopt_long(argc, argv, "fjhvV", longopts, NULL)) != -1) {
 		switch (opt) {
@@ -172,7 +165,6 @@ int main(int argc, char *argv[])
 			log_init(LOG_TARGET_SYSLOG, verbose);
 		_become_daemon();
 	}
-
 
 	if (!(sid_res = sid_resource_ref(sid_resource_create(SID_RESOURCE_NO_PARENT,
 	                                                     &sid_resource_type_sid,

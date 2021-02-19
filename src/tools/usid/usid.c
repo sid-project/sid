@@ -15,14 +15,14 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/common.h"
 
 #include "base/buffer.h"
 #include "base/util.h"
-#include "log/log.h"
 #include "iface/usid.h"
+#include "log/log.h"
 
 #include <getopt.h>
 #include <inttypes.h>
@@ -31,11 +31,11 @@
 #include <stdlib.h>
 #include <sys/sysmacros.h>
 
-#define LOG_PREFIX                      "usid"
+#define LOG_PREFIX "usid"
 
-#define KEY_ENV_SEQNUM                  "SEQNUM"
-#define KEY_ENV_MAJOR                   "MAJOR"
-#define KEY_ENV_MINOR                   "MINOR"
+#define KEY_ENV_SEQNUM "SEQNUM"
+#define KEY_ENV_MAJOR  "MAJOR"
+#define KEY_ENV_MINOR  "MINOR"
 
 #define KEY_USID_BRIDGE_STATUS          "USID_BRIDGE_STATUS"
 #define USID_BRIDGE_STATUS_ERROR        "error"
@@ -43,38 +43,37 @@
 #define USID_BRIDGE_STATUS_INACTIVE     "inactive"
 #define USID_BRIDGE_STATUS_INCOMPATIBLE "incompatible"
 
-#define KEY_USID_PROTOCOL               "USID_PROTOCOL"
-#define KEY_USID_MAJOR                  "USID_MAJOR"
-#define KEY_USID_MINOR                  "USID_MINOR"
-#define KEY_USID_RELEASE                "USID_RELEASE"
+#define KEY_USID_PROTOCOL "USID_PROTOCOL"
+#define KEY_USID_MAJOR    "USID_MAJOR"
+#define KEY_USID_MINOR    "USID_MINOR"
+#define KEY_USID_RELEASE  "USID_RELEASE"
 
-#define KEY_SID_PROTOCOL                "SID_PROTOCOL"
-#define KEY_SID_MAJOR                   "SID_MAJOR"
-#define KEY_SID_MINOR                   "SID_MINOR"
-#define KEY_SID_RELEASE                 "SID_RELEASE"
+#define KEY_SID_PROTOCOL "SID_PROTOCOL"
+#define KEY_SID_MAJOR    "SID_MAJOR"
+#define KEY_SID_MINOR    "SID_MINOR"
+#define KEY_SID_RELEASE  "SID_RELEASE"
 
 struct args {
-	int argc;
+	int    argc;
 	char **argv;
 };
 
 static int _usid_cmd_active(struct args *args)
 {
-	unsigned long long val;
-	uint64_t seqnum;
-	struct buffer *buf = NULL;
+	unsigned long long      val;
+	uint64_t                seqnum;
+	struct buffer *         buf = NULL;
 	struct usid_msg_header *hdr;
-	size_t size;
-	const char *status;
-	int r;
+	size_t                  size;
+	const char *            status;
+	int                     r;
 
 	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, seqnum, NULL, NULL, &buf)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
-		if ((size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) &&
-		    (hdr->prot == USID_PROTOCOL))
+		if ((size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) && (hdr->prot == USID_PROTOCOL))
 			status = USID_BRIDGE_STATUS_ACTIVE;
 		else
 			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
@@ -83,7 +82,7 @@ static int _usid_cmd_active(struct args *args)
 	} else {
 		if (r == -ECONNREFUSED) {
 			status = USID_BRIDGE_STATUS_INACTIVE;
-			r = 0;
+			r      = 0;
 		} else
 			status = USID_BRIDGE_STATUS_ERROR;
 	}
@@ -96,8 +95,8 @@ static int _usid_cmd_active(struct args *args)
 static int _print_env_from_buffer(struct buffer *buf)
 {
 	struct usid_msg_header *hdr;
-	size_t size;
-	const char *end, *kv;
+	size_t                  size;
+	const char *            end, *kv;
 
 	buffer_get_data(buf, (const void **) &hdr, &size);
 	if (size < USID_MSG_HEADER_SIZE) {
@@ -118,9 +117,9 @@ static const char _msg_failed_to_get_value_for_key[] = "Failed to get value for 
 static int _add_devt_env_to_buffer(struct buffer *buf)
 {
 	unsigned long long val;
-	unsigned major, minor;
-	dev_t devnum;
-	int r;
+	unsigned           major, minor;
+	dev_t              devnum;
+	int                r;
 
 	if ((r = util_env_get_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0) {
 		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_value_for_key, KEY_ENV_MAJOR);
@@ -145,8 +144,8 @@ static int _add_devt_env_to_buffer(struct buffer *buf)
 static int _add_checkpoint_env_to_buf(struct buffer *buf, void *data)
 {
 	struct args *args = data;
-	const char *key, *val;
-	int i, r;
+	const char * key, *val;
+	int          i, r;
 
 	if ((r = _add_devt_env_to_buffer(buf)) < 0)
 		goto out;
@@ -182,9 +181,9 @@ static const char _msg_failed_to_get_seqnum[] = "Failed to get value for %s key 
 static int _usid_cmd_checkpoint(struct args *args)
 {
 	unsigned long long val;
-	uint64_t seqnum;
-	struct buffer *buf = NULL;
-	int r;
+	uint64_t           seqnum;
+	struct buffer *    buf = NULL;
+	int                r;
 
 	if ((r = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
 		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_seqnum, KEY_ENV_SEQNUM);
@@ -204,8 +203,8 @@ static int _usid_cmd_checkpoint(struct args *args)
 static int _add_scan_env_to_buf(struct buffer *buf, void *data)
 {
 	extern char **environ;
-	char **kv;
-	int r;
+	char **       kv;
+	int           r;
 
 	if ((r = _add_devt_env_to_buffer(buf)) < 0)
 		goto out;
@@ -220,9 +219,9 @@ out:
 static int _usid_cmd_scan(struct args *args)
 {
 	unsigned long long val;
-	uint64_t seqnum;
-	struct buffer *buf = NULL;
-	int r;
+	uint64_t           seqnum;
+	struct buffer *    buf = NULL;
+	int                r;
 
 	if ((r = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
 		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_seqnum, KEY_ENV_SEQNUM);
@@ -241,20 +240,19 @@ static int _usid_cmd_scan(struct args *args)
 
 static int _usid_cmd_version(struct args *args)
 {
-	unsigned long long val;
-	uint64_t seqnum;
-	struct buffer *buf = NULL;
+	unsigned long long      val;
+	uint64_t                seqnum;
+	struct buffer *         buf = NULL;
 	struct usid_msg_header *hdr;
-	size_t size;
-	struct usid_version *vsn = NULL;
-	int r;
+	size_t                  size;
+	struct usid_version *   vsn = NULL;
+	int                     r;
 
 	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
-	fprintf(stdout, KEY_USID_PROTOCOL "=%" PRIu8 "\n"
-	        KEY_USID_MAJOR "=%" PRIu16 "\n"
-	        KEY_USID_MINOR "=%" PRIu16 "\n"
-	        KEY_USID_RELEASE "=%" PRIu16 "\n",
+	fprintf(stdout,
+	        KEY_USID_PROTOCOL "=%" PRIu8 "\n" KEY_USID_MAJOR "=%" PRIu16 "\n" KEY_USID_MINOR "=%" PRIu16 "\n" KEY_USID_RELEASE
+	                          "=%" PRIu16 "\n",
 	        USID_PROTOCOL,
 	        SID_VERSION_MAJOR,
 	        SID_VERSION_MINOR,
@@ -265,10 +263,9 @@ static int _usid_cmd_version(struct args *args)
 
 		if (size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) {
 			vsn = (struct usid_version *) hdr->data;
-			fprintf(stdout, KEY_SID_PROTOCOL "=%" PRIu8 "\n"
-			        KEY_SID_MAJOR "=%" PRIu16 "\n"
-			        KEY_SID_MINOR "=%" PRIu16 "\n"
-			        KEY_SID_RELEASE "=%" PRIu16 "\n",
+			fprintf(stdout,
+			        KEY_SID_PROTOCOL "=%" PRIu8 "\n" KEY_SID_MAJOR "=%" PRIu16 "\n" KEY_SID_MINOR "=%" PRIu16
+			                         "\n" KEY_SID_RELEASE "=%" PRIu16 "\n",
 			        hdr->prot,
 			        vsn->major,
 			        vsn->minor,
@@ -306,7 +303,8 @@ fail:
 }
 static void _help(FILE *f)
 {
-	fprintf(f, "Usage: usid [-h|--help] [-v|--verbose] [-V|--version] [command] [arguments]\n"
+	fprintf(f,
+	        "Usage: usid [-h|--help] [-v|--verbose] [-V|--version] [command] [arguments]\n"
 	        "\n"
 	        "Communicate with SID daemon and interchange information.\n"
 	        "\n"
@@ -348,28 +346,25 @@ static void _version(FILE *f)
 {
 	fprintf(f, PACKAGE_STRING "\n");
 	fprintf(f, "Configuration line: %s\n", SID_CONFIGURE_LINE);
-	fprintf(f, "Compiled by: %s on %s with %s\n", SID_COMPILED_BY,
-	        SID_COMPILATION_HOST, SID_COMPILER);
+	fprintf(f, "Compiled by: %s on %s with %s\n", SID_COMPILED_BY, SID_COMPILATION_HOST, SID_COMPILER);
 }
 
 int main(int argc, char *argv[])
 {
-	int opt;
-	int verbose = 0;
+	int         opt;
+	int         verbose = 0;
 	struct args subcmd_args;
-	int r = -1;
+	int         r = -1;
 
 	if (_init_usid()) {
-		log_error(LOG_PREFIX,"_init_usid failed");
+		log_error(LOG_PREFIX, "_init_usid failed");
 		return EXIT_FAILURE;
 	}
 
-	struct option longopts[] = {
-		{ "help",       0, NULL, 'h'},
-		{ "verbose",    0, NULL, 'v'},
-		{ "version",    0, NULL, 'V'},
-		{ NULL,         0, NULL,  0 }
-	};
+	struct option longopts[] = {{"help", 0, NULL, 'h'},
+	                            {"verbose", 0, NULL, 'v'},
+	                            {"version", 0, NULL, 'V'},
+	                            {NULL, 0, NULL, 0}};
 
 	for (;;) {
 		opt = getopt_long(argc, argv, "hvV", longopts, NULL);

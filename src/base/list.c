@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 /*
  * Code adopted from lvm2 source tree (https://sourceware.org/lvm2).
@@ -30,10 +30,10 @@ void list_init(struct list *head)
 
 void list_add(struct list *head, struct list *elem)
 {
-	elem->n = head;
-	elem->p = head->p;
+	elem->n    = head;
+	elem->p    = head->p;
 	head->p->n = elem;
-	head->p = elem;
+	head->p    = elem;
 }
 
 void list_del(struct list *elem)
@@ -49,11 +49,11 @@ bool list_is_empty(const struct list *head)
 
 unsigned int list_size(const struct list *head)
 {
-	unsigned int i = 0;
+	unsigned int       i = 0;
 	const struct list *v;
 
-	list_iterate(v, head)
-	i++;
+	list_iterate (v, head)
+		i++;
 
 	return i;
 }

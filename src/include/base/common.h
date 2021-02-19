@@ -15,36 +15,37 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef _SID_COMMON_H
 #define _SID_COMMON_H
 
 #include "config.h"
 
-#define SYSTEM_DEV_PATH           "/dev"
-#define SYSTEM_SYSFS_PATH         "/sys"
-#define SYSTEM_PROC_PATH          "/proc"
-#define SYSTEM_PROC_DEVICES_PATH  SYSTEM_PROC_PATH "/devices"
+#define SYSTEM_DEV_PATH          "/dev"
+#define SYSTEM_SYSFS_PATH        "/sys"
+#define SYSTEM_PROC_PATH         "/proc"
+#define SYSTEM_PROC_DEVICES_PATH SYSTEM_PROC_PATH "/devices"
 
-#define SYSTEM_SYSFS_SLAVES       "slaves"
+#define SYSTEM_SYSFS_SLAVES "slaves"
 
-#define SYSTEM_MAX_MAJOR          ((1U << 20) - 1)
-#define SYSTEM_MAX_MINOR          ((1U << 12) - 1)
+#define SYSTEM_MAX_MAJOR ((1U << 20) - 1)
+#define SYSTEM_MAX_MINOR ((1U << 12) - 1)
 
-#define UDEV_KEY_ACTION              "ACTION"
-#define UDEV_KEY_DEVPATH             "DEVPATH"
-#define UDEV_KEY_DEVTYPE             "DEVTYPE"
-#define UDEV_KEY_MAJOR               "MAJOR"
-#define UDEV_KEY_MINOR               "MINOR"
-#define UDEV_KEY_SEQNUM              "SEQNUM"
-#define UDEV_KEY_SYNTH_UUID          "SYNTH_UUID"
+#define UDEV_KEY_ACTION     "ACTION"
+#define UDEV_KEY_DEVPATH    "DEVPATH"
+#define UDEV_KEY_DEVTYPE    "DEVTYPE"
+#define UDEV_KEY_MAJOR      "MAJOR"
+#define UDEV_KEY_MINOR      "MINOR"
+#define UDEV_KEY_SEQNUM     "SEQNUM"
+#define UDEV_KEY_SYNTH_UUID "SYNTH_UUID"
 
 #define UDEV_VALUE_DEVTYPE_UNKNOWN   "unknown"
 #define UDEV_VALUE_DEVTYPE_DISK      "disk"
 #define UDEV_VALUE_DEVTYPE_PARTITION "partition"
 
-typedef enum {
+typedef enum
+{
 	UDEV_ACTION_UNKNOWN,
 	UDEV_ACTION_ADD,
 	UDEV_ACTION_CHANGE,
@@ -56,7 +57,8 @@ typedef enum {
 	UDEV_ACTION_UNBIND
 } udev_action_t;
 
-typedef enum {
+typedef enum
+{
 	UDEV_DEVTYPE_UNKNOWN,
 	UDEV_DEVTYPE_DISK,
 	UDEV_DEVTYPE_PARTITION,

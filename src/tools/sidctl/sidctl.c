@@ -15,47 +15,48 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/common.h"
+
 #include "base/buffer.h"
 #include "base/util.h"
-#include "log/log.h"
 #include "iface/usid.h"
+#include "log/log.h"
 #include "resource/ucmd-module.h"
 
-#include <inttypes.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <getopt.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#define LOG_PREFIX	"sidctl"
+#define LOG_PREFIX "sidctl"
 
-#define KEY_SIDCTL_PROTOCOL             "SIDCTL_PROTOCOL"
-#define KEY_SIDCTL_MAJOR                "SIDCTL_MAJOR"
-#define KEY_SIDCTL_MINOR                "SIDCTL_MINOR"
-#define KEY_SIDCTL_RELEASE              "SIDCTL_RELEASE"
+#define KEY_SIDCTL_PROTOCOL "SIDCTL_PROTOCOL"
+#define KEY_SIDCTL_MAJOR    "SIDCTL_MAJOR"
+#define KEY_SIDCTL_MINOR    "SIDCTL_MINOR"
+#define KEY_SIDCTL_RELEASE  "SIDCTL_RELEASE"
 
-#define KEY_SID_PROTOCOL                "SID_PROTOCOL"
-#define KEY_SID_MAJOR                   "SID_MAJOR"
-#define KEY_SID_MINOR                   "SID_MINOR"
-#define KEY_SID_RELEASE                 "SID_RELEASE"
+#define KEY_SID_PROTOCOL "SID_PROTOCOL"
+#define KEY_SID_MAJOR    "SID_MAJOR"
+#define KEY_SID_MINOR    "SID_MINOR"
+#define KEY_SID_RELEASE  "SID_RELEASE"
 
 struct args {
-	int argc;
+	int    argc;
 	char **argv;
 };
 
 static int _usid_cmd_dump(struct args *args)
 {
-	struct buffer *buf = NULL;
-	char *data, *ptr;
-	size_t size;
+	struct buffer *         buf = NULL;
+	char *                  data, *ptr;
+	size_t                  size;
 	struct usid_msg_header *msg;
 	struct usid_dump_header hdr;
-	int r;
-	unsigned int i = 0, j;
-	uint32_t len;
+	int                     r;
+	unsigned int            i = 0, j;
+	uint32_t                len;
 
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_DUMP, 0, NULL, NULL, &buf)) == 0) {
 		buffer_get_data(buf, (const void **) &msg, &size);
@@ -78,11 +79,13 @@ static int _usid_cmd_dump(struct args *args)
 			ptr += len;
 			memcpy(&len, ptr, sizeof(len)); /* get owner */
 			ptr += sizeof(len);
-			printf("    seqnum: %" PRIu64 "  flags: %s%s%s%s  owner: %s\n", hdr.seqnum,
+			printf("    seqnum: %" PRIu64 "  flags: %s%s%s%s  owner: %s\n",
+			       hdr.seqnum,
 			       hdr.flags & KV_PERSISTENT ? "KV_PERSISTENT " : "",
 			       hdr.flags & KV_MOD_PROTECTED ? "KV_MOD_PROTECTED " : "",
 			       hdr.flags & KV_MOD_PRIVATE ? "KV_MOD_PRIVATE " : "",
-			       hdr.flags & KV_MOD_RESERVED ? "KV_MOD_RESERVED ": "", ptr);
+			       hdr.flags & KV_MOD_RESERVED ? "KV_MOD_RESERVED " : "",
+			       ptr);
 			ptr += len;
 			if (hdr.data_count == 1) {
 				memcpy(&len, ptr, sizeof(len));
@@ -113,16 +116,15 @@ static int _usid_cmd_dump(struct args *args)
 
 static int _usid_cmd_version(struct args *args)
 {
-	struct buffer *buf = NULL;
+	struct buffer *         buf = NULL;
 	struct usid_msg_header *hdr;
-	size_t size;
-	struct usid_version *vsn = NULL;
-	int r;
+	size_t                  size;
+	struct usid_version *   vsn = NULL;
+	int                     r;
 
-	fprintf(stdout, KEY_SIDCTL_PROTOCOL "=%" PRIu8 "\n"
-	        KEY_SIDCTL_MAJOR "=%" PRIu16 "\n"
-	        KEY_SIDCTL_MINOR "=%" PRIu16 "\n"
-	        KEY_SIDCTL_RELEASE "=%" PRIu16 "\n",
+	fprintf(stdout,
+	        KEY_SIDCTL_PROTOCOL "=%" PRIu8 "\n" KEY_SIDCTL_MAJOR "=%" PRIu16 "\n" KEY_SIDCTL_MINOR "=%" PRIu16
+	                            "\n" KEY_SIDCTL_RELEASE "=%" PRIu16 "\n",
 	        USID_PROTOCOL,
 	        SID_VERSION_MAJOR,
 	        SID_VERSION_MINOR,
@@ -133,10 +135,9 @@ static int _usid_cmd_version(struct args *args)
 
 		if (size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) {
 			vsn = (struct usid_version *) hdr->data;
-			fprintf(stdout, KEY_SID_PROTOCOL "=%" PRIu8 "\n"
-			        KEY_SID_MAJOR "=%" PRIu16 "\n"
-			        KEY_SID_MINOR "=%" PRIu16 "\n"
-			        KEY_SID_RELEASE "=%" PRIu16 "\n",
+			fprintf(stdout,
+			        KEY_SID_PROTOCOL "=%" PRIu8 "\n" KEY_SID_MAJOR "=%" PRIu16 "\n" KEY_SID_MINOR "=%" PRIu16
+			                         "\n" KEY_SID_RELEASE "=%" PRIu16 "\n",
 			        hdr->prot,
 			        vsn->major,
 			        vsn->minor,
@@ -180,26 +181,25 @@ static void _version(FILE *f)
 {
 	fprintf(f, PACKAGE_STRING "\n");
 	fprintf(f, "Configuration line: %s\n", SID_CONFIGURE_LINE);
-	fprintf(f, "Compiled by: %s on %s with %s\n", SID_COMPILED_BY,
-	        SID_COMPILATION_HOST, SID_COMPILER);
+	fprintf(f, "Compiled by: %s on %s with %s\n", SID_COMPILED_BY, SID_COMPILATION_HOST, SID_COMPILER);
 }
 
 int main(int argc, char *argv[])
 {
-	int opt;
-	int verbose = 0;
+	int         opt;
+	int         verbose = 0;
 	struct args subcmd_args;
-	int r = -1;
+	int         r = -1;
 
 	struct option longopts[] = {
-		{ "help",	0, NULL, 'h'},
-		{ "verbose",	0, NULL, 'v'},
-		{ "version",	0, NULL, 'V'},
-		{ NULL,		0, NULL,  0 },
+		{"help", 0, NULL, 'h'},
+		{"verbose", 0, NULL, 'v'},
+		{"version", 0, NULL, 'V'},
+		{NULL, 0, NULL, 0},
 	};
 
 	while ((opt = getopt_long(argc, argv, "hvV", longopts, NULL)) != EOF) {
-		switch(opt) {
+		switch (opt) {
 			case 'h':
 				_help(stdout);
 				return EXIT_SUCCESS;
@@ -236,5 +236,5 @@ int main(int argc, char *argv[])
 			_help(stderr);
 	}
 
-	return (r < 0)? EXIT_FAILURE : EXIT_SUCCESS;
+	return (r < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
 }

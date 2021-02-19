@@ -15,19 +15,17 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
-#include "buffer-type.h"
+ */
 
 #include "base/buffer.h"
+
 #include "base/mem.h"
+#include "buffer-type.h"
 
 #include <errno.h>
 
-static const struct buffer_type *_buffer_type_registry[] = {
-	[BUFFER_TYPE_LINEAR] = &buffer_type_linear,
-	[BUFFER_TYPE_VECTOR] = &buffer_type_vector
-};
+static const struct buffer_type *_buffer_type_registry[] =
+	{[BUFFER_TYPE_LINEAR] = &buffer_type_linear, [BUFFER_TYPE_VECTOR] = &buffer_type_vector};
 
 static bool _check_buf(struct buffer *buf)
 {
@@ -37,15 +35,14 @@ static bool _check_buf(struct buffer *buf)
 	if (stat->init.limit == 0)
 		return true;
 
-	return (stat->init.limit >= stat->init.size &&
-	        stat->init.limit >= stat->init.alloc_step &&
+	return (stat->init.limit >= stat->init.size && stat->init.limit >= stat->init.alloc_step &&
 	        stat->init.limit % stat->init.alloc_step == 0);
 }
 
 struct buffer *buffer_create(struct buffer_spec *spec, struct buffer_init *init, int *ret_code)
 {
 	struct buffer *buf;
-	int r = 0;
+	int            r = 0;
 
 	if (!(buf = malloc(sizeof(*buf)))) {
 		r = -ENOMEM;
@@ -53,13 +50,13 @@ struct buffer *buffer_create(struct buffer_spec *spec, struct buffer_init *init,
 	}
 
 	buf->stat = (struct buffer_stat) {
-		.spec = *spec,
-		.init = *init,
+		.spec  = *spec,
+		.init  = *init,
 		.usage = (struct buffer_usage) {0},
 	};
 
 	buf->mem = NULL;
-	buf->fd = -1;
+	buf->fd  = -1;
 
 	if (!_check_buf(buf)) {
 		r = -EINVAL;
@@ -115,7 +112,7 @@ const void *buffer_add(struct buffer *buf, void *data, size_t len, int *ret_code
 
 const void *buffer_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, ...)
 {
-	va_list ap;
+	va_list     ap;
 	const void *p;
 
 	va_start(ap, fmt);
@@ -182,13 +179,13 @@ struct buffer_stat buffer_stat(struct buffer *buf)
 
 int buffer_write_all(struct buffer *buf, int fd)
 {
-	size_t pos;
+	size_t  pos;
 	ssize_t n;
 
 	if (!buf || fd < 0)
 		return -EINVAL;
 
-	for (pos = 0; ; pos += n) {
+	for (pos = 0;; pos += n) {
 		n = buffer_write(buf, fd, pos);
 
 		if (n < 0) {

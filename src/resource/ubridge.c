@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "base/common.h"
 
@@ -42,18 +42,17 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define UBRIDGE_NAME    "ubridge"
+#define CONNECTION_NAME "connection"
+#define COMMAND_NAME    "command"
 
-#define UBRIDGE_NAME                 "ubridge"
-#define CONNECTION_NAME              "connection"
-#define COMMAND_NAME                 "command"
+#define INTERNAL_AGGREGATE_ID "ubridge-internal"
+#define MODULES_AGGREGATE_ID  "modules"
+#define MODULES_BLOCK_ID      "block"
+#define MODULES_TYPE_ID       "type"
 
-#define INTERNAL_AGGREGATE_ID        "ubridge-internal"
-#define MODULES_AGGREGATE_ID         "modules"
-#define MODULES_BLOCK_ID             "block"
-#define MODULES_TYPE_ID              "type"
-
-#define UDEV_TAG_SID                 "sid"
-#define KV_KEY_UDEV_SID_SESSION_ID   "SID_SESSION_ID"
+#define UDEV_TAG_SID               "sid"
+#define KV_KEY_UDEV_SID_SESSION_ID "SID_SESSION_ID"
 
 #define SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ucmd_trigger_action_current"
 #define SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ucmd_trigger_action_next"
@@ -61,8 +60,8 @@
 #define MAIN_KV_STORE_NAME     "main"
 #define MAIN_WORKER_CHANNEL_ID "main"
 
-#define KV_PAIR_C           "="
-#define KV_END_C            ""
+#define KV_PAIR_C "="
+#define KV_END_C  ""
 
 #define ID_NULL  ""
 #define KEY_NULL ID_NULL
@@ -77,23 +76,23 @@
 #define KV_PREFIX_NS_MODULE_C    "M"
 #define KV_PREFIX_NS_GLOBAL_C    "G"
 
-#define KEY_SYS_C                "#"
+#define KEY_SYS_C "#"
 
-#define KV_KEY_DEV_READY         KEY_SYS_C "RDY"
-#define KV_KEY_DEV_RESERVED      KEY_SYS_C "RES"
-#define KV_KEY_DEV_MOD           KEY_SYS_C "MOD"
+#define KV_KEY_DEV_READY    KEY_SYS_C "RDY"
+#define KV_KEY_DEV_RESERVED KEY_SYS_C "RES"
+#define KV_KEY_DEV_MOD      KEY_SYS_C "MOD"
 
-#define KV_KEY_DOM_LAYER         "LYR"
-#define KV_KEY_DOM_USER          "USR"
+#define KV_KEY_DOM_LAYER "LYR"
+#define KV_KEY_DOM_USER  "USR"
 
 #define KV_KEY_GEN_GROUP_MEMBERS KEY_SYS_C "GMB"
 #define KV_KEY_GEN_GROUP_IN      KEY_SYS_C "GIN"
 
 #define MOD_NAME_CORE         "#core"
-#define OWNER_CORE             MOD_NAME_CORE
-#define DEFAULT_KV_FLAGS_CORE  KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
+#define OWNER_CORE            MOD_NAME_CORE
+#define DEFAULT_KV_FLAGS_CORE KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
 
-#define CMD_DEV_ID_FMT  "%s (%d:%d)"
+#define CMD_DEV_ID_FMT       "%s (%d:%d)"
 #define CMD_DEV_ID(ucmd_ctx) ucmd_ctx->udev_dev.name, ucmd_ctx->udev_dev.major, ucmd_ctx->udev_dev.minor
 
 /* internal resources */
@@ -101,32 +100,33 @@ const sid_resource_type_t sid_resource_type_ubridge_connection;
 const sid_resource_type_t sid_resource_type_ubridge_command;
 
 struct sid_ucmd_mod_ctx {
-	sid_resource_t *kv_store_res;          /* KV store main or snapshot */
-	sid_resource_t *modules_res;           /* top-level resource for all ucmd module registries */
-	struct buffer *gen_buf;                /* generic buffer */
+	sid_resource_t *kv_store_res; /* KV store main or snapshot */
+	sid_resource_t *modules_res;  /* top-level resource for all ucmd module registries */
+	struct buffer * gen_buf;      /* generic buffer */
 };
 
 struct umonitor {
-	struct udev *udev;
+	struct udev *        udev;
 	struct udev_monitor *mon;
 };
 
 struct ubridge {
-	int socket_fd;
+	int                     socket_fd;
 	struct sid_ucmd_mod_ctx ucmd_mod_ctx;
-	struct umonitor umonitor;
+	struct umonitor         umonitor;
 };
 
-typedef enum {
-	CMD_SCAN_PHASE_A_INIT = 0,                                     /* core initializes phase "A" */
-	CMD_SCAN_PHASE_A_IDENT,                                        /* module */
-	CMD_SCAN_PHASE_A_SCAN_PRE,                                     /* module */
-	CMD_SCAN_PHASE_A_SCAN_CURRENT,                                 /* module */
-	CMD_SCAN_PHASE_A_SCAN_NEXT,                                    /* module */
-	CMD_SCAN_PHASE_A_SCAN_POST_CURRENT,                            /* module */
-	CMD_SCAN_PHASE_A_SCAN_POST_NEXT,                               /* module */
-	CMD_SCAN_PHASE_A_WAITING,                                      /* core waits for confirmation */
-	CMD_SCAN_PHASE_A_EXIT,                                         /* core exits phase "A" */
+typedef enum
+{
+	CMD_SCAN_PHASE_A_INIT = 0,          /* core initializes phase "A" */
+	CMD_SCAN_PHASE_A_IDENT,             /* module */
+	CMD_SCAN_PHASE_A_SCAN_PRE,          /* module */
+	CMD_SCAN_PHASE_A_SCAN_CURRENT,      /* module */
+	CMD_SCAN_PHASE_A_SCAN_NEXT,         /* module */
+	CMD_SCAN_PHASE_A_SCAN_POST_CURRENT, /* module */
+	CMD_SCAN_PHASE_A_SCAN_POST_NEXT,    /* module */
+	CMD_SCAN_PHASE_A_WAITING,           /* core waits for confirmation */
+	CMD_SCAN_PHASE_A_EXIT,              /* core exits phase "A" */
 
 	CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT,
 	__CMD_SCAN_PHASE_B_TRIGGER_ACTION_START = CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT,
@@ -137,28 +137,28 @@ typedef enum {
 } cmd_scan_phase_t;
 
 struct udevice {
-	udev_action_t action;
+	udev_action_t  action;
 	udev_devtype_t type;
-	const char *path;
-	const char *name; /* just a pointer to devpath's last element */
-	int major;
-	int minor;
-	uint64_t seqnum;
-	const char *synth_uuid;
+	const char *   path;
+	const char *   name; /* just a pointer to devpath's last element */
+	int            major;
+	int            minor;
+	uint64_t       seqnum;
+	const char *   synth_uuid;
 };
 
 struct connection {
-	int fd;
+	int            fd;
 	struct buffer *buf;
 };
 
 struct sid_ucmd_ctx {
-	char *dev_id;                          /* device identifier (major_minor) */
-	struct udevice udev_dev;               /* udev context for currently processed device */
-	cmd_scan_phase_t scan_phase;           /* current phase at the time of use of this context */
-	struct sid_ucmd_mod_ctx ucmd_mod_ctx;  /* commod module context */
-	struct buffer *res_buf;                /* result buffer */
-	struct usid_msg_header request_header; /* original request header (keep last, contains flexible array) */
+	char *                  dev_id;         /* device identifier (major_minor) */
+	struct udevice          udev_dev;       /* udev context for currently processed device */
+	cmd_scan_phase_t        scan_phase;     /* current phase at the time of use of this context */
+	struct sid_ucmd_mod_ctx ucmd_mod_ctx;   /* commod module context */
+	struct buffer *         res_buf;        /* result buffer */
+	struct usid_msg_header  request_header; /* original request header (keep last, contains flexible array) */
 };
 
 struct cmd_mod_fns {
@@ -174,26 +174,27 @@ struct cmd_mod_fns {
 } __attribute__((packed));
 
 struct cmd_exec_arg {
-	sid_resource_t *cmd_res;
-	sid_resource_t *type_mod_registry_res;
-	sid_resource_iter_t *block_mod_iter;  /* all block modules to execute */
-	sid_resource_t *type_mod_res_current; /* one type module for current layer to execute */
-	sid_resource_t *type_mod_res_next;    /* one type module for next layer to execute */
+	sid_resource_t *     cmd_res;
+	sid_resource_t *     type_mod_registry_res;
+	sid_resource_iter_t *block_mod_iter;       /* all block modules to execute */
+	sid_resource_t *     type_mod_res_current; /* one type module for current layer to execute */
+	sid_resource_t *     type_mod_res_next;    /* one type module for next layer to execute */
 };
 
 struct cmd_reg {
 	const char *name;
-	uint32_t flags;
-	int (*exec) (struct cmd_exec_arg *exec_arg);
+	uint32_t    flags;
+	int (*exec)(struct cmd_exec_arg *exec_arg);
 };
 
 struct kv_value {
-	uint64_t seqnum;
+	uint64_t            seqnum;
 	sid_ucmd_kv_flags_t flags;
-	char data[]; /* contains both internal and external data */
+	char                data[]; /* contains both internal and external data */
 } __attribute__((packed));
 
-enum {
+enum
+{
 	KV_VALUE_IDX_SEQNUM,
 	KV_VALUE_IDX_FLAGS,
 	KV_VALUE_IDX_OWNER,
@@ -201,46 +202,52 @@ enum {
 	_KV_VALUE_IDX_COUNT,
 };
 
-#define KV_VALUE_PREPARE_HEADER(iov, seqnum, flags, owner) \
-		iov[KV_VALUE_IDX_SEQNUM] = (struct iovec) {&(seqnum), sizeof(seqnum)}; \
-		iov[KV_VALUE_IDX_FLAGS] = (struct iovec) {&(flags), sizeof(flags)}; \
-		iov[KV_VALUE_IDX_OWNER] = (struct iovec) {owner, strlen(owner) + 1}
+#define KV_VALUE_PREPARE_HEADER(iov, seqnum, flags, owner)                                                                         \
+	iov[KV_VALUE_IDX_SEQNUM] = (struct iovec) {&(seqnum), sizeof(seqnum)};                                                     \
+	iov[KV_VALUE_IDX_FLAGS]  = (struct iovec) {&(flags), sizeof(flags)};                                                       \
+	iov[KV_VALUE_IDX_OWNER]  = (struct iovec)                                                                                  \
+	{                                                                                                                          \
+		owner, strlen(owner) + 1                                                                                           \
+	}
 
 #define KV_VALUE_SEQNUM(iov) (*((uint64_t *) ((struct iovec *) iov)[KV_VALUE_IDX_SEQNUM].iov_base))
-#define KV_VALUE_FLAGS(iov) (*((sid_ucmd_kv_flags_t *) ((struct iovec *) iov)[KV_VALUE_IDX_FLAGS].iov_base))
-#define KV_VALUE_OWNER(iov) ((char *) ((struct iovec *) iov)[KV_VALUE_IDX_OWNER].iov_base)
-#define KV_VALUE_DATA(iov) (((struct iovec *) iov)[KV_VALUE_IDX_DATA].iov_base)
+#define KV_VALUE_FLAGS(iov)  (*((sid_ucmd_kv_flags_t *) ((struct iovec *) iov)[KV_VALUE_IDX_FLAGS].iov_base))
+#define KV_VALUE_OWNER(iov)  ((char *) ((struct iovec *) iov)[KV_VALUE_IDX_OWNER].iov_base)
+#define KV_VALUE_DATA(iov)   (((struct iovec *) iov)[KV_VALUE_IDX_DATA].iov_base)
 
 struct kv_update_arg {
 	sid_resource_t *res;
-	struct buffer *gen_buf;
-	const char *owner; /* in */
-	void *custom;	      /* in/out */
-	int ret_code;	      /* out */
+	struct buffer * gen_buf;
+	const char *    owner;    /* in */
+	void *          custom;   /* in/out */
+	int             ret_code; /* out */
 };
 
-typedef enum {
+typedef enum
+{
 	KV_OP_ILLEGAL, /* illegal operation */
 	KV_OP_SET,     /* set value for kv */
 	KV_OP_PLUS,    /* add value to vector kv */
 	KV_OP_MINUS,   /* remove value fomr vector kv */
 } kv_op_t;
 
-typedef enum {
+typedef enum
+{
 	DELTA_NO_FLAGS  = 0x0,
 	DELTA_WITH_DIFF = 0x1, /* calculate difference between old and new value, update records */
 	DELTA_WITH_REL  = 0x2, /* as DELTA_WITH_DIFF, but also update referenced relatives */
 } delta_flags_t;
 
 struct kv_delta {
-	kv_op_t op;
-	delta_flags_t flags;
+	kv_op_t        op;
+	delta_flags_t  flags;
 	struct buffer *plus;
 	struct buffer *minus;
 	struct buffer *final;
 };
 
-typedef enum {
+typedef enum
+{
 	__KEY_PART_START = 0x0,
 	KEY_PART_OP      = 0x0,
 	KEY_PART_NS      = 0x1,
@@ -253,32 +260,32 @@ typedef enum {
 } key_part_t;
 
 struct kv_key_spec {
-	kv_op_t op;
+	kv_op_t                 op;
 	sid_ucmd_kv_namespace_t ns;
-	const char *ns_part;
-	const char *dom;
-	const char *id;
-	const char *id_part;
-	const char *key;
+	const char *            ns_part;
+	const char *            dom;
+	const char *            id;
+	const char *            id_part;
+	const char *            key;
 };
 
 struct kv_rel_spec {
-	struct kv_delta *delta;
+	struct kv_delta *   delta;
 	struct kv_key_spec *cur_key_spec;
 	struct kv_key_spec *rel_key_spec;
 };
 
 struct kv_key_res_def {
 	sid_ucmd_kv_namespace_t ns;
-	const char *key;
+	const char *            key;
 };
 
 struct cross_bitmap_calc_arg {
-	struct iovec *old_value;
-	size_t old_size;
+	struct iovec * old_value;
+	size_t         old_size;
 	struct bitmap *old_bmp;
-	struct iovec *new_value;
-	size_t new_size;
+	struct iovec * new_value;
+	size_t         new_size;
 	struct bitmap *new_bmp;
 };
 
@@ -289,12 +296,12 @@ struct cross_bitmap_calc_arg {
 #define CMD_SCAN_CAP_RES UINT32_C(0x00000002) /* can set reserved state */
 #define CMD_SCAN_CAP_ALL UINT32_C(0xFFFFFFFF) /* can set anything */
 
-static struct cmd_reg _cmd_scan_phase_regs[];
+static struct cmd_reg      _cmd_scan_phase_regs[];
 static sid_ucmd_kv_flags_t kv_flags_no_persist = (DEFAULT_KV_FLAGS_CORE) & ~KV_PERSISTENT;
-static sid_ucmd_kv_flags_t kv_flags_persist = DEFAULT_KV_FLAGS_CORE;
-static char *core_owner = OWNER_CORE;
+static sid_ucmd_kv_flags_t kv_flags_persist    = DEFAULT_KV_FLAGS_CORE;
+static char *              core_owner          = OWNER_CORE;
 
-static int _kv_delta(const char *full_key, struct kv_store_update_spec *spec, void *arg);
+static int        _kv_delta(const char *full_key, struct kv_store_update_spec *spec, void *arg);
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
 
 udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
@@ -334,28 +341,28 @@ const char *sid_ucmd_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
 
 static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec *spec, int prefix_only)
 {
-	static const char *op_to_key_prefix_map[] = {[KV_OP_ILLEGAL]   = KV_PREFIX_OP_ILLEGAL_C,
-	                                             [KV_OP_SET]       = KV_PREFIX_OP_SET_C,
-	                                             [KV_OP_PLUS]      = KV_PREFIX_OP_PLUS_C,
-	                                             [KV_OP_MINUS]     = KV_PREFIX_OP_MINUS_C
-	                                            };
+	static const char *op_to_key_prefix_map[] = {[KV_OP_ILLEGAL] = KV_PREFIX_OP_ILLEGAL_C,
+	                                             [KV_OP_SET]     = KV_PREFIX_OP_SET_C,
+	                                             [KV_OP_PLUS]    = KV_PREFIX_OP_PLUS_C,
+	                                             [KV_OP_MINUS]   = KV_PREFIX_OP_MINUS_C};
 
 	static const char *ns_to_key_prefix_map[] = {[KV_NS_UNDEFINED] = KV_PREFIX_NS_UNDEFINED_C,
 	                                             [KV_NS_UDEV]      = KV_PREFIX_NS_UDEV_C,
 	                                             [KV_NS_DEVICE]    = KV_PREFIX_NS_DEVICE_C,
 	                                             [KV_NS_MODULE]    = KV_PREFIX_NS_MODULE_C,
-	                                             [KV_NS_GLOBAL]    = KV_PREFIX_NS_GLOBAL_C
-	                                            };
+	                                             [KV_NS_GLOBAL]    = KV_PREFIX_NS_GLOBAL_C};
 
 	/* <op>:<ns>:<ns_part>:<id>:<id_part>[:<key>] */
 
-	return buffer_fmt_add(buf, NULL,
+	return buffer_fmt_add(buf,
+	                      NULL,
 	                      "%s" KV_STORE_KEY_JOIN /* op */
 	                      "%s" KV_STORE_KEY_JOIN /* ns */
 	                      "%s" KV_STORE_KEY_JOIN /* ns_part */
 	                      "%s" KV_STORE_KEY_JOIN /* dom */
 	                      "%s" KV_STORE_KEY_JOIN /* id */
-	                      "%s" "%s"              /* id_part */
+	                      "%s"
+	                      "%s" /* id_part */
 	                      "%s",
 	                      op_to_key_prefix_map[spec->op],
 	                      ns_to_key_prefix_map[spec->ns],
@@ -381,7 +388,7 @@ static const char *_buffer_compose_key_prefix(struct buffer *buf, struct kv_key_
 
 static const char *_get_key_part(const char *key, key_part_t req_part, size_t *len)
 {
-	key_part_t part;
+	key_part_t  part;
 	const char *start = key, *end;
 
 	for (part = __KEY_PART_START; part < req_part; part++) {
@@ -406,7 +413,7 @@ static const char *_get_key_part(const char *key, key_part_t req_part, size_t *l
 static kv_op_t _get_op_from_key(const char *key)
 {
 	const char *str;
-	size_t len;
+	size_t      len;
 
 	/* |<>|
 	 * <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
@@ -429,7 +436,7 @@ static kv_op_t _get_op_from_key(const char *key)
 static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
 {
 	const char *str;
-	size_t len;
+	size_t      len;
 
 	/*      |<>|
 	 * <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
@@ -453,7 +460,7 @@ static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
 static const char *_buffer_copy_ns_part_from_key(struct buffer *buf, const char *key)
 {
 	const char *str;
-	size_t len;
+	size_t      len;
 
 	/*           |<----->|
 	   <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
@@ -467,7 +474,7 @@ static const char *_buffer_copy_ns_part_from_key(struct buffer *buf, const char 
 
 static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value, size_t value_size, struct iovec *iov)
 {
-	size_t owner_size;
+	size_t           owner_size;
 	struct kv_value *kv_value;
 
 	if (!value)
@@ -476,20 +483,18 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 	if (flags & KV_STORE_VALUE_VECTOR)
 		return value;
 
-	kv_value = value;
+	kv_value   = value;
 	owner_size = strlen(kv_value->data) + 1;
 
 	KV_VALUE_PREPARE_HEADER(iov, kv_value->seqnum, kv_value->flags, kv_value->data);
-	iov[KV_VALUE_IDX_DATA] = (struct iovec) {
-		kv_value->data + owner_size, value_size - sizeof(*kv_value) - owner_size
-	};
+	iov[KV_VALUE_IDX_DATA] = (struct iovec) {kv_value->data + owner_size, value_size - sizeof(*kv_value) - owner_size};
 
 	return iov;
 }
 
 static const char *_get_iov_str(struct buffer *buf, bool unset, struct iovec *iov, size_t iov_size)
 {
-	size_t i;
+	size_t      i;
 	const char *str;
 
 	if (unset)
@@ -498,8 +503,7 @@ static const char *_get_iov_str(struct buffer *buf, bool unset, struct iovec *io
 	str = buffer_add(buf, "", 0, NULL);
 
 	for (i = KV_VALUE_IDX_DATA; i < iov_size; i++) {
-		if (!buffer_add(buf, iov[i].iov_base, iov[i].iov_len - 1, NULL) ||
-		    !buffer_add(buf, " ", 1, NULL))
+		if (!buffer_add(buf, iov[i].iov_base, iov[i].iov_len - 1, NULL) || !buffer_add(buf, " ", 1, NULL))
 			goto fail;
 	}
 
@@ -514,18 +518,18 @@ fail:
 
 static int _write_kv_store_dump(struct buffer *buf, sid_resource_t *kv_store_res)
 {
-	kv_store_iter_t *iter;
-	const char *key = "<NO KEY>";
+	kv_store_iter_t *       iter;
+	const char *            key = "<NO KEY>";
 	struct usid_dump_header header;
-	size_t size;
-	kv_store_value_flags_t flags;
-	void *value;
-	struct iovec tmp_iov[KV_VALUE_IDX_DATA + 1];
-	struct iovec *iov;
-	unsigned int i;
-	int r = 0;
-	uint32_t len;
-	void *data;
+	size_t                  size;
+	kv_store_value_flags_t  flags;
+	void *                  value;
+	struct iovec            tmp_iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec *          iov;
+	unsigned int            i;
+	int                     r = 0;
+	uint32_t                len;
+	void *                  data;
 
 	if (!(iter = kv_store_iter_create(kv_store_res))) {
 		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
@@ -536,20 +540,20 @@ static int _write_kv_store_dump(struct buffer *buf, sid_resource_t *kv_store_res
 		key = kv_store_iter_current_key(iter);
 		if (!strncmp(key, "U:", 2))
 			continue;
-		iov = _get_value_vector(flags, value, size, tmp_iov);
-		header.seqnum = KV_VALUE_SEQNUM(iov);
-		header.flags = KV_VALUE_FLAGS(iov);
-		header.data_count = (flags & KV_STORE_VALUE_VECTOR)? size - KV_VALUE_IDX_DATA : 1;
+		iov               = _get_value_vector(flags, value, size, tmp_iov);
+		header.seqnum     = KV_VALUE_SEQNUM(iov);
+		header.flags      = KV_VALUE_FLAGS(iov);
+		header.data_count = (flags & KV_STORE_VALUE_VECTOR) ? size - KV_VALUE_IDX_DATA : 1;
 		if (!buffer_add(buf, &header, sizeof(header), &r))
 			goto out;
 		len = strlen(key) + 1;
 		if (!buffer_add(buf, &len, sizeof(len), &r))
 			goto out;
-		if (!buffer_add(buf, (void *)key, len, &r))
+		if (!buffer_add(buf, (void *) key, len, &r))
 			goto out;
 		for (i = 0; i < header.data_count + 1; i++) {
 			data = iov[KV_VALUE_IDX_OWNER + i].iov_base;
-			len = iov[KV_VALUE_IDX_OWNER + i].iov_len;
+			len  = iov[KV_VALUE_IDX_OWNER + i].iov_len;
 			if (!buffer_add(buf, &len, sizeof(len), &r))
 				goto out;
 			if (!buffer_add(buf, data, len, &r))
@@ -568,13 +572,13 @@ out:
 
 static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 {
-	kv_store_iter_t *iter;
-	size_t size;
+	kv_store_iter_t *      iter;
+	size_t                 size;
 	kv_store_value_flags_t flags;
-	void *value;
-	struct iovec tmp_iov[KV_VALUE_IDX_DATA + 1];
-	struct iovec *iov;
-	unsigned int i = 0, j;
+	void *                 value;
+	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec *         iov;
+	unsigned int           i = 0, j;
 
 	if (!(iter = kv_store_iter_create(kv_store_res))) {
 		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
@@ -588,17 +592,23 @@ static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 			continue;
 		log_print(ID(kv_store_res), "  --- RECORD %u", i);
 		log_print(ID(kv_store_res), "      key: %s", kv_store_iter_current_key(iter));
-		log_print(ID(kv_store_res), "      seqnum: %" PRIu64 "  flags: %s%s%s%s  owner: %s",
+		log_print(ID(kv_store_res),
+		          "      seqnum: %" PRIu64 "  flags: %s%s%s%s  owner: %s",
 		          KV_VALUE_SEQNUM(iov),
 		          KV_VALUE_FLAGS(iov) & KV_PERSISTENT ? "KV_PERSISTENT " : "",
 		          KV_VALUE_FLAGS(iov) & KV_MOD_PROTECTED ? "KV_MOD_PROTECTED " : "",
 		          KV_VALUE_FLAGS(iov) & KV_MOD_PRIVATE ? "KV_MOD_PRIVATE " : "",
-		          KV_VALUE_FLAGS(iov) & KV_MOD_RESERVED ? "KV_MOD_RESERVED ": "",
+		          KV_VALUE_FLAGS(iov) & KV_MOD_RESERVED ? "KV_MOD_RESERVED " : "",
 		          KV_VALUE_OWNER(iov));
-		log_print(ID(kv_store_res), "      value: %s", flags & KV_STORE_VALUE_VECTOR ? "vector" : (const char *) KV_VALUE_DATA(iov));
+		log_print(ID(kv_store_res),
+		          "      value: %s",
+		          flags & KV_STORE_VALUE_VECTOR ? "vector" : (const char *) KV_VALUE_DATA(iov));
 		if (flags & KV_STORE_VALUE_VECTOR) {
 			for (j = KV_VALUE_IDX_DATA; j < size; j++)
-				log_print(ID(kv_store_res), "        [%u] = %s", j - KV_VALUE_IDX_DATA, (const char *) iov[j].iov_base);
+				log_print(ID(kv_store_res),
+				          "        [%u] = %s",
+				          j - KV_VALUE_IDX_DATA,
+				          (const char *) iov[j].iov_base);
 		}
 		log_print(ID(kv_store_res), " ");
 		i++;
@@ -611,15 +621,15 @@ static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_store_res)
 {
 	static const char ID[] = "DOT";
-	kv_store_iter_t *iter;
-	void *value;
-	size_t value_size, elem_count, dom_len, this_dev_len, ref_dev_len;
-	const char *full_key, *key, *dom, *this_dev, *ref_dev;
+	kv_store_iter_t * iter;
+	void *            value;
+	size_t            value_size, elem_count, dom_len, this_dev_len, ref_dev_len;
+	const char *      full_key, *key, *dom, *this_dev, *ref_dev;
 
 	kv_store_value_flags_t flags;
-	struct iovec tmp_iov[KV_VALUE_IDX_DATA + 1];
-	struct iovec *iov;
-	int i;
+	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec *         iov;
+	int                    i;
 
 	if (!(iter = kv_store_iter_create(kv_store_res))) {
 		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
@@ -654,14 +664,12 @@ static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_
 			continue;
 		}
 
-		if (strcmp(key, KV_KEY_GEN_GROUP_IN) ||
-		    (!(dom = _get_key_part(full_key, KEY_PART_DOM, &dom_len))) ||
-		    !dom_len ||
+		if (strcmp(key, KV_KEY_GEN_GROUP_IN) || (!(dom = _get_key_part(full_key, KEY_PART_DOM, &dom_len))) || !dom_len ||
 		    strncmp(dom, KV_KEY_DOM_LAYER, dom_len))
 			continue;
 
 		this_dev = _get_key_part(full_key, KEY_PART_NS_PART, &this_dev_len);
-		iov = _get_value_vector(flags, value, value_size, tmp_iov);
+		iov      = _get_value_vector(flags, value, value_size, tmp_iov);
 
 		if (flags & KV_STORE_VALUE_VECTOR)
 			elem_count = value_size;
@@ -683,10 +691,10 @@ out:
 static int _kv_overwrite(const char *full_key, struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
-	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
-	struct iovec tmp_iov_new[KV_VALUE_IDX_DATA + 1];
-	struct iovec *iov_old, *iov_new;
-	const char *reason;
+	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
+	struct iovec          tmp_iov_new[KV_VALUE_IDX_DATA + 1];
+	struct iovec *        iov_old, *iov_new;
+	const char *          reason;
 
 	if (!spec->old_data)
 		return 1;
@@ -696,19 +704,19 @@ static int _kv_overwrite(const char *full_key, struct kv_store_update_spec *spec
 
 	if (KV_VALUE_FLAGS(iov_old) & KV_MOD_PRIVATE) {
 		if (strcmp(KV_VALUE_OWNER(iov_old), KV_VALUE_OWNER(iov_new))) {
-			reason = "private";
+			reason               = "private";
 			update_arg->ret_code = -EACCES;
 			goto keep_old;
 		}
 	} else if (KV_VALUE_FLAGS(iov_old) & KV_MOD_PROTECTED) {
 		if (strcmp(KV_VALUE_OWNER(iov_old), KV_VALUE_OWNER(iov_new))) {
-			reason = "protected";
+			reason               = "protected";
 			update_arg->ret_code = -EPERM;
 			goto keep_old;
 		}
 	} else if (KV_VALUE_FLAGS(iov_old) & KV_MOD_RESERVED) {
 		if (strcmp(KV_VALUE_OWNER(iov_old), KV_VALUE_OWNER(iov_new))) {
-			reason = "reserved";
+			reason               = "reserved";
 			update_arg->ret_code = -EBUSY;
 			goto keep_old;
 		}
@@ -717,8 +725,12 @@ static int _kv_overwrite(const char *full_key, struct kv_store_update_spec *spec
 	update_arg->ret_code = 0;
 	return 1;
 keep_old:
-	log_debug(ID(update_arg->res), "Module %s can't overwrite value with key %s which is %s and attached to %s module.",
-	          KV_VALUE_OWNER(iov_new), full_key, reason, KV_VALUE_OWNER(iov_old));
+	log_debug(ID(update_arg->res),
+	          "Module %s can't overwrite value with key %s which is %s and attached to %s module.",
+	          KV_VALUE_OWNER(iov_new),
+	          full_key,
+	          reason,
+	          KV_VALUE_OWNER(iov_old));
 	return 0;
 }
 
@@ -737,24 +749,19 @@ static size_t _kv_value_ext_data_offset(struct kv_value *kv_value)
 	return strlen(kv_value->data) + 1;
 }
 
-static int _passes_global_reservation_check(struct sid_ucmd_ctx *ucmd_ctx, const char *owner,
-                                            sid_ucmd_kv_namespace_t ns, const char *key)
+static int _passes_global_reservation_check(struct sid_ucmd_ctx *   ucmd_ctx,
+                                            const char *            owner,
+                                            sid_ucmd_kv_namespace_t ns,
+                                            const char *            key)
 {
-	struct iovec tmp_iov[KV_VALUE_IDX_DATA + 1];
-	struct iovec *iov;
-	const char *full_key = NULL;
-	void *found;
-	size_t value_size;
+	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec *         iov;
+	const char *           full_key = NULL;
+	void *                 found;
+	size_t                 value_size;
 	kv_store_value_flags_t value_flags;
-	struct kv_key_spec key_spec = {
-		.op = KV_OP_SET,
-		.ns = ns,
-		.ns_part = ID_NULL,
-		.dom = ID_NULL,
-		.id = ID_NULL,
-		.id_part = ID_NULL,
-		.key = key
-	};
+	struct kv_key_spec     key_spec =
+		{.op = KV_OP_SET, .ns = ns, .ns_part = ID_NULL, .dom = ID_NULL, .id = ID_NULL, .id_part = ID_NULL, .key = key};
 	int r = 1;
 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
@@ -775,7 +782,9 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx *ucmd_ctx, const
 
 	log_debug(ID(ucmd_ctx->ucmd_mod_ctx.kv_store_res),
 	          "Module %s can't overwrite value with key %s which is reserved and attached to %s module.",
-	          owner, full_key, KV_VALUE_OWNER(iov));
+	          owner,
+	          full_key,
+	          KV_VALUE_OWNER(iov));
 
 	r = 0;
 out:
@@ -821,7 +830,7 @@ static void _destroy_delta(struct kv_delta *delta)
 static void _destroy_unused_delta(struct kv_delta *delta)
 {
 	struct iovec *iov;
-	size_t size;
+	size_t        size;
 
 	if (delta->plus) {
 		buffer_get_data(delta->plus, (const void **) &iov, &size);
@@ -840,26 +849,29 @@ static void _destroy_unused_delta(struct kv_delta *delta)
 	}
 }
 
-static void *_do_sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_kv_namespace_t ns,
-                                 const char *dom, const char *key, sid_ucmd_kv_flags_t flags,
-                                 const void *value, size_t value_size)
+static void *_do_sid_ucmd_set_kv(struct module *         mod,
+                                 struct sid_ucmd_ctx *   ucmd_ctx,
+                                 sid_ucmd_kv_namespace_t ns,
+                                 const char *            dom,
+                                 const char *            key,
+                                 sid_ucmd_kv_flags_t     flags,
+                                 const void *            value,
+                                 size_t                  value_size)
 {
-	const char *owner = _get_mod_name(mod);
-	const char *full_key = NULL;
-	struct iovec iov[KV_VALUE_IDX_DATA + 1];
-	struct kv_value *kv_value;
+	const char *         owner    = _get_mod_name(mod);
+	const char *         full_key = NULL;
+	struct iovec         iov[KV_VALUE_IDX_DATA + 1];
+	struct kv_value *    kv_value;
 	struct kv_update_arg update_arg;
-	struct kv_key_spec key_spec = {
-		.op = KV_OP_SET,
-		.ns = ns,
-		.ns_part = _get_ns_part(mod, ucmd_ctx, ns),
-		.dom = dom ? : ID_NULL,
-		.id = ID_NULL,
-		.id_part = ID_NULL,
-		.key = key
-	};
-	int r;
-	void *ret = NULL;
+	struct kv_key_spec   key_spec = {.op      = KV_OP_SET,
+                                       .ns      = ns,
+                                       .ns_part = _get_ns_part(mod, ucmd_ctx, ns),
+                                       .dom     = dom ?: ID_NULL,
+                                       .id      = ID_NULL,
+                                       .id_part = ID_NULL,
+                                       .key     = key};
+	int                  r;
+	void *               ret = NULL;
 
 	/*
 	 * First, we check if the KV is not reserved globally. This applies to reservations
@@ -883,17 +895,13 @@ static void *_do_sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_c
 		goto out;
 
 	KV_VALUE_PREPARE_HEADER(iov, ucmd_ctx->udev_dev.seqnum, flags, (char *) owner);
-	iov[KV_VALUE_IDX_DATA] = (struct iovec) {
-		(void *) value, value ? value_size : 0
-	};
+	iov[KV_VALUE_IDX_DATA] = (struct iovec) {(void *) value, value ? value_size : 0};
 
-	update_arg = (struct kv_update_arg) {
-		.res = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
-		.owner = owner,
-		.gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
-		.custom = NULL,
-		.ret_code = -EREMOTEIO
-	};
+	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	                                     .owner    = owner,
+	                                     .gen_buf  = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                     .custom   = NULL,
+	                                     .ret_code = -EREMOTEIO};
 
 	if (!(kv_value = kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                                    full_key,
@@ -902,7 +910,8 @@ static void *_do_sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_c
 	                                    KV_STORE_VALUE_VECTOR,
 	                                    KV_STORE_VALUE_OP_MERGE,
 	                                    _kv_overwrite,
-	                                    &update_arg)) || !value_size)
+	                                    &update_arg)) ||
+	    !value_size)
 		goto out;
 
 	ret = kv_value->data + _kv_value_ext_data_offset(kv_value);
@@ -912,8 +921,13 @@ out:
 	return ret;
 }
 
-void *sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_kv_namespace_t ns,
-                      const char *key, const void *value, size_t value_size, sid_ucmd_kv_flags_t flags)
+void *sid_ucmd_set_kv(struct module *         mod,
+                      struct sid_ucmd_ctx *   ucmd_ctx,
+                      sid_ucmd_kv_namespace_t ns,
+                      const char *            key,
+                      const void *            value,
+                      size_t                  value_size,
+                      sid_ucmd_kv_flags_t     flags)
 {
 	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
@@ -924,14 +938,17 @@ void *sid_ucmd_set_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, sid_ucm
 	return _do_sid_ucmd_set_kv(mod, ucmd_ctx, ns, KV_KEY_DOM_USER, key, flags, value, value_size);
 }
 
-static const void *_cmd_get_key_spec_value(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, struct kv_key_spec *key_spec,
-                                           size_t *value_size, sid_ucmd_kv_flags_t *flags)
+static const void *_cmd_get_key_spec_value(struct module *      mod,
+                                           struct sid_ucmd_ctx *ucmd_ctx,
+                                           struct kv_key_spec * key_spec,
+                                           size_t *             value_size,
+                                           sid_ucmd_kv_flags_t *flags)
 {
-	const char *owner = _get_mod_name(mod);
-	const char *full_key = NULL;
+	const char *     owner    = _get_mod_name(mod);
+	const char *     full_key = NULL;
 	struct kv_value *kv_value;
-	size_t size, data_offset;
-	void *ret = NULL;
+	size_t           size, data_offset;
+	void *           ret = NULL;
 
 	if (!(full_key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key_spec)))
 		goto out;
@@ -961,23 +978,29 @@ out:
 	return ret;
 }
 
-static const void *_do_sid_ucmd_get_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_kv_namespace_t ns,
-                                       const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags)
+static const void *_do_sid_ucmd_get_kv(struct module *         mod,
+                                       struct sid_ucmd_ctx *   ucmd_ctx,
+                                       sid_ucmd_kv_namespace_t ns,
+                                       const char *            key,
+                                       size_t *                value_size,
+                                       sid_ucmd_kv_flags_t *   flags)
 {
-	struct kv_key_spec key_spec = {
-		.op = KV_OP_SET,
-		.ns = ns,
-		.ns_part = _get_ns_part(mod, ucmd_ctx, ns),
-		.dom = KV_KEY_DOM_USER,
-		.id = ID_NULL,
-		.id_part = ID_NULL,
-		.key = key
-	};
+	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
+	                               .ns      = ns,
+	                               .ns_part = _get_ns_part(mod, ucmd_ctx, ns),
+	                               .dom     = KV_KEY_DOM_USER,
+	                               .id      = ID_NULL,
+	                               .id_part = ID_NULL,
+	                               .key     = key};
 	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
 }
 
-const void *sid_ucmd_get_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_kv_namespace_t ns,
-                            const char *key, size_t *value_size, sid_ucmd_kv_flags_t *flags)
+const void *sid_ucmd_get_kv(struct module *         mod,
+                            struct sid_ucmd_ctx *   ucmd_ctx,
+                            sid_ucmd_kv_namespace_t ns,
+                            const char *            key,
+                            size_t *                value_size,
+                            sid_ucmd_kv_flags_t *   flags)
 {
 	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
@@ -988,9 +1011,9 @@ const void *sid_ucmd_get_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, s
 static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
-	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
-	struct iovec tmp_iov_new[KV_VALUE_IDX_DATA + 1];
-	struct iovec *iov_old, *iov_new;
+	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
+	struct iovec          tmp_iov_new[KV_VALUE_IDX_DATA + 1];
+	struct iovec *        iov_old, *iov_new;
 
 	if (!spec->old_data)
 		return 1;
@@ -999,8 +1022,11 @@ static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, 
 	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 
 	if (strcmp(KV_VALUE_OWNER(iov_old), KV_VALUE_OWNER(iov_new))) {
-		log_debug(ID(update_arg->res), "Module %s can't reserve key %s which is already reserved by %s module.",
-		          KV_VALUE_OWNER(iov_new), full_key, KV_VALUE_OWNER(iov_old));
+		log_debug(ID(update_arg->res),
+		          "Module %s can't reserve key %s which is already reserved by %s module.",
+		          KV_VALUE_OWNER(iov_new),
+		          full_key,
+		          KV_VALUE_OWNER(iov_old));
 		update_arg->ret_code = -EBUSY;
 		return 0;
 	}
@@ -1011,8 +1037,8 @@ static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, 
 static int _kv_unreserve(const char *full_key, struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
-	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
-	struct iovec *iov_old;
+	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
+	struct iovec *        iov_old;
 
 	if (!spec->old_data)
 		return 1;
@@ -1020,8 +1046,11 @@ static int _kv_unreserve(const char *full_key, struct kv_store_update_spec *spec
 	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
 
 	if (strcmp(KV_VALUE_OWNER(iov_old), update_arg->owner)) {
-		log_debug(ID(update_arg->res), "Module %s can't unreserve key %s which is reserved by %s module.",
-		          update_arg->owner, full_key, KV_VALUE_OWNER(iov_old));
+		log_debug(ID(update_arg->res),
+		          "Module %s can't unreserve key %s which is reserved by %s module.",
+		          update_arg->owner,
+		          full_key,
+		          KV_VALUE_OWNER(iov_old));
 		update_arg->ret_code = -EBUSY;
 		return 0;
 	}
@@ -1029,25 +1058,21 @@ static int _kv_unreserve(const char *full_key, struct kv_store_update_spec *spec
 	return 1;
 }
 
-int _do_sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
-                                sid_ucmd_kv_namespace_t ns, const char *key, int unset)
+int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
+                                struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
+                                sid_ucmd_kv_namespace_t  ns,
+                                const char *             key,
+                                int                      unset)
 {
-	const char *owner = _get_mod_name(mod);
-	const char *full_key = NULL;
-	struct iovec iov[KV_VALUE_IDX_DATA]; /* without KV_VALUE_IDX_DATA */
-	static uint64_t null_int = 0;
-	sid_ucmd_kv_flags_t flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
+	const char *         owner    = _get_mod_name(mod);
+	const char *         full_key = NULL;
+	struct iovec         iov[KV_VALUE_IDX_DATA]; /* without KV_VALUE_IDX_DATA */
+	static uint64_t      null_int = 0;
+	sid_ucmd_kv_flags_t  flags    = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
-	int is_worker;
-	struct kv_key_spec key_spec = {
-		.op = KV_OP_SET,
-		.ns = ns,
-		.ns_part = ID_NULL,
-		.dom = ID_NULL,
-		.id = ID_NULL,
-		.id_part = ID_NULL,
-		.key = key
-	};
+	int                  is_worker;
+	struct kv_key_spec   key_spec =
+		{.op = KV_OP_SET, .ns = ns, .ns_part = ID_NULL, .dom = ID_NULL, .id = ID_NULL, .id_part = ID_NULL, .key = key};
 	int r = -1;
 
 	if (!(full_key = _buffer_compose_key(ucmd_mod_ctx->gen_buf, &key_spec)))
@@ -1056,13 +1081,11 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucm
 	if (!(ucmd_mod_ctx->kv_store_res))
 		goto out;
 
-	update_arg = (struct kv_update_arg) {
-		.res = ucmd_mod_ctx->kv_store_res,
-		.gen_buf = NULL,
-		.owner = owner,
-		.custom = NULL,
-		.ret_code = -EREMOTEIO
-	};
+	update_arg = (struct kv_update_arg) {.res      = ucmd_mod_ctx->kv_store_res,
+	                                     .gen_buf  = NULL,
+	                                     .owner    = owner,
+	                                     .custom   = NULL,
+	                                     .ret_code = -EREMOTEIO};
 
 	is_worker = worker_control_is_worker(ucmd_mod_ctx->kv_store_res);
 
@@ -1070,10 +1093,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucm
 		flags |= KV_PERSISTENT;
 
 	if (unset && !is_worker) {
-		kv_store_unset_value(ucmd_mod_ctx->kv_store_res,
-		                     full_key,
-		                     _kv_unreserve,
-		                     &update_arg);
+		kv_store_unset_value(ucmd_mod_ctx->kv_store_res, full_key, _kv_unreserve, &update_arg);
 		goto out;
 	} else {
 		KV_VALUE_PREPARE_HEADER(iov, null_int, flags, (char *) owner);
@@ -1095,8 +1115,7 @@ out:
 	return r;
 }
 
-int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
-                            sid_ucmd_kv_namespace_t ns, const char *key)
+int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx, sid_ucmd_kv_namespace_t ns, const char *key)
 {
 	if (!mod || !ucmd_mod_ctx || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return -EINVAL;
@@ -1104,8 +1123,10 @@ int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mo
 	return _do_sid_ucmd_mod_reserve_kv(mod, ucmd_mod_ctx, ns, key, 0);
 }
 
-int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
-                              sid_ucmd_kv_namespace_t ns, const char *key)
+int sid_ucmd_mod_unreserve_kv(struct module *          mod,
+                              struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
+                              sid_ucmd_kv_namespace_t  ns,
+                              const char *             key)
 {
 	if (!mod || !ucmd_mod_ctx || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return -EINVAL;
@@ -1113,11 +1134,10 @@ int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_
 	return _do_sid_ucmd_mod_reserve_kv(mod, ucmd_mod_ctx, ns, key, 1);
 }
 
-int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
-                                     sid_resource_t *mod_subregistry)
+int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx, sid_resource_t *mod_subregistry)
 {
 	sid_resource_t *res;
-	char **pathv, **name;
+	char **         pathv, **name;
 
 	if (!mod || !ucmd_mod_ctx || !mod_subregistry)
 		return -EINVAL;
@@ -1155,7 +1175,7 @@ int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, de
 dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	const dev_ready_t *p_ready;
-	dev_ready_t result;
+	dev_ready_t        result;
 
 	if (!mod || !ucmd_ctx)
 		return DEV_NOT_RDY_UNDEFINED;
@@ -1176,7 +1196,14 @@ int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan_phase].flags & CMD_SCAN_CAP_RES))
 		return -EPERM;
 
-	_do_sid_ucmd_set_kv(NULL, ucmd_ctx, KV_NS_DEVICE, NULL, KV_KEY_DEV_RESERVED, DEFAULT_KV_FLAGS_CORE, &reserved, sizeof(reserved));
+	_do_sid_ucmd_set_kv(NULL,
+	                    ucmd_ctx,
+	                    KV_NS_DEVICE,
+	                    NULL,
+	                    KV_KEY_DEV_RESERVED,
+	                    DEFAULT_KV_FLAGS_CORE,
+	                    &reserved,
+	                    sizeof(reserved));
 
 	return 0;
 }
@@ -1184,7 +1211,7 @@ int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
 dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	const dev_reserved_t *p_reserved;
-	dev_reserved_t result;
+	dev_reserved_t        result;
 
 	if (!mod || !ucmd_ctx)
 		return DEV_RES_UNDEFINED;
@@ -1205,34 +1232,32 @@ static int _kv_write_new_only(const char *full_key, struct kv_store_update_spec 
 	return 1;
 }
 
-int sid_ucmd_group_create(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
-                          sid_ucmd_kv_namespace_t group_ns, const char *group_id,
-                          sid_ucmd_kv_flags_t group_flags)
+int sid_ucmd_group_create(struct module *         mod,
+                          struct sid_ucmd_ctx *   ucmd_ctx,
+                          sid_ucmd_kv_namespace_t group_ns,
+                          const char *            group_id,
+                          sid_ucmd_kv_flags_t     group_flags)
 {
-	const char *full_key = NULL;
+	const char * full_key = NULL;
 	struct iovec iov[KV_VALUE_IDX_DATA];
-	int r = -1;
+	int          r = -1;
 
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
 
-	struct kv_key_spec key_spec = {
-		.op = KV_OP_SET,
-		.ns = group_ns,
-		.ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
-		.dom = ID_NULL,
-		.id = group_id,
-		.id_part = ID_NULL,
-		.key = KV_KEY_GEN_GROUP_MEMBERS
-	};
+	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
+	                               .ns      = group_ns,
+	                               .ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
+	                               .dom     = ID_NULL,
+	                               .id      = group_id,
+	                               .id_part = ID_NULL,
+	                               .key     = KV_KEY_GEN_GROUP_MEMBERS};
 
-	struct kv_update_arg update_arg = {
-		.res = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
-		.owner = _get_mod_name(mod),
-		.gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
-		.custom = NULL,
-		.ret_code = 0
-	};
+	struct kv_update_arg update_arg = {.res      = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	                                   .owner    = _get_mod_name(mod),
+	                                   .gen_buf  = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                   .custom   = NULL,
+	                                   .ret_code = 0};
 
 	if (!(full_key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
 		goto out;
@@ -1255,55 +1280,43 @@ out:
 	return r;
 }
 
-int _handle_current_dev_for_group(struct module *mod,
-                                  struct sid_ucmd_ctx *ucmd_ctx,
+int _handle_current_dev_for_group(struct module *         mod,
+                                  struct sid_ucmd_ctx *   ucmd_ctx,
                                   sid_ucmd_kv_namespace_t group_ns,
-                                  const char *group_id, kv_op_t op)
+                                  const char *            group_id,
+                                  kv_op_t                 op)
 {
-	const char *tmp_mem_start = buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
-	const char *cur_full_key, *rel_key_prefix;
+	const char * tmp_mem_start = buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
+	const char * cur_full_key, *rel_key_prefix;
 	struct iovec iov[KV_VALUE_IDX_DATA + 1];
-	int r = -1;
+	int          r = -1;
 
-	struct kv_rel_spec rel_spec = {
-		.delta = &((struct kv_delta)
-		{
-			.op = op,
-			.flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
-			.plus = NULL,
-			.minus = NULL,
-			.final = NULL
-		}),
+	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op    = op,
+	                                                             .flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
+	                                                             .plus  = NULL,
+	                                                             .minus = NULL,
+	                                                             .final = NULL}),
 
-		.cur_key_spec = &((struct kv_key_spec)
-		{
-			.op = KV_OP_SET,
-			.ns = group_ns,
-			.ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
-			.dom = KV_KEY_DOM_USER,
-			.id = group_id,
-			.id_part = ID_NULL,
-			.key = KV_KEY_GEN_GROUP_MEMBERS
-		}),
+	                               .cur_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .ns      = group_ns,
+	                                                                       .ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
+	                                                                       .dom     = KV_KEY_DOM_USER,
+	                                                                       .id      = group_id,
+	                                                                       .id_part = ID_NULL,
+	                                                                       .key     = KV_KEY_GEN_GROUP_MEMBERS}),
 
-		.rel_key_spec = &((struct kv_key_spec)
-		{
-			.op = KV_OP_SET,
-			.ns = KV_NS_DEVICE,
-			.ns_part = _get_ns_part(mod, ucmd_ctx, KV_NS_DEVICE),
-			.dom = ID_NULL,
-			.id = ID_NULL,
-			.id_part = ID_NULL,
-			.key = KV_KEY_GEN_GROUP_IN
-		})
-	};
+	                               .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .ns      = KV_NS_DEVICE,
+	                                                                       .ns_part = _get_ns_part(mod, ucmd_ctx, KV_NS_DEVICE),
+	                                                                       .dom     = ID_NULL,
+	                                                                       .id      = ID_NULL,
+	                                                                       .id_part = ID_NULL,
+	                                                                       .key     = KV_KEY_GEN_GROUP_IN})};
 
-	struct kv_update_arg update_arg = {
-		.res = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
-		.owner = OWNER_CORE,
-		.gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
-		.custom = &rel_spec
-	};
+	struct kv_update_arg update_arg = {.res     = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	                                   .owner   = OWNER_CORE,
+	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                   .custom  = &rel_spec};
 
 	// TODO: check return values / maybe also pass flags / use proper owner
 
@@ -1311,9 +1324,7 @@ int _handle_current_dev_for_group(struct module *mod,
 	rel_key_prefix = _buffer_compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
 	if (!rel_key_prefix)
 		goto out;
-	iov[KV_VALUE_IDX_DATA] = (struct iovec) {
-		(void *) rel_key_prefix, strlen(rel_key_prefix) + 1
-	};
+	iov[KV_VALUE_IDX_DATA] = (struct iovec) {(void *) rel_key_prefix, strlen(rel_key_prefix) + 1};
 
 	cur_full_key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec);
 	if (!cur_full_key)
@@ -1334,8 +1345,10 @@ out:
 	return r;
 }
 
-int sid_ucmd_group_add_current_dev(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
-                                   sid_ucmd_kv_namespace_t group_ns, const char *group_id)
+int sid_ucmd_group_add_current_dev(struct module *         mod,
+                                   struct sid_ucmd_ctx *   ucmd_ctx,
+                                   sid_ucmd_kv_namespace_t group_ns,
+                                   const char *            group_id)
 {
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
@@ -1343,8 +1356,10 @@ int sid_ucmd_group_add_current_dev(struct module *mod, struct sid_ucmd_ctx *ucmd
 	return _handle_current_dev_for_group(mod, ucmd_ctx, group_ns, group_id, KV_OP_PLUS);
 }
 
-int sid_ucmd_group_remove_current_dev(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
-                                      sid_ucmd_kv_namespace_t group_ns, const char *group_id)
+int sid_ucmd_group_remove_current_dev(struct module *         mod,
+                                      struct sid_ucmd_ctx *   ucmd_ctx,
+                                      sid_ucmd_kv_namespace_t group_ns,
+                                      const char *            group_id)
 {
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
@@ -1352,58 +1367,47 @@ int sid_ucmd_group_remove_current_dev(struct module *mod, struct sid_ucmd_ctx *u
 	return _handle_current_dev_for_group(mod, ucmd_ctx, group_ns, group_id, KV_OP_MINUS);
 }
 
-int sid_ucmd_group_destroy(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
-                           sid_ucmd_kv_namespace_t group_ns, const char *group_id,
-                           int force)
+int sid_ucmd_group_destroy(struct module *         mod,
+                           struct sid_ucmd_ctx *   ucmd_ctx,
+                           sid_ucmd_kv_namespace_t group_ns,
+                           const char *            group_id,
+                           int                     force)
 {
 	static sid_ucmd_kv_flags_t kv_flags_persist_no_reserved = (DEFAULT_KV_FLAGS_CORE) & ~KV_MOD_RESERVED;
-	const char *cur_full_key = NULL;
-	size_t size;
-	struct iovec iov_blank[KV_VALUE_IDX_DATA];
-	int r = -1;
+	const char *               cur_full_key                 = NULL;
+	size_t                     size;
+	struct iovec               iov_blank[KV_VALUE_IDX_DATA];
+	int                        r = -1;
 
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
 
-	struct kv_rel_spec rel_spec = {
-		.delta = &((struct kv_delta)
-		{
-			.op = KV_OP_SET,
-			.flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
-			.plus = NULL,
-			.minus = NULL,
-			.final = NULL
-		}),
+	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op    = KV_OP_SET,
+	                                                             .flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
+	                                                             .plus  = NULL,
+	                                                             .minus = NULL,
+	                                                             .final = NULL}),
 
-		.cur_key_spec = &((struct kv_key_spec)
-		{
-			.op = KV_OP_SET,
-			.ns = group_ns,
-			.ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
-			.dom = ID_NULL,
-			.id = group_id,
-			.id_part = ID_NULL,
-			.key = KV_KEY_GEN_GROUP_MEMBERS
-		}),
+	                               .cur_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .ns      = group_ns,
+	                                                                       .ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
+	                                                                       .dom     = ID_NULL,
+	                                                                       .id      = group_id,
+	                                                                       .id_part = ID_NULL,
+	                                                                       .key     = KV_KEY_GEN_GROUP_MEMBERS}),
 
-		.rel_key_spec = &((struct kv_key_spec)
-		{
-			.op = KV_OP_SET,
-			.ns = 0,
-			.ns_part = ID_NULL,
-			.dom = ID_NULL,
-			.id = ID_NULL,
-			.id_part = ID_NULL,
-			.key = KV_KEY_GEN_GROUP_IN
-		})
-	};
+	                               .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .ns      = 0,
+	                                                                       .ns_part = ID_NULL,
+	                                                                       .dom     = ID_NULL,
+	                                                                       .id      = ID_NULL,
+	                                                                       .id_part = ID_NULL,
+	                                                                       .key     = KV_KEY_GEN_GROUP_IN})};
 
-	struct kv_update_arg update_arg = {
-		.res = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
-		.owner = OWNER_CORE,
-		.gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
-		.custom = &rel_spec
-	};
+	struct kv_update_arg update_arg = {.res     = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	                                   .owner   = OWNER_CORE,
+	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                   .custom  = &rel_spec};
 
 	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_delta wrapper
 	//       to do the "is empty?" check before the actual _kv_delta operation
@@ -1445,13 +1449,14 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 {
 	const char *key;
 	const char *value;
-	int r = -1;
+	int         r = -1;
 
 	if (!(value = strchr(start, KV_PAIR_C[0])) || !*(++value))
 		return -1;
 
 	if (!(key = buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, &r, "%.*s", value - start - 1, start)))
-		return r;;
+		return r;
+	;
 
 	if (!(value = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, KV_NS_UDEV, NULL, key, 0, value, strlen(value) + 1)))
 		goto out;
@@ -1478,9 +1483,9 @@ out:
 
 static int _parse_cmd_nullstr_udev_env(struct sid_ucmd_ctx *ucmd_ctx, const char *env, size_t env_size)
 {
-	dev_t devno;
+	dev_t       devno;
 	const char *end;
-	int r = 0;
+	int         r = 0;
 
 	if (env_size <= sizeof(devno)) {
 		r = -EINVAL;
@@ -1537,14 +1542,14 @@ static void _canonicalize_kv_key(char *id)
 static const char *_lookup_module_name(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	char buf[PATH_MAX];
-	const char *mod_name = NULL;
-	FILE *f = NULL;
-	char line[80];
-	int in_block_section = 0;
-	char *p, *end, *found = NULL;
-	int major;
-	size_t len;
+	char                 buf[PATH_MAX];
+	const char *         mod_name = NULL;
+	FILE *               f        = NULL;
+	char                 line[80];
+	int                  in_block_section = 0;
+	char *               p, *end, *found = NULL;
+	int                  major;
+	size_t               len;
 
 	if ((mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL)))
 		goto out;
@@ -1592,8 +1597,11 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	}
 
 	if (!found) {
-		log_error(ID(cmd_res), "Unable to find major number %d for device %s in %s.",
-		          ucmd_ctx->udev_dev.major, ucmd_ctx->udev_dev.name, SYSTEM_PROC_DEVICES_PATH);
+		log_error(ID(cmd_res),
+		          "Unable to find major number %d for device %s in %s.",
+		          ucmd_ctx->udev_dev.major,
+		          ucmd_ctx->udev_dev.name,
+		          SYSTEM_PROC_DEVICES_PATH);
 		goto out;
 	}
 
@@ -1605,9 +1613,12 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	len = p - found;
 
 	if (len >= sizeof(buf)) {
-		log_error(ID(cmd_res), "Insufficient result buffer for device lookup in %s, "
-		          "found string \"%s\", buffer size is only %zu.", SYSTEM_PROC_DEVICES_PATH,
-		          found, sizeof(buf));
+		log_error(ID(cmd_res),
+		          "Insufficient result buffer for device lookup in %s, "
+		          "found string \"%s\", buffer size is only %zu.",
+		          SYSTEM_PROC_DEVICES_PATH,
+		          found,
+		          sizeof(buf));
 		goto out;
 	}
 
@@ -1615,7 +1626,14 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	buf[len] = '\0';
 	_canonicalize_module_name(buf);
 
-	if (!(mod_name = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, KV_NS_DEVICE, NULL, KV_KEY_DEV_MOD, DEFAULT_KV_FLAGS_CORE, buf, strlen(buf) + 1)))
+	if (!(mod_name = _do_sid_ucmd_set_kv(NULL,
+	                                     ucmd_ctx,
+	                                     KV_NS_DEVICE,
+	                                     NULL,
+	                                     KV_KEY_DEV_MOD,
+	                                     DEFAULT_KV_FLAGS_CORE,
+	                                     buf,
+	                                     strlen(buf) + 1)))
 		log_error_errno(ID(cmd_res), errno, "Failed to store device " CMD_DEV_ID_FMT " module name", CMD_DEV_ID(ucmd_ctx));
 out:
 	if (f)
@@ -1635,13 +1653,11 @@ static int _cmd_exec_reply(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	static struct usid_version version = {
-		.major = SID_VERSION_MAJOR,
-		.minor = SID_VERSION_MINOR,
-		.release = SID_VERSION_RELEASE
-	};
-	int r;
+	struct sid_ucmd_ctx *      ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	static struct usid_version version  = {.major   = SID_VERSION_MAJOR,
+                                              .minor   = SID_VERSION_MINOR,
+                                              .release = SID_VERSION_RELEASE};
+	int                        r;
 
 	buffer_add(ucmd_ctx->res_buf, &version, sizeof(version), &r);
 	return r;
@@ -1649,13 +1665,13 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
 {
-	int r;
+	int                  r;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	char *dump_data;
-	size_t size;
+	char *               dump_data;
+	size_t               size;
 
 	if ((r = _write_kv_store_dump(ucmd_ctx->ucmd_mod_ctx.gen_buf, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0) {
-		buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **)&dump_data, &size);
+		buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &dump_data, &size);
 		buffer_add(ucmd_ctx->res_buf, dump_data, size, &r);
 	}
 	return r;
@@ -1663,9 +1679,9 @@ static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
 
 static int _get_sysfs_value(struct module *mod, const char *path, char *buf, size_t buf_size)
 {
-	FILE *fp;
+	FILE * fp;
 	size_t len;
-	int r = -1;
+	int    r = -1;
 
 	if (!(fp = fopen(path, "r"))) {
 		log_sys_error(_get_mod_name(mod), "fopen", path);
@@ -1677,7 +1693,7 @@ static int _get_sysfs_value(struct module *mod, const char *path, char *buf, siz
 		goto out;
 	}
 
-	if ((len = strlen(buf)) && buf[len-1] == '\n')
+	if ((len = strlen(buf)) && buf[len - 1] == '\n')
 		buf[--len] = '\0';
 
 	if (!len)
@@ -1694,16 +1710,16 @@ out:
 int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char *devno, size_t size)
 {
 	const char *s;
-	int r;
+	int         r;
 
 	if (!ucmd_ctx || !mod || !devno || !size)
 		return -EINVAL;
 
-	if (!(s = buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, &r, "%s%s/../dev",
-	                         SYSTEM_SYSFS_PATH, ucmd_ctx->udev_dev.path))) {
-		log_error_errno(_get_mod_name(mod), r,
-		                "Failed to compose sysfs path for whole device of partition device "
-		                CMD_DEV_ID_FMT, CMD_DEV_ID(ucmd_ctx));
+	if (!(s = buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, &r, "%s%s/../dev", SYSTEM_SYSFS_PATH, ucmd_ctx->udev_dev.path))) {
+		log_error_errno(_get_mod_name(mod),
+		                r,
+		                "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT,
+		                CMD_DEV_ID(ucmd_ctx));
 		return r;
 	}
 	r = _get_sysfs_value(mod, s, devno, size);
@@ -1715,19 +1731,20 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 	return 0;
 }
 
-const void *sid_ucmd_part_get_disk_kv(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *key,
-                                      size_t *value_size, sid_ucmd_kv_flags_t *flags)
+const void *sid_ucmd_part_get_disk_kv(struct module *      mod,
+                                      struct sid_ucmd_ctx *ucmd_ctx,
+                                      const char *         key,
+                                      size_t *             value_size,
+                                      sid_ucmd_kv_flags_t *flags)
 {
-	char devno_buf[16];
-	struct kv_key_spec key_spec = {
-		.op = KV_OP_SET,
-		.ns = KV_NS_DEVICE,
-		.ns_part = ID_NULL, /* will be calculated later */
-		.dom = KV_KEY_DOM_USER,
-		.id = ID_NULL,
-		.id_part = ID_NULL,
-		.key = key
-	};
+	char               devno_buf[16];
+	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
+	                               .ns      = KV_NS_DEVICE,
+	                               .ns_part = ID_NULL, /* will be calculated later */
+	                               .dom     = KV_KEY_DOM_USER,
+	                               .id      = ID_NULL,
+	                               .id_part = ID_NULL,
+	                               .key     = key};
 
 	if (!ucmd_ctx || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
@@ -1743,8 +1760,8 @@ const void *sid_ucmd_part_get_disk_kv(struct module *mod, struct sid_ucmd_ctx *u
 static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iovec *header, size_t header_size)
 {
 	struct buffer *buf = NULL;
-	size_t i;
-	int r = 0;
+	size_t         i;
+	int            r = 0;
 
 	if (!size)
 		return 0;
@@ -1755,9 +1772,10 @@ static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iov
 	}
 
 	if (!(buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-							  .type = BUFFER_TYPE_VECTOR,
-							  .mode = BUFFER_MODE_PLAIN}),
-				  &((struct buffer_init) {.size = size, .alloc_step = 0, .limit = 0}), &r)))
+	                                                  .type    = BUFFER_TYPE_VECTOR,
+	                                                  .mode    = BUFFER_MODE_PLAIN}),
+	                          &((struct buffer_init) {.size = size, .alloc_step = 0, .limit = 0}),
+	                          &r)))
 		goto out;
 
 	for (i = 0; i < header_size; i++) {
@@ -1772,8 +1790,12 @@ out:
 	return r;
 }
 
-static int _init_delta_struct(struct kv_delta *delta, size_t minus_size, size_t plus_size, size_t final_size,
-                              struct iovec *header, size_t header_size)
+static int _init_delta_struct(struct kv_delta *delta,
+                              size_t           minus_size,
+                              size_t           plus_size,
+                              size_t           final_size,
+                              struct iovec *   header,
+                              size_t           header_size)
 {
 	if (_init_delta_buffer(&delta->plus, plus_size, header, header_size) < 0 ||
 	    _init_delta_buffer(&delta->minus, minus_size, header, header_size) < 0 ||
@@ -1793,17 +1815,16 @@ static int _iov_str_item_cmp(const void *a, const void *b)
 	return strcmp((const char *) iovec_item_a->iov_base, (const char *) iovec_item_b->iov_base);
 }
 
-static int _delta_step_calculate(struct kv_store_update_spec *spec,
-                                 struct kv_update_arg *update_arg)
+static int _delta_step_calculate(struct kv_store_update_spec *spec, struct kv_update_arg *update_arg)
 {
-	struct kv_delta *delta = ((struct kv_rel_spec *) update_arg->custom)->delta;
-	struct iovec *old_value = spec->old_data;
-	size_t old_size = spec->old_data_size;
-	struct iovec *new_value = spec->new_data;
-	size_t new_size = spec->new_data_size;
-	size_t i_old, i_new;
-	int cmp_result;
-	int r = -1;
+	struct kv_delta *delta     = ((struct kv_rel_spec *) update_arg->custom)->delta;
+	struct iovec *   old_value = spec->old_data;
+	size_t           old_size  = spec->old_data_size;
+	struct iovec *   new_value = spec->new_data;
+	size_t           new_size  = spec->new_data_size;
+	size_t           i_old, i_new;
+	int              cmp_result;
+	int              r = -1;
 
 	if (_init_delta_struct(delta, old_size, new_size, old_size + new_size, new_value, KV_VALUE_IDX_DATA) < 0)
 		goto out;
@@ -1827,7 +1848,10 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 				switch (delta->op) {
 					case KV_OP_SET:
 						/* we have detected removed item: add it to delta->minus */
-						if (!buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len, &r))
+						if (!buffer_add(delta->minus,
+						                old_value[i_old].iov_base,
+						                old_value[i_old].iov_len,
+						                &r))
 							goto out;
 						break;
 					case KV_OP_PLUS:
@@ -1835,7 +1859,10 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 					/* no break here intentionally! */
 					case KV_OP_MINUS:
 						/* we're keeping old item: add it to delta->final */
-						if (!buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len, &r))
+						if (!buffer_add(delta->final,
+						                old_value[i_old].iov_base,
+						                old_value[i_old].iov_len,
+						                &r))
 							goto out;
 						break;
 					case KV_OP_ILLEGAL:
@@ -1850,8 +1877,14 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 					/* no break here intentionally! */
 					case KV_OP_PLUS:
 						/* we're adding new item: add it to delta->plus and delta->final */
-						if (!buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len, &r) ||
-						    !buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len, &r))
+						if (!buffer_add(delta->plus,
+						                new_value[i_new].iov_base,
+						                new_value[i_new].iov_len,
+						                &r) ||
+						    !buffer_add(delta->final,
+						                new_value[i_new].iov_base,
+						                new_value[i_new].iov_len,
+						                &r))
 							goto out;
 						break;
 					case KV_OP_MINUS:
@@ -1868,13 +1901,20 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 					/* we have detected no change for this item: add it to delta->final */
 					/* no break here intentionally! */
 					case KV_OP_PLUS:
-						/* we're trying to add already existing item: add it to delta->final but not delta->plus */
-						if (!buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len, &r))
+						/* we're trying to add already existing item: add it to delta->final but not
+						 * delta->plus */
+						if (!buffer_add(delta->final,
+						                new_value[i_new].iov_base,
+						                new_value[i_new].iov_len,
+						                &r))
 							goto out;
 						break;
 					case KV_OP_MINUS:
 						/* we're removing item: add it to delta->minus */
-						if (!buffer_add(delta->minus, new_value[i_new].iov_base, new_value[i_new].iov_len, &r))
+						if (!buffer_add(delta->minus,
+						                new_value[i_new].iov_base,
+						                new_value[i_new].iov_len,
+						                &r))
 							goto out;
 						break;
 					case KV_OP_ILLEGAL:
@@ -1893,8 +1933,14 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 					/* no break here intentionally! */
 					case KV_OP_PLUS:
 						/* we're adding new item: add it to delta->plus and delta->final */
-						if (!buffer_add(delta->plus, new_value[i_new].iov_base, new_value[i_new].iov_len, &r) ||
-						    !buffer_add(delta->final, new_value[i_new].iov_base, new_value[i_new].iov_len, &r))
+						if (!buffer_add(delta->plus,
+						                new_value[i_new].iov_base,
+						                new_value[i_new].iov_len,
+						                &r) ||
+						    !buffer_add(delta->final,
+						                new_value[i_new].iov_base,
+						                new_value[i_new].iov_len,
+						                &r))
 							goto out;
 						break;
 					case KV_OP_MINUS:
@@ -1911,7 +1957,10 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 				switch (delta->op) {
 					case KV_OP_SET:
 						/* we have detected removed item: add it to delta->minus */
-						if (!buffer_add(delta->minus, old_value[i_old].iov_base, old_value[i_old].iov_len, &r))
+						if (!buffer_add(delta->minus,
+						                old_value[i_old].iov_base,
+						                old_value[i_old].iov_len,
+						                &r))
 							goto out;
 						break;
 					case KV_OP_PLUS:
@@ -1919,7 +1968,10 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec,
 					/* no break here intentionally! */
 					case KV_OP_MINUS:
 						/* we're not changing the old item so add it to delta->final */
-						if (!buffer_add(delta->final, old_value[i_old].iov_base, old_value[i_old].iov_len, &r))
+						if (!buffer_add(delta->final,
+						                old_value[i_old].iov_base,
+						                old_value[i_old].iov_len,
+						                &r))
 							goto out;
 						break;
 					case KV_OP_ILLEGAL:
@@ -1946,7 +1998,7 @@ static void _delta_cross_bitmap_calculate(struct cross_bitmap_calc_arg *cross)
 {
 	size_t old_size, new_size;
 	size_t i_old, i_new;
-	int cmp_result;
+	int    cmp_result;
 
 	if ((old_size = cross->old_size) < KV_VALUE_IDX_DATA)
 		old_size = KV_VALUE_IDX_DATA;
@@ -1983,24 +2035,22 @@ static void _delta_cross_bitmap_calculate(struct cross_bitmap_calc_arg *cross)
 	}
 }
 
-static int _delta_abs_calculate(struct kv_store_update_spec *spec,
-                                struct kv_update_arg *update_arg,
-                                struct kv_delta *abs_delta)
+static int _delta_abs_calculate(struct kv_store_update_spec *spec, struct kv_update_arg *update_arg, struct kv_delta *abs_delta)
 {
-	struct cross_bitmap_calc_arg cross1 = {0};
-	struct cross_bitmap_calc_arg cross2 = {0};
-	struct kv_rel_spec *rel_spec = update_arg->custom;
-	kv_op_t orig_op = rel_spec->cur_key_spec->op;
-	const char *delta_full_key;
-	struct iovec *abs_plus, *abs_minus;
-	size_t i, abs_plus_size, abs_minus_size;
-	int r = -1;
+	struct cross_bitmap_calc_arg cross1   = {0};
+	struct cross_bitmap_calc_arg cross2   = {0};
+	struct kv_rel_spec *         rel_spec = update_arg->custom;
+	kv_op_t                      orig_op  = rel_spec->cur_key_spec->op;
+	const char *                 delta_full_key;
+	struct iovec *               abs_plus, *abs_minus;
+	size_t                       i, abs_plus_size, abs_minus_size;
+	int                          r = -1;
 
 	if (!rel_spec->delta->plus && !rel_spec->delta->minus)
 		return 0;
 
 	rel_spec->cur_key_spec->op = KV_OP_PLUS;
-	delta_full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
+	delta_full_key             = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 	if (!delta_full_key)
 		goto out;
 	cross1.old_value = kv_store_get_value(update_arg->res, delta_full_key, &cross1.old_size, NULL);
@@ -2011,7 +2061,7 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec,
 	}
 
 	rel_spec->cur_key_spec->op = KV_OP_MINUS;
-	delta_full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
+	delta_full_key             = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 	if (!delta_full_key)
 		goto out;
 	cross2.old_value = kv_store_get_value(update_arg->res, delta_full_key, &cross2.old_size, NULL);
@@ -2147,38 +2197,33 @@ out:
 static void _value_vector_mark_persist(struct iovec *iov, int persist)
 {
 	if (persist)
-		iov[KV_VALUE_IDX_FLAGS] = (struct iovec) {
-		&kv_flags_persist, sizeof(kv_flags_persist)
-	};
+		iov[KV_VALUE_IDX_FLAGS] = (struct iovec) {&kv_flags_persist, sizeof(kv_flags_persist)};
 	else
-		iov[KV_VALUE_IDX_FLAGS] = (struct iovec) {
-		&kv_flags_no_persist, sizeof(kv_flags_no_persist)
-	};
+		iov[KV_VALUE_IDX_FLAGS] = (struct iovec) {&kv_flags_no_persist, sizeof(kv_flags_no_persist)};
 }
 
 static void _flip_key_specs(struct kv_rel_spec *rel_spec)
 {
 	struct kv_key_spec *tmp_key_spec;
 
-	tmp_key_spec = rel_spec->cur_key_spec;
+	tmp_key_spec           = rel_spec->cur_key_spec;
 	rel_spec->cur_key_spec = rel_spec->rel_key_spec;
 	rel_spec->rel_key_spec = tmp_key_spec;
 }
 
-static int _delta_update(struct kv_store_update_spec *spec,
-                         struct kv_update_arg *update_arg,
-                         struct kv_delta *abs_delta, kv_op_t op)
+static int
+	_delta_update(struct kv_store_update_spec *spec, struct kv_update_arg *update_arg, struct kv_delta *abs_delta, kv_op_t op)
 {
-	uint64_t seqnum = KV_VALUE_SEQNUM(spec->new_data);
-	struct kv_rel_spec *rel_spec = update_arg->custom;
-	kv_op_t orig_op = rel_spec->cur_key_spec->op;
-	const char *tmp_mem_start = buffer_add(update_arg->gen_buf, "", 0, NULL);
-	struct kv_delta *orig_delta;
-	struct iovec *delta_iov, *abs_delta_iov;
-	size_t delta_iov_cnt, abs_delta_iov_cnt, i;
-	const char *key_prefix, *ns_part, *full_key;
-	struct iovec rel_iov[KV_VALUE_IDX_DATA + 1];
-	int r = 0;
+	uint64_t            seqnum        = KV_VALUE_SEQNUM(spec->new_data);
+	struct kv_rel_spec *rel_spec      = update_arg->custom;
+	kv_op_t             orig_op       = rel_spec->cur_key_spec->op;
+	const char *        tmp_mem_start = buffer_add(update_arg->gen_buf, "", 0, NULL);
+	struct kv_delta *   orig_delta;
+	struct iovec *      delta_iov, *abs_delta_iov;
+	size_t              delta_iov_cnt, abs_delta_iov_cnt, i;
+	const char *        key_prefix, *ns_part, *full_key;
+	struct iovec        rel_iov[KV_VALUE_IDX_DATA + 1];
+	int                 r = 0;
 
 	if (op == KV_OP_PLUS) {
 		if (!abs_delta->plus)
@@ -2197,7 +2242,7 @@ static int _delta_update(struct kv_store_update_spec *spec,
 
 	/* store absolute delta for current item - persistent */
 	rel_spec->cur_key_spec->op = op;
-	full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
+	full_key                   = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 	rel_spec->cur_key_spec->op = orig_op;
 	if (!full_key)
 		return -1;
@@ -2222,9 +2267,7 @@ static int _delta_update(struct kv_store_update_spec *spec,
 		_flip_key_specs(rel_spec);
 		orig_delta = rel_spec->delta;
 
-		rel_spec->delta = &((struct kv_delta) {
-			0
-		});
+		rel_spec->delta     = &((struct kv_delta) {0});
 		rel_spec->delta->op = op;
 		/*
 		 * WARNING: Be careful here - never call with DELTA_WITH_REL flag otherwise
@@ -2241,14 +2284,12 @@ static int _delta_update(struct kv_store_update_spec *spec,
 			goto fail;
 		}
 		KV_VALUE_PREPARE_HEADER(rel_iov, seqnum, kv_flags_no_persist, (char *) update_arg->owner);
-		rel_iov[KV_VALUE_IDX_DATA] = (struct iovec) {
-			.iov_base = (void *) key_prefix, .iov_len = strlen(key_prefix) + 1
-		};
+		rel_iov[KV_VALUE_IDX_DATA] = (struct iovec) {.iov_base = (void *) key_prefix, .iov_len = strlen(key_prefix) + 1};
 
 		for (i = KV_VALUE_IDX_DATA; i < delta_iov_cnt; i++) {
-			ns_part = _buffer_copy_ns_part_from_key(update_arg->gen_buf, delta_iov[i].iov_base);
+			ns_part                         = _buffer_copy_ns_part_from_key(update_arg->gen_buf, delta_iov[i].iov_base);
 			rel_spec->cur_key_spec->ns_part = ns_part;
-			full_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
+			full_key                        = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 			if (!full_key) {
 				r = -1;
 				goto fail;
@@ -2390,13 +2431,12 @@ fail:
  *	      (the same as 8_1, just for the minus vectors instead of plus vectors)
  *
  */
-static int _kv_delta(const char *full_key __attribute__ ((unused)),
-                     struct kv_store_update_spec *spec, void *arg)
+static int _kv_delta(const char *full_key __attribute__((unused)), struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
-	struct kv_rel_spec *rel_spec = update_arg->custom;
-	struct kv_delta abs_delta = {0};
-	int r = 0; /* no change by default */
+	struct kv_rel_spec *  rel_spec   = update_arg->custom;
+	struct kv_delta       abs_delta  = {0};
+	int                   r          = 0; /* no change by default */
 
 	/* FIXME: propagate error out of this function so it can be reported by caller. */
 
@@ -2436,8 +2476,7 @@ static int _kv_delta(const char *full_key __attribute__ ((unused)),
 	 * because we will destroy the delta buffer completely.
 	 */
 	if (rel_spec->delta->final) {
-		buffer_get_data(rel_spec->delta->final,
-		                (const void **) &spec->new_data, &spec->new_data_size);
+		buffer_get_data(rel_spec->delta->final, (const void **) &spec->new_data, &spec->new_data_size);
 
 		spec->new_flags &= ~KV_STORE_VALUE_REF;
 
@@ -2452,75 +2491,66 @@ out:
 static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	const char *tmp_mem_start = buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
-	const char *s;
-	struct dirent **dirent = NULL;
-	struct buffer *vec_buf = NULL;
-	char devno_buf[16];
-	struct iovec *iov;
-	size_t iov_cnt;
-	int count = 0, i;
-	int r = -1;
+	struct sid_ucmd_ctx *ucmd_ctx      = sid_resource_get_data(cmd_res);
+	const char *         tmp_mem_start = buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
+	const char *         s;
+	struct dirent **     dirent  = NULL;
+	struct buffer *      vec_buf = NULL;
+	char                 devno_buf[16];
+	struct iovec *       iov;
+	size_t               iov_cnt;
+	int                  count = 0, i;
+	int                  r     = -1;
 
-	struct kv_rel_spec rel_spec = {
-		.delta = &((struct kv_delta)
-		{
-			.op = KV_OP_SET,
-			.flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
-			.plus = NULL,
-			.minus = NULL,
-			.final = NULL
-		}),
+	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op    = KV_OP_SET,
+	                                                             .flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
+	                                                             .plus  = NULL,
+	                                                             .minus = NULL,
+	                                                             .final = NULL}),
 
-		.cur_key_spec = &((struct kv_key_spec)
-		{
-			.op = KV_OP_SET,
-			.ns = KV_NS_DEVICE,
-			.ns_part = _get_ns_part(NULL, ucmd_ctx, KV_NS_DEVICE),
-			.dom = KV_KEY_DOM_LAYER,
-			.id = ID_NULL,
-			.id_part = ID_NULL,
-			.key = KV_KEY_GEN_GROUP_MEMBERS
-		}),
+	                               .cur_key_spec =
+	                                       &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                               .ns      = KV_NS_DEVICE,
+	                                                               .ns_part = _get_ns_part(NULL, ucmd_ctx, KV_NS_DEVICE),
+	                                                               .dom     = KV_KEY_DOM_LAYER,
+	                                                               .id      = ID_NULL,
+	                                                               .id_part = ID_NULL,
+	                                                               .key     = KV_KEY_GEN_GROUP_MEMBERS}),
 
-		.rel_key_spec = &((struct kv_key_spec)
-		{
-			.op = KV_OP_SET,
-			.ns = KV_NS_DEVICE,
-			.ns_part = ID_NULL, /* will be calculated later */
-			.dom = KV_KEY_DOM_LAYER,
-			.id = ID_NULL,
-			.id_part = ID_NULL,
-			.key = KV_KEY_GEN_GROUP_IN
-		})
-	};
+	                               .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .ns      = KV_NS_DEVICE,
+	                                                                       .ns_part = ID_NULL, /* will be calculated later */
+	                                                                       .dom     = KV_KEY_DOM_LAYER,
+	                                                                       .id      = ID_NULL,
+	                                                                       .id_part = ID_NULL,
+	                                                                       .key     = KV_KEY_GEN_GROUP_IN})};
 
-	struct kv_update_arg update_arg = {
-		.res = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
-		.owner = OWNER_CORE,
-		.gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
-		.custom = &rel_spec
-	};
+	struct kv_update_arg update_arg = {.res     = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	                                   .owner   = OWNER_CORE,
+	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                   .custom  = &rel_spec};
 
 	if (ucmd_ctx->udev_dev.action != UDEV_ACTION_REMOVE) {
-		if (!(s = buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, &r,
+		if (!(s = buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf,
+		                         &r,
 		                         "%s%s/%s",
 		                         SYSTEM_SYSFS_PATH,
 		                         ucmd_ctx->udev_dev.path,
 		                         SYSTEM_SYSFS_SLAVES))) {
-			log_error_errno(ID(cmd_res), r,
-			                "Failed to compose sysfs %s path for device "
-			                CMD_DEV_ID_FMT, SYSTEM_SYSFS_SLAVES, CMD_DEV_ID(ucmd_ctx));
+			log_error_errno(ID(cmd_res),
+			                r,
+			                "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT,
+			                SYSTEM_SYSFS_SLAVES,
+			                CMD_DEV_ID(ucmd_ctx));
 			goto out;
 		}
 
 		if ((count = scandir(s, &dirent, NULL, NULL)) < 0) {
 			/*
-			 * FIXME: Add code to deal with/warn about: (errno == ENOENT) && (ucmd_ctx->udev_dev.action != UDEV_ACTION_REMOVE).
-			 *        That means we don't have REMOVE uevent, but at the same time, we don't have sysfs content, e.g. because
-			 *        we're processing this uevent too late: the device has already been removed right after this uevent
-			 *        was triggered. For now, error out even in this case.
+			 * FIXME: Add code to deal with/warn about: (errno == ENOENT) && (ucmd_ctx->udev_dev.action !=
+			 * UDEV_ACTION_REMOVE). That means we don't have REMOVE uevent, but at the same time, we don't have sysfs
+			 * content, e.g. because we're processing this uevent too late: the device has already been removed right
+			 * after this uevent was triggered. For now, error out even in this case.
 			 */
 			log_sys_error(ID(cmd_res), "scandir", s);
 			goto out;
@@ -2536,12 +2566,14 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	 * +3 for "seqnum|flags|owner" header
 	 */
 	if (!(vec_buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-							      .type = BUFFER_TYPE_VECTOR,
-							      .mode = BUFFER_MODE_PLAIN}),
-				      &((struct buffer_init) {.size = count + 1, .alloc_step = 1, .limit = 0}), &r))) {
-		log_error_errno(ID(cmd_res), r,
-		                "Failed to create buffer to record hierarchy for device "
-		                CMD_DEV_ID_FMT, CMD_DEV_ID(ucmd_ctx));
+	                                                      .type    = BUFFER_TYPE_VECTOR,
+	                                                      .mode    = BUFFER_MODE_PLAIN}),
+	                              &((struct buffer_init) {.size = count + 1, .alloc_step = 1, .limit = 0}),
+	                              &r))) {
+		log_error_errno(ID(cmd_res),
+		                r,
+		                "Failed to create buffer to record hierarchy for device " CMD_DEV_ID_FMT,
+		                CMD_DEV_ID(ucmd_ctx));
 		goto out;
 	}
 
@@ -2559,13 +2591,13 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				continue;
 			}
 
-			if ((s = buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, &r,
+			if ((s = buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf,
+			                        &r,
 			                        "%s%s/%s/%s/dev",
 			                        SYSTEM_SYSFS_PATH,
 			                        ucmd_ctx->udev_dev.path,
 			                        SYSTEM_SYSFS_SLAVES,
 			                        dirent[i]->d_name))) {
-
 				if (_get_sysfs_value(NULL, s, devno_buf, sizeof(devno_buf)) < 0) {
 					buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, s);
 					continue;
@@ -2579,9 +2611,12 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				if (!s || !buffer_add(vec_buf, (void *) s, strlen(s) + 1, &r))
 					goto out;
 			} else
-				log_error_errno(ID(cmd_res), r,
-				                "Failed to compose sysfs path for device %s which is relative of device "
-				                CMD_DEV_ID_FMT, dirent[i]->d_name, CMD_DEV_ID(ucmd_ctx));
+				log_error_errno(
+					ID(cmd_res),
+					r,
+					"Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT,
+					dirent[i]->d_name,
+					CMD_DEV_ID(ucmd_ctx));
 
 			free(dirent[i]);
 		}
@@ -2589,14 +2624,16 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		rel_spec.rel_key_spec->ns_part = ID_NULL;
 	}
 
-
 	/* Get the actual vector with relatives and sort it. */
 	buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
 	qsort(iov + 3, iov_cnt - 3, sizeof(struct iovec), _iov_str_item_cmp);
 
 	if (!(s = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
-		log_error(ID(cmd_res), _key_prefix_err_msg,
-		          ucmd_ctx->udev_dev.name, ucmd_ctx->udev_dev.major, ucmd_ctx->udev_dev.minor);
+		log_error(ID(cmd_res),
+		          _key_prefix_err_msg,
+		          ucmd_ctx->udev_dev.name,
+		          ucmd_ctx->udev_dev.major,
+		          ucmd_ctx->udev_dev.minor);
 		goto out;
 	}
 
@@ -2625,52 +2662,40 @@ out:
 
 static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	const char *tmp_mem_start = buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
-	struct iovec iov_to_store[KV_VALUE_IDX_DATA + 1];
-	char devno_buf[16];
-	const char *s;
-	int r = -1;
+	struct sid_ucmd_ctx *ucmd_ctx      = sid_resource_get_data(cmd_res);
+	const char *         tmp_mem_start = buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
+	struct iovec         iov_to_store[KV_VALUE_IDX_DATA + 1];
+	char                 devno_buf[16];
+	const char *         s;
+	int                  r = -1;
 
-	struct kv_rel_spec rel_spec = {
-		.delta = &((struct kv_delta)
-		{
-			.op = KV_OP_SET,
-			.flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
-			.plus = NULL,
-			.minus = NULL,
-			.final = NULL
-		}),
+	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op    = KV_OP_SET,
+	                                                             .flags = DELTA_WITH_DIFF | DELTA_WITH_REL,
+	                                                             .plus  = NULL,
+	                                                             .minus = NULL,
+	                                                             .final = NULL}),
 
-		.cur_key_spec = &((struct kv_key_spec)
-		{
-			.op = KV_OP_SET,
-			.ns = KV_NS_DEVICE,
-			.ns_part = _get_ns_part(NULL, ucmd_ctx, KV_NS_DEVICE),
-			.dom = KV_KEY_DOM_LAYER,
-			.id = ID_NULL,
-			.id_part = ID_NULL,
-			.key = KV_KEY_GEN_GROUP_MEMBERS
-		}),
+	                               .cur_key_spec =
+	                                       &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                               .ns      = KV_NS_DEVICE,
+	                                                               .ns_part = _get_ns_part(NULL, ucmd_ctx, KV_NS_DEVICE),
+	                                                               .dom     = KV_KEY_DOM_LAYER,
+	                                                               .id      = ID_NULL,
+	                                                               .id_part = ID_NULL,
+	                                                               .key     = KV_KEY_GEN_GROUP_MEMBERS}),
 
-		.rel_key_spec = &((struct kv_key_spec)
-		{
-			.op = KV_OP_SET,
-			.ns = KV_NS_DEVICE,
-			.ns_part = ID_NULL, /* will be calculated later */
-			.dom = KV_KEY_DOM_LAYER,
-			.id = ID_NULL,
-			.id_part = ID_NULL,
-			.key = KV_KEY_GEN_GROUP_IN
-		})
-	};
+	                               .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .ns      = KV_NS_DEVICE,
+	                                                                       .ns_part = ID_NULL, /* will be calculated later */
+	                                                                       .dom     = KV_KEY_DOM_LAYER,
+	                                                                       .id      = ID_NULL,
+	                                                                       .id_part = ID_NULL,
+	                                                                       .key     = KV_KEY_GEN_GROUP_IN})};
 
-	struct kv_update_arg update_arg = {
-		.res = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
-		.owner = OWNER_CORE,
-		.gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
-		.custom = &rel_spec
-	};
+	struct kv_update_arg update_arg = {.res     = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	                                   .owner   = OWNER_CORE,
+	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                   .custom  = &rel_spec};
 
 	KV_VALUE_PREPARE_HEADER(iov_to_store, ucmd_ctx->udev_dev.seqnum, kv_flags_no_persist, core_owner);
 	if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
@@ -2681,15 +2706,16 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	s = _buffer_compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
 	if (!s)
 		goto out;
-	iov_to_store[KV_VALUE_IDX_DATA] = (struct iovec) {
-		(void *) s, strlen(s) + 1
-	};
+	iov_to_store[KV_VALUE_IDX_DATA] = (struct iovec) {(void *) s, strlen(s) + 1};
 
 	rel_spec.rel_key_spec->ns_part = ID_NULL;
 
 	if (!(s = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
-		log_error(ID(cmd_res), _key_prefix_err_msg,
-		          ucmd_ctx->udev_dev.name, ucmd_ctx->udev_dev.major, ucmd_ctx->udev_dev.minor);
+		log_error(ID(cmd_res),
+		          _key_prefix_err_msg,
+		          ucmd_ctx->udev_dev.name,
+		          ucmd_ctx->udev_dev.major,
+		          ucmd_ctx->udev_dev.minor);
 		goto out;
 	}
 
@@ -2736,11 +2762,11 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_t phase)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	sid_resource_t *block_mod_res;
-	struct module *block_mod;
+	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	sid_resource_t *          block_mod_res;
+	struct module *           block_mod;
 	const struct cmd_mod_fns *block_mod_fns;
-	int r = -1;
+	int                       r = -1;
 
 	sid_resource_iter_reset(exec_arg->block_mod_iter);
 
@@ -2778,11 +2804,13 @@ static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT:
-				if (block_mod_fns->trigger_action_current && block_mod_fns->trigger_action_current(block_mod, ucmd_ctx) < 0)
+				if (block_mod_fns->trigger_action_current &&
+				    block_mod_fns->trigger_action_current(block_mod, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT:
-				if (block_mod_fns->trigger_action_next && block_mod_fns->trigger_action_next(block_mod, ucmd_ctx) < 0)
+				if (block_mod_fns->trigger_action_next &&
+				    block_mod_fns->trigger_action_next(block_mod, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_ERROR:
@@ -2790,8 +2818,10 @@ static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_
 					goto out;
 				break;
 			default:
-				log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
-				          __func__, _cmd_scan_phase_regs[phase].name);
+				log_error(ID(exec_arg->cmd_res),
+				          INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
+				          __func__,
+				          _cmd_scan_phase_regs[phase].name);
 				break;
 		}
 	}
@@ -2804,15 +2834,29 @@ out:
 static int _set_device_kv_records(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	dev_ready_t ready;
-	dev_reserved_t reserved;
+	dev_ready_t          ready;
+	dev_reserved_t       reserved;
 
 	if (!_do_sid_ucmd_get_kv(NULL, ucmd_ctx, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)) {
-		ready = DEV_NOT_RDY_UNPROCESSED;
+		ready    = DEV_NOT_RDY_UNPROCESSED;
 		reserved = DEV_RES_UNPROCESSED;
 
-		_do_sid_ucmd_set_kv(NULL, ucmd_ctx, KV_NS_DEVICE, NULL, KV_KEY_DEV_READY, DEFAULT_KV_FLAGS_CORE, &ready, sizeof(ready));
-		_do_sid_ucmd_set_kv(NULL, ucmd_ctx, KV_NS_DEVICE, NULL, KV_KEY_DEV_RESERVED, DEFAULT_KV_FLAGS_CORE, &reserved, sizeof(reserved));
+		_do_sid_ucmd_set_kv(NULL,
+		                    ucmd_ctx,
+		                    KV_NS_DEVICE,
+		                    NULL,
+		                    KV_KEY_DEV_READY,
+		                    DEFAULT_KV_FLAGS_CORE,
+		                    &ready,
+		                    sizeof(ready));
+		_do_sid_ucmd_set_kv(NULL,
+		                    ucmd_ctx,
+		                    KV_NS_DEVICE,
+		                    NULL,
+		                    KV_KEY_DEV_RESERVED,
+		                    DEFAULT_KV_FLAGS_CORE,
+		                    &reserved,
+		                    sizeof(reserved));
 	}
 
 	_refresh_device_hierarchy_from_sysfs(cmd_res);
@@ -2823,10 +2867,12 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	sid_resource_t *block_mod_registry_res;
+	sid_resource_t *     block_mod_registry_res;
 
-	if (!(block_mod_registry_res = sid_resource_search(ucmd_ctx->ucmd_mod_ctx.modules_res, SID_RESOURCE_SEARCH_IMM_DESC,
-	                                                   &sid_resource_type_module_registry, MODULES_BLOCK_ID))) {
+	if (!(block_mod_registry_res = sid_resource_search(ucmd_ctx->ucmd_mod_ctx.modules_res,
+	                                                   SID_RESOURCE_SEARCH_IMM_DESC,
+	                                                   &sid_resource_type_module_registry,
+	                                                   MODULES_BLOCK_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
 		goto fail;
 	}
@@ -2836,8 +2882,10 @@ static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 		goto fail;
 	}
 
-	if (!(exec_arg->type_mod_registry_res = sid_resource_search(ucmd_ctx->ucmd_mod_ctx.modules_res, SID_RESOURCE_SEARCH_IMM_DESC,
-	                                                            &sid_resource_type_module_registry, MODULES_TYPE_ID))) {
+	if (!(exec_arg->type_mod_registry_res = sid_resource_search(ucmd_ctx->ucmd_mod_ctx.modules_res,
+	                                                            SID_RESOURCE_SEARCH_IMM_DESC,
+	                                                            &sid_resource_type_module_registry,
+	                                                            MODULES_TYPE_ID))) {
 		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
 		goto fail;
 	}
@@ -2859,9 +2907,9 @@ fail:
 
 static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
-	const char *mod_name;
+	const char *              mod_name;
 
 	if ((mod_name = _lookup_module_name(exec_arg->cmd_res)) &&
 	    !(exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
@@ -2869,7 +2917,7 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
 
-	//sid_resource_dump_all_in_dot(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
+	// sid_resource_dump_all_in_dot(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
 	if (!exec_arg->type_mod_res_current)
 		return 0;
@@ -2883,7 +2931,7 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
@@ -2900,7 +2948,7 @@ static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
@@ -2918,9 +2966,9 @@ static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
-	const char *next_mod_name;
+	const char *              next_mod_name;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
 
@@ -2942,7 +2990,7 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_CURRENT);
@@ -2959,7 +3007,7 @@ static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_NEXT);
@@ -3001,9 +3049,9 @@ static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
-	int r = 0;
+	int                       r = 0;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_ERROR);
 
@@ -3023,83 +3071,37 @@ static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 }
 
 static struct cmd_reg _cmd_scan_phase_regs[] = {
-	[CMD_SCAN_PHASE_A_INIT]                   = {
-		.name = "init",
-		.flags = CMD_SCAN_CAP_ALL,
-		.exec = _cmd_exec_scan_init
-	},
+	[CMD_SCAN_PHASE_A_INIT] = {.name = "init", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_init},
 
-	[CMD_SCAN_PHASE_A_IDENT]                  = {
-		.name = "ident",
-		.flags = 0,
-		.exec = _cmd_exec_scan_ident
-	},
+	[CMD_SCAN_PHASE_A_IDENT] = {.name = "ident", .flags = 0, .exec = _cmd_exec_scan_ident},
 
-	[CMD_SCAN_PHASE_A_SCAN_PRE]               = {
-		.name = "scan-pre",
-		.flags = CMD_SCAN_CAP_RDY,
-		.exec = _cmd_exec_scan_pre
-	},
+	[CMD_SCAN_PHASE_A_SCAN_PRE] = {.name = "scan-pre", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_pre},
 
-	[CMD_SCAN_PHASE_A_SCAN_CURRENT]           = {
-		.name = "scan-current",
-		.flags = CMD_SCAN_CAP_RDY,
-		.exec = _cmd_exec_scan_current
-	},
+	[CMD_SCAN_PHASE_A_SCAN_CURRENT] = {.name = "scan-current", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_current},
 
-	[CMD_SCAN_PHASE_A_SCAN_NEXT]              = {
-		.name = "scan-next",
-		.flags = CMD_SCAN_CAP_RES,
-		.exec = _cmd_exec_scan_next
-	},
+	[CMD_SCAN_PHASE_A_SCAN_NEXT] = {.name = "scan-next", .flags = CMD_SCAN_CAP_RES, .exec = _cmd_exec_scan_next},
 
-	[CMD_SCAN_PHASE_A_SCAN_POST_CURRENT]      = {
-		.name = "scan-post-current",
-		.flags = 0,
-		.exec = _cmd_exec_scan_post_current
-	},
+	[CMD_SCAN_PHASE_A_SCAN_POST_CURRENT] = {.name = "scan-post-current", .flags = 0, .exec = _cmd_exec_scan_post_current},
 
-	[CMD_SCAN_PHASE_A_SCAN_POST_NEXT]         = {
-		.name = "scan-post-next",
-		.flags = 0,
-		.exec = _cmd_exec_scan_post_next
-	},
+	[CMD_SCAN_PHASE_A_SCAN_POST_NEXT] = {.name = "scan-post-next", .flags = 0, .exec = _cmd_exec_scan_post_next},
 
-	[CMD_SCAN_PHASE_A_WAITING]                = {
-		.name = "waiting",
-		.flags = 0,
-		.exec = _cmd_exec_scan_wait
-	},
+	[CMD_SCAN_PHASE_A_WAITING] = {.name = "waiting", .flags = 0, .exec = _cmd_exec_scan_wait},
 
-	[CMD_SCAN_PHASE_A_EXIT]                   = {
-		.name = "exit",
-		.flags = CMD_SCAN_CAP_ALL,
-		.exec = _cmd_exec_scan_exit
-	},
+	[CMD_SCAN_PHASE_A_EXIT] = {.name = "exit", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_exit},
 
-	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT] = {
-		.name = "trigger-action-current",
-		.flags = 0,
-		.exec = _cmd_exec_trigger_action_current
-	},
+	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT] = {.name  = "trigger-action-current",
+                                                     .flags = 0,
+                                                     .exec  = _cmd_exec_trigger_action_current},
 
-	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT]    = {
-		.name = "trigger-action-next",
-		.flags = 0,
-		.exec = _cmd_exec_trigger_action_next
-	},
+	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT] = {.name = "trigger-action-next", .flags = 0, .exec = _cmd_exec_trigger_action_next},
 
-	[CMD_SCAN_PHASE_ERROR]                    = {
-		.name = "error",
-		.flags = 0,
-		.exec = _cmd_exec_scan_error
-	},
+	[CMD_SCAN_PHASE_ERROR] = {.name = "error", .flags = 0, .exec = _cmd_exec_scan_error},
 };
 
 static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	cmd_scan_phase_t phase;
+	cmd_scan_phase_t     phase;
 
 	for (phase = CMD_SCAN_PHASE_A_INIT; phase <= CMD_SCAN_PHASE_A_EXIT; phase++) {
 		log_debug(ID(exec_arg->cmd_res), "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
@@ -3127,32 +3129,32 @@ static int _cmd_exec_checkpoint(struct cmd_exec_arg *exec_arg)
 }
 
 static struct cmd_reg _cmd_regs[] = {
-	[USID_CMD_ACTIVE] =     {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
+	[USID_CMD_ACTIVE]     = {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
 	[USID_CMD_CHECKPOINT] = {.name = NULL, .flags = 0, .exec = _cmd_exec_checkpoint},
-	[USID_CMD_REPLY] =      {.name = NULL, .flags = 0, .exec = _cmd_exec_reply},
-	[USID_CMD_SCAN] =       {.name = NULL, .flags = 0, .exec = _cmd_exec_scan},
-	[USID_CMD_UNKNOWN] =    {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
-	[USID_CMD_VERSION] =    {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
-	[USID_CMD_DUMP] =       {.name = NULL, .flags = 0, .exec = _cmd_exec_dump},
+	[USID_CMD_REPLY]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_reply},
+	[USID_CMD_SCAN]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_scan},
+	[USID_CMD_UNKNOWN]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
+	[USID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
+	[USID_CMD_DUMP]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_dump},
 };
 
 static int _export_kv_store(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	struct kv_value *kv_value;
-	kv_store_iter_t *iter;
-	const char *key;
-	void *value;
-	bool vector;
-	size_t size, iov_size, key_size, data_offset;
-	kv_store_value_flags_t flags;
-	struct iovec *iov;
-	int export_fd = -1;
-	size_t bytes_written = 0;
+	struct sid_ucmd_ctx *   ucmd_ctx = sid_resource_get_data(cmd_res);
+	struct kv_value *       kv_value;
+	kv_store_iter_t *       iter;
+	const char *            key;
+	void *                  value;
+	bool                    vector;
+	size_t                  size, iov_size, key_size, data_offset;
+	kv_store_value_flags_t  flags;
+	struct iovec *          iov;
+	int                     export_fd     = -1;
+	size_t                  bytes_written = 0;
 	struct worker_data_spec data_spec;
-	unsigned i;
-	ssize_t r_wr;
-	int r = -1;
+	unsigned                i;
+	ssize_t                 r_wr;
+	int                     r = -1;
 
 	/*
 	 * Export key-value store to udev or for sync with main kv store.
@@ -3185,7 +3187,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		vector = flags & KV_STORE_VALUE_VECTOR;
 
 		if (vector) {
-			iov = value;
+			iov      = value;
 			iov_size = size;
 			kv_value = NULL;
 
@@ -3194,7 +3196,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 			KV_VALUE_FLAGS(iov) &= ~KV_PERSISTENT;
 		} else {
-			iov = NULL;
+			iov      = NULL;
 			iov_size = 0;
 			kv_value = value;
 
@@ -3204,14 +3206,16 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 			kv_value->flags &= ~KV_PERSISTENT;
 		}
 
-		key = kv_store_iter_current_key(iter);
+		key      = kv_store_iter_current_key(iter);
 		key_size = strlen(key) + 1;
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
 			if (vector) {
-				log_error(ID(cmd_res), INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
-				          __func__, key);
+				log_error(ID(cmd_res),
+				          INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
+				          __func__,
+				          key);
 				goto out;
 			}
 			key = _get_key_part(key, KEY_PART_CORE, NULL);
@@ -3219,7 +3223,10 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 			    !buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, &r))
 				goto out;
 			data_offset = _kv_value_ext_data_offset(kv_value);
-			if (!buffer_add(ucmd_ctx->res_buf, kv_value->data + data_offset, strlen(kv_value->data + data_offset), &r) ||
+			if (!buffer_add(ucmd_ctx->res_buf,
+			                kv_value->data + data_offset,
+			                strlen(kv_value->data + data_offset),
+			                &r) ||
 			    !buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, &r))
 				goto out;
 			continue;
@@ -3254,7 +3261,6 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 			log_error_errno(ID(cmd_res), errno, "write failed");
 			goto out;
 		}
-
 
 		if ((r_wr = write(export_fd, &key_size, sizeof(key_size))) == sizeof(key_size))
 			bytes_written += r_wr;
@@ -3303,8 +3309,6 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 				goto out;
 			}
 		}
-
-
 	}
 
 	if (lseek(export_fd, 0, SEEK_SET) < 0) {
@@ -3320,9 +3324,9 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		goto out;
 	}
 
-	data_spec.data = NULL;
-	data_spec.data_size = 0;
-	data_spec.ext.used = true;
+	data_spec.data               = NULL;
+	data_spec.data_size          = 0;
+	data_spec.ext.used           = true;
 	data_spec.ext.socket.fd_pass = export_fd;
 
 	if (bytes_written)
@@ -3355,29 +3359,29 @@ static int _connection_cleanup(sid_resource_t *conn_res)
 
 static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
-	sid_resource_t *cmd_res = data;
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	sid_resource_t *conn_res = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
-	struct connection *conn = sid_resource_get_data(conn_res);
+	sid_resource_t *       cmd_res         = data;
+	struct sid_ucmd_ctx *  ucmd_ctx        = sid_resource_get_data(cmd_res);
+	sid_resource_t *       conn_res        = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
+	struct connection *    conn            = sid_resource_get_data(conn_res);
 	struct usid_msg_header response_header = {0};
-	struct cmd_exec_arg exec_arg = {0};
+	struct cmd_exec_arg    exec_arg        = {0};
 
 	int r = -1;
 
-	if(!buffer_add(ucmd_ctx->res_buf, &response_header, sizeof(response_header), &r))
+	if (!buffer_add(ucmd_ctx->res_buf, &response_header, sizeof(response_header), &r))
 		goto out;
 
 	if (ucmd_ctx->request_header.prot <= USID_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
 		response_header.prot = ucmd_ctx->request_header.prot;
-		exec_arg.cmd_res = cmd_res;
+		exec_arg.cmd_res     = cmd_res;
 		if ((r = _cmd_regs[ucmd_ctx->request_header.cmd].exec(&exec_arg)) < 0) {
 			log_error(ID(cmd_res), "Failed to execute command");
 			goto out;
 		}
 	} else {
 		log_error(ID(cmd_res), "Client protocol unknown verion: %u > %u ", ucmd_ctx->request_header.prot, USID_PROTOCOL);
-		(void)_connection_cleanup(conn_res);
+		(void) _connection_cleanup(conn_res);
 		return -1;
 	}
 
@@ -3390,17 +3394,19 @@ out:
 		response_header.status |= COMMAND_STATUS_FAILURE;
 
 	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0)
-		(void)_connection_cleanup(conn_res);
+		(void) _connection_cleanup(conn_res);
 
 	return r;
 }
 
 static int _reply_failure(sid_resource_t *conn_res)
 {
-	struct connection *conn = sid_resource_get_data(conn_res);
-	struct usid_msg msg;
-	uint8_t prot;
-	struct usid_msg_header response_header = { .status = COMMAND_STATUS_FAILURE, };
+	struct connection *    conn = sid_resource_get_data(conn_res);
+	struct usid_msg        msg;
+	uint8_t                prot;
+	struct usid_msg_header response_header = {
+		.status = COMMAND_STATUS_FAILURE,
+	};
 	int r = -1;
 
 	(void) buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
@@ -3417,12 +3423,12 @@ static int _reply_failure(sid_resource_t *conn_res)
 
 static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	sid_resource_t *conn_res = data;
-	struct connection *conn = sid_resource_get_data(conn_res);
-	struct usid_msg msg;
-	char id[32];
-	ssize_t n;
-	int r = 0;
+	sid_resource_t *   conn_res = data;
+	struct connection *conn     = sid_resource_get_data(conn_res);
+	struct usid_msg    msg;
+	char               id[32];
+	ssize_t            n;
+	int                r = 0;
 
 	if (revents & EPOLLERR) {
 		if (revents & EPOLLHUP)
@@ -3453,7 +3459,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 			                         SID_RESOURCE_NO_SERVICE_LINKS)) {
 				log_error(ID(conn_res), "Failed to register command for processing.");
 				if (_reply_failure(conn_res) < 0) {
-					(void)_connection_cleanup(conn_res);
+					(void) _connection_cleanup(conn_res);
 					return -1;
 				}
 			}
@@ -3475,8 +3481,8 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 static int _init_connection(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct worker_data_spec *data_spec = kickstart_data;
-	struct connection *conn;
-	int r;
+	struct connection *            conn;
+	int                            r;
 
 	if (!(conn = mem_zalloc(sizeof(*conn)))) {
 		log_error(ID(res), "Failed to allocate new connection structure.");
@@ -3491,9 +3497,10 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 	}
 
 	if (!(conn->buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-								.type = BUFFER_TYPE_LINEAR,
-								.mode = BUFFER_MODE_SIZE_PREFIX}),
-					&((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}), &r))) {
+	                                                        .type    = BUFFER_TYPE_LINEAR,
+	                                                        .mode    = BUFFER_MODE_SIZE_PREFIX}),
+	                                &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                                &r))) {
 		log_error_errno(ID(res), r, "Failed to create connection buffer");
 		goto fail;
 	}
@@ -3525,29 +3532,26 @@ static int _destroy_connection(sid_resource_t *res)
 
 static bool _socket_client_is_capable(int fd, usid_cmd_t cmd)
 {
-	socklen_t len = 0;
+	socklen_t    len = 0;
 	struct ucred uc;
 
 	len = sizeof(struct ucred);
 	/* root can run any command */
-	if ((fd >= 0) &&
-	    (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &len) == 0) &&
-	    (uc.uid == 0))
+	if ((fd >= 0) && (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &len) == 0) && (uc.uid == 0))
 		return true;
 	return !usid_cmd_root_only[cmd];
 }
 
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
-	const struct usid_msg *msg = kickstart_data;
-	struct sid_ucmd_ctx *ucmd_ctx = NULL;
-	struct connection *conn = sid_resource_get_data(sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
-	const char *worker_id;
-	int r;
+	const struct usid_msg *msg      = kickstart_data;
+	struct sid_ucmd_ctx *  ucmd_ctx = NULL;
+	struct connection *    conn     = sid_resource_get_data(sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	const char *           worker_id;
+	int                    r;
 
 	if (!conn || !_socket_client_is_capable(conn->fd, msg->header->cmd)) {
-		log_error(ID(res), "client does not have permission to run %s",
-		          usid_cmd_names[msg->header->cmd]);
+		log_error(ID(res), "client does not have permission to run %s", usid_cmd_names[msg->header->cmd]);
 		return -1;
 	}
 
@@ -3557,31 +3561,34 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	if (!(ucmd_ctx->res_buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-									.type = BUFFER_TYPE_VECTOR,
-									.mode = BUFFER_MODE_SIZE_PREFIX}),
-						&((struct buffer_init) {.size = 1, .alloc_step = 1, .limit = 0}), &r))) {
+	                                                                .type    = BUFFER_TYPE_VECTOR,
+	                                                                .mode    = BUFFER_MODE_SIZE_PREFIX}),
+	                                        &((struct buffer_init) {.size = 1, .alloc_step = 1, .limit = 0}),
+	                                        &r))) {
 		log_error_errno(ID(res), r, "Failed to create response buffer");
 		goto fail;
 	}
 
 	ucmd_ctx->request_header = *msg->header;
 
-	if (!(ucmd_ctx->ucmd_mod_ctx.gen_buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-										     .type = BUFFER_TYPE_LINEAR,
-										     .mode = BUFFER_MODE_PLAIN}),
-							     &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}), &r))) {
+	if (!(ucmd_ctx->ucmd_mod_ctx.gen_buf =
+	              buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
+	                                                    .type    = BUFFER_TYPE_LINEAR,
+	                                                    .mode    = BUFFER_MODE_PLAIN}),
+	                            &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
+	                            &r))) {
 		log_error_errno(ID(res), r, "Failed to create generic buffer");
 		goto fail;
 	}
 
-	if (!(ucmd_ctx->ucmd_mod_ctx.modules_res = sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS,
-	                                                               &sid_resource_type_aggregate, MODULES_AGGREGATE_ID))) {
+	if (!(ucmd_ctx->ucmd_mod_ctx.modules_res =
+	              sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS, &sid_resource_type_aggregate, MODULES_AGGREGATE_ID))) {
 		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find module registry aggregator.", __func__);
 		goto fail;
 	}
 
-	if (!(ucmd_ctx->ucmd_mod_ctx.kv_store_res = sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS,
-	                                                                &sid_resource_type_kv_store, MAIN_KV_STORE_NAME))) {
+	if (!(ucmd_ctx->ucmd_mod_ctx.kv_store_res =
+	              sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS, &sid_resource_type_kv_store, MAIN_KV_STORE_NAME))) {
 		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find key-value store.", __func__);
 		goto fail;
 	}
@@ -3599,11 +3606,17 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!_do_sid_ucmd_set_kv(NULL, ucmd_ctx, KV_NS_UDEV, NULL, KV_KEY_UDEV_SID_SESSION_ID, KV_PERSISTENT, worker_id, strlen(worker_id) + 1)) {
+	if (!_do_sid_ucmd_set_kv(NULL,
+	                         ucmd_ctx,
+	                         KV_NS_UDEV,
+	                         NULL,
+	                         KV_KEY_UDEV_SID_SESSION_ID,
+	                         KV_PERSISTENT,
+	                         worker_id,
+	                         strlen(worker_id) + 1)) {
 		log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
 		goto fail;
 	}
-
 
 	if (sid_resource_create_deferred_event_source(res, NULL, _cmd_handler, 0, "command handler", res) < 0) {
 		log_error(ID(res), "Failed to register command handler.");
@@ -3640,8 +3653,8 @@ static int _destroy_command(sid_resource_t *res)
 static int _main_kv_store_unset(const char *full_key, struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
-	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
-	struct iovec *iov_old;
+	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
+	struct iovec *        iov_old;
 
 	if (!spec->old_data)
 		return 1;
@@ -3649,8 +3662,12 @@ static int _main_kv_store_unset(const char *full_key, struct kv_store_update_spe
 	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
 
 	if (_flags_indicate_mod_owned(KV_VALUE_FLAGS(iov_old)) && strcmp(KV_VALUE_OWNER(iov_old), update_arg->owner)) {
-		log_debug(ID(update_arg->res), "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
-		          "which belongs to module %s.",  update_arg->owner, full_key, KV_VALUE_SEQNUM(iov_old),
+		log_debug(ID(update_arg->res),
+		          "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
+		          "which belongs to module %s.",
+		          update_arg->owner,
+		          full_key,
+		          KV_VALUE_SEQNUM(iov_old),
 		          KV_VALUE_OWNER(iov_old));
 		update_arg->ret_code = EBUSY;
 		return 0;
@@ -3662,11 +3679,11 @@ static int _main_kv_store_unset(const char *full_key, struct kv_store_update_spe
 static int _main_kv_store_update(const char *full_key, struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
-	struct kv_rel_spec *rel_spec = update_arg->custom;
-	struct iovec tmp_iov_old[KV_VALUE_IDX_DATA + 1];
-	struct iovec tmp_iov_new[KV_VALUE_IDX_DATA + 1];
-	struct iovec *iov_old, *iov_new;
-	int r;
+	struct kv_rel_spec *  rel_spec   = update_arg->custom;
+	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
+	struct iovec          tmp_iov_new[KV_VALUE_IDX_DATA + 1];
+	struct iovec *        iov_old, *iov_new;
+	int                   r;
 
 	iov_old = _get_value_vector(spec->old_flags, spec->old_data, spec->old_data_size, tmp_iov_old);
 	iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
@@ -3674,8 +3691,7 @@ static int _main_kv_store_update(const char *full_key, struct kv_store_update_sp
 	if (rel_spec->delta->op == KV_OP_SET)
 		/* overwrite whole value */
 		r = (!iov_old ||
-		     ((KV_VALUE_SEQNUM(iov_new) >= KV_VALUE_SEQNUM(iov_old)) &&
-		      _kv_overwrite(full_key, spec, update_arg)));
+		     ((KV_VALUE_SEQNUM(iov_new) >= KV_VALUE_SEQNUM(iov_old)) && _kv_overwrite(full_key, spec, update_arg)));
 	else {
 		/* resolve delta */
 		r = _kv_delta(full_key, spec, update_arg);
@@ -3684,42 +3700,42 @@ static int _main_kv_store_update(const char *full_key, struct kv_store_update_sp
 	}
 
 	if (r)
-		log_debug(ID(update_arg->res), "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
-		          full_key, KV_VALUE_SEQNUM(iov_new), iov_old ? KV_VALUE_SEQNUM(iov_old) : 0);
+		log_debug(ID(update_arg->res),
+		          "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
+		          full_key,
+		          KV_VALUE_SEQNUM(iov_new),
+		          iov_old ? KV_VALUE_SEQNUM(iov_old) : 0);
 	else
-		log_debug(ID(update_arg->res), "Keeping old value for key %s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
-		          full_key, KV_VALUE_SEQNUM(iov_new), iov_old ? KV_VALUE_SEQNUM(iov_old) : 0);
+		log_debug(ID(update_arg->res),
+		          "Keeping old value for key %s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
+		          full_key,
+		          KV_VALUE_SEQNUM(iov_new),
+		          iov_old ? KV_VALUE_SEQNUM(iov_old) : 0);
 
 	return r;
 }
 
 static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t *internal_ubridge_res, int fd)
 {
-	static const char syncing_msg[] = "Syncing main key-value store:  %s = %s (seqnum %" PRIu64 ")";
-	struct ubridge *ubridge = sid_resource_get_data(internal_ubridge_res);
-	sid_resource_t *kv_store_res;
+	static const char      syncing_msg[] = "Syncing main key-value store:  %s = %s (seqnum %" PRIu64 ")";
+	struct ubridge *       ubridge       = sid_resource_get_data(internal_ubridge_res);
+	sid_resource_t *       kv_store_res;
 	kv_store_value_flags_t flags;
-	size_t msg_size, full_key_size, data_size, data_offset, i;
-	char *full_key, *shm = NULL, *p, *end;
-	struct kv_value *value = NULL;
-	struct iovec *iov = NULL;
-	const char *iov_str;
-	void *data_to_store;
-	struct kv_rel_spec rel_spec = {
-		.delta = &((struct kv_delta)
-		{
-			0
-		})
-	};
-	struct kv_update_arg update_arg = {
-		.gen_buf = ubridge->ucmd_mod_ctx.gen_buf,
-		.custom = &rel_spec
-	};
-	bool unset;
-	int r = -1;
+	size_t                 msg_size, full_key_size, data_size, data_offset, i;
+	char *                 full_key, *shm = NULL, *p, *end;
+	struct kv_value *      value = NULL;
+	struct iovec *         iov   = NULL;
+	const char *           iov_str;
+	void *                 data_to_store;
+	struct kv_rel_spec     rel_spec   = {.delta = &((struct kv_delta) {0})};
+	struct kv_update_arg   update_arg = {.gen_buf = ubridge->ucmd_mod_ctx.gen_buf, .custom = &rel_spec};
+	bool                   unset;
+	int                    r = -1;
 
-	if (!(kv_store_res = sid_resource_search(internal_ubridge_res, SID_RESOURCE_SEARCH_IMM_DESC,
-	                                         &sid_resource_type_kv_store, MAIN_KV_STORE_NAME)))
+	if (!(kv_store_res = sid_resource_search(internal_ubridge_res,
+	                                         SID_RESOURCE_SEARCH_IMM_DESC,
+	                                         &sid_resource_type_kv_store,
+	                                         MAIN_KV_STORE_NAME)))
 		return -ENOMEDIUM;
 
 	ubridge = sid_resource_get_data(internal_ubridge_res);
@@ -3739,7 +3755,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 
 	while (p < end) {
 		flags = *((kv_store_value_flags_t *) p);
-		p+= sizeof(flags);
+		p += sizeof(flags);
 
 		full_key_size = *((size_t *) p);
 		p += sizeof(full_key_size);
@@ -3758,7 +3774,8 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 
 		if (flags & KV_STORE_VALUE_VECTOR) {
 			if (data_size < KV_VALUE_IDX_DATA) {
-				log_error(ID(worker_proxy_res), "Received incorrect vector of size %zu to sync with main key-value store.",
+				log_error(ID(worker_proxy_res),
+				          "Received incorrect vector of size %zu to sync with main key-value store.",
 				          data_size);
 				goto out;
 			}
@@ -3777,8 +3794,8 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 
 			unset = !(KV_VALUE_FLAGS(iov) & KV_MOD_RESERVED) && (data_size == KV_VALUE_IDX_DATA);
 
-			update_arg.owner = KV_VALUE_OWNER(iov);
-			update_arg.res = kv_store_res;
+			update_arg.owner    = KV_VALUE_OWNER(iov);
+			update_arg.res      = kv_store_res;
 			update_arg.ret_code = -EREMOTEIO;
 
 			iov_str = _get_iov_str(ubridge->ucmd_mod_ctx.gen_buf, unset, iov, data_size);
@@ -3796,15 +3813,18 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 				case KV_OP_SET:
 					break;
 				case KV_OP_ILLEGAL:
-					log_error(ID(worker_proxy_res), INTERNAL_ERROR
-					          "Illegal operator found for key %s while trying to sync main key-value store.", full_key);
+					log_error(ID(worker_proxy_res),
+					          INTERNAL_ERROR
+					          "Illegal operator found for key %s while trying to sync main key-value store.",
+					          full_key);
 					goto out;
 			}
 
 			data_to_store = iov;
 		} else {
 			if (data_size <= sizeof(struct kv_value)) {
-				log_error(ID(worker_proxy_res), "Received incorrect value of size %zu to sync with main key-value store.",
+				log_error(ID(worker_proxy_res),
+				          "Received incorrect value of size %zu to sync with main key-value store.",
 				          data_size);
 				goto out;
 			}
@@ -3813,17 +3833,19 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 			p += data_size;
 
 			data_offset = _kv_value_ext_data_offset(value);
-			unset = ((value->flags != KV_MOD_RESERVED) &&
-			         (data_size == (sizeof(struct kv_value) + data_offset)));
+			unset       = ((value->flags != KV_MOD_RESERVED) && (data_size == (sizeof(struct kv_value) + data_offset)));
 
-			update_arg.owner = value->data;
-			update_arg.res = kv_store_res;
+			update_arg.owner    = value->data;
+			update_arg.res      = kv_store_res;
 			update_arg.ret_code = -EREMOTEIO;
 
-			log_debug(ID(worker_proxy_res), syncing_msg, full_key,
-			          unset ? "NULL"
+			log_debug(ID(worker_proxy_res),
+			          syncing_msg,
+			          full_key,
+			          unset         ? "NULL"
 			          : data_offset ? value->data + data_offset
-			          : value->data, value->seqnum);
+			                        : value->data,
+			          value->seqnum);
 
 			rel_spec.delta->op = KV_OP_SET;
 
@@ -3831,10 +3853,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 		}
 
 		if (unset)
-			kv_store_unset_value(kv_store_res,
-			                     full_key,
-			                     _main_kv_store_unset,
-			                     &update_arg);
+			kv_store_unset_value(kv_store_res, full_key, _main_kv_store_unset, &update_arg);
 		else
 			kv_store_set_value(kv_store_res,
 			                   full_key,
@@ -3864,10 +3883,13 @@ out:
 	return r;
 }
 
-static int _worker_proxy_recv_fn(sid_resource_t *worker_proxy_res, struct worker_channel *chan, struct worker_data_spec *data_spec, void *arg)
+static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
+                                 struct worker_channel *  chan,
+                                 struct worker_data_spec *data_spec,
+                                 void *                   arg)
 {
 	sid_resource_t *internal_ubridge_res = arg;
-	int r;
+	int             r;
 
 	if (data_spec->ext.used) {
 		r = _sync_main_kv_store(worker_proxy_res, internal_ubridge_res, data_spec->ext.socket.fd_pass);
@@ -3906,12 +3928,16 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 	sid_resource_t *ubridge_internal_res = arg;
 	sid_resource_t *modules_res, *kv_store_res;
 
-	if (!(modules_res = sid_resource_search(ubridge_internal_res, SID_RESOURCE_SEARCH_IMM_DESC,
-	                                        &sid_resource_type_aggregate, MODULES_AGGREGATE_ID)))
+	if (!(modules_res = sid_resource_search(ubridge_internal_res,
+	                                        SID_RESOURCE_SEARCH_IMM_DESC,
+	                                        &sid_resource_type_aggregate,
+	                                        MODULES_AGGREGATE_ID)))
 		return -ENOMEDIUM;
 
-	if (!(kv_store_res = sid_resource_search(ubridge_internal_res, SID_RESOURCE_SEARCH_IMM_DESC,
-	                                         &sid_resource_type_kv_store, MAIN_KV_STORE_NAME)))
+	if (!(kv_store_res = sid_resource_search(ubridge_internal_res,
+	                                         SID_RESOURCE_SEARCH_IMM_DESC,
+	                                         &sid_resource_type_kv_store,
+	                                         MAIN_KV_STORE_NAME)))
 		return -ENOMEDIUM;
 
 	/* we take only inherited modules and kv_store for the worker */
@@ -3921,7 +3947,6 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 	(void) sid_resource_add_child(worker_res, modules_res, SID_RESOURCE_NO_FLAGS);
 	(void) sid_resource_add_child(worker_res, kv_store_res, SID_RESOURCE_RESTRICT_WALK_UP);
 
-
 	/* destroy the rest */
 	(void) sid_resource_unref(sid_resource_search(ubridge_internal_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
@@ -3930,18 +3955,20 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 
 static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	char uuid[UTIL_UUID_STR_SIZE];
-	util_mem_t mem = {.base = uuid, .size = sizeof(uuid)};
-	sid_resource_t *internal_ubridge_res = data;
-	sid_resource_t *worker_control_res, *worker_proxy_res;
-	struct ubridge *ubridge = sid_resource_get_data(internal_ubridge_res);
+	char                    uuid[UTIL_UUID_STR_SIZE];
+	util_mem_t              mem                  = {.base = uuid, .size = sizeof(uuid)};
+	sid_resource_t *        internal_ubridge_res = data;
+	sid_resource_t *        worker_control_res, *worker_proxy_res;
+	struct ubridge *        ubridge = sid_resource_get_data(internal_ubridge_res);
 	struct worker_data_spec data_spec;
-	int r;
+	int                     r;
 
 	log_debug(ID(internal_ubridge_res), "Received an event.");
 
-	if (!(worker_control_res = sid_resource_search(internal_ubridge_res, SID_RESOURCE_SEARCH_IMM_DESC,
-	                                               &sid_resource_type_worker_control, NULL))) {
+	if (!(worker_control_res = sid_resource_search(internal_ubridge_res,
+	                                               SID_RESOURCE_SEARCH_IMM_DESC,
+	                                               &sid_resource_type_worker_control,
+	                                               NULL))) {
 		log_error(ID(internal_ubridge_res), INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
 		return -1;
 	}
@@ -3954,17 +3981,15 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 			return -1;
 		}
 
-		if (!(worker_proxy_res = worker_control_get_new_worker(worker_control_res, &((struct worker_params) {
-		.id = uuid
-	}))))
-		return -1;
+		if (!(worker_proxy_res = worker_control_get_new_worker(worker_control_res, &((struct worker_params) {.id = uuid}))))
+			return -1;
 	}
 
 	/* worker never reaches this point, only worker-proxy does */
 
-	data_spec.data = NULL;
+	data_spec.data      = NULL;
 	data_spec.data_size = 0;
-	data_spec.ext.used = true;
+	data_spec.ext.used  = true;
 
 	if ((data_spec.ext.socket.fd_pass = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
 		log_sys_error(ID(internal_ubridge_res), "accept", "");
@@ -3983,12 +4008,12 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 
 static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	sid_resource_t *internal_ubridge_res = data;
-	struct ubridge *ubridge = sid_resource_get_data(internal_ubridge_res);
-	sid_resource_t *worker_control_res;
+	sid_resource_t *    internal_ubridge_res = data;
+	struct ubridge *    ubridge              = sid_resource_get_data(internal_ubridge_res);
+	sid_resource_t *    worker_control_res;
 	struct udev_device *udev_dev;
-	const char *worker_id;
-	int r = -1;
+	const char *        worker_id;
+	int                 r = -1;
 
 	if (!(udev_dev = udev_monitor_receive_device(ubridge->umonitor.mon)))
 		goto out;
@@ -3996,8 +4021,10 @@ static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int f
 	if (!(worker_id = udev_device_get_property_value(udev_dev, KV_KEY_UDEV_SID_SESSION_ID)))
 		goto out;
 
-	if (!(worker_control_res = sid_resource_search(internal_ubridge_res, SID_RESOURCE_SEARCH_IMM_DESC,
-	                                               &sid_resource_type_worker_control, NULL)))
+	if (!(worker_control_res = sid_resource_search(internal_ubridge_res,
+	                                               SID_RESOURCE_SEARCH_IMM_DESC,
+	                                               &sid_resource_type_worker_control,
+	                                               NULL)))
 		goto out;
 
 	if (!worker_control_find_worker(worker_control_res, worker_id))
@@ -4027,18 +4054,16 @@ static void _destroy_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *
 static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_socket_fd)
 {
 	char *val;
-	int fd;
+	int   fd;
 
 	if (service_fd_activation_present(1)) {
 		if (!(val = getenv(SERVICE_KEY_ACTIVATION_TYPE))) {
-			log_error(ID(ubridge_res), "Missing %s key in environment.",
-			          SERVICE_KEY_ACTIVATION_TYPE);
+			log_error(ID(ubridge_res), "Missing %s key in environment.", SERVICE_KEY_ACTIVATION_TYPE);
 			return -ENOKEY;
 		}
 
 		if (strcmp(val, SERVICE_VALUE_ACTIVATION_FD)) {
-			log_error(ID(ubridge_res), "Incorrect value for key %s: %s.",
-			          SERVICE_VALUE_ACTIVATION_FD, val);
+			log_error(ID(ubridge_res), "Incorrect value for key %s: %s.", SERVICE_VALUE_ACTIVATION_FD, val);
 			return -EINVAL;
 		}
 
@@ -4051,7 +4076,8 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 		}
 	} else {
 		/* No systemd autoactivation - create new socket FD. */
-		if ((fd = comms_unix_create(USID_SOCKET_PATH, USID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
+		if ((fd = comms_unix_create(USID_SOCKET_PATH, USID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) <
+		    0) {
 			log_error_errno(ID(ubridge_res), fd, "Failed to create local server socket");
 			return fd;
 		}
@@ -4082,8 +4108,13 @@ static int _set_up_udev_monitor(sid_resource_t *ubridge_res, sid_resource_t *int
 
 	umonitor_fd = udev_monitor_get_fd(umonitor->mon);
 
-	if (sid_resource_create_io_event_source(ubridge_res, NULL, umonitor_fd,
-	                                        _on_ubridge_udev_monitor_event, 0, "udev monitor", internal_ubridge_res) < 0) {
+	if (sid_resource_create_io_event_source(ubridge_res,
+	                                        NULL,
+	                                        umonitor_fd,
+	                                        _on_ubridge_udev_monitor_event,
+	                                        0,
+	                                        "udev monitor",
+	                                        internal_ubridge_res) < 0) {
 		log_error(ID(ubridge_res), "Failed to register udev monitoring.");
 		goto fail;
 	}
@@ -4099,100 +4130,91 @@ fail:
 	return -1;
 }
 
-static struct module_symbol_params block_symbol_params[] = {
-	{
-		SID_UCMD_MOD_FN_NAME_IDENT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_PRE,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_CURRENT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_NEXT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_ERROR,
-		MODULE_SYMBOL_FAIL_ON_MISSING |
-		MODULE_SYMBOL_INDIRECT,
-	},
-	NULL_MODULE_SYMBOL_PARAMS
-};
+static struct module_symbol_params block_symbol_params[] = {{
+								    SID_UCMD_MOD_FN_NAME_IDENT,
+								    MODULE_SYMBOL_INDIRECT,
+							    },
+                                                            {
+								    SID_UCMD_MOD_FN_NAME_SCAN_PRE,
+								    MODULE_SYMBOL_INDIRECT,
+							    },
+                                                            {
+								    SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
+								    MODULE_SYMBOL_INDIRECT,
+							    },
+                                                            {
+								    SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
+								    MODULE_SYMBOL_INDIRECT,
+							    },
+                                                            {
+								    SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
+								    MODULE_SYMBOL_INDIRECT,
+							    },
+                                                            {
+								    SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
+								    MODULE_SYMBOL_INDIRECT,
+							    },
+                                                            {
+								    SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_CURRENT,
+								    MODULE_SYMBOL_INDIRECT,
+							    },
+                                                            {
+								    SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_NEXT,
+								    MODULE_SYMBOL_INDIRECT,
+							    },
+                                                            {
+								    SID_UCMD_MOD_FN_NAME_ERROR,
+								    MODULE_SYMBOL_FAIL_ON_MISSING | MODULE_SYMBOL_INDIRECT,
+							    },
+                                                            NULL_MODULE_SYMBOL_PARAMS};
 
-static struct module_symbol_params type_symbol_params[] = {
-	{
-		SID_UCMD_MOD_FN_NAME_IDENT,
-		MODULE_SYMBOL_FAIL_ON_MISSING |
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_PRE,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_CURRENT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_NEXT,
-		MODULE_SYMBOL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_ERROR,
-		MODULE_SYMBOL_FAIL_ON_MISSING |
-		MODULE_SYMBOL_INDIRECT,
-	},
-	NULL_MODULE_SYMBOL_PARAMS
-};
+static struct module_symbol_params type_symbol_params[] = {{
+								   SID_UCMD_MOD_FN_NAME_IDENT,
+								   MODULE_SYMBOL_FAIL_ON_MISSING | MODULE_SYMBOL_INDIRECT,
+							   },
+                                                           {
+								   SID_UCMD_MOD_FN_NAME_SCAN_PRE,
+								   MODULE_SYMBOL_INDIRECT,
+							   },
+                                                           {
+								   SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
+								   MODULE_SYMBOL_INDIRECT,
+							   },
+                                                           {
+								   SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
+								   MODULE_SYMBOL_INDIRECT,
+							   },
+                                                           {
+								   SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
+								   MODULE_SYMBOL_INDIRECT,
+							   },
+                                                           {
+								   SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
+								   MODULE_SYMBOL_INDIRECT,
+							   },
+                                                           {
+								   SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_CURRENT,
+								   MODULE_SYMBOL_INDIRECT,
+							   },
+                                                           {
+								   SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_NEXT,
+								   MODULE_SYMBOL_INDIRECT,
+							   },
+                                                           {
+								   SID_UCMD_MOD_FN_NAME_ERROR,
+								   MODULE_SYMBOL_FAIL_ON_MISSING | MODULE_SYMBOL_INDIRECT,
+							   },
+                                                           NULL_MODULE_SYMBOL_PARAMS};
 
-static const struct sid_kv_store_resource_params main_kv_store_res_params = {
-	.backend = KV_STORE_BACKEND_HASH,
-	.hash.initial_size = 32
-};
+static const struct sid_kv_store_resource_params main_kv_store_res_params = {.backend           = KV_STORE_BACKEND_HASH,
+                                                                             .hash.initial_size = 32};
 
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	struct ubridge *ubridge = NULL;
 	sid_resource_t *internal_res, *kv_store_res, *modules_res;
-	struct buffer *buf;
-	int r;
+	struct buffer * buf;
+	int             r;
 
 	if (!(ubridge = mem_zalloc(sizeof(struct ubridge)))) {
 		log_error(ID(res), "Failed to allocate memory for ubridge structure.");
@@ -4202,8 +4224,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 
 	if (!(internal_res = sid_resource_create(res,
 	                                         &sid_resource_type_aggregate,
-	                                         SID_RESOURCE_RESTRICT_WALK_DOWN |
-	                                         SID_RESOURCE_DISALLOW_ISOLATION,
+	                                         SID_RESOURCE_RESTRICT_WALK_DOWN | SID_RESOURCE_DISALLOW_ISOLATION,
 	                                         INTERNAL_AGGREGATE_ID,
 	                                         ubridge,
 	                                         SID_RESOURCE_PRIO_NORMAL,
@@ -4227,36 +4248,36 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		{
 			.id = MAIN_WORKER_CHANNEL_ID,
 
-			.wire = (struct worker_wire_spec)
-			{
-				.type = WORKER_WIRE_SOCKET,
-			},
+			.wire =
+				(struct worker_wire_spec) {
+					.type = WORKER_WIRE_SOCKET,
+				},
 
 			.worker_tx_cb = NULL_WORKER_CHANNEL_CB_SPEC,
-			.worker_rx_cb = (struct worker_channel_cb_spec)
-			{
-				.cb = _worker_recv_fn,
-				.arg = NULL,
-			},
+			.worker_rx_cb =
+				(struct worker_channel_cb_spec) {
+					.cb  = _worker_recv_fn,
+					.arg = NULL,
+				},
 
 			.proxy_tx_cb = NULL_WORKER_CHANNEL_CB_SPEC,
-			.proxy_rx_cb = (struct worker_channel_cb_spec)
-			{
-				.cb = _worker_proxy_recv_fn,
-				.arg = internal_res,
-			},
+			.proxy_rx_cb =
+				(struct worker_channel_cb_spec) {
+					.cb  = _worker_proxy_recv_fn,
+					.arg = internal_res,
+				},
 		},
 		NULL_WORKER_CHANNEL_SPEC,
 	};
 
 	struct worker_control_resource_params worker_control_res_params = {
-		.worker_type   = WORKER_TYPE_INTERNAL,
+		.worker_type = WORKER_TYPE_INTERNAL,
 
-		.init_cb_spec = (struct worker_init_cb_spec)
-		{
-			.cb = _worker_init_fn,
-			.arg = internal_res,
-		},
+		.init_cb_spec =
+			(struct worker_init_cb_spec) {
+				.cb  = _worker_init_fn,
+				.arg = internal_res,
+			},
 
 		.channel_specs = channel_specs,
 	};
@@ -4273,9 +4294,10 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	if (!(buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-							  .type = BUFFER_TYPE_LINEAR,
-							  .mode = BUFFER_MODE_PLAIN}),
-				  &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}), &r))) {
+	                                                  .type    = BUFFER_TYPE_LINEAR,
+	                                                  .mode    = BUFFER_MODE_PLAIN}),
+	                          &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
+	                          &r))) {
 		log_error_errno(ID(res), r, "Failed to create generic buffer");
 		goto fail;
 	}
@@ -4293,8 +4315,8 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 
 	ubridge->ucmd_mod_ctx = (struct sid_ucmd_mod_ctx) {
 		.kv_store_res = kv_store_res,
-		.modules_res = modules_res,
-		.gen_buf = buf,
+		.modules_res  = modules_res,
+		.gen_buf      = buf,
 	};
 
 	struct module_registry_resource_params block_res_mod_params = {
@@ -4338,7 +4360,13 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (sid_resource_create_io_event_source(res, NULL, ubridge->socket_fd, _on_ubridge_interface_event, 0, UBRIDGE_NAME, internal_res) < 0) {
+	if (sid_resource_create_io_event_source(res,
+	                                        NULL,
+	                                        ubridge->socket_fd,
+	                                        _on_ubridge_interface_event,
+	                                        0,
+	                                        UBRIDGE_NAME,
+	                                        internal_res) < 0) {
 		log_error(ID(res), "Failed to register interface with event loop.");
 		goto fail;
 	}
@@ -4354,7 +4382,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	 */
 	(void) util_cmdline_get_arg("root", NULL, NULL);
 
-	//sid_resource_dump_all_in_dot(sid_resource_search(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
+	// sid_resource_dump_all_in_dot(sid_resource_search(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
 	*data = ubridge;
 	return 0;
@@ -4386,19 +4414,19 @@ static int _destroy_ubridge(sid_resource_t *res)
 }
 
 const sid_resource_type_t sid_resource_type_ubridge_command = {
-	.name = COMMAND_NAME,
-	.init = _init_command,
+	.name    = COMMAND_NAME,
+	.init    = _init_command,
 	.destroy = _destroy_command,
 };
 
 const sid_resource_type_t sid_resource_type_ubridge_connection = {
-	.name = CONNECTION_NAME,
-	.init = _init_connection,
+	.name    = CONNECTION_NAME,
+	.init    = _init_connection,
 	.destroy = _destroy_connection,
 };
 
 const sid_resource_type_t sid_resource_type_ubridge = {
-	.name = UBRIDGE_NAME,
-	.init = _init_ubridge,
+	.name    = UBRIDGE_NAME,
+	.init    = _init_ubridge,
 	.destroy = _destroy_ubridge,
 };
