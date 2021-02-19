@@ -1,11 +1,12 @@
 #include "../src/iface/service-link.c"
 
-#include <cmocka.h>
 #include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <systemd/sd-daemon.h>
+
+#include <cmocka.h>
 
 int __wrap_sd_notify(int unset_environment, const char *state)
 {
