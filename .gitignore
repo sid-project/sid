@@ -51,3 +51,5 @@ libtool
 .mk.log
 
 *.swp
+
+.vscode/
