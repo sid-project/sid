@@ -263,12 +263,7 @@ fail:
 
 		_remove_res_from_parent_res(res);
 
-		/* FIXME: Normally, we'd use list_iterate_items_safe_back here but
-		 *        it causes problems. One known problem is that when signal
-		 *        event sources are destroyed, signal handling is then messed up
-		 *        for some reason.
-		 */
-		list_iterate_items_safe (es, tmp_es, &res->event_sources)
+		list_iterate_items_safe_back (es, tmp_es, &res->event_sources)
 			_destroy_event_source(es);
 
 		if (res->event_loop.sd_event_loop)
@@ -311,12 +306,7 @@ int sid_resource_destroy(sid_resource_t *res)
 	list_iterate_items_safe_back (child_res, tmp_child_res, &res->children)
 		(void) sid_resource_destroy(child_res);
 
-	/* FIXME: Normally, we'd use list_iterate_items_safe_back here but
-	 *        it causes problems. One known problem is that when signal
-	 *        event sources are destroyed, signal handling is then messed up
-	 *        for some reason.
-	 */
-	list_iterate_items_safe (es, tmp_es, &res->event_sources)
+	list_iterate_items_safe_back (es, tmp_es, &res->event_sources)
 		_destroy_event_source(es);
 
 	if (res->type->destroy)
