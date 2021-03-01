@@ -126,7 +126,7 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 }
 
 /*
- *                     INPUT                                     OUTPUT (DB RECORD)                                      NOTES
+ *                     INPUT                                     OUTPUT (DB RECORD)                         NOTES
  *                       |                                               |
  *           -------------------------                       --------------------------
  *          /        |                \                     /       |                  \
@@ -135,16 +135,21 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
  *        ----       |            ----------           -----      |             --------------------
  *       /    \      |           /          \         /     \     |            /                    \
  * #  VECTOR  REF  MERGE      VALUE        SIZE    VECTOR  REF  ALLOC       VALUE                  SIZE
- * ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------------------------------------------
  * A     0     0     0     value ref    value size    0     0     1      value copy ref         value size
- * B     0     0     1     value ref    value size    0     0     1      value copy ref         value size   merge flag has no
- * effect: B == A C     0     1     0     value ref    value size    0     1     0      value ref              value size D     0 1
- * 1     value ref    value size    0     1     0      value ref              value size   merge flag has no effect: D == C E     1
- * 0     0     iovec ref    iovec size    1     0     1      iovec deep copy ref    iovec size   allocated both iovec copy and value
- * parts F     1     0     1     iovec ref    iovec size    0     0     1      value merger ref       value size   iovec members
- * merged into single value G     1     1     0     iovec ref    iovec size    1     1     0      iovec ref              iovec size
- * H     1     1     1     iovec ref    iovec size    1     1     1      value merger iovec ref iovec size   iovec members merged
- * into single value, iovec has refs to merged value parts
+ * B     0     0     1     value ref    value size    0     0     1      value copy ref         value size   1
+ * C     0     1     0     value ref    value size    0     1     0      value ref              value size
+ * D     0     1     1     value ref    value size    0     1     0      value ref              value size   1
+ * E     1     0     0     iovec ref    iovec size    1     0     1      iovec deep copy ref    iovec size   2
+ * F     1     0     1     iovec ref    iovec size    0     0     1      value merger ref       value size   3
+ * G     1     1     0     iovec ref    iovec size    1     1     0      iovec ref              iovec size
+ * H     1     1     1     iovec ref    iovec size    1     1     1      value merger iovec ref iovec size   4
+ *
+ * NOTES:
+ * 1: Merge flag has no effect: B == A and D == C
+ * 2: allocated both iovec copy and value parts
+ * 3: iovec members merged into a single value
+ * 4: iovec members merged into a signle value. iovec has refs to merged value parts
  *
  *
  * The AUTOFREE flag may be used together with REF flag (it has no effect otherwise). Then, if the reference to the
