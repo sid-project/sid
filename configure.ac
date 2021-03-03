@@ -148,3 +148,9 @@ AC_SUBST([udevrulesdir])
 
 AC_OUTPUT
 AM_CHECK_CMOCKA
+
+AC_ARG_ENABLE([codecov],
+  [AS_HELP_STRING([--enable-codecov], [enable code covergae testing ])],,
+  [enable_codecov=yes])
+
+AM_CONDITIONAL([ENABLE_CODECOV], [test x$enable_codecov = xyes])
