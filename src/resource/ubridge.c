@@ -251,9 +251,9 @@ typedef enum
 {
 	__KEY_PART_START = 0x0,
 	KEY_PART_OP      = 0x0,
-	KEY_PART_NS      = 0x1,
-	KEY_PART_NS_PART = 0x2,
-	KEY_PART_DOM     = 0x3,
+	KEY_PART_DOM     = 0x1,
+	KEY_PART_NS      = 0x2,
+	KEY_PART_NS_PART = 0x3,
 	KEY_PART_ID      = 0x4,
 	KEY_PART_ID_PART = 0x5,
 	KEY_PART_CORE    = 0x6,
@@ -262,9 +262,9 @@ typedef enum
 
 struct kv_key_spec {
 	kv_op_t                 op;
+	const char *            dom;
 	sid_ucmd_kv_namespace_t ns;
 	const char *            ns_part;
-	const char *            dom;
 	const char *            id;
 	const char *            id_part;
 	const char *            key;
@@ -361,22 +361,22 @@ static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec
 	                                             [KV_NS_MODULE]    = KV_PREFIX_NS_MODULE_C,
 	                                             [KV_NS_GLOBAL]    = KV_PREFIX_NS_GLOBAL_C};
 
-	/* <op>:<ns>:<ns_part>:<id>:<id_part>[:<key>] */
+	/* <op>:<dom>:<ns>:<ns_part>:<id>:<id_part>[:<key>] */
 
 	return buffer_fmt_add(buf,
 	                      NULL,
 	                      "%s" KV_STORE_KEY_JOIN /* op */
+	                      "%s" KV_STORE_KEY_JOIN /* dom */
 	                      "%s" KV_STORE_KEY_JOIN /* ns */
 	                      "%s" KV_STORE_KEY_JOIN /* ns_part */
-	                      "%s" KV_STORE_KEY_JOIN /* dom */
 	                      "%s" KV_STORE_KEY_JOIN /* id */
 	                      "%s"
 	                      "%s" /* id_part */
 	                      "%s",
 	                      op_to_key_prefix_map[spec->op],
+	                      spec->dom,
 	                      ns_to_key_prefix_map[spec->ns],
 	                      spec->ns_part,
-	                      spec->dom,
 	                      spec->id,
 	                      spec->id_part,
 	                      prefix_only ? KEY_NULL : KV_STORE_KEY_JOIN,
@@ -385,13 +385,13 @@ static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec
 
 static const char *_buffer_compose_key(struct buffer *buf, struct kv_key_spec *spec)
 {
-	/* <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>:<key> */
+	/* <op>:<dom>:<ns>:<ns_part>:<id>:<id_part>:<key> */
 	return _do_buffer_compose_key(buf, spec, 0);
 }
 
 static const char *_buffer_compose_key_prefix(struct buffer *buf, struct kv_key_spec *spec)
 {
-	/* <op>:<ns>:<ns_part>:<dom>:<id>:<id_part> */
+	/* <op>:<dom>:<ns>:<ns_part><id>:<id_part> */
 	return _do_buffer_compose_key(buf, spec, 1);
 }
 
@@ -425,7 +425,7 @@ static kv_op_t _get_op_from_key(const char *key)
 	size_t      len;
 
 	/* |<>|
-	 * <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
+	 * <op>:<dom>:<ns>:<ns_part>:<id>:<id_part>[:<key>]
 	 */
 
 	if (!(str = _get_key_part(key, KEY_PART_OP, &len)) || len > 1)
@@ -447,8 +447,8 @@ static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
 	const char *str;
 	size_t      len;
 
-	/*      |<>|
-	 * <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
+	/*            |<>|
+	 * <op>:<dom>:<ns>:<ns_part>:<id>:<id_part>[:<key>]
 	 */
 
 	if (!(str = _get_key_part(key, KEY_PART_NS, &len)) || len > 1)
@@ -471,8 +471,8 @@ static const char *_buffer_copy_ns_part_from_key(struct buffer *buf, const char 
 	const char *str;
 	size_t      len;
 
-	/*           |<----->|
-	   <op>:<ns>:<ns_part>:<dom>:<id>:<id_part>[:<key>]
+	/*                 |<----->|
+	   <op>:<dom>:<ns>:<ns_part><id>:<id_part>[:<key>]
 	*/
 
 	if (!(str = _get_key_part(key, KEY_PART_NS_PART, &len)))
@@ -806,7 +806,7 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx *   ucmd_ctx,
 	size_t                 value_size;
 	kv_store_value_flags_t value_flags;
 	struct kv_key_spec     key_spec =
-		{.op = KV_OP_SET, .ns = ns, .ns_part = ID_NULL, .dom = ID_NULL, .id = ID_NULL, .id_part = ID_NULL, .key = key};
+		{.op = KV_OP_SET, .dom = ID_NULL, .ns = ns, .ns_part = ID_NULL, .id = ID_NULL, .id_part = ID_NULL, .key = key};
 	int r = 1;
 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
@@ -896,8 +896,8 @@ static void _destroy_unused_delta(struct kv_delta *delta)
 
 static void *_do_sid_ucmd_set_kv(struct module *         mod,
                                  struct sid_ucmd_ctx *   ucmd_ctx,
-                                 sid_ucmd_kv_namespace_t ns,
                                  const char *            dom,
+                                 sid_ucmd_kv_namespace_t ns,
                                  const char *            key,
                                  sid_ucmd_kv_flags_t     flags,
                                  const void *            value,
@@ -909,9 +909,9 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 	struct kv_value *    kv_value;
 	struct kv_update_arg update_arg;
 	struct kv_key_spec   key_spec = {.op      = KV_OP_SET,
+                                       .dom     = dom ?: ID_NULL,
                                        .ns      = ns,
                                        .ns_part = _get_ns_part(mod, ucmd_ctx, ns),
-                                       .dom     = dom ?: ID_NULL,
                                        .id      = ID_NULL,
                                        .id_part = ID_NULL,
                                        .key     = key};
@@ -980,7 +980,7 @@ void *sid_ucmd_set_kv(struct module *         mod,
 	if (ns == KV_NS_UDEV)
 		flags |= KV_PERSISTENT;
 
-	return _do_sid_ucmd_set_kv(mod, ucmd_ctx, ns, KV_KEY_DOM_USER, key, flags, value, value_size);
+	return _do_sid_ucmd_set_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, flags, value, value_size);
 }
 
 static const void *_cmd_get_key_spec_value(struct module *      mod,
@@ -1031,9 +1031,9 @@ static const void *_do_sid_ucmd_get_kv(struct module *         mod,
                                        sid_ucmd_kv_flags_t *   flags)
 {
 	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
+	                               .dom     = KV_KEY_DOM_USER,
 	                               .ns      = ns,
 	                               .ns_part = _get_ns_part(mod, ucmd_ctx, ns),
-	                               .dom     = KV_KEY_DOM_USER,
 	                               .id      = ID_NULL,
 	                               .id_part = ID_NULL,
 	                               .key     = key};
@@ -1117,7 +1117,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 	struct kv_update_arg update_arg;
 	int                  is_worker;
 	struct kv_key_spec   key_spec =
-		{.op = KV_OP_SET, .ns = ns, .ns_part = ID_NULL, .dom = ID_NULL, .id = ID_NULL, .id_part = ID_NULL, .key = key};
+		{.op = KV_OP_SET, .dom = ID_NULL, .ns = ns, .ns_part = ID_NULL, .id = ID_NULL, .id_part = ID_NULL, .key = key};
 	int r = -1;
 
 	if (!(full_key = _buffer_compose_key(ucmd_mod_ctx->gen_buf, &key_spec)))
@@ -1212,7 +1212,7 @@ int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, de
 	if (ready == DEV_NOT_RDY_UNPROCESSED)
 		return -EINVAL;
 
-	_do_sid_ucmd_set_kv(NULL, ucmd_ctx, KV_NS_DEVICE, NULL, KV_KEY_DEV_READY, DEFAULT_KV_FLAGS_CORE, &ready, sizeof(ready));
+	_do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, DEFAULT_KV_FLAGS_CORE, &ready, sizeof(ready));
 
 	return 0;
 }
@@ -1243,8 +1243,8 @@ int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
 
 	_do_sid_ucmd_set_kv(NULL,
 	                    ucmd_ctx,
-	                    KV_NS_DEVICE,
 	                    NULL,
+	                    KV_NS_DEVICE,
 	                    KV_KEY_DEV_RESERVED,
 	                    DEFAULT_KV_FLAGS_CORE,
 	                    &reserved,
@@ -1291,9 +1291,9 @@ int sid_ucmd_group_create(struct module *         mod,
 		return -EINVAL;
 
 	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
+	                               .dom     = ID_NULL,
 	                               .ns      = group_ns,
 	                               .ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
-	                               .dom     = ID_NULL,
 	                               .id      = group_id,
 	                               .id_part = ID_NULL,
 	                               .key     = KV_KEY_GEN_GROUP_MEMBERS};
@@ -1343,17 +1343,17 @@ int _handle_current_dev_for_group(struct module *         mod,
 	                                                             .final = NULL}),
 
 	                               .cur_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .dom     = KV_KEY_DOM_USER,
 	                                                                       .ns      = group_ns,
 	                                                                       .ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
-	                                                                       .dom     = KV_KEY_DOM_USER,
 	                                                                       .id      = group_id,
 	                                                                       .id_part = ID_NULL,
 	                                                                       .key     = KV_KEY_GEN_GROUP_MEMBERS}),
 
 	                               .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .dom     = ID_NULL,
 	                                                                       .ns      = KV_NS_DEVICE,
 	                                                                       .ns_part = _get_ns_part(mod, ucmd_ctx, KV_NS_DEVICE),
-	                                                                       .dom     = ID_NULL,
 	                                                                       .id      = ID_NULL,
 	                                                                       .id_part = ID_NULL,
 	                                                                       .key     = KV_KEY_GEN_GROUP_IN})};
@@ -1434,17 +1434,17 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	                                                             .final = NULL}),
 
 	                               .cur_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .dom     = ID_NULL,
 	                                                                       .ns      = group_ns,
 	                                                                       .ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
-	                                                                       .dom     = ID_NULL,
 	                                                                       .id      = group_id,
 	                                                                       .id_part = ID_NULL,
 	                                                                       .key     = KV_KEY_GEN_GROUP_MEMBERS}),
 
 	                               .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .dom     = ID_NULL,
 	                                                                       .ns      = 0,
 	                                                                       .ns_part = ID_NULL,
-	                                                                       .dom     = ID_NULL,
 	                                                                       .id      = ID_NULL,
 	                                                                       .id_part = ID_NULL,
 	                                                                       .key     = KV_KEY_GEN_GROUP_IN})};
@@ -1503,7 +1503,7 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 		return r;
 	;
 
-	if (!(value = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, KV_NS_UDEV, NULL, key, 0, value, strlen(value) + 1)))
+	if (!(value = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, key, 0, value, strlen(value) + 1)))
 		goto out;
 
 	/* Common key=value pairs are also directly in the ucmd_ctx->udev_dev structure. */
@@ -1673,8 +1673,8 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 
 	if (!(mod_name = _do_sid_ucmd_set_kv(NULL,
 	                                     ucmd_ctx,
-	                                     KV_NS_DEVICE,
 	                                     NULL,
+	                                     KV_NS_DEVICE,
 	                                     KV_KEY_DEV_MOD,
 	                                     DEFAULT_KV_FLAGS_CORE,
 	                                     buf,
@@ -1813,9 +1813,9 @@ const void *sid_ucmd_part_get_disk_kv(struct module *      mod,
 {
 	char               devno_buf[16];
 	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
+	                               .dom     = KV_KEY_DOM_USER,
 	                               .ns      = KV_NS_DEVICE,
 	                               .ns_part = ID_NULL, /* will be calculated later */
-	                               .dom     = KV_KEY_DOM_USER,
 	                               .id      = ID_NULL,
 	                               .id_part = ID_NULL,
 	                               .key     = key};
@@ -2584,17 +2584,17 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 	                               .cur_key_spec =
 	                                       &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                               .dom     = KV_KEY_DOM_LAYER,
 	                                                               .ns      = KV_NS_DEVICE,
 	                                                               .ns_part = _get_ns_part(NULL, ucmd_ctx, KV_NS_DEVICE),
-	                                                               .dom     = KV_KEY_DOM_LAYER,
 	                                                               .id      = ID_NULL,
 	                                                               .id_part = ID_NULL,
 	                                                               .key     = KV_KEY_GEN_GROUP_MEMBERS}),
 
 	                               .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .dom     = KV_KEY_DOM_LAYER,
 	                                                                       .ns      = KV_NS_DEVICE,
 	                                                                       .ns_part = ID_NULL, /* will be calculated later */
-	                                                                       .dom     = KV_KEY_DOM_LAYER,
 	                                                                       .id      = ID_NULL,
 	                                                                       .id_part = ID_NULL,
 	                                                                       .key     = KV_KEY_GEN_GROUP_IN})};
@@ -2751,17 +2751,17 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 
 	                               .cur_key_spec =
 	                                       &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                               .dom     = KV_KEY_DOM_LAYER,
 	                                                               .ns      = KV_NS_DEVICE,
 	                                                               .ns_part = _get_ns_part(NULL, ucmd_ctx, KV_NS_DEVICE),
-	                                                               .dom     = KV_KEY_DOM_LAYER,
 	                                                               .id      = ID_NULL,
 	                                                               .id_part = ID_NULL,
 	                                                               .key     = KV_KEY_GEN_GROUP_MEMBERS}),
 
 	                               .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                       .dom     = KV_KEY_DOM_LAYER,
 	                                                                       .ns      = KV_NS_DEVICE,
 	                                                                       .ns_part = ID_NULL, /* will be calculated later */
-	                                                                       .dom     = KV_KEY_DOM_LAYER,
 	                                                                       .id      = ID_NULL,
 	                                                                       .id_part = ID_NULL,
 	                                                                       .key     = KV_KEY_GEN_GROUP_IN})};
@@ -2917,16 +2917,16 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 
 		_do_sid_ucmd_set_kv(NULL,
 		                    ucmd_ctx,
-		                    KV_NS_DEVICE,
 		                    NULL,
+		                    KV_NS_DEVICE,
 		                    KV_KEY_DEV_READY,
 		                    DEFAULT_KV_FLAGS_CORE,
 		                    &ready,
 		                    sizeof(ready));
 		_do_sid_ucmd_set_kv(NULL,
 		                    ucmd_ctx,
-		                    KV_NS_DEVICE,
 		                    NULL,
+		                    KV_NS_DEVICE,
 		                    KV_KEY_DEV_RESERVED,
 		                    DEFAULT_KV_FLAGS_CORE,
 		                    &reserved,
@@ -3697,8 +3697,8 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 
 	if (_cmd_regs[msg->header->cmd].flags & CMD_SESSION_ID && !_do_sid_ucmd_set_kv(NULL,
 	                                                                               ucmd_ctx,
+										       NULL,
 	                                                                               KV_NS_UDEV,
-	                                                                               NULL,
 	                                                                               KV_KEY_UDEV_SID_SESSION_ID,
 	                                                                               KV_PERSISTENT,
 	                                                                               worker_id,
