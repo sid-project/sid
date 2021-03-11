@@ -161,7 +161,7 @@ void print_uint_field(char *field_name, uint value, output_format_t format, bool
 	}
 }
 
-void print_int64_field(char *field_name, uint64_t value, output_format_t format, bool trailing_comma, int level)
+void print_uint64_field(char *field_name, uint64_t value, output_format_t format, bool trailing_comma, int level)
 {
 	if (format == JSON) {
 		print_indent(level);
@@ -298,6 +298,37 @@ static int _usid_cmd_dump(struct args *args, output_format_t format)
 	return r;
 }
 
+static int _usid_cmd_stats(struct args *args, output_format_t format)
+{
+	struct buffer *         buf = NULL;
+	struct usid_msg_header *hdr;
+	size_t                  size;
+	struct usid_stats *     stats = NULL;
+	int                     r;
+
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_STATS, 0, NULL, NULL, &buf)) == 0) {
+		buffer_get_data(buf, (const void **) &hdr, &size);
+
+		if (size >= (USID_MSG_HEADER_SIZE + USID_STATS_SIZE) &&
+		    (hdr->status & COMMAND_STATUS_MASK_OVERALL) == COMMAND_STATUS_SUCCESS) {
+			stats = (struct usid_stats *) hdr->data;
+			print_start_document(format, 0);
+			print_uint64_field("KEYS_SIZE", stats->key_size, format, true, 1);
+			print_uint64_field("VALUES_INTERNAL_SIZE", stats->value_int_size, format, true, 1);
+			print_uint64_field("VALUES_INTERNAL_DATA_SIZE", stats->value_int_data_size, format, true, 1);
+			print_uint64_field("VALUES_EXTERNAL_SIZE", stats->value_ext_size, format, true, 1);
+			print_uint64_field("VALUES_EXTERNAL_DATA_SIZE", stats->value_ext_data_size, format, true, 1);
+			print_uint64_field("METADATA_SIZE", stats->meta_size, format, true, 1);
+			print_uint_field("NR_KEY_VALUE_PAIRS", stats->nr_kv_pairs, format, true, 1);
+			print_end_document(format, 0);
+		} else
+			r = -1;
+
+		buffer_destroy(buf);
+	}
+	return r;
+}
+
 static int _usid_cmd_version(struct args *args, output_format_t format)
 {
 	struct buffer *         buf = NULL;
@@ -356,6 +387,11 @@ static void _help(FILE *f)
 	        "      Dump the SID daemon database.\n"
 	        "      Input:  None.\n"
 	        "      Output: Listing of all database entries.\n"
+	        "\n"
+	        "    stats\n"
+	        "      Show stats for the SID daemon key value store.\n"
+	        "      Input:  None.\n"
+	        "      Output: Key value store stats.\n"
 	        "\n");
 }
 
@@ -422,6 +458,9 @@ int main(int argc, char *argv[])
 			break;
 		case USID_CMD_DUMP:
 			r = _usid_cmd_dump(&subcmd_args, format);
+			break;
+		case USID_CMD_STATS:
+			r = _usid_cmd_stats(&subcmd_args, format);
 			break;
 		default:
 			_help(stderr);

@@ -46,6 +46,7 @@ void *hash_lookup(struct hash_table *t, const void *key, uint32_t key_len, size_
 void  hash_remove(struct hash_table *t, const void *key, uint32_t key_len);
 
 unsigned hash_get_num_entries(struct hash_table *t);
+size_t   hash_get_size(struct hash_table *t, size_t *meta_size, size_t *data_size);
 void     hash_iter(struct hash_table *t, hash_iterate_fn f);
 
 struct hash_node *hash_get_first(struct hash_table *t);

@@ -415,3 +415,23 @@ int hash_update(struct hash_table *t,
 
 	return 0;
 }
+
+size_t hash_get_size(struct hash_table *t, size_t *meta_size, size_t *data_size)
+{
+	struct hash_node *n;
+	unsigned          i;
+	size_t            meta = sizeof(*t) + sizeof(*(t->slots)) * t->num_slots;
+	size_t            data = 0;
+
+	for (i = 0; i < t->num_slots; i++) {
+		for (n = t->slots[i]; n; n = n->next) {
+			meta += sizeof(*n) + n->key_len;
+			data += n->data_len;
+		}
+	}
+	if (meta_size)
+		*meta_size = meta;
+	if (data_size)
+		*data_size = data;
+	return meta + data;
+}

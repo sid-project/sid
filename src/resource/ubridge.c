@@ -516,6 +516,43 @@ fail:
 	return NULL;
 }
 
+static int _write_kv_store_stats(struct usid_stats *stats, sid_resource_t *kv_store_res)
+{
+	kv_store_iter_t *      iter;
+	const char *           key;
+	size_t                 size;
+	kv_store_value_flags_t flags;
+	void *                 value;
+	int                    r;
+	size_t                 hash_size, int_size, int_data_size, ext_size, ext_data_size;
+
+	memset(stats, 0, sizeof(*stats));
+	if (!(iter = kv_store_iter_create(kv_store_res))) {
+		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
+		return -ENOMEM;
+	}
+	while ((value = kv_store_iter_next(iter, &size, &flags))) {
+		stats->nr_kv_pairs++;
+		key = kv_store_iter_current_key(iter);
+		kv_store_iter_current_size(iter, &int_size, &int_data_size, &ext_size, &ext_data_size);
+		stats->key_size += strlen(key) + 1;
+		stats->value_int_size += int_size;
+		stats->value_int_data_size += int_data_size;
+		stats->value_ext_size += ext_size;
+		stats->value_ext_data_size += ext_data_size;
+	}
+	kv_store_get_size(kv_store_res, &hash_size, &int_size);
+	if (stats->value_int_size != int_size)
+		log_error(ID(kv_store_res),
+		          INTERNAL_ERROR "%s: kv-store size mismatch: %" PRIu64 " is not equal to %zu",
+		          __func__,
+		          stats->value_int_size,
+		          int_size);
+	stats->meta_size = hash_size;
+	kv_store_iter_destroy(iter);
+	return 0;
+}
+
 static int _write_kv_store_dump(struct buffer *buf, sid_resource_t *kv_store_res)
 {
 	kv_store_iter_t *       iter;
@@ -1674,6 +1711,17 @@ static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
 		buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &dump_data, &size);
 		buffer_add(ucmd_ctx->res_buf, dump_data, size, &r);
 	}
+	return r;
+}
+
+static int _cmd_exec_stats(struct cmd_exec_arg *exec_arg)
+{
+	int                      r;
+	struct sid_ucmd_ctx *    ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	static struct usid_stats stats;
+
+	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0)
+		buffer_add(ucmd_ctx->res_buf, &stats, sizeof(stats), &r);
 	return r;
 }
 
@@ -3136,6 +3184,7 @@ static struct cmd_reg _cmd_regs[] = {
 	[USID_CMD_UNKNOWN]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
 	[USID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
 	[USID_CMD_DUMP]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_dump},
+	[USID_CMD_STATS]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_stats},
 };
 
 static int _export_kv_store(sid_resource_t *cmd_res)
