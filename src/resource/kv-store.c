@@ -477,6 +477,51 @@ void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_
 	return _get_data(value);
 }
 
+int kv_store_iter_current_size(kv_store_iter_t *iter,
+                               size_t *         int_size,
+                               size_t *         int_data_size,
+                               size_t *         ext_size,
+                               size_t *         ext_data_size)
+{
+	size_t                 iov_size, data_size;
+	struct kv_store_value *value;
+
+	if (!iter || !int_size || !int_data_size || !ext_size || !ext_data_size)
+		return -1;
+
+	if (!(value = iter->current ? hash_get_data(iter->store->ht, iter->current, NULL) : NULL))
+		return -1;
+
+	if (value->ext_flags & KV_STORE_VALUE_VECTOR) {
+		int           i;
+		struct iovec *iov;
+
+		iov = (value->ext_flags & KV_STORE_VALUE_REF)? _get_ptr(value->data) : (struct iovec *) value->data;
+
+		iov_size = value->size * sizeof(struct iovec);
+		for (i = 0, data_size = 0; i < value->size; i++)
+			data_size += iov[i].iov_len;
+	} else {
+		data_size = value->size;
+		iov_size  = 0;
+	}
+
+	if (value->int_flags & KV_STORE_VALUE_INT_ALLOC) {
+		*int_size = *int_data_size = data_size;
+		*ext_size = *ext_data_size = 0;
+	} else {
+		*int_size = *int_data_size = 0;
+		*ext_size = *ext_data_size = data_size;
+	}
+	if (value->ext_flags & KV_STORE_VALUE_REF) {
+		*int_size += sizeof(*value) + sizeof(intptr_t);
+		*ext_size += iov_size;
+	} else
+		*int_size += sizeof(*value) + iov_size;
+
+	return 0;
+}
+
 const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 {
 	return iter->current ? hash_get_key(iter->store->ht, iter->current, NULL) : NULL;
@@ -497,6 +542,12 @@ void kv_store_iter_reset(kv_store_iter_t *iter)
 void kv_store_iter_destroy(kv_store_iter_t *iter)
 {
 	free(iter);
+}
+
+size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t *data_size)
+{
+	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+	return hash_get_size(kv_store->ht, meta_size, data_size);
 }
 
 static int _init_kv_store(sid_resource_t *kv_store_res, const void *kickstart_data, void **data)

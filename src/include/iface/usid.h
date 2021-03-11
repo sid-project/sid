@@ -44,7 +44,8 @@ typedef enum
 	USID_CMD_SCAN       = 5,
 	USID_CMD_VERSION    = 6,
 	USID_CMD_DUMP       = 7,
-	_USID_CMD_END       = USID_CMD_DUMP,
+	USID_CMD_STATS      = 8,
+	_USID_CMD_END       = USID_CMD_STATS,
 } usid_cmd_t;
 
 static const char *const usid_cmd_names[] = {
@@ -56,6 +57,7 @@ static const char *const usid_cmd_names[] = {
 	[USID_CMD_SCAN]       = "scan",
 	[USID_CMD_VERSION]    = "version",
 	[USID_CMD_DUMP]       = "dump",
+	[USID_CMD_STATS]      = "stats",
 };
 
 bool usid_cmd_root_only[] = {
@@ -67,6 +69,7 @@ bool usid_cmd_root_only[] = {
 	[USID_CMD_SCAN]       = true,
 	[USID_CMD_VERSION]    = false,
 	[USID_CMD_DUMP]       = false,
+	[USID_CMD_STATS]      = false,
 };
 
 #define COMMAND_STATUS_MASK_OVERALL UINT64_C(0x0000000000000001)
@@ -97,8 +100,19 @@ struct usid_dump_header {
 	uint32_t data_count; /* the number of data iovs */
 } __attribute__((packed));
 
+struct usid_stats {
+	uint64_t key_size;
+	uint64_t value_int_size;
+	uint64_t value_int_data_size;
+	uint64_t value_ext_size;
+	uint64_t value_ext_data_size;
+	uint64_t meta_size;
+	uint32_t nr_kv_pairs;
+} __attribute__((packed));
+
 #define USID_MSG_HEADER_SIZE sizeof(struct usid_msg_header)
 #define USID_VERSION_SIZE    sizeof(struct usid_version)
+#define USID_STATS_SIZE      sizeof(struct usid_stats)
 
 typedef int (*usid_req_data_fn_t)(struct buffer *buf, void *data);
 
