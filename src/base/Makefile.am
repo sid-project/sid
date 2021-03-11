@@ -28,7 +28,8 @@ libsidbase_la_SOURCES = mem.c \
 			list.c \
 			comms.c \
 			util.c \
-			hash.c
+			hash.c \
+			formatter.c
 
 basedir = $(pkgincludedir)/base
 

@@ -20,6 +20,7 @@
 #ifndef _SID_BUFFER_H
 #define _SID_BUFFER_H
 
+#include "base/buffer-type.h"
 #include "base/buffer-common.h"
 
 #include <sys/types.h>
