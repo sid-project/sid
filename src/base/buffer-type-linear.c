@@ -19,8 +19,8 @@
 
 #include "base/common.h"
 
+#include "base/buffer-type.h"
 #include "base/mem.h"
-#include "buffer-type.h"
 
 #include <errno.h>
 #include <stdio.h>
