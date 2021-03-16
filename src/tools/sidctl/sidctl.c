@@ -309,20 +309,20 @@ static int _usid_cmd_version(struct args *args, output_format_t format)
 
 	print_start_document(format, 0);
 
-	print_uint_field("KEY_SIDCTL_PROTOCOL", USID_PROTOCOL, format, true, 1);
-	print_uint_field("KEY_SIDCTL_MAJOR", SID_VERSION_MAJOR, format, true, 1);
-	print_uint_field("KEY_SIDCTL_MINOR", SID_VERSION_MINOR, format, true, 1);
-	print_uint_field("KEY_SIDCTL_RELEASE", SID_VERSION_RELEASE, format, r == 0, 1);
+	print_uint_field(KEY_SIDCTL_PROTOCOL, USID_PROTOCOL, format, true, 1);
+	print_uint_field(KEY_SIDCTL_MAJOR, SID_VERSION_MAJOR, format, true, 1);
+	print_uint_field(KEY_SIDCTL_MINOR, SID_VERSION_MINOR, format, true, 1);
+	print_uint_field(KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, format, r == 0, 1);
 
 	if (r == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
 		if (size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) {
 			vsn = (struct usid_version *) hdr->data;
-			print_uint_field("KEY_SID_PROTOCOL", hdr->prot, format, true, 1);
-			print_uint_field("KEY_SID_MAJOR", vsn->major, format, true, 1);
-			print_uint_field("KEY_SID_MINOR", vsn->minor, format, true, 1);
-			print_uint_field("KEY_SID_RELEASE", vsn->release, format, false, 1);
+			print_uint_field(KEY_SID_PROTOCOL, hdr->prot, format, true, 1);
+			print_uint_field(KEY_SID_MAJOR, vsn->major, format, true, 1);
+			print_uint_field(KEY_SID_MINOR, vsn->minor, format, true, 1);
+			print_uint_field(KEY_SID_RELEASE, vsn->release, format, false, 1);
 		}
 
 		buffer_destroy(buf);
