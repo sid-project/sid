@@ -485,6 +485,7 @@ static int _sd_signal_event_handler(sd_event_source *sd_es, int sfd, uint32_t re
 	return ((sid_resource_signal_event_handler_t) es->handler)(es, &si, es->res);
 }
 
+/* This should not watch the SIGCHLD signal if sd_event_add_child() is also used */
 int sid_resource_create_signal_event_source(sid_resource_t *                    res,
                                             sid_resource_event_source_t **      es,
                                             sigset_t                            mask,
@@ -510,7 +511,7 @@ int sid_resource_create_signal_event_source(sid_resource_t *                    
 	}
 
 	if (res_event_loop->event_loop.signalfd == -1) {
-		res_event_loop->event_loop.signalfd = signalfd(-1, &mask, 0);
+		res_event_loop->event_loop.signalfd = signalfd(-1, &mask, SFD_NONBLOCK);
 		if (res_event_loop->event_loop.signalfd < 0) {
 			log_error(ID(res), "Failed to create signalfd.");
 			r = -errno;
