@@ -496,7 +496,7 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
 		int           i;
 		struct iovec *iov;
 
-		iov = (value->ext_flags & KV_STORE_VALUE_REF)? _get_ptr(value->data) : (struct iovec *) value->data;
+		iov = (value->ext_flags & KV_STORE_VALUE_REF) ? _get_ptr(value->data) : (struct iovec *) value->data;
 
 		iov_size = value->size * sizeof(struct iovec);
 		for (i = 0, data_size = 0; i < value->size; i++)
