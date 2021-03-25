@@ -48,6 +48,27 @@ struct args {
 	char **argv;
 };
 
+static int _usid_cmd_tree(struct args *args, output_format_t format, struct buffer *outbuf)
+{
+	struct buffer *           readbuf = NULL;
+	size_t                  size;
+	struct usid_msg_header *msg;
+	int                       r;
+
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_TREE, 0, NULL, NULL, &readbuf)) == 0) {
+		buffer_get_data(readbuf, (const void **) &msg, &size);
+		if (size < USID_MSG_HEADER_SIZE || msg->status & COMMAND_STATUS_FAILURE) {
+			buffer_destroy(readbuf);
+			return -1;
+		}
+		size -= USID_MSG_HEADER_SIZE;
+		buffer_add(outbuf, msg->data, size, &r);
+		buffer_destroy(readbuf);
+		return r;
+	}
+	return -1;
+}
+
 static int _usid_cmd_dump(struct args *args, output_format_t format, struct buffer *outbuf)
 {
 	struct buffer *         readbuf = NULL;
@@ -176,7 +197,7 @@ static int _usid_cmd_version(struct args *args, output_format_t format, struct b
 	print_uint_field(KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, format, outbuf, r == 0, 1);
 
 	if (r == 0) {
-		buffer_get_data(outbuf, (const void **) &hdr, &size);
+		buffer_get_data(readbuf, (const void **) &hdr, &size);
 
 		if (size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) {
 			vsn = (struct usid_version *) hdr->data;
@@ -295,6 +316,8 @@ int main(int argc, char *argv[])
 		case USID_CMD_DUMP:
 			r = _usid_cmd_dump(&subcmd_args, format, outbuf);
 			break;
+		case USID_CMD_TREE:
+			r = _usid_cmd_tree(&subcmd_args, format, outbuf);
 			break;
 		case USID_CMD_STATS:
 			r = _usid_cmd_stats(&subcmd_args, format, outbuf);
