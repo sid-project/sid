@@ -45,7 +45,8 @@ typedef enum
 	USID_CMD_VERSION    = 6,
 	USID_CMD_DUMP       = 7,
 	USID_CMD_STATS      = 8,
-	_USID_CMD_END       = USID_CMD_STATS,
+	USID_CMD_TREE       = 9,
+	_USID_CMD_END       = USID_CMD_TREE,
 } usid_cmd_t;
 
 static const char *const usid_cmd_names[] = {
@@ -58,6 +59,7 @@ static const char *const usid_cmd_names[] = {
 	[USID_CMD_VERSION]    = "version",
 	[USID_CMD_DUMP]       = "dump",
 	[USID_CMD_STATS]      = "stats",
+	[USID_CMD_TREE]       = "tree",
 };
 
 bool usid_cmd_root_only[] = {
@@ -70,6 +72,7 @@ bool usid_cmd_root_only[] = {
 	[USID_CMD_VERSION]    = false,
 	[USID_CMD_DUMP]       = false,
 	[USID_CMD_STATS]      = false,
+	[USID_CMD_TREE]       = false,
 };
 
 #define COMMAND_STATUS_MASK_OVERALL UINT64_C(0x0000000000000001)

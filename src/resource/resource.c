@@ -19,6 +19,8 @@
 
 #include "resource/resource.h"
 
+#include "base/buffer.h"
+#include "base/formatter.h"
 #include "base/list.h"
 #include "base/mem.h"
 #include "log/log.h"
@@ -996,6 +998,57 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 	}
 
 	return sd_event_exit(res->event_loop.sd_event_loop, 0);
+}
+
+void write_event_source_elem_fields(sid_resource_event_source_t *es, struct buffer *outbuf, bool add_comma, int level)
+{
+	print_str_field("name", (char *)es->name, JSON, outbuf, false, level);
+}
+
+void write_resource_elem_fields(sid_resource_t *res, struct buffer *outbuf, bool add_comma, int level)
+{
+	sid_resource_event_source_t *es, *tmp_es;
+	int                          es_count, item = 0;
+
+	print_str_field("ID", res->id, JSON, outbuf, true, level);
+	if (res->type != NULL && res->type->name != NULL)
+		print_str_field("type", (char *) res->type->name, JSON, outbuf, true, level);
+	es_count = list_size(&res->event_sources);
+	if (es_count != 0) {
+		print_start_array("event-sources", JSON, outbuf, level);
+		list_iterate_items_safe_back (es, tmp_es, &res->event_sources) {
+			item++;
+			print_start_elem(item != 1, JSON, outbuf, level);
+			write_event_source_elem_fields(es, outbuf, item != es_count, level + 1);
+			print_end_elem(JSON, outbuf, level);
+		}
+		print_end_array(true, JSON, outbuf, level);
+	}
+	print_uint_field("pid-created", res->pid_created, JSON, outbuf, true, level);
+	print_uint_field("flags", res->flags, JSON, outbuf, true, level);
+	print_int64_field("prio", res->prio, JSON, outbuf, add_comma, level);
+}
+
+int sid_resource_write_tree_recursively(sid_resource_t *res, bool add_comma, struct buffer *outbuf, int level)
+{
+	sid_resource_t *child_res;
+	int             count, item = 0;
+
+	count = list_size(&res->children);
+
+	print_start_elem(add_comma, JSON, outbuf, level);
+	write_resource_elem_fields(res, outbuf, count > 0, level + 1);
+	if (count > 0) {
+		print_start_array("children", JSON, outbuf, level + 1);
+		list_iterate_items (child_res, &res->children) {
+			sid_resource_write_tree_recursively(child_res, item > 0, outbuf, level + 2);
+			item++;
+		}
+		print_end_array(false, JSON, outbuf, level + 1);
+	}
+	print_end_elem(JSON, outbuf, level);
+
+	return 0;
 }
 
 void _dump_children_recursively_in_dot(sid_resource_t *res)

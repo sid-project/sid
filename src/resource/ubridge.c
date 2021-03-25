@@ -22,6 +22,7 @@
 #include "base/bitmap.h"
 #include "base/buffer.h"
 #include "base/comms.h"
+#include "base/formatter.h"
 #include "base/mem.h"
 #include "base/util.h"
 #include "iface/usid.h"
@@ -523,7 +524,6 @@ static int _write_kv_store_stats(struct usid_stats *stats, sid_resource_t *kv_st
 	size_t                 size;
 	kv_store_value_flags_t flags;
 	void *                 value;
-	int                    r;
 	size_t                 hash_size, int_size, int_data_size, ext_size, ext_data_size;
 
 	memset(stats, 0, sizeof(*stats));
@@ -1697,6 +1697,24 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	int                        r;
 
 	buffer_add(ucmd_ctx->res_buf, &version, sizeof(version), &r);
+	return r;
+}
+
+static int _cmd_exec_tree(struct cmd_exec_arg *exec_arg)
+{
+	int                  r;
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	char *               resource_tree_data;
+	size_t               size;
+
+	if ((r = sid_resource_write_tree_recursively(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
+	                                             false,
+	                                             ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                             0)) == 0) {
+		buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, NULL, "%s", "\n");
+		buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &resource_tree_data, &size);
+		buffer_add(ucmd_ctx->res_buf, resource_tree_data, size, &r);
+	}
 	return r;
 }
 
@@ -3185,6 +3203,7 @@ static struct cmd_reg _cmd_regs[] = {
 	[USID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
 	[USID_CMD_DUMP]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_dump},
 	[USID_CMD_STATS]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_stats},
+	[USID_CMD_TREE]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_tree},
 };
 
 static int _export_kv_store(sid_resource_t *cmd_res)
