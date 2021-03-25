@@ -290,7 +290,15 @@ struct cross_bitmap_calc_arg {
 };
 
 /*
- * Capability flags for scan phases.
+ * Generic flags for all commands.
+ */
+#define CMD_KV_IMPORT_UDEV UINT32_C(0x00000001) /* imports udev environment as KV_NS_UDEV records */
+#define CMD_KV_EXPORT_UDEV UINT32_C(0x00000002) /* exports KV_NS_UDEV+KV_PERSISTENT records to udev environment/db */
+#define CMD_KV_EXPORT_SID  UINT32_C(0x00000004) /* exports KV_NS_<!UDEV>+KV_PERSISTENT records to main sid db */
+#define CMD_SESSION_ID     UINT32_C(0x00000008) /* supports sessions */
+
+/*
+ * Capability flags for 'scan' command phases (phases are represented as subcommands).
  */
 #define CMD_SCAN_CAP_RDY UINT32_C(0x00000001) /* can set ready state */
 #define CMD_SCAN_CAP_RES UINT32_C(0x00000002) /* can set reserved state */
@@ -3177,11 +3185,11 @@ static int _cmd_exec_checkpoint(struct cmd_exec_arg *exec_arg)
 }
 
 static struct cmd_reg _cmd_regs[] = {
-	[USID_CMD_ACTIVE]     = {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
-	[USID_CMD_CHECKPOINT] = {.name = NULL, .flags = 0, .exec = _cmd_exec_checkpoint},
-	[USID_CMD_REPLY]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_reply},
-	[USID_CMD_SCAN]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_scan},
 	[USID_CMD_UNKNOWN]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
+	[USID_CMD_ACTIVE]     = {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
+	[USID_CMD_CHECKPOINT] = {.name = NULL, .flags = CMD_KV_IMPORT_UDEV, .exec = _cmd_exec_checkpoint},
+	[USID_CMD_REPLY]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_reply},
+	[USID_CMD_SCAN]       = {.name = NULL, .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_SESSION_ID, .exec = _cmd_exec_scan},
 	[USID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
 	[USID_CMD_DUMP]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_dump},
 	[USID_CMD_STATS]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_stats},
@@ -3260,6 +3268,12 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
+			if (!(_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV)) {
+				log_warning(ID(cmd_res),
+					    "Ignoring request to export record with key %s to udev.", key);
+				continue;
+			}
+
 			if (vector) {
 				log_error(ID(cmd_res),
 				          INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
@@ -3302,6 +3316,12 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		 *
 		 * Repeat 2) - 7) as long as there are keys to send.
 		 */
+
+		if (!(_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID)) {
+			log_warning(ID(cmd_res),
+				    "Ignoring request to export record with key %s to SID main KV store.", key);
+			continue;
+		}
 
 		/* FIXME: Try to reduce the "write" calls. */
 		if ((r_wr = write(export_fd, &flags, sizeof(flags))) == sizeof(flags))
@@ -3434,9 +3454,12 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		return -1;
 	}
 
-	if ((r = _export_kv_store(cmd_res)) < 0) {
-		log_error(ID(cmd_res), "Failed to synchronize key-value store.");
-		goto out;
+	if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV ||
+	    _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID) {
+		if ((r = _export_kv_store(cmd_res)) < 0) {
+			log_error(ID(cmd_res), "Failed to synchronize key-value store.");
+			goto out;
+		}
 	}
 out:
 	if (r < 0)
@@ -3642,7 +3665,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (msg->header->cmd == USID_CMD_SCAN) {
+	if (_cmd_regs[msg->header->cmd].flags & CMD_KV_IMPORT_UDEV) {
 		/* currently, we only parse udev environment for the SCAN command */
 		if ((r = _parse_cmd_nullstr_udev_env(ucmd_ctx, msg->header->data, msg->size - sizeof(*msg->header))) < 0) {
 			log_error_errno(ID(res), r, "Failed to parse udev environment variables");
@@ -3655,7 +3678,8 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!_do_sid_ucmd_set_kv(NULL,
+	if (_cmd_regs[msg->header->cmd].flags & CMD_SESSION_ID &&
+	    !_do_sid_ucmd_set_kv(NULL,
 	                         ucmd_ctx,
 	                         KV_NS_UDEV,
 	                         NULL,
