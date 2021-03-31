@@ -27,3 +27,9 @@ dm_la_LDFLAGS = -module -avoid-version
 
 dm_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 	       $(top_builddir)/src/log/libsidlog.la
+
+install-data-local:
+	$(MKDIR_P) $(pkglibdir)/modules/ucmd/type/dm
+
+uninstall-local:
+	rmdir $(pkglibdir)/modules/ucmd/type/dm
