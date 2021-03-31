@@ -27,6 +27,7 @@ Source0: https://github.com/sid-project/%{name}/archive/v%{version}/%{name}-%{ve
 
 BuildRequires: autoconf
 BuildRequires: automake
+BuildRequires: gperf
 BuildRequires: libtool
 BuildRequires: gcc
 BuildRequires: systemd-rpm-macros
