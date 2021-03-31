@@ -243,6 +243,11 @@ static void _help(FILE *f)
 	        "      Show stats for the SID daemon key value store.\n"
 	        "      Input:  None.\n"
 	        "      Output: Key value store stats.\n"
+	        "\n"
+	        "    tree\n"
+	        "      Show current SID resource tree.\n"
+	        "      Input:  None.\n"
+	        "      Output: Resource tree.\n"
 	        "\n");
 }
 
