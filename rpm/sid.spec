@@ -364,6 +364,28 @@ Instantiation Daemon (SID).
 %endif
 
 
+##############################################################################
+# SID-MOD-TYPE-DM
+##############################################################################
+
+%package mod-type-dm
+Summary: Device-mapper type module for Storage Instantiation Daemon (SID)
+Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+%description mod-type-dm
+This package contains device-mapper type module for Storage Instantiation
+Daemon (SID).
+
+%files mod-type-dm
+%dir %{_libdir}/sid
+%dir %{_libdir}/sid/modules
+%dir %{_libdir}/sid/modules/ucmd
+%dir %{_libdir}/sid/modules/ucmd/type
+%dir %{_libdir}/sid/modules/ucmd/type/dm
+%{_libdir}/sid/modules/ucmd/type/dm.so
+%doc README.md
+
+
 %changelog
 * Tue Oct 06 2020 Peter Rajnoha <prajnoha@redhat.com> - 0.0.4-1
 - Initial release.
