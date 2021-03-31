@@ -1002,7 +1002,7 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 
 void write_event_source_elem_fields(sid_resource_event_source_t *es, struct buffer *outbuf, bool add_comma, int level)
 {
-	print_str_field("name", (char *)es->name, JSON, outbuf, false, level);
+	print_str_field("name", (char *) es->name, JSON, outbuf, false, level);
 }
 
 void write_resource_elem_fields(sid_resource_t *res, struct buffer *outbuf, bool add_comma, int level)

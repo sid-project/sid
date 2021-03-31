@@ -50,10 +50,10 @@ struct args {
 
 static int _usid_cmd_tree(struct args *args, output_format_t format, struct buffer *outbuf)
 {
-	struct buffer *           readbuf = NULL;
+	struct buffer *         readbuf = NULL;
 	size_t                  size;
 	struct usid_msg_header *msg;
-	int                       r;
+	int                     r;
 
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_TREE, 0, NULL, NULL, &readbuf)) == 0) {
 		buffer_get_data(readbuf, (const void **) &msg, &size);
