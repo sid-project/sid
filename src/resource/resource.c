@@ -1051,46 +1051,48 @@ int sid_resource_write_tree_recursively(sid_resource_t *res, bool add_comma, str
 	return 0;
 }
 
+/*
 void _dump_children_recursively_in_dot(sid_resource_t *res)
 {
-	static const char ID[] = "DOT";
-	sid_resource_t *  child_res;
-	const char *      dir;
+        static const char ID[] = "DOT";
+        sid_resource_t *  child_res;
+        const char *      dir;
 
-	list_iterate_items (child_res, &res->children) {
-		log_print(ID, "\"%s\";", child_res->id);
+        list_iterate_items (child_res, &res->children) {
+                log_print(ID, "\"%s\";", child_res->id);
 
-		switch (child_res->flags & SID_RESOURCE_RESTRICT_MASK) {
-			case SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_RESTRICT_WALK_DOWN:
-				dir = " [dir=none]";
-				break;
-			case SID_RESOURCE_RESTRICT_WALK_UP:
-				dir = " [dir=forward]";
-				break;
-			case SID_RESOURCE_RESTRICT_WALK_DOWN:
-				dir = " [dir=back]";
-				break;
-			default:
-				dir = "[dir=both]";
-				break;
-		}
+                switch (child_res->flags & SID_RESOURCE_RESTRICT_MASK) {
+                        case SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_RESTRICT_WALK_DOWN:
+                                dir = " [dir=none]";
+                                break;
+                        case SID_RESOURCE_RESTRICT_WALK_UP:
+                                dir = " [dir=forward]";
+                                break;
+                        case SID_RESOURCE_RESTRICT_WALK_DOWN:
+                                dir = " [dir=back]";
+                                break;
+                        default:
+                                dir = "[dir=both]";
+                                break;
+                }
 
-		log_print(ID,
-		          "\"%s\" -> \"%s\" %s%s;",
-		          res->id,
-		          child_res->id,
-		          dir,
-		          child_res->flags & SID_RESOURCE_DISALLOW_ISOLATION ? " [color=red]" : "");
-		_dump_children_recursively_in_dot(child_res);
-	}
+                log_print(ID,
+                          "\"%s\" -> \"%s\" %s%s;",
+                          res->id,
+                          child_res->id,
+                          dir,
+                          child_res->flags & SID_RESOURCE_DISALLOW_ISOLATION ? " [color=red]" : "");
+                _dump_children_recursively_in_dot(child_res);
+        }
 }
 
 void sid_resource_dump_all_in_dot(sid_resource_t *res)
 {
-	static const char ID[] = "DOT";
+        static const char ID[] = "DOT";
 
-	log_print(ID, "digraph resources {");
-	log_print(ID, "\"%s\";", res->id);
-	_dump_children_recursively_in_dot(res);
-	log_print(ID, "}");
+        log_print(ID, "digraph resources {");
+        log_print(ID, "\"%s\";", res->id);
+        _dump_children_recursively_in_dot(res);
+        log_print(ID, "}");
 }
+*/

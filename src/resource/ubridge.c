@@ -2991,8 +2991,6 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
 
-	// sid_resource_dump_all_in_dot(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
-
 	if (!exec_arg->type_mod_res_current)
 		return 0;
 
@@ -4472,8 +4470,6 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	 * so we already have that preloaded for any possible workers.
 	 */
 	(void) util_cmdline_get_arg("root", NULL, NULL);
-
-	// sid_resource_dump_all_in_dot(sid_resource_search(res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
 	*data = ubridge;
 	return 0;

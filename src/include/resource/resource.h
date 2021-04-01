@@ -234,8 +234,7 @@ int sid_resource_exit_event_loop(sid_resource_t *res);
 /*
  * miscellanous functions
  */
-void sid_resource_dump_all_in_dot(sid_resource_t *res);
-int  sid_resource_write_tree_recursively(sid_resource_t *res, bool add_comma, struct buffer *outbuf, int level);
+int sid_resource_write_tree_recursively(sid_resource_t *res, bool add_comma, struct buffer *outbuf, int level);
 
 #ifdef __cplusplus
 }
