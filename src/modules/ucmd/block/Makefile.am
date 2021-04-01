@@ -24,4 +24,4 @@ SUBDIRS += dm_mpath
 endif
 
 uninstall-hook:
-	test -d ${pkglibdir}/modules/ucmd/block && rmdir ${pkglibdir}/modules/ucmd/block
+	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/block && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/block

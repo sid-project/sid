@@ -51,4 +51,4 @@ libsidresource_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 			   -ldl
 
 uninstall-hook:
-	test -d ${resourcedir} && rmdir ${resourcedir}
+	test -d ${DESTDIR}${resourcedir} && rmdir ${DESTDIR}${resourcedir}

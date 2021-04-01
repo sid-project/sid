@@ -33,4 +33,4 @@ libsidlog_la_LIBADD = $(SYSTEMD_LIBS)
 libsidlog_la_LDFLAGS = -version-info 0:0:0
 
 uninstall-hook:
-	test -d ${logdir} && rmdir ${logdir}
+	test -d ${DESTDIR}${logdir} && rmdir ${DESTDIR}${logdir}

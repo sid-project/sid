@@ -20,4 +20,4 @@
 SUBDIRS = ucmd
 
 uninstall-hook:
-	test -d ${pkglibdir}/modules && rmdir ${pkglibdir}/modules
+	test -d ${DESTDIR}${pkglibdir}/modules && rmdir ${DESTDIR}${pkglibdir}/modules

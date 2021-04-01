@@ -20,4 +20,4 @@
 SUBDIRS = type block
 
 uninstall-hook:
-	test -d ${pkglibdir}/modules/ucmd && rmdir ${pkglibdir}/modules/ucmd
+	test -d ${DESTDIR}${pkglibdir}/modules/ucmd && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd

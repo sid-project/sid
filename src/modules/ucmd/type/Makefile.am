@@ -20,4 +20,4 @@
 SUBDIRS = dummy_type dm
 
 uninstall-hook:
-	test -d ${pkglibdir}/modules/ucmd/type && rmdir ${pkglibdir}/modules/ucmd/type
+	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/type && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/type

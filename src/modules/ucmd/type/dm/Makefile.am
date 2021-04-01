@@ -29,7 +29,7 @@ dm_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 	       $(top_builddir)/src/log/libsidlog.la
 
 install-data-local:
-	$(MKDIR_P) $(pkglibdir)/modules/ucmd/type/dm
+	${MKDIR_P} ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm
 
 uninstall-local:
-	rmdir $(pkglibdir)/modules/ucmd/type/dm
+	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm

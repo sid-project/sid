@@ -49,4 +49,4 @@ libsidbase_la_LDFLAGS = -version-info 0:0:0
 libsidbase_la_LIBADD = $(UUID_LIBS)
 
 uninstall-hook:
-	test -d ${basedir} && rmdir ${basedir}
+	test -d ${DESTDIR}${basedir} && rmdir ${DESTDIR}${basedir}

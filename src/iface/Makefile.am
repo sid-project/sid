@@ -43,4 +43,4 @@ iface_usid_HEADERS = $(top_builddir)/src/include/iface/usid.h
 libsidiface_usid_la_LDFLAGS = -version-info 0:0:0
 
 uninstall-hook:
-	test -d ${ifacedir} && rmdir ${ifacedir}
+	test -d ${DESTDIR}${ifacedir} && rmdir ${DESTDIR}${ifacedir}
