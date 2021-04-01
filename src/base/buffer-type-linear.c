@@ -122,7 +122,7 @@ static int _buffer_linear_destroy(struct buffer *buf)
 			break;
 
 		default:
-			r = -ENOTSUP;
+			return -ENOTSUP;
 	}
 
 	return r;
@@ -225,7 +225,8 @@ static int _buffer_linear_rewind_mem(struct buffer *buf, const void *mem)
 
 static bool _buffer_linear_is_complete(struct buffer *buf, int *ret_code)
 {
-	bool result = false;
+	bool result;
+	int  r = 0;
 
 	switch (buf->stat.spec.mode) {
 		case BUFFER_MODE_PLAIN:
@@ -234,10 +235,14 @@ static bool _buffer_linear_is_complete(struct buffer *buf, int *ret_code)
 		case BUFFER_MODE_SIZE_PREFIX:
 			result = buf->stat.usage.used && buf->stat.usage.used == EXPECTED(buf);
 			break;
+		default:
+			r      = -ENOTSUP;
+			result = false;
 	}
 
 	if (ret_code)
-		*ret_code = 0;
+		*ret_code = r;
+
 	return result;
 }
 
@@ -256,6 +261,8 @@ static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t
 			if (data_size)
 				*data_size = buf->stat.usage.used - MSG_SIZE_PREFIX_LEN;
 			break;
+		default:
+			return -ENOTSUP;
 	}
 
 	return 0;
@@ -324,6 +331,8 @@ static ssize_t _buffer_linear_read(struct buffer *buf, int fd)
 			return _buffer_linear_read_plain(buf, fd);
 		case BUFFER_MODE_SIZE_PREFIX:
 			return _buffer_linear_read_with_size_prefix(buf, fd);
+		default:
+			return -ENOTSUP;
 	}
 }
 

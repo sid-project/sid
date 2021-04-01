@@ -170,6 +170,8 @@ int _buffer_vector_reset(struct buffer *buf)
 			case BUFFER_MODE_SIZE_PREFIX:
 				needed = 1;
 				break;
+			default:
+				return -ENOTSUP;
 		}
 	}
 
@@ -269,6 +271,9 @@ int _buffer_vector_get_data(struct buffer *buf, const void **data, size_t *data_
 			if (data_size)
 				*data_size = buf->stat.usage.used - 1;
 			break;
+		default:
+			return -ENOTSUP;
+			;
 	}
 
 	return 0;
@@ -291,9 +296,9 @@ ssize_t _buffer_vector_read(struct buffer *buf, int fd)
 			return _buffer_vector_read_plain(buf, fd);
 		case BUFFER_MODE_SIZE_PREFIX:
 			return _buffer_vector_read_with_size_prefix(buf, fd);
+		default:
+			return -ENOTSUP;
 	}
-
-	return -1;
 }
 
 ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
