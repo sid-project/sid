@@ -26,6 +26,7 @@
 #include "log/log.h"
 #include "resource/resource.h"
 
+#include <sys/prctl.h>
 #include <unistd.h>
 
 #define WORKER_CONTROL_NAME "worker-control"
@@ -98,6 +99,7 @@ struct worker {
 	struct worker_channel_spec *channel_specs;
 	struct worker_channel *     channels; /* NULL-terminated array of worker --> worker_proxy channels */
 	unsigned                    channel_count;
+	unsigned                    parent_exited;
 };
 
 static void _change_worker_proxy_state(sid_resource_t *worker_proxy_res, worker_state_t state)
@@ -708,6 +710,10 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		 *  WORKER HERE
 		 */
 
+		/* request a SIGUSR1 signal if parent dies */
+		if (prctl(PR_SET_PDEATHSIG, SIGUSR1) < 0)
+			log_sys_error(ID(worker_control_res), "prctl() failed", "");
+
 		_destroy_channels(worker_proxy_channels, worker_control->channel_spec_count);
 		worker_proxy_channels = NULL;
 
@@ -841,7 +847,6 @@ out:
 	/* run event loop in worker's top-level resource */
 	if (r == 0)
 		r = sid_resource_run_event_loop(res);
-
 	if (res)
 		(void) sid_resource_destroy(res);
 
@@ -895,6 +900,7 @@ const char *worker_control_get_worker_id(sid_resource_t *res)
 /* FIXME: Consider making this a part of event loop. */
 static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_t cmd, struct worker_data_spec *data_spec)
 {
+	struct worker *      worker;
 	static unsigned char byte     = 0xFF;
 	int                  has_data = data_spec && data_spec->data && data_spec->data_size;
 	ssize_t              n;
@@ -1027,7 +1033,10 @@ int worker_control_worker_yield(sid_resource_t *res)
 	for (i = 0; i < worker->channel_count; i++) {
 		chan = &worker->channels[i];
 		if (chan->spec->wire.type == WORKER_WIRE_PIPE_TO_PROXY || chan->spec->wire.type == WORKER_WIRE_SOCKET)
-			return _chan_buf_send(chan, WORKER_CHANNEL_CMD_YIELD, NULL);
+			if (worker->parent_exited == 0)
+				return _chan_buf_send(chan, WORKER_CHANNEL_CMD_YIELD, NULL);
+			else
+				raise(SIGTERM);
 	}
 
 	return -ENOTCONN;
@@ -1083,9 +1092,23 @@ static int _on_worker_proxy_idle_timeout_event(sid_resource_event_source_t *es, 
 static int _on_worker_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *arg)
 {
 	sid_resource_t *res = arg;
+	struct worker * worker;
 
 	log_debug(ID(res), "Received signal %d from %d.", si->ssi_signo, si->ssi_pid);
-	sid_resource_exit_event_loop(res);
+
+	switch (si->ssi_signo) {
+		case SIGTERM:
+		case SIGINT:
+			sid_resource_exit_event_loop(res);
+			break;
+		case SIGUSR1:
+			worker = sid_resource_get_data(res);
+			if (worker != NULL)
+				worker->parent_exited = 1;
+			break;
+		default:
+			break;
+	};
 
 	return 0;
 }
@@ -1147,6 +1170,7 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGTERM);
 	sigaddset(&mask, SIGINT);
+	sigaddset(&mask, SIGUSR1);
 
 	if (!(worker = mem_zalloc(sizeof(*worker)))) {
 		log_error(ID(worker_res), "Failed to allocate new worker structure.");
@@ -1156,6 +1180,7 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 	worker->channel_specs = kickstart->channel_specs;
 	worker->channels      = kickstart->channels;
 	worker->channel_count = kickstart->channel_count;
+	worker->parent_exited = 0;
 
 	if (sid_resource_create_signal_event_source(worker_res,
 	                                            NULL,
