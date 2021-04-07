@@ -29,6 +29,7 @@ BuildRequires: autoconf
 BuildRequires: automake
 BuildRequires: gperf
 BuildRequires: libtool
+BuildRequires: multilib-rpm-config
 BuildRequires: gcc
 BuildRequires: systemd-rpm-macros
 BuildRequires: systemd-devel >= 221
@@ -75,6 +76,7 @@ make DESTDIR=%{buildroot} install
 rm -f %{buildroot}/%{_libdir}/sid/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/block/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/*.{a,la}
+%multilib_fix_c_header --file %{_includedir}/sid/config.h
 
 %files
 %license COPYING
@@ -130,7 +132,7 @@ base libraries.
 %dir %{_libdir}/sid
 %{_libdir}/sid/libsidbase.so
 %dir %{_includedir}/sid
-%{_includedir}/sid/config.h
+%{_includedir}/sid/config*.h
 %dir %{_includedir}/sid/base
 %{_includedir}/sid/base/bitmap.h
 %{_includedir}/sid/base/buffer-common.h
