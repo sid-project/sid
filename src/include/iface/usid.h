@@ -70,9 +70,9 @@ bool usid_cmd_root_only[] = {
 	[USID_CMD_REPLY]      = false,
 	[USID_CMD_SCAN]       = true,
 	[USID_CMD_VERSION]    = false,
-	[USID_CMD_DUMP]       = false,
-	[USID_CMD_STATS]      = false,
-	[USID_CMD_TREE]       = false,
+	[USID_CMD_DUMP]       = true,
+	[USID_CMD_STATS]      = true,
+	[USID_CMD_TREE]       = true,
 };
 
 #define COMMAND_STATUS_MASK_OVERALL UINT64_C(0x0000000000000001)
