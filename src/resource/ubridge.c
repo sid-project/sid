@@ -3226,7 +3226,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	kv_store_value_flags_t  flags;
 	struct iovec *          iov;
 	int                     export_fd     = -1;
-	size_t                  bytes_written = 0;
+	size_t                  bytes_written = sizeof(bytes_written);
 	struct worker_data_spec data_spec;
 	unsigned                i;
 	ssize_t                 r_wr;
@@ -3415,7 +3415,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	data_spec.ext.used           = true;
 	data_spec.ext.socket.fd_pass = export_fd;
 
-	if (bytes_written)
+	if (bytes_written > sizeof(bytes_written))
 		worker_control_channel_send(cmd_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
 
 	r = 0;
@@ -3839,8 +3839,8 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 		goto out;
 	}
 
-	p += sizeof(msg_size);
 	end = p + msg_size;
+	p += sizeof(msg_size);
 
 	while (p < end) {
 		flags = *((kv_store_value_flags_t *) p);
