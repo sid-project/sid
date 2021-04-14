@@ -3304,6 +3304,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 				          INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
 				          __func__,
 				          key);
+				r = -ENOTSUP;
 				goto out;
 			}
 			key = _get_key_part(key, KEY_PART_CORE, NULL);
