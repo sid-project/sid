@@ -3214,39 +3214,26 @@ static struct cmd_reg _cmd_regs[] = {
 	[USID_CMD_TREE]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_tree},
 };
 
-static int _export_kv_store(sid_resource_t *cmd_res)
+static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool export_udev, bool export_sid, bool persistent_only)
 {
-	struct sid_ucmd_ctx *   ucmd_ctx = sid_resource_get_data(cmd_res);
-	struct kv_value *       kv_value;
-	kv_store_iter_t *       iter;
-	const char *            key;
-	void *                  value;
-	bool                    vector;
-	size_t                  size, iov_size, key_size, data_offset;
-	kv_store_value_flags_t  flags;
-	struct iovec *          iov;
-	struct worker_data_spec data_spec;
-	unsigned                i;
-	int                     r          = -1;
-	struct buffer *         export_buf = NULL;
-	size_t *                size_ptr;
+	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
+	struct kv_value *      kv_value;
+	kv_store_iter_t *      iter;
+	const char *           key;
+	void *                 value;
+	bool                   vector;
+	size_t                 size, iov_size, key_size, data_offset;
+	kv_store_value_flags_t flags;
+	struct iovec *         iov;
+	unsigned               i;
+	int                    r          = -1;
+	struct buffer *        export_buf = NULL;
+	size_t *               size_ptr;
 
-	/*
-	 * Export key-value store to udev or for sync with main kv store.
-	 *
-	 * For udev, we append key=value pairs to the output buffer that is sent back
-	 * to udev as result of "usid scan" command.
-	 *
-	 * For others, we serialize the temp key-value store to an anonymous file in memory
-	 * created by memfd_create. Then we pass the file FD over to worker proxy that reads
-	 * it and it updates the "main" key-value store.
-	 *
-	 * We only send key=value pairs which are marked with KV_PERSISTENT flag.
-	 */
 	if (!(iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res))) {
 		// TODO: Discard udev kv-store we've already appended to the output buffer!
 		log_error(ID(cmd_res), "Failed to create iterator for temp key-value store.");
-		goto out;
+		goto fail;
 	}
 
 	if (!(export_buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MEMFD,
@@ -3255,14 +3242,14 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	                                 &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
 	                                 &r))) {
 		log_error(ID(cmd_res), "Failed to create export buffer.");
-		goto out;
+		goto fail;
 	}
 
 	/* Reserve space to write the overall data size. */
 	size = 0;
 	if (!buffer_add(export_buf, &size, sizeof(size), &r)) {
 		log_error_errno(ID(cmd_res), errno, "buffer_add failed");
-		goto out;
+		goto fail;
 	};
 
 	// FIXME: maybe buffer first so there's only single write
@@ -3274,19 +3261,23 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 			iov_size = size;
 			kv_value = NULL;
 
-			if (!(KV_VALUE_FLAGS(iov) & KV_PERSISTENT))
-				continue;
+			if (persistent_only) {
+				if (!(KV_VALUE_FLAGS(iov) & KV_PERSISTENT))
+					continue;
 
-			KV_VALUE_FLAGS(iov) &= ~KV_PERSISTENT;
+				KV_VALUE_FLAGS(iov) &= ~KV_PERSISTENT;
+			}
 		} else {
 			iov      = NULL;
 			iov_size = 0;
 			kv_value = value;
 
-			if (!(kv_value->flags & KV_PERSISTENT))
-				continue;
+			if (persistent_only) {
+				if (!(kv_value->flags & KV_PERSISTENT))
+					continue;
 
-			kv_value->flags &= ~KV_PERSISTENT;
+				kv_value->flags &= ~KV_PERSISTENT;
+			}
 		}
 
 		key      = kv_store_iter_current_key(iter);
@@ -3294,7 +3285,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
-			if (!(_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV)) {
+			if (!export_udev) {
 				log_warning(ID(cmd_res), "Ignoring request to export record with key %s to udev.", key);
 				continue;
 			}
@@ -3305,19 +3296,19 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 				          __func__,
 				          key);
 				r = -ENOTSUP;
-				goto out;
+				goto fail;
 			}
 			key = _get_key_part(key, KEY_PART_CORE, NULL);
 			if (!buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), &r) ||
 			    !buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, &r))
-				goto out;
+				goto fail;
 			data_offset = _kv_value_ext_data_offset(kv_value);
 			if (!buffer_add(ucmd_ctx->res_buf,
 			                kv_value->data + data_offset,
 			                strlen(kv_value->data + data_offset),
 			                &r) ||
 			    !buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, &r))
-				goto out;
+				goto fail;
 			continue;
 		}
 
@@ -3343,7 +3334,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		 * Repeat 2) - 7) as long as there are keys to send.
 		 */
 
-		if (!(_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID)) {
+		if (!export_sid) {
 			log_warning(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
 			continue;
 		}
@@ -3352,7 +3343,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 		    !buffer_add(export_buf, &key_size, sizeof(key_size), &r) || !buffer_add(export_buf, &size, sizeof(size), &r) ||
 		    !buffer_add(export_buf, (char *) key, strlen(key) + 1, &r)) {
 			log_error_errno(ID(cmd_res), errno, "buffer_add failed");
-			goto out;
+			goto fail;
 		}
 
 		if (vector) {
@@ -3362,33 +3353,68 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 				if (!buffer_add(export_buf, &iov[i].iov_len, sizeof(iov->iov_len), &r) ||
 				    !buffer_add(export_buf, iov[i].iov_base, iov[i].iov_len, &r)) {
 					log_error_errno(ID(cmd_res), errno, "buffer_add failed");
-					goto out;
+					goto fail;
 				}
 			}
 		} else if (!buffer_add(export_buf, kv_value, size, &r)) {
 			log_error_errno(ID(cmd_res), errno, "write failed");
-			goto out;
+			goto fail;
 		}
 	}
 	buffer_get_data(export_buf, (const void **) &size_ptr, &size);
 	*size_ptr = size;
+
+	*buf = export_buf;
+	kv_store_iter_destroy(iter);
+	return 0;
+
+fail:
+	if (iter)
+		kv_store_iter_destroy(iter);
+	if (export_buf)
+		buffer_destroy(export_buf);
+	*buf = NULL;
+
+	return r;
+}
+
+static int _export_kv_store(sid_resource_t *cmd_res)
+{
+	struct sid_ucmd_ctx *   ucmd_ctx = sid_resource_get_data(cmd_res);
+	struct buffer *         export_buf;
+	struct worker_data_spec data_spec;
+	size_t *                size_ptr, size;
+	int                     r;
+	/*
+	 * Export key-value store to udev or for sync with main kv store.
+	 *
+	 * For udev, we append key=value pairs to the output buffer that is sent back
+	 * to udev as result of "usid scan" command.
+	 *
+	 * For others, we serialize the temp key-value store to an anonymous file in memory
+	 * created by memfd_create. Then we pass the file FD over to worker proxy that reads
+	 * it and it updates the "main" key-value store.
+	 *
+	 * We only send key=value pairs which are marked with KV_PERSISTENT flag.
+	 */
+	if ((r = _build_kv_buffer(cmd_res,
+	                          &export_buf,
+	                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV,
+	                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID,
+	                          true)) < 0)
+		return r;
 
 	data_spec.data               = NULL;
 	data_spec.data_size          = 0;
 	data_spec.ext.used           = true;
 	data_spec.ext.socket.fd_pass = buffer_get_fd(export_buf);
 
+	buffer_get_data(export_buf, (const void **) &size_ptr, &size);
 	if (size > sizeof(size))
 		worker_control_channel_send(cmd_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
+	buffer_destroy(export_buf);
 
-	r = 0;
-out:
-	if (iter)
-		kv_store_iter_destroy(iter);
-	if (export_buf)
-		buffer_destroy(export_buf);
-
-	return r;
+	return 0;
 }
 
 static int _connection_cleanup(sid_resource_t *conn_res)
