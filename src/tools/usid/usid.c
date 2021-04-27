@@ -70,7 +70,7 @@ static int _usid_cmd_active(struct args *args)
 
 	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, seqnum, NULL, NULL, &buf)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, seqnum, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
 		if ((size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) && (hdr->prot == USID_PROTOCOL))
@@ -192,7 +192,7 @@ static int _usid_cmd_checkpoint(struct args *args)
 
 	seqnum = val;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_CHECKPOINT, seqnum, _add_checkpoint_env_to_buf, args, &buf)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_CHECKPOINT, seqnum, _add_checkpoint_env_to_buf, args, &buf, NULL)) == 0) {
 		r = _print_env_from_buffer(buf);
 		buffer_destroy(buf);
 	}
@@ -230,7 +230,7 @@ static int _usid_cmd_scan(struct args *args)
 
 	seqnum = val;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_SCAN, seqnum, _add_scan_env_to_buf, NULL, &buf)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_SCAN, seqnum, _add_scan_env_to_buf, NULL, &buf, NULL)) == 0) {
 		r = _print_env_from_buffer(buf);
 		buffer_destroy(buf);
 	}
@@ -258,7 +258,7 @@ static int _usid_cmd_version(struct args *args)
 	        SID_VERSION_MINOR,
 	        SID_VERSION_RELEASE);
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, seqnum, NULL, NULL, &buf)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, seqnum, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
 		if (size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) {

@@ -125,7 +125,8 @@ int        usid_req(const char *       prefix,
                     uint64_t           status,
                     usid_req_data_fn_t data_fn,
                     void *             data_fn_arg,
-                    struct buffer **   resp_buf);
+                    struct buffer **   resp_buf,
+                    int *              resp_fd);
 
 #ifdef __cplusplus
 }
