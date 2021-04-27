@@ -45,12 +45,14 @@ int usid_req(const char *       prefix,
              uint64_t           status,
              usid_req_data_fn_t data_fn,
              void *             data_fn_arg,
-             struct buffer **   resp_buf)
+             struct buffer **   resp_buf,
+             int *              resp_fd)
 {
 	int            socket_fd = -1;
 	struct buffer *buf       = NULL;
 	ssize_t        n;
 	int            r = -1;
+	unsigned char  byte;
 
 	if (!(buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
 	                                                  .type    = BUFFER_TYPE_LINEAR,
@@ -105,11 +107,25 @@ int usid_req(const char *       prefix,
 			break;
 		}
 	}
+	if (resp_fd) {
+		for (;;) {
+			n = comms_unix_recv(socket_fd, &byte, sizeof(byte), resp_fd);
+			if (n >= 0)
+				break;
+			if (n == -EAGAIN || n == -EINTR)
+				continue;
+			log_error_errno(prefix, r, "Failed to recv file descriptor");
+			r = -1;
+			break;
+		}
+	}
 out:
 	if (socket_fd >= 0)
 		close(socket_fd);
 
 	if (r < 0) {
+		if (resp_fd)
+			*resp_fd = -1;
 		if (buf)
 			buffer_destroy(buf);
 	} else
