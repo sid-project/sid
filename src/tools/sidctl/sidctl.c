@@ -30,6 +30,8 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #define LOG_PREFIX "sidctl"
 
@@ -72,80 +74,39 @@ static int _usid_cmd_tree(struct args *args, output_format_t format, struct buff
 static int _usid_cmd_dump(struct args *args, output_format_t format, struct buffer *outbuf)
 {
 	struct buffer *         readbuf = NULL;
-	char *                  data, *ptr;
-	size_t                  size;
+	size_t                  msg_size;
 	struct usid_msg_header *msg;
-	struct usid_dump_header hdr;
 	int                     r;
-	unsigned int            i = 0, j;
-	uint32_t                len;
-	bool                    needs_comma = false;
+	int                     fd  = -1;
+	char *                  shm = NULL;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_DUMP, 0, NULL, NULL, &readbuf, NULL)) == 0) {
-		buffer_get_data(readbuf, (const void **) &msg, &size);
-		if (size < USID_MSG_HEADER_SIZE || msg->status & COMMAND_STATUS_FAILURE) {
-			buffer_destroy(readbuf);
-			return -1;
-		}
-		size -= USID_MSG_HEADER_SIZE;
-		ptr = data = msg->data;
-		print_start_document(format, outbuf, 0);
-		print_start_array("siddb", format, outbuf, 1);
-		while (ptr < data + size) {
-			memcpy(&hdr, ptr, sizeof(hdr));
-			if (hdr.data_count == 0) { /* check for dummy entry */
-				break;
-			}
-			print_start_elem(needs_comma, format, outbuf, 2);
-			ptr += sizeof(hdr);
-			memcpy(&len, ptr, sizeof(len)); /* get key */
-			ptr += sizeof(len);
-			print_uint_field("RECORD", i, format, outbuf, true, 3);
-			print_str_field("key", ptr, format, outbuf, true, 3);
-
-			ptr += len;
-			memcpy(&len, ptr, sizeof(len)); /* get owner */
-			ptr += sizeof(len);
-
-			print_uint_field("seqnum", hdr.seqnum, format, outbuf, true, 3);
-			print_start_array("flags", format, outbuf, 3);
-			print_bool_array_elem("KV_PERSISTENT", hdr.flags & KV_PERSISTENT, format, outbuf, true, 4);
-			print_bool_array_elem("KV_MOD_PROTECTED", hdr.flags & KV_MOD_PROTECTED, format, outbuf, true, 4);
-			print_bool_array_elem("KV_MOD_PRIVATE", hdr.flags & KV_MOD_PRIVATE, format, outbuf, true, 4);
-			print_bool_array_elem("KV_MOD_RESERVED", hdr.flags & KV_MOD_RESERVED, format, outbuf, false, 4);
-			print_end_array(true, format, outbuf, 3);
-			print_str_field("owner", ptr, format, outbuf, true, 3);
-
-			ptr += len;
-			print_start_array("values", format, outbuf, 3);
-			if (hdr.data_count == 1) {
-				memcpy(&len, ptr, sizeof(len));
-				ptr += sizeof(len);
-				if (len == 0)
-					print_str_array_elem("", format, outbuf, false, 4);
-				else
-					print_str_array_elem(ptr, format, outbuf, false, 4);
-				ptr += len;
-			} else {
-				for (j = 0; j < hdr.data_count; j++) {
-					memcpy(&len, ptr, sizeof(len));
-					ptr += sizeof(len);
-					if (len == 0)
-						print_uint_array_elem(j, format, outbuf, j + 1 < hdr.data_count, 4);
-					else
-						print_str_array_elem(ptr, format, outbuf, j + 1 < hdr.data_count, 4);
-					ptr += len;
-				}
-			}
-			print_end_array(false, format, outbuf, 3);
-			i++;
-			print_end_elem(format, outbuf, 2);
-			needs_comma = true;
-		}
-		print_end_array(false, format, outbuf, 1);
-		print_end_document(format, outbuf, 0);
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_DUMP, 0, NULL, NULL, &readbuf, &fd)) < 0)
+		return r;
+	buffer_get_data(readbuf, (const void **) &msg, &msg_size);
+	if (msg_size < USID_MSG_HEADER_SIZE || msg->status & COMMAND_STATUS_FAILURE) {
 		buffer_destroy(readbuf);
+		r = -1;
+		goto out;
 	}
+	buffer_destroy(readbuf);
+	if (read(fd, &msg_size, sizeof(msg_size)) != sizeof(msg_size)) {
+		log_error_errno(LOG_PREFIX, errno, "Failed to read shared memory size");
+		r = -errno;
+		goto out;
+	}
+	if ((shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+		log_error_errno(LOG_PREFIX, errno, "Failed to map memory with key-value store");
+		r = -errno;
+		goto out;
+	}
+	r = sid_ucmd_print_exported_kv_store(LOG_PREFIX, shm + sizeof(msg_size), msg_size - sizeof(msg_size), format, outbuf);
+out:
+	if (shm && munmap(shm, msg_size) < 0) {
+		log_error_errno(LOG_PREFIX, errno, "Failed to unmap memory with key-value store");
+		r = -1;
+	}
+	if (fd > -1)
+		close(fd);
 	return r;
 }
 
