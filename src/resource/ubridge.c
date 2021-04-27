@@ -3471,8 +3471,11 @@ out:
 	if (r < 0)
 		response_header.status |= COMMAND_STATUS_FAILURE;
 
-	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0)
+	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
 		(void) _connection_cleanup(conn_res);
+		log_error(ID(cmd_res), "Failed to write out command response");
+		r = -1;
+	}
 
 	return r;
 }
