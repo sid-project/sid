@@ -67,6 +67,7 @@ void print_bool_array_elem(char *          field_name,
                            int             level);
 void print_uint_array_elem(uint value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
 void print_str_array_elem(char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
+void print_null_byte(struct buffer *buf);
 
 #ifdef __cplusplus
 }
