@@ -794,6 +794,170 @@ static size_t _kv_value_ext_data_offset(struct kv_value *kv_value)
 	return strlen(kv_value->data) + 1;
 }
 
+static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool export_udev, bool export_sid, bool persistent_only)
+{
+	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
+	struct kv_value *      kv_value;
+	kv_store_iter_t *      iter;
+	const char *           key;
+	void *                 value;
+	bool                   vector;
+	size_t                 size, iov_size, key_size, data_offset;
+	kv_store_value_flags_t flags;
+	struct iovec *         iov;
+	unsigned               i;
+	int                    r          = -1;
+	struct buffer *        export_buf = NULL;
+	size_t *               size_ptr;
+
+	if (!(iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res))) {
+		// TODO: Discard udev kv-store we've already appended to the output buffer!
+		log_error(ID(cmd_res), "Failed to create iterator for temp key-value store.");
+		goto fail;
+	}
+
+	if (!(export_buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MEMFD,
+	                                                         .type    = BUFFER_TYPE_LINEAR,
+	                                                         .mode    = BUFFER_MODE_PLAIN}),
+	                                 &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
+	                                 &r))) {
+		log_error(ID(cmd_res), "Failed to create export buffer.");
+		goto fail;
+	}
+
+	/* Reserve space to write the overall data size. */
+	size = 0;
+	if (!buffer_add(export_buf, &size, sizeof(size), &r)) {
+		log_error_errno(ID(cmd_res), errno, "buffer_add failed");
+		goto fail;
+	};
+
+	// FIXME: maybe buffer first so there's only single write
+	while ((value = kv_store_iter_next(iter, &size, &flags))) {
+		vector = flags & KV_STORE_VALUE_VECTOR;
+
+		if (vector) {
+			iov      = value;
+			iov_size = size;
+			kv_value = NULL;
+
+			if (persistent_only) {
+				if (!(KV_VALUE_FLAGS(iov) & KV_PERSISTENT))
+					continue;
+
+				KV_VALUE_FLAGS(iov) &= ~KV_PERSISTENT;
+			}
+		} else {
+			iov      = NULL;
+			iov_size = 0;
+			kv_value = value;
+
+			if (persistent_only) {
+				if (!(kv_value->flags & KV_PERSISTENT))
+					continue;
+
+				kv_value->flags &= ~KV_PERSISTENT;
+			}
+		}
+
+		key      = kv_store_iter_current_key(iter);
+		key_size = strlen(key) + 1;
+
+		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
+		if (_get_ns_from_key(key) == KV_NS_UDEV) {
+			if (!export_udev) {
+				log_warning(ID(cmd_res), "Ignoring request to export record with key %s to udev.", key);
+				continue;
+			}
+
+			if (vector) {
+				log_error(ID(cmd_res),
+				          INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
+				          __func__,
+				          key);
+				r = -ENOTSUP;
+				goto fail;
+			}
+			key = _get_key_part(key, KEY_PART_CORE, NULL);
+			if (!buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), &r) ||
+			    !buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, &r))
+				goto fail;
+			data_offset = _kv_value_ext_data_offset(kv_value);
+			if (!buffer_add(ucmd_ctx->res_buf,
+			                kv_value->data + data_offset,
+			                strlen(kv_value->data + data_offset),
+			                &r) ||
+			    !buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, &r))
+				goto fail;
+			continue;
+		}
+
+		/*
+		 * Export keys with data to main process.
+		 *
+		 * Serialization format fields:
+		 *
+		 *  1) overall message size (size_t)
+		 *  2) flags                (uint32_t)
+		 *  3) key size             (size_t)
+		 *  4) data size            (size_t)
+		 *  5) key                  (key_size)
+		 *  6) data                 (data_size)
+		 *
+		 * If "data" is a vector, then "data size" denotes vector
+		 * item count and "data" is split into these fields repeated
+		 * for each vector item:
+		 *
+		 *  6a) vector item size
+		 *  6b) vector item data
+		 *
+		 * Repeat 2) - 7) as long as there are keys to send.
+		 */
+
+		if (!export_sid) {
+			log_warning(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
+			continue;
+		}
+
+		if (!buffer_add(export_buf, &flags, sizeof(flags), &r) ||
+		    !buffer_add(export_buf, &key_size, sizeof(key_size), &r) || !buffer_add(export_buf, &size, sizeof(size), &r) ||
+		    !buffer_add(export_buf, (char *) key, strlen(key) + 1, &r)) {
+			log_error_errno(ID(cmd_res), errno, "buffer_add failed");
+			goto fail;
+		}
+
+		if (vector) {
+			for (i = 0, size = 0; i < iov_size; i++) {
+				size += iov[i].iov_len;
+
+				if (!buffer_add(export_buf, &iov[i].iov_len, sizeof(iov->iov_len), &r) ||
+				    !buffer_add(export_buf, iov[i].iov_base, iov[i].iov_len, &r)) {
+					log_error_errno(ID(cmd_res), errno, "buffer_add failed");
+					goto fail;
+				}
+			}
+		} else if (!buffer_add(export_buf, kv_value, size, &r)) {
+			log_error_errno(ID(cmd_res), errno, "write failed");
+			goto fail;
+		}
+	}
+	buffer_get_data(export_buf, (const void **) &size_ptr, &size);
+	*size_ptr = size;
+
+	*buf = export_buf;
+	kv_store_iter_destroy(iter);
+	return 0;
+
+fail:
+	if (iter)
+		kv_store_iter_destroy(iter);
+	if (export_buf)
+		buffer_destroy(export_buf);
+	*buf = NULL;
+
+	return r;
+}
+
 static int _passes_global_reservation_check(struct sid_ucmd_ctx *   ucmd_ctx,
                                             const char *            owner,
                                             sid_ucmd_kv_namespace_t ns,
@@ -1684,6 +1848,21 @@ out:
 	if (f)
 		fclose(f);
 	return mod_name;
+}
+
+static int _connection_cleanup(sid_resource_t *conn_res)
+{
+	sid_resource_t *worker_res = sid_resource_search(conn_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
+
+	sid_resource_destroy(conn_res);
+
+	// TODO: If there are more connections per worker used,
+	// 	 then check if this is the last connection.
+	// 	 If it's not the last one, then do not yield the worker.
+
+	(void) worker_control_worker_yield(worker_res);
+
+	return 0;
 }
 
 static int _cmd_exec_unknown(struct cmd_exec_arg *exec_arg)
@@ -3214,170 +3393,6 @@ static struct cmd_reg _cmd_regs[] = {
 	[USID_CMD_TREE]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_tree},
 };
 
-static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool export_udev, bool export_sid, bool persistent_only)
-{
-	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
-	struct kv_value *      kv_value;
-	kv_store_iter_t *      iter;
-	const char *           key;
-	void *                 value;
-	bool                   vector;
-	size_t                 size, iov_size, key_size, data_offset;
-	kv_store_value_flags_t flags;
-	struct iovec *         iov;
-	unsigned               i;
-	int                    r          = -1;
-	struct buffer *        export_buf = NULL;
-	size_t *               size_ptr;
-
-	if (!(iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res))) {
-		// TODO: Discard udev kv-store we've already appended to the output buffer!
-		log_error(ID(cmd_res), "Failed to create iterator for temp key-value store.");
-		goto fail;
-	}
-
-	if (!(export_buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MEMFD,
-	                                                         .type    = BUFFER_TYPE_LINEAR,
-	                                                         .mode    = BUFFER_MODE_PLAIN}),
-	                                 &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
-	                                 &r))) {
-		log_error(ID(cmd_res), "Failed to create export buffer.");
-		goto fail;
-	}
-
-	/* Reserve space to write the overall data size. */
-	size = 0;
-	if (!buffer_add(export_buf, &size, sizeof(size), &r)) {
-		log_error_errno(ID(cmd_res), errno, "buffer_add failed");
-		goto fail;
-	};
-
-	// FIXME: maybe buffer first so there's only single write
-	while ((value = kv_store_iter_next(iter, &size, &flags))) {
-		vector = flags & KV_STORE_VALUE_VECTOR;
-
-		if (vector) {
-			iov      = value;
-			iov_size = size;
-			kv_value = NULL;
-
-			if (persistent_only) {
-				if (!(KV_VALUE_FLAGS(iov) & KV_PERSISTENT))
-					continue;
-
-				KV_VALUE_FLAGS(iov) &= ~KV_PERSISTENT;
-			}
-		} else {
-			iov      = NULL;
-			iov_size = 0;
-			kv_value = value;
-
-			if (persistent_only) {
-				if (!(kv_value->flags & KV_PERSISTENT))
-					continue;
-
-				kv_value->flags &= ~KV_PERSISTENT;
-			}
-		}
-
-		key      = kv_store_iter_current_key(iter);
-		key_size = strlen(key) + 1;
-
-		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
-		if (_get_ns_from_key(key) == KV_NS_UDEV) {
-			if (!export_udev) {
-				log_warning(ID(cmd_res), "Ignoring request to export record with key %s to udev.", key);
-				continue;
-			}
-
-			if (vector) {
-				log_error(ID(cmd_res),
-				          INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
-				          __func__,
-				          key);
-				r = -ENOTSUP;
-				goto fail;
-			}
-			key = _get_key_part(key, KEY_PART_CORE, NULL);
-			if (!buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), &r) ||
-			    !buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, &r))
-				goto fail;
-			data_offset = _kv_value_ext_data_offset(kv_value);
-			if (!buffer_add(ucmd_ctx->res_buf,
-			                kv_value->data + data_offset,
-			                strlen(kv_value->data + data_offset),
-			                &r) ||
-			    !buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, &r))
-				goto fail;
-			continue;
-		}
-
-		/*
-		 * Export keys with data to main process.
-		 *
-		 * Serialization format fields:
-		 *
-		 *  1) overall message size (size_t)
-		 *  2) flags                (uint32_t)
-		 *  3) key size             (size_t)
-		 *  4) data size            (size_t)
-		 *  5) key                  (key_size)
-		 *  6) data                 (data_size)
-		 *
-		 * If "data" is a vector, then "data size" denotes vector
-		 * item count and "data" is split into these fields repeated
-		 * for each vector item:
-		 *
-		 *  6a) vector item size
-		 *  6b) vector item data
-		 *
-		 * Repeat 2) - 7) as long as there are keys to send.
-		 */
-
-		if (!export_sid) {
-			log_warning(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
-			continue;
-		}
-
-		if (!buffer_add(export_buf, &flags, sizeof(flags), &r) ||
-		    !buffer_add(export_buf, &key_size, sizeof(key_size), &r) || !buffer_add(export_buf, &size, sizeof(size), &r) ||
-		    !buffer_add(export_buf, (char *) key, strlen(key) + 1, &r)) {
-			log_error_errno(ID(cmd_res), errno, "buffer_add failed");
-			goto fail;
-		}
-
-		if (vector) {
-			for (i = 0, size = 0; i < iov_size; i++) {
-				size += iov[i].iov_len;
-
-				if (!buffer_add(export_buf, &iov[i].iov_len, sizeof(iov->iov_len), &r) ||
-				    !buffer_add(export_buf, iov[i].iov_base, iov[i].iov_len, &r)) {
-					log_error_errno(ID(cmd_res), errno, "buffer_add failed");
-					goto fail;
-				}
-			}
-		} else if (!buffer_add(export_buf, kv_value, size, &r)) {
-			log_error_errno(ID(cmd_res), errno, "write failed");
-			goto fail;
-		}
-	}
-	buffer_get_data(export_buf, (const void **) &size_ptr, &size);
-	*size_ptr = size;
-
-	*buf = export_buf;
-	kv_store_iter_destroy(iter);
-	return 0;
-
-fail:
-	if (iter)
-		kv_store_iter_destroy(iter);
-	if (export_buf)
-		buffer_destroy(export_buf);
-	*buf = NULL;
-
-	return r;
-}
-
 static int _export_kv_store(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *   ucmd_ctx = sid_resource_get_data(cmd_res);
@@ -3413,21 +3428,6 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	if (size > sizeof(size))
 		worker_control_channel_send(cmd_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
 	buffer_destroy(export_buf);
-
-	return 0;
-}
-
-static int _connection_cleanup(sid_resource_t *conn_res)
-{
-	sid_resource_t *worker_res = sid_resource_search(conn_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
-
-	sid_resource_destroy(conn_res);
-
-	// TODO: If there are more connections per worker used,
-	// 	 then check if this is the last connection.
-	// 	 If it's not the last one, then do not yield the worker.
-
-	(void) worker_control_worker_yield(worker_res);
 
 	return 0;
 }
