@@ -297,6 +297,7 @@ struct cross_bitmap_calc_arg {
 #define CMD_KV_EXPORT_UDEV UINT32_C(0x00000002) /* exports KV_NS_UDEV+KV_PERSISTENT records to udev environment/db */
 #define CMD_KV_EXPORT_SID  UINT32_C(0x00000004) /* exports KV_NS_<!UDEV>+KV_PERSISTENT records to main sid db */
 #define CMD_SESSION_ID     UINT32_C(0x00000008) /* supports sessions */
+#define CMD_SKIP_RESULT    UINT32_C(0x00000010) /* skips sending the result buffer */
 
 /*
  * Capability flags for 'scan' command phases (phases are represented as subcommands).
@@ -561,60 +562,6 @@ static int _write_kv_store_stats(struct usid_stats *stats, sid_resource_t *kv_st
 	return 0;
 }
 
-static int _write_kv_store_dump(struct buffer *buf, sid_resource_t *kv_store_res)
-{
-	kv_store_iter_t *       iter;
-	const char *            key = "<NO KEY>";
-	struct usid_dump_header header;
-	size_t                  size;
-	kv_store_value_flags_t  flags;
-	void *                  value;
-	struct iovec            tmp_iov[KV_VALUE_IDX_DATA + 1];
-	struct iovec *          iov;
-	unsigned int            i;
-	int                     r = 0;
-	uint32_t                len;
-	void *                  data;
-
-	if (!(iter = kv_store_iter_create(kv_store_res))) {
-		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
-		return -ENOMEM;
-	}
-
-	while ((value = kv_store_iter_next(iter, &size, &flags))) {
-		key = kv_store_iter_current_key(iter);
-		if (!strncmp(key, "U:", 2))
-			continue;
-		iov               = _get_value_vector(flags, value, size, tmp_iov);
-		header.seqnum     = KV_VALUE_SEQNUM(iov);
-		header.flags      = KV_VALUE_FLAGS(iov);
-		header.data_count = (flags & KV_STORE_VALUE_VECTOR) ? size - KV_VALUE_IDX_DATA : 1;
-		if (!buffer_add(buf, &header, sizeof(header), &r))
-			goto out;
-		len = strlen(key) + 1;
-		if (!buffer_add(buf, &len, sizeof(len), &r))
-			goto out;
-		if (!buffer_add(buf, (void *) key, len, &r))
-			goto out;
-		for (i = 0; i < header.data_count + 1; i++) {
-			data = iov[KV_VALUE_IDX_OWNER + i].iov_base;
-			len  = iov[KV_VALUE_IDX_OWNER + i].iov_len;
-			if (!buffer_add(buf, &len, sizeof(len), &r))
-				goto out;
-			if (!buffer_add(buf, data, len, &r))
-				goto out;
-		}
-	}
-	/* add zeroed header to signal the end of the dump */
-	memset(&header, 0, sizeof(header));
-	buffer_add(buf, &header, sizeof(header), &r);
-out:
-	if (r < 0)
-		log_error_errno(ID(kv_store_res), r, "%s: failed to add value for key: %s", __func__, key);
-	kv_store_iter_destroy(iter);
-	return r;
-}
-
 static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 {
 	kv_store_iter_t *      iter;
@@ -794,6 +741,147 @@ static size_t _kv_value_ext_data_offset(struct kv_value *kv_value)
 	return strlen(kv_value->data) + 1;
 }
 
+int sid_ucmd_print_exported_kv_store(const char *prefix, char *ptr, size_t size, output_format_t format, struct buffer *outbuf)
+{
+	size_t                 full_key_size, data_size, len;
+	int                    r;
+	unsigned int           i, records = 0;
+	bool                   needs_comma = false;
+	const char *           end;
+	kv_store_value_flags_t ext_flags;
+	uint64_t               seqnum;
+	sid_ucmd_kv_flags_t    flags;
+	struct kv_value        value;
+
+	end = ptr + size;
+
+	print_start_document(format, outbuf, 0);
+	print_start_array("siddb", format, outbuf, 1);
+	while (ptr < end) {
+		print_start_elem(needs_comma, format, outbuf, 2);
+		print_uint_field("RECORD", records, format, outbuf, true, 3);
+		memcpy(&ext_flags, ptr, sizeof(ext_flags));
+		ptr += sizeof(ext_flags);
+
+		memcpy(&full_key_size, ptr, sizeof(full_key_size));
+		ptr += sizeof(full_key_size);
+
+		memcpy(&data_size, ptr, sizeof(data_size));
+		ptr += sizeof(data_size);
+
+		print_str_field("key", ptr, format, outbuf, true, 3);
+		ptr += full_key_size;
+
+		if (ext_flags & KV_STORE_VALUE_VECTOR) {
+			if (data_size < KV_VALUE_IDX_DATA) {
+				log_error(prefix, "Received incorrect vector of size %zu.", data_size);
+				return -1;
+			}
+			for (i = 0; i < data_size; i++) {
+				memcpy(&len, ptr, sizeof(len));
+				ptr += sizeof(len);
+				switch (i) {
+					case KV_VALUE_IDX_SEQNUM:
+						if (len != sizeof(uint64_t)) {
+							log_error(prefix,
+							          "Received incorrect sequence number size %zu != %u.",
+							          len,
+							          sizeof(uint64_t));
+							return -1;
+						}
+						memcpy(&seqnum, ptr, sizeof(seqnum));
+						print_uint_field("seqnum", seqnum, format, outbuf, true, 3);
+						break;
+					case KV_VALUE_IDX_FLAGS:
+						if (len != sizeof(sid_ucmd_kv_flags_t)) {
+							log_error(prefix,
+							          "Received incorrect flags size %zu != %u.",
+							          len,
+							          sizeof(sid_ucmd_kv_flags_t));
+							return -1;
+						}
+						memcpy(&flags, ptr, sizeof(flags));
+						print_start_array("flags", format, outbuf, 3);
+						print_bool_array_elem("KV_PERSISTENT",
+						                      flags & KV_PERSISTENT,
+						                      format,
+						                      outbuf,
+						                      true,
+						                      4);
+						print_bool_array_elem("KV_MOD_PROTECTED",
+						                      flags & KV_MOD_PROTECTED,
+						                      format,
+						                      outbuf,
+						                      true,
+						                      4);
+						print_bool_array_elem("KV_MOD_PRIVATE",
+						                      flags & KV_MOD_PRIVATE,
+						                      format,
+						                      outbuf,
+						                      true,
+						                      4);
+						print_bool_array_elem("KV_MOD_RESERVED",
+						                      flags & KV_MOD_RESERVED,
+						                      format,
+						                      outbuf,
+						                      false,
+						                      4);
+						print_end_array(true, format, outbuf, 3);
+						break;
+					case KV_VALUE_IDX_OWNER:
+						if (len)
+							print_str_field("owner", ptr, format, outbuf, true, 3);
+						else
+							print_str_field("owner", "", format, outbuf, true, 3);
+						break;
+					case KV_VALUE_IDX_DATA:
+						print_start_array("values", format, outbuf, 3);
+						/* fall through */
+					default:
+						if (len)
+							print_str_array_elem(ptr, format, outbuf, i + 1 < data_size, 4);
+						else
+							print_str_array_elem("", format, outbuf, i + 1 < data_size, 4);
+				}
+				ptr += len;
+			}
+			if (data_size > KV_VALUE_IDX_DATA)
+				print_end_array(false, format, outbuf, 3);
+		} else {
+			size_t owner_size;
+			char * data;
+			if (data_size <= sizeof(struct kv_value)) {
+				log_error(prefix, "Received incorrect value of size %zu.", data_size);
+				return -1;
+			}
+			memcpy(&value, ptr, sizeof(value));
+			data = ptr + sizeof(value);
+			print_uint_field("seqnum", value.seqnum, format, outbuf, true, 3);
+			print_start_array("flags", format, outbuf, 3);
+			print_bool_array_elem("KV_PERSISTENT", value.flags & KV_PERSISTENT, format, outbuf, true, 4);
+			print_bool_array_elem("KV_MOD_PROTECTED", value.flags & KV_MOD_PROTECTED, format, outbuf, true, 4);
+			print_bool_array_elem("KV_MOD_PRIVATE", value.flags & KV_MOD_PRIVATE, format, outbuf, true, 4);
+			print_bool_array_elem("KV_MOD_RESERVED", value.flags & KV_MOD_RESERVED, format, outbuf, false, 4);
+			print_end_array(true, format, outbuf, 3);
+			print_str_field("owner", data, format, outbuf, true, 3);
+			owner_size = strlen(data) + 1;
+			data += owner_size;
+			if (sizeof(value) + owner_size < data_size)
+				print_str_field("value", data, format, outbuf, true, 3);
+			else
+				print_str_field("value", "", format, outbuf, true, 3);
+			ptr += data_size;
+		}
+
+		records++;
+		print_end_elem(format, outbuf, 2);
+		needs_comma = true;
+	}
+	print_end_array(false, format, outbuf, 1);
+	print_end_document(format, outbuf, 0);
+	return 0;
+}
+
 static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool export_udev, bool export_sid, bool persistent_only)
 {
 	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
@@ -866,7 +954,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
 			if (!export_udev) {
-				log_warning(ID(cmd_res), "Ignoring request to export record with key %s to udev.", key);
+				log_debug(ID(cmd_res), "Ignoring request to export record with key %s to udev.", key);
 				continue;
 			}
 
@@ -915,7 +1003,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 		 */
 
 		if (!export_sid) {
-			log_warning(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
+			log_debug(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
 			continue;
 		}
 
@@ -1907,15 +1995,45 @@ static int _cmd_exec_tree(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
 {
-	int                  r;
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	char *               dump_data;
-	size_t               size;
+	int                     r;
+	ssize_t                 n;
+	bool                    need_cleanup = false;
+	struct sid_ucmd_ctx *   ucmd_ctx     = sid_resource_get_data(exec_arg->cmd_res);
+	sid_resource_t *        conn_res     = sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
+	struct connection *     conn         = sid_resource_get_data(conn_res);
+	struct buffer *         export_buf;
+	struct usid_msg_header *response_header;
+	size_t                  size;
+	static unsigned char    byte = 0xFF;
 
-	if ((r = _write_kv_store_dump(ucmd_ctx->ucmd_mod_ctx.gen_buf, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0) {
-		buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &dump_data, &size);
-		buffer_add(ucmd_ctx->res_buf, dump_data, size, &r);
+	buffer_get_data(ucmd_ctx->res_buf, (const void **) &response_header, &size);
+
+	if ((r = _build_kv_buffer(exec_arg->cmd_res, &export_buf, false, true, false)) < 0)
+		response_header->status |= COMMAND_STATUS_FAILURE;
+
+	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
+		log_error(ID(exec_arg->cmd_res), "Failed to write out command response");
+		need_cleanup = true;
+	} else if (export_buf) {
+		for (;;) {
+			n = comms_unix_send(conn->fd, &byte, sizeof(byte), buffer_get_fd(export_buf));
+			if (n >= 0)
+				break;
+			if (n == -EAGAIN || n == -EINTR)
+				continue;
+			log_error_errno(ID(exec_arg->cmd_res), n, "Failed to send file descriptor");
+			need_cleanup = true;
+			break;
+		}
 	}
+
+	if (need_cleanup) {
+		(void) _connection_cleanup(conn_res);
+		r = -1;
+	}
+
+	if (export_buf)
+		buffer_destroy(export_buf);
 	return r;
 }
 
@@ -3388,7 +3506,7 @@ static struct cmd_reg _cmd_regs[] = {
                            .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_SESSION_ID,
                            .exec  = _cmd_exec_scan},
 	[USID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
-	[USID_CMD_DUMP]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_dump},
+	[USID_CMD_DUMP]       = {.name = NULL, .flags = CMD_SKIP_RESULT, .exec = _cmd_exec_dump},
 	[USID_CMD_STATS]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_stats},
 	[USID_CMD_TREE]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_tree},
 };
@@ -3452,8 +3570,12 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		exec_arg.cmd_res     = cmd_res;
 		if ((r = _cmd_regs[ucmd_ctx->request_header.cmd].exec(&exec_arg)) < 0) {
 			log_error(ID(cmd_res), "Failed to execute command");
+			if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_SKIP_RESULT)
+				return r;
 			goto out;
 		}
+		if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_SKIP_RESULT)
+			return r;
 	} else {
 		log_error(ID(cmd_res), "Client protocol unknown verion: %u > %u ", ucmd_ctx->request_header.prot, USID_PROTOCOL);
 		(void) _connection_cleanup(conn_res);
