@@ -30,10 +30,20 @@
 #define PRINT_JSON_END_ARRAY   "]"
 #define PRINT_JSON_INDENT      "    "
 
+static void _print_fmt(struct buffer *buf, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	buffer_vfmt_add(buf, NULL, fmt, ap);
+	buffer_rewind(buf, 1, BUFFER_POS_REL);
+	va_end(ap);
+}
+
 void print_indent(int level, struct buffer *buf)
 {
 	for (int i = 0; i < level; i++) {
-		buffer_fmt_add(buf, NULL, PRINT_JSON_INDENT);
+		_print_fmt(buf, PRINT_JSON_INDENT);
 	}
 }
 
@@ -41,7 +51,7 @@ void print_start_document(output_format_t format, struct buffer *buf, int level)
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, PRINT_JSON_START_ELEM);
+		_print_fmt(buf, PRINT_JSON_START_ELEM);
 	}
 }
 
@@ -49,7 +59,7 @@ void print_end_document(output_format_t format, struct buffer *buf, int level)
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "%s\n", PRINT_JSON_END_LAST);
+		_print_fmt(buf, "%s\n", PRINT_JSON_END_LAST);
 	}
 }
 
@@ -57,20 +67,20 @@ void print_start_array(char *array_name, output_format_t format, struct buffer *
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "\"%s\": %s", array_name, PRINT_JSON_START_ARRAY);
+		_print_fmt(buf, "\"%s\": %s", array_name, PRINT_JSON_START_ARRAY);
 	}
 }
 
 void print_end_array(bool needs_comma, output_format_t format, struct buffer *buf, int level)
 {
 	if (format == JSON) {
-		buffer_fmt_add(buf, NULL, "\n");
+		_print_fmt(buf, "\n");
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, PRINT_JSON_END_ARRAY);
+		_print_fmt(buf, PRINT_JSON_END_ARRAY);
 		if (needs_comma)
-			buffer_fmt_add(buf, NULL, "%s", ",\n");
+			_print_fmt(buf, "%s", ",\n");
 		else
-			buffer_fmt_add(buf, NULL, "%s", "\n");
+			_print_fmt(buf, "%s", "\n");
 	}
 }
 
@@ -78,11 +88,11 @@ void print_start_elem(bool needs_comma, output_format_t format, struct buffer *b
 {
 	if (format == JSON) {
 		if (needs_comma)
-			buffer_fmt_add(buf, NULL, ",\n");
+			_print_fmt(buf, ",\n");
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "%s", PRINT_JSON_START_ELEM);
+		_print_fmt(buf, "%s", PRINT_JSON_START_ELEM);
 	} else {
-		buffer_fmt_add(buf, NULL, "%s", "\n");
+		_print_fmt(buf, "%s", "\n");
 	}
 }
 
@@ -90,9 +100,9 @@ void print_end_elem(output_format_t format, struct buffer *buf, int level)
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "%s", PRINT_JSON_END_LAST);
+		_print_fmt(buf, "%s", PRINT_JSON_END_LAST);
 	} else {
-		buffer_fmt_add(buf, NULL, "%s", "\n");
+		_print_fmt(buf, "%s", "\n");
 	}
 }
 
@@ -100,16 +110,16 @@ void print_str_field(char *field_name, char *value, output_format_t format, stru
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "\"%s\": ", field_name);
-		buffer_fmt_add(buf, NULL, "\"%s\"", value);
+		_print_fmt(buf, "\"%s\": ", field_name);
+		_print_fmt(buf, "\"%s\"", value);
 		if (trailing_comma)
-			buffer_fmt_add(buf, NULL, ",");
-		buffer_fmt_add(buf, NULL, "\n");
+			_print_fmt(buf, ",");
+		_print_fmt(buf, "\n");
 	} else {
-		buffer_fmt_add(buf, NULL, "%s", field_name);
-		buffer_fmt_add(buf, NULL, "%s", ": ");
-		buffer_fmt_add(buf, NULL, "%s", value);
-		buffer_fmt_add(buf, NULL, "%s", "\n");
+		_print_fmt(buf, "%s", field_name);
+		_print_fmt(buf, "%s", ": ");
+		_print_fmt(buf, "%s", value);
+		_print_fmt(buf, "%s", "\n");
 	}
 }
 
@@ -117,16 +127,16 @@ void print_uint_field(char *field_name, uint value, output_format_t format, stru
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "\"%s\": ", field_name);
-		buffer_fmt_add(buf, NULL, "%u", value);
+		_print_fmt(buf, "\"%s\": ", field_name);
+		_print_fmt(buf, "%u", value);
 		if (trailing_comma)
-			buffer_fmt_add(buf, NULL, ",");
-		buffer_fmt_add(buf, NULL, "%s", "\n");
+			_print_fmt(buf, ",");
+		_print_fmt(buf, "%s", "\n");
 	} else {
-		buffer_fmt_add(buf, NULL, "%s", field_name);
-		buffer_fmt_add(buf, NULL, "%s", ": ");
-		buffer_fmt_add(buf, NULL, "%u", value);
-		buffer_fmt_add(buf, NULL, "%s", "\n");
+		_print_fmt(buf, "%s", field_name);
+		_print_fmt(buf, "%s", ": ");
+		_print_fmt(buf, "%u", value);
+		_print_fmt(buf, "%s", "\n");
 	}
 }
 
@@ -139,16 +149,16 @@ void print_uint64_field(char *          field_name,
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "\"%s\": ", field_name);
-		buffer_fmt_add(buf, NULL, "%" PRIu64, value);
+		_print_fmt(buf, "\"%s\": ", field_name);
+		_print_fmt(buf, "%" PRIu64, value);
 		if (trailing_comma)
-			buffer_fmt_add(buf, NULL, ",");
-		buffer_fmt_add(buf, NULL, "%s", "\n");
+			_print_fmt(buf, ",");
+		_print_fmt(buf, "%s", "\n");
 	} else {
-		buffer_fmt_add(buf, NULL, "%s", field_name);
-		buffer_fmt_add(buf, NULL, "%s", ": ");
-		buffer_fmt_add(buf, NULL, "%" PRIu64, value);
-		buffer_fmt_add(buf, NULL, "%s", "\n");
+		_print_fmt(buf, "%s", field_name);
+		_print_fmt(buf, "%s", ": ");
+		_print_fmt(buf, "%" PRIu64, value);
+		_print_fmt(buf, "%s", "\n");
 	}
 }
 
@@ -156,16 +166,16 @@ void print_int64_field(char *field_name, uint64_t value, output_format_t format,
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "\"%s\": ", field_name);
-		buffer_fmt_add(buf, NULL, "%" PRIu64, value);
+		_print_fmt(buf, "\"%s\": ", field_name);
+		_print_fmt(buf, "%" PRIu64, value);
 		if (trailing_comma)
-			buffer_fmt_add(buf, NULL, ",");
-		buffer_fmt_add(buf, NULL, "%s", "\n");
+			_print_fmt(buf, ",");
+		_print_fmt(buf, "%s", "\n");
 	} else {
-		buffer_fmt_add(buf, NULL, "%s", field_name);
-		buffer_fmt_add(buf, NULL, "%s", ": ");
-		buffer_fmt_add(buf, NULL, "%" PRIu64, value);
-		buffer_fmt_add(buf, NULL, "%s", "\n");
+		_print_fmt(buf, "%s", field_name);
+		_print_fmt(buf, "%s", ": ");
+		_print_fmt(buf, "%" PRIu64, value);
+		_print_fmt(buf, "%s", "\n");
 	}
 }
 
@@ -173,13 +183,13 @@ void print_bool_array_elem(char *field_name, bool value, output_format_t format,
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "{\"%s\": %s}", field_name, value ? "true" : "false");
+		_print_fmt(buf, "{\"%s\": %s}", field_name, value ? "true" : "false");
 		if (trailing_comma)
-			buffer_fmt_add(buf, NULL, "%s", ",\n");
+			_print_fmt(buf, "%s", ",\n");
 	} else {
 		if (value) {
-			buffer_fmt_add(buf, NULL, "%s", field_name);
-			buffer_fmt_add(buf, NULL, "%s", "\n");
+			_print_fmt(buf, "%s", field_name);
+			_print_fmt(buf, "%s", "\n");
 		}
 	}
 }
@@ -188,11 +198,11 @@ void print_uint_array_elem(uint value, output_format_t format, struct buffer *bu
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "%u", value);
+		_print_fmt(buf, "%u", value);
 		if (trailing_comma)
-			buffer_fmt_add(buf, NULL, "%s", ",\n");
+			_print_fmt(buf, "%s", ",\n");
 	} else {
-		buffer_fmt_add(buf, NULL, "%u", value);
+		_print_fmt(buf, "%u", value);
 	}
 }
 
@@ -200,11 +210,16 @@ void print_str_array_elem(char *value, output_format_t format, struct buffer *bu
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		buffer_fmt_add(buf, NULL, "\"%s\"", value);
+		_print_fmt(buf, "\"%s\"", value);
 		if (trailing_comma)
-			buffer_fmt_add(buf, NULL, "%s", ",\n");
+			_print_fmt(buf, "%s", ",\n");
 	} else {
-		buffer_fmt_add(buf, NULL, "%s", value);
-		buffer_fmt_add(buf, NULL, "\n");
+		_print_fmt(buf, "%s", value);
+		_print_fmt(buf, "\n");
 	}
+}
+
+void print_null_byte(struct buffer *buf)
+{
+	buffer_fmt_add(buf, NULL, "");
 }
