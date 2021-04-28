@@ -159,7 +159,7 @@ int buffer_get_data(struct buffer *buf, const void **data, size_t *data_size)
 
 int buffer_get_fd(struct buffer *buf)
 {
-	return buf->fd;
+	return _buffer_type_registry[buf->stat.spec.type]->get_fd(buf);
 }
 
 ssize_t buffer_read(struct buffer *buf, int fd)

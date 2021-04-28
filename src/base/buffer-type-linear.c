@@ -268,6 +268,27 @@ static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t
 	return 0;
 }
 
+static void _update_size_prefix(struct buffer *buf, size_t pos)
+{
+	*((MSG_SIZE_PREFIX_TYPE *) buf->mem) = (MSG_SIZE_PREFIX_TYPE) buf->stat.usage.used;
+}
+
+static int _buffer_linear_get_fd(struct buffer *buf)
+{
+	switch (buf->stat.spec.mode) {
+		case BUFFER_MODE_PLAIN:
+			/* nothing to do here, just return the fd */
+			break;
+		case BUFFER_MODE_SIZE_PREFIX:
+			_update_size_prefix(buf, 0);
+			break;
+		default:
+			return -ENOTSUP;
+	}
+
+	return buf->fd;
+}
+
 static ssize_t _buffer_linear_read_plain(struct buffer *buf, int fd)
 {
 	ssize_t n;
@@ -347,8 +368,8 @@ static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 	if (pos > buf->stat.usage.used)
 		return -ERANGE;
 
-	if ((pos < MSG_SIZE_PREFIX_LEN) && (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX))
-		*((MSG_SIZE_PREFIX_TYPE *) buf->mem) = (MSG_SIZE_PREFIX_TYPE) buf->stat.usage.used;
+	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
+		_update_size_prefix(buf, pos);
 
 	switch (buf->stat.spec.backend) {
 		case BUFFER_BACKEND_MALLOC:
@@ -379,5 +400,6 @@ const struct buffer_type buffer_type_linear = {.create      = _buffer_linear_cre
                                                .rewind_mem  = _buffer_linear_rewind_mem,
                                                .is_complete = _buffer_linear_is_complete,
                                                .get_data    = _buffer_linear_get_data,
+                                               .get_fd      = _buffer_linear_get_fd,
                                                .read        = _buffer_linear_read,
                                                .write       = _buffer_linear_write};

@@ -273,10 +273,38 @@ int _buffer_vector_get_data(struct buffer *buf, const void **data, size_t *data_
 			break;
 		default:
 			return -ENOTSUP;
-			;
 	}
 
 	return 0;
+}
+
+static void _update_size_prefix(struct buffer *buf, size_t pos)
+{
+	struct iovec *       iov         = buf->mem;
+	MSG_SIZE_PREFIX_TYPE size_prefix = 0;
+	size_t               i;
+
+	if ((pos == 0) && (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)) {
+		for (i = 0; i < buf->stat.usage.used; i++)
+			size_prefix += iov[i].iov_len;
+		*((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
+	}
+}
+
+int _buffer_vector_get_fd(struct buffer *buf)
+{
+	switch (buf->stat.spec.mode) {
+		case BUFFER_MODE_PLAIN:
+			/* nothing to do here, just return the fd */
+			break;
+		case BUFFER_MODE_SIZE_PREFIX:
+			_update_size_prefix(buf, 0);
+			break;
+		default:
+			return -ENOTSUP;
+	}
+
+	return buf->fd;
 }
 
 static ssize_t _buffer_vector_read_plain(struct buffer *buf, int fd)
@@ -303,12 +331,11 @@ ssize_t _buffer_vector_read(struct buffer *buf, int fd)
 
 ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 {
-	struct iovec *       iov         = buf->mem;
-	MSG_SIZE_PREFIX_TYPE size_prefix = 0;
-	unsigned             i, start_idx = 0;
-	void *               save_base = NULL;
-	size_t               save_len = 0, start_off = pos;
-	ssize_t              n;
+	struct iovec *iov = buf->mem;
+	unsigned      i, start_idx = 0;
+	void *        save_base = NULL;
+	size_t        save_len = 0, start_off = pos;
+	ssize_t       n;
 
 	i = 0;
 	if (pos) {
@@ -331,11 +358,8 @@ ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 			return -ERANGE;
 	}
 
-	if ((pos == 0) && (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)) {
-		for (i = 0; i < buf->stat.usage.used; i++)
-			size_prefix += iov[i].iov_len;
-		*((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
-	}
+	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
+		_update_size_prefix(buf, pos);
 
 	/*
 	 * Be aware that if we have BUFFER_BACKEND_MEMFD, we still have
@@ -363,5 +387,6 @@ const struct buffer_type buffer_type_vector = {.create      = _buffer_vector_cre
                                                .rewind_mem  = _buffer_vector_rewind_mem,
                                                .is_complete = _buffer_vector_is_complete,
                                                .get_data    = _buffer_vector_get_data,
+                                               .get_fd      = _buffer_vector_get_fd,
                                                .read        = _buffer_vector_read,
                                                .write       = _buffer_vector_write};
