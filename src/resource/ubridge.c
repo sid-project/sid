@@ -744,7 +744,6 @@ static size_t _kv_value_ext_data_offset(struct kv_value *kv_value)
 int sid_ucmd_print_exported_kv_store(const char *prefix, char *ptr, size_t size, output_format_t format, struct buffer *outbuf)
 {
 	size_t                 full_key_size, data_size, len;
-	int                    r;
 	unsigned int           i, records = 0;
 	bool                   needs_comma = false;
 	const char *           end;
@@ -784,7 +783,7 @@ int sid_ucmd_print_exported_kv_store(const char *prefix, char *ptr, size_t size,
 					case KV_VALUE_IDX_SEQNUM:
 						if (len != sizeof(uint64_t)) {
 							log_error(prefix,
-							          "Received incorrect sequence number size %zu != %u.",
+							          "Received incorrect sequence number size %zu != %zu.",
 							          len,
 							          sizeof(uint64_t));
 							return -1;
@@ -795,7 +794,7 @@ int sid_ucmd_print_exported_kv_store(const char *prefix, char *ptr, size_t size,
 					case KV_VALUE_IDX_FLAGS:
 						if (len != sizeof(sid_ucmd_kv_flags_t)) {
 							log_error(prefix,
-							          "Received incorrect flags size %zu != %u.",
+							          "Received incorrect flags size %zu != %zu.",
 							          len,
 							          sizeof(sid_ucmd_kv_flags_t));
 							return -1;
@@ -898,6 +897,17 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 	struct buffer *        export_buf = NULL;
 	size_t *               size_ptr;
 
+	/*
+	 * For udev namespace, we append key=value pairs to the output buffer.
+	 *
+	 * For other namespaces, we serialize the key-value records to export
+	 * buffer which is backed by BUFFER_BACKEND_MEMFD/BUFFER_TYPE_LINEAR
+	 * so we can send the FD where we want to.
+	 *
+	 * We only add key=value pairs to buffers which are marked with
+	 * KV_PERSISTENT flag.
+	 */
+
 	if (!(iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res))) {
 		// TODO: Discard udev kv-store we've already appended to the output buffer!
 		log_error(ID(cmd_res), "Failed to create iterator for temp key-value store.");
@@ -920,7 +930,6 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 		goto fail;
 	};
 
-	// FIXME: maybe buffer first so there's only single write
 	while ((value = kv_store_iter_next(iter, &size, &flags))) {
 		vector = flags & KV_STORE_VALUE_VECTOR;
 
@@ -3518,18 +3527,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	struct worker_data_spec data_spec;
 	size_t *                size_ptr, size;
 	int                     r;
-	/*
-	 * Export key-value store to udev or for sync with main kv store.
-	 *
-	 * For udev, we append key=value pairs to the output buffer that is sent back
-	 * to udev as result of "usid scan" command.
-	 *
-	 * For others, we serialize the temp key-value store to an anonymous file in memory
-	 * created by memfd_create. Then we pass the file FD over to worker proxy that reads
-	 * it and it updates the "main" key-value store.
-	 *
-	 * We only send key=value pairs which are marked with KV_PERSISTENT flag.
-	 */
+
 	if ((r = _build_kv_buffer(cmd_res,
 	                          &export_buf,
 	                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV,
