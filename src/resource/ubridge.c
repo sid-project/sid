@@ -895,7 +895,6 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 	unsigned               i;
 	int                    r          = -1;
 	struct buffer *        export_buf = NULL;
-	size_t *               size_ptr;
 
 	/*
 	 * For udev namespace, we append key=value pairs to the output buffer.
@@ -916,19 +915,12 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 
 	if (!(export_buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MEMFD,
 	                                                         .type    = BUFFER_TYPE_LINEAR,
-	                                                         .mode    = BUFFER_MODE_PLAIN}),
+	                                                         .mode    = BUFFER_MODE_SIZE_PREFIX}),
 	                                 &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
 	                                 &r))) {
 		log_error(ID(cmd_res), "Failed to create export buffer.");
 		goto fail;
 	}
-
-	/* Reserve space to write the overall data size. */
-	size = 0;
-	if (!buffer_add(export_buf, &size, sizeof(size), &r)) {
-		log_error_errno(ID(cmd_res), errno, "buffer_add failed");
-		goto fail;
-	};
 
 	while ((value = kv_store_iter_next(iter, &size, &flags))) {
 		vector = flags & KV_STORE_VALUE_VECTOR;
@@ -992,9 +984,10 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 		/*
 		 * Export keys with data to main process.
 		 *
-		 * Serialization format fields:
+		 * Serialization format fields (message size is implicitly set
+		 * when using BUFFER_MODE_SIZE_PREFIX):
 		 *
-		 *  1) overall message size (size_t)
+		 *  1) message size         (MSG_SIGE_PREFIX_TYPE)
 		 *  2) flags                (uint32_t)
 		 *  3) key size             (size_t)
 		 *  4) data size            (size_t)
@@ -1038,8 +1031,6 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 			goto fail;
 		}
 	}
-	buffer_get_data(export_buf, (const void **) &size_ptr, &size);
-	*size_ptr = size;
 
 	*buf = export_buf;
 	kv_store_iter_destroy(iter);
@@ -3922,7 +3913,8 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 	struct ubridge *       ubridge       = sid_resource_get_data(internal_ubridge_res);
 	sid_resource_t *       kv_store_res;
 	kv_store_value_flags_t flags;
-	size_t                 msg_size, full_key_size, data_size, data_offset, i;
+	MSG_SIZE_PREFIX_TYPE   msg_size;
+	size_t                 full_key_size, data_size, data_offset, i;
 	char *                 full_key, *shm = NULL, *p, *end;
 	struct kv_value *      value = NULL;
 	struct iovec *         iov   = NULL;
@@ -3941,7 +3933,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 
 	ubridge = sid_resource_get_data(internal_ubridge_res);
 
-	if (read(fd, &msg_size, sizeof(msg_size)) != sizeof(msg_size)) {
+	if (read(fd, &msg_size, MSG_SIZE_PREFIX_LEN) != MSG_SIZE_PREFIX_LEN) {
 		log_error_errno(ID(worker_proxy_res), errno, "Failed to read shared memory size");
 		goto out;
 	}
