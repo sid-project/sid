@@ -3554,7 +3554,9 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	struct sid_ucmd_ctx *  ucmd_ctx        = sid_resource_get_data(cmd_res);
 	sid_resource_t *       conn_res        = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
 	struct connection *    conn            = sid_resource_get_data(conn_res);
-	struct usid_msg_header response_header = {0};
+	struct usid_msg_header response_header = {.status = COMMAND_STATUS_SUCCESS,
+						  .prot = USID_PROTOCOL,
+						  .cmd = USID_CMD_REPLY};
 	struct cmd_exec_arg    exec_arg        = {0};
 
 	int r = -1;
