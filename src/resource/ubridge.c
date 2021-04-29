@@ -1034,7 +1034,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 				}
 			}
 		} else if (!buffer_add(export_buf, kv_value, size, &r)) {
-			log_error_errno(ID(cmd_res), errno, "write failed");
+			log_error_errno(ID(cmd_res), errno, "buffer_add failed");
 			goto fail;
 		}
 	}
@@ -3575,7 +3575,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_SKIP_RESULT)
 			return r;
 	} else {
-		log_error(ID(cmd_res), "Client protocol unknown verion: %u > %u ", ucmd_ctx->request_header.prot, USID_PROTOCOL);
+		log_error(ID(cmd_res), "Client protocol unknown version: %u > %u ", ucmd_ctx->request_header.prot, USID_PROTOCOL);
 		(void) _connection_cleanup(conn_res);
 		return -1;
 	}
