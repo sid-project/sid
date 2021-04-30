@@ -881,7 +881,7 @@ int sid_ucmd_print_exported_kv_store(const char *prefix, char *ptr, size_t size,
 	return 0;
 }
 
-static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool export_udev, bool export_sid, bool persistent_only)
+static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool export_udev, bool export_sid, bool is_dump)
 {
 	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct kv_value *      kv_value;
@@ -930,7 +930,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 			iov_size = size;
 			kv_value = NULL;
 
-			if (persistent_only) {
+			if (!is_dump) {
 				if (!(KV_VALUE_FLAGS(iov) & KV_PERSISTENT))
 					continue;
 
@@ -941,7 +941,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 			iov_size = 0;
 			kv_value = value;
 
-			if (persistent_only) {
+			if (!is_dump) {
 				if (!(kv_value->flags & KV_PERSISTENT))
 					continue;
 
@@ -967,18 +967,20 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 				r = -ENOTSUP;
 				goto fail;
 			}
-			key = _get_key_part(key, KEY_PART_CORE, NULL);
-			if (!buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), &r) ||
-			    !buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, &r))
-				goto fail;
-			data_offset = _kv_value_ext_data_offset(kv_value);
-			if (!buffer_add(ucmd_ctx->res_buf,
-			                kv_value->data + data_offset,
-			                strlen(kv_value->data + data_offset),
-			                &r) ||
-			    !buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, &r))
-				goto fail;
-			continue;
+			if (!is_dump) {
+				key = _get_key_part(key, KEY_PART_CORE, NULL);
+				if (!buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), &r) ||
+				    !buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, &r))
+					goto fail;
+				data_offset = _kv_value_ext_data_offset(kv_value);
+				if (!buffer_add(ucmd_ctx->res_buf,
+				                kv_value->data + data_offset,
+				                strlen(kv_value->data + data_offset),
+				                &r) ||
+				    !buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, &r))
+					goto fail;
+				continue;
+			}
 		}
 
 		/*
@@ -2003,7 +2005,7 @@ static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
 
 	buffer_get_data(ucmd_ctx->res_buf, (const void **) &response_header, &size);
 
-	if ((r = _build_kv_buffer(exec_arg->cmd_res, &export_buf, false, true, false)) < 0)
+	if ((r = _build_kv_buffer(exec_arg->cmd_res, &export_buf, true, true, true)) < 0)
 		response_header->status |= COMMAND_STATUS_FAILURE;
 
 	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
@@ -3517,7 +3519,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	                          &export_buf,
 	                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV,
 	                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID,
-	                          true)) < 0)
+	                          false)) < 0)
 		return r;
 
 	data_spec.data               = NULL;
