@@ -10,54 +10,60 @@
 
 #include "base/base64.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
 static const unsigned char base64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /**
+ * base64_len_encode - Size necessary for base64_encode
+ * @in_len: Length of the data to be encoded
+ * Returns: output length needed to store the base64 encoded data, including
+ * padding and NULL bytes, or 0 if the buffer overflowed.
+ */
+
+size_t base64_len_encode(size_t in_len)
+{
+	size_t out_len = 1; /* NULL termination */
+
+	if (!in_len)
+		return out_len;
+	out_len += ((in_len - 1) / 3 + 1) * 4; /* 4 bytes for every 3 (rounded up) */
+	if (out_len < in_len)
+		return 0;
+	return out_len;
+}
+
+/**
  * base64_encode - Base64 encode
  * @src: Data to be encoded
- * @len: Length of the data to be encoded
- * @out_len: Pointer to output length variable, or %NULL if not used
- * Returns: Allocated buffer of out_len bytes of encoded data,
- * or %NULL on failure
+ * @in_len: Length of the data to be encoded
+ * @dest: pre-allocated buffer to store the encoded data
+ * @out_len: Length of the encoded data
+ * Returns: buffer of out_len bytes of encoded data
  *
- * Caller is responsible for freeing the returned buffer. Returned buffer is
- * nul terminated to make it easier to use as a C string. The nul terminator is
- * not included in out_len.
+ * Returned buffer is nul terminated to make it easier to use as a C string.
  */
-unsigned char *base64_encode(const unsigned char *src, size_t len, size_t *out_len)
+int base64_encode(const unsigned char *src, size_t in_len, unsigned char *dest, size_t out_len)
 {
-	unsigned char *      out, *pos;
+	unsigned char *      pos;
 	const unsigned char *end, *in;
-	size_t               olen;
-	int                  line_len;
+	size_t               check_size;
 
-	olen = len * 4 / 3 + 4; /* 3-byte blocks to 4-byte */
-	olen += olen / 72;      /* line feeds */
-	olen++;                 /* nul termination */
-	if (olen < len)
-		return NULL; /* integer overflow */
-	out = malloc(olen);
-	if (out == NULL)
-		return NULL;
+	check_size = base64_len_encode(in_len);
+	if (check_size == 0 || check_size > out_len)
+		return -EINVAL;
 
-	end      = src + len;
-	in       = src;
-	pos      = out;
-	line_len = 0;
+	end = src + in_len;
+	in  = src;
+	pos = dest;
 	while (end - in >= 3) {
 		*pos++ = base64_table[in[0] >> 2];
 		*pos++ = base64_table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
 		*pos++ = base64_table[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
 		*pos++ = base64_table[in[2] & 0x3f];
 		in += 3;
-		line_len += 4;
-		if (line_len >= 72) {
-			*pos++   = '\n';
-			line_len = 0;
-		}
 	}
 
 	if (end - in) {
@@ -70,16 +76,10 @@ unsigned char *base64_encode(const unsigned char *src, size_t len, size_t *out_l
 			*pos++ = base64_table[(in[1] & 0x0f) << 2];
 		}
 		*pos++ = '=';
-		line_len += 4;
 	}
 
-	if (line_len)
-		*pos++ = '\n';
-
 	*pos = '\0';
-	if (out_len)
-		*out_len = pos - out;
-	return out;
+	return 0;
 }
 
 /**

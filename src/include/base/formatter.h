@@ -45,6 +45,13 @@ void print_end_array(bool needs_comma, output_format_t format, struct buffer *bu
 void print_start_elem(bool needs_comma, output_format_t format, struct buffer *buf, int level);
 void print_end_elem(output_format_t format, struct buffer *buf, int level);
 void print_str_field(char *field_name, char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
+void print_binary_field(char *          field_name,
+                        char *          value,
+                        size_t          len,
+                        output_format_t format,
+                        struct buffer * buf,
+                        bool            trailing_comma,
+                        int             level);
 void print_uint_field(char *field_name, uint value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
 void print_uint64_field(char *          field_name,
                         uint64_t        value,
@@ -66,6 +73,7 @@ void print_bool_array_elem(char *          field_name,
                            int             level);
 void print_uint_array_elem(uint value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
 void print_str_array_elem(char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
+void print_binary_array_elem(char *value, size_t len, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
 void print_null_byte(struct buffer *buf);
 
 #ifdef __cplusplus
