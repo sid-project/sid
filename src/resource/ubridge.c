@@ -741,6 +741,18 @@ static size_t _kv_value_ext_data_offset(struct kv_value *kv_value)
 	return strlen(kv_value->data) + 1;
 }
 
+bool _is_string_data(char *ptr, size_t len)
+{
+	int i;
+
+	if (ptr[len - 1] != '\0')
+		return false;
+	for (i = 0; i < len - 1; i++)
+		if (!isprint(ptr[i]))
+			return false;
+	return true;
+}
+
 int sid_ucmd_print_exported_kv_store(const char *prefix, char *ptr, size_t size, output_format_t format, struct buffer *outbuf)
 {
 	size_t                 full_key_size, data_size, len;
@@ -837,9 +849,17 @@ int sid_ucmd_print_exported_kv_store(const char *prefix, char *ptr, size_t size,
 						print_start_array("values", format, outbuf, 3);
 						/* fall through */
 					default:
-						if (len)
-							print_str_array_elem(ptr, format, outbuf, i + 1 < data_size, 4);
-						else
+						if (len) {
+							if (_is_string_data(ptr, len))
+								print_str_array_elem(ptr, format, outbuf, i + 1 < data_size, 4);
+							else
+								print_binary_array_elem(ptr,
+								                        len,
+								                        format,
+								                        outbuf,
+								                        i + 1 < data_size,
+								                        4);
+						} else
 							print_str_array_elem("", format, outbuf, i + 1 < data_size, 4);
 				}
 				ptr += len;
@@ -865,9 +885,13 @@ int sid_ucmd_print_exported_kv_store(const char *prefix, char *ptr, size_t size,
 			print_str_field("owner", data, format, outbuf, true, 3);
 			owner_size = strlen(data) + 1;
 			data += owner_size;
-			if (sizeof(value) + owner_size < data_size)
-				print_str_field("value", data, format, outbuf, true, 3);
-			else
+			if (sizeof(value) + owner_size < data_size) {
+				len = data_size - (sizeof(value) + owner_size);
+				if (_is_string_data(data, len))
+					print_str_field("value", data, format, outbuf, true, 3);
+				else
+					print_binary_field("value", data, len, format, outbuf, true, 3);
+			} else
 				print_str_field("value", "", format, outbuf, true, 3);
 			ptr += data_size;
 		}
