@@ -184,9 +184,9 @@ const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len, int *
 	struct iovec *iov;
 	int           r;
 
-	if (buf == NULL || buf->mem == NULL) {
+	if (buf == NULL || buf->mem == NULL || data == NULL) {
 		if (ret_code)
-			*ret_code = EINVAL;
+			*ret_code = -EINVAL;
 		return NULL;
 	}
 

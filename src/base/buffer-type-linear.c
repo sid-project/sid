@@ -154,7 +154,10 @@ static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len
 		goto out;
 
 	start = buf->mem + used;
-	memcpy(start, data, len);
+	if (data)
+		memcpy(start, data, len);
+	else
+		memset(start, 0, len);
 	buf->stat.usage.used = used + len;
 out:
 	if (ret_code)

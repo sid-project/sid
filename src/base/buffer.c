@@ -101,12 +101,6 @@ int buffer_reset(struct buffer *buf)
 
 const void *buffer_add(struct buffer *buf, void *data, size_t len, int *ret_code)
 {
-	if (!data) {
-		if (*ret_code)
-			*ret_code = -EINVAL;
-		return NULL;
-	}
-
 	return _buffer_type_registry[buf->stat.spec.type]->add(buf, data, len, ret_code);
 }
 
