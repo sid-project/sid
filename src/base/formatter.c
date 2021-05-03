@@ -19,6 +19,8 @@
  */
 #include "base/formatter.h"
 
+#include "base/base64.h"
+
 #include <inttypes.h>
 #include <stdio.h>
 
@@ -38,6 +40,14 @@ static void _print_fmt(struct buffer *buf, const char *fmt, ...)
 	buffer_vfmt_add(buf, NULL, fmt, ap);
 	buffer_rewind(buf, 1, BUFFER_POS_REL);
 	va_end(ap);
+}
+
+static void _print_binary(unsigned char *value, size_t len, struct buffer *buf)
+{
+	size_t      enc_len = base64_len_encode(len);
+	const char *ptr     = buffer_add(buf, NULL, enc_len, NULL);
+	base64_encode(value, len, (unsigned char *) ptr, enc_len);
+	buffer_rewind(buf, 1, BUFFER_POS_REL);
 }
 
 void print_indent(int level, struct buffer *buf)
@@ -120,6 +130,29 @@ void print_str_field(char *field_name, char *value, output_format_t format, stru
 		_print_fmt(buf, "%s", ": ");
 		_print_fmt(buf, "%s", value);
 		_print_fmt(buf, "%s", "\n");
+	}
+}
+
+void print_binary_field(char *          field_name,
+                        char *          value,
+                        size_t          len,
+                        output_format_t format,
+                        struct buffer * buf,
+                        bool            trailing_comma,
+                        int             level)
+{
+	if (format == JSON) {
+		print_indent(level, buf);
+		_print_fmt(buf, "\"%s\": \"", field_name);
+		_print_binary((unsigned char *) value, len, buf);
+		_print_fmt(buf, "\"");
+		if (trailing_comma)
+			_print_fmt(buf, ",");
+		_print_fmt(buf, "\n");
+	} else {
+		_print_fmt(buf, "%s: ", field_name);
+		_print_binary((unsigned char *) value, len, buf);
+		_print_fmt(buf, "\n");
 	}
 }
 
@@ -215,6 +248,21 @@ void print_str_array_elem(char *value, output_format_t format, struct buffer *bu
 			_print_fmt(buf, "%s", ",\n");
 	} else {
 		_print_fmt(buf, "%s", value);
+		_print_fmt(buf, "\n");
+	}
+}
+
+void print_binary_array_elem(char *value, size_t len, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
+{
+	if (format == JSON) {
+		print_indent(level, buf);
+		_print_fmt(buf, "\"");
+		_print_binary((unsigned char *) value, len, buf);
+		_print_fmt(buf, "\"");
+		if (trailing_comma)
+			_print_fmt(buf, ",\n");
+	} else {
+		_print_binary((unsigned char *) value, len, buf);
 		_print_fmt(buf, "\n");
 	}
 }
