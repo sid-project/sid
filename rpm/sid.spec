@@ -79,7 +79,7 @@ rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/*.{a,la}
 %multilib_fix_c_header --file %{_includedir}/sid/config.h
 
 %files
-%license COPYING
+%license COPYING BSD_LICENSE
 %{_sbindir}/sid
 %config(noreplace) %{_sysconfdir}/sysconfig/sid.sysconfig
 %{_udevrulesdir}/00-sid.rules
