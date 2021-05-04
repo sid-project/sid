@@ -1126,20 +1126,15 @@ static void _destroy_delta(struct kv_delta *delta)
 
 static void _destroy_unused_delta(struct kv_delta *delta)
 {
-	struct iovec *iov;
-	size_t        size;
-
 	if (delta->plus) {
-		buffer_get_data(delta->plus, (const void **) &iov, &size);
-		if (size <= KV_VALUE_IDX_DATA) {
+		if (buffer_stat(delta->plus).usage.used <= KV_VALUE_IDX_DATA) {
 			buffer_destroy(delta->plus);
 			delta->plus = NULL;
 		}
 	}
 
 	if (delta->minus) {
-		buffer_get_data(delta->minus, (const void **) &iov, &size);
-		if (size <= KV_VALUE_IDX_DATA) {
+		if (buffer_stat(delta->minus).usage.used <= KV_VALUE_IDX_DATA) {
 			buffer_destroy(delta->minus);
 			delta->minus = NULL;
 		}
@@ -3516,7 +3511,6 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	struct sid_ucmd_ctx *   ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct buffer *         export_buf;
 	struct worker_data_spec data_spec;
-	size_t *                size_ptr, size;
 	int                     r;
 
 	if ((r = _build_kv_buffer(cmd_res,
@@ -3531,8 +3525,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	data_spec.ext.used           = true;
 	data_spec.ext.socket.fd_pass = buffer_get_fd(export_buf);
 
-	buffer_get_data(export_buf, (const void **) &size_ptr, &size);
-	if (size > sizeof(size))
+	if (buffer_stat(export_buf).usage.used > BUFFER_SIZE_PREFIX_LEN)
 		worker_control_channel_send(cmd_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
 	buffer_destroy(export_buf);
 
