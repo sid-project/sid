@@ -114,12 +114,12 @@ static int _buffer_vector_create(struct buffer *buf)
 
 	// TODO: also count with BUFFER_BACKEND_MEMFD where we don't want to use malloc.
 	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX) {
-		if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(MSG_SIZE_PREFIX_LEN))) {
+		if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(BUFFER_SIZE_PREFIX_LEN))) {
 			free(buf->mem);
 			return -ENOMEM;
 		}
 
-		((struct iovec *) buf->mem)[0].iov_len = MSG_SIZE_PREFIX_LEN;
+		((struct iovec *) buf->mem)[0].iov_len = BUFFER_SIZE_PREFIX_LEN;
 	}
 
 	buf->stat.usage.allocated = needed;
@@ -236,7 +236,7 @@ int _buffer_vector_rewind_mem(struct buffer *buf, const void *mem)
 bool _buffer_vector_is_complete(struct buffer *buf, int *ret_code)
 {
 	/*	struct iovec *iov;
-	        MSG_SIZE_PREFIX_TYPE size_prefix;
+	        BUFFER_SIZE_PREFIX_TYPE size_prefix;
 	        size_t size = 0;
 	        unsigned i;
 
@@ -245,7 +245,7 @@ bool _buffer_vector_is_complete(struct buffer *buf, int *ret_code)
 	                        return true;
 	                case BUFFER_MODE_SIZE_PREFIX:
 	                        iov = buf->mem;
-	                        size_prefix = *((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base);
+	                        size_prefix = *((BUFFER_SIZE_PREFIX_TYPE *) iov[0].iov_base);
 	                        for (i = 1; i < buf->used; i++)
 	                                size += iov[i].iov_len;
 	                        return buf->used && size_prefix == size;
@@ -280,14 +280,14 @@ int _buffer_vector_get_data(struct buffer *buf, const void **data, size_t *data_
 
 static void _update_size_prefix(struct buffer *buf, size_t pos)
 {
-	struct iovec *       iov         = buf->mem;
-	MSG_SIZE_PREFIX_TYPE size_prefix = 0;
-	size_t               i;
+	struct iovec *          iov         = buf->mem;
+	BUFFER_SIZE_PREFIX_TYPE size_prefix = 0;
+	size_t                  i;
 
 	if ((pos == 0) && (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)) {
 		for (i = 0; i < buf->stat.usage.used; i++)
 			size_prefix += iov[i].iov_len;
-		*((MSG_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
+		*((BUFFER_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
 	}
 }
 

@@ -75,7 +75,7 @@ static int _usid_cmd_dump(struct args *args, output_format_t format, struct buff
 {
 	struct buffer *         readbuf = NULL;
 	size_t                  msg_header_size;
-	MSG_SIZE_PREFIX_TYPE    msg_size;
+	BUFFER_SIZE_PREFIX_TYPE msg_size;
 	struct usid_msg_header *msg;
 	int                     r;
 	int                     fd  = -1;
@@ -90,7 +90,7 @@ static int _usid_cmd_dump(struct args *args, output_format_t format, struct buff
 		goto out;
 	}
 	buffer_destroy(readbuf);
-	if (read(fd, &msg_size, MSG_SIZE_PREFIX_LEN) != MSG_SIZE_PREFIX_LEN) {
+	if (read(fd, &msg_size, BUFFER_SIZE_PREFIX_LEN) != BUFFER_SIZE_PREFIX_LEN) {
 		log_error_errno(LOG_PREFIX, errno, "Failed to read shared memory size");
 		r = -errno;
 		goto out;
@@ -101,7 +101,11 @@ static int _usid_cmd_dump(struct args *args, output_format_t format, struct buff
 		goto out;
 	}
 
-	r = sid_ucmd_print_exported_kv_store(LOG_PREFIX, shm + MSG_SIZE_PREFIX_LEN, msg_size - MSG_SIZE_PREFIX_LEN, format, outbuf);
+	r = sid_ucmd_print_exported_kv_store(LOG_PREFIX,
+	                                     shm + BUFFER_SIZE_PREFIX_LEN,
+	                                     msg_size - BUFFER_SIZE_PREFIX_LEN,
+	                                     format,
+	                                     outbuf);
 out:
 	if (shm && munmap(shm, msg_size) < 0) {
 		log_error_errno(LOG_PREFIX, errno, "Failed to unmap memory with key-value store");

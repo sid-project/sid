@@ -29,8 +29,8 @@
 extern "C" {
 #endif
 
-#define MSG_SIZE_PREFIX_TYPE uint32_t
-#define MSG_SIZE_PREFIX_LEN  (sizeof(uint32_t))
+#define BUFFER_SIZE_PREFIX_TYPE uint32_t
+#define BUFFER_SIZE_PREFIX_LEN  (sizeof(uint32_t))
 
 typedef enum
 {

@@ -3603,7 +3603,7 @@ static int _reply_failure(sid_resource_t *conn_res)
 
 	(void) buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 	prot = msg.header->prot;
-	(void) buffer_rewind(conn->buf, MSG_SIZE_PREFIX_LEN, BUFFER_POS_ABS);
+	(void) buffer_rewind(conn->buf, BUFFER_SIZE_PREFIX_LEN, BUFFER_POS_ABS);
 	if (prot <= USID_PROTOCOL) {
 		response_header.prot = prot;
 		if (buffer_add(conn->buf, &response_header, sizeof(response_header), &r))
@@ -3909,21 +3909,21 @@ static int _main_kv_store_update(const char *full_key, struct kv_store_update_sp
 
 static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t *internal_ubridge_res, int fd)
 {
-	static const char      syncing_msg[] = "Syncing main key-value store:  %s = %s (seqnum %" PRIu64 ")";
-	struct ubridge *       ubridge       = sid_resource_get_data(internal_ubridge_res);
-	sid_resource_t *       kv_store_res;
-	kv_store_value_flags_t flags;
-	MSG_SIZE_PREFIX_TYPE   msg_size;
-	size_t                 full_key_size, data_size, data_offset, i;
-	char *                 full_key, *shm = NULL, *p, *end;
-	struct kv_value *      value = NULL;
-	struct iovec *         iov   = NULL;
-	const char *           iov_str;
-	void *                 data_to_store;
-	struct kv_rel_spec     rel_spec   = {.delta = &((struct kv_delta) {0})};
-	struct kv_update_arg   update_arg = {.gen_buf = ubridge->ucmd_mod_ctx.gen_buf, .custom = &rel_spec};
-	bool                   unset;
-	int                    r = -1;
+	static const char       syncing_msg[] = "Syncing main key-value store:  %s = %s (seqnum %" PRIu64 ")";
+	struct ubridge *        ubridge       = sid_resource_get_data(internal_ubridge_res);
+	sid_resource_t *        kv_store_res;
+	kv_store_value_flags_t  flags;
+	BUFFER_SIZE_PREFIX_TYPE msg_size;
+	size_t                  full_key_size, data_size, data_offset, i;
+	char *                  full_key, *shm = NULL, *p, *end;
+	struct kv_value *       value = NULL;
+	struct iovec *          iov   = NULL;
+	const char *            iov_str;
+	void *                  data_to_store;
+	struct kv_rel_spec      rel_spec   = {.delta = &((struct kv_delta) {0})};
+	struct kv_update_arg    update_arg = {.gen_buf = ubridge->ucmd_mod_ctx.gen_buf, .custom = &rel_spec};
+	bool                    unset;
+	int                     r = -1;
 
 	if (!(kv_store_res = sid_resource_search(internal_ubridge_res,
 	                                         SID_RESOURCE_SEARCH_IMM_DESC,
@@ -3933,7 +3933,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 
 	ubridge = sid_resource_get_data(internal_ubridge_res);
 
-	if (read(fd, &msg_size, MSG_SIZE_PREFIX_LEN) != MSG_SIZE_PREFIX_LEN) {
+	if (read(fd, &msg_size, BUFFER_SIZE_PREFIX_LEN) != BUFFER_SIZE_PREFIX_LEN) {
 		log_error_errno(ID(worker_proxy_res), errno, "Failed to read shared memory size");
 		goto out;
 	}
