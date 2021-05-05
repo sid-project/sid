@@ -124,6 +124,8 @@ const void *buffer_vfmt_add(struct buffer *buf, int *ret_code, const char *fmt, 
 int buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
 {
 	if (whence == BUFFER_POS_REL) {
+		if (pos == 0)
+			return 0; /* otherwise this fails on an empty size-prefixed buffer */
 		if (pos > buf->stat.usage.used)
 			return -EINVAL;
 

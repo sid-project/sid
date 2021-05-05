@@ -95,6 +95,10 @@ static int _usid_cmd_dump(struct args *args, output_format_t format, struct buff
 		r = -errno;
 		goto out;
 	}
+	if (msg_size <= BUFFER_SIZE_PREFIX_LEN) {
+		r = sid_ucmd_print_exported_kv_store(LOG_PREFIX, NULL, 0, format, outbuf);
+		goto out;
+	}
 	if ((shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
 		log_error_errno(LOG_PREFIX, errno, "Failed to map memory with key-value store");
 		r = -errno;
