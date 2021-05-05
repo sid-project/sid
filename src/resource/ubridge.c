@@ -3957,6 +3957,11 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 		goto out;
 	}
 
+	if (msg_size <= BUFFER_SIZE_PREFIX_LEN) { /* nothing to sync */
+		r = 0;
+		goto out;
+	}
+
 	if ((p = shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
 		log_error_errno(ID(worker_proxy_res), errno, "Failed to map memory with key-value store");
 		goto out;

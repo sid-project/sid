@@ -221,6 +221,9 @@ int _buffer_vector_rewind(struct buffer *buf, size_t pos)
 {
 	size_t min_pos = (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX) ? 1 : 0;
 
+	if (!buf->stat.usage.used && pos == min_pos)
+		return 0;
+
 	if (pos > buf->stat.usage.used || pos < min_pos)
 		return -EINVAL;
 
@@ -269,7 +272,7 @@ int _buffer_vector_get_data(struct buffer *buf, const void **data, size_t *data_
 			if (data)
 				*data = buf->mem + VECTOR_ITEM_SIZE;
 			if (data_size)
-				*data_size = buf->stat.usage.used - 1;
+				*data_size = (buf->stat.usage.used) ? buf->stat.usage.used - 1 : 0;
 			break;
 		default:
 			return -ENOTSUP;

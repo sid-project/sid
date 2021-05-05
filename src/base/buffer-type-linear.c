@@ -209,6 +209,9 @@ static int _buffer_linear_rewind(struct buffer *buf, size_t pos)
 {
 	size_t min_pos = (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX) ? BUFFER_SIZE_PREFIX_LEN : 0;
 
+	if (!buf->stat.usage.used && pos == min_pos)
+		return 0;
+
 	if (pos > buf->stat.usage.used || pos < min_pos)
 		return -EINVAL;
 
@@ -262,7 +265,7 @@ static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t
 			if (data)
 				*data = buf->mem + BUFFER_SIZE_PREFIX_LEN;
 			if (data_size)
-				*data_size = buf->stat.usage.used - BUFFER_SIZE_PREFIX_LEN;
+				*data_size = (buf->stat.usage.used) ? buf->stat.usage.used - BUFFER_SIZE_PREFIX_LEN : 0;
 			break;
 		default:
 			return -ENOTSUP;
