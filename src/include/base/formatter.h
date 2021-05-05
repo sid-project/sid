@@ -20,7 +20,6 @@
 #ifndef _SID_FORMATTER_H
 #define _SID_FORMATTER_H
 
-#include "base/buffer-type.h"
 #include "base/buffer.h"
 
 #include <stdbool.h>
