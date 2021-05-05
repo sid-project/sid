@@ -3655,6 +3655,10 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 		if (buffer_is_complete(conn->buf, NULL)) {
 			(void) buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 
+			if (msg.size < sizeof(struct usid_msg_header)) {
+				(void) _connection_cleanup(conn_res);
+				return -1;
+			}
 			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
 			if (msg.header->cmd < _USID_CMD_START || msg.header->cmd > _USID_CMD_END)
 				msg.header->cmd = USID_CMD_UNKNOWN;
