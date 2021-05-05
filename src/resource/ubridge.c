@@ -3934,7 +3934,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 	kv_store_value_flags_t  flags;
 	BUFFER_SIZE_PREFIX_TYPE msg_size;
 	size_t                  full_key_size, data_size, data_offset, i;
-	char *                  full_key, *shm = NULL, *p, *end;
+	char *                  full_key, *shm = MAP_FAILED, *p, *end;
 	struct kv_value *       value = NULL;
 	struct iovec *          iov   = NULL;
 	const char *            iov_str;
@@ -4092,7 +4092,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 out:
 	free(iov);
 
-	if (shm && munmap(shm, msg_size) < 0) {
+	if (shm != MAP_FAILED && munmap(shm, msg_size) < 0) {
 		log_error_errno(ID(worker_proxy_res), errno, "Failed to unmap memory with key-value store");
 		r = -1;
 	}

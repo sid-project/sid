@@ -79,7 +79,7 @@ static int _usid_cmd_dump(struct args *args, output_format_t format, struct buff
 	struct usid_msg_header *msg;
 	int                     r;
 	int                     fd  = -1;
-	char *                  shm = NULL;
+	char *                  shm = MAP_FAILED;
 
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_DUMP, 0, NULL, NULL, &readbuf, &fd)) < 0)
 		return r;
@@ -111,7 +111,7 @@ static int _usid_cmd_dump(struct args *args, output_format_t format, struct buff
 	                                     format,
 	                                     outbuf);
 out:
-	if (shm && munmap(shm, msg_size) < 0) {
+	if (shm != MAP_FAILED && munmap(shm, msg_size) < 0) {
 		log_error_errno(LOG_PREFIX, errno, "Failed to unmap memory with key-value store");
 		r = -1;
 	}
