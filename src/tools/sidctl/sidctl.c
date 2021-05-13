@@ -56,8 +56,9 @@ static int _usid_cmd_tree(struct args *args, output_format_t format, struct buff
 	size_t                  size;
 	struct usid_msg_header *msg;
 	int                     r;
+	uint16_t                flags = (format == JSON) ? COMMAND_FLAGS_FORMAT_JSON : 0;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_TREE, 0, NULL, NULL, &readbuf, NULL)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_TREE, flags, 0, NULL, NULL, &readbuf, NULL)) == 0) {
 		buffer_get_data(readbuf, (const void **) &msg, &size);
 		if (size < USID_MSG_HEADER_SIZE || msg->status & COMMAND_STATUS_FAILURE) {
 			buffer_destroy(readbuf);
@@ -78,10 +79,11 @@ static int _usid_cmd_dump(struct args *args, output_format_t format, struct buff
 	BUFFER_SIZE_PREFIX_TYPE msg_size;
 	struct usid_msg_header *msg;
 	int                     r;
-	int                     fd  = -1;
-	char *                  shm = MAP_FAILED;
+	int                     fd    = -1;
+	char *                  shm   = MAP_FAILED;
+	uint16_t                flags = (format == JSON) ? COMMAND_FLAGS_FORMAT_JSON : 0;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_DUMP, 0, NULL, NULL, &readbuf, &fd)) < 0)
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_DUMP, flags, 0, NULL, NULL, &readbuf, &fd)) < 0)
 		return r;
 	buffer_get_data(readbuf, (const void **) &msg, &msg_header_size);
 	if (msg_header_size < USID_MSG_HEADER_SIZE || msg->status & COMMAND_STATUS_FAILURE) {
@@ -127,8 +129,9 @@ static int _usid_cmd_stats(struct args *args, output_format_t format, struct buf
 	size_t                  size;
 	struct usid_stats *     stats = NULL;
 	int                     r;
+	uint16_t                flags = (format == JSON) ? COMMAND_FLAGS_FORMAT_JSON : 0;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_STATS, 0, NULL, NULL, &buf, NULL)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_STATS, flags, 0, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
 		if (size >= (USID_MSG_HEADER_SIZE + USID_STATS_SIZE) &&
@@ -158,7 +161,9 @@ static int _usid_cmd_version(struct args *args, output_format_t format, struct b
 	size_t                  size;
 	struct usid_version *   vsn = NULL;
 	int                     r;
-	r = usid_req(LOG_PREFIX, USID_CMD_VERSION, 0, NULL, NULL, &readbuf, NULL);
+	uint16_t                flags = (format == JSON) ? COMMAND_FLAGS_FORMAT_JSON : 0;
+
+	r = usid_req(LOG_PREFIX, USID_CMD_VERSION, flags, 0, NULL, NULL, &readbuf, NULL);
 
 	print_start_document(format, outbuf, 0);
 

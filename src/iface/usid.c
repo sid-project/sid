@@ -42,6 +42,7 @@ usid_cmd_t usid_cmd_name_to_type(const char *cmd_name)
 
 int usid_req(const char *       prefix,
              usid_cmd_t         cmd,
+             uint16_t           flags,
              uint64_t           status,
              usid_req_data_fn_t data_fn,
              void *             data_fn_arg,
@@ -64,7 +65,7 @@ int usid_req(const char *       prefix,
 	}
 
 	if (!buffer_add(buf,
-	                &((struct usid_msg_header) {.status = status, .prot = USID_PROTOCOL, .cmd = cmd}),
+	                &((struct usid_msg_header) {.status = status, .prot = USID_PROTOCOL, .cmd = cmd, .flags = flags}),
 	                USID_MSG_HEADER_SIZE,
 	                &r))
 		goto out;
