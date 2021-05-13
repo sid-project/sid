@@ -3572,10 +3572,15 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	if (!buffer_add(ucmd_ctx->res_buf, &response_header, sizeof(response_header), &r))
 		goto out;
 
-	if (ucmd_ctx->request_header.prot <= USID_PROTOCOL) {
+	if (ucmd_ctx->request_header.prot < 2) {
+		log_error(ID(cmd_res), "Client protocol version unsupported: %u", ucmd_ctx->request_header.prot);
+		(void) _connection_cleanup(conn_res);
+		return -1;
+	} else if (ucmd_ctx->request_header.prot <= USID_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
-		response_header.prot = ucmd_ctx->request_header.prot;
-		exec_arg.cmd_res     = cmd_res;
+		response_header.prot  = ucmd_ctx->request_header.prot;
+		response_header.flags = ucmd_ctx->request_header.flags;
+		exec_arg.cmd_res      = cmd_res;
 		if ((r = _cmd_regs[ucmd_ctx->request_header.cmd].exec(&exec_arg)) < 0) {
 			log_error(ID(cmd_res), "Failed to execute command");
 			if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_SKIP_RESULT)

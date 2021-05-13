@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-#define USID_PROTOCOL        1
+#define USID_PROTOCOL        2
 #define USID_SOCKET_PATH     "\0sid-ubridge.socket"
 #define USID_SOCKET_PATH_LEN (sizeof(USID_SOCKET_PATH) - 1)
 
@@ -79,10 +79,13 @@ bool usid_cmd_root_only[] = {
 #define COMMAND_STATUS_SUCCESS      UINT64_C(0x0000000000000000)
 #define COMMAND_STATUS_FAILURE      UINT64_C(0x0000000000000001)
 
+#define COMMAND_FLAGS_FORMAT_JSON UINT16_C(0x0001)
+
 struct usid_msg_header {
 	uint64_t status;
 	uint8_t  prot;
 	uint8_t  cmd;
+	uint16_t flags;
 	char     data[];
 } __attribute__((packed));
 
@@ -122,6 +125,7 @@ typedef int (*usid_req_data_fn_t)(struct buffer *buf, void *data);
 usid_cmd_t usid_cmd_name_to_type(const char *cmd_name);
 int        usid_req(const char *       prefix,
                     usid_cmd_t         cmd,
+                    uint16_t           flags,
                     uint64_t           status,
                     usid_req_data_fn_t data_fn,
                     void *             data_fn_arg,
