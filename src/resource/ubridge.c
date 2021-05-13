@@ -2002,8 +2002,10 @@ static int _cmd_exec_tree(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	char *               resource_tree_data;
 	size_t               size;
+	output_format_t      format = (ucmd_ctx->request_header.flags & COMMAND_FLAGS_FORMAT_JSON) ? JSON : TABLE;
 
 	if ((r = sid_resource_write_tree_recursively(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
+	                                             format,
 	                                             false,
 	                                             ucmd_ctx->ucmd_mod_ctx.gen_buf,
 	                                             0)) == 0) {

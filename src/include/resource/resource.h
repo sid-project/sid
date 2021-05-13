@@ -23,6 +23,7 @@
 #include "base/common.h"
 
 #include "base/buffer.h"
+#include "base/formatter.h"
 #include "iface/service-link.h"
 
 #include <signal.h>
@@ -234,7 +235,11 @@ int sid_resource_exit_event_loop(sid_resource_t *res);
 /*
  * miscellanous functions
  */
-int sid_resource_write_tree_recursively(sid_resource_t *res, bool add_comma, struct buffer *outbuf, int level);
+int sid_resource_write_tree_recursively(sid_resource_t *res,
+                                        output_format_t format,
+                                        bool            add_comma,
+                                        struct buffer * outbuf,
+                                        int             level);
 
 #ifdef __cplusplus
 }
