@@ -1000,16 +1000,17 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 	return sd_event_exit(res->event_loop.sd_event_loop, 0);
 }
 
-void write_event_source_elem_fields(sid_resource_event_source_t *es,
-                                    output_format_t              format,
-                                    struct buffer *              outbuf,
-                                    bool                         add_comma,
-                                    int                          level)
+static void _write_event_source_elem_fields(sid_resource_event_source_t *es,
+                                            output_format_t              format,
+                                            struct buffer *              outbuf,
+                                            bool                         add_comma,
+                                            int                          level)
 {
 	print_str_field("name", (char *) es->name, format, outbuf, false, level);
 }
 
-void write_resource_elem_fields(sid_resource_t *res, output_format_t format, struct buffer *outbuf, bool add_comma, int level)
+static void
+	_write_resource_elem_fields(sid_resource_t *res, output_format_t format, struct buffer *outbuf, bool add_comma, int level)
 {
 	sid_resource_event_source_t *es, *tmp_es;
 	int                          es_count, item = 0;
@@ -1023,7 +1024,7 @@ void write_resource_elem_fields(sid_resource_t *res, output_format_t format, str
 		list_iterate_items_safe_back (es, tmp_es, &res->event_sources) {
 			item++;
 			print_start_elem(item != 1, format, outbuf, level);
-			write_event_source_elem_fields(es, format, outbuf, item != es_count, level + 1);
+			_write_event_source_elem_fields(es, format, outbuf, item != es_count, level + 1);
 			print_end_elem(format, outbuf, level);
 		}
 		print_end_array(true, format, outbuf, level);
@@ -1045,7 +1046,7 @@ int sid_resource_write_tree_recursively(sid_resource_t *res,
 	count = list_size(&res->children);
 
 	print_start_elem(add_comma, format, outbuf, level);
-	write_resource_elem_fields(res, format, outbuf, count > 0, level + 1);
+	_write_resource_elem_fields(res, format, outbuf, count > 0, level + 1);
 	if (count > 0) {
 		print_start_array("children", format, outbuf, level + 1);
 		list_iterate_items (child_res, &res->children) {
