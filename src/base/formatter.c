@@ -78,7 +78,8 @@ void print_start_array(char *array_name, output_format_t format, struct buffer *
 	if (format == JSON) {
 		print_indent(level, buf);
 		_print_fmt(buf, "\"%s\": %s", array_name, PRINT_JSON_START_ARRAY);
-	}
+	} else
+		_print_fmt(buf, "%s:\n", array_name);
 }
 
 void print_end_array(bool needs_comma, output_format_t format, struct buffer *buf, int level)
@@ -101,7 +102,7 @@ void print_start_elem(bool needs_comma, output_format_t format, struct buffer *b
 			_print_fmt(buf, ",\n");
 		print_indent(level, buf);
 		_print_fmt(buf, "%s", PRINT_JSON_START_ELEM);
-	} else {
+	} else if (needs_comma) {
 		_print_fmt(buf, "%s", "\n");
 	}
 }
@@ -111,8 +112,6 @@ void print_end_elem(output_format_t format, struct buffer *buf, int level)
 	if (format == JSON) {
 		print_indent(level, buf);
 		_print_fmt(buf, "%s", PRINT_JSON_END_LAST);
-	} else {
-		_print_fmt(buf, "%s", "\n");
 	}
 }
 
@@ -124,7 +123,7 @@ void print_elem_name(bool needs_comma, char *elem_name, output_format_t format, 
 		print_indent(level, buf);
 		_print_fmt(buf, "\"%s\":\n", elem_name);
 	} else
-		_print_fmt(buf, "%s:\n", elem_name);
+		_print_fmt(buf, "%s%s:\n", (needs_comma) ? "\n" : "", elem_name);
 }
 
 void print_str_field(char *field_name, char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
