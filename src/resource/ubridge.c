@@ -1986,13 +1986,20 @@ static int _cmd_exec_reply(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *      ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	static struct usid_version version  = {.major   = SID_VERSION_MAJOR,
-                                              .minor   = SID_VERSION_MINOR,
-                                              .release = SID_VERSION_RELEASE};
-	int                        r;
+	int                  r;
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	char *               version_data;
+	size_t               size;
+	output_format_t      format = (ucmd_ctx->request_header.flags & COMMAND_FLAGS_FORMAT_JSON) ? JSON : TABLE;
 
-	buffer_add(ucmd_ctx->res_buf, &version, sizeof(version), &r);
+	print_start_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
+	print_uint_field("SID_PROTOCOL", USID_PROTOCOL, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
+	print_uint_field("SID_MAJOR", SID_VERSION_MAJOR, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
+	print_uint_field("SID_MINOR", SID_VERSION_MINOR, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
+	print_uint_field("SID_RELEASE", SID_VERSION_RELEASE, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, false, 1);
+	print_end_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
+	buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &version_data, &size);
+	buffer_add(ucmd_ctx->res_buf, version_data, size, &r);
 	return r;
 }
 
