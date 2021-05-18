@@ -94,12 +94,6 @@ struct usid_msg {
 	struct usid_msg_header *header;
 };
 
-struct usid_version {
-	uint16_t major;
-	uint16_t minor;
-	uint16_t release;
-} __attribute__((packed));
-
 struct usid_dump_header {
 	uint64_t seqnum;
 	uint64_t flags;
@@ -117,7 +111,6 @@ struct usid_stats {
 } __attribute__((packed));
 
 #define USID_MSG_HEADER_SIZE sizeof(struct usid_msg_header)
-#define USID_VERSION_SIZE    sizeof(struct usid_version)
 #define USID_STATS_SIZE      sizeof(struct usid_stats)
 
 typedef int (*usid_req_data_fn_t)(struct buffer *buf, void *data);

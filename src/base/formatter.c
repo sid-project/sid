@@ -116,6 +116,17 @@ void print_end_elem(output_format_t format, struct buffer *buf, int level)
 	}
 }
 
+void print_elem_name(bool needs_comma, char *elem_name, output_format_t format, struct buffer *buf, int level)
+{
+	if (format == JSON) {
+		if (needs_comma)
+			_print_fmt(buf, ",\n");
+		print_indent(level, buf);
+		_print_fmt(buf, "\"%s\":\n", elem_name);
+	} else
+		_print_fmt(buf, "%s:\n", elem_name);
+}
+
 void print_str_field(char *field_name, char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
 {
 	if (format == JSON) {

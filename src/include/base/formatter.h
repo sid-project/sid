@@ -44,6 +44,7 @@ void print_start_array(char *array_name, output_format_t format, struct buffer *
 void print_end_array(bool needs_comma, output_format_t format, struct buffer *buf, int level);
 void print_start_elem(bool needs_comma, output_format_t format, struct buffer *buf, int level);
 void print_end_elem(output_format_t format, struct buffer *buf, int level);
+void print_elem_name(bool needs_comma, char *elem_name, output_format_t format, struct buffer *buf, int level);
 void print_str_field(char *field_name, char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
 void print_binary_field(char *          field_name,
                         char *          value,

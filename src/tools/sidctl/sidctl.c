@@ -159,31 +159,32 @@ static int _usid_cmd_version(struct args *args, output_format_t format, struct b
 	struct buffer *         readbuf = NULL;
 	struct usid_msg_header *hdr;
 	size_t                  size;
-	struct usid_version *   vsn = NULL;
 	int                     r;
 	uint16_t                flags = (format == JSON) ? COMMAND_FLAGS_FORMAT_JSON : 0;
 
 	r = usid_req(LOG_PREFIX, USID_CMD_VERSION, flags, 0, NULL, NULL, &readbuf, NULL);
-
 	print_start_document(format, outbuf, 0);
 
+	print_elem_name(false, "SIDCTL_VERSION", format, outbuf, 0);
+	print_start_elem(false, format, outbuf, 0);
 	print_uint_field(KEY_SIDCTL_PROTOCOL, USID_PROTOCOL, format, outbuf, true, 1);
 	print_uint_field(KEY_SIDCTL_MAJOR, SID_VERSION_MAJOR, format, outbuf, true, 1);
 	print_uint_field(KEY_SIDCTL_MINOR, SID_VERSION_MINOR, format, outbuf, true, 1);
-	print_uint_field(KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, format, outbuf, r == 0, 1);
-
+	print_uint_field(KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, format, outbuf, 0, 1);
+	print_end_elem(format, outbuf, 0);
+	print_elem_name(true, "SID_VERSION", format, outbuf, 0);
 	if (r == 0) {
 		buffer_get_data(readbuf, (const void **) &hdr, &size);
 
-		if (size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) {
-			vsn = (struct usid_version *) hdr->data;
-			print_uint_field(KEY_SID_PROTOCOL, hdr->prot, format, outbuf, true, 1);
-			print_uint_field(KEY_SID_MAJOR, vsn->major, format, outbuf, true, 1);
-			print_uint_field(KEY_SID_MINOR, vsn->minor, format, outbuf, true, 1);
-			print_uint_field(KEY_SID_RELEASE, vsn->release, format, outbuf, false, 1);
+		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & COMMAND_STATUS_FAILURE)) {
+			size -= USID_MSG_HEADER_SIZE;
+			buffer_add(outbuf, hdr->data, size, &r);
 		}
 
 		buffer_destroy(readbuf);
+	} else {
+		print_start_document(format, outbuf, 0);
+		print_end_document(format, outbuf, 0);
 	}
 	print_end_document(format, outbuf, 0);
 	return r;

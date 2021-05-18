@@ -73,7 +73,7 @@ static int _usid_cmd_active(struct args *args)
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, 0, seqnum, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
-		if ((size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) && (hdr->prot == USID_PROTOCOL))
+		if (size > USID_MSG_HEADER_SIZE && hdr->prot == USID_PROTOCOL && !(hdr->status & COMMAND_STATUS_FAILURE))
 			status = USID_BRIDGE_STATUS_ACTIVE;
 		else
 			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
@@ -245,14 +245,13 @@ static int _usid_cmd_version(struct args *args)
 	struct buffer *         buf = NULL;
 	struct usid_msg_header *hdr;
 	size_t                  size;
-	struct usid_version *   vsn = NULL;
 	int                     r;
 
 	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	fprintf(stdout,
-	        KEY_USID_PROTOCOL "=%" PRIu8 "\n" KEY_USID_MAJOR "=%" PRIu16 "\n" KEY_USID_MINOR "=%" PRIu16 "\n" KEY_USID_RELEASE
-	                          "=%" PRIu16 "\n",
+	        KEY_USID_PROTOCOL ": %" PRIu8 "\n" KEY_USID_MAJOR ": %" PRIu16 "\n" KEY_USID_MINOR ": %" PRIu16
+	                          "\n" KEY_USID_RELEASE ": %" PRIu16 "\n",
 	        USID_PROTOCOL,
 	        SID_VERSION_MAJOR,
 	        SID_VERSION_MINOR,
@@ -261,16 +260,8 @@ static int _usid_cmd_version(struct args *args)
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, 0, seqnum, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
-		if (size >= (USID_MSG_HEADER_SIZE + USID_VERSION_SIZE)) {
-			vsn = (struct usid_version *) hdr->data;
-			fprintf(stdout,
-			        KEY_SID_PROTOCOL "=%" PRIu8 "\n" KEY_SID_MAJOR "=%" PRIu16 "\n" KEY_SID_MINOR "=%" PRIu16
-			                         "\n" KEY_SID_RELEASE "=%" PRIu16 "\n",
-			        hdr->prot,
-			        vsn->major,
-			        vsn->minor,
-			        vsn->release);
-		}
+		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & COMMAND_STATUS_FAILURE))
+			fprintf(stdout, "%s", hdr->data);
 
 		buffer_destroy(buf);
 	}
