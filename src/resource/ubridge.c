@@ -290,6 +290,16 @@ struct cross_bitmap_calc_arg {
 	struct bitmap *new_bmp;
 };
 
+struct usid_stats {
+	uint64_t key_size;
+	uint64_t value_int_size;
+	uint64_t value_int_data_size;
+	uint64_t value_ext_size;
+	uint64_t value_ext_data_size;
+	uint64_t meta_size;
+	uint32_t nr_kv_pairs;
+};
+
 /*
  * Generic flags for all commands.
  */
@@ -2069,12 +2079,36 @@ static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_stats(struct cmd_exec_arg *exec_arg)
 {
-	int                      r;
-	struct sid_ucmd_ctx *    ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	static struct usid_stats stats;
+	int                  r;
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct usid_stats    stats;
+	char *               stats_data;
+	size_t               size;
+	output_format_t      format = (ucmd_ctx->request_header.flags & COMMAND_FLAGS_FORMAT_JSON) ? JSON : TABLE;
 
-	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0)
-		buffer_add(ucmd_ctx->res_buf, &stats, sizeof(stats), &r);
+	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0) {
+		print_start_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
+		print_uint64_field("KEYS_SIZE", stats.key_size, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
+		print_uint64_field("VALUES_INTERNAL_SIZE", stats.value_int_size, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
+		print_uint64_field("VALUES_INTERNAL_DATA_SIZE",
+		                   stats.value_int_data_size,
+		                   format,
+		                   ucmd_ctx->ucmd_mod_ctx.gen_buf,
+		                   true,
+		                   1);
+		print_uint64_field("VALUES_EXTERNAL_SIZE", stats.value_ext_size, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
+		print_uint64_field("VALUES_EXTERNAL_DATA_SIZE",
+		                   stats.value_ext_data_size,
+		                   format,
+		                   ucmd_ctx->ucmd_mod_ctx.gen_buf,
+		                   true,
+		                   1);
+		print_uint64_field("METADATA_SIZE", stats.meta_size, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
+		print_uint_field("NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
+		print_end_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
+		buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &stats_data, &size);
+		buffer_add(ucmd_ctx->res_buf, stats_data, size, &r);
+	}
 	return r;
 }
 

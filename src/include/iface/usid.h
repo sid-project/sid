@@ -100,18 +100,7 @@ struct usid_dump_header {
 	uint32_t data_count; /* the number of data iovs */
 } __attribute__((packed));
 
-struct usid_stats {
-	uint64_t key_size;
-	uint64_t value_int_size;
-	uint64_t value_int_data_size;
-	uint64_t value_ext_size;
-	uint64_t value_ext_data_size;
-	uint64_t meta_size;
-	uint32_t nr_kv_pairs;
-} __attribute__((packed));
-
 #define USID_MSG_HEADER_SIZE sizeof(struct usid_msg_header)
-#define USID_STATS_SIZE      sizeof(struct usid_stats)
 
 typedef int (*usid_req_data_fn_t)(struct buffer *buf, void *data);
 
