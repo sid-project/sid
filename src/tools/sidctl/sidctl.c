@@ -127,25 +127,15 @@ static int _usid_cmd_stats(struct args *args, output_format_t format, struct buf
 	struct buffer *         buf = NULL;
 	struct usid_msg_header *hdr;
 	size_t                  size;
-	struct usid_stats *     stats = NULL;
 	int                     r;
 	uint16_t                flags = (format == JSON) ? COMMAND_FLAGS_FORMAT_JSON : 0;
 
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_STATS, flags, 0, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
-		if (size >= (USID_MSG_HEADER_SIZE + USID_STATS_SIZE) &&
-		    (hdr->status & COMMAND_STATUS_MASK_OVERALL) == COMMAND_STATUS_SUCCESS) {
-			stats = (struct usid_stats *) hdr->data;
-			print_start_document(format, outbuf, 0);
-			print_uint64_field("KEYS_SIZE", stats->key_size, format, outbuf, true, 1);
-			print_uint64_field("VALUES_INTERNAL_SIZE", stats->value_int_size, format, outbuf, true, 1);
-			print_uint64_field("VALUES_INTERNAL_DATA_SIZE", stats->value_int_data_size, format, outbuf, true, 1);
-			print_uint64_field("VALUES_EXTERNAL_SIZE", stats->value_ext_size, format, outbuf, true, 1);
-			print_uint64_field("VALUES_EXTERNAL_DATA_SIZE", stats->value_ext_data_size, format, outbuf, true, 1);
-			print_uint64_field("METADATA_SIZE", stats->meta_size, format, outbuf, true, 1);
-			print_uint_field("NR_KEY_VALUE_PAIRS", stats->nr_kv_pairs, format, outbuf, true, 1);
-			print_end_document(format, outbuf, 0);
+		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & COMMAND_STATUS_FAILURE)) {
+			size -= USID_MSG_HEADER_SIZE;
+			buffer_add(outbuf, hdr->data, size, &r);
 		} else
 			r = -1;
 
