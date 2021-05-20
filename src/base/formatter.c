@@ -174,13 +174,13 @@ void print_uint64_field(char *          field_name,
 		_print_fmt(buf, "%s: %" PRIu64 "\n", field_name, value);
 }
 
-void print_int64_field(char *field_name, uint64_t value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
+void print_int64_field(char *field_name, int64_t value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
 {
 	if (format == JSON) {
 		print_indent(level, buf);
-		_print_fmt(buf, "\"%s\": %" PRIu64 "%s\n", field_name, value, trailing_comma ? "," : "");
+		_print_fmt(buf, "\"%s\": %" PRIi64 "%s\n", field_name, value, trailing_comma ? "," : "");
 	} else
-		_print_fmt(buf, "%s: %" PRIu64 "\n", field_name, value);
+		_print_fmt(buf, "%s: %" PRIi64 "\n", field_name, value);
 }
 
 void print_bool_array_elem(char *field_name, bool value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
@@ -198,7 +198,7 @@ void print_uint_array_elem(uint value, output_format_t format, struct buffer *bu
 		print_indent(level, buf);
 		_print_fmt(buf, "%u%s", value, trailing_comma ? ",\n" : "");
 	} else
-		_print_fmt(buf, "%u", value);
+		_print_fmt(buf, "%u\n", value);
 }
 
 void print_str_array_elem(char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
