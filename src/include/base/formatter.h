@@ -60,12 +60,7 @@ void print_uint64_field(char *          field_name,
                         struct buffer * buf,
                         bool            trailing_comma,
                         int             level);
-void print_int64_field(char *          field_name,
-                       uint64_t        value,
-                       output_format_t format,
-                       struct buffer * buf,
-                       bool            trailing_comma,
-                       int             level);
+void print_int64_field(char *field_name, int64_t value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
 void print_bool_array_elem(char *          field_name,
                            bool            value,
                            output_format_t format,
