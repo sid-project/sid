@@ -56,11 +56,11 @@ static int _usid_cmd_tree(struct args *args, output_format_t format, struct buff
 	size_t                  size;
 	struct usid_msg_header *msg;
 	int                     r;
-	uint16_t                flags = (format == JSON) ? COMMAND_FLAGS_FORMAT_JSON : 0;
+	uint16_t                flags = (format == JSON) ? USID_CMD_FLAGS_FORMAT_JSON : 0;
 
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_TREE, flags, 0, NULL, NULL, &readbuf, NULL)) == 0) {
 		buffer_get_data(readbuf, (const void **) &msg, &size);
-		if (size < USID_MSG_HEADER_SIZE || msg->status & COMMAND_STATUS_FAILURE) {
+		if (size < USID_MSG_HEADER_SIZE || msg->status & USID_CMD_STATUS_FAILURE) {
 			buffer_destroy(readbuf);
 			return -1;
 		}
@@ -81,12 +81,12 @@ static int _usid_cmd_dump(struct args *args, output_format_t format, struct buff
 	int                     r;
 	int                     fd    = -1;
 	char *                  shm   = MAP_FAILED;
-	uint16_t                flags = (format == JSON) ? COMMAND_FLAGS_FORMAT_JSON : 0;
+	uint16_t                flags = (format == JSON) ? USID_CMD_FLAGS_FORMAT_JSON : 0;
 
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_DUMP, flags, 0, NULL, NULL, &readbuf, &fd)) < 0)
 		return r;
 	buffer_get_data(readbuf, (const void **) &msg, &msg_header_size);
-	if (msg_header_size < USID_MSG_HEADER_SIZE || msg->status & COMMAND_STATUS_FAILURE) {
+	if (msg_header_size < USID_MSG_HEADER_SIZE || msg->status & USID_CMD_STATUS_FAILURE) {
 		buffer_destroy(readbuf);
 		r = -1;
 		goto out;
@@ -128,12 +128,12 @@ static int _usid_cmd_stats(struct args *args, output_format_t format, struct buf
 	struct usid_msg_header *hdr;
 	size_t                  size;
 	int                     r;
-	uint16_t                flags = (format == JSON) ? COMMAND_FLAGS_FORMAT_JSON : 0;
+	uint16_t                flags = (format == JSON) ? USID_CMD_FLAGS_FORMAT_JSON : 0;
 
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_STATS, flags, 0, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
-		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & COMMAND_STATUS_FAILURE)) {
+		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & USID_CMD_STATUS_FAILURE)) {
 			size -= USID_MSG_HEADER_SIZE;
 			buffer_add(outbuf, hdr->data, size, &r);
 		} else
@@ -150,7 +150,7 @@ static int _usid_cmd_version(struct args *args, output_format_t format, struct b
 	struct usid_msg_header *hdr;
 	size_t                  size;
 	int                     r;
-	uint16_t                flags = (format == JSON) ? COMMAND_FLAGS_FORMAT_JSON : 0;
+	uint16_t                flags = (format == JSON) ? USID_CMD_FLAGS_FORMAT_JSON : 0;
 
 	r = usid_req(LOG_PREFIX, USID_CMD_VERSION, flags, 0, NULL, NULL, &readbuf, NULL);
 	print_start_document(format, outbuf, 0);
@@ -166,7 +166,7 @@ static int _usid_cmd_version(struct args *args, output_format_t format, struct b
 	if (r == 0) {
 		buffer_get_data(readbuf, (const void **) &hdr, &size);
 
-		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & COMMAND_STATUS_FAILURE)) {
+		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & USID_CMD_STATUS_FAILURE)) {
 			size -= USID_MSG_HEADER_SIZE;
 			buffer_add(outbuf, hdr->data, size, &r);
 		}
