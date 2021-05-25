@@ -1984,6 +1984,19 @@ static int _connection_cleanup(sid_resource_t *conn_res)
 	return 0;
 }
 
+static output_format_t flags_to_format(uint16_t flags)
+{
+	switch (flags & USID_CMD_FLAGS_FMT_MASK) {
+		case USID_CMD_FLAGS_FMT_TABLE:
+			return TABLE;
+		case USID_CMD_FLAGS_FMT_JSON:
+			return JSON;
+		case USID_CMD_FLAGS_FMT_ENV:
+			return ENV;
+	}
+	return TABLE; /* default to TABLE on invalid format */
+}
+
 static int _cmd_exec_unknown(struct cmd_exec_arg *exec_arg)
 {
 	return 0;
@@ -2000,7 +2013,7 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	char *               version_data;
 	size_t               size;
-	output_format_t      format = (ucmd_ctx->request_header.flags & USID_CMD_FLAGS_FORMAT_JSON) ? JSON : TABLE;
+	output_format_t      format = flags_to_format(ucmd_ctx->request_header.flags);
 
 	print_start_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
 	print_uint_field("SID_PROTOCOL", USID_PROTOCOL, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
@@ -2019,7 +2032,7 @@ static int _cmd_exec_tree(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	char *               resource_tree_data;
 	size_t               size;
-	output_format_t      format = (ucmd_ctx->request_header.flags & USID_CMD_FLAGS_FORMAT_JSON) ? JSON : TABLE;
+	output_format_t      format = flags_to_format(ucmd_ctx->request_header.flags);
 
 	if ((r = sid_resource_write_tree_recursively(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
 	                                             format,
@@ -2084,7 +2097,7 @@ static int _cmd_exec_stats(struct cmd_exec_arg *exec_arg)
 	struct usid_stats    stats;
 	char *               stats_data;
 	size_t               size;
-	output_format_t      format = (ucmd_ctx->request_header.flags & USID_CMD_FLAGS_FORMAT_JSON) ? JSON : TABLE;
+	output_format_t      format = flags_to_format(ucmd_ctx->request_header.flags);
 
 	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0) {
 		print_start_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
