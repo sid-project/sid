@@ -73,7 +73,7 @@ static int _usid_cmd_active(struct args *args)
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, 0, seqnum, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
-		if (size > USID_MSG_HEADER_SIZE && hdr->prot == USID_PROTOCOL && !(hdr->status & COMMAND_STATUS_FAILURE))
+		if (size > USID_MSG_HEADER_SIZE && hdr->prot == USID_PROTOCOL && !(hdr->status & USID_CMD_STATUS_FAILURE))
 			status = USID_BRIDGE_STATUS_ACTIVE;
 		else
 			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
@@ -260,7 +260,7 @@ static int _usid_cmd_version(struct args *args)
 	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, 0, seqnum, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
-		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & COMMAND_STATUS_FAILURE))
+		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & USID_CMD_STATUS_FAILURE))
 			fprintf(stdout, "%s", hdr->data);
 
 		buffer_destroy(buf);

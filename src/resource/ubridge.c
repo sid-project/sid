@@ -2000,7 +2000,7 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	char *               version_data;
 	size_t               size;
-	output_format_t      format = (ucmd_ctx->request_header.flags & COMMAND_FLAGS_FORMAT_JSON) ? JSON : TABLE;
+	output_format_t      format = (ucmd_ctx->request_header.flags & USID_CMD_FLAGS_FORMAT_JSON) ? JSON : TABLE;
 
 	print_start_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
 	print_uint_field("SID_PROTOCOL", USID_PROTOCOL, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
@@ -2019,7 +2019,7 @@ static int _cmd_exec_tree(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	char *               resource_tree_data;
 	size_t               size;
-	output_format_t      format = (ucmd_ctx->request_header.flags & COMMAND_FLAGS_FORMAT_JSON) ? JSON : TABLE;
+	output_format_t      format = (ucmd_ctx->request_header.flags & USID_CMD_FLAGS_FORMAT_JSON) ? JSON : TABLE;
 
 	if ((r = sid_resource_write_tree_recursively(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
 	                                             format,
@@ -2049,7 +2049,7 @@ static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
 	buffer_get_data(ucmd_ctx->res_buf, (const void **) &response_header, &size);
 
 	if ((r = _build_kv_buffer(exec_arg->cmd_res, &export_buf, true, true, true)) < 0)
-		response_header->status |= COMMAND_STATUS_FAILURE;
+		response_header->status |= USID_CMD_STATUS_FAILURE;
 
 	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
 		log_error(ID(exec_arg->cmd_res), "Failed to write out command response");
@@ -2084,7 +2084,7 @@ static int _cmd_exec_stats(struct cmd_exec_arg *exec_arg)
 	struct usid_stats    stats;
 	char *               stats_data;
 	size_t               size;
-	output_format_t      format = (ucmd_ctx->request_header.flags & COMMAND_FLAGS_FORMAT_JSON) ? JSON : TABLE;
+	output_format_t      format = (ucmd_ctx->request_header.flags & USID_CMD_FLAGS_FORMAT_JSON) ? JSON : TABLE;
 
 	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0) {
 		print_start_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
@@ -3607,7 +3607,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	struct sid_ucmd_ctx *  ucmd_ctx        = sid_resource_get_data(cmd_res);
 	sid_resource_t *       conn_res        = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
 	struct connection *    conn            = sid_resource_get_data(conn_res);
-	struct usid_msg_header response_header = {.status = COMMAND_STATUS_SUCCESS, .prot = USID_PROTOCOL, .cmd = USID_CMD_REPLY};
+	struct usid_msg_header response_header = {.status = USID_CMD_STATUS_SUCCESS, .prot = USID_PROTOCOL, .cmd = USID_CMD_REPLY};
 	struct cmd_exec_arg    exec_arg        = {0};
 
 	int r = -1;
@@ -3647,7 +3647,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	}
 out:
 	if (r < 0)
-		response_header.status |= COMMAND_STATUS_FAILURE;
+		response_header.status |= USID_CMD_STATUS_FAILURE;
 
 	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
 		(void) _connection_cleanup(conn_res);
@@ -3664,7 +3664,7 @@ static int _reply_failure(sid_resource_t *conn_res)
 	struct usid_msg        msg;
 	uint8_t                prot;
 	struct usid_msg_header response_header = {
-		.status = COMMAND_STATUS_FAILURE,
+		.status = USID_CMD_STATUS_FAILURE,
 	};
 	int r = -1;
 
