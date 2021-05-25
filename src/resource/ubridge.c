@@ -1015,6 +1015,9 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 					goto fail;
 				continue;
 			}
+		} else if (!export_sid) {
+			log_debug(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
+			continue;
 		}
 
 		/*
@@ -1039,11 +1042,6 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 		 *
 		 * Repeat 2) - 7) as long as there are keys to send.
 		 */
-
-		if (!export_sid) {
-			log_debug(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
-			continue;
-		}
 
 		if (!buffer_add(export_buf, &flags, sizeof(flags), &r) ||
 		    !buffer_add(export_buf, &key_size, sizeof(key_size), &r) || !buffer_add(export_buf, &size, sizeof(size), &r) ||
