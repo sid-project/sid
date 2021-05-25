@@ -70,7 +70,7 @@ static int _usid_cmd_active(struct args *args)
 
 	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, 0, seqnum, NULL, NULL, &buf, NULL)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, USID_CMD_FLAGS_FMT_ENV, seqnum, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
 		if (size > USID_MSG_HEADER_SIZE && hdr->prot == USID_PROTOCOL && !(hdr->status & USID_CMD_STATUS_FAILURE))
@@ -192,7 +192,14 @@ static int _usid_cmd_checkpoint(struct args *args)
 
 	seqnum = val;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_CHECKPOINT, 0, seqnum, _add_checkpoint_env_to_buf, args, &buf, NULL)) == 0) {
+	if ((r = usid_req(LOG_PREFIX,
+	                  USID_CMD_CHECKPOINT,
+	                  USID_CMD_FLAGS_FMT_ENV,
+	                  seqnum,
+	                  _add_checkpoint_env_to_buf,
+	                  args,
+	                  &buf,
+	                  NULL)) == 0) {
 		r = _print_env_from_buffer(buf);
 		buffer_destroy(buf);
 	}
@@ -230,7 +237,8 @@ static int _usid_cmd_scan(struct args *args)
 
 	seqnum = val;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_SCAN, 0, seqnum, _add_scan_env_to_buf, NULL, &buf, NULL)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_SCAN, USID_CMD_FLAGS_FMT_ENV, seqnum, _add_scan_env_to_buf, NULL, &buf, NULL)) ==
+	    0) {
 		r = _print_env_from_buffer(buf);
 		buffer_destroy(buf);
 	}
@@ -250,14 +258,14 @@ static int _usid_cmd_version(struct args *args)
 	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	fprintf(stdout,
-	        KEY_USID_PROTOCOL ": %" PRIu8 "\n" KEY_USID_MAJOR ": %" PRIu16 "\n" KEY_USID_MINOR ": %" PRIu16
-	                          "\n" KEY_USID_RELEASE ": %" PRIu16 "\n",
+	        KEY_USID_PROTOCOL "=%" PRIu8 "\n" KEY_USID_MAJOR "=%" PRIu16 "\n" KEY_USID_MINOR "=%" PRIu16 "\n" KEY_USID_RELEASE
+	                          "=%" PRIu16 "\n",
 	        USID_PROTOCOL,
 	        SID_VERSION_MAJOR,
 	        SID_VERSION_MINOR,
 	        SID_VERSION_RELEASE);
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, 0, seqnum, NULL, NULL, &buf, NULL)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, USID_CMD_FLAGS_FMT_ENV, seqnum, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
 		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & USID_CMD_STATUS_FAILURE))

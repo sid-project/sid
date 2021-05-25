@@ -35,6 +35,7 @@ typedef enum
 {
 	TABLE,
 	JSON,
+	ENV,
 } output_format_t;
 
 void print_indent(int level, struct buffer *buf);

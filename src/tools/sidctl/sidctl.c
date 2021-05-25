@@ -20,7 +20,6 @@
 #include "base/common.h"
 
 #include "base/buffer.h"
-#include "base/formatter.h"
 #include "base/util.h"
 #include "iface/usid.h"
 #include "log/log.h"
@@ -30,6 +29,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -50,15 +50,14 @@ struct args {
 	char **argv;
 };
 
-static int _usid_cmd_tree(struct args *args, output_format_t format, struct buffer *outbuf)
+static int _usid_cmd_tree(struct args *args, uint16_t format, struct buffer *outbuf)
 {
 	struct buffer *         readbuf = NULL;
 	size_t                  size;
 	struct usid_msg_header *msg;
 	int                     r;
-	uint16_t                flags = (format == JSON) ? USID_CMD_FLAGS_FORMAT_JSON : 0;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_TREE, flags, 0, NULL, NULL, &readbuf, NULL)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_TREE, format, 0, NULL, NULL, &readbuf, NULL)) == 0) {
 		buffer_get_data(readbuf, (const void **) &msg, &size);
 		if (size < USID_MSG_HEADER_SIZE || msg->status & USID_CMD_STATUS_FAILURE) {
 			buffer_destroy(readbuf);
@@ -72,18 +71,17 @@ static int _usid_cmd_tree(struct args *args, output_format_t format, struct buff
 	return -1;
 }
 
-static int _usid_cmd_dump(struct args *args, output_format_t format, struct buffer *outbuf)
+static int _usid_cmd_dump(struct args *args, uint16_t format, struct buffer *outbuf)
 {
 	struct buffer *         readbuf = NULL;
 	size_t                  msg_header_size;
 	BUFFER_SIZE_PREFIX_TYPE msg_size;
 	struct usid_msg_header *msg;
 	int                     r;
-	int                     fd    = -1;
-	char *                  shm   = MAP_FAILED;
-	uint16_t                flags = (format == JSON) ? USID_CMD_FLAGS_FORMAT_JSON : 0;
+	int                     fd  = -1;
+	char *                  shm = MAP_FAILED;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_DUMP, flags, 0, NULL, NULL, &readbuf, &fd)) < 0)
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_DUMP, format, 0, NULL, NULL, &readbuf, &fd)) < 0)
 		return r;
 	buffer_get_data(readbuf, (const void **) &msg, &msg_header_size);
 	if (msg_header_size < USID_MSG_HEADER_SIZE || msg->status & USID_CMD_STATUS_FAILURE) {
@@ -122,15 +120,14 @@ out:
 	return r;
 }
 
-static int _usid_cmd_stats(struct args *args, output_format_t format, struct buffer *outbuf)
+static int _usid_cmd_stats(struct args *args, uint16_t format, struct buffer *outbuf)
 {
 	struct buffer *         buf = NULL;
 	struct usid_msg_header *hdr;
 	size_t                  size;
 	int                     r;
-	uint16_t                flags = (format == JSON) ? USID_CMD_FLAGS_FORMAT_JSON : 0;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_STATS, flags, 0, NULL, NULL, &buf, NULL)) == 0) {
+	if ((r = usid_req(LOG_PREFIX, USID_CMD_STATS, format, 0, NULL, NULL, &buf, NULL)) == 0) {
 		buffer_get_data(buf, (const void **) &hdr, &size);
 
 		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & USID_CMD_STATUS_FAILURE)) {
@@ -144,15 +141,14 @@ static int _usid_cmd_stats(struct args *args, output_format_t format, struct buf
 	return r;
 }
 
-static int _usid_cmd_version(struct args *args, output_format_t format, struct buffer *outbuf)
+static int _usid_cmd_version(struct args *args, uint16_t format, struct buffer *outbuf)
 {
 	struct buffer *         readbuf = NULL;
 	struct usid_msg_header *hdr;
 	size_t                  size;
 	int                     r;
-	uint16_t                flags = (format == JSON) ? USID_CMD_FLAGS_FORMAT_JSON : 0;
 
-	r = usid_req(LOG_PREFIX, USID_CMD_VERSION, flags, 0, NULL, NULL, &readbuf, NULL);
+	r = usid_req(LOG_PREFIX, USID_CMD_VERSION, format, 0, NULL, NULL, &readbuf, NULL);
 	print_start_document(format, outbuf, 0);
 
 	print_elem_name(false, "SIDCTL_VERSION", format, outbuf, 0);
@@ -225,14 +221,27 @@ static void _version(FILE *f)
 	fprintf(f, "Compiled by: %s on %s with %s\n", SID_COMPILED_BY, SID_COMPILATION_HOST, SID_COMPILER);
 }
 
+static int _get_format(char *format)
+{
+	if (format == NULL)
+		return -1;
+	if (!strcasecmp(format, "json"))
+		return USID_CMD_FLAGS_FMT_JSON;
+	if (!strcasecmp(format, "env"))
+		return USID_CMD_FLAGS_FMT_ENV;
+	if (!strcasecmp(format, "table"))
+		return USID_CMD_FLAGS_FMT_TABLE;
+	return -1;
+}
+
 int main(int argc, char *argv[])
 {
-	int             opt;
-	int             verbose = 0;
-	struct args     subcmd_args;
-	int             r      = -1;
-	output_format_t format = TABLE;
-	struct buffer * outbuf = NULL;
+	int            opt;
+	int            verbose = 0;
+	struct args    subcmd_args;
+	int            r      = -1;
+	int            format = USID_CMD_FLAGS_FMT_TABLE;
+	struct buffer *outbuf = NULL;
 
 	struct option longopts[] = {
 		{"format", required_argument, NULL, 'f'},
@@ -248,11 +257,10 @@ int main(int argc, char *argv[])
 				_help(stdout);
 				return EXIT_SUCCESS;
 			case 'f':
-				if (optarg == NULL || strcmp("json", optarg) != 0) {
+				if ((format = _get_format(optarg)) < 0) {
 					_help(stderr);
 					return EXIT_FAILURE;
 				}
-				format = JSON;
 				break;
 			case 'v':
 				verbose++;
