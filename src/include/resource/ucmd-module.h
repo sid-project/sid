@@ -209,7 +209,6 @@ int sid_ucmd_group_destroy(struct module *         mod,
                            const char *            group_id,
                            int                     force);
 
-int sid_ucmd_print_exported_kv_store(const char *prefix, char *ptr, size_t size, output_format_t format, struct buffer *outbuf);
 #ifdef __cplusplus
 }
 #endif

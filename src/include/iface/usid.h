@@ -97,12 +97,6 @@ struct usid_msg {
 	struct usid_msg_header *header;
 };
 
-struct usid_dump_header {
-	uint64_t seqnum;
-	uint64_t flags;
-	uint32_t data_count; /* the number of data iovs */
-} __attribute__((packed));
-
 #define USID_MSG_HEADER_SIZE sizeof(struct usid_msg_header)
 
 typedef int (*usid_req_data_fn_t)(struct buffer *buf, void *data);

@@ -33,6 +33,7 @@ extern "C" {
 
 typedef enum
 {
+	NO_FORMAT = -1,
 	TABLE,
 	JSON,
 	ENV,
