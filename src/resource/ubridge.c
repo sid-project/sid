@@ -763,159 +763,43 @@ bool _is_string_data(char *ptr, size_t len)
 	return true;
 }
 
-int sid_ucmd_print_exported_kv_store(const char *prefix, char *ptr, size_t size, output_format_t format, struct buffer *outbuf)
+static void _print_kv_value(struct iovec *iov, size_t size, output_format_t format, struct buffer *buf, bool vector, int level)
 {
-	size_t                 full_key_size, data_size, len;
-	unsigned int           i, records = 0;
-	bool                   needs_comma = false;
-	const char *           end;
-	kv_store_value_flags_t ext_flags;
-	uint64_t               seqnum;
-	sid_ucmd_kv_flags_t    flags;
-	struct kv_value        value;
+	int i;
 
-	end = ptr + size;
-
-	print_start_document(format, outbuf, 0);
-	print_start_array("siddb", format, outbuf, 1);
-	while (ptr < end) {
-		print_start_elem(needs_comma, format, outbuf, 2);
-		print_uint_field("RECORD", records, format, outbuf, true, 3);
-		memcpy(&ext_flags, ptr, sizeof(ext_flags));
-		ptr += sizeof(ext_flags);
-
-		memcpy(&full_key_size, ptr, sizeof(full_key_size));
-		ptr += sizeof(full_key_size);
-
-		memcpy(&data_size, ptr, sizeof(data_size));
-		ptr += sizeof(data_size);
-
-		print_str_field("key", ptr, format, outbuf, true, 3);
-		ptr += full_key_size;
-
-		if (ext_flags & KV_STORE_VALUE_VECTOR) {
-			if (data_size < KV_VALUE_IDX_DATA) {
-				log_error(prefix, "Received incorrect vector of size %zu.", data_size);
-				return -1;
-			}
-			for (i = 0; i < data_size; i++) {
-				memcpy(&len, ptr, sizeof(len));
-				ptr += sizeof(len);
-				switch (i) {
-					case KV_VALUE_IDX_SEQNUM:
-						if (len != sizeof(uint64_t)) {
-							log_error(prefix,
-							          "Received incorrect sequence number size %zu != %zu.",
-							          len,
-							          sizeof(uint64_t));
-							return -1;
-						}
-						memcpy(&seqnum, ptr, sizeof(seqnum));
-						print_uint_field("seqnum", seqnum, format, outbuf, true, 3);
-						break;
-					case KV_VALUE_IDX_FLAGS:
-						if (len != sizeof(sid_ucmd_kv_flags_t)) {
-							log_error(prefix,
-							          "Received incorrect flags size %zu != %zu.",
-							          len,
-							          sizeof(sid_ucmd_kv_flags_t));
-							return -1;
-						}
-						memcpy(&flags, ptr, sizeof(flags));
-						print_start_array("flags", format, outbuf, 3);
-						print_bool_array_elem("KV_PERSISTENT",
-						                      flags & KV_PERSISTENT,
-						                      format,
-						                      outbuf,
-						                      true,
-						                      4);
-						print_bool_array_elem("KV_MOD_PROTECTED",
-						                      flags & KV_MOD_PROTECTED,
-						                      format,
-						                      outbuf,
-						                      true,
-						                      4);
-						print_bool_array_elem("KV_MOD_PRIVATE",
-						                      flags & KV_MOD_PRIVATE,
-						                      format,
-						                      outbuf,
-						                      true,
-						                      4);
-						print_bool_array_elem("KV_MOD_RESERVED",
-						                      flags & KV_MOD_RESERVED,
-						                      format,
-						                      outbuf,
-						                      false,
-						                      4);
-						print_end_array(true, format, outbuf, 3);
-						break;
-					case KV_VALUE_IDX_OWNER:
-						if (len)
-							print_str_field("owner", ptr, format, outbuf, true, 3);
-						else
-							print_str_field("owner", "", format, outbuf, true, 3);
-						break;
-					case KV_VALUE_IDX_DATA:
-						print_start_array("values", format, outbuf, 3);
-						/* fall through */
-					default:
-						if (len) {
-							if (_is_string_data(ptr, len))
-								print_str_array_elem(ptr, format, outbuf, i + 1 < data_size, 4);
-							else
-								print_binary_array_elem(ptr,
-								                        len,
-								                        format,
-								                        outbuf,
-								                        i + 1 < data_size,
-								                        4);
-						} else
-							print_str_array_elem("", format, outbuf, i + 1 < data_size, 4);
-				}
-				ptr += len;
-			}
-			if (data_size > KV_VALUE_IDX_DATA)
-				print_end_array(false, format, outbuf, 3);
-		} else {
-			size_t owner_size;
-			char * data;
-			if (data_size <= sizeof(struct kv_value)) {
-				log_error(prefix, "Received incorrect value of size %zu.", data_size);
-				return -1;
-			}
-			memcpy(&value, ptr, sizeof(value));
-			data = ptr + sizeof(value);
-			print_uint_field("seqnum", value.seqnum, format, outbuf, true, 3);
-			print_start_array("flags", format, outbuf, 3);
-			print_bool_array_elem("KV_PERSISTENT", value.flags & KV_PERSISTENT, format, outbuf, true, 4);
-			print_bool_array_elem("KV_MOD_PROTECTED", value.flags & KV_MOD_PROTECTED, format, outbuf, true, 4);
-			print_bool_array_elem("KV_MOD_PRIVATE", value.flags & KV_MOD_PRIVATE, format, outbuf, true, 4);
-			print_bool_array_elem("KV_MOD_RESERVED", value.flags & KV_MOD_RESERVED, format, outbuf, false, 4);
-			print_end_array(true, format, outbuf, 3);
-			print_str_field("owner", data, format, outbuf, true, 3);
-			owner_size = strlen(data) + 1;
-			data += owner_size;
-			if (sizeof(value) + owner_size < data_size) {
-				len = data_size - (sizeof(value) + owner_size);
-				if (_is_string_data(data, len))
-					print_str_field("value", data, format, outbuf, true, 3);
+	if (vector) {
+		print_start_array("values", format, buf, level);
+		for (i = KV_VALUE_IDX_DATA; i < size; i++) {
+			if (iov[i].iov_len) {
+				if (_is_string_data(iov[i].iov_base, iov[i].iov_len))
+					print_str_array_elem(iov[i].iov_base, format, buf, i + 1 < size, level + 1);
 				else
-					print_binary_field("value", data, len, format, outbuf, true, 3);
+					print_binary_array_elem(iov[i].iov_base,
+					                        iov[i].iov_len,
+					                        format,
+					                        buf,
+					                        i + 1 < size,
+					                        level + 1);
 			} else
-				print_str_field("value", "", format, outbuf, true, 3);
-			ptr += data_size;
+				print_str_array_elem("", format, buf, i + 1 < size, level + 1);
 		}
-
-		records++;
-		print_end_elem(format, outbuf, 2);
-		needs_comma = true;
-	}
-	print_end_array(false, format, outbuf, 1);
-	print_end_document(format, outbuf, 0);
-	return 0;
+		print_end_array(false, format, buf, 3);
+	} else if (iov[KV_VALUE_IDX_DATA].iov_len) {
+		if (_is_string_data(iov[KV_VALUE_IDX_DATA].iov_base, iov[KV_VALUE_IDX_DATA].iov_len))
+			print_str_field("value", iov[KV_VALUE_IDX_DATA].iov_base, format, buf, false, level);
+		else
+			print_binary_field("value",
+			                   iov[KV_VALUE_IDX_DATA].iov_base,
+			                   iov[KV_VALUE_IDX_DATA].iov_len,
+			                   format,
+			                   buf,
+			                   false,
+			                   level);
+	} else
+		print_str_field("value", "", format, buf, false, level);
 }
 
-static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool export_udev, bool export_sid, bool is_dump)
+static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool export_udev, bool export_sid, output_format_t format)
 {
 	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct kv_value *      kv_value;
@@ -926,9 +810,11 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 	size_t                 size, iov_size, key_size, data_offset;
 	kv_store_value_flags_t flags;
 	struct iovec *         iov;
-	unsigned               i;
-	int                    r          = -1;
-	struct buffer *        export_buf = NULL;
+	unsigned               i, records = 0;
+	int                    r           = -1;
+	struct buffer *        export_buf  = NULL;
+	bool                   needs_comma = false;
+	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
 
 	/*
 	 * For udev namespace, we append key=value pairs to the output buffer.
@@ -956,6 +842,14 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 		goto fail;
 	}
 
+	/*
+	 * For exporting the raw kv-store, format is set to NO_FORMAT
+	 */
+	if (format != NO_FORMAT) {
+		print_start_document(format, export_buf, 0);
+		print_start_array("siddb", format, export_buf, 1);
+	}
+
 	while ((value = kv_store_iter_next(iter, &size, &flags))) {
 		vector = flags & KV_STORE_VALUE_VECTOR;
 
@@ -964,7 +858,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 			iov_size = size;
 			kv_value = NULL;
 
-			if (!is_dump) {
+			if (format == NO_FORMAT) {
 				if (!(KV_VALUE_FLAGS(iov) & KV_PERSISTENT))
 					continue;
 
@@ -975,7 +869,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 			iov_size = 0;
 			kv_value = value;
 
-			if (!is_dump) {
+			if (format == NO_FORMAT) {
 				if (!(kv_value->flags & KV_PERSISTENT))
 					continue;
 
@@ -1001,7 +895,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 				r = -ENOTSUP;
 				goto fail;
 			}
-			if (!is_dump) {
+			if (format == NO_FORMAT) {
 				key = _get_key_part(key, KEY_PART_CORE, NULL);
 				if (!buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), &r) ||
 				    !buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, &r))
@@ -1020,52 +914,86 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 			continue;
 		}
 
-		/*
-		 * Export keys with data to main process.
-		 *
-		 * Serialization format fields (message size is implicitly set
-		 * when using BUFFER_MODE_SIZE_PREFIX):
-		 *
-		 *  1) message size         (MSG_SIGE_PREFIX_TYPE)
-		 *  2) flags                (uint32_t)
-		 *  3) key size             (size_t)
-		 *  4) data size            (size_t)
-		 *  5) key                  (key_size)
-		 *  6) data                 (data_size)
-		 *
-		 * If "data" is a vector, then "data size" denotes vector
-		 * item count and "data" is split into these fields repeated
-		 * for each vector item:
-		 *
-		 *  6a) vector item size
-		 *  6b) vector item data
-		 *
-		 * Repeat 2) - 7) as long as there are keys to send.
-		 */
+		if (format == NO_FORMAT) {
+			/*
+			 * Export keys with data to main process.
+			 *
+			 * Serialization format fields (message size is implicitly set
+			 * when using BUFFER_MODE_SIZE_PREFIX):
+			 *
+			 *  1) message size         (MSG_SIGE_PREFIX_TYPE)
+			 *  2) flags                (uint32_t)
+			 *  3) key size             (size_t)
+			 *  4) data size            (size_t)
+			 *  5) key                  (key_size)
+			 *  6) data                 (data_size)
+			 *
+			 * If "data" is a vector, then "data size" denotes vector
+			 * item count and "data" is split into these fields repeated
+			 * for each vector item:
+			 *
+			 *  6a) vector item size
+			 *  6b) vector item data
+			 *
+			 * Repeat 2) - 7) as long as there are keys to send.
+			 */
 
-		if (!buffer_add(export_buf, &flags, sizeof(flags), &r) ||
-		    !buffer_add(export_buf, &key_size, sizeof(key_size), &r) || !buffer_add(export_buf, &size, sizeof(size), &r) ||
-		    !buffer_add(export_buf, (char *) key, strlen(key) + 1, &r)) {
-			log_error_errno(ID(cmd_res), errno, "buffer_add failed");
-			goto fail;
-		}
-
-		if (vector) {
-			for (i = 0, size = 0; i < iov_size; i++) {
-				size += iov[i].iov_len;
-
-				if (!buffer_add(export_buf, &iov[i].iov_len, sizeof(iov->iov_len), &r) ||
-				    !buffer_add(export_buf, iov[i].iov_base, iov[i].iov_len, &r)) {
-					log_error_errno(ID(cmd_res), errno, "buffer_add failed");
-					goto fail;
-				}
+			if (!buffer_add(export_buf, &flags, sizeof(flags), &r) ||
+			    !buffer_add(export_buf, &key_size, sizeof(key_size), &r) ||
+			    !buffer_add(export_buf, &size, sizeof(size), &r) ||
+			    !buffer_add(export_buf, (char *) key, strlen(key) + 1, &r)) {
+				log_error_errno(ID(cmd_res), errno, "buffer_add failed");
+				goto fail;
 			}
-		} else if (!buffer_add(export_buf, kv_value, size, &r)) {
-			log_error_errno(ID(cmd_res), errno, "buffer_add failed");
-			goto fail;
+
+			if (vector) {
+				for (i = 0, size = 0; i < iov_size; i++) {
+					size += iov[i].iov_len;
+
+					if (!buffer_add(export_buf, &iov[i].iov_len, sizeof(iov->iov_len), &r) ||
+					    !buffer_add(export_buf, iov[i].iov_base, iov[i].iov_len, &r)) {
+						log_error_errno(ID(cmd_res), errno, "buffer_add failed");
+						goto fail;
+					}
+				}
+			} else if (!buffer_add(export_buf, kv_value, size, &r)) {
+				log_error_errno(ID(cmd_res), errno, "buffer_add failed");
+				goto fail;
+			}
+		} else {
+			print_start_elem(needs_comma, format, export_buf, 2);
+			print_uint_field("RECORD", records, format, export_buf, true, 3);
+			print_str_field("key", key, format, export_buf, true, 3);
+			iov = _get_value_vector(flags, value, size, tmp_iov);
+			print_uint64_field("seqnum", KV_VALUE_SEQNUM(iov), format, export_buf, true, 3);
+			print_start_array("flags", format, export_buf, 3);
+			print_bool_array_elem("KV_PERSISTENT", KV_VALUE_FLAGS(iov) & KV_PERSISTENT, format, export_buf, true, 4);
+			print_bool_array_elem("KV_MOD_PROTECTED",
+			                      KV_VALUE_FLAGS(iov) & KV_MOD_PROTECTED,
+			                      format,
+			                      export_buf,
+			                      true,
+			                      4);
+			print_bool_array_elem("KV_MOD_PRIVATE", KV_VALUE_FLAGS(iov) & KV_MOD_PRIVATE, format, export_buf, true, 4);
+			print_bool_array_elem("KV_MOD_RESERVED",
+			                      KV_VALUE_FLAGS(iov) & KV_MOD_RESERVED,
+			                      format,
+			                      export_buf,
+			                      false,
+			                      4);
+			print_end_array(true, format, export_buf, 3);
+			print_str_field("owner", KV_VALUE_OWNER(iov), format, export_buf, true, 3);
+			_print_kv_value(iov, size, format, export_buf, vector, 3);
+			print_end_elem(format, export_buf, 2);
+			needs_comma = true;
 		}
+		records++;
 	}
 
+	if (format != NO_FORMAT) {
+		print_end_array(false, format, export_buf, 1);
+		print_end_document(format, export_buf, 0);
+	}
 	*buf = export_buf;
 	kv_store_iter_destroy(iter);
 	return 0;
@@ -2055,11 +1983,12 @@ static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
 	struct buffer *         export_buf;
 	struct usid_msg_header *response_header;
 	size_t                  size;
-	static unsigned char    byte = 0xFF;
+	static unsigned char    byte   = 0xFF;
+	output_format_t         format = flags_to_format(ucmd_ctx->request_header.flags);
 
 	buffer_get_data(ucmd_ctx->res_buf, (const void **) &response_header, &size);
 
-	if ((r = _build_kv_buffer(exec_arg->cmd_res, &export_buf, true, true, true)) < 0)
+	if ((r = _build_kv_buffer(exec_arg->cmd_res, &export_buf, true, true, format)) < 0)
 		response_header->status |= USID_CMD_STATUS_FAILURE;
 
 	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
@@ -3597,7 +3526,7 @@ static int _export_kv_store(sid_resource_t *cmd_res)
 	                          &export_buf,
 	                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV,
 	                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID,
-	                          false)) < 0)
+	                          NO_FORMAT)) < 0)
 		return r;
 
 	data_spec.data               = NULL;

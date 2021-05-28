@@ -96,7 +96,8 @@ static int _usid_cmd_dump(struct args *args, uint16_t format, struct buffer *out
 		goto out;
 	}
 	if (msg_size <= BUFFER_SIZE_PREFIX_LEN) {
-		r = sid_ucmd_print_exported_kv_store(LOG_PREFIX, NULL, 0, format, outbuf);
+		log_error(LOG_PREFIX, "Shared memory size too small");
+		r = -1;
 		goto out;
 	}
 	if ((shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
@@ -105,11 +106,7 @@ static int _usid_cmd_dump(struct args *args, uint16_t format, struct buffer *out
 		goto out;
 	}
 
-	r = sid_ucmd_print_exported_kv_store(LOG_PREFIX,
-	                                     shm + BUFFER_SIZE_PREFIX_LEN,
-	                                     msg_size - BUFFER_SIZE_PREFIX_LEN,
-	                                     format,
-	                                     outbuf);
+	buffer_add(outbuf, shm + BUFFER_SIZE_PREFIX_LEN, msg_size - BUFFER_SIZE_PREFIX_LEN, &r);
 out:
 	if (shm != MAP_FAILED && munmap(shm, msg_size) < 0) {
 		log_error_errno(LOG_PREFIX, errno, "Failed to unmap memory with key-value store");
