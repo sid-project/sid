@@ -1023,9 +1023,9 @@ static void
 		print_start_array("event-sources", format, outbuf, level);
 		list_iterate_items_safe_back (es, tmp_es, &res->event_sources) {
 			item++;
-			print_start_elem(item != 1, format, outbuf, level);
-			_write_event_source_elem_fields(es, format, outbuf, item != es_count, level + 1);
-			print_end_elem(format, outbuf, level);
+			print_start_elem(item != 1, format, outbuf, level + 1);
+			_write_event_source_elem_fields(es, format, outbuf, item != es_count, level + 2);
+			print_end_elem(format, outbuf, level + 1);
 		}
 		print_end_array(true, format, outbuf, level);
 	}
