@@ -1925,16 +1925,6 @@ static output_format_t flags_to_format(uint16_t flags)
 	return TABLE; /* default to TABLE on invalid format */
 }
 
-static int _cmd_exec_unknown(struct cmd_exec_arg *exec_arg)
-{
-	return 0;
-}
-
-static int _cmd_exec_reply(struct cmd_exec_arg *exec_arg)
-{
-	return 0;
-}
-
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
 	int                  r;
@@ -1972,11 +1962,6 @@ static int _cmd_exec_tree(struct cmd_exec_arg *exec_arg)
 		buffer_add(ucmd_ctx->res_buf, resource_tree_data, size, &r);
 	}
 	return r;
-}
-
-static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
-{
-	return 0;
 }
 
 static int _cmd_exec_stats(struct cmd_exec_arg *exec_arg)
@@ -3458,25 +3443,18 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static int _cmd_exec_checkpoint(struct cmd_exec_arg *exec_arg)
-{
-	return 0;
-}
-
 static struct cmd_reg _cmd_regs[] = {
-	[USID_CMD_UNKNOWN]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
-	[USID_CMD_ACTIVE]     = {.name = NULL, .flags = 0, .exec = _cmd_exec_unknown},
-	[USID_CMD_CHECKPOINT] = {.name = NULL, .flags = CMD_KV_IMPORT_UDEV, .exec = _cmd_exec_checkpoint},
-	[USID_CMD_REPLY]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_reply},
+	[USID_CMD_UNKNOWN]    = {.name = NULL, .flags = 0, .exec = NULL},
+	[USID_CMD_ACTIVE]     = {.name = NULL, .flags = 0, .exec = NULL},
+	[USID_CMD_CHECKPOINT] = {.name = NULL, .flags = CMD_KV_IMPORT_UDEV, .exec = NULL},
+	[USID_CMD_REPLY]      = {.name = NULL, .flags = 0, .exec = NULL},
 	[USID_CMD_SCAN]       = {.name  = NULL,
                            .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_SESSION_ID,
                            .exec  = _cmd_exec_scan},
 	[USID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
-	[USID_CMD_DUMP]       = {.name  = NULL,
-                           .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_CLIENT,
-                           .exec  = _cmd_exec_dump},
-	[USID_CMD_STATS]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_stats},
-	[USID_CMD_TREE]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_tree},
+	[USID_CMD_DUMP]  = {.name = NULL, .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_CLIENT, .exec = NULL},
+	[USID_CMD_STATS] = {.name = NULL, .flags = 0, .exec = _cmd_exec_stats},
+	[USID_CMD_TREE]  = {.name = NULL, .flags = 0, .exec = _cmd_exec_tree},
 };
 
 static ssize_t _send_fd_over_unix_comms(int fd, int unix_comms_fd)
@@ -3519,7 +3497,8 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		response_header.prot  = ucmd_ctx->request_header.prot;
 		response_header.flags = ucmd_ctx->request_header.flags;
 		exec_arg.cmd_res      = cmd_res;
-		if ((r = _cmd_regs[ucmd_ctx->request_header.cmd].exec(&exec_arg)) < 0) {
+		if (_cmd_regs[ucmd_ctx->request_header.cmd].exec &&
+		    ((r = _cmd_regs[ucmd_ctx->request_header.cmd].exec(&exec_arg)) < 0)) {
 			log_error(ID(cmd_res), "Failed to execute command");
 			goto out;
 		}
