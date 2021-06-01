@@ -3484,6 +3484,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	struct cmd_exec_arg     exec_arg        = {0};
 	int                     r               = -1;
 	struct worker_data_spec data_spec;
+	struct cmd_reg *        cmd_reg;
 
 	if (!buffer_add(ucmd_ctx->res_buf, &response_header, sizeof(response_header), &r))
 		goto out;
@@ -3496,9 +3497,11 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		/* If client speaks older protocol, reply using this protocol, if possible. */
 		response_header.prot  = ucmd_ctx->request_header.prot;
 		response_header.flags = ucmd_ctx->request_header.flags;
-		exec_arg.cmd_res      = cmd_res;
-		if (_cmd_regs[ucmd_ctx->request_header.cmd].exec &&
-		    ((r = _cmd_regs[ucmd_ctx->request_header.cmd].exec(&exec_arg)) < 0)) {
+
+		cmd_reg          = &_cmd_regs[ucmd_ctx->request_header.cmd];
+		exec_arg.cmd_res = cmd_res;
+
+		if (cmd_reg->exec && ((r = cmd_reg->exec(&exec_arg)) < 0)) {
 			log_error(ID(cmd_res), "Failed to execute command");
 			goto out;
 		}
@@ -3508,14 +3511,12 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		return -1;
 	}
 
-	if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV ||
-	    _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID) {
+	if (cmd_reg->flags & CMD_KV_EXPORT_UDEV || cmd_reg->flags & CMD_KV_EXPORT_SID) {
 		if ((r = _build_kv_buffer(cmd_res,
-		                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV,
-		                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID,
-		                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_CLIENT
-		                                  ? flags_to_format(ucmd_ctx->request_header.flags)
-		                                  : NO_FORMAT)) < 0) {
+		                          cmd_reg->flags & CMD_KV_EXPORT_UDEV,
+		                          cmd_reg->flags & CMD_KV_EXPORT_SID,
+		                          cmd_reg->flags & CMD_KV_EXPORT_CLIENT ? flags_to_format(ucmd_ctx->request_header.flags)
+		                                                                : NO_FORMAT)) < 0) {
 			log_error(ID(cmd_res), "Failed to export KV store.");
 			goto out;
 		}
@@ -3531,7 +3532,7 @@ out:
 	}
 
 	if (ucmd_ctx->exp_buf && r >= 0) {
-		if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_CLIENT) {
+		if (cmd_reg->flags & CMD_KV_EXPORT_CLIENT) {
 			if ((r = _send_fd_over_unix_comms(buffer_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0)
 				log_error_errno(ID(cmd_res), r, "Failed to send command exports to client.");
 		} else {
