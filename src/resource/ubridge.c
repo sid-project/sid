@@ -159,6 +159,7 @@ struct sid_ucmd_ctx {
 	cmd_scan_phase_t        scan_phase;     /* current phase at the time of use of this context */
 	struct sid_ucmd_mod_ctx ucmd_mod_ctx;   /* commod module context */
 	struct buffer *         res_buf;        /* result buffer */
+	struct buffer *         exp_buf;        /* export buffer */
 	struct usid_msg_header  request_header; /* original request header (keep last, contains flexible array) */
 };
 
@@ -304,10 +305,12 @@ struct usid_stats {
  * Generic flags for all commands.
  */
 #define CMD_KV_IMPORT_UDEV UINT32_C(0x00000001) /* imports udev environment as KV_NS_UDEV records */
-#define CMD_KV_EXPORT_UDEV UINT32_C(0x00000002) /* exports KV_NS_UDEV+KV_PERSISTENT records to udev environment/db */
-#define CMD_KV_EXPORT_SID  UINT32_C(0x00000004) /* exports KV_NS_<!UDEV>+KV_PERSISTENT records to main sid db */
-#define CMD_SESSION_ID     UINT32_C(0x00000008) /* supports sessions */
-#define CMD_SKIP_RESULT    UINT32_C(0x00000010) /* skips sending the result buffer */
+
+#define CMD_KV_EXPORT_UDEV   UINT32_C(0x00000002) /* exports KV_NS_UDEV records */
+#define CMD_KV_EXPORT_SID    UINT32_C(0x00000004) /* exports KV_NS_<!UDEV> records */
+#define CMD_KV_EXPORT_CLIENT UINT32_C(0x00000008) /* exports KV records to client */
+
+#define CMD_SESSION_ID UINT32_C(0x00000010) /* uses session ID */
 
 /*
  * Capability flags for 'scan' command phases (phases are represented as subcommands).
@@ -799,7 +802,7 @@ static void _print_kv_value(struct iovec *iov, size_t size, output_format_t form
 		print_str_field("value", "", format, buf, false, level);
 }
 
-static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool export_udev, bool export_sid, output_format_t format)
+static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool export_sid, output_format_t format)
 {
 	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct kv_value *      kv_value;
@@ -994,7 +997,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, struct buffer **buf, bool e
 		print_end_array(false, format, export_buf, 1);
 		print_end_document(format, export_buf, 0);
 	}
-	*buf = export_buf;
+	ucmd_ctx->exp_buf = export_buf;
 	kv_store_iter_destroy(iter);
 	return 0;
 
@@ -1003,7 +1006,6 @@ fail:
 		kv_store_iter_destroy(iter);
 	if (export_buf)
 		buffer_destroy(export_buf);
-	*buf = NULL;
 
 	return r;
 }
@@ -1974,47 +1976,7 @@ static int _cmd_exec_tree(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_dump(struct cmd_exec_arg *exec_arg)
 {
-	int                     r;
-	ssize_t                 n;
-	bool                    need_cleanup = false;
-	struct sid_ucmd_ctx *   ucmd_ctx     = sid_resource_get_data(exec_arg->cmd_res);
-	sid_resource_t *        conn_res     = sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
-	struct connection *     conn         = sid_resource_get_data(conn_res);
-	struct buffer *         export_buf;
-	struct usid_msg_header *response_header;
-	size_t                  size;
-	static unsigned char    byte   = 0xFF;
-	output_format_t         format = flags_to_format(ucmd_ctx->request_header.flags);
-
-	buffer_get_data(ucmd_ctx->res_buf, (const void **) &response_header, &size);
-
-	if ((r = _build_kv_buffer(exec_arg->cmd_res, &export_buf, true, true, format)) < 0)
-		response_header->status |= USID_CMD_STATUS_FAILURE;
-
-	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
-		log_error(ID(exec_arg->cmd_res), "Failed to write out command response");
-		need_cleanup = true;
-	} else if (export_buf) {
-		for (;;) {
-			n = comms_unix_send(conn->fd, &byte, sizeof(byte), buffer_get_fd(export_buf));
-			if (n >= 0)
-				break;
-			if (n == -EAGAIN || n == -EINTR)
-				continue;
-			log_error_errno(ID(exec_arg->cmd_res), n, "Failed to send file descriptor");
-			need_cleanup = true;
-			break;
-		}
-	}
-
-	if (need_cleanup) {
-		(void) _connection_cleanup(conn_res);
-		r = -1;
-	}
-
-	if (export_buf)
-		buffer_destroy(export_buf);
-	return r;
+	return 0;
 }
 
 static int _cmd_exec_stats(struct cmd_exec_arg *exec_arg)
@@ -3510,47 +3472,40 @@ static struct cmd_reg _cmd_regs[] = {
                            .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_SESSION_ID,
                            .exec  = _cmd_exec_scan},
 	[USID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
-	[USID_CMD_DUMP]       = {.name = NULL, .flags = CMD_SKIP_RESULT, .exec = _cmd_exec_dump},
+	[USID_CMD_DUMP]       = {.name  = NULL,
+                           .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_CLIENT,
+                           .exec  = _cmd_exec_dump},
 	[USID_CMD_STATS]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_stats},
 	[USID_CMD_TREE]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_tree},
 };
 
-static int _export_kv_store(sid_resource_t *cmd_res)
+static ssize_t _send_fd_over_unix_comms(int fd, int unix_comms_fd)
 {
-	struct sid_ucmd_ctx *   ucmd_ctx = sid_resource_get_data(cmd_res);
-	struct buffer *         export_buf;
-	struct worker_data_spec data_spec;
-	int                     r;
+	static unsigned char byte = 0xFF;
+	ssize_t              n;
 
-	if ((r = _build_kv_buffer(cmd_res,
-	                          &export_buf,
-	                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV,
-	                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID,
-	                          NO_FORMAT)) < 0)
-		return r;
+	for (;;) {
+		n = comms_unix_send(unix_comms_fd, &byte, sizeof(byte), fd);
+		if (n >= 0)
+			break;
+		if (n == -EAGAIN || n == -EINTR)
+			continue;
+		break;
+	}
 
-	data_spec.data               = NULL;
-	data_spec.data_size          = 0;
-	data_spec.ext.used           = true;
-	data_spec.ext.socket.fd_pass = buffer_get_fd(export_buf);
-
-	if (buffer_stat(export_buf).usage.used > BUFFER_SIZE_PREFIX_LEN)
-		worker_control_channel_send(cmd_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
-	buffer_destroy(export_buf);
-
-	return 0;
+	return n;
 }
 
 static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
-	sid_resource_t *       cmd_res         = data;
-	struct sid_ucmd_ctx *  ucmd_ctx        = sid_resource_get_data(cmd_res);
-	sid_resource_t *       conn_res        = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
-	struct connection *    conn            = sid_resource_get_data(conn_res);
-	struct usid_msg_header response_header = {.status = USID_CMD_STATUS_SUCCESS, .prot = USID_PROTOCOL, .cmd = USID_CMD_REPLY};
-	struct cmd_exec_arg    exec_arg        = {0};
-
-	int r = -1;
+	sid_resource_t *        cmd_res         = data;
+	struct sid_ucmd_ctx *   ucmd_ctx        = sid_resource_get_data(cmd_res);
+	sid_resource_t *        conn_res        = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
+	struct connection *     conn            = sid_resource_get_data(conn_res);
+	struct usid_msg_header  response_header = {.status = USID_CMD_STATUS_SUCCESS, .prot = USID_PROTOCOL, .cmd = USID_CMD_REPLY};
+	struct cmd_exec_arg     exec_arg        = {0};
+	int                     r               = -1;
+	struct worker_data_spec data_spec;
 
 	if (!buffer_add(ucmd_ctx->res_buf, &response_header, sizeof(response_header), &r))
 		goto out;
@@ -3566,12 +3521,8 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		exec_arg.cmd_res      = cmd_res;
 		if ((r = _cmd_regs[ucmd_ctx->request_header.cmd].exec(&exec_arg)) < 0) {
 			log_error(ID(cmd_res), "Failed to execute command");
-			if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_SKIP_RESULT)
-				return r;
 			goto out;
 		}
-		if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_SKIP_RESULT)
-			return r;
 	} else {
 		log_error(ID(cmd_res), "Client protocol unknown version: %u > %u ", ucmd_ctx->request_header.prot, USID_PROTOCOL);
 		(void) _connection_cleanup(conn_res);
@@ -3580,8 +3531,13 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 
 	if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV ||
 	    _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID) {
-		if ((r = _export_kv_store(cmd_res)) < 0) {
-			log_error(ID(cmd_res), "Failed to synchronize key-value store.");
+		if ((r = _build_kv_buffer(cmd_res,
+		                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_UDEV,
+		                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_SID,
+		                          _cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_CLIENT
+		                                  ? flags_to_format(ucmd_ctx->request_header.flags)
+		                                  : NO_FORMAT)) < 0) {
+			log_error(ID(cmd_res), "Failed to export KV store.");
 			goto out;
 		}
 	}
@@ -3591,8 +3547,25 @@ out:
 
 	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
 		(void) _connection_cleanup(conn_res);
-		log_error(ID(cmd_res), "Failed to write out command response");
+		log_error(ID(cmd_res), "Failed to send command response.");
 		r = -1;
+	}
+
+	if (ucmd_ctx->exp_buf && r >= 0) {
+		if (_cmd_regs[ucmd_ctx->request_header.cmd].flags & CMD_KV_EXPORT_CLIENT) {
+			if ((r = _send_fd_over_unix_comms(buffer_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0)
+				log_error_errno(ID(cmd_res), r, "Failed to send command exports to client.");
+		} else {
+			if (buffer_stat(ucmd_ctx->exp_buf).usage.used > BUFFER_SIZE_PREFIX_LEN) {
+				data_spec.data               = NULL;
+				data_spec.data_size          = 0;
+				data_spec.ext.used           = true;
+				data_spec.ext.socket.fd_pass = buffer_get_fd(ucmd_ctx->exp_buf);
+
+				if ((r = worker_control_channel_send(cmd_res, MAIN_WORKER_CHANNEL_ID, &data_spec)) < 0)
+					log_error_errno(ID(cmd_res), r, "Failed to send command exports to main SID process.");
+			}
+		}
 	}
 
 	return r;
@@ -3847,6 +3820,8 @@ static int _destroy_command(sid_resource_t *res)
 
 	buffer_destroy(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 	buffer_destroy(ucmd_ctx->res_buf);
+	if (ucmd_ctx->exp_buf)
+		buffer_destroy(ucmd_ctx->exp_buf);
 	free(ucmd_ctx->dev_id);
 	free(ucmd_ctx);
 
