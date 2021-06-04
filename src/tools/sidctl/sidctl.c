@@ -45,107 +45,28 @@
 #define KEY_SID_MINOR    "SID_MINOR"
 #define KEY_SID_RELEASE  "SID_RELEASE"
 
-struct args {
-	int    argc;
-	char **argv;
-};
-
-static int _usid_cmd_tree(struct args *args, uint16_t format, struct buffer *outbuf)
+static int _usid_cmd(usid_cmd_t cmd, uint16_t format, struct buffer *outbuf)
 {
-	struct buffer *         readbuf = NULL;
-	size_t                  size;
-	struct usid_msg_header *msg;
-	int                     r;
+	struct usid_result *res = NULL;
+	const char *        data;
+	size_t              size;
+	int                 r;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_TREE, format, 0, NULL, NULL, &readbuf, NULL)) == 0) {
-		buffer_get_data(readbuf, (const void **) &msg, &size);
-		if (size < USID_MSG_HEADER_SIZE || msg->status & USID_CMD_STATUS_FAILURE) {
-			buffer_destroy(readbuf);
-			return -1;
-		}
-		size -= USID_MSG_HEADER_SIZE;
-		buffer_add(outbuf, msg->data, size, &r);
-		buffer_destroy(readbuf);
+	if ((r = usid_req(cmd, format, 0, NULL, 0, &res)) == 0) {
+		if ((data = usid_result_data(res, &size)) != NULL)
+			buffer_add(outbuf, (void *) data, size, &r);
+		else
+			r = -1;
+		usid_result_free(res);
 		return r;
 	}
 	return -1;
 }
 
-static int _usid_cmd_dump(struct args *args, uint16_t format, struct buffer *outbuf)
+static int _usid_cmd_version(uint16_t format, struct buffer *outbuf)
 {
-	struct buffer *         readbuf = NULL;
-	size_t                  msg_header_size;
-	BUFFER_SIZE_PREFIX_TYPE msg_size;
-	struct usid_msg_header *msg;
-	int                     r;
-	int                     fd  = -1;
-	char *                  shm = MAP_FAILED;
+	int r;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_DUMP, format, 0, NULL, NULL, &readbuf, &fd)) < 0)
-		return r;
-	buffer_get_data(readbuf, (const void **) &msg, &msg_header_size);
-	if (msg_header_size < USID_MSG_HEADER_SIZE || msg->status & USID_CMD_STATUS_FAILURE) {
-		buffer_destroy(readbuf);
-		r = -1;
-		goto out;
-	}
-	buffer_destroy(readbuf);
-	if (read(fd, &msg_size, BUFFER_SIZE_PREFIX_LEN) != BUFFER_SIZE_PREFIX_LEN) {
-		log_error_errno(LOG_PREFIX, errno, "Failed to read shared memory size");
-		r = -errno;
-		goto out;
-	}
-	if (msg_size <= BUFFER_SIZE_PREFIX_LEN) {
-		log_error(LOG_PREFIX, "Shared memory size too small");
-		r = -1;
-		goto out;
-	}
-	if ((shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
-		log_error_errno(LOG_PREFIX, errno, "Failed to map memory with key-value store");
-		r = -errno;
-		goto out;
-	}
-
-	buffer_add(outbuf, shm + BUFFER_SIZE_PREFIX_LEN, msg_size - BUFFER_SIZE_PREFIX_LEN, &r);
-out:
-	if (shm != MAP_FAILED && munmap(shm, msg_size) < 0) {
-		log_error_errno(LOG_PREFIX, errno, "Failed to unmap memory with key-value store");
-		r = -1;
-	}
-	if (fd > -1)
-		close(fd);
-	return r;
-}
-
-static int _usid_cmd_stats(struct args *args, uint16_t format, struct buffer *outbuf)
-{
-	struct buffer *         buf = NULL;
-	struct usid_msg_header *hdr;
-	size_t                  size;
-	int                     r;
-
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_STATS, format, 0, NULL, NULL, &buf, NULL)) == 0) {
-		buffer_get_data(buf, (const void **) &hdr, &size);
-
-		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & USID_CMD_STATUS_FAILURE)) {
-			size -= USID_MSG_HEADER_SIZE;
-			buffer_add(outbuf, hdr->data, size, &r);
-		} else
-			r = -1;
-
-		buffer_destroy(buf);
-	}
-	return r;
-}
-
-static int _usid_cmd_version(struct args *args, uint16_t format, struct buffer *outbuf)
-{
-	struct buffer *         readbuf = NULL;
-	struct usid_msg_header *hdr;
-	size_t                  size;
-	int                     r;
-
-	r = usid_req(LOG_PREFIX, USID_CMD_VERSION, format, 0, NULL, NULL, &readbuf, NULL);
 	print_start_document(format, outbuf, 0);
 
 	print_elem_name(false, "SIDCTL_VERSION", format, outbuf, 0);
@@ -156,16 +77,7 @@ static int _usid_cmd_version(struct args *args, uint16_t format, struct buffer *
 	print_uint_field(KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, format, outbuf, 0, 1);
 	print_end_elem(format, outbuf, 0);
 	print_elem_name(true, "SID_VERSION", format, outbuf, 0);
-	if (r == 0) {
-		buffer_get_data(readbuf, (const void **) &hdr, &size);
-
-		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & USID_CMD_STATUS_FAILURE)) {
-			size -= USID_MSG_HEADER_SIZE;
-			buffer_add(outbuf, hdr->data, size, &r);
-		}
-
-		buffer_destroy(readbuf);
-	} else {
+	if ((r = _usid_cmd(USID_CMD_VERSION, format, outbuf)) < 0) {
 		print_start_document(format, outbuf, 0);
 		print_end_document(format, outbuf, 0);
 	}
@@ -235,10 +147,10 @@ int main(int argc, char *argv[])
 {
 	int            opt;
 	int            verbose = 0;
-	struct args    subcmd_args;
-	int            r      = -1;
-	int            format = USID_CMD_FLAGS_FMT_TABLE;
-	struct buffer *outbuf = NULL;
+	int            r       = -1;
+	int            format  = USID_CMD_FLAGS_FMT_TABLE;
+	struct buffer *outbuf  = NULL;
+	usid_cmd_t     cmd;
 
 	struct option longopts[] = {
 		{"format", required_argument, NULL, 'f'},
@@ -271,33 +183,26 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (optind >= argc) {
+	if (optind != argc - 1) {
 		_help(stderr);
 		return EXIT_FAILURE;
 	}
 
 	log_init(LOG_TARGET_STANDARD, verbose);
 
-	subcmd_args.argc = argc - optind;
-	subcmd_args.argv = &argv[optind];
-
 	outbuf = buffer_create(
 		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
 		&((struct buffer_init) {.size = 4096, .alloc_step = 1, .limit = 0}),
 		NULL);
 
-	switch (usid_cmd_name_to_type(subcmd_args.argv[0])) {
+	switch ((cmd = usid_cmd_name_to_type(argv[optind]))) {
 		case USID_CMD_VERSION:
-			r = _usid_cmd_version(&subcmd_args, format, outbuf);
+			r = _usid_cmd_version(format, outbuf);
 			break;
 		case USID_CMD_DUMP:
-			r = _usid_cmd_dump(&subcmd_args, format, outbuf);
-			break;
 		case USID_CMD_TREE:
-			r = _usid_cmd_tree(&subcmd_args, format, outbuf);
-			break;
 		case USID_CMD_STATS:
-			r = _usid_cmd_stats(&subcmd_args, format, outbuf);
+			r = _usid_cmd(cmd, format, outbuf);
 			break;
 		default:
 			_help(stderr);
