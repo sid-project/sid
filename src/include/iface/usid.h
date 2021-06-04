@@ -99,18 +99,14 @@ struct usid_msg {
 
 #define USID_MSG_HEADER_SIZE sizeof(struct usid_msg_header)
 
-typedef int (*usid_req_data_fn_t)(struct buffer *buf, void *data);
+struct usid_result;
 
-usid_cmd_t usid_cmd_name_to_type(const char *cmd_name);
-int        usid_req(const char *       prefix,
-                    usid_cmd_t         cmd,
-                    uint16_t           flags,
-                    uint64_t           status,
-                    usid_req_data_fn_t data_fn,
-                    void *             data_fn_arg,
-                    struct buffer **   resp_buf,
-                    int *              resp_fd);
-
+usid_cmd_t  usid_cmd_name_to_type(const char *cmd_name);
+int         usid_req(usid_cmd_t cmd, uint16_t flags, uint64_t status, const void *data, size_t data_len, struct usid_result **res);
+void        usid_result_free(struct usid_result *res);
+int         usid_result_status(struct usid_result *res, uint64_t *status);
+int         usid_result_protocol(struct usid_result *res, uint8_t *prot);
+const char *usid_result_data(struct usid_result *res, size_t *size_p);
 #ifdef __cplusplus
 }
 #endif

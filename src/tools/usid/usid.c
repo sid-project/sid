@@ -60,30 +60,29 @@ struct args {
 
 static int _usid_cmd_active(struct args *args)
 {
-	unsigned long long      val;
-	uint64_t                seqnum;
-	struct buffer *         buf = NULL;
-	struct usid_msg_header *hdr;
-	size_t                  size;
-	const char *            status;
-	int                     r;
+	unsigned long long  val;
+	uint64_t            seqnum;
+	uint8_t             prot;
+	const char *        status;
+	struct usid_result *res;
+	int                 r;
 
 	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, USID_CMD_FLAGS_FMT_ENV, seqnum, NULL, NULL, &buf, NULL)) == 0) {
-		buffer_get_data(buf, (const void **) &hdr, &size);
-
-		if (size > USID_MSG_HEADER_SIZE && hdr->prot == USID_PROTOCOL && !(hdr->status & USID_CMD_STATUS_FAILURE))
+	if ((r = usid_req(USID_CMD_VERSION, USID_CMD_FLAGS_FMT_ENV, seqnum, NULL, 0, &res)) == 0) {
+		if (usid_result_data(res, NULL) && usid_result_protocol(res, &prot) == 0 && prot == USID_PROTOCOL)
 			status = USID_BRIDGE_STATUS_ACTIVE;
 		else
 			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
 
-		buffer_destroy(buf);
+		usid_result_free(res);
 	} else {
 		if (r == -ECONNREFUSED) {
 			status = USID_BRIDGE_STATUS_INACTIVE;
 			r      = 0;
-		} else
+		} else if (r == -EBADMSG)
+			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
+		else
 			status = USID_BRIDGE_STATUS_ERROR;
 	}
 
@@ -92,21 +91,16 @@ static int _usid_cmd_active(struct args *args)
 	return r;
 }
 
-static int _print_env_from_buffer(struct buffer *buf)
+static int _print_env_from_res(struct usid_result *res)
 {
-	struct usid_msg_header *hdr;
-	size_t                  size;
-	const char *            end, *kv;
+	size_t      size;
+	const char *end, *kv;
 
-	buffer_get_data(buf, (const void **) &hdr, &size);
-	if (size < USID_MSG_HEADER_SIZE) {
-		log_error(LOG_PREFIX, "Unexpected response size.");
+	kv = usid_result_data(res, &size);
+	if (!kv)
 		return -EBADMSG;
-	}
 
-	size -= USID_MSG_HEADER_SIZE;
-
-	for (kv = hdr->data, end = hdr->data + size; kv < end; kv += strlen(kv) + 1)
+	for (end = kv + size; kv < end; kv += strlen(kv) + 1)
 		fprintf(stdout, "%s\n", kv);
 
 	return 0;
@@ -176,37 +170,6 @@ out:
 	return r;
 }
 
-static const char _msg_failed_to_get_seqnum[] = "Failed to get value for %s key from environment";
-
-static int _usid_cmd_checkpoint(struct args *args)
-{
-	unsigned long long val;
-	uint64_t           seqnum;
-	struct buffer *    buf = NULL;
-	int                r;
-
-	if ((r = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
-		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_seqnum, KEY_ENV_SEQNUM);
-		return r;
-	}
-
-	seqnum = val;
-
-	if ((r = usid_req(LOG_PREFIX,
-	                  USID_CMD_CHECKPOINT,
-	                  USID_CMD_FLAGS_FMT_ENV,
-	                  seqnum,
-	                  _add_checkpoint_env_to_buf,
-	                  args,
-	                  &buf,
-	                  NULL)) == 0) {
-		r = _print_env_from_buffer(buf);
-		buffer_destroy(buf);
-	}
-
-	return r;
-}
-
 static int _add_scan_env_to_buf(struct buffer *buf, void *data)
 {
 	extern char **environ;
@@ -223,37 +186,52 @@ out:
 	return r;
 }
 
-static int _usid_cmd_scan(struct args *args)
+typedef int (*usid_req_data_fn_t)(struct buffer *buf, void *data);
+
+static int _usid_cmd_with_data(usid_cmd_t cmd, usid_req_data_fn_t data_fn, void *data_fn_arg)
 {
-	unsigned long long val;
-	uint64_t           seqnum;
-	struct buffer *    buf = NULL;
-	int                r;
+	unsigned long long  val;
+	uint64_t            seqnum;
+	struct usid_result *res;
+	struct buffer *     buf = NULL;
+	int                 r;
+	const char *        data;
+	size_t              size;
 
 	if ((r = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
-		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_seqnum, KEY_ENV_SEQNUM);
+		log_error_errno(LOG_PREFIX, r, "Failed to get value for %s key from environment", KEY_ENV_SEQNUM);
 		return r;
 	}
-
 	seqnum = val;
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_SCAN, USID_CMD_FLAGS_FMT_ENV, seqnum, _add_scan_env_to_buf, NULL, &buf, NULL)) ==
-	    0) {
-		r = _print_env_from_buffer(buf);
-		buffer_destroy(buf);
-	}
+	buf = buffer_create(
+		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
+		&((struct buffer_init) {.size = 4096, .alloc_step = 1, .limit = 0}),
+		&r);
+	if (!buf)
+		return r;
 
+	if (data_fn && (r = data_fn(buf, data_fn_arg)) < 0)
+		goto out;
+	buffer_get_data(buf, (const void **) &data, &size);
+
+	if ((r = usid_req(cmd, USID_CMD_FLAGS_FMT_ENV, seqnum, data, size, &res)) == 0) {
+		r = _print_env_from_res(res);
+		usid_result_free(res);
+	}
+out:
+	buffer_destroy(buf);
 	return r;
 }
 
 static int _usid_cmd_version(struct args *args)
 {
-	unsigned long long      val;
-	uint64_t                seqnum;
-	struct buffer *         buf = NULL;
-	struct usid_msg_header *hdr;
-	size_t                  size;
-	int                     r;
+	unsigned long long  val;
+	uint64_t            seqnum;
+	const char *        data;
+	size_t              size;
+	int                 r;
+	struct usid_result *res;
 
 	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
@@ -265,13 +243,12 @@ static int _usid_cmd_version(struct args *args)
 	        SID_VERSION_MINOR,
 	        SID_VERSION_RELEASE);
 
-	if ((r = usid_req(LOG_PREFIX, USID_CMD_VERSION, USID_CMD_FLAGS_FMT_ENV, seqnum, NULL, NULL, &buf, NULL)) == 0) {
-		buffer_get_data(buf, (const void **) &hdr, &size);
-
-		if (size > USID_MSG_HEADER_SIZE && !(hdr->status & USID_CMD_STATUS_FAILURE))
-			fprintf(stdout, "%s", hdr->data);
-
-		buffer_destroy(buf);
+	if ((r = usid_req(USID_CMD_VERSION, USID_CMD_FLAGS_FMT_ENV, seqnum, NULL, 0, &res)) == 0) {
+		if ((data = usid_result_data(res, NULL)) != NULL)
+			fprintf(stdout, "%s", data);
+		else
+			r = -1;
+		usid_result_free(res);
 	}
 
 	return r;
@@ -402,10 +379,10 @@ int main(int argc, char *argv[])
 			r = _usid_cmd_active(&subcmd_args);
 			break;
 		case USID_CMD_CHECKPOINT:
-			r = _usid_cmd_checkpoint(&subcmd_args);
+			r = _usid_cmd_with_data(USID_CMD_CHECKPOINT, _add_checkpoint_env_to_buf, &subcmd_args);
 			break;
 		case USID_CMD_SCAN:
-			r = _usid_cmd_scan(&subcmd_args);
+			r = _usid_cmd_with_data(USID_CMD_SCAN, _add_scan_env_to_buf, NULL);
 			break;
 		case USID_CMD_VERSION:
 			r = _usid_cmd_version(&subcmd_args);
