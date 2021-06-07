@@ -996,6 +996,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 	if (format != NO_FORMAT) {
 		print_end_array(false, format, export_buf, 1);
 		print_end_document(format, export_buf, 0);
+		print_null_byte(export_buf);
 	}
 	ucmd_ctx->exp_buf = export_buf;
 	kv_store_iter_destroy(iter);
@@ -1939,6 +1940,7 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	print_uint_field("SID_MINOR", SID_VERSION_MINOR, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
 	print_uint_field("SID_RELEASE", SID_VERSION_RELEASE, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, false, 1);
 	print_end_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
+	print_null_byte(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 	buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &version_data, &size);
 	buffer_add(ucmd_ctx->res_buf, version_data, size, &r);
 	return r;
@@ -1958,6 +1960,7 @@ static int _cmd_exec_tree(struct cmd_exec_arg *exec_arg)
 	                                             ucmd_ctx->ucmd_mod_ctx.gen_buf,
 	                                             0)) == 0) {
 		buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, NULL, "%s", "\n");
+		print_null_byte(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 		buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &resource_tree_data, &size);
 		buffer_add(ucmd_ctx->res_buf, resource_tree_data, size, &r);
 	}
@@ -1993,6 +1996,7 @@ static int _cmd_exec_stats(struct cmd_exec_arg *exec_arg)
 		print_uint64_field("METADATA_SIZE", stats.meta_size, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
 		print_uint_field("NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
 		print_end_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
+		print_null_byte(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 		buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &stats_data, &size);
 		buffer_add(ucmd_ctx->res_buf, stats_data, size, &r);
 	}
