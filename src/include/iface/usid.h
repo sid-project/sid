@@ -20,8 +20,7 @@
 #ifndef _SID_USID_IFACE_H
 #define _SID_USID_IFACE_H
 
-#include "base/buffer.h"
-
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
