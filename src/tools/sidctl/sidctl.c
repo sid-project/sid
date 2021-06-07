@@ -45,7 +45,7 @@
 #define KEY_SID_MINOR    "SID_MINOR"
 #define KEY_SID_RELEASE  "SID_RELEASE"
 
-static int _usid_cmd(usid_cmd_t cmd, uint16_t format, struct buffer *outbuf)
+static int _usid_cmd(usid_cmd_t cmd, uint16_t format)
 {
 	struct usid_result *res = NULL;
 	const char *        data;
@@ -54,7 +54,7 @@ static int _usid_cmd(usid_cmd_t cmd, uint16_t format, struct buffer *outbuf)
 
 	if ((r = usid_req(cmd, format, 0, NULL, 0, &res)) == 0) {
 		if ((data = usid_result_data(res, &size)) != NULL)
-			buffer_add(outbuf, (void *) data, size, &r);
+			printf("%s", data);
 		else
 			r = -1;
 		usid_result_free(res);
@@ -63,9 +63,17 @@ static int _usid_cmd(usid_cmd_t cmd, uint16_t format, struct buffer *outbuf)
 	return -1;
 }
 
-static int _usid_cmd_version(uint16_t format, struct buffer *outbuf)
+static int _usid_cmd_version(uint16_t format)
 {
-	int r;
+	struct buffer *outbuf = NULL;
+	int            r;
+
+	outbuf = buffer_create(
+		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
+		&((struct buffer_init) {.size = 4096, .alloc_step = 1, .limit = 0}),
+		NULL);
+	if (!outbuf)
+		return -1;
 
 	print_start_document(format, outbuf, 0);
 
@@ -77,11 +85,17 @@ static int _usid_cmd_version(uint16_t format, struct buffer *outbuf)
 	print_uint_field(KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, format, outbuf, 0, 1);
 	print_end_elem(format, outbuf, 0);
 	print_elem_name(true, "SID_VERSION", format, outbuf, 0);
-	if ((r = _usid_cmd(USID_CMD_VERSION, format, outbuf)) < 0) {
+	buffer_write_all(outbuf, fileno(stdout));
+	buffer_reset(outbuf);
+	if ((r = _usid_cmd(USID_CMD_VERSION, format)) < 0) {
 		print_start_document(format, outbuf, 0);
 		print_end_document(format, outbuf, 0);
-	}
+	} else
+		fflush(stdout);
 	print_end_document(format, outbuf, 0);
+
+	buffer_write_all(outbuf, fileno(stdout));
+	buffer_destroy(outbuf);
 	return r;
 }
 
@@ -145,12 +159,11 @@ static int _get_format(char *format)
 
 int main(int argc, char *argv[])
 {
-	int            opt;
-	int            verbose = 0;
-	int            r       = -1;
-	int            format  = USID_CMD_FLAGS_FMT_TABLE;
-	struct buffer *outbuf  = NULL;
-	usid_cmd_t     cmd;
+	int        opt;
+	int        verbose = 0;
+	int        r       = -1;
+	int        format  = USID_CMD_FLAGS_FMT_TABLE;
+	usid_cmd_t cmd;
 
 	struct option longopts[] = {
 		{"format", required_argument, NULL, 'f'},
@@ -190,24 +203,17 @@ int main(int argc, char *argv[])
 
 	log_init(LOG_TARGET_STANDARD, verbose);
 
-	outbuf = buffer_create(
-		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
-		&((struct buffer_init) {.size = 4096, .alloc_step = 1, .limit = 0}),
-		NULL);
-
 	switch ((cmd = usid_cmd_name_to_type(argv[optind]))) {
 		case USID_CMD_VERSION:
-			r = _usid_cmd_version(format, outbuf);
+			r = _usid_cmd_version(format);
 			break;
 		case USID_CMD_DUMP:
 		case USID_CMD_TREE:
 		case USID_CMD_STATS:
-			r = _usid_cmd(cmd, format, outbuf);
+			r = _usid_cmd(cmd, format);
 			break;
 		default:
 			_help(stderr);
 	}
-	buffer_write_all(outbuf, fileno(stdout));
-	buffer_destroy(outbuf);
 	return (r < 0) ? EXIT_FAILURE : EXIT_SUCCESS;
 }
