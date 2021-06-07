@@ -19,6 +19,7 @@
 
 #include "iface/usid.h"
 
+#include "base/buffer.h"
 #include "base/comms.h"
 #include "log/log.h"
 
