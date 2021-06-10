@@ -109,8 +109,9 @@
 #define OWNER_CORE                                  MOD_NAME_CORE
 #define DEFAULT_VALUE_FLAGS_CORE                    KV_SYNC | KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
 
-#define CMD_DEV_ID_FMT                              "%s (%d:%d)"
-#define CMD_DEV_ID(ucmd_ctx)                        ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.udev.major, ucmd_ctx->req_env.dev.udev.minor
+#define CMD_DEV_NAME_NUM_FMT                        "%s (%d:%d)"
+#define CMD_DEV_NAME_NUM(ucmd_ctx)                                                                                                 \
+	ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.udev.major, ucmd_ctx->req_env.dev.udev.minor
 
 const sid_resource_type_t sid_resource_type_ubridge;
 const sid_resource_type_t sid_resource_type_ubridge_common;
@@ -208,8 +209,9 @@ struct sid_ucmd_ctx {
 	/* request environment */
 	union {
 		struct {
-			char          *id;   /* device id */
-			struct udevice udev; /* udev context */
+			char          *uid_s; /* device identifier string */
+			char          *num_s; /* device number string (in "major_minor" format) */
+			struct udevice udev;
 		} dev;
 
 		const char *exp_path; /* export path */
@@ -454,7 +456,8 @@ static char               *core_owner          = OWNER_CORE;
 static uint64_t            null_int            = 0;
 
 static int        _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index);
-static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
+static const char _key_prefix_err_msg[] =
+	"Failed to get key prefix to store hierarchy records for device " CMD_DEV_NAME_NUM_FMT ".";
 
 udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
 {
@@ -1224,8 +1227,9 @@ static const char *_get_ns_part(struct module *mod, struct sid_ucmd_ctx *ucmd_ct
 {
 	switch (ns) {
 		case KV_NS_UDEV:
+			return ucmd_ctx->req_env.dev.num_s ?: ID_NULL;
 		case KV_NS_DEVICE:
-			return ucmd_ctx->req_env.dev.id;
+			return ucmd_ctx->req_env.dev.uid_s ?: ID_NULL;
 		case KV_NS_MODULE:
 			return _get_mod_name(mod);
 		case KV_NS_GLOBAL:
@@ -2613,7 +2617,8 @@ static int _parse_cmd_udev_env(struct sid_ucmd_ctx *ucmd_ctx, const char *env, s
 	ucmd_ctx->req_env.dev.udev.major = major(devno);
 	ucmd_ctx->req_env.dev.udev.minor = minor(devno);
 
-	if (asprintf(&ucmd_ctx->req_env.dev.id, "%d_%d", ucmd_ctx->req_env.dev.udev.major, ucmd_ctx->req_env.dev.udev.minor) < 0) {
+	if (asprintf(&ucmd_ctx->req_env.dev.num_s, "%d_%d", ucmd_ctx->req_env.dev.udev.major, ucmd_ctx->req_env.dev.udev.minor) <
+	    0) {
 		r = -ENOMEM;
 		goto out;
 	}
@@ -2668,8 +2673,8 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 	                            ucmd_ctx->req_env.dev.udev.path)) < 0) {
 		log_error_errno(_get_mod_name(mod),
 		                r,
-		                "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT,
-		                CMD_DEV_ID(ucmd_ctx));
+		                "Failed to compose sysfs path for whole device of partition device " CMD_DEV_NAME_NUM_FMT,
+		                CMD_DEV_NAME_NUM(ucmd_ctx));
 		return r;
 	}
 
@@ -3116,9 +3121,9 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		                            SYSTEM_SYSFS_SLAVES)) < 0) {
 			log_error_errno(ID(cmd_res),
 			                r,
-			                "Failed to compose sysfs %s path for device " CMD_DEV_ID_FMT,
+			                "Failed to compose sysfs %s path for device " CMD_DEV_NAME_NUM_FMT,
 			                SYSTEM_SYSFS_SLAVES,
-			                CMD_DEV_ID(ucmd_ctx));
+			                CMD_DEV_NAME_NUM(ucmd_ctx));
 			goto out;
 		}
 
@@ -3151,8 +3156,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		      &r))) {
 		log_error_errno(ID(cmd_res),
 		                r,
-		                "Failed to create buffer to record hierarchy for device " CMD_DEV_ID_FMT,
-		                CMD_DEV_ID(ucmd_ctx));
+		                "Failed to create buffer to record hierarchy for device " CMD_DEV_NAME_NUM_FMT,
+		                CMD_DEV_NAME_NUM(ucmd_ctx));
 		goto out;
 	}
 
@@ -3180,12 +3185,12 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 			                       ucmd_ctx->req_env.dev.udev.path,
 			                       SYSTEM_SYSFS_SLAVES,
 			                       dirent[i]->d_name) < 0) {
-				log_error_errno(
-					ID(cmd_res),
-					r,
-					"Failed to compose sysfs path for device %s which is relative of device " CMD_DEV_ID_FMT,
-					dirent[i]->d_name,
-					CMD_DEV_ID(ucmd_ctx));
+				log_error_errno(ID(cmd_res),
+				                r,
+				                "Failed to compose sysfs path for device %s which is relative of "
+				                "device " CMD_DEV_NAME_NUM_FMT,
+				                dirent[i]->d_name,
+				                CMD_DEV_NAME_NUM(ucmd_ctx));
 			} else {
 				if ((r = sid_util_sysfs_get_value(s, devno_buf, sizeof(devno_buf))) < 0 || !*devno_buf) {
 					log_error_errno(ID(cmd_res),
@@ -3502,8 +3507,8 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 		                         mod_name,
 		                         strlen(mod_name) + 1)) {
 			log_error(ID(exec_arg->cmd_res),
-			          "Failed to store device " CMD_DEV_ID_FMT " module name",
-			          CMD_DEV_ID(ucmd_ctx));
+			          "Failed to store device " CMD_DEV_NAME_NUM_FMT " module name",
+			          CMD_DEV_NAME_NUM(ucmd_ctx));
 			return -1;
 		}
 	}
@@ -4237,10 +4242,16 @@ fail:
 		*data = NULL;
 		if (cmd_reg && cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE && ucmd_ctx->req_env.exp_path)
 			free((void *) ucmd_ctx->req_env.exp_path);
+
 		if (ucmd_ctx->res_buf)
 			sid_buffer_destroy(ucmd_ctx->res_buf);
-		if (ucmd_ctx->req_env.dev.id)
-			free(ucmd_ctx->req_env.dev.id);
+
+		if (ucmd_ctx->req_env.dev.num_s)
+			free(ucmd_ctx->req_env.dev.num_s);
+
+		if (ucmd_ctx->req_env.dev.uid_s)
+			free(ucmd_ctx->req_env.dev.uid_s);
+
 		free(ucmd_ctx);
 	}
 	return -1;
@@ -4263,8 +4274,10 @@ static int _destroy_command(sid_resource_t *res)
 
 	if ((cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE))
 		free((void *) ucmd_ctx->req_env.exp_path);
-	else
-		free(ucmd_ctx->req_env.dev.id);
+	else {
+		free(ucmd_ctx->req_env.dev.num_s);
+		free(ucmd_ctx->req_env.dev.uid_s);
+	}
 
 	free(ucmd_ctx);
 	return 0;
