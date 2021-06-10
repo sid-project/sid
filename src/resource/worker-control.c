@@ -676,6 +676,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 	struct worker_channel * worker_proxy_channels = NULL, *worker_channels = NULL;
 	struct worker_kickstart kickstart;
 	sigset_t                original_sigmask, new_sigmask;
+	pid_t                   original_pid, curr_ppid;
 	sid_resource_t *        res             = NULL;
 	int                     signals_blocked = 0;
 	pid_t                   pid             = -1;
@@ -699,6 +700,7 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		goto out;
 	}
 	signals_blocked = 1;
+	original_pid    = getpid();
 
 	if ((pid = fork()) < 0) {
 		log_sys_error(ID(worker_control_res), "fork", "");
@@ -713,6 +715,14 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 		/* request a SIGUSR1 signal if parent dies */
 		if (prctl(PR_SET_PDEATHSIG, SIGUSR1) < 0)
 			log_sys_error(ID(worker_control_res), "prctl() failed", "");
+
+		/* Check to make sure the parent didn't die right after the fork() */
+		curr_ppid = getppid();
+		if (curr_ppid != original_pid) {
+			log_debug(ID(worker_control_res), "parent died before prctl() call completed - exiting SID worker process");
+			raise(SIGTERM);
+			exit(EXIT_FAILURE);
+		}
 
 		_destroy_channels(worker_proxy_channels, worker_control->channel_spec_count);
 		worker_proxy_channels = NULL;
