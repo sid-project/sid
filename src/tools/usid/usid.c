@@ -34,8 +34,6 @@
 #define LOG_PREFIX "usid"
 
 #define KEY_ENV_SEQNUM "SEQNUM"
-#define KEY_ENV_MAJOR  "MAJOR"
-#define KEY_ENV_MINOR  "MINOR"
 
 #define KEY_USID_BRIDGE_STATUS          "USID_BRIDGE_STATUS"
 #define USID_BRIDGE_STATUS_ERROR        "error"
@@ -58,18 +56,18 @@ struct args {
 	char **argv;
 };
 
-static int _usid_cmd_active(struct args *args)
+static int _usid_cmd_active(void)
 {
 	unsigned long long  val;
-	uint64_t            seqnum;
 	uint8_t             prot;
 	const char *        status;
 	struct usid_result *res;
+	struct usid_request req = {.cmd = USID_CMD_VERSION, .flags = USID_CMD_FLAGS_FMT_ENV};
 	int                 r;
 
-	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
+	req.seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
-	if ((r = usid_req(USID_CMD_VERSION, USID_CMD_FLAGS_FMT_ENV, seqnum, NULL, 0, &res)) == 0) {
+	if ((r = usid_req(&req, &res)) == 0) {
 		if (usid_result_data(res, NULL) && usid_result_protocol(res, &prot) == 0 && prot == USID_PROTOCOL)
 			status = USID_BRIDGE_STATUS_ACTIVE;
 		else
@@ -106,125 +104,52 @@ static int _print_env_from_res(struct usid_result *res)
 	return 0;
 }
 
-static const char _msg_failed_to_get_value_for_key[] = "Failed to get value for %s key from environment";
-
-static int _add_devt_env_to_buffer(struct buffer *buf)
-{
-	unsigned long long val;
-	unsigned           major, minor;
-	dev_t              devnum;
-	int                r;
-
-	if ((r = util_env_get_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0) {
-		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_value_for_key, KEY_ENV_MAJOR);
-		return r;
-	}
-
-	major = val;
-
-	if ((r = util_env_get_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0) {
-		log_error_errno(LOG_PREFIX, r, _msg_failed_to_get_value_for_key, KEY_ENV_MINOR);
-		return r;
-	}
-
-	minor = val;
-
-	devnum = makedev(major, minor);
-	buffer_add(buf, &devnum, sizeof(devnum), &r);
-
-	return r;
-}
-
-static int _add_checkpoint_env_to_buf(struct buffer *buf, void *data)
-{
-	struct args *args = data;
-	const char * key, *val;
-	int          i, r;
-
-	if ((r = _add_devt_env_to_buffer(buf)) < 0)
-		goto out;
-
-	if (args->argc < 2) {
-		/* we need at least checkpoint name */
-		log_error(LOG_PREFIX, "Missing checkpoint name.");
-		r = -EINVAL;
-		goto out;
-	}
-
-	/* add checkpoint name */
-	if (!buffer_add(buf, args->argv[1], strlen(args->argv[1]) + 1, &r))
-		goto out;
-
-	/* add key=value pairs from current environment */
-	for (i = 2; i < args->argc; i++) {
-		key = args->argv[i];
-		if (!(val = getenv(key)))
-			continue;
-
-		if (!buffer_fmt_add(buf, &r, "%s=%s", key, val))
-			goto out;
-	}
-
-	r = 0;
-out:
-	return r;
-}
-
-static int _add_scan_env_to_buf(struct buffer *buf, void *data)
-{
-	extern char **environ;
-	char **       kv;
-	int           r;
-
-	if ((r = _add_devt_env_to_buffer(buf)) < 0)
-		goto out;
-
-	for (kv = environ; *kv; kv++)
-		if (!buffer_add(buf, *kv, strlen(*kv) + 1, &r))
-			goto out;
-out:
-	return r;
-}
-
-typedef int (*usid_req_data_fn_t)(struct buffer *buf, void *data);
-
-static int _usid_cmd_with_data(usid_cmd_t cmd, usid_req_data_fn_t data_fn, void *data_fn_arg)
+static int _usid_cmd_print_env(struct usid_request *req)
 {
 	unsigned long long  val;
-	uint64_t            seqnum;
 	struct usid_result *res;
-	struct buffer *     buf = NULL;
 	int                 r;
-	const char *        data;
-	size_t              size;
 
 	if ((r = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
 		log_error_errno(LOG_PREFIX, r, "Failed to get value for %s key from environment", KEY_ENV_SEQNUM);
 		return r;
 	}
-	seqnum = val;
+	req->seqnum = val;
 
-	buf = buffer_create(
-		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
-		&((struct buffer_init) {.size = 4096, .alloc_step = 1, .limit = 0}),
-		&r);
-	if (!buf)
-		return r;
-
-	if (data_fn && (r = data_fn(buf, data_fn_arg)) < 0)
-		goto out;
-	buffer_get_data(buf, (const void **) &data, &size);
-
-	if ((r = usid_req(cmd, USID_CMD_FLAGS_FMT_ENV, seqnum, data, size, &res)) == 0) {
+	if ((r = usid_req(req, &res)) == 0) {
 		r = _print_env_from_res(res);
 		usid_result_free(res);
 	}
 out:
-	buffer_destroy(buf);
 	return r;
 }
 
-static int _usid_cmd_version(struct args *args)
+static int _usid_cmd_scan(void)
+{
+	struct usid_request req = {.cmd = USID_CMD_SCAN, .flags = USID_CMD_FLAGS_FMT_ENV};
+
+	return _usid_cmd_print_env(&req);
+}
+
+static int _usid_cmd_checkpoint(int argc, char **argv)
+{
+	struct usid_request req = {.cmd = USID_CMD_CHECKPOINT, .flags = USID_CMD_FLAGS_FMT_ENV};
+
+	if (argc < 2) {
+		/* we need at least checkpoint name */
+		log_error(LOG_PREFIX, "Missing checkpoint name.");
+		return -EINVAL;
+	}
+	req.data.checkpoint.name    = argv[1];
+	req.data.checkpoint.nr_keys = argc - 2;
+	if (argc > 2)
+		req.data.checkpoint.keys = &argv[2];
+	else
+		req.data.checkpoint.keys = NULL;
+	return _usid_cmd_print_env(&req);
+}
+
+static int _usid_cmd_version(void)
 {
 	unsigned long long  val;
 	uint64_t            seqnum;
@@ -232,8 +157,9 @@ static int _usid_cmd_version(struct args *args)
 	size_t              size;
 	int                 r;
 	struct usid_result *res;
+	struct usid_request req = {.cmd = USID_CMD_VERSION, .flags = USID_CMD_FLAGS_FMT_ENV};
 
-	seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
+	req.seqnum = util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	fprintf(stdout,
 	        KEY_USID_PROTOCOL "=%" PRIu8 "\n" KEY_USID_MAJOR "=%" PRIu16 "\n" KEY_USID_MINOR "=%" PRIu16 "\n" KEY_USID_RELEASE
@@ -243,7 +169,7 @@ static int _usid_cmd_version(struct args *args)
 	        SID_VERSION_MINOR,
 	        SID_VERSION_RELEASE);
 
-	if ((r = usid_req(USID_CMD_VERSION, USID_CMD_FLAGS_FMT_ENV, seqnum, NULL, 0, &res)) == 0) {
+	if ((r = usid_req(&req, &res)) == 0) {
 		if ((data = usid_result_data(res, NULL)) != NULL)
 			fprintf(stdout, "%s", data);
 		else
@@ -327,10 +253,10 @@ static void _version(FILE *f)
 
 int main(int argc, char *argv[])
 {
-	int         opt;
-	int         verbose = 0;
-	struct args subcmd_args;
-	int         r = -1;
+	usid_cmd_t cmd;
+	int        opt;
+	int        verbose = 0;
+	int        r       = -1;
 
 	if (_init_usid()) {
 		log_error(LOG_PREFIX, "_init_usid failed");
@@ -371,21 +297,18 @@ int main(int argc, char *argv[])
 
 	log_init(LOG_TARGET_STANDARD, verbose);
 
-	subcmd_args.argc = argc - optind;
-	subcmd_args.argv = &argv[optind];
-
-	switch (usid_cmd_name_to_type(subcmd_args.argv[0])) {
+	switch (usid_cmd_name_to_type(argv[optind])) {
 		case USID_CMD_ACTIVE:
-			r = _usid_cmd_active(&subcmd_args);
+			r = _usid_cmd_active();
 			break;
 		case USID_CMD_CHECKPOINT:
-			r = _usid_cmd_with_data(USID_CMD_CHECKPOINT, _add_checkpoint_env_to_buf, &subcmd_args);
+			r = _usid_cmd_checkpoint(argc - optind, &argv[optind]);
 			break;
 		case USID_CMD_SCAN:
-			r = _usid_cmd_with_data(USID_CMD_SCAN, _add_scan_env_to_buf, NULL);
+			r = _usid_cmd_scan();
 			break;
 		case USID_CMD_VERSION:
-			r = _usid_cmd_version(&subcmd_args);
+			r = _usid_cmd_version();
 			break;
 		default:
 			_help(stderr);
