@@ -3779,21 +3779,23 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		}
 	}
 
-	if (!(worker_id = worker_control_get_worker_id(res))) {
-		log_error(ID(res), "Failed to get worker ID to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
-		goto fail;
-	}
+	if (_cmd_regs[msg->header->cmd].flags & CMD_SESSION_ID) {
+		if (!(worker_id = worker_control_get_worker_id(res))) {
+			log_error(ID(res), "Failed to get worker ID to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
+			goto fail;
+		}
 
-	if (_cmd_regs[msg->header->cmd].flags & CMD_SESSION_ID && !_do_sid_ucmd_set_kv(NULL,
-	                                                                               ucmd_ctx,
-	                                                                               NULL,
-	                                                                               KV_NS_UDEV,
-	                                                                               KV_KEY_UDEV_SID_SESSION_ID,
-	                                                                               KV_PERSISTENT,
-	                                                                               worker_id,
-	                                                                               strlen(worker_id) + 1)) {
-		log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
-		goto fail;
+		if (!_do_sid_ucmd_set_kv(NULL,
+		                         ucmd_ctx,
+		                         NULL,
+		                         KV_NS_UDEV,
+		                         KV_KEY_UDEV_SID_SESSION_ID,
+		                         KV_PERSISTENT,
+		                         worker_id,
+		                         strlen(worker_id) + 1)) {
+			log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
+			goto fail;
+		}
 	}
 
 	if (sid_resource_create_deferred_event_source(res, NULL, _cmd_handler, 0, "command handler", res) < 0) {
