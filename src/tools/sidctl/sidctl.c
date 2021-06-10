@@ -51,8 +51,9 @@ static int _usid_cmd(usid_cmd_t cmd, uint16_t format)
 	const char *        data;
 	size_t              size;
 	int                 r;
+	struct usid_request req = {.cmd = cmd, .flags = format};
 
-	if ((r = usid_req(cmd, format, 0, NULL, 0, &res)) == 0) {
+	if ((r = usid_req(&req, &res)) == 0) {
 		if ((data = usid_result_data(res, &size)) != NULL)
 			printf("%s", data);
 		else

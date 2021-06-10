@@ -21,12 +21,17 @@
 
 #include "base/buffer.h"
 #include "base/comms.h"
+#include "base/util.h"
 #include "log/log.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/sysmacros.h>
 #include <unistd.h>
+
+#define KEY_ENV_MAJOR "MAJOR"
+#define KEY_ENV_MINOR "MINOR"
 
 struct usid_result {
 	struct buffer *buf;
@@ -115,7 +120,76 @@ usid_cmd_t usid_cmd_name_to_type(const char *cmd_name)
 	return USID_CMD_UNKNOWN;
 }
 
-int usid_req(usid_cmd_t cmd, uint16_t flags, uint64_t status, const void *data, size_t data_len, struct usid_result **res_p)
+static int _add_devt_env_to_buffer(struct buffer *buf)
+{
+	unsigned long long val;
+	unsigned           major, minor;
+	dev_t              devnum;
+	int                r;
+
+	if ((r = util_env_get_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0)
+		return r;
+
+	major = val;
+
+	if ((r = util_env_get_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0)
+		return r;
+
+	minor = val;
+
+	devnum = makedev(major, minor);
+	buffer_add(buf, &devnum, sizeof(devnum), &r);
+
+	return r;
+}
+
+static int _add_checkpoint_env_to_buf(struct buffer *buf, struct usid_checkpoint_data *data)
+{
+	const char *key, *val;
+	int         i, r;
+
+	if (!data || !data->name || (data->nr_keys && !data->keys))
+		return -EINVAL;
+
+	if ((r = _add_devt_env_to_buffer(buf)) < 0)
+		goto out;
+
+	/* add checkpoint name */
+	if (!buffer_add(buf, data->name, strlen(data->name) + 1, &r))
+		goto out;
+
+	/* add key=value pairs from current environment */
+	for (i = 0; i < data->nr_keys; i++) {
+		key = data->keys[i];
+		if (!(val = getenv(key)))
+			continue;
+
+		if (!buffer_fmt_add(buf, &r, "%s=%s", key, val))
+			goto out;
+	}
+
+	r = 0;
+out:
+	return r;
+}
+
+static int _add_scan_env_to_buf(struct buffer *buf)
+{
+	extern char **environ;
+	char **       kv;
+	int           r;
+
+	if ((r = _add_devt_env_to_buffer(buf)) < 0)
+		goto out;
+
+	for (kv = environ; *kv; kv++)
+		if (!buffer_add(buf, *kv, strlen(*kv) + 1, &r))
+			goto out;
+out:
+	return r;
+}
+
+int usid_req(struct usid_request *req, struct usid_result **res_p)
 {
 	int                 socket_fd = -1;
 	struct buffer *     buf       = NULL;
@@ -127,6 +201,9 @@ int usid_req(usid_cmd_t cmd, uint16_t flags, uint64_t status, const void *data, 
 	if (!res_p)
 		return -EINVAL;
 	*res_p = NULL;
+
+	if (!req)
+		return -EINVAL;
 
 	res = malloc(sizeof(*res));
 	if (!res)
@@ -144,13 +221,34 @@ int usid_req(usid_cmd_t cmd, uint16_t flags, uint64_t status, const void *data, 
 	res->buf = buf;
 
 	if (!buffer_add(buf,
-	                &((struct usid_msg_header) {.status = status, .prot = USID_PROTOCOL, .cmd = cmd, .flags = flags}),
+	                &((struct usid_msg_header) {.status = req->seqnum,
+	                                            .prot   = USID_PROTOCOL,
+	                                            .cmd    = req->cmd,
+	                                            .flags  = req->flags}),
 	                USID_MSG_HEADER_SIZE,
 	                &r))
 		goto out;
 
-	if (data && data_len && !buffer_add(buf, (void *) data, data_len, &r))
-		goto out;
+	if (req->flags & USID_CMD_FLAGS_UNMODIFIED_DATA) {
+		struct usid_unmodified_data *data = &req->data.unmodified;
+		if (data->mem == NULL && data->size > 0) {
+			r = -EINVAL;
+			goto out;
+		}
+		if (data->size > 0 && !buffer_add(buf, (void *) data->mem, data->size, &r))
+			goto out;
+	} else {
+		switch (req->cmd) {
+			case USID_CMD_SCAN:
+				if ((r = _add_scan_env_to_buf(buf)) < 0)
+					goto out;
+				break;
+			case USID_CMD_CHECKPOINT:
+				if ((r = _add_checkpoint_env_to_buf(buf, &req->data.checkpoint)) < 0)
+					goto out;
+				break;
+		}
+	}
 
 	if ((socket_fd = comms_unix_init(USID_SOCKET_PATH, USID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
 		r = socket_fd;
@@ -188,7 +286,7 @@ int usid_req(usid_cmd_t cmd, uint16_t flags, uint64_t status, const void *data, 
 		r = -EBADMSG;
 		goto out;
 	}
-	if (_needs_mem_fd(cmd)) {
+	if (_needs_mem_fd(req->cmd)) {
 		unsigned char           byte;
 		BUFFER_SIZE_PREFIX_TYPE msg_size;
 

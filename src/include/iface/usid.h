@@ -78,10 +78,11 @@ bool usid_cmd_root_only[] = {
 #define USID_CMD_STATUS_SUCCESS      UINT64_C(0x0000000000000000)
 #define USID_CMD_STATUS_FAILURE      UINT64_C(0x0000000000000001)
 
-#define USID_CMD_FLAGS_FMT_MASK  UINT16_C(0x0003)
-#define USID_CMD_FLAGS_FMT_TABLE UINT16_C(0x0000)
-#define USID_CMD_FLAGS_FMT_JSON  UINT16_C(0x0001)
-#define USID_CMD_FLAGS_FMT_ENV   UINT16_C(0x0002)
+#define USID_CMD_FLAGS_FMT_MASK        UINT16_C(0x0003)
+#define USID_CMD_FLAGS_FMT_TABLE       UINT16_C(0x0000)
+#define USID_CMD_FLAGS_FMT_JSON        UINT16_C(0x0001)
+#define USID_CMD_FLAGS_FMT_ENV         UINT16_C(0x0002)
+#define USID_CMD_FLAGS_UNMODIFIED_DATA UINT16_C(0x0004)
 
 struct usid_msg_header {
 	uint64_t status;
@@ -98,10 +99,31 @@ struct usid_msg {
 
 #define USID_MSG_HEADER_SIZE sizeof(struct usid_msg_header)
 
+struct usid_checkpoint_data {
+	char *       name;
+	char **      keys;
+	unsigned int nr_keys;
+};
+
+struct usid_unmodified_data {
+	char * mem;
+	size_t size;
+};
+
+struct usid_request {
+	usid_cmd_t cmd;
+	uint64_t   flags;
+	uint64_t   seqnum;
+	union {
+		struct usid_checkpoint_data checkpoint;
+		struct usid_unmodified_data unmodified;
+	} data;
+};
+
 struct usid_result;
 
 usid_cmd_t  usid_cmd_name_to_type(const char *cmd_name);
-int         usid_req(usid_cmd_t cmd, uint16_t flags, uint64_t status, const void *data, size_t data_len, struct usid_result **res);
+int         usid_req(struct usid_request *req, struct usid_result **res);
 void        usid_result_free(struct usid_result *res);
 int         usid_result_status(struct usid_result *res, uint64_t *status);
 int         usid_result_protocol(struct usid_result *res, uint8_t *prot);
