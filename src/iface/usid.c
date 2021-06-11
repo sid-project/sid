@@ -17,11 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "iface/usid.h"
-
 #include "base/buffer.h"
 #include "base/comms.h"
 #include "base/util.h"
+#include "iface/iface_internal.h"
 #include "log/log.h"
 
 #include <stdlib.h>

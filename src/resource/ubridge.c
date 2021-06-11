@@ -25,7 +25,7 @@
 #include "base/formatter.h"
 #include "base/mem.h"
 #include "base/util.h"
-#include "iface/usid.h"
+#include "iface/iface_internal.h"
 #include "log/log.h"
 #include "resource/kv-store.h"
 #include "resource/module-registry.h"
@@ -301,6 +301,11 @@ struct usid_stats {
 	uint32_t nr_kv_pairs;
 };
 
+struct usid_msg {
+	size_t                  size; /* header + data */
+	struct usid_msg_header *header;
+};
+
 /*
  * Generic flags for all commands.
  */
@@ -318,6 +323,19 @@ struct usid_stats {
 #define CMD_SCAN_CAP_RDY UINT32_C(0x00000001) /* can set ready state */
 #define CMD_SCAN_CAP_RES UINT32_C(0x00000002) /* can set reserved state */
 #define CMD_SCAN_CAP_ALL UINT32_C(0xFFFFFFFF) /* can set anything */
+
+static bool _cmd_root_only[] = {
+	[USID_CMD_UNDEFINED]  = false,
+	[USID_CMD_UNKNOWN]    = false,
+	[USID_CMD_ACTIVE]     = false,
+	[USID_CMD_CHECKPOINT] = true,
+	[USID_CMD_REPLY]      = false,
+	[USID_CMD_SCAN]       = true,
+	[USID_CMD_VERSION]    = false,
+	[USID_CMD_DUMP]       = true,
+	[USID_CMD_STATS]      = true,
+	[USID_CMD_TREE]       = true,
+};
 
 static struct cmd_reg      _cmd_scan_phase_regs[];
 static sid_ucmd_kv_flags_t kv_flags_no_persist = (DEFAULT_KV_FLAGS_CORE) & ~KV_PERSISTENT;
@@ -3699,7 +3717,7 @@ static bool _socket_client_is_capable(int fd, usid_cmd_t cmd)
 	/* root can run any command */
 	if ((fd >= 0) && (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &len) == 0) && (uc.uid == 0))
 		return true;
-	return !usid_cmd_root_only[cmd];
+	return !_cmd_root_only[cmd];
 }
 
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
