@@ -28,9 +28,7 @@
 extern "C" {
 #endif
 
-#define USID_PROTOCOL        2
-#define USID_SOCKET_PATH     "\0sid-ubridge.socket"
-#define USID_SOCKET_PATH_LEN (sizeof(USID_SOCKET_PATH) - 1)
+#define USID_PROTOCOL 2
 
 typedef enum
 {
@@ -61,19 +59,6 @@ static const char *const usid_cmd_names[] = {
 	[USID_CMD_TREE]       = "tree",
 };
 
-bool usid_cmd_root_only[] = {
-	[USID_CMD_UNDEFINED]  = false,
-	[USID_CMD_UNKNOWN]    = false,
-	[USID_CMD_ACTIVE]     = false,
-	[USID_CMD_CHECKPOINT] = true,
-	[USID_CMD_REPLY]      = false,
-	[USID_CMD_SCAN]       = true,
-	[USID_CMD_VERSION]    = false,
-	[USID_CMD_DUMP]       = true,
-	[USID_CMD_STATS]      = true,
-	[USID_CMD_TREE]       = true,
-};
-
 #define USID_CMD_STATUS_MASK_OVERALL UINT64_C(0x0000000000000001)
 #define USID_CMD_STATUS_SUCCESS      UINT64_C(0x0000000000000000)
 #define USID_CMD_STATUS_FAILURE      UINT64_C(0x0000000000000001)
@@ -83,21 +68,6 @@ bool usid_cmd_root_only[] = {
 #define USID_CMD_FLAGS_FMT_JSON        UINT16_C(0x0001)
 #define USID_CMD_FLAGS_FMT_ENV         UINT16_C(0x0002)
 #define USID_CMD_FLAGS_UNMODIFIED_DATA UINT16_C(0x0004)
-
-struct usid_msg_header {
-	uint64_t status;
-	uint8_t  prot;
-	uint8_t  cmd;
-	uint16_t flags;
-	char     data[];
-} __attribute__((packed));
-
-struct usid_msg {
-	size_t                  size; /* header + data */
-	struct usid_msg_header *header;
-};
-
-#define USID_MSG_HEADER_SIZE sizeof(struct usid_msg_header)
 
 struct usid_checkpoint_data {
 	char *       name;
