@@ -17,14 +17,11 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "base/buffer.h"
 #include "log/log.h"
 
 #include <stdio.h>
 #include <systemd/sd-journal.h>
 #include <unistd.h>
-
-#define BUFFER_SIZE 4096
 
 static int _max_level_id  = -1;
 static int _force_err_out = 0;
