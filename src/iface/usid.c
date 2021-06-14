@@ -298,8 +298,11 @@ int usid_req(struct usid_request *req, struct usid_result **res_p)
 			r = n;
 			goto out;
 		}
-		if (read(export_fd, &msg_size, BUFFER_SIZE_PREFIX_LEN) != BUFFER_SIZE_PREFIX_LEN) {
-			r = -errno;
+		if ((n = util_fd_read_all(export_fd, &msg_size, BUFFER_SIZE_PREFIX_LEN)) != BUFFER_SIZE_PREFIX_LEN) {
+			if (n < 0)
+				r = n;
+			else
+				r = -ENODATA;
 			goto out;
 		}
 		if (msg_size < BUFFER_SIZE_PREFIX_LEN) {

@@ -583,3 +583,27 @@ out:
 		*ret_code = (r < 0) ? r : 0;
 	return (r > 0);
 }
+
+/*
+ * fd-related utilites
+ */
+
+ssize_t util_fd_read_all(int fd, void *buf, size_t len)
+{
+	ssize_t n, total = 0;
+
+	while (len) {
+		n = read(fd, buf, len);
+		if (n < 0) {
+			if (errno == EINTR || errno == EAGAIN)
+				continue;
+			return -errno;
+		}
+		if (!n)
+			return total;
+		buf += n;
+		total += n;
+		len -= n;
+	}
+	return total;
+}
