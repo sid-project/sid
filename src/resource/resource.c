@@ -484,7 +484,7 @@ static int _sd_signal_event_handler(sd_event_source *sd_es, int sfd, uint32_t re
 		return 1;
 	}
 
-	return ((sid_resource_signal_event_handler_t) es->handler)(es, &si, es->res);
+	return ((sid_resource_signal_event_handler_t) es->handler)(es, &si, es->data);
 }
 
 /* This should not watch the SIGCHLD signal if sd_event_add_child() is also used */
@@ -534,7 +534,7 @@ int sid_resource_create_signal_event_source(sid_resource_t *                    
 		goto fail;
 	}
 
-	if ((r = _create_event_source(res, name, sd_es, handler, NULL, es)) < 0)
+	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
