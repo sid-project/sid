@@ -65,7 +65,7 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 	sigaddset(&mask, SIGPIPE);
 	sigaddset(&mask, SIGHUP);
 
-	if (sid_resource_create_signal_event_source(res, NULL, mask, _on_sid_signal_event, 0, "signal_handler", NULL) < 0) {
+	if (sid_resource_create_signal_event_source(res, NULL, mask, _on_sid_signal_event, 0, "signal_handler", res) < 0) {
 		log_error(ID(res), "Failed to create signal handlers.");
 		goto fail;
 	}

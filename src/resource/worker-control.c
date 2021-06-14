@@ -1163,7 +1163,7 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 	                                            _on_worker_signal_event,
 	                                            0,
 	                                            "worker_signal_handler",
-	                                            NULL) < 0) {
+	                                            worker_res) < 0) {
 		log_error(ID(worker_res), "Failed to create signal handlers.");
 		goto fail;
 	}
