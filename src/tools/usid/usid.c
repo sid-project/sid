@@ -95,9 +95,14 @@ static int _print_env_from_res(struct usid_result *res)
 	const char *end, *kv;
 
 	kv = usid_result_data(res, &size);
-	if (!kv)
-		return -EBADMSG;
-
+	if (!kv) {
+		uint64_t status;
+		if (usid_result_status(res, &status) < 0 || status & USID_CMD_STATUS_FAILURE) {
+			log_error(LOG_PREFIX, "Command failed");
+			return -EBADMSG;
+		}
+		return 0;
+	}
 	for (end = kv + size; kv < end; kv += strlen(kv) + 1)
 		fprintf(stdout, "%s\n", kv);
 
@@ -119,7 +124,8 @@ static int _usid_cmd_print_env(struct usid_request *req)
 	if ((r = usid_req(req, &res)) == 0) {
 		r = _print_env_from_res(res);
 		usid_result_free(res);
-	}
+	} else
+		log_error_errno(LOG_PREFIX, r, "Command request failed");
 out:
 	return r;
 }
@@ -172,10 +178,17 @@ static int _usid_cmd_version(void)
 	if ((r = usid_req(&req, &res)) == 0) {
 		if ((data = usid_result_data(res, NULL)) != NULL)
 			fprintf(stdout, "%s", data);
-		else
+		else {
+			uint64_t status;
+			if (usid_result_status(res, &status) == 0 && (status & USID_CMD_STATUS_FAILURE) == 0)
+				log_error(LOG_PREFIX, "Missing reply data");
+			else
+				log_error(LOG_PREFIX, "Command failed");
 			r = -1;
+		}
 		usid_result_free(res);
-	}
+	} else
+		log_error_errno(LOG_PREFIX, r, "Command request failed");
 
 	return r;
 }
