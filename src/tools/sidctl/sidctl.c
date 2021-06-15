@@ -56,11 +56,17 @@ static int _usid_cmd(usid_cmd_t cmd, uint16_t format)
 	if ((r = usid_req(&req, &res)) == 0) {
 		if ((data = usid_result_data(res, &size)) != NULL)
 			printf("%s", data);
-		else
-			r = -1;
+		else {
+			uint64_t status;
+			if (usid_result_status(res, &status) != 0 || status & USID_CMD_STATUS_FAILURE) {
+				log_error(LOG_PREFIX, "Command failed");
+				r = -1;
+			}
+		}
 		usid_result_free(res);
 		return r;
 	}
+	log_error_errno(LOG_PREFIX, r, "Command request failed");
 	return -1;
 }
 
@@ -86,7 +92,8 @@ static int _usid_cmd_version(uint16_t format)
 	print_uint_field(KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, format, outbuf, 0, 1);
 	print_end_elem(format, outbuf, 0);
 	print_elem_name(true, "SID_VERSION", format, outbuf, 0);
-	buffer_write_all(outbuf, fileno(stdout));
+	if ((r = buffer_write_all(outbuf, fileno(stdout))) < 0)
+		log_error_errno(LOG_PREFIX, r, "failed to write version information");
 	buffer_reset(outbuf);
 	if ((r = _usid_cmd(USID_CMD_VERSION, format)) < 0) {
 		print_start_document(format, outbuf, 0);
@@ -95,7 +102,8 @@ static int _usid_cmd_version(uint16_t format)
 		fflush(stdout);
 	print_end_document(format, outbuf, 0);
 
-	buffer_write_all(outbuf, fileno(stdout));
+	if ((r = buffer_write_all(outbuf, fileno(stdout))) < 0)
+		log_error_errno(LOG_PREFIX, r, "failed to write output ending");
 	buffer_destroy(outbuf);
 	return r;
 }
