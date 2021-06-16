@@ -160,7 +160,7 @@ struct sid_ucmd_ctx {
 	struct sid_ucmd_mod_ctx ucmd_mod_ctx;   /* commod module context */
 	struct buffer *         res_buf;        /* result buffer */
 	struct buffer *         exp_buf;        /* export buffer */
-	struct usid_msg_header  request_header; /* original request header (keep last, contains flexible array) */
+	struct sid_msg_header   request_header; /* original request header (keep last, contains flexible array) */
 };
 
 struct cmd_mod_fns {
@@ -291,7 +291,7 @@ struct cross_bitmap_calc_arg {
 	struct bitmap *new_bmp;
 };
 
-struct usid_stats {
+struct sid_stats {
 	uint64_t key_size;
 	uint64_t value_int_size;
 	uint64_t value_int_data_size;
@@ -301,9 +301,9 @@ struct usid_stats {
 	uint32_t nr_kv_pairs;
 };
 
-struct usid_msg {
-	size_t                  size; /* header + data */
-	struct usid_msg_header *header;
+struct sid_msg {
+	size_t                 size; /* header + data */
+	struct sid_msg_header *header;
 };
 
 /*
@@ -325,16 +325,16 @@ struct usid_msg {
 #define CMD_SCAN_CAP_ALL UINT32_C(0xFFFFFFFF) /* can set anything */
 
 static bool _cmd_root_only[] = {
-	[USID_CMD_UNDEFINED]  = false,
-	[USID_CMD_UNKNOWN]    = false,
-	[USID_CMD_ACTIVE]     = false,
-	[USID_CMD_CHECKPOINT] = true,
-	[USID_CMD_REPLY]      = false,
-	[USID_CMD_SCAN]       = true,
-	[USID_CMD_VERSION]    = false,
-	[USID_CMD_DUMP]       = true,
-	[USID_CMD_STATS]      = true,
-	[USID_CMD_TREE]       = true,
+	[SID_CMD_UNDEFINED]  = false,
+	[SID_CMD_UNKNOWN]    = false,
+	[SID_CMD_ACTIVE]     = false,
+	[SID_CMD_CHECKPOINT] = true,
+	[SID_CMD_REPLY]      = false,
+	[SID_CMD_SCAN]       = true,
+	[SID_CMD_VERSION]    = false,
+	[SID_CMD_DUMP]       = true,
+	[SID_CMD_STATS]      = true,
+	[SID_CMD_TREE]       = true,
 };
 
 static struct cmd_reg      _cmd_scan_phase_regs[];
@@ -557,7 +557,7 @@ fail:
 	return NULL;
 }
 
-static int _write_kv_store_stats(struct usid_stats *stats, sid_resource_t *kv_store_res)
+static int _write_kv_store_stats(struct sid_stats *stats, sid_resource_t *kv_store_res)
 {
 	kv_store_iter_t *      iter;
 	const char *           key;
@@ -1933,12 +1933,12 @@ static int _connection_cleanup(sid_resource_t *conn_res)
 
 static output_format_t flags_to_format(uint16_t flags)
 {
-	switch (flags & USID_CMD_FLAGS_FMT_MASK) {
-		case USID_CMD_FLAGS_FMT_TABLE:
+	switch (flags & SID_CMD_FLAGS_FMT_MASK) {
+		case SID_CMD_FLAGS_FMT_TABLE:
 			return TABLE;
-		case USID_CMD_FLAGS_FMT_JSON:
+		case SID_CMD_FLAGS_FMT_JSON:
 			return JSON;
-		case USID_CMD_FLAGS_FMT_ENV:
+		case SID_CMD_FLAGS_FMT_ENV:
 			return ENV;
 	}
 	return TABLE; /* default to TABLE on invalid format */
@@ -1953,7 +1953,7 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	output_format_t      format = flags_to_format(ucmd_ctx->request_header.flags);
 
 	print_start_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
-	print_uint_field("SID_PROTOCOL", USID_PROTOCOL, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
+	print_uint_field("SID_PROTOCOL", SID_PROTOCOL, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
 	print_uint_field("SID_MAJOR", SID_VERSION_MAJOR, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
 	print_uint_field("SID_MINOR", SID_VERSION_MINOR, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
 	print_uint_field("SID_RELEASE", SID_VERSION_RELEASE, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, false, 1);
@@ -1989,7 +1989,7 @@ static int _cmd_exec_stats(struct cmd_exec_arg *exec_arg)
 {
 	int                  r;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct usid_stats    stats;
+	struct sid_stats     stats;
 	char *               stats_data;
 	size_t               size;
 	output_format_t      format = flags_to_format(ucmd_ctx->request_header.flags);
@@ -3466,17 +3466,17 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 }
 
 static struct cmd_reg _cmd_regs[] = {
-	[USID_CMD_UNKNOWN]    = {.name = NULL, .flags = 0, .exec = NULL},
-	[USID_CMD_ACTIVE]     = {.name = NULL, .flags = 0, .exec = NULL},
-	[USID_CMD_CHECKPOINT] = {.name = NULL, .flags = CMD_KV_IMPORT_UDEV, .exec = NULL},
-	[USID_CMD_REPLY]      = {.name = NULL, .flags = 0, .exec = NULL},
-	[USID_CMD_SCAN]       = {.name  = NULL,
-                           .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_SESSION_ID,
-                           .exec  = _cmd_exec_scan},
-	[USID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
-	[USID_CMD_DUMP]  = {.name = NULL, .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_CLIENT, .exec = NULL},
-	[USID_CMD_STATS] = {.name = NULL, .flags = 0, .exec = _cmd_exec_stats},
-	[USID_CMD_TREE]  = {.name = NULL, .flags = 0, .exec = _cmd_exec_tree},
+	[SID_CMD_UNKNOWN]    = {.name = NULL, .flags = 0, .exec = NULL},
+	[SID_CMD_ACTIVE]     = {.name = NULL, .flags = 0, .exec = NULL},
+	[SID_CMD_CHECKPOINT] = {.name = NULL, .flags = CMD_KV_IMPORT_UDEV, .exec = NULL},
+	[SID_CMD_REPLY]      = {.name = NULL, .flags = 0, .exec = NULL},
+	[SID_CMD_SCAN]       = {.name  = NULL,
+                          .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_SESSION_ID,
+                          .exec  = _cmd_exec_scan},
+	[SID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
+	[SID_CMD_DUMP]       = {.name = NULL, .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_CLIENT, .exec = NULL},
+	[SID_CMD_STATS]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_stats},
+	[SID_CMD_TREE]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_tree},
 };
 
 static ssize_t _send_fd_over_unix_comms(int fd, int unix_comms_fd)
@@ -3502,7 +3502,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	struct sid_ucmd_ctx *   ucmd_ctx        = sid_resource_get_data(cmd_res);
 	sid_resource_t *        conn_res        = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
 	struct connection *     conn            = sid_resource_get_data(conn_res);
-	struct usid_msg_header  response_header = {.status = USID_CMD_STATUS_SUCCESS, .prot = USID_PROTOCOL, .cmd = USID_CMD_REPLY};
+	struct sid_msg_header   response_header = {.status = SID_CMD_STATUS_SUCCESS, .prot = SID_PROTOCOL, .cmd = SID_CMD_REPLY};
 	struct cmd_exec_arg     exec_arg        = {0};
 	int                     r               = -1;
 	struct worker_data_spec data_spec;
@@ -3515,7 +3515,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		log_error(ID(cmd_res), "Client protocol version unsupported: %u", ucmd_ctx->request_header.prot);
 		(void) _connection_cleanup(conn_res);
 		return -1;
-	} else if (ucmd_ctx->request_header.prot <= USID_PROTOCOL) {
+	} else if (ucmd_ctx->request_header.prot <= SID_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
 		response_header.prot  = ucmd_ctx->request_header.prot;
 		response_header.flags = ucmd_ctx->request_header.flags;
@@ -3528,7 +3528,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 			goto out;
 		}
 	} else {
-		log_error(ID(cmd_res), "Client protocol unknown version: %u > %u ", ucmd_ctx->request_header.prot, USID_PROTOCOL);
+		log_error(ID(cmd_res), "Client protocol unknown version: %u > %u ", ucmd_ctx->request_header.prot, SID_PROTOCOL);
 		(void) _connection_cleanup(conn_res);
 		return -1;
 	}
@@ -3545,7 +3545,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	}
 out:
 	if (r < 0)
-		response_header.status |= USID_CMD_STATUS_FAILURE;
+		response_header.status |= SID_CMD_STATUS_FAILURE;
 
 	if (buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
 		(void) _connection_cleanup(conn_res);
@@ -3575,18 +3575,18 @@ out:
 
 static int _reply_failure(sid_resource_t *conn_res)
 {
-	struct connection *    conn = sid_resource_get_data(conn_res);
-	struct usid_msg        msg;
-	uint8_t                prot;
-	struct usid_msg_header response_header = {
-		.status = USID_CMD_STATUS_FAILURE,
+	struct connection *   conn = sid_resource_get_data(conn_res);
+	struct sid_msg        msg;
+	uint8_t               prot;
+	struct sid_msg_header response_header = {
+		.status = SID_CMD_STATUS_FAILURE,
 	};
 	int r = -1;
 
 	(void) buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 	prot = msg.header->prot;
 	(void) buffer_rewind(conn->buf, BUFFER_SIZE_PREFIX_LEN, BUFFER_POS_ABS);
-	if (prot <= USID_PROTOCOL) {
+	if (prot <= SID_PROTOCOL) {
 		response_header.prot = prot;
 		if (buffer_add(conn->buf, &response_header, sizeof(response_header), &r))
 			r = buffer_write_all(conn->buf, conn->fd);
@@ -3599,7 +3599,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 {
 	sid_resource_t *   conn_res = data;
 	struct connection *conn     = sid_resource_get_data(conn_res);
-	struct usid_msg    msg;
+	struct sid_msg     msg;
 	char               id[32];
 	ssize_t            n;
 	int                r = 0;
@@ -3618,15 +3618,15 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 		if (buffer_is_complete(conn->buf, NULL)) {
 			(void) buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 
-			if (msg.size < sizeof(struct usid_msg_header)) {
+			if (msg.size < sizeof(struct sid_msg_header)) {
 				(void) _connection_cleanup(conn_res);
 				return -1;
 			}
 			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
-			if (msg.header->cmd < _USID_CMD_START || msg.header->cmd > _USID_CMD_END)
-				msg.header->cmd = USID_CMD_UNKNOWN;
+			if (msg.header->cmd < _SID_CMD_START || msg.header->cmd > _SID_CMD_END)
+				msg.header->cmd = SID_CMD_UNKNOWN;
 
-			snprintf(id, sizeof(id), "%d/%s", getpid(), usid_cmd_names[msg.header->cmd]);
+			snprintf(id, sizeof(id), "%d/%s", getpid(), sid_cmd_names[msg.header->cmd]);
 
 			if (!sid_resource_create(conn_res,
 			                         &sid_resource_type_ubridge_command,
@@ -3708,7 +3708,7 @@ static int _destroy_connection(sid_resource_t *res)
 	return 0;
 }
 
-static bool _socket_client_is_capable(int fd, usid_cmd_t cmd)
+static bool _socket_client_is_capable(int fd, sid_cmd_t cmd)
 {
 	socklen_t    len = 0;
 	struct ucred uc;
@@ -3722,14 +3722,14 @@ static bool _socket_client_is_capable(int fd, usid_cmd_t cmd)
 
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
-	const struct usid_msg *msg      = kickstart_data;
-	struct sid_ucmd_ctx *  ucmd_ctx = NULL;
-	struct connection *    conn     = sid_resource_get_data(sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
-	const char *           worker_id;
-	int                    r;
+	const struct sid_msg *msg      = kickstart_data;
+	struct sid_ucmd_ctx * ucmd_ctx = NULL;
+	struct connection *   conn     = sid_resource_get_data(sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	const char *          worker_id;
+	int                   r;
 
 	if (!conn || !_socket_client_is_capable(conn->fd, msg->header->cmd)) {
-		log_error(ID(res), "client does not have permission to run %s", usid_cmd_names[msg->header->cmd]);
+		log_error(ID(res), "client does not have permission to run %s", sid_cmd_names[msg->header->cmd]);
 		return -1;
 	}
 
@@ -4256,13 +4256,13 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 		/* The very first FD passed in is the one we are interested in. */
 		fd = SERVICE_FD_ACTIVATION_FDS_START;
 
-		if (!(service_fd_is_socket_unix(fd, SOCK_STREAM, 1, USID_SOCKET_PATH, USID_SOCKET_PATH_LEN))) {
+		if (!(service_fd_is_socket_unix(fd, SOCK_STREAM, 1, SID_SOCKET_PATH, SID_SOCKET_PATH_LEN))) {
 			log_error(ID(ubridge_res), "Passed file descriptor is of incorrect type.");
 			return -EINVAL;
 		}
 	} else {
 		/* No systemd autoactivation - create new socket FD. */
-		if ((fd = comms_unix_create(USID_SOCKET_PATH, USID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) <
+		if ((fd = comms_unix_create(SID_SOCKET_PATH, SID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) <
 		    0) {
 			log_error_errno(ID(ubridge_res), fd, "Failed to create local server socket");
 			return fd;
