@@ -198,7 +198,7 @@ Instantiation Daemon (SID), its modules and related tools.
 %files iface-libs
 %dir %{_libdir}/sid
 %{_libdir}/sid/libsidiface_servicelink.so.*
-%{_libdir}/sid/libsidiface_usid.so.*
+%{_libdir}/sid/libsidiface.so.*
 %doc README.md
 
 
@@ -217,11 +217,11 @@ interface libraries.
 %files iface-libs-devel
 %dir %{_libdir}/sid
 %{_libdir}/sid/libsidiface_servicelink.so
-%{_libdir}/sid/libsidiface_usid.so
+%{_libdir}/sid/libsidiface.so
 %dir %{_includedir}/sid
 %dir %{_includedir}/sid/iface
 %{_includedir}/sid/iface/service-link.h
-%{_includedir}/sid/iface/usid.h
+%{_includedir}/sid/iface/iface.h
 %doc README.md
 
 

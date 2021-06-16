@@ -17,7 +17,7 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-pkglib_LTLIBRARIES = libsidiface_servicelink.la libsidiface_usid.la
+pkglib_LTLIBRARIES = libsidiface_servicelink.la libsidiface.la
 
 ifacedir = $(pkgincludedir)/iface
 
@@ -34,13 +34,11 @@ libsidiface_servicelink_la_LDFLAGS = -version-info 0:0:0
 libsidiface_servicelink_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
 				    $(SYSTEMD_LIBS)
 
-libsidiface_usid_la_SOURCES = usid.c
+libsidiface_la_SOURCES = iface.c
 
-iface_usiddir = ${ifacedir}
+iface_HEADERS = $(top_builddir)/src/include/iface/iface.h
 
-iface_usid_HEADERS = $(top_builddir)/src/include/iface/usid.h
-
-libsidiface_usid_la_LDFLAGS = -version-info 0:0:0
+libsidiface_la_LDFLAGS = -version-info 0:0:0
 
 uninstall-hook:
 	test -d ${DESTDIR}${ifacedir} && rmdir ${DESTDIR}${ifacedir}

@@ -22,6 +22,6 @@ sbin_PROGRAMS = sidctl
 sidctl_SOURCES = sidctl.c
 
 sidctl_LDADD = $(top_builddir)/src/base/libsidbase.la \
-	       $(top_builddir)/src/iface/libsidiface_usid.la \
+	       $(top_builddir)/src/iface/libsidiface.la \
 	       $(top_builddir)/src/log/libsidlog.la \
 	       $(top_builddir)/src/resource/libsidresource.la
