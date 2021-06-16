@@ -32,18 +32,18 @@
 #define KEY_ENV_MAJOR "MAJOR"
 #define KEY_ENV_MINOR "MINOR"
 
-struct usid_result {
+struct sid_result {
 	struct buffer *buf;
 	const char *   shm;
 	size_t         shm_len;
 };
 
-static inline bool _needs_mem_fd(usid_cmd_t cmd)
+static inline bool _needs_mem_fd(sid_cmd_t cmd)
 {
-	return (cmd == USID_CMD_DUMP);
+	return (cmd == SID_CMD_DUMP);
 }
 
-void usid_result_free(struct usid_result *res)
+void sid_result_free(struct sid_result *res)
 {
 	if (!res)
 		return;
@@ -54,10 +54,10 @@ void usid_result_free(struct usid_result *res)
 	free(res);
 }
 
-int usid_result_status(struct usid_result *res, uint64_t *status)
+int sid_result_status(struct sid_result *res, uint64_t *status)
 {
-	size_t                        size;
-	const struct usid_msg_header *hdr;
+	size_t                       size;
+	const struct sid_msg_header *hdr;
 
 	if (!res || !status)
 		return -EINVAL;
@@ -66,10 +66,10 @@ int usid_result_status(struct usid_result *res, uint64_t *status)
 	return 0;
 }
 
-int usid_result_protocol(struct usid_result *res, uint8_t *prot)
+int sid_result_protocol(struct sid_result *res, uint8_t *prot)
 {
-	size_t                        size;
-	const struct usid_msg_header *hdr;
+	size_t                       size;
+	const struct sid_msg_header *hdr;
 
 	if (!res || !prot)
 		return -EINVAL;
@@ -78,10 +78,10 @@ int usid_result_protocol(struct usid_result *res, uint8_t *prot)
 	return 0;
 }
 
-const char *usid_result_data(struct usid_result *res, size_t *size_p)
+const char *sid_result_data(struct sid_result *res, size_t *size_p)
 {
-	size_t                        size;
-	const struct usid_msg_header *hdr;
+	size_t                       size;
+	const struct sid_msg_header *hdr;
 
 	if (size_p)
 		*size_p = 0;
@@ -90,33 +90,33 @@ const char *usid_result_data(struct usid_result *res, size_t *size_p)
 		return NULL;
 
 	buffer_get_data(res->buf, (const void **) &hdr, &size);
-	if (hdr->status & USID_CMD_STATUS_FAILURE)
+	if (hdr->status & SID_CMD_STATUS_FAILURE)
 		return NULL;
 	else if (res->shm != MAP_FAILED) {
 		if (size_p)
 			*size_p = res->shm_len - BUFFER_SIZE_PREFIX_LEN;
 		return res->shm + BUFFER_SIZE_PREFIX_LEN;
-	} else if (size > USID_MSG_HEADER_SIZE) {
+	} else if (size > SID_MSG_HEADER_SIZE) {
 		if (size_p)
-			*size_p = size - USID_MSG_HEADER_SIZE;
+			*size_p = size - SID_MSG_HEADER_SIZE;
 		return hdr->data;
 	}
 	return NULL;
 }
 
-usid_cmd_t usid_cmd_name_to_type(const char *cmd_name)
+sid_cmd_t sid_cmd_name_to_type(const char *cmd_name)
 {
-	usid_cmd_t cmd;
+	sid_cmd_t cmd;
 
 	if (!cmd_name)
-		return USID_CMD_UNDEFINED;
+		return SID_CMD_UNDEFINED;
 
-	for (cmd = _USID_CMD_START; cmd <= _USID_CMD_END; cmd++) {
-		if (!strcmp(cmd_name, usid_cmd_names[cmd]))
+	for (cmd = _SID_CMD_START; cmd <= _SID_CMD_END; cmd++) {
+		if (!strcmp(cmd_name, sid_cmd_names[cmd]))
 			return cmd;
 	}
 
-	return USID_CMD_UNKNOWN;
+	return SID_CMD_UNKNOWN;
 }
 
 static int _add_devt_env_to_buffer(struct buffer *buf)
@@ -142,7 +142,7 @@ static int _add_devt_env_to_buffer(struct buffer *buf)
 	return r;
 }
 
-static int _add_checkpoint_env_to_buf(struct buffer *buf, struct usid_checkpoint_data *data)
+static int _add_checkpoint_env_to_buf(struct buffer *buf, struct sid_checkpoint_data *data)
 {
 	const char *key, *val;
 	int         i, r;
@@ -188,14 +188,14 @@ out:
 	return r;
 }
 
-int usid_req(struct usid_request *req, struct usid_result **res_p)
+int sid_req(struct sid_request *req, struct sid_result **res_p)
 {
-	int                 socket_fd = -1;
-	struct buffer *     buf       = NULL;
-	ssize_t             n;
-	int                 r         = -1;
-	struct usid_result *res       = NULL;
-	int                 export_fd = -1;
+	int                socket_fd = -1;
+	struct buffer *    buf       = NULL;
+	ssize_t            n;
+	int                r         = -1;
+	struct sid_result *res       = NULL;
+	int                export_fd = -1;
 
 	if (!res_p)
 		return -EINVAL;
@@ -219,17 +219,15 @@ int usid_req(struct usid_request *req, struct usid_result **res_p)
 		goto out;
 	res->buf = buf;
 
-	if (!buffer_add(buf,
-	                &((struct usid_msg_header) {.status = req->seqnum,
-	                                            .prot   = USID_PROTOCOL,
-	                                            .cmd    = req->cmd,
-	                                            .flags  = req->flags}),
-	                USID_MSG_HEADER_SIZE,
-	                &r))
+	if (!buffer_add(
+		    buf,
+		    &((struct sid_msg_header) {.status = req->seqnum, .prot = SID_PROTOCOL, .cmd = req->cmd, .flags = req->flags}),
+		    SID_MSG_HEADER_SIZE,
+		    &r))
 		goto out;
 
-	if (req->flags & USID_CMD_FLAGS_UNMODIFIED_DATA) {
-		struct usid_unmodified_data *data = &req->data.unmodified;
+	if (req->flags & SID_CMD_FLAGS_UNMODIFIED_DATA) {
+		struct sid_unmodified_data *data = &req->data.unmodified;
 		if (data->mem == NULL && data->size > 0) {
 			r = -EINVAL;
 			goto out;
@@ -238,18 +236,18 @@ int usid_req(struct usid_request *req, struct usid_result **res_p)
 			goto out;
 	} else {
 		switch (req->cmd) {
-			case USID_CMD_SCAN:
+			case SID_CMD_SCAN:
 				if ((r = _add_scan_env_to_buf(buf)) < 0)
 					goto out;
 				break;
-			case USID_CMD_CHECKPOINT:
+			case SID_CMD_CHECKPOINT:
 				if ((r = _add_checkpoint_env_to_buf(buf, &req->data.checkpoint)) < 0)
 					goto out;
 				break;
 		}
 	}
 
-	if ((socket_fd = comms_unix_init(USID_SOCKET_PATH, USID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
+	if ((socket_fd = comms_unix_init(SID_SOCKET_PATH, SID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
 		r = socket_fd;
 		goto out;
 	}
@@ -281,7 +279,7 @@ int usid_req(struct usid_request *req, struct usid_result **res_p)
 			break;
 		}
 	}
-	if (buffer_stat(buf).usage.used < USID_MSG_HEADER_SIZE) {
+	if (buffer_stat(buf).usage.used < SID_MSG_HEADER_SIZE) {
 		r = -EBADMSG;
 		goto out;
 	}
@@ -324,7 +322,7 @@ out:
 		close(socket_fd);
 
 	if (r < 0)
-		usid_result_free(res);
+		sid_result_free(res);
 	else
 		*res_p = res;
 	return r;

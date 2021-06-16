@@ -17,8 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_USID_IFACE_H
-#define _SID_USID_IFACE_H
+#ifndef _SID_IFACE_H
+#define _SID_IFACE_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -28,76 +28,76 @@
 extern "C" {
 #endif
 
-#define USID_PROTOCOL 2
+#define SID_PROTOCOL 2
 
 typedef enum
 {
-	_USID_CMD_START     = 0,
-	USID_CMD_UNDEFINED  = _USID_CMD_START, /* virtual cmd if cmd not defined at all */
-	USID_CMD_UNKNOWN    = 1,               /* virtual cmd if cmd defined, but not recognized */
-	USID_CMD_ACTIVE     = 2,
-	USID_CMD_CHECKPOINT = 3,
-	USID_CMD_REPLY      = 4,
-	USID_CMD_SCAN       = 5,
-	USID_CMD_VERSION    = 6,
-	USID_CMD_DUMP       = 7,
-	USID_CMD_STATS      = 8,
-	USID_CMD_TREE       = 9,
-	_USID_CMD_END       = USID_CMD_TREE,
-} usid_cmd_t;
+	_SID_CMD_START     = 0,
+	SID_CMD_UNDEFINED  = _SID_CMD_START, /* virtual cmd if cmd not defined at all */
+	SID_CMD_UNKNOWN    = 1,              /* virtual cmd if cmd defined, but not recognized */
+	SID_CMD_ACTIVE     = 2,
+	SID_CMD_CHECKPOINT = 3,
+	SID_CMD_REPLY      = 4,
+	SID_CMD_SCAN       = 5,
+	SID_CMD_VERSION    = 6,
+	SID_CMD_DUMP       = 7,
+	SID_CMD_STATS      = 8,
+	SID_CMD_TREE       = 9,
+	_SID_CMD_END       = SID_CMD_TREE,
+} sid_cmd_t;
 
-static const char *const usid_cmd_names[] = {
-	[USID_CMD_UNDEFINED]  = "undefined",
-	[USID_CMD_UNKNOWN]    = "unknown",
-	[USID_CMD_ACTIVE]     = "active",
-	[USID_CMD_CHECKPOINT] = "checkpoint",
-	[USID_CMD_REPLY]      = "reply",
-	[USID_CMD_SCAN]       = "scan",
-	[USID_CMD_VERSION]    = "version",
-	[USID_CMD_DUMP]       = "dump",
-	[USID_CMD_STATS]      = "stats",
-	[USID_CMD_TREE]       = "tree",
+static const char *const sid_cmd_names[] = {
+	[SID_CMD_UNDEFINED]  = "undefined",
+	[SID_CMD_UNKNOWN]    = "unknown",
+	[SID_CMD_ACTIVE]     = "active",
+	[SID_CMD_CHECKPOINT] = "checkpoint",
+	[SID_CMD_REPLY]      = "reply",
+	[SID_CMD_SCAN]       = "scan",
+	[SID_CMD_VERSION]    = "version",
+	[SID_CMD_DUMP]       = "dump",
+	[SID_CMD_STATS]      = "stats",
+	[SID_CMD_TREE]       = "tree",
 };
 
-#define USID_CMD_STATUS_MASK_OVERALL UINT64_C(0x0000000000000001)
-#define USID_CMD_STATUS_SUCCESS      UINT64_C(0x0000000000000000)
-#define USID_CMD_STATUS_FAILURE      UINT64_C(0x0000000000000001)
+#define SID_CMD_STATUS_MASK_OVERALL UINT64_C(0x0000000000000001)
+#define SID_CMD_STATUS_SUCCESS      UINT64_C(0x0000000000000000)
+#define SID_CMD_STATUS_FAILURE      UINT64_C(0x0000000000000001)
 
-#define USID_CMD_FLAGS_FMT_MASK        UINT16_C(0x0003)
-#define USID_CMD_FLAGS_FMT_TABLE       UINT16_C(0x0000)
-#define USID_CMD_FLAGS_FMT_JSON        UINT16_C(0x0001)
-#define USID_CMD_FLAGS_FMT_ENV         UINT16_C(0x0002)
-#define USID_CMD_FLAGS_UNMODIFIED_DATA UINT16_C(0x0004)
+#define SID_CMD_FLAGS_FMT_MASK        UINT16_C(0x0003)
+#define SID_CMD_FLAGS_FMT_TABLE       UINT16_C(0x0000)
+#define SID_CMD_FLAGS_FMT_JSON        UINT16_C(0x0001)
+#define SID_CMD_FLAGS_FMT_ENV         UINT16_C(0x0002)
+#define SID_CMD_FLAGS_UNMODIFIED_DATA UINT16_C(0x0004)
 
-struct usid_checkpoint_data {
+struct sid_checkpoint_data {
 	char *       name;
 	char **      keys;
 	unsigned int nr_keys;
 };
 
-struct usid_unmodified_data {
+struct sid_unmodified_data {
 	char * mem;
 	size_t size;
 };
 
-struct usid_request {
-	usid_cmd_t cmd;
-	uint64_t   flags;
-	uint64_t   seqnum;
+struct sid_request {
+	sid_cmd_t cmd;
+	uint64_t  flags;
+	uint64_t  seqnum;
 	union {
-		struct usid_checkpoint_data checkpoint;
-		struct usid_unmodified_data unmodified;
+		struct sid_checkpoint_data checkpoint;
+		struct sid_unmodified_data unmodified;
 	} data;
 };
 
-struct usid_result;
+struct sid_result;
 
-usid_cmd_t  usid_cmd_name_to_type(const char *cmd_name);
-int         usid_req(struct usid_request *req, struct usid_result **res);
-void        usid_result_free(struct usid_result *res);
-int         usid_result_status(struct usid_result *res, uint64_t *status);
-int         usid_result_protocol(struct usid_result *res, uint8_t *prot);
-const char *usid_result_data(struct usid_result *res, size_t *size_p);
+sid_cmd_t   sid_cmd_name_to_type(const char *cmd_name);
+int         sid_req(struct sid_request *req, struct sid_result **res);
+void        sid_result_free(struct sid_result *res);
+int         sid_result_status(struct sid_result *res, uint64_t *status);
+int         sid_result_protocol(struct sid_result *res, uint8_t *prot);
+const char *sid_result_data(struct sid_result *res, size_t *size_p);
 #ifdef __cplusplus
 }
 #endif

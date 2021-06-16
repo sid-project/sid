@@ -45,32 +45,32 @@
 #define KEY_SID_MINOR    "SID_MINOR"
 #define KEY_SID_RELEASE  "SID_RELEASE"
 
-static int _usid_cmd(usid_cmd_t cmd, uint16_t format)
+static int _sid_cmd(sid_cmd_t cmd, uint16_t format)
 {
-	struct usid_result *res = NULL;
-	const char *        data;
-	size_t              size;
-	int                 r;
-	struct usid_request req = {.cmd = cmd, .flags = format};
+	struct sid_result *res = NULL;
+	const char *       data;
+	size_t             size;
+	int                r;
+	struct sid_request req = {.cmd = cmd, .flags = format};
 
-	if ((r = usid_req(&req, &res)) == 0) {
-		if ((data = usid_result_data(res, &size)) != NULL)
+	if ((r = sid_req(&req, &res)) == 0) {
+		if ((data = sid_result_data(res, &size)) != NULL)
 			printf("%s", data);
 		else {
 			uint64_t status;
-			if (usid_result_status(res, &status) != 0 || status & USID_CMD_STATUS_FAILURE) {
+			if (sid_result_status(res, &status) != 0 || status & SID_CMD_STATUS_FAILURE) {
 				log_error(LOG_PREFIX, "Command failed");
 				r = -1;
 			}
 		}
-		usid_result_free(res);
+		sid_result_free(res);
 		return r;
 	}
 	log_error_errno(LOG_PREFIX, r, "Command request failed");
 	return -1;
 }
 
-static int _usid_cmd_version(uint16_t format)
+static int _sid_cmd_version(uint16_t format)
 {
 	struct buffer *outbuf = NULL;
 	int            r;
@@ -86,7 +86,7 @@ static int _usid_cmd_version(uint16_t format)
 
 	print_elem_name(false, "SIDCTL_VERSION", format, outbuf, 0);
 	print_start_elem(false, format, outbuf, 0);
-	print_uint_field(KEY_SIDCTL_PROTOCOL, USID_PROTOCOL, format, outbuf, true, 1);
+	print_uint_field(KEY_SIDCTL_PROTOCOL, SID_PROTOCOL, format, outbuf, true, 1);
 	print_uint_field(KEY_SIDCTL_MAJOR, SID_VERSION_MAJOR, format, outbuf, true, 1);
 	print_uint_field(KEY_SIDCTL_MINOR, SID_VERSION_MINOR, format, outbuf, true, 1);
 	print_uint_field(KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, format, outbuf, 0, 1);
@@ -95,7 +95,7 @@ static int _usid_cmd_version(uint16_t format)
 	if ((r = buffer_write_all(outbuf, fileno(stdout))) < 0)
 		log_error_errno(LOG_PREFIX, r, "failed to write version information");
 	buffer_reset(outbuf);
-	if ((r = _usid_cmd(USID_CMD_VERSION, format)) < 0) {
+	if ((r = _sid_cmd(SID_CMD_VERSION, format)) < 0) {
 		print_start_document(format, outbuf, 0);
 		print_end_document(format, outbuf, 0);
 	} else
@@ -119,14 +119,14 @@ static void _help(FILE *f)
 	        "    -f|--format json  Show the output in JSON.\n"
 	        "    -h|--help         Show this help information.\n"
 	        "    -v|--verbose      Verbose mode, repeat to increase level.\n"
-	        "    -V|--version      Show USID version.\n"
+	        "    -V|--version      Show SIDCTL version.\n"
 	        "\n"
 	        "Commands and arguments:\n"
 	        "\n"
 	        "    version\n"
 	        "      Get SIDCTL and SID daemon version.\n"
 	        "      Input:  None.\n"
-	        "      Output: USID_PROTOCOL/MAJOR/MINOR/RELEASE for USID version.\n"
+	        "      Output: SID_PROTOCOL/MAJOR/MINOR/RELEASE for SIDCTL version.\n"
 	        "              SID_PROTOCOL/MAJOR/MINOR/RELEASE for SID version.\n"
 	        "\n"
 	        "    dump\n"
@@ -158,21 +158,21 @@ static int _get_format(char *format)
 	if (format == NULL)
 		return -1;
 	if (!strcasecmp(format, "json"))
-		return USID_CMD_FLAGS_FMT_JSON;
+		return SID_CMD_FLAGS_FMT_JSON;
 	if (!strcasecmp(format, "env"))
-		return USID_CMD_FLAGS_FMT_ENV;
+		return SID_CMD_FLAGS_FMT_ENV;
 	if (!strcasecmp(format, "table"))
-		return USID_CMD_FLAGS_FMT_TABLE;
+		return SID_CMD_FLAGS_FMT_TABLE;
 	return -1;
 }
 
 int main(int argc, char *argv[])
 {
-	int        opt;
-	int        verbose = 0;
-	int        r       = -1;
-	int        format  = USID_CMD_FLAGS_FMT_TABLE;
-	usid_cmd_t cmd;
+	int       opt;
+	int       verbose = 0;
+	int       r       = -1;
+	int       format  = SID_CMD_FLAGS_FMT_TABLE;
+	sid_cmd_t cmd;
 
 	struct option longopts[] = {
 		{"format", required_argument, NULL, 'f'},
@@ -212,14 +212,14 @@ int main(int argc, char *argv[])
 
 	log_init(LOG_TARGET_STANDARD, verbose);
 
-	switch ((cmd = usid_cmd_name_to_type(argv[optind]))) {
-		case USID_CMD_VERSION:
-			r = _usid_cmd_version(format);
+	switch ((cmd = sid_cmd_name_to_type(argv[optind]))) {
+		case SID_CMD_VERSION:
+			r = _sid_cmd_version(format);
 			break;
-		case USID_CMD_DUMP:
-		case USID_CMD_TREE:
-		case USID_CMD_STATS:
-			r = _usid_cmd(cmd, format);
+		case SID_CMD_DUMP:
+		case SID_CMD_TREE:
+		case SID_CMD_STATS:
+			r = _sid_cmd(cmd, format);
 			break;
 		default:
 			_help(stderr);

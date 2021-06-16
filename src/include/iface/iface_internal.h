@@ -26,7 +26,7 @@ extern "C" {
 
 #include "iface/iface.h"
 
-struct usid_msg_header {
+struct sid_msg_header {
 	uint64_t status;
 	uint8_t  prot;
 	uint8_t  cmd;
@@ -34,10 +34,10 @@ struct usid_msg_header {
 	char     data[];
 } __attribute__((packed));
 
-#define USID_MSG_HEADER_SIZE sizeof(struct usid_msg_header)
+#define SID_MSG_HEADER_SIZE sizeof(struct sid_msg_header)
 
-#define USID_SOCKET_PATH     "\0sid-ubridge.socket"
-#define USID_SOCKET_PATH_LEN (sizeof(USID_SOCKET_PATH) - 1)
+#define SID_SOCKET_PATH     "\0sid-ubridge.socket"
+#define SID_SOCKET_PATH_LEN (sizeof(SID_SOCKET_PATH) - 1)
 
 #ifdef __cplusplus
 }
