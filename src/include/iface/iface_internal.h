@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#include "iface/usid.h"
+#include "iface/iface.h"
 
 struct usid_msg_header {
 	uint64_t status;

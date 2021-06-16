@@ -21,7 +21,7 @@
 
 #include "base/buffer.h"
 #include "base/util.h"
-#include "iface/usid.h"
+#include "iface/iface.h"
 #include "log/log.h"
 #include "resource/ucmd-module.h"
 
