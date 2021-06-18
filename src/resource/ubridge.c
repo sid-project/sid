@@ -53,6 +53,7 @@
 
 #define UDEV_TAG_SID                                "sid"
 #define KV_KEY_UDEV_SID_SESSION_ID                  "SID_SESSION_ID"
+#define KV_KEY_UDEV_SID_DEV_ID                      "SID_DEV_ID"
 
 // TODO: once trigger-action is settled down, move this to ucmd-module.h
 #define SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ucmd_trigger_action_current"
@@ -3410,8 +3411,28 @@ out:
 static int _set_device_kv_records(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	const char          *uuid_p;
+	char                 uuid[UTIL_UUID_STR_SIZE];
+	util_mem_t           mem = {.base = uuid, .size = sizeof(uuid)};
 	dev_ready_t          ready;
 	dev_reserved_t       reserved;
+
+	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL))) {
+		if (!util_uuid_gen_str(&mem)) {
+			log_error(ID(cmd_res),
+			          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
+			          CMD_DEV_NAME_NUM(ucmd_ctx));
+			return -1;
+		}
+
+		ucmd_ctx->req_env.dev.uid_s = strdup(mem.base);
+
+		if (!_do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, KV_SYNC, mem.base, mem.size)) {
+			log_error(ID(cmd_res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_DEV_ID);
+			return -1;
+		}
+	} else
+		ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
 
 	if (!_do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)) {
 		ready    = DEV_NOT_RDY_UNPROCESSED;
