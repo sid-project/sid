@@ -8,7 +8,7 @@ check_PROGRAMS = \
 	test_notify \
 	test_kv_store \
 	test_bitmap \
-	test_usid
+	test_iface
 
 TESTS = $(check_PROGRAMS)
 test_buffer_SOURCES = test_buffer.c
@@ -25,10 +25,11 @@ test_notify_LDADD = \
 	$(top_builddir)/src/iface/libsidiface_servicelink.la -lcmocka
 test_bitmap_SOURCES = test_bitmap.c
 test_bitmap_LDADD = $(top_builddir)/src/base/libsidbase.la -lcmocka
-test_usid_SOURCES = test_usid.c
-test_usid_LDFLAGS = -Wl,--wrap=getenv
-test_usid_LDADD = \
-	$(top_builddir)/src/log/libsidlog.la \
-	$(top_builddir)/src/iface/libsidiface_usid.la \
-	$(top_builddir)/src/base/libsidbase.la -lcmocka
+test_iface_SOURCES = test_iface.c
+test_iface_LDFLAGS = -Wl,--wrap=read -Wl,--wrap=close -Wl,--wrap=getenv \
+	-Wl,--wrap=comms_unix_init -Wl,--wrap=comms_unix_recv \
+	-Wl,--wrap=buffer_write_all -Wl,--wrap=buffer_read \
+	-Wl,--wrap=mmap -Wl,--wrap=munmap
+test_iface_LDADD = $(top_builddir)/src/base/libsidbase.la -lcmocka
+
 endif # HAVE_CMOCKA
