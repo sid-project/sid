@@ -52,7 +52,7 @@ int base64_encode(const unsigned char *src, size_t in_len, unsigned char *dest, 
 	size_t               check_size;
 
 	check_size = base64_len_encode(in_len);
-	if (check_size == 0 || check_size > out_len)
+	if ((in_len && !src) || !dest || check_size == 0 || check_size > out_len)
 		return -EINVAL;
 
 	end = src + in_len;
