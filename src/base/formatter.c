@@ -21,6 +21,7 @@
 
 #include "base/base64.h"
 
+#include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
 
@@ -34,224 +35,356 @@
 
 #define JOIN_STR(format) ((format == TABLE) ? ": " : "=")
 
-static void _print_fmt(struct buffer *buf, const char *fmt, ...)
+static int _print_fmt(struct buffer *buf, const char *fmt, ...)
 {
 	va_list ap;
+	int     r;
 
+	if (!buf || !fmt)
+		return -EINVAL;
 	va_start(ap, fmt);
-	buffer_vfmt_add(buf, NULL, fmt, ap);
-	buffer_rewind(buf, 1, BUFFER_POS_REL);
+	buffer_vfmt_add(buf, &r, fmt, ap);
+	if (!r)
+		r = buffer_rewind(buf, 1, BUFFER_POS_REL);
 	va_end(ap);
+	return r;
 }
 
-static void _print_binary(const unsigned char *value, size_t len, struct buffer *buf)
+static int _print_binary(const unsigned char *value, size_t len, struct buffer *buf)
 {
+	int         r;
 	size_t      enc_len = base64_len_encode(len);
-	const char *ptr     = buffer_add(buf, NULL, enc_len, NULL);
-	base64_encode(value, len, (unsigned char *) ptr, enc_len);
-	buffer_rewind(buf, 1, BUFFER_POS_REL);
+	const char *ptr;
+
+	if ((len & !value) || !buf)
+		return -EINVAL;
+	if (enc_len == 0)
+		return -ERANGE;
+	ptr = buffer_add(buf, NULL, enc_len, &r);
+	if (!r)
+		r = base64_encode(value, len, (unsigned char *) ptr, enc_len);
+	if (!r)
+		r = buffer_rewind(buf, 1, BUFFER_POS_REL);
+	return r;
 }
 
-void print_indent(int level, struct buffer *buf)
+int print_indent(int level, struct buffer *buf)
 {
-	for (int i = 0; i < level; i++) {
-		_print_fmt(buf, PRINT_JSON_INDENT);
+	int r = 0;
+
+	if (!buf)
+		return -EINVAL;
+	for (int i = 0; i < level && !r; i++) {
+		r = _print_fmt(buf, PRINT_JSON_INDENT);
 	}
+	return r;
 }
 
-void print_start_document(output_format_t format, struct buffer *buf, int level)
+int print_start_document(output_format_t format, struct buffer *buf, int level)
 {
+	int r = 0;
+
+	if (!buf)
+		return -EINVAL;
 	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, PRINT_JSON_START_ELEM);
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, PRINT_JSON_START_ELEM);
 	}
+	return r;
 }
 
-void print_end_document(output_format_t format, struct buffer *buf, int level)
+int print_end_document(output_format_t format, struct buffer *buf, int level)
 {
+	int r = 0;
+
+	if (!buf)
+		return -EINVAL;
 	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, PRINT_JSON_END_LAST "\n");
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, PRINT_JSON_END_LAST "\n");
 	}
+	return r;
 }
 
-void print_start_array(const char *array_name, output_format_t format, struct buffer *buf, int level)
+int print_start_array(const char *array_name, output_format_t format, struct buffer *buf, int level)
 {
+	int r = 0;
+
+	if (!array_name || !buf)
+		return -EINVAL;
 	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, "\"%s\": %s", array_name, PRINT_JSON_START_ARRAY);
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"%s\": %s", array_name, PRINT_JSON_START_ARRAY);
 	} else if (format == TABLE)
-		_print_fmt(buf, "%s:\n", array_name);
+		r = _print_fmt(buf, "%s:\n", array_name);
+
+	return r;
 }
 
-void print_end_array(bool needs_comma, output_format_t format, struct buffer *buf, int level)
+int print_end_array(bool needs_comma, output_format_t format, struct buffer *buf, int level)
 {
+	int r = 0;
+
+	if (!buf)
+		return -EINVAL;
 	if (format == JSON) {
-		_print_fmt(buf, "\n");
-		print_indent(level, buf);
-		_print_fmt(buf, PRINT_JSON_END_ARRAY "%s\n", needs_comma ? "," : "");
+		r = _print_fmt(buf, "\n");
+		if (!r)
+			r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, PRINT_JSON_END_ARRAY "%s\n", needs_comma ? "," : "");
 	}
+	return r;
 }
 
-void print_start_elem(bool needs_comma, output_format_t format, struct buffer *buf, int level)
+int print_start_elem(bool needs_comma, output_format_t format, struct buffer *buf, int level)
 {
+	int r = 0;
+
+	if (!buf)
+		return -EINVAL;
 	if (format == JSON) {
 		if (needs_comma)
-			_print_fmt(buf, ",\n");
-		print_indent(level, buf);
-		_print_fmt(buf, PRINT_JSON_START_ELEM);
+			r = _print_fmt(buf, ",\n");
+		if (!r)
+			r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, PRINT_JSON_START_ELEM);
 	} else if (format == TABLE && needs_comma)
-		_print_fmt(buf, "\n");
+		r = _print_fmt(buf, "\n");
+
+	return r;
 }
 
-void print_end_elem(output_format_t format, struct buffer *buf, int level)
+int print_end_elem(output_format_t format, struct buffer *buf, int level)
 {
+	int r = 0;
+
+	if (!buf)
+		return -EINVAL;
 	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, PRINT_JSON_END_LAST);
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, PRINT_JSON_END_LAST);
 	}
+	return r;
 }
 
-void print_elem_name(bool needs_comma, const char *elem_name, output_format_t format, struct buffer *buf, int level)
+int print_elem_name(bool needs_comma, const char *elem_name, output_format_t format, struct buffer *buf, int level)
 {
+	int r = 0;
+
+	if (!elem_name || !buf)
+		return -EINVAL;
 	if (format == JSON) {
 		if (needs_comma)
-			_print_fmt(buf, ",\n");
-		print_indent(level, buf);
-		_print_fmt(buf, "\"%s\":\n", elem_name);
+			r = _print_fmt(buf, ",\n");
+		if (!r)
+			r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"%s\":\n", elem_name);
 	} else if (format == TABLE)
-		_print_fmt(buf, "%s%s:\n", needs_comma ? "\n" : "", elem_name);
+		r = _print_fmt(buf, "%s%s:\n", needs_comma ? "\n" : "", elem_name);
+
+	return r;
 }
 
-void print_str_field(const char *    field_name,
-                     const char *    value,
-                     output_format_t format,
-                     struct buffer * buf,
-                     bool            trailing_comma,
-                     int             level)
+int print_str_field(const char *    field_name,
+                    const char *    value,
+                    output_format_t format,
+                    struct buffer * buf,
+                    bool            trailing_comma,
+                    int             level)
 {
+	int r = 0;
+
+	if (!field_name || !value || !buf)
+		return -EINVAL;
 	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, "\"%s\": \"%s\"%s\n", field_name, value, trailing_comma ? "," : "");
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"%s\": \"%s\"%s\n", field_name, value, trailing_comma ? "," : "");
 	} else
-		_print_fmt(buf, "%s%s%s\n", field_name, JOIN_STR(format), value);
+		r = _print_fmt(buf, "%s%s%s\n", field_name, JOIN_STR(format), value);
+
+	return r;
 }
 
-void print_binary_field(const char *    field_name,
-                        const char *    value,
-                        size_t          len,
-                        output_format_t format,
-                        struct buffer * buf,
-                        bool            trailing_comma,
-                        int             level)
-{
-	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, "\"%s\": \"", field_name);
-		_print_binary((const unsigned char *) value, len, buf);
-		_print_fmt(buf, "\"%s\n", trailing_comma ? "," : "");
-	} else {
-		_print_fmt(buf, "%s%s", field_name, JOIN_STR(format));
-		_print_binary((const unsigned char *) value, len, buf);
-		_print_fmt(buf, "\n");
-	}
-}
-
-void print_uint_field(const char *    field_name,
-                      uint            value,
-                      output_format_t format,
-                      struct buffer * buf,
-                      bool            trailing_comma,
-                      int             level)
-{
-	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, "\"%s\": %u%s\n", field_name, value, trailing_comma ? "," : "");
-	} else
-		_print_fmt(buf, "%s%s%u\n", field_name, JOIN_STR(format), value);
-}
-
-void print_uint64_field(const char *    field_name,
-                        uint64_t        value,
-                        output_format_t format,
-                        struct buffer * buf,
-                        bool            trailing_comma,
-                        int             level)
-{
-	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, "\"%s\": %" PRIu64 "%s\n", field_name, value, trailing_comma ? "," : "");
-	} else
-		_print_fmt(buf, "%s%s%" PRIu64 "\n", field_name, JOIN_STR(format), value);
-}
-
-void print_int64_field(const char *    field_name,
-                       int64_t         value,
+int print_binary_field(const char *    field_name,
+                       const char *    value,
+                       size_t          len,
                        output_format_t format,
                        struct buffer * buf,
                        bool            trailing_comma,
                        int             level)
 {
-	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, "\"%s\": %" PRIi64 "%s\n", field_name, value, trailing_comma ? "," : "");
-	} else
-		_print_fmt(buf, "%s%s%" PRIi64 "\n", field_name, JOIN_STR(format), value);
-}
+	int r = 0;
 
-void print_bool_array_elem(const char *    field_name,
-                           bool            value,
-                           output_format_t format,
-                           struct buffer * buf,
-                           bool            trailing_comma,
-                           int             level)
-{
+	if (!field_name || !value || !buf)
+		return -EINVAL;
 	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, "{\"%s\": %s}%s", field_name, value ? "true" : "false", trailing_comma ? ",\n" : "");
-	} else if (format == ENV) {
-		_print_fmt(buf, "%s=%d\n", field_name, value);
-	} else if (value)
-		_print_fmt(buf, "%s\n", field_name);
-}
-
-void print_uint_array_elem(uint value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
-{
-	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, "%u%s", value, trailing_comma ? ",\n" : "");
-	} else if (format == TABLE)
-		_print_fmt(buf, "%u\n", value);
-}
-
-void print_str_array_elem(const char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
-{
-	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, "\"%s\"%s", value, trailing_comma ? ",\n" : "");
-	} else if (format == TABLE)
-		_print_fmt(buf, "%s\n", value);
-}
-
-void print_binary_array_elem(const char *    value,
-                             size_t          len,
-                             output_format_t format,
-                             struct buffer * buf,
-                             bool            trailing_comma,
-                             int             level)
-{
-	if (format == JSON) {
-		print_indent(level, buf);
-		_print_fmt(buf, "\"");
-		_print_binary((const unsigned char *) value, len, buf);
-		_print_fmt(buf, "\"%s", trailing_comma ? ",\n" : "");
-	} else if (format == TABLE) {
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"%s\": \"", field_name);
+		if (!r)
+			r = _print_binary((const unsigned char *) value, len, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"%s\n", trailing_comma ? "," : "");
+	} else {
+		_print_fmt(buf, "%s%s", field_name, JOIN_STR(format));
 		_print_binary((const unsigned char *) value, len, buf);
 		_print_fmt(buf, "\n");
 	}
+	return r;
 }
 
-void print_null_byte(struct buffer *buf)
+int print_uint_field(const char *field_name, uint value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
 {
-	buffer_fmt_add(buf, NULL, "");
+	int r = 0;
+
+	if (!field_name || !buf)
+		return -EINVAL;
+	if (format == JSON) {
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"%s\": %u%s\n", field_name, value, trailing_comma ? "," : "");
+	} else
+		r = _print_fmt(buf, "%s%s%u\n", field_name, JOIN_STR(format), value);
+
+	return r;
+}
+
+int print_uint64_field(const char *    field_name,
+                       uint64_t        value,
+                       output_format_t format,
+                       struct buffer * buf,
+                       bool            trailing_comma,
+                       int             level)
+{
+	int r = 0;
+
+	if (!field_name || !buf)
+		return -EINVAL;
+	if (format == JSON) {
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"%s\": %" PRIu64 "%s\n", field_name, value, trailing_comma ? "," : "");
+	} else
+		r = _print_fmt(buf, "%s%s%" PRIu64 "\n", field_name, JOIN_STR(format), value);
+
+	return r;
+}
+
+int print_int64_field(const char *    field_name,
+                      int64_t         value,
+                      output_format_t format,
+                      struct buffer * buf,
+                      bool            trailing_comma,
+                      int             level)
+{
+	int r = 0;
+
+	if (!field_name || !buf)
+		return -EINVAL;
+	if (format == JSON) {
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"%s\": %" PRIi64 "%s\n", field_name, value, trailing_comma ? "," : "");
+	} else
+		r = _print_fmt(buf, "%s%s%" PRIi64 "\n", field_name, JOIN_STR(format), value);
+
+	return r;
+}
+
+int print_bool_array_elem(const char *    field_name,
+                          bool            value,
+                          output_format_t format,
+                          struct buffer * buf,
+                          bool            trailing_comma,
+                          int             level)
+{
+	int r = 0;
+
+	if (!field_name || !buf)
+		return -EINVAL;
+	if (format == JSON) {
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "{\"%s\": %s}%s", field_name, value ? "true" : "false", trailing_comma ? ",\n" : "");
+	} else if (format == ENV) {
+		r = _print_fmt(buf, "%s=%d\n", field_name, value);
+	} else if (value)
+		r = _print_fmt(buf, "%s\n", field_name);
+
+	return r;
+}
+
+int print_uint_array_elem(uint value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
+{
+	int r = 0;
+
+	if (!buf)
+		return -EINVAL;
+	if (format == JSON) {
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "%u%s", value, trailing_comma ? ",\n" : "");
+	} else if (format == TABLE)
+		r = _print_fmt(buf, "%u\n", value);
+
+	return r;
+}
+
+int print_str_array_elem(const char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
+{
+	int r = 0;
+
+	if (!buf || !value)
+		return -EINVAL;
+	if (format == JSON) {
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"%s\"%s", value, trailing_comma ? ",\n" : "");
+	} else if (format == TABLE)
+		r = _print_fmt(buf, "%s\n", value);
+
+	return r;
+}
+
+int print_binary_array_elem(const char *    value,
+                            size_t          len,
+                            output_format_t format,
+                            struct buffer * buf,
+                            bool            trailing_comma,
+                            int             level)
+{
+	int r = 0;
+
+	if (!buf || !value)
+		return -EINVAL;
+	if (format == JSON) {
+		r = print_indent(level, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"");
+		if (!r)
+			r = _print_binary((const unsigned char *) value, len, buf);
+		if (!r)
+			r = _print_fmt(buf, "\"%s", trailing_comma ? ",\n" : "");
+	} else if (format == TABLE) {
+		r = _print_binary((const unsigned char *) value, len, buf);
+		if (!r)
+			r = _print_fmt(buf, "\n");
+	}
+	return r;
+}
+
+int print_null_byte(struct buffer *buf)
+{
+	int r;
+
+	buffer_fmt_add(buf, &r, "");
+	return r;
 }
