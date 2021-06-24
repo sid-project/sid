@@ -39,60 +39,60 @@ typedef enum
 	ENV,
 } output_format_t;
 
-void print_indent(int level, struct buffer *buf);
-void print_start_document(output_format_t format, struct buffer *buf, int level);
-void print_end_document(output_format_t format, struct buffer *buf, int level);
-void print_start_array(const char *array_name, output_format_t format, struct buffer *buf, int level);
-void print_end_array(bool needs_comma, output_format_t format, struct buffer *buf, int level);
-void print_start_elem(bool needs_comma, output_format_t format, struct buffer *buf, int level);
-void print_end_elem(output_format_t format, struct buffer *buf, int level);
-void print_elem_name(bool needs_comma, const char *elem_name, output_format_t format, struct buffer *buf, int level);
-void print_str_field(const char *    field_name,
-                     const char *    value,
-                     output_format_t format,
-                     struct buffer * buf,
-                     bool            trailing_comma,
-                     int             level);
-void print_binary_field(const char *    field_name,
-                        const char *    value,
-                        size_t          len,
-                        output_format_t format,
-                        struct buffer * buf,
-                        bool            trailing_comma,
-                        int             level);
-void print_uint_field(const char *    field_name,
-                      uint            value,
-                      output_format_t format,
-                      struct buffer * buf,
-                      bool            trailing_comma,
-                      int             level);
-void print_uint64_field(const char *    field_name,
-                        uint64_t        value,
-                        output_format_t format,
-                        struct buffer * buf,
-                        bool            trailing_comma,
-                        int             level);
-void print_int64_field(const char *    field_name,
-                       int64_t         value,
+int print_indent(int level, struct buffer *buf);
+int print_start_document(output_format_t format, struct buffer *buf, int level);
+int print_end_document(output_format_t format, struct buffer *buf, int level);
+int print_start_array(const char *array_name, output_format_t format, struct buffer *buf, int level);
+int print_end_array(bool needs_comma, output_format_t format, struct buffer *buf, int level);
+int print_start_elem(bool needs_comma, output_format_t format, struct buffer *buf, int level);
+int print_end_elem(output_format_t format, struct buffer *buf, int level);
+int print_elem_name(bool needs_comma, const char *elem_name, output_format_t format, struct buffer *buf, int level);
+int print_str_field(const char *    field_name,
+                    const char *    value,
+                    output_format_t format,
+                    struct buffer * buf,
+                    bool            trailing_comma,
+                    int             level);
+int print_binary_field(const char *    field_name,
+                       const char *    value,
+                       size_t          len,
                        output_format_t format,
                        struct buffer * buf,
                        bool            trailing_comma,
                        int             level);
-void print_bool_array_elem(const char *    field_name,
-                           bool            value,
-                           output_format_t format,
-                           struct buffer * buf,
-                           bool            trailing_comma,
-                           int             level);
-void print_uint_array_elem(uint value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
-void print_str_array_elem(const char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
-void print_binary_array_elem(const char *    value,
-                             size_t          len,
-                             output_format_t format,
-                             struct buffer * buf,
-                             bool            trailing_comma,
-                             int             level);
-void print_null_byte(struct buffer *buf);
+int print_uint_field(const char *    field_name,
+                     uint            value,
+                     output_format_t format,
+                     struct buffer * buf,
+                     bool            trailing_comma,
+                     int             level);
+int print_uint64_field(const char *    field_name,
+                       uint64_t        value,
+                       output_format_t format,
+                       struct buffer * buf,
+                       bool            trailing_comma,
+                       int             level);
+int print_int64_field(const char *    field_name,
+                      int64_t         value,
+                      output_format_t format,
+                      struct buffer * buf,
+                      bool            trailing_comma,
+                      int             level);
+int print_bool_array_elem(const char *    field_name,
+                          bool            value,
+                          output_format_t format,
+                          struct buffer * buf,
+                          bool            trailing_comma,
+                          int             level);
+int print_uint_array_elem(uint value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
+int print_str_array_elem(const char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level);
+int print_binary_array_elem(const char *    value,
+                            size_t          len,
+                            output_format_t format,
+                            struct buffer * buf,
+                            bool            trailing_comma,
+                            int             level);
+int print_null_byte(struct buffer *buf);
 
 #ifdef __cplusplus
 }
