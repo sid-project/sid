@@ -126,7 +126,7 @@ static int _buffer_vector_create(struct buffer *buf)
 	return 0;
 }
 
-int _buffer_vector_destroy(struct buffer *buf)
+static int _buffer_vector_destroy(struct buffer *buf)
 {
 	struct iovec *iov;
 	int           r;
@@ -154,7 +154,7 @@ int _buffer_vector_destroy(struct buffer *buf)
 	return r;
 }
 
-int _buffer_vector_reset(struct buffer *buf)
+static int _buffer_vector_reset(struct buffer *buf)
 {
 	size_t needed;
 
@@ -178,7 +178,7 @@ int _buffer_vector_reset(struct buffer *buf)
 	return _buffer_vector_realloc(buf, needed, 1);
 }
 
-const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len, int *ret_code)
+static const void *_buffer_vector_add(struct buffer *buf, void *data, size_t len, int *ret_code)
 {
 	size_t        used = buf->stat.usage.used;
 	struct iovec *iov;
@@ -210,14 +210,14 @@ out:
 		return &iov[buf->stat.usage.used - 1];
 }
 
-const void *_buffer_vector_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap)
+static const void *_buffer_vector_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap)
 {
 	if (ret_code)
 		*ret_code = -ENOTSUP;
 	return NULL;
 }
 
-int _buffer_vector_rewind(struct buffer *buf, size_t pos)
+static int _buffer_vector_rewind(struct buffer *buf, size_t pos)
 {
 	size_t min_pos = (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX) ? 1 : 0;
 
@@ -231,12 +231,12 @@ int _buffer_vector_rewind(struct buffer *buf, size_t pos)
 	return 0;
 }
 
-int _buffer_vector_rewind_mem(struct buffer *buf, const void *mem)
+static int _buffer_vector_rewind_mem(struct buffer *buf, const void *mem)
 {
 	return _buffer_vector_rewind(buf, (struct iovec *) mem - (struct iovec *) buf->mem);
 }
 
-bool _buffer_vector_is_complete(struct buffer *buf, int *ret_code)
+static bool _buffer_vector_is_complete(struct buffer *buf, int *ret_code)
 {
 	/*	struct iovec *iov;
 	        BUFFER_SIZE_PREFIX_TYPE size_prefix;
@@ -259,7 +259,7 @@ bool _buffer_vector_is_complete(struct buffer *buf, int *ret_code)
 	return true;
 }
 
-int _buffer_vector_get_data(struct buffer *buf, const void **data, size_t *data_size)
+static int _buffer_vector_get_data(struct buffer *buf, const void **data, size_t *data_size)
 {
 	switch (buf->stat.spec.mode) {
 		case BUFFER_MODE_PLAIN:
@@ -294,7 +294,7 @@ static void _update_size_prefix(struct buffer *buf, size_t pos)
 	}
 }
 
-int _buffer_vector_get_fd(struct buffer *buf)
+static int _buffer_vector_get_fd(struct buffer *buf)
 {
 	switch (buf->stat.spec.mode) {
 		case BUFFER_MODE_PLAIN:
@@ -320,7 +320,7 @@ static ssize_t _buffer_vector_read_with_size_prefix(struct buffer *buf, int fd)
 	return -ENOTSUP;
 }
 
-ssize_t _buffer_vector_read(struct buffer *buf, int fd)
+static ssize_t _buffer_vector_read(struct buffer *buf, int fd)
 {
 	switch (buf->stat.spec.mode) {
 		case BUFFER_MODE_PLAIN:
@@ -332,7 +332,7 @@ ssize_t _buffer_vector_read(struct buffer *buf, int fd)
 	}
 }
 
-ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
+static ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 {
 	struct iovec *iov = buf->mem;
 	unsigned      i, start_idx = 0;
