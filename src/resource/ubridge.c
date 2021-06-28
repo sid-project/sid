@@ -928,6 +928,10 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 				                &r) ||
 				    !buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, &r))
 					goto fail;
+				log_debug(ID(ucmd_ctx->ucmd_mod_ctx.kv_store_res),
+				          "Exported udev property %s=%s",
+				          key,
+				          kv_value->data + data_offset);
 				continue;
 			}
 		} else if (!export_sid) {
@@ -1735,6 +1739,8 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 
 	if (!(value = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, key, 0, value, strlen(value) + 1)))
 		goto out;
+
+	log_debug(ID(ucmd_ctx->ucmd_mod_ctx.kv_store_res), "Imported udev property %s=%s", key, value);
 
 	/* Common key=value pairs are also directly in the ucmd_ctx->udev_dev structure. */
 	if (!strcmp(key, UDEV_KEY_ACTION))
