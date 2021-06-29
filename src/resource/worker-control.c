@@ -910,7 +910,6 @@ const char *worker_control_get_worker_id(sid_resource_t *res)
 /* FIXME: Consider making this a part of event loop. */
 static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_t cmd, struct worker_data_spec *data_spec)
 {
-	struct worker *      worker;
 	static unsigned char byte     = 0xFF;
 	int                  has_data = data_spec && data_spec->data && data_spec->data_size;
 	ssize_t              n;
@@ -1042,11 +1041,12 @@ int worker_control_worker_yield(sid_resource_t *res)
 
 	for (i = 0; i < worker->channel_count; i++) {
 		chan = &worker->channels[i];
-		if (chan->spec->wire.type == WORKER_WIRE_PIPE_TO_PROXY || chan->spec->wire.type == WORKER_WIRE_SOCKET)
+		if (chan->spec->wire.type == WORKER_WIRE_PIPE_TO_PROXY || chan->spec->wire.type == WORKER_WIRE_SOCKET) {
 			if (worker->parent_exited == 0)
 				return _chan_buf_send(chan, WORKER_CHANNEL_CMD_YIELD, NULL);
 			else
 				raise(SIGTERM);
+		}
 	}
 
 	return -ENOTCONN;

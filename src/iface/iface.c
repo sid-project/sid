@@ -244,6 +244,9 @@ int sid_req(struct sid_request *req, struct sid_result **res_p)
 				if ((r = _add_checkpoint_env_to_buf(buf, &req->data.checkpoint)) < 0)
 					goto out;
 				break;
+			default:
+				/* no extra data to add for other commands */
+				break;
 		}
 	}
 

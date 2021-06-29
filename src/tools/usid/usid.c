@@ -126,7 +126,7 @@ static int _usid_cmd_print_env(struct sid_request *req)
 		sid_result_free(res);
 	} else
 		log_error_errno(LOG_PREFIX, r, "Command request failed");
-out:
+
 	return r;
 }
 
@@ -158,9 +158,7 @@ static int _usid_cmd_checkpoint(int argc, char **argv)
 static int _usid_cmd_version(void)
 {
 	unsigned long long val;
-	uint64_t           seqnum;
 	const char *       data;
-	size_t             size;
 	int                r;
 	struct sid_result *res;
 	struct sid_request req = {.cmd = SID_CMD_VERSION, .flags = SID_CMD_FLAGS_FMT_ENV};
@@ -266,7 +264,6 @@ static void _version(FILE *f)
 
 int main(int argc, char *argv[])
 {
-	sid_cmd_t cmd;
 	int       opt;
 	int       verbose = 0;
 	int       r       = -1;
