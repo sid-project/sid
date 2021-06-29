@@ -33,7 +33,7 @@ static void _comms_unix_addr_init(const char *path, size_t path_len, struct sock
 	*addr_len = offsetof(struct sockaddr_un, sun_path) + path_len;
 }
 
-int comms_unix_create(const char *path, size_t path_len, int type)
+int sid_comms_unix_create(const char *path, size_t path_len, int type)
 {
 	int                socket_fd = -1;
 	struct sockaddr_un addr;
@@ -71,7 +71,7 @@ fail:
 	return r;
 }
 
-int comms_unix_init(const char *path, size_t path_len, int type)
+int sid_comms_unix_init(const char *path, size_t path_len, int type)
 {
 	struct sockaddr_un addr;
 	int                socket_fd = -1;
@@ -134,14 +134,14 @@ static ssize_t _do_comms_unix_send(int socket_fd, struct iovec *iov, size_t iov_
 		return r;
 }
 
-ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send)
+ssize_t sid_comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send)
 {
 	struct iovec iov = {.iov_base = buf, .iov_len = buf_len};
 
 	return _do_comms_unix_send(socket_fd, &iov, 1, fd_to_send);
 }
 
-ssize_t comms_unix_send_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send)
+ssize_t sid_comms_unix_send_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send)
 {
 	return _do_comms_unix_send(socket_fd, iov, iov_len, fd_to_send);
 }
@@ -173,14 +173,14 @@ static ssize_t _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_
 	return r;
 }
 
-ssize_t comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
+ssize_t sid_comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
 {
 	struct iovec iov = {.iov_base = buf, .iov_len = buf_len};
 
 	return _do_comms_unix_recv(socket_fd, &iov, 1, fd_received);
 }
 
-ssize_t comms_unix_recv_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
+ssize_t sid_comms_unix_recv_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
 {
 	return _do_comms_unix_recv(socket_fd, iov, iov_len, fd_received);
 }

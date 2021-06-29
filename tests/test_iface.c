@@ -44,12 +44,12 @@ int __wrap_close(int fd)
 	return 0;
 }
 
-int __wrap_comms_unix_init(const char *path, size_t path_len, int type)
+int __wrap_sid_comms_unix_init(const char *path, size_t path_len, int type)
 {
 	return TEST_COMM_FD;
 }
 
-ssize_t __wrap_comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
+ssize_t __wrap_sid_comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received)
 {
 	*fd_received = TEST_EXPORT_FD;
 	return mock_type(ssize_t);
@@ -470,7 +470,7 @@ static void test_sid_req_export_pass(void **state)
 {
 	struct sid_request req = {.cmd = SID_CMD_DUMP};
 
-	will_return(__wrap_comms_unix_recv, sizeof(unsigned char));
+	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + BUFFER_SIZE_PREFIX_LEN);
 	will_return(__wrap_mmap, sizeof(RESULT_DATA));
 	will_return(__wrap_mmap, RESULT_DATA);
@@ -482,7 +482,7 @@ static void test_sid_req_export_fail1(void **state)
 {
 	struct sid_request req = {.cmd = SID_CMD_DUMP};
 
-	will_return(__wrap_comms_unix_recv, sizeof(unsigned char));
+	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + BUFFER_SIZE_PREFIX_LEN);
 	will_return(__wrap_mmap, sizeof(RESULT_DATA));
 	will_return(__wrap_mmap, RESULT_DATA);
@@ -494,7 +494,7 @@ static void test_sid_req_export_fail2(void **state)
 {
 	struct sid_request req = {.cmd = SID_CMD_DUMP};
 
-	will_return(__wrap_comms_unix_recv, sizeof(unsigned char));
+	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + BUFFER_SIZE_PREFIX_LEN);
 	will_return(__wrap_mmap, sizeof(RESULT_DATA));
 	will_return(__wrap_mmap, RESULT_DATA);
@@ -506,7 +506,7 @@ static void test_sid_req_export_no_data(void **state)
 {
 	struct sid_request req = {.cmd = SID_CMD_DUMP};
 
-	will_return(__wrap_comms_unix_recv, sizeof(unsigned char));
+	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, BUFFER_SIZE_PREFIX_LEN);
 	__check_sid_req(&req, NULL, 0, 0, NULL, 0);
 }
@@ -516,8 +516,8 @@ static void test_sid_req_fail_recv_fd(void **state)
 	struct sid_request req = {.cmd = SID_CMD_DUMP};
 	struct sid_result *res;
 
-	will_return(__wrap_comms_unix_recv, -EINTR);
-	will_return(__wrap_comms_unix_recv, -ENOTCONN);
+	will_return(__wrap_sid_comms_unix_recv, -EINTR);
+	will_return(__wrap_sid_comms_unix_recv, -ENOTCONN);
 	res = __do_sid_req(&req, NULL, 0, 0, NULL, 0, -ENOTCONN);
 	assert_null(res);
 }
@@ -527,7 +527,7 @@ static void test_sid_req_fail_read_fd1(void **state)
 	struct sid_request req = {.cmd = SID_CMD_DUMP};
 	struct sid_result *res;
 
-	will_return(__wrap_comms_unix_recv, sizeof(unsigned char));
+	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, -EINTR);
 	will_return(__wrap_read, -EIO);
 	res = __do_sid_req(&req, NULL, 0, 0, NULL, 0, -EIO);
@@ -539,7 +539,7 @@ static void test_sid_req_fail_read_fd2(void **state)
 	struct sid_request req = {.cmd = SID_CMD_DUMP};
 	struct sid_result *res;
 
-	will_return(__wrap_comms_unix_recv, sizeof(unsigned char));
+	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, BUFFER_SIZE_PREFIX_LEN - 1);
 	res = __do_sid_req(&req, NULL, 0, 0, NULL, 0, -EBADMSG);
 	assert_null(res);
@@ -550,7 +550,7 @@ static void test_sid_req_fail_mmap(void **state)
 	struct sid_request req = {.cmd = SID_CMD_DUMP};
 	struct sid_result *res;
 
-	will_return(__wrap_comms_unix_recv, sizeof(unsigned char));
+	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + BUFFER_SIZE_PREFIX_LEN);
 	will_return(__wrap_mmap, -ENOMEM);
 	res = __do_sid_req(&req, NULL, 0, 0, NULL, 0, -ENOMEM);

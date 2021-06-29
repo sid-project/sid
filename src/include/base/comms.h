@@ -28,14 +28,14 @@
 extern "C" {
 #endif
 
-int comms_unix_create(const char *path, size_t path_len, int type);
-int comms_unix_init(const char *path, size_t path_len, int type);
+int sid_comms_unix_create(const char *path, size_t path_len, int type);
+int sid_comms_unix_init(const char *path, size_t path_len, int type);
 
-ssize_t comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send);
-ssize_t comms_unix_send_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send);
+ssize_t sid_comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to_send);
+ssize_t sid_comms_unix_send_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send);
 
-ssize_t comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received);
-ssize_t comms_unix_recv_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received);
+ssize_t sid_comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_received);
+ssize_t sid_comms_unix_recv_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received);
 
 #ifdef __cplusplus
 }

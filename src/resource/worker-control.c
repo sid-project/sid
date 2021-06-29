@@ -275,7 +275,7 @@ static int _chan_buf_recv(const struct worker_channel *chan,
 				 * TODO:  Make this a part of event loop instead of looping here!
 				 */
 				for (;;) {
-					n = comms_unix_recv(chan->fd, &byte, sizeof(byte), &data_spec->ext.socket.fd_pass);
+					n = sid_comms_unix_recv(chan->fd, &byte, sizeof(byte), &data_spec->ext.socket.fd_pass);
 
 					if (n < 0) {
 						if (n == -EAGAIN || n == -EINTR)
@@ -939,13 +939,13 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 		if (chan->spec->wire.type == WORKER_WIRE_SOCKET) {
 			/* Also send ancillary data in a channel with socket wire - an FD might be passed through this way. */
 			/*
-			 * FIXME: Buffer is using 'write', but we need to use 'sendmsg' (wrapped by comms_unix_send) for ancillary
+			 * FIXME: Buffer is using 'write', but we need to use 'sendmsg' (wrapped by sid_comms_unix_send) for ancillary
 			 * data. This is why we need to send the ancillary data separately from usual data here. Maybe extend the
 			 * buffer so it can use 'sendmsg' somehow - a custom callback for writing the data? Then we could send data
 			 * and anc. data at once in one buffer_write call.
 			 */
 			for (;;) {
-				n = comms_unix_send(chan->fd, &byte, sizeof(byte), data_spec->ext.socket.fd_pass);
+				n = sid_comms_unix_send(chan->fd, &byte, sizeof(byte), data_spec->ext.socket.fd_pass);
 
 				if (n < 0) {
 					if (n == -EAGAIN || n == -EINTR)
