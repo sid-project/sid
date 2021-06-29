@@ -55,7 +55,7 @@ ssize_t __wrap_comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *f
 	return mock_type(ssize_t);
 }
 
-int __wrap_buffer_write_all(struct buffer *buf, int fd)
+int __wrap_sid_buffer_write_all(struct buffer *buf, int fd)
 {
 	char * hdr;
 	size_t size;
@@ -65,13 +65,13 @@ int __wrap_buffer_write_all(struct buffer *buf, int fd)
 	ret = mock_type(int);
 	if (ret != 0)
 		return ret;
-	assert_int_equal(buffer_get_data(buf, (const void **) &hdr, &size), 0);
+	assert_int_equal(sid_buffer_get_data(buf, (const void **) &hdr, &size), 0);
 	assert_int_equal(size, mock_type(size_t));
 	assert_int_equal(memcmp(hdr, mock_ptr_type(char *), size), 0);
 	return ret;
 }
 
-ssize_t __wrap_buffer_read(struct buffer *buf, int fd)
+ssize_t __wrap_sid_buffer_read(struct buffer *buf, int fd)
 {
 	void *  data;
 	ssize_t size = mock_type(ssize_t);
@@ -79,9 +79,9 @@ ssize_t __wrap_buffer_read(struct buffer *buf, int fd)
 	if (size <= 0)
 		return size;
 	data = mock_ptr_type(void *);
-	assert_non_null(buffer_add(buf, data, size, NULL));
+	assert_non_null(sid_buffer_add(buf, data, size, NULL));
 	/* need to update size prefix */
-	buffer_get_fd(buf);
+	sid_buffer_get_fd(buf);
 	return size;
 }
 
@@ -156,11 +156,11 @@ static void _test_checkpoint(char *name, char *keys[], char *values[], int nr_ke
 	struct sid_checkpoint_data check_data = {.name = name, .keys = keys, .nr_keys = nr_keys};
 	unsigned int               i;
 
-	buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                            .type    = BUFFER_TYPE_LINEAR,
-	                                            .mode    = BUFFER_MODE_SIZE_PREFIX}),
-	                    &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                    NULL);
+	buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
+	                                                .type    = BUFFER_TYPE_LINEAR,
+	                                                .mode    = BUFFER_MODE_SIZE_PREFIX}),
+	                        &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                        NULL);
 
 	assert_non_null(buf);
 	if (ret_val == 0) {
@@ -172,10 +172,10 @@ static void _test_checkpoint(char *name, char *keys[], char *values[], int nr_ke
 	}
 	assert_int_equal(_add_checkpoint_env_to_buf(buf, &check_data), ret_val);
 	if (ret_val) {
-		buffer_destroy(buf);
+		sid_buffer_destroy(buf);
 		return;
 	}
-	assert_int_equal(buffer_get_data(buf, (const void **) &data, &size), 0);
+	assert_int_equal(sid_buffer_get_data(buf, (const void **) &data, &size), 0);
 	assert_true(devnum == *(dev_t *) data);
 	p = data + sizeof(dev_t);
 	assert_string_equal(p, name);
@@ -187,7 +187,7 @@ static void _test_checkpoint(char *name, char *keys[], char *values[], int nr_ke
 		free(kv);
 	}
 	assert_int_equal(size, p - data);
-	buffer_destroy(buf);
+	sid_buffer_destroy(buf);
 }
 
 #define CHECKPOINT_NAME "checkpoint_name"
@@ -222,16 +222,16 @@ static void test_add_scan_env(void **state)
 	char *         data, *p, **kv;
 	size_t         size;
 
-	buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                            .type    = BUFFER_TYPE_LINEAR,
-	                                            .mode    = BUFFER_MODE_SIZE_PREFIX}),
-	                    &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                    NULL);
+	buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
+	                                                .type    = BUFFER_TYPE_LINEAR,
+	                                                .mode    = BUFFER_MODE_SIZE_PREFIX}),
+	                        &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                        NULL);
 	assert_non_null(buf);
 	will_return(__wrap_getenv, "8");
 	will_return(__wrap_getenv, "0");
 	assert_int_equal(_add_scan_env_to_buf(buf), 0);
-	assert_int_equal(buffer_get_data(buf, (const void **) &data, &size), 0);
+	assert_int_equal(sid_buffer_get_data(buf, (const void **) &data, &size), 0);
 	assert_true(devnum == *(dev_t *) data);
 	p = data + sizeof(dev_t);
 	for (kv = environ; *kv; kv++) {
@@ -239,7 +239,7 @@ static void test_add_scan_env(void **state)
 		p += strlen(p) + 1;
 	}
 	assert_int_equal(size, p - data);
-	buffer_destroy(buf);
+	sid_buffer_destroy(buf);
 }
 
 static void test_sid_req_fail_no_res(void **state)
@@ -274,7 +274,7 @@ static void test_sid_req_fail_write(void **state)
 	struct sid_request req = {.cmd = SID_CMD_VERSION};
 	struct sid_result *res;
 
-	will_return(__wrap_buffer_write_all, -ENODATA);
+	will_return(__wrap_sid_buffer_write_all, -ENODATA);
 	assert_int_equal(sid_req(&req, &res), -ENODATA);
 	assert_null(res);
 }
@@ -285,10 +285,10 @@ static void test_sid_req_fail_read1(void **state)
 	struct sid_result *   res;
 	struct sid_msg_header hdr = {.prot = SID_PROTOCOL, .cmd = SID_CMD_VERSION};
 
-	will_return(__wrap_buffer_write_all, 0);
-	will_return(__wrap_buffer_write_all, sizeof(hdr));
-	will_return(__wrap_buffer_write_all, &hdr);
-	will_return(__wrap_buffer_read, -EBADMSG);
+	will_return(__wrap_sid_buffer_write_all, 0);
+	will_return(__wrap_sid_buffer_write_all, sizeof(hdr));
+	will_return(__wrap_sid_buffer_write_all, &hdr);
+	will_return(__wrap_sid_buffer_read, -EBADMSG);
 	assert_int_equal(sid_req(&req, &res), -EBADMSG);
 	assert_null(res);
 }
@@ -299,12 +299,12 @@ static void test_sid_req_fail_read2(void **state)
 	struct sid_result *   res;
 	struct sid_msg_header hdr = {.prot = SID_PROTOCOL, .cmd = SID_CMD_VERSION};
 
-	will_return(__wrap_buffer_write_all, 0);
-	will_return(__wrap_buffer_write_all, sizeof(hdr));
-	will_return(__wrap_buffer_write_all, &hdr);
-	will_return(__wrap_buffer_read, -EINTR);
-	will_return(__wrap_buffer_read, -EAGAIN);
-	will_return(__wrap_buffer_read, 0);
+	will_return(__wrap_sid_buffer_write_all, 0);
+	will_return(__wrap_sid_buffer_write_all, sizeof(hdr));
+	will_return(__wrap_sid_buffer_write_all, &hdr);
+	will_return(__wrap_sid_buffer_read, -EINTR);
+	will_return(__wrap_sid_buffer_read, -EAGAIN);
+	will_return(__wrap_sid_buffer_read, 0);
 	assert_int_equal(sid_req(&req, &res), -EBADMSG);
 	assert_null(res);
 }
@@ -340,11 +340,11 @@ static struct sid_result *__do_sid_req(struct sid_request *req,
 		assert_true(res_data_size > 0);
 		memcpy(res_hdr->data, res_data, res_data_size);
 	}
-	will_return(__wrap_buffer_write_all, 0);
-	will_return(__wrap_buffer_write_all, sizeof(*req_hdr) + req_data_size);
-	will_return(__wrap_buffer_write_all, req_hdr);
-	will_return(__wrap_buffer_read, sizeof(*res_hdr) + res_data_size);
-	will_return(__wrap_buffer_read, res_hdr);
+	will_return(__wrap_sid_buffer_write_all, 0);
+	will_return(__wrap_sid_buffer_write_all, sizeof(*req_hdr) + req_data_size);
+	will_return(__wrap_sid_buffer_write_all, req_hdr);
+	will_return(__wrap_sid_buffer_read, sizeof(*res_hdr) + res_data_size);
+	will_return(__wrap_sid_buffer_read, res_hdr);
 	assert_int_equal(sid_req(req, &res), ret);
 	free(req_hdr);
 	free(res_hdr);
@@ -416,17 +416,17 @@ static void test_sid_req_scan(void **state)
 	char *             data;
 	size_t             size;
 
-	buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                            .type    = BUFFER_TYPE_LINEAR,
-	                                            .mode    = BUFFER_MODE_SIZE_PREFIX}),
-	                    &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                    NULL);
+	buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
+	                                                .type    = BUFFER_TYPE_LINEAR,
+	                                                .mode    = BUFFER_MODE_SIZE_PREFIX}),
+	                        &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                        NULL);
 
 	assert_non_null(buf);
 	will_return(__wrap_getenv, "8");
 	will_return(__wrap_getenv, "0");
 	assert_int_equal(_add_scan_env_to_buf(buf), 0);
-	assert_int_equal(buffer_get_data(buf, (const void **) &data, &size), 0);
+	assert_int_equal(sid_buffer_get_data(buf, (const void **) &data, &size), 0);
 	will_return(__wrap_getenv, "8");
 	will_return(__wrap_getenv, "0");
 	__check_sid_req(&req, data, size, 0, RESULT_DATA, sizeof(RESULT_DATA));
@@ -444,11 +444,11 @@ static void test_sid_req_checkpoint(void **state)
 	data->name    = CHECKPOINT_NAME;
 	data->keys    = check_keys;
 	data->nr_keys = NR_KEYS;
-	buf           = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-                                                    .type    = BUFFER_TYPE_LINEAR,
-                                                    .mode    = BUFFER_MODE_SIZE_PREFIX}),
-                            &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-                            NULL);
+	buf           = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
+                                                        .type    = BUFFER_TYPE_LINEAR,
+                                                        .mode    = BUFFER_MODE_SIZE_PREFIX}),
+                                &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+                                NULL);
 
 	assert_non_null(buf);
 	will_return(__wrap_getenv, "8");
@@ -457,7 +457,7 @@ static void test_sid_req_checkpoint(void **state)
 		will_return(__wrap_getenv, check_values[i]);
 	}
 	assert_int_equal(_add_checkpoint_env_to_buf(buf, data), 0);
-	assert_int_equal(buffer_get_data(buf, (const void **) &req_data, &size), 0);
+	assert_int_equal(sid_buffer_get_data(buf, (const void **) &req_data, &size), 0);
 	will_return(__wrap_getenv, "8");
 	will_return(__wrap_getenv, "0");
 	for (i = 0; i < NR_KEYS; i++) {

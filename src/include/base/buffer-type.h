@@ -45,7 +45,7 @@ struct buffer_type {
 	ssize_t (*write)(struct buffer *buf, int fd, size_t pos);
 };
 
-extern const struct buffer_type buffer_type_linear;
-extern const struct buffer_type buffer_type_vector;
+extern const struct buffer_type sid_buffer_type_linear;
+extern const struct buffer_type sid_buffer_type_vector;
 
 #endif

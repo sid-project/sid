@@ -381,15 +381,15 @@ static ssize_t _buffer_vector_write(struct buffer *buf, int fd, size_t pos)
 	return n;
 }
 
-const struct buffer_type buffer_type_vector = {.create      = _buffer_vector_create,
-                                               .destroy     = _buffer_vector_destroy,
-                                               .reset       = _buffer_vector_reset,
-                                               .add         = _buffer_vector_add,
-                                               .fmt_add     = _buffer_vector_fmt_add,
-                                               .rewind      = _buffer_vector_rewind,
-                                               .rewind_mem  = _buffer_vector_rewind_mem,
-                                               .is_complete = _buffer_vector_is_complete,
-                                               .get_data    = _buffer_vector_get_data,
-                                               .get_fd      = _buffer_vector_get_fd,
-                                               .read        = _buffer_vector_read,
-                                               .write       = _buffer_vector_write};
+const struct buffer_type sid_buffer_type_vector = {.create      = _buffer_vector_create,
+                                                   .destroy     = _buffer_vector_destroy,
+                                                   .reset       = _buffer_vector_reset,
+                                                   .add         = _buffer_vector_add,
+                                                   .fmt_add     = _buffer_vector_fmt_add,
+                                                   .rewind      = _buffer_vector_rewind,
+                                                   .rewind_mem  = _buffer_vector_rewind_mem,
+                                                   .is_complete = _buffer_vector_is_complete,
+                                                   .get_data    = _buffer_vector_get_data,
+                                                   .get_fd      = _buffer_vector_get_fd,
+                                                   .read        = _buffer_vector_read,
+                                                   .write       = _buffer_vector_write};
