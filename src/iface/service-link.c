@@ -175,22 +175,22 @@ int _do_service_link_notify(struct service_link *       sl,
 	int            unset = 0;
 	int            iter_r, r = 0;
 
-	if (!(buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                                  .type    = BUFFER_TYPE_LINEAR,
-	                                                  .mode    = BUFFER_MODE_PLAIN}),
-	                          &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                          &r)))
+	if (!(buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
+	                                                      .type    = BUFFER_TYPE_LINEAR,
+	                                                      .mode    = BUFFER_MODE_PLAIN}),
+	                              &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                              &r)))
 		goto out;
 
 	if (fmt && *fmt) {
-		if (!(fmt_buf = buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-		                                                      .type    = BUFFER_TYPE_LINEAR,
-		                                                      .mode    = BUFFER_MODE_PLAIN}),
-		                              &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-		                              &r)))
+		if (!(fmt_buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
+		                                                          .type    = BUFFER_TYPE_LINEAR,
+		                                                          .mode    = BUFFER_MODE_PLAIN}),
+		                                  &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+		                                  &r)))
 			goto out;
 
-		if (!(arg_str = buffer_vfmt_add(fmt_buf, &r, fmt, ap)))
+		if (!(arg_str = sid_buffer_vfmt_add(fmt_buf, &r, fmt, ap)))
 			goto out;
 	} else
 		arg_str = NULL;
@@ -200,49 +200,49 @@ int _do_service_link_notify(struct service_link *       sl,
 
 	if (notification & SERVICE_NOTIFICATION_STATUS) {
 		if ((arg_value = _get_arg_value(arg_str, SERVICE_KEY_STATUS EQ, &size))) {
-			if (!buffer_fmt_add(buf, &r, SERVICE_KEY_STATUS EQ "%.*s\n", size, arg_value))
+			if (!sid_buffer_fmt_add(buf, &r, SERVICE_KEY_STATUS EQ "%.*s\n", size, arg_value))
 				goto out;
 
-			if ((r = buffer_rewind(buf, 1, BUFFER_POS_REL)) < 0)
+			if ((r = sid_buffer_rewind(buf, 1, BUFFER_POS_REL)) < 0)
 				goto out;
 		}
 	}
 
 	if (notification & SERVICE_NOTIFICATION_ERRNO) {
 		if ((arg_value = _get_arg_value(arg_str, SERVICE_KEY_ERRNO EQ, &size))) {
-			if (!buffer_fmt_add(buf, &r, SERVICE_KEY_ERRNO EQ "%.*s\n", size, arg_value))
+			if (!sid_buffer_fmt_add(buf, &r, SERVICE_KEY_ERRNO EQ "%.*s\n", size, arg_value))
 				goto out;
 
-			if ((r = buffer_rewind(buf, 1, BUFFER_POS_REL)) < 0)
+			if ((r = sid_buffer_rewind(buf, 1, BUFFER_POS_REL)) < 0)
 				goto out;
 		}
 	}
 
 	if (notification & SERVICE_NOTIFICATION_READY)
-		if (!buffer_add(buf, (void *) SERVICE_READY_LINE, sizeof(SERVICE_READY_LINE) - 1, &r))
+		if (!sid_buffer_add(buf, (void *) SERVICE_READY_LINE, sizeof(SERVICE_READY_LINE) - 1, &r))
 			goto out;
 
 	if (notification & SERVICE_NOTIFICATION_RELOADING)
-		if (!buffer_add(buf, (void *) SERVICE_RELOADING_LINE, sizeof(SERVICE_RELOADING_LINE) - 1, &r))
+		if (!sid_buffer_add(buf, (void *) SERVICE_RELOADING_LINE, sizeof(SERVICE_RELOADING_LINE) - 1, &r))
 			goto out;
 
 	if (notification & SERVICE_NOTIFICATION_STOPPING)
-		if (!buffer_add(buf, (void *) SERVICE_STOPPING_LINE, sizeof(SERVICE_STOPPING_LINE) - 1, &r))
+		if (!sid_buffer_add(buf, (void *) SERVICE_STOPPING_LINE, sizeof(SERVICE_STOPPING_LINE) - 1, &r))
 			goto out;
 
 	if (notification & SERVICE_NOTIFICATION_WATCHDOG_REFRESH)
-		if (!buffer_add(buf, (void *) SERVICE_WATCHDOG_REFRESH_LINE, sizeof(SERVICE_WATCHDOG_REFRESH_LINE) - 1, &r))
+		if (!sid_buffer_add(buf, (void *) SERVICE_WATCHDOG_REFRESH_LINE, sizeof(SERVICE_WATCHDOG_REFRESH_LINE) - 1, &r))
 			goto out;
 
 	if (notification & SERVICE_NOTIFICATION_WATCHDOG_TRIGGER)
-		if (!buffer_add(buf, (void *) SERVICE_WATCHDOG_TRIGGER_LINE, sizeof(SERVICE_WATCHDOG_TRIGGER_LINE) - 1, &r))
+		if (!sid_buffer_add(buf, (void *) SERVICE_WATCHDOG_TRIGGER_LINE, sizeof(SERVICE_WATCHDOG_TRIGGER_LINE) - 1, &r))
 			goto out;
 
 	/* NULL termintate string, or create empty string */
-	if (!buffer_add(buf, (void *) "", 1, &r))
+	if (!sid_buffer_add(buf, (void *) "", 1, &r))
 		goto out;
 
-	buffer_get_data(buf, (const void **) &arg_str, &size);
+	sid_buffer_get_data(buf, (const void **) &arg_str, &size);
 
 	if (sl) {
 		if (!(sl->notification & notification))
@@ -258,9 +258,9 @@ int _do_service_link_notify(struct service_link *       sl,
 	}
 out:
 	if (fmt_buf)
-		buffer_destroy(fmt_buf);
+		sid_buffer_destroy(fmt_buf);
 	if (buf)
-		buffer_destroy(buf);
+		sid_buffer_destroy(buf);
 
 	return r;
 }

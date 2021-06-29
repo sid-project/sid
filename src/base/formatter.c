@@ -43,9 +43,9 @@ static int _print_fmt(struct buffer *buf, const char *fmt, ...)
 	if (!buf || !fmt)
 		return -EINVAL;
 	va_start(ap, fmt);
-	buffer_vfmt_add(buf, &r, fmt, ap);
+	sid_buffer_vfmt_add(buf, &r, fmt, ap);
 	if (!r)
-		r = buffer_rewind(buf, 1, BUFFER_POS_REL);
+		r = sid_buffer_rewind(buf, 1, BUFFER_POS_REL);
 	va_end(ap);
 	return r;
 }
@@ -60,11 +60,11 @@ static int _print_binary(const unsigned char *value, size_t len, struct buffer *
 		return -EINVAL;
 	if (enc_len == 0)
 		return -ERANGE;
-	ptr = buffer_add(buf, NULL, enc_len, &r);
+	ptr = sid_buffer_add(buf, NULL, enc_len, &r);
 	if (!r)
 		r = base64_encode(value, len, (unsigned char *) ptr, enc_len);
 	if (!r)
-		r = buffer_rewind(buf, 1, BUFFER_POS_REL);
+		r = sid_buffer_rewind(buf, 1, BUFFER_POS_REL);
 	return r;
 }
 
@@ -385,6 +385,6 @@ int print_null_byte(struct buffer *buf)
 {
 	int r;
 
-	buffer_fmt_add(buf, &r, "");
+	sid_buffer_fmt_add(buf, &r, "");
 	return r;
 }

@@ -397,15 +397,15 @@ static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 	return n;
 }
 
-const struct buffer_type buffer_type_linear = {.create      = _buffer_linear_create,
-                                               .destroy     = _buffer_linear_destroy,
-                                               .reset       = _buffer_linear_reset,
-                                               .add         = _buffer_linear_add,
-                                               .fmt_add     = _buffer_linear_fmt_add,
-                                               .rewind      = _buffer_linear_rewind,
-                                               .rewind_mem  = _buffer_linear_rewind_mem,
-                                               .is_complete = _buffer_linear_is_complete,
-                                               .get_data    = _buffer_linear_get_data,
-                                               .get_fd      = _buffer_linear_get_fd,
-                                               .read        = _buffer_linear_read,
-                                               .write       = _buffer_linear_write};
+const struct buffer_type sid_buffer_type_linear = {.create      = _buffer_linear_create,
+                                                   .destroy     = _buffer_linear_destroy,
+                                                   .reset       = _buffer_linear_reset,
+                                                   .add         = _buffer_linear_add,
+                                                   .fmt_add     = _buffer_linear_fmt_add,
+                                                   .rewind      = _buffer_linear_rewind,
+                                                   .rewind_mem  = _buffer_linear_rewind_mem,
+                                                   .is_complete = _buffer_linear_is_complete,
+                                                   .get_data    = _buffer_linear_get_data,
+                                                   .get_fd      = _buffer_linear_get_fd,
+                                                   .read        = _buffer_linear_read,
+                                                   .write       = _buffer_linear_write};
