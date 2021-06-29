@@ -263,7 +263,7 @@ static void test_sid_req_fail_missing(void **state)
 	struct sid_result *         res;
 	struct sid_unmodified_data *data = &req.data.unmodified;
 
-	data->mem = NULL;
+	data->mem  = NULL;
 	data->size = 1;
 	assert_int_equal(sid_req(&req, &res), -EINVAL);
 	assert_null(res);

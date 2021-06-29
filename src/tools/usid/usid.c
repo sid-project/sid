@@ -264,9 +264,9 @@ static void _version(FILE *f)
 
 int main(int argc, char *argv[])
 {
-	int       opt;
-	int       verbose = 0;
-	int       r       = -1;
+	int opt;
+	int verbose = 0;
+	int r       = -1;
 
 	if (_init_usid()) {
 		log_error(LOG_PREFIX, "_init_usid failed");
