@@ -250,7 +250,7 @@ int sid_req(struct sid_request *req, struct sid_result **res_p)
 		}
 	}
 
-	if ((socket_fd = comms_unix_init(SID_SOCKET_PATH, SID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
+	if ((socket_fd = sid_comms_unix_init(SID_SOCKET_PATH, SID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
 		r = socket_fd;
 		goto out;
 	}
@@ -291,7 +291,7 @@ int sid_req(struct sid_request *req, struct sid_result **res_p)
 		BUFFER_SIZE_PREFIX_TYPE msg_size;
 
 		for (;;) {
-			n = comms_unix_recv(socket_fd, &byte, sizeof(byte), &export_fd);
+			n = sid_comms_unix_recv(socket_fd, &byte, sizeof(byte), &export_fd);
 			if (n >= 0)
 				break;
 			if (n == -EAGAIN || n == -EINTR)

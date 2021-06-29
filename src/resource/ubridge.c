@@ -3495,7 +3495,7 @@ static ssize_t _send_fd_over_unix_comms(int fd, int unix_comms_fd)
 	ssize_t              n;
 
 	for (;;) {
-		n = comms_unix_send(unix_comms_fd, &byte, sizeof(byte), fd);
+		n = sid_comms_unix_send(unix_comms_fd, &byte, sizeof(byte), fd);
 		if (n >= 0)
 			break;
 		if (n == -EAGAIN || n == -EINTR)
@@ -4274,7 +4274,7 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 		}
 	} else {
 		/* No systemd autoactivation - create new socket FD. */
-		if ((fd = comms_unix_create(SID_SOCKET_PATH, SID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) <
+		if ((fd = sid_comms_unix_create(SID_SOCKET_PATH, SID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) <
 		    0) {
 			log_error_errno(ID(ubridge_res), fd, "Failed to create local server socket");
 			return fd;
