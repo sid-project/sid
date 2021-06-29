@@ -1731,7 +1731,6 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 
 	if (!(key = buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, &r, "%.*s", value - start - 1, start)))
 		return r;
-	;
 
 	if (!(value = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, key, 0, value, strlen(value) + 1)))
 		goto out;
