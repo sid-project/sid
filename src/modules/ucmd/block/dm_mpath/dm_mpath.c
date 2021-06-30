@@ -17,7 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "base/util.h"
+#include "internal/util.h"
 #include "log/log.h"
 #include "resource/ucmd-module.h"
 

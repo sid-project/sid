@@ -21,7 +21,7 @@
  * Code adopted from lvm2 source tree (https://sourceware.org/lvm2).
  */
 
-#include "base/list.h"
+#include "internal/list.h"
 
 void list_init(struct list *head)
 {

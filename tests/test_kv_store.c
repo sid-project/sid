@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #define UNIT_TESTING /* enable cmocka memory testing in mem.c and kv-store.c*/
-#include "../src/base/mem.c"
+#include "../src/internal/mem.c"
 #include "../src/resource/kv-store.c"
 
 #include <cmocka.h>

@@ -17,7 +17,7 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = base log iface resource daemon modules tools
+SUBDIRS = base internal log iface resource daemon modules tools
 
 pkginclude_HEADERS = $(top_builddir)/src/include/config.h
 

@@ -18,9 +18,9 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "base/hash.h"
+#include "internal/hash.h"
 
-#include "base/mem.h"
+#include "internal/mem.h"
 
 #include <stdlib.h>
 #include <string.h>

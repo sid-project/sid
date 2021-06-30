@@ -42,7 +42,7 @@ BuildRequires: device-mapper-multipath-devel >= 0.8.4-7
 
 Requires: systemd
 Requires: systemd-udev
-Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-internal-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-tools = %{?epoch}:%{version}-%{release}
@@ -107,8 +107,8 @@ License: GPLv2+
 %description base-libs
 This package contains shared libraries with low-level functionality needed for
 Storage Instantiation Daemon (SID), its modules and related tools. Currently,
-it contains basic support for bitmaps, buffering, IPC, hashing, lists, memory
-handling and other helper functions.
+it contains basic support for buffering, IPC, base64 encoding and other helper
+functions.
 
 %files base-libs
 %dir %{_libdir}/sid
@@ -134,16 +134,32 @@ base libraries.
 %dir %{_includedir}/sid
 %{_includedir}/sid/config*.h
 %dir %{_includedir}/sid/base
-%{_includedir}/sid/base/bitmap.h
+%{_includedir}/sid/base/binary.h
 %{_includedir}/sid/base/buffer-common.h
 %{_includedir}/sid/base/buffer.h
 %{_includedir}/sid/base/common.h
 %{_includedir}/sid/base/comms.h
-%{_includedir}/sid/base/list.h
-%{_includedir}/sid/base/mem.h
 %{_includedir}/sid/base/util.h
 %doc README.md
 
+##############################################################################
+# SID-INTERNAL-LIBS
+##############################################################################
+
+%package internal-libs
+Summary: Development files for Storage Instantiation Daemon (SID) internal
+License: GPLv2+
+Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+%description internal-libs
+This package contains shared libraries with low-level functionality needed for
+Storage Instantiation Daemon (SID) and its modules. Currently, it contains
+basic support for bitmaps, hashing, lists, memory handling and other helper
+functions.
+
+%files base-libs
+%dir %{_libdir}/sid
+%{_libdir}/sid/libsidinternal.so.*
+%doc README.md
 
 ##############################################################################
 # SID-LOG-LIBS
@@ -232,7 +248,7 @@ interface libraries.
 %package resource-libs
 Summary: Libraries for Storage Instantiation Daemon (SID) resources
 License: GPLv2+
-Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-internal-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-iface-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 # Systemd supports event loop since v221
@@ -283,7 +299,7 @@ resource libraries.
 
 %package tools
 Summary: Storage Instantiation Daemon (SID) supporting tools
-Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-internal-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-iface-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: systemd-udev

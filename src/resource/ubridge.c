@@ -17,15 +17,15 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "base/common.h"
+#include "internal/common.h"
 
-#include "base/bitmap.h"
 #include "base/buffer.h"
 #include "base/comms.h"
-#include "base/formatter.h"
-#include "base/mem.h"
-#include "base/util.h"
 #include "iface/iface_internal.h"
+#include "internal/bitmap.h"
+#include "internal/formatter.h"
+#include "internal/mem.h"
+#include "internal/util.h"
 #include "log/log.h"
 #include "resource/kv-store.h"
 #include "resource/module-registry.h"

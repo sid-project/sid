@@ -20,9 +20,9 @@
 #include "base/buffer.h"
 
 #include "base/buffer-type.h"
-#include "base/mem.h"
 
 #include <errno.h>
+#include <stdlib.h>
 
 static const struct buffer_type *_buffer_type_registry[] =
 	{[BUFFER_TYPE_LINEAR] = &sid_buffer_type_linear, [BUFFER_TYPE_VECTOR] = &sid_buffer_type_vector};
@@ -68,9 +68,10 @@ struct buffer *sid_buffer_create(struct buffer_spec *spec, struct buffer_init *i
 out:
 	if (ret_code)
 		*ret_code = r;
-	if (r < 0)
-		return mem_freen(buf);
-	else
+	if (r < 0) {
+		free(buf);
+		return NULL;
+	} else
 		return buf;
 }
 

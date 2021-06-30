@@ -1,5 +1,5 @@
-#include <base/bitmap.h>
 #include <errno.h>
+#include <internal/bitmap.h>
 #include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>

@@ -17,7 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "base/bitmap.h"
+#include "internal/bitmap.h"
 
 #include <errno.h>
 #include <limits.h>

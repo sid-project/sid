@@ -20,10 +20,9 @@
 #include "base/common.h"
 
 #include "base/buffer.h"
-#include "base/util.h"
 #include "iface/iface.h"
+#include "internal/formatter.h"
 #include "log/log.h"
-#include "resource/ucmd-module.h"
 
 #include <getopt.h>
 #include <inttypes.h>
