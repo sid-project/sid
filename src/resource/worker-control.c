@@ -21,8 +21,8 @@
 
 #include "base/buffer.h"
 #include "base/comms.h"
-#include "base/mem.h"
-#include "base/util.h"
+#include "internal/mem.h"
+#include "internal/util.h"
 #include "log/log.h"
 #include "resource/resource.h"
 
@@ -939,10 +939,10 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 		if (chan->spec->wire.type == WORKER_WIRE_SOCKET) {
 			/* Also send ancillary data in a channel with socket wire - an FD might be passed through this way. */
 			/*
-			 * FIXME: Buffer is using 'write', but we need to use 'sendmsg' (wrapped by sid_comms_unix_send) for ancillary
-			 * data. This is why we need to send the ancillary data separately from usual data here. Maybe extend the
-			 * buffer so it can use 'sendmsg' somehow - a custom callback for writing the data? Then we could send data
-			 * and anc. data at once in one buffer_write call.
+			 * FIXME: Buffer is using 'write', but we need to use 'sendmsg' (wrapped by sid_comms_unix_send) for
+			 * ancillary data. This is why we need to send the ancillary data separately from usual data here. Maybe
+			 * extend the buffer so it can use 'sendmsg' somehow - a custom callback for writing the data? Then we could
+			 * send data and anc. data at once in one buffer_write call.
 			 */
 			for (;;) {
 				n = sid_comms_unix_send(chan->fd, &byte, sizeof(byte), data_spec->ext.socket.fd_pass);

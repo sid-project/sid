@@ -17,10 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "base/common.h"
+#include "internal/common.h"
 
-#include "base/mem.h"
-#include "base/util.h"
+#include "internal/mem.h"
+#include "internal/util.h"
 #include "log/log.h"
 #include "resource/module-registry.h"
 #include "resource/resource.h"

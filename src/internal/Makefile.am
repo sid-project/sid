@@ -17,29 +17,30 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-pkglib_LTLIBRARIES = libsidbase.la
+pkglib_LTLIBRARIES = libsidinternal.la
 
-libsidbase_la_SOURCES = buffer-type.h \
-			buffer-type-linear.c \
-			buffer-type-vector.c \
-			buffer.c \
-			comms.c \
-			util.c \
-			binary.c
+libsidinternal_la_SOURCES = mem.c \
+			    bitmap.c \
+			    list.c \
+			    util.c \
+			    hash.c \
+			    formatter.c
 
-basedir = $(pkgincludedir)/base
+internaldir = $(pkgincludedir)/internal
 
-base_HEADERS = $(top_builddir)/src/include/base/buffer-common.h \
-	       $(top_builddir)/src/include/base/buffer.h \
-	       $(top_builddir)/src/include/base/comms.h \
-	       $(top_builddir)/src/include/base/util.h \
-	       $(top_builddir)/src/include/base/binary.h
+internal_HEADERS = $(top_builddir)/src/include/internal/common.h \
+		   $(top_builddir)/src/include/internal/mem.h \
+		   $(top_builddir)/src/include/internal/bitmap.h \
+		   $(top_builddir)/src/include/internal/list.h \
+		   $(top_builddir)/src/include/internal/util.h \
+		   $(top_builddir)/src/include/internal/formatter.h \
+		   $(top_builddir)/src/include/internal/hash.h
 
-libsidbase_la_CFLAGS = $(UUID_CFLAGS)
+libsidinternal_la_CFLAGS = $(UUID_CFLAGS)
 
-libsidbase_la_LDFLAGS = -version-info 0:0:0
+libsidinternal_la_LDFLAGS = -version-info 0:0:0
 
-libsidbase_la_LIBADD = $(UUID_LIBS)
+libsidinternal_la_LIBADD = $(UUID_LIBS) $(top_builddir)/src/base/libsidbase.la
 
 uninstall-hook:
-	test -d ${DESTDIR}${basedir} && rmdir ${DESTDIR}${basedir}
+	test -d ${DESTDIR}${internaldir} && rmdir ${DESTDIR}${internaldir}

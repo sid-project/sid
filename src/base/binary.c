@@ -8,7 +8,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-#include "base/base64.h"
+#include "base/binary.h"
 
 #include <errno.h>
 #include <stdlib.h>

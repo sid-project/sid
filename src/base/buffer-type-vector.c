@@ -20,9 +20,9 @@
 #include "base/common.h"
 
 #include "base/buffer-type.h"
-#include "base/mem.h"
 
 #include <errno.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
 #include <unistd.h>

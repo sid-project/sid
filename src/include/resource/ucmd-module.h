@@ -20,9 +20,9 @@
 #ifndef _SID_UCMD_MODULE_H
 #define _SID_UCMD_MODULE_H
 
-#include "base/common.h"
+#include "internal/common.h"
 
-#include "base/formatter.h"
+#include "internal/formatter.h"
 #include "resource/module.h"
 
 #include <inttypes.h>

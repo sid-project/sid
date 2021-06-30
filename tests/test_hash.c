@@ -1,4 +1,4 @@
-#include "base/hash.h"
+#include "internal/hash.h"
 
 #include <setjmp.h>
 #include <stdarg.h>

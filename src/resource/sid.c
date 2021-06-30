@@ -18,7 +18,7 @@
  */
 
 #include "base/buffer.h"
-#include "base/mem.h"
+#include "internal/mem.h"
 #include "log/log.h"
 #include "resource/resource.h"
 

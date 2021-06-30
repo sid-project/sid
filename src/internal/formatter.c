@@ -17,9 +17,9 @@
  * You should have received a copy of the GNU General Public License
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "base/formatter.h"
+#include "internal/formatter.h"
 
-#include "base/base64.h"
+#include "base/binary.h"
 
 #include <errno.h>
 #include <inttypes.h>

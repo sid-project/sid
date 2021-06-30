@@ -20,7 +20,7 @@
 #include "iface/service-link.h"
 
 #include "base/buffer.h"
-#include "base/list.h"
+#include "internal/list.h"
 
 #include <stdlib.h>
 #include <string.h>

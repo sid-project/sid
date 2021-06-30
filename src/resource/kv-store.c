@@ -19,8 +19,8 @@
 
 #include "resource/kv-store.h"
 
-#include "base/hash.h"
-#include "base/mem.h"
+#include "internal/hash.h"
+#include "internal/mem.h"
 #include "log/log.h"
 #include "resource/resource.h"
 

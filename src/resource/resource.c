@@ -20,9 +20,9 @@
 #include "resource/resource.h"
 
 #include "base/buffer.h"
-#include "base/formatter.h"
-#include "base/list.h"
-#include "base/mem.h"
+#include "internal/formatter.h"
+#include "internal/list.h"
+#include "internal/mem.h"
 #include "log/log.h"
 
 #include <stdio.h>

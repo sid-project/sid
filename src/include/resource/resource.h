@@ -20,11 +20,11 @@
 #ifndef _SID_RESOURCE_H
 #define _SID_RESOURCE_H
 
-#include "base/common.h"
+#include "internal/common.h"
 
 #include "base/buffer.h"
-#include "base/formatter.h"
 #include "iface/service-link.h"
+#include "internal/formatter.h"
 
 #include <signal.h>
 #include <stdbool.h>

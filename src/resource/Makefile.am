@@ -42,7 +42,8 @@ libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
 
 libsidresource_la_LDFLAGS = -version-info 0:0:0
 
-libsidresource_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
+libsidresource_la_LIBADD = $(top_builddir)/src/internal/libsidinternal.la \
+			   $(top_builddir)/src/base/libsidbase.la \
 			   $(top_builddir)/src/iface/libsidiface_servicelink.la \
 			   $(top_builddir)/src/iface/libsidiface.la \
 			   $(top_builddir)/src/log/libsidlog.la \

@@ -50,6 +50,7 @@ AC_CONFIG_FILES([Makefile
 		 src/Makefile
 		 src/log/Makefile
 		 src/iface/Makefile
+		 src/internal/Makefile
 		 src/base/Makefile
 		 src/resource/Makefile
 		 src/daemon/Makefile

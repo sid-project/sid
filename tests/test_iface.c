@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include "../src/base/util.c"
 #include "../src/iface/iface.c"
 #include "base/buffer.h"
@@ -9,6 +7,7 @@
 #include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 

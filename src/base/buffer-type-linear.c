@@ -20,10 +20,10 @@
 #include "base/common.h"
 
 #include "base/buffer-type.h"
-#include "base/mem.h"
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/sendfile.h>
