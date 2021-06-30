@@ -21,7 +21,6 @@
 #include "base/comms.h"
 #include "base/util.h"
 #include "iface/iface_internal.h"
-#include "log/log.h"
 
 #include <stdlib.h>
 #include <string.h>
