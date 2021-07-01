@@ -17,13 +17,13 @@
 static const unsigned char base64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /**
- * base64_len_encode - Size necessary for base64_encode
+ * sid_binary_len_encode - Size necessary for sid_binary_encode
  * @in_len: Length of the data to be encoded
  * Returns: output length needed to store the base64 encoded data, including
  * padding and NULL bytes, or 0 if the buffer overflowed.
  */
 
-size_t base64_len_encode(size_t in_len)
+size_t sid_binary_len_encode(size_t in_len)
 {
 	size_t out_len = 1; /* NULL termination */
 
@@ -36,7 +36,7 @@ size_t base64_len_encode(size_t in_len)
 }
 
 /**
- * base64_encode - Base64 encode
+ * sid_binary_encode - Base64 encode
  * @src: Data to be encoded
  * @in_len: Length of the data to be encoded
  * @dest: pre-allocated buffer to store the encoded data
@@ -45,13 +45,13 @@ size_t base64_len_encode(size_t in_len)
  *
  * Returned buffer is nul terminated to make it easier to use as a C string.
  */
-int base64_encode(const unsigned char *src, size_t in_len, unsigned char *dest, size_t out_len)
+int sid_binary_encode(const unsigned char *src, size_t in_len, unsigned char *dest, size_t out_len)
 {
 	unsigned char *      pos;
 	const unsigned char *end, *in;
 	size_t               check_size;
 
-	check_size = base64_len_encode(in_len);
+	check_size = sid_binary_len_encode(in_len);
 	if ((in_len && !src) || !dest || check_size == 0 || check_size > out_len)
 		return -EINVAL;
 
@@ -83,7 +83,7 @@ int base64_encode(const unsigned char *src, size_t in_len, unsigned char *dest, 
 }
 
 /**
- * base64_decode - Base64 decode
+ * sid_binary_decode - Base64 decode
  * @src: Data to be decoded
  * @len: Length of the data to be decoded
  * @out_len: Pointer to output length variable
@@ -92,7 +92,7 @@ int base64_encode(const unsigned char *src, size_t in_len, unsigned char *dest, 
  *
  * Caller is responsible for freeing the returned buffer.
  */
-unsigned char *base64_decode(const unsigned char *src, size_t len, size_t *out_len)
+unsigned char *sid_binary_decode(const unsigned char *src, size_t len, size_t *out_len)
 {
 	unsigned char dtable[256], *out, *pos, block[4], tmp;
 	size_t        i, count, olen;

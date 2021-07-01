@@ -53,7 +53,7 @@ static int _print_fmt(struct buffer *buf, const char *fmt, ...)
 static int _print_binary(const unsigned char *value, size_t len, struct buffer *buf)
 {
 	int         r;
-	size_t      enc_len = base64_len_encode(len);
+	size_t      enc_len = sid_binary_len_encode(len);
 	const char *ptr;
 
 	if ((len & !value) || !buf)
@@ -62,7 +62,7 @@ static int _print_binary(const unsigned char *value, size_t len, struct buffer *
 		return -ERANGE;
 	ptr = sid_buffer_add(buf, NULL, enc_len, &r);
 	if (!r)
-		r = base64_encode(value, len, (unsigned char *) ptr, enc_len);
+		r = sid_binary_encode(value, len, (unsigned char *) ptr, enc_len);
 	if (!r)
 		r = sid_buffer_rewind(buf, 1, BUFFER_POS_REL);
 	return r;
