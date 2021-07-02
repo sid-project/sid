@@ -1,1 +1,7 @@
-SUBSYSTEM=="block", ACTION=="add|change|remove", IMPORT{program}="usid scan"
+SUBSYSTEM!="block", GOTO="sid_end"
+ACTION!="add|change|remove", GOTO="sid_end"
+
+IMPORT{db}="SID_DEV_ID"
+IMPORT{program}="usid scan"
+
+LABEL="sid_end"
