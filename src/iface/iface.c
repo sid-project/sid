@@ -126,12 +126,12 @@ static int _add_devt_env_to_buffer(struct buffer *buf)
 	dev_t              devnum;
 	int                r;
 
-	if ((r = util_env_get_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0)
+	if ((r = sid_util_env_get_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0)
 		return r;
 
 	major = val;
 
-	if ((r = util_env_get_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0)
+	if ((r = sid_util_env_get_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0)
 		return r;
 
 	minor = val;
@@ -299,7 +299,7 @@ int sid_req(struct sid_request *req, struct sid_result **res_p)
 			r = n;
 			goto out;
 		}
-		if ((n = util_fd_read_all(export_fd, &msg_size, BUFFER_SIZE_PREFIX_LEN)) != BUFFER_SIZE_PREFIX_LEN) {
+		if ((n = sid_util_fd_read_all(export_fd, &msg_size, BUFFER_SIZE_PREFIX_LEN)) != BUFFER_SIZE_PREFIX_LEN) {
 			if (n < 0)
 				r = n;
 			else

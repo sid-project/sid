@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (util_env_get_ull(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
+	if (sid_util_env_get_ull(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
 		verbose = val;
 
 	if (foreground) {
