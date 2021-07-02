@@ -31,12 +31,12 @@ extern "C" {
 /*
  * Environment-related utilities.
  */
-int util_env_get_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val);
+int sid_util_env_get_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val);
 
 /*
  * fd-related utilities
  */
-ssize_t util_fd_read_all(int fd, void *buf, size_t len);
+ssize_t sid_util_fd_read_all(int fd, void *buf, size_t len);
 
 #ifdef __cplusplus
 }
