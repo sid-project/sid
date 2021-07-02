@@ -1255,13 +1255,14 @@ out:
 
 static const void *_do_sid_ucmd_get_kv(struct module *         mod,
                                        struct sid_ucmd_ctx *   ucmd_ctx,
+                                       const char *            dom,
                                        sid_ucmd_kv_namespace_t ns,
                                        const char *            key,
                                        size_t *                value_size,
                                        sid_ucmd_kv_flags_t *   flags)
 {
 	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
-	                               .dom     = KV_KEY_DOM_USER,
+	                               .dom     = dom ?: ID_NULL,
 	                               .ns      = ns,
 	                               .ns_part = _get_ns_part(mod, ucmd_ctx, ns),
 	                               .id      = ID_NULL,
@@ -1280,7 +1281,7 @@ const void *sid_ucmd_get_kv(struct module *         mod,
 	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return NULL;
 
-	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, ns, key, value_size, flags);
+	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, value_size, flags);
 }
 
 static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, void *arg)
@@ -1455,7 +1456,7 @@ dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd
 	if (!mod || !ucmd_ctx)
 		return DEV_NOT_RDY_UNDEFINED;
 
-	if (!(p_ready = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
+	if (!(p_ready = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
 		result = DEV_NOT_RDY_UNPROCESSED;
 	else
 		result = *p_ready;
@@ -1491,7 +1492,7 @@ dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx
 	if (!mod || !ucmd_ctx)
 		return DEV_RES_UNDEFINED;
 
-	if (!(p_reserved = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
+	if (!(p_reserved = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
 		result = DEV_RES_UNPROCESSED;
 	else
 		result = *p_reserved;
@@ -1825,7 +1826,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	int                  major;
 	size_t               len;
 
-	if ((mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL)))
+	if ((mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL)))
 		goto out;
 
 	if (!(f = fopen(SYSTEM_PROC_DEVICES_PATH, "r"))) {
@@ -3180,7 +3181,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	dev_ready_t          ready;
 	dev_reserved_t       reserved;
 
-	if (!_do_sid_ucmd_get_kv(NULL, ucmd_ctx, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)) {
+	if (!_do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)) {
 		ready    = DEV_NOT_RDY_UNPROCESSED;
 		reserved = DEV_RES_UNPROCESSED;
 
@@ -3313,7 +3314,7 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
 
-	if ((next_mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, KV_NS_DEVICE, SID_UCMD_KEY_DEVICE_NEXT_MOD, NULL, NULL))) {
+	if ((next_mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, SID_UCMD_KEY_DEVICE_NEXT_MOD, NULL, NULL))) {
 		if (!(exec_arg->type_mod_res_next = module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name)))
 			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
 	} else
