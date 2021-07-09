@@ -25,7 +25,8 @@ extern "C" {
 #endif
 
 extern const sid_resource_type_t sid_resource_type_aggregate;
-extern const sid_resource_type_t sid_resource_type_kv_store;
+extern const sid_resource_type_t sid_resource_type_kv_store_ht;
+extern const sid_resource_type_t sid_resource_type_kv_store_db;
 extern const sid_resource_type_t sid_resource_type_module_registry;
 extern const sid_resource_type_t sid_resource_type_sid;
 extern const sid_resource_type_t sid_resource_type_ubridge;

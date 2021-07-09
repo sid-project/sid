@@ -1,12 +1,22 @@
+
+#include <ftw.h>
+#include <linux/limits.h>
 #include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 /* define __USE_GNU for ucred definition */
 #define __USE_GNU
 #include <sys/socket.h>
 #define UNIT_TESTING /* enable cmocka memory testing in mem.c and kv-store.c*/
 #include "../src/internal/mem.c"
+#include "../src/resource/kv-store-db.c"
+#include "../src/resource/kv-store-ht.c"
 #include "../src/resource/kv-store.c"
 #include "../src/resource/ubridge.c"
 #include "ucmd-module.h"
@@ -18,14 +28,23 @@
 #define MERGE_KEY        "merge_key"
 #define TEST_OWNER       "test_owner"
 
+#define LOCK_FILE     "/tmp/sid_test.lock"
+#define LMDB_TEST_DIR "/tmp/sid-test"
+
+static const struct sid_kv_store_resource_params lmdb_kv_store_test_params = {.backend     = KV_STORE_BACKEND_LMDB,
+                                                                              .lmdb.db_dir = LMDB_TEST_DIR};
+
 static void test_type_F(void **state)
 {
 	struct iovec           test_iov[]    = {{"test", sizeof("test")}, {"value", sizeof("value")}};
 	size_t                 size          = sizeof(test_iov) / sizeof(test_iov[0]);
 	size_t                 combined_size = sizeof("test") + sizeof("value");
 	size_t                 value_size;
-	struct kv_store_value *value =
-		_create_kv_store_value(test_iov, size, KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE, &value_size);
+	struct kv_store_value *value;
+
+	assert_ptr_not_equal(
+		value = _create_kv_store_value(test_iov, size, KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_OP_MERGE, &value_size),
+		NULL);
 	assert_ptr_not_equal(value, NULL);
 	assert_int_equal(memcmp(value->data, "test\0value", value->size), 0);
 	assert_int_equal(value->size, combined_size);
@@ -39,8 +58,11 @@ static void test_type_E(void **state)
 	struct iovec *         return_iov, test_iov[] = {{"test", sizeof("test")}, {"value", sizeof("value")}};
 	size_t                 size = sizeof(test_iov) / sizeof(test_iov[0]);
 	size_t                 value_size;
-	struct kv_store_value *value =
-		_create_kv_store_value(test_iov, size, KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_NO_OP, &value_size);
+	struct kv_store_value *value;
+
+	assert_ptr_not_equal(
+		value = _create_kv_store_value(test_iov, size, KV_STORE_VALUE_VECTOR, KV_STORE_VALUE_NO_OP, &value_size),
+		NULL);
 	assert_ptr_not_equal(value, NULL);
 	return_iov = (struct iovec *) value->data;
 
@@ -59,11 +81,13 @@ static void test_type_G(void **state)
 	struct iovec           test_iov[] = {{"test", sizeof("test")}, {"value", sizeof("value")}};
 	size_t                 size       = sizeof(test_iov) / sizeof(test_iov[0]);
 	size_t                 value_size;
-	struct kv_store_value *value = _create_kv_store_value(test_iov,
-	                                                      size,
-	                                                      KV_STORE_VALUE_REF | KV_STORE_VALUE_VECTOR,
-	                                                      KV_STORE_VALUE_NO_OP,
-	                                                      &value_size);
+	struct kv_store_value *value;
+	assert_ptr_not_equal(value = _create_kv_store_value(test_iov,
+	                                                    size,
+	                                                    KV_STORE_VALUE_REF | KV_STORE_VALUE_VECTOR,
+	                                                    KV_STORE_VALUE_NO_OP,
+	                                                    &value_size),
+	                     NULL);
 	assert_ptr_not_equal(value, NULL);
 	assert_ptr_equal(_get_ptr(value->data), test_iov);
 	assert_int_equal(value->size, size);
@@ -82,11 +106,12 @@ static void test_type_H(void **state)
 	int                    i;
 
 	memcpy(old_iov, test_iov, sizeof(old_iov));
-	value = _create_kv_store_value(test_iov,
-	                               size,
-	                               KV_STORE_VALUE_REF | KV_STORE_VALUE_VECTOR,
-	                               KV_STORE_VALUE_OP_MERGE,
-	                               &value_size);
+	assert_ptr_not_equal(value = _create_kv_store_value(test_iov,
+	                                                    size,
+	                                                    KV_STORE_VALUE_REF | KV_STORE_VALUE_VECTOR,
+	                                                    KV_STORE_VALUE_OP_MERGE,
+	                                                    &value_size),
+	                     NULL);
 	assert_ptr_not_equal(value, NULL);
 	assert_ptr_equal(_get_ptr(value->data), test_iov);
 	assert_int_equal(value->size, size);
@@ -115,13 +140,14 @@ static void test_kvstore_iterate(void **state)
 	struct kv_update_arg   update_arg;
 	size_t                 meta_size = 0;
 
-	kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
-	                                   &sid_resource_type_kv_store,
-	                                   SID_RESOURCE_RESTRICT_WALK_UP,
-	                                   "testkvstore",
-	                                   &main_kv_store_res_params,
-	                                   SID_RESOURCE_PRIO_NORMAL,
-	                                   SID_RESOURCE_NO_SERVICE_LINKS);
+	assert_ptr_not_equal(kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
+	                                                        &sid_resource_type_kv_store_ht,
+	                                                        SID_RESOURCE_RESTRICT_WALK_UP,
+	                                                        "testkvstore",
+	                                                        &main_kv_store_res_params,
+	                                                        SID_RESOURCE_PRIO_NORMAL,
+	                                                        SID_RESOURCE_NO_SERVICE_LINKS),
+	                     NULL);
 
 	KV_VALUE_PREPARE_HEADER(test_iov, seqnum, ucmd_flags, (char *) TEST_OWNER);
 	test_iov[KV_VALUE_IDX_DATA].iov_base = "test";
@@ -236,13 +262,14 @@ static void test_kvstore_merge_op(void **state)
 	kv_store_value_flags_t flags        = KV_STORE_VALUE_VECTOR;
 	sid_resource_t *       kv_store_res = NULL;
 
-	kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
-	                                   &sid_resource_type_kv_store,
-	                                   SID_RESOURCE_RESTRICT_WALK_UP,
-	                                   "testkvstore",
-	                                   &main_kv_store_res_params,
-	                                   SID_RESOURCE_PRIO_NORMAL,
-	                                   SID_RESOURCE_NO_SERVICE_LINKS);
+	assert_ptr_not_equal(kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
+	                                                        &sid_resource_type_kv_store_ht,
+	                                                        SID_RESOURCE_RESTRICT_WALK_UP,
+	                                                        "testkvstore",
+	                                                        &main_kv_store_res_params,
+	                                                        SID_RESOURCE_PRIO_NORMAL,
+	                                                        SID_RESOURCE_NO_SERVICE_LINKS),
+	                     NULL);
 
 	add_sequential_test_data(MERGE_KEY, test_iov, kv_store_res, MAX_TEST_ENTRIES, flags, KV_STORE_VALUE_OP_MERGE);
 	assert_int_equal(kv_store_num_entries(kv_store_res), 1);
@@ -268,6 +295,246 @@ static void test_kvstore_merge_op(void **state)
 	sid_resource_destroy(kv_store_res);
 }
 
+void sig_handler(int signo)
+{
+	if (signo == SIGCHLD)
+		printf("received SIGCHLD\n");
+}
+
+static void worker_1_test(struct kv_update_arg *update_arg, sid_ucmd_kv_flags_t ucmd_flags)
+{
+	sid_resource_t *kv_store_res;
+	struct iovec    test_iov[_KV_VALUE_IDX_COUNT];
+	uint64_t        seqnum = 0;
+
+	assert_ptr_not_equal(kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
+	                                                        &sid_resource_type_kv_store_db,
+	                                                        SID_RESOURCE_RESTRICT_WALK_UP,
+	                                                        "testkvstore",
+	                                                        &main_kv_store_res_params,
+	                                                        SID_RESOURCE_PRIO_NORMAL,
+	                                                        SID_RESOURCE_NO_SERVICE_LINKS),
+	                     NULL);
+
+	KV_VALUE_PREPARE_HEADER(test_iov, seqnum, ucmd_flags, (char *) TEST_OWNER);
+	test_iov[KV_VALUE_IDX_DATA].iov_base = "b";
+	test_iov[KV_VALUE_IDX_DATA].iov_len  = sizeof("b");
+
+	assert_ptr_not_equal(kv_store_set_value(kv_store_res,
+	                                        "b",
+	                                        test_iov,
+	                                        KV_VALUE_IDX_DATA + 1,
+	                                        KV_STORE_VALUE_VECTOR,
+	                                        KV_STORE_VALUE_NO_OP,
+	                                        _kv_overwrite,
+	                                        update_arg),
+	                     NULL);
+
+	KV_VALUE_PREPARE_HEADER(test_iov, seqnum, ucmd_flags, (char *) TEST_OWNER);
+	test_iov[KV_VALUE_IDX_DATA].iov_base = "c";
+	test_iov[KV_VALUE_IDX_DATA].iov_len  = sizeof("c");
+
+	assert_ptr_not_equal(kv_store_set_value(kv_store_res,
+	                                        "c",
+	                                        test_iov,
+	                                        KV_VALUE_IDX_DATA + 1,
+	                                        KV_STORE_VALUE_VECTOR,
+	                                        KV_STORE_VALUE_NO_OP,
+	                                        _kv_overwrite,
+	                                        update_arg),
+	                     NULL);
+	sid_resource_destroy(kv_store_res);
+}
+
+static void worker_2_test(struct kv_update_arg *update_arg, sid_ucmd_kv_flags_t ucmd_flags)
+{
+	sid_resource_t *kv_store_res;
+	struct iovec    test_iov[_KV_VALUE_IDX_COUNT];
+	uint64_t        seqnum = 0;
+
+	assert_ptr_not_equal(kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
+	                                                        &sid_resource_type_kv_store_db,
+	                                                        SID_RESOURCE_RESTRICT_WALK_UP,
+	                                                        "testkvstore",
+	                                                        &main_kv_store_res_params,
+	                                                        SID_RESOURCE_PRIO_NORMAL,
+	                                                        SID_RESOURCE_NO_SERVICE_LINKS),
+	                     NULL);
+
+	KV_VALUE_PREPARE_HEADER(test_iov, seqnum, ucmd_flags, (char *) TEST_OWNER);
+	test_iov[KV_VALUE_IDX_DATA].iov_base = "d";
+	test_iov[KV_VALUE_IDX_DATA].iov_len  = sizeof("d");
+
+	assert_ptr_not_equal(kv_store_set_value(kv_store_res,
+	                                        "d",
+	                                        test_iov,
+	                                        KV_VALUE_IDX_DATA + 1,
+	                                        KV_STORE_VALUE_VECTOR,
+	                                        KV_STORE_VALUE_NO_OP,
+	                                        _kv_overwrite,
+	                                        update_arg),
+	                     NULL);
+
+	sid_resource_destroy(kv_store_res);
+}
+
+static void worker_3_test(struct kv_update_arg *update_arg, sid_ucmd_kv_flags_t ucmd_flags)
+{
+	sid_resource_t *kv_store_res;
+	struct iovec    test_iov[_KV_VALUE_IDX_COUNT];
+	uint64_t        seqnum = 0;
+
+	assert_ptr_not_equal(kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
+	                                                        &sid_resource_type_kv_store_db,
+	                                                        SID_RESOURCE_RESTRICT_WALK_UP,
+	                                                        "testkvstore",
+	                                                        &main_kv_store_res_params,
+	                                                        SID_RESOURCE_PRIO_NORMAL,
+	                                                        SID_RESOURCE_NO_SERVICE_LINKS),
+	                     NULL);
+
+	assert_int_equal(kv_store_unset_value(kv_store_res, "a", _main_kv_store_unset, &update_arg), 0);
+
+	sid_resource_destroy(kv_store_res);
+}
+
+static void release_lock(FILE **fd)
+{
+	unlink(LOCK_FILE);
+	flock(fd, LOCK_UN);
+	*fd = -1;
+}
+
+static FILE take_lock(FILE **fd)
+{
+	struct stat statbuf;
+
+	while (1) {
+		*fd = open(LOCK_FILE, O_CREAT);
+		flock(*fd, LOCK_EX);
+
+		fstat(*fd, &statbuf);
+		stat(LOCK_FILE, &statbuf);
+		if (statbuf.st_ino == statbuf.st_ino)
+			break;
+
+		close(*fd);
+	}
+}
+
+/*
+ * starting db = {a}
+ * snapshot1/worker1 adds {b, c} to the vector
+ * snapshot2/worker2 adds {d} to the vector
+ * snapshot3/worker3 removes {a} from the vector
+ *
+ */
+static void test_kvstore_lmdb_backend(void **state)
+{
+	struct iovec           test_iov[_KV_VALUE_IDX_COUNT];
+	size_t                 data_size, kv_size;
+	const char *           key;
+	struct iovec *         return_iov;
+	kv_store_iter_t *      iter;
+	sid_ucmd_kv_flags_t    ucmd_flags = DEFAULT_KV_FLAGS_CORE;
+	kv_store_value_flags_t flags;
+	uint64_t               seqnum       = 0;
+	sid_resource_t *       kv_store_res = NULL;
+	struct kv_update_arg   update_arg;
+	size_t                 meta_size = 0;
+	FILE *                 lock_fd;
+
+	assert_int_equal(_remove_db_directory(LMDB_TEST_DIR), 0);
+
+	assert_int_equal(signal(SIGCHLD, sig_handler) == SIG_ERR, 0);
+
+	assert_ptr_not_equal(kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
+	                                                        &sid_resource_type_kv_store_db,
+	                                                        SID_RESOURCE_RESTRICT_WALK_UP,
+	                                                        "testkvstore",
+	                                                        &lmdb_kv_store_test_params,
+	                                                        SID_RESOURCE_PRIO_NORMAL,
+	                                                        SID_RESOURCE_NO_SERVICE_LINKS),
+	                     NULL);
+
+	KV_VALUE_PREPARE_HEADER(test_iov, seqnum, ucmd_flags, (char *) TEST_OWNER);
+	test_iov[KV_VALUE_IDX_DATA].iov_base = "a";
+	test_iov[KV_VALUE_IDX_DATA].iov_len  = sizeof("a");
+
+	update_arg = (struct kv_update_arg) {.res      = kv_store_res,
+	                                     .gen_buf  = NULL,
+	                                     .owner    = TEST_OWNER,
+	                                     .custom   = NULL,
+	                                     .ret_code = -EREMOTEIO};
+
+	/* Add the whole vector with TEST_KEY as the key */
+	assert_ptr_not_equal(kv_store_set_value(kv_store_res,
+	                                        "a",
+	                                        test_iov,
+	                                        KV_VALUE_IDX_DATA + 1,
+	                                        KV_STORE_VALUE_VECTOR,
+	                                        KV_STORE_VALUE_NO_OP,
+	                                        _kv_overwrite,
+	                                        &update_arg),
+	                     NULL);
+
+	assert_int_equal(kv_store_unset_value(kv_store_res, "a", _main_kv_store_unset, &update_arg), 0);
+
+	/*
+	 * The lock_fd is used as a cross process lock.  The lock is
+	 * used to force the order of completion of the workers
+	 */
+	for (int worker = 1; worker < 4; worker++) {
+		/*
+		 * release the lock in the parent when it is held.  It will
+		 * only be held after the first iteration of the loop
+		 */
+		release_lock(&lock_fd);
+		switch (fork()) { /* create a worker process */
+			case -1:
+				fprintf(stderr, "Failed to fork worker%d\n", worker);
+				exit(EXIT_FAILURE);
+			case 0: /* worker here */
+				take_lock(&lock_fd);
+				/* destroy the parent kv-store resource */
+				sid_resource_destroy(kv_store_res);
+				switch (worker) {
+					case 1:
+						worker_1_test(&update_arg, ucmd_flags);
+						break;
+					case 2:
+						worker_2_test(&update_arg, ucmd_flags);
+						break;
+					case 3:
+						worker_3_test(&update_arg, ucmd_flags);
+						break;
+				}
+				/* the child worker has completed - release the lock to allow the parent to continue */
+				release_lock(&lock_fd);
+				exit(0);
+				break;
+			default:
+				break;
+		}
+		/* In the parent process take the lock - this will wait until the child is complete */
+		take_lock(&lock_fd);
+	}
+
+	assert_ptr_not_equal(iter = kv_store_iter_create(kv_store_res), NULL);
+
+	/* validate the contents of the kv store */
+	while ((return_iov = kv_store_iter_next(iter, &data_size, &key, &flags))) {
+		fprintf(stderr, "value = %s\n", return_iov[KV_VALUE_IDX_DATA].iov_base);
+	}
+
+	kv_store_iter_destroy(iter);
+	kv_store_get_size(kv_store_res, &meta_size, &kv_size);
+
+	// assert_int_equal(kv_store_num_entries(kv_store_res), 3);
+
+	sid_resource_destroy(kv_store_res);
+}
+
 int main(void)
 {
 	cmocka_set_message_output(CM_OUTPUT_STDOUT);
@@ -278,6 +545,7 @@ int main(void)
 		cmocka_unit_test(test_type_H),
 		cmocka_unit_test(test_kvstore_iterate),
 		cmocka_unit_test(test_kvstore_merge_op),
+		cmocka_unit_test(test_kvstore_lmdb_backend),
 	};
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -21,7 +21,7 @@ test_kv_store_SOURCES = test_kv_store.c
 test_kv_store_CFLAGS = -I$(top_builddir)/src/include/resource
 test_kv_store_LDADD = \
 	$(top_builddir)/src/base/libsidbase.la \
-	$(top_builddir)/src/resource/libsidresource.la -lcmocka
+	$(top_builddir)/src/resource/libsidresource.la -lcmocka -llmdb
 test_notify_SOURCES = test_notify.c
 test_notify_LDFLAGS = -Wl,--wrap=sd_notify -Wl,--wrap=sid_buffer_get_data
 test_notify_LDADD = \

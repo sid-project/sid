@@ -24,6 +24,8 @@ libsidresource_la_SOURCES = resource.c \
 			    ubridge.c \
 			    module-registry.c \
 			    kv-store.c \
+                kv-store-ht.c \
+                kv-store-db.c \
 			    worker-control.c \
 			    sid.c
 
@@ -34,6 +36,8 @@ resource_HEADERS = $(top_builddir)/src/include/resource/resource.h \
 		   $(top_builddir)/src/include/resource/module.h \
 		   $(top_builddir)/src/include/resource/module-registry.h \
 		   $(top_builddir)/src/include/resource/kv-store.h \
+           $(top_builddir)/src/include/resource/kv-store-ht.h \
+           $(top_builddir)/src/include/resource/kv-store-db.h \
 		   $(top_builddir)/src/include/resource/ucmd-module.h \
 		   $(top_builddir)/src/include/resource/worker-control.h
 

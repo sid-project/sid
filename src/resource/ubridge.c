@@ -614,7 +614,7 @@ static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 		if (!strncmp(key, "U:", 2))
 			continue;
 		log_print(ID(kv_store_res), "  --- RECORD %u", i);
-		log_print(ID(kv_store_res), "      key: %s", kv_store_iter_current_key(iter));
+		log_print(ID(kv_store_res), "      key: %s", key);
 		log_print(ID(kv_store_res),
 		          "      seqnum: %" PRIu64 "  flags: %s%s%s%s  owner: %s",
 		          KV_VALUE_SEQNUM(iov),
@@ -824,7 +824,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 	struct kv_value *      kv_value;
 	kv_store_iter_t *      iter;
 	const char *           key;
-	void *                 value;
+	struct kv_store_value *value;
 	bool                   vector;
 	size_t                 size, iov_size, key_size, data_offset;
 	kv_store_value_flags_t flags;
@@ -873,7 +873,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 		vector = flags & KV_STORE_VALUE_VECTOR;
 
 		if (vector) {
-			iov      = value;
+			iov      = (struct iovec *) value;
 			iov_size = size;
 			kv_value = NULL;
 
@@ -886,7 +886,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 		} else {
 			iov      = NULL;
 			iov_size = 0;
-			kv_value = value;
+			kv_value = (struct kv_value *) value;
 
 			if (format == NO_FORMAT) {
 				if (!(kv_value->flags & KV_PERSISTENT))
@@ -3774,7 +3774,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	if (!(ucmd_ctx->ucmd_mod_ctx.kv_store_res =
-	              sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS, &sid_resource_type_kv_store, MAIN_KV_STORE_NAME))) {
+	              sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS, &sid_resource_type_kv_store_ht, MAIN_KV_STORE_NAME))) {
 		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find key-value store.", __func__);
 		goto fail;
 	}
@@ -3924,7 +3924,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 
 	if (!(kv_store_res = sid_resource_search(internal_ubridge_res,
 	                                         SID_RESOURCE_SEARCH_IMM_DESC,
-	                                         &sid_resource_type_kv_store,
+	                                         &sid_resource_type_kv_store_ht,
 	                                         MAIN_KV_STORE_NAME)))
 		return -ENOMEDIUM;
 
@@ -4131,7 +4131,7 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 
 	if (!(kv_store_res = sid_resource_search(ubridge_internal_res,
 	                                         SID_RESOURCE_SEARCH_IMM_DESC,
-	                                         &sid_resource_type_kv_store,
+	                                         &sid_resource_type_kv_store_ht,
 	                                         MAIN_KV_STORE_NAME)))
 		return -ENOMEDIUM;
 
@@ -4404,6 +4404,9 @@ static struct module_symbol_params type_symbol_params[] = {{
 static const struct sid_kv_store_resource_params main_kv_store_res_params = {.backend           = KV_STORE_BACKEND_HASH,
                                                                              .hash.initial_size = 32};
 
+// static const struct sid_kv_store_resource_params lmdb_kv_store_res_params = {.backend     = KV_STORE_BACKEND_LMDB,
+//                                                                             .lmdb.db_dir = SID_LMDB_DIR};
+
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	struct ubridge *   ubridge = NULL;
@@ -4429,7 +4432,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	if (!(kv_store_res = sid_resource_create(internal_res,
-	                                         &sid_resource_type_kv_store,
+	                                         &sid_resource_type_kv_store_ht,
 	                                         SID_RESOURCE_RESTRICT_WALK_UP,
 	                                         MAIN_KV_STORE_NAME,
 	                                         &main_kv_store_res_params,

@@ -25,4 +25,5 @@ sidctl_LDADD = $(top_builddir)/src/internal/libsidinternal.la \
 	       $(top_builddir)/src/base/libsidbase.la \
 	       $(top_builddir)/src/iface/libsidiface.la \
 	       $(top_builddir)/src/log/libsidlog.la \
-	       $(top_builddir)/src/resource/libsidresource.la
+	       $(top_builddir)/src/resource/libsidresource.la \
+	       -llmdb
