@@ -96,6 +96,7 @@
 #define KV_KEY_DEV_RESERVED                         KV_PREFIX_KEY_SYS_C "RES"
 #define KV_KEY_DEV_MOD                              KV_PREFIX_KEY_SYS_C "MOD"
 
+#define KV_KEY_DOM_ALIAS                            "ALS"
 #define KV_KEY_DOM_USER                             "USR"
 
 #define KV_KEY_GEN_GROUP_MEMBERS                    KV_PREFIX_KEY_SYS_C "GMB"
@@ -2337,6 +2338,83 @@ dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx
 		result = *p_reserved;
 
 	return result;
+}
+
+int _handle_current_dev_for_alias(struct module       *mod,
+                                  struct sid_ucmd_ctx *ucmd_ctx,
+                                  const char          *dom,
+                                  const char          *alias_cat,
+                                  const char          *alias_id,
+                                  kv_op_t              op)
+{
+	char        *key            = NULL;
+	const char  *rel_key_prefix = NULL;
+	struct iovec vvalue[VVALUE_SINGLE_CNT];
+	int          r                  = -1;
+
+	// TODO: this is the same as _handler_current_dev_for_group, just different keys - share the code
+
+	struct kv_rel_spec rel_spec     = {.delta        = &((struct kv_delta) {.op = op, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
+
+	                                   .abs_delta    = &((struct kv_delta) {0}),
+
+	                                   .cur_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                           .dom     = dom ?: ID_NULL,
+	                                                                           .ns      = KV_NS_MODULE,
+	                                                                           .ns_part = _get_ns_part(mod, ucmd_ctx, KV_NS_MODULE),
+	                                                                           .id      = alias_cat,
+	                                                                           .id_part = alias_id,
+	                                                                           .core    = KV_KEY_GEN_GROUP_MEMBERS}),
+
+	                                   .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                                           .dom     = ID_NULL,
+	                                                                           .ns      = KV_NS_DEVICE,
+	                                                                           .ns_part = _get_ns_part(mod, ucmd_ctx, KV_NS_DEVICE),
+	                                                                           .id      = ID_NULL,
+	                                                                           .id_part = ID_NULL,
+	                                                                           .core    = KV_KEY_GEN_GROUP_IN})};
+
+	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
+	                                   .owner   = OWNER_CORE,
+	                                   .gen_buf = ucmd_ctx->common->gen_buf,
+	                                   .custom  = &rel_spec};
+
+	// TODO: check return values / maybe also pass flags / use proper owner
+
+	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec)))
+		goto out;
+
+	if (!(rel_key_prefix = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
+		goto out;
+
+	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_no_sync, core_owner);
+
+	vvalue[VVALUE_IDX_DATA] = (struct iovec) {(void *) rel_key_prefix, strlen(rel_key_prefix) + 1};
+
+	if (_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg, true) < 0)
+		goto out;
+
+	r = 0;
+out:
+	_destroy_key(NULL, key);
+	_destroy_key(NULL, rel_key_prefix);
+	return r;
+}
+
+int sid_ucmd_dev_add_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
+{
+	if (!mod || !ucmd_ctx || !alias_cat || !*alias_cat || !alias_id || !*alias_id)
+		return -EINVAL;
+
+	return _handle_current_dev_for_alias(mod, ucmd_ctx, KV_KEY_DOM_ALIAS, alias_cat, alias_id, KV_OP_PLUS);
+}
+
+int sid_ucmd_dev_remove_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
+{
+	if (!mod || !ucmd_ctx || !alias_cat || !*alias_cat || !alias_id || !*alias_id)
+		return -EINVAL;
+
+	return _handle_current_dev_for_alias(mod, ucmd_ctx, KV_KEY_DOM_ALIAS, alias_cat, alias_id, KV_OP_MINUS);
 }
 
 static int _kv_cb_write_new_only(struct kv_store_update_spec *spec)
