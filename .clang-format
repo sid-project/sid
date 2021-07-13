@@ -78,7 +78,9 @@ ForEachMacros:
   - list_iterate_items_safe_back
 IncludeBlocks:   Regroup
 IncludeCategories:
-  - Regex:           '^"(base|internal)/common.h'
+  - Regex:           '^"internal/common.h'
+    Priority:        0
+  - Regex:           '^"config.h'
     Priority:        0
   - Regex:           '^"'
     Priority:        1
