@@ -17,6 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
+
 #include "base/buffer.h"
 #include "base/comms.h"
 #include "base/util.h"
@@ -31,6 +33,9 @@
 
 #define KEY_ENV_MAJOR "MAJOR"
 #define KEY_ENV_MINOR "MINOR"
+
+#define SYSTEM_MAX_MAJOR ((1U << 20) - 1)
+#define SYSTEM_MAX_MINOR ((1U << 12) - 1)
 
 struct sid_result {
 	struct buffer *buf;

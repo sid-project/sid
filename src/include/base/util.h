@@ -20,8 +20,6 @@
 #ifndef _SID_BASE_UTIL_H
 #define _SID_BASE_UTIL_H
 
-#include "base/common.h"
-
 #include <sys/types.h>
 
 #ifdef __cplusplus
