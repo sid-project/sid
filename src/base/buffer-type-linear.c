@@ -29,7 +29,7 @@
 #include <sys/sendfile.h>
 #include <unistd.h>
 
-static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
+static int _buffer_linear_realloc(struct sid_buffer *buf, size_t needed, int force)
 {
 	char * p;
 	size_t align;
@@ -51,12 +51,12 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 		return -EOVERFLOW;
 
 	switch (buf->stat.spec.backend) {
-		case BUFFER_BACKEND_MALLOC:
+		case SID_BUFFER_BACKEND_MALLOC:
 			if (!(p = realloc(buf->mem, needed)))
 				return -errno;
 			break;
 
-		case BUFFER_BACKEND_MEMFD:
+		case SID_BUFFER_BACKEND_MEMFD:
 			if (buf->fd == -1 && (buf->fd = memfd_create("buffer", MFD_CLOEXEC | MFD_ALLOW_SEALING)) < 0)
 				return -errno;
 
@@ -90,13 +90,13 @@ static int _buffer_linear_realloc(struct buffer *buf, size_t needed, int force)
 	return 0;
 }
 
-static int _buffer_linear_create(struct buffer *buf)
+static int _buffer_linear_create(struct sid_buffer *buf)
 {
 	size_t needed = buf->stat.init.size;
 	int    r;
 
-	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
-		needed += BUFFER_SIZE_PREFIX_LEN;
+	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+		needed += SID_BUFFER_SIZE_PREFIX_LEN;
 
 	if ((r = _buffer_linear_realloc(buf, needed, 1)) < 0) {
 		if (buf->fd > -1)
@@ -106,17 +106,17 @@ static int _buffer_linear_create(struct buffer *buf)
 	return r;
 }
 
-static int _buffer_linear_destroy(struct buffer *buf)
+static int _buffer_linear_destroy(struct sid_buffer *buf)
 {
 	int r;
 
 	switch (buf->stat.spec.backend) {
-		case BUFFER_BACKEND_MALLOC:
+		case SID_BUFFER_BACKEND_MALLOC:
 			free(buf->mem);
 			r = 0;
 			break;
 
-		case BUFFER_BACKEND_MEMFD:
+		case SID_BUFFER_BACKEND_MEMFD:
 			(void) close(buf->fd);
 			r = munmap(buf->mem, buf->stat.usage.allocated);
 			break;
@@ -128,27 +128,27 @@ static int _buffer_linear_destroy(struct buffer *buf)
 	return r;
 }
 
-static int _buffer_linear_reset(struct buffer *buf)
+static int _buffer_linear_reset(struct sid_buffer *buf)
 {
 	size_t needed;
 
 	buf->stat.usage.used = 0;
 	needed               = buf->stat.init.size;
 
-	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
-		needed += BUFFER_SIZE_PREFIX_LEN;
+	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+		needed += SID_BUFFER_SIZE_PREFIX_LEN;
 
 	return _buffer_linear_realloc(buf, needed, 1);
 }
 
-static const void *_buffer_linear_add(struct buffer *buf, void *data, size_t len, int *ret_code)
+static const void *_buffer_linear_add(struct sid_buffer *buf, void *data, size_t len, int *ret_code)
 {
 	size_t used  = buf->stat.usage.used;
 	void * start = NULL;
 	int    r;
 
-	if (!used && buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
-		used = BUFFER_SIZE_PREFIX_LEN;
+	if (!used && buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+		used = SID_BUFFER_SIZE_PREFIX_LEN;
 
 	if ((r = _buffer_linear_realloc(buf, used + len, 0)) < 0)
 		goto out;
@@ -165,7 +165,7 @@ out:
 	return start;
 }
 
-static const void *_buffer_linear_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap)
+static const void *_buffer_linear_fmt_add(struct sid_buffer *buf, int *ret_code, const char *fmt, va_list ap)
 {
 	va_list     ap_copy;
 	size_t      used = buf->stat.usage.used;
@@ -176,8 +176,8 @@ static const void *_buffer_linear_fmt_add(struct buffer *buf, int *ret_code, con
 
 	va_copy(ap_copy, ap);
 
-	if (!used && buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
-		used = BUFFER_SIZE_PREFIX_LEN;
+	if (!used && buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+		used = SID_BUFFER_SIZE_PREFIX_LEN;
 
 	available = buf->stat.usage.allocated - used;
 	printed   = vsnprintf(buf->mem + used, available, fmt, ap_copy);
@@ -205,9 +205,9 @@ out:
 	return start;
 }
 
-static int _buffer_linear_rewind(struct buffer *buf, size_t pos)
+static int _buffer_linear_rewind(struct sid_buffer *buf, size_t pos)
 {
-	size_t min_pos = (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX) ? BUFFER_SIZE_PREFIX_LEN : 0;
+	size_t min_pos = (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) ? SID_BUFFER_SIZE_PREFIX_LEN : 0;
 
 	if (!buf->stat.usage.used && pos == min_pos)
 		return 0;
@@ -219,7 +219,7 @@ static int _buffer_linear_rewind(struct buffer *buf, size_t pos)
 	return 0;
 }
 
-static int _buffer_linear_rewind_mem(struct buffer *buf, const void *mem)
+static int _buffer_linear_rewind_mem(struct sid_buffer *buf, const void *mem)
 {
 	if (mem < buf->mem)
 		return -EINVAL;
@@ -227,18 +227,18 @@ static int _buffer_linear_rewind_mem(struct buffer *buf, const void *mem)
 	return _buffer_linear_rewind(buf, mem - buf->mem);
 }
 
-#define EXPECTED(buf) (buf->stat.usage.used >= BUFFER_SIZE_PREFIX_LEN ? *((BUFFER_SIZE_PREFIX_TYPE *) buf->mem) : 0)
+#define EXPECTED(buf) (buf->stat.usage.used >= SID_BUFFER_SIZE_PREFIX_LEN ? *((SID_BUFFER_SIZE_PREFIX_TYPE *) buf->mem) : 0)
 
-static bool _buffer_linear_is_complete(struct buffer *buf, int *ret_code)
+static bool _buffer_linear_is_complete(struct sid_buffer *buf, int *ret_code)
 {
 	bool result;
 	int  r = 0;
 
 	switch (buf->stat.spec.mode) {
-		case BUFFER_MODE_PLAIN:
+		case SID_BUFFER_MODE_PLAIN:
 			result = true;
 			break;
-		case BUFFER_MODE_SIZE_PREFIX:
+		case SID_BUFFER_MODE_SIZE_PREFIX:
 			result = buf->stat.usage.used && buf->stat.usage.used == EXPECTED(buf);
 			break;
 		default:
@@ -252,20 +252,20 @@ static bool _buffer_linear_is_complete(struct buffer *buf, int *ret_code)
 	return result;
 }
 
-static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t *data_size)
+static int _buffer_linear_get_data(struct sid_buffer *buf, const void **data, size_t *data_size)
 {
 	switch (buf->stat.spec.mode) {
-		case BUFFER_MODE_PLAIN:
+		case SID_BUFFER_MODE_PLAIN:
 			if (data)
 				*data = buf->mem;
 			if (data_size)
 				*data_size = buf->stat.usage.used;
 			break;
-		case BUFFER_MODE_SIZE_PREFIX:
+		case SID_BUFFER_MODE_SIZE_PREFIX:
 			if (data)
-				*data = buf->mem + BUFFER_SIZE_PREFIX_LEN;
+				*data = buf->mem + SID_BUFFER_SIZE_PREFIX_LEN;
 			if (data_size)
-				*data_size = (buf->stat.usage.used) ? buf->stat.usage.used - BUFFER_SIZE_PREFIX_LEN : 0;
+				*data_size = (buf->stat.usage.used) ? buf->stat.usage.used - SID_BUFFER_SIZE_PREFIX_LEN : 0;
 			break;
 		default:
 			return -ENOTSUP;
@@ -274,18 +274,18 @@ static int _buffer_linear_get_data(struct buffer *buf, const void **data, size_t
 	return 0;
 }
 
-static void _update_size_prefix(struct buffer *buf, size_t pos)
+static void _update_size_prefix(struct sid_buffer *buf, size_t pos)
 {
-	*((BUFFER_SIZE_PREFIX_TYPE *) buf->mem) = (BUFFER_SIZE_PREFIX_TYPE) buf->stat.usage.used;
+	*((SID_BUFFER_SIZE_PREFIX_TYPE *) buf->mem) = (SID_BUFFER_SIZE_PREFIX_TYPE) buf->stat.usage.used;
 }
 
-static int _buffer_linear_get_fd(struct buffer *buf)
+static int _buffer_linear_get_fd(struct sid_buffer *buf)
 {
 	switch (buf->stat.spec.mode) {
-		case BUFFER_MODE_PLAIN:
+		case SID_BUFFER_MODE_PLAIN:
 			/* nothing to do here, just return the fd */
 			break;
-		case BUFFER_MODE_SIZE_PREFIX:
+		case SID_BUFFER_MODE_SIZE_PREFIX:
 			_update_size_prefix(buf, 0);
 			break;
 		default:
@@ -295,7 +295,7 @@ static int _buffer_linear_get_fd(struct buffer *buf)
 	return buf->fd;
 }
 
-static ssize_t _buffer_linear_read_plain(struct buffer *buf, int fd)
+static ssize_t _buffer_linear_read_plain(struct sid_buffer *buf, int fd)
 {
 	ssize_t n;
 	int     r;
@@ -314,7 +314,7 @@ static ssize_t _buffer_linear_read_plain(struct buffer *buf, int fd)
 	return n;
 }
 
-static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
+static ssize_t _buffer_linear_read_with_size_prefix(struct sid_buffer *buf, int fd)
 {
 	ssize_t n;
 	size_t  previous_used;
@@ -332,10 +332,10 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 		previous_used = buf->stat.usage.used;
 		buf->stat.usage.used += n;
 		if ((expected = EXPECTED(buf))) {
-			/* Message must start with a prefix that is BUFFER_SIZE_PREFIX_LEN bytes! */
-			if (expected < BUFFER_SIZE_PREFIX_LEN)
+			/* Message must start with a prefix that is SID_BUFFER_SIZE_PREFIX_LEN bytes! */
+			if (expected < SID_BUFFER_SIZE_PREFIX_LEN)
 				return -EBADE;
-			if (previous_used < BUFFER_SIZE_PREFIX_LEN) {
+			if (previous_used < SID_BUFFER_SIZE_PREFIX_LEN) {
 				if ((r = _buffer_linear_realloc(buf, expected, 0)) < 0)
 					return r;
 			}
@@ -351,19 +351,19 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct buffer *buf, int fd)
 	return n;
 }
 
-static ssize_t _buffer_linear_read(struct buffer *buf, int fd)
+static ssize_t _buffer_linear_read(struct sid_buffer *buf, int fd)
 {
 	switch (buf->stat.spec.mode) {
-		case BUFFER_MODE_PLAIN:
+		case SID_BUFFER_MODE_PLAIN:
 			return _buffer_linear_read_plain(buf, fd);
-		case BUFFER_MODE_SIZE_PREFIX:
+		case SID_BUFFER_MODE_SIZE_PREFIX:
 			return _buffer_linear_read_with_size_prefix(buf, fd);
 		default:
 			return -ENOTSUP;
 	}
 }
 
-static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
+static ssize_t _buffer_linear_write(struct sid_buffer *buf, int fd, size_t pos)
 {
 	ssize_t n;
 	off_t   offset;
@@ -374,15 +374,15 @@ static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 	if (pos > buf->stat.usage.used)
 		return -ERANGE;
 
-	if (buf->stat.spec.mode == BUFFER_MODE_SIZE_PREFIX)
+	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
 		_update_size_prefix(buf, pos);
 
 	switch (buf->stat.spec.backend) {
-		case BUFFER_BACKEND_MALLOC:
+		case SID_BUFFER_BACKEND_MALLOC:
 			n = write(fd, buf->mem + pos, buf->stat.usage.used - pos);
 			break;
 
-		case BUFFER_BACKEND_MEMFD:
+		case SID_BUFFER_BACKEND_MEMFD:
 			offset = pos;
 			n      = sendfile(fd, buf->fd, &offset, buf->stat.usage.used - pos);
 			break;
@@ -397,15 +397,15 @@ static ssize_t _buffer_linear_write(struct buffer *buf, int fd, size_t pos)
 	return n;
 }
 
-const struct buffer_type sid_buffer_type_linear = {.create      = _buffer_linear_create,
-                                                   .destroy     = _buffer_linear_destroy,
-                                                   .reset       = _buffer_linear_reset,
-                                                   .add         = _buffer_linear_add,
-                                                   .fmt_add     = _buffer_linear_fmt_add,
-                                                   .rewind      = _buffer_linear_rewind,
-                                                   .rewind_mem  = _buffer_linear_rewind_mem,
-                                                   .is_complete = _buffer_linear_is_complete,
-                                                   .get_data    = _buffer_linear_get_data,
-                                                   .get_fd      = _buffer_linear_get_fd,
-                                                   .read        = _buffer_linear_read,
-                                                   .write       = _buffer_linear_write};
+const struct sid_buffer_type sid_buffer_type_linear = {.create      = _buffer_linear_create,
+                                                       .destroy     = _buffer_linear_destroy,
+                                                       .reset       = _buffer_linear_reset,
+                                                       .add         = _buffer_linear_add,
+                                                       .fmt_add     = _buffer_linear_fmt_add,
+                                                       .rewind      = _buffer_linear_rewind,
+                                                       .rewind_mem  = _buffer_linear_rewind_mem,
+                                                       .is_complete = _buffer_linear_is_complete,
+                                                       .get_data    = _buffer_linear_get_data,
+                                                       .get_fd      = _buffer_linear_get_fd,
+                                                       .read        = _buffer_linear_read,
+                                                       .write       = _buffer_linear_write};

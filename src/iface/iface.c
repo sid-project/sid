@@ -38,9 +38,9 @@
 #define SYSTEM_MAX_MINOR ((1U << 12) - 1)
 
 struct sid_result {
-	struct buffer *buf;
-	const char *   shm;
-	size_t         shm_len;
+	struct sid_buffer *buf;
+	const char *       shm;
+	size_t             shm_len;
 };
 
 static inline bool _needs_mem_fd(sid_cmd_t cmd)
@@ -99,8 +99,8 @@ const char *sid_result_data(struct sid_result *res, size_t *size_p)
 		return NULL;
 	else if (res->shm != MAP_FAILED) {
 		if (size_p)
-			*size_p = res->shm_len - BUFFER_SIZE_PREFIX_LEN;
-		return res->shm + BUFFER_SIZE_PREFIX_LEN;
+			*size_p = res->shm_len - SID_BUFFER_SIZE_PREFIX_LEN;
+		return res->shm + SID_BUFFER_SIZE_PREFIX_LEN;
 	} else if (size > SID_MSG_HEADER_SIZE) {
 		if (size_p)
 			*size_p = size - SID_MSG_HEADER_SIZE;
@@ -124,7 +124,7 @@ sid_cmd_t sid_cmd_name_to_type(const char *cmd_name)
 	return SID_CMD_UNKNOWN;
 }
 
-static int _add_devt_env_to_buffer(struct buffer *buf)
+static int _add_devt_env_to_buffer(struct sid_buffer *buf)
 {
 	unsigned long long val;
 	unsigned           major, minor;
@@ -147,7 +147,7 @@ static int _add_devt_env_to_buffer(struct buffer *buf)
 	return r;
 }
 
-static int _add_checkpoint_env_to_buf(struct buffer *buf, struct sid_checkpoint_data *data)
+static int _add_checkpoint_env_to_buf(struct sid_buffer *buf, struct sid_checkpoint_data *data)
 {
 	const char *key, *val;
 	int         i, r;
@@ -177,7 +177,7 @@ out:
 	return r;
 }
 
-static int _add_scan_env_to_buf(struct buffer *buf)
+static int _add_scan_env_to_buf(struct sid_buffer *buf)
 {
 	extern char **environ;
 	char **       kv;
@@ -196,7 +196,7 @@ out:
 int sid_req(struct sid_request *req, struct sid_result **res_p)
 {
 	int                socket_fd = -1;
-	struct buffer *    buf       = NULL;
+	struct sid_buffer *buf       = NULL;
 	ssize_t            n;
 	int                r         = -1;
 	struct sid_result *res       = NULL;
@@ -216,10 +216,10 @@ int sid_req(struct sid_request *req, struct sid_result **res_p)
 	res->shm     = MAP_FAILED;
 	res->shm_len = 0;
 
-	if (!(buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                                      .type    = BUFFER_TYPE_LINEAR,
-	                                                      .mode    = BUFFER_MODE_SIZE_PREFIX}),
-	                              &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                          .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                          .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
+	                              &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
 	                              &r)))
 		goto out;
 	res->buf = buf;
@@ -292,8 +292,8 @@ int sid_req(struct sid_request *req, struct sid_result **res_p)
 		goto out;
 	}
 	if (_needs_mem_fd(req->cmd)) {
-		unsigned char           byte;
-		BUFFER_SIZE_PREFIX_TYPE msg_size;
+		unsigned char               byte;
+		SID_BUFFER_SIZE_PREFIX_TYPE msg_size;
 
 		for (;;) {
 			n = sid_comms_unix_recv(socket_fd, &byte, sizeof(byte), &export_fd);
@@ -304,18 +304,18 @@ int sid_req(struct sid_request *req, struct sid_result **res_p)
 			r = n;
 			goto out;
 		}
-		if ((n = sid_util_fd_read_all(export_fd, &msg_size, BUFFER_SIZE_PREFIX_LEN)) != BUFFER_SIZE_PREFIX_LEN) {
+		if ((n = sid_util_fd_read_all(export_fd, &msg_size, SID_BUFFER_SIZE_PREFIX_LEN)) != SID_BUFFER_SIZE_PREFIX_LEN) {
 			if (n < 0)
 				r = n;
 			else
 				r = -ENODATA;
 			goto out;
 		}
-		if (msg_size < BUFFER_SIZE_PREFIX_LEN) {
+		if (msg_size < SID_BUFFER_SIZE_PREFIX_LEN) {
 			r = -EBADMSG;
 			goto out;
 		}
-		if (msg_size > BUFFER_SIZE_PREFIX_LEN) {
+		if (msg_size > SID_BUFFER_SIZE_PREFIX_LEN) {
 			if ((res->shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, export_fd, 0)) == MAP_FAILED) {
 				r = -errno;
 				goto out;

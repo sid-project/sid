@@ -169,24 +169,24 @@ int _do_service_link_notify(struct service_link *       sl,
                             const char *                fmt,
                             va_list                     ap)
 {
-	struct buffer *buf = NULL, *fmt_buf = NULL;
-	const char *   arg_str, *arg_value;
-	size_t         size;
-	int            unset = 0;
-	int            iter_r, r = 0;
+	struct sid_buffer *buf = NULL, *fmt_buf = NULL;
+	const char *       arg_str, *arg_value;
+	size_t             size;
+	int                unset = 0;
+	int                iter_r, r = 0;
 
-	if (!(buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                                      .type    = BUFFER_TYPE_LINEAR,
-	                                                      .mode    = BUFFER_MODE_PLAIN}),
-	                              &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                          .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                          .mode    = SID_BUFFER_MODE_PLAIN}),
+	                              &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
 	                              &r)))
 		goto out;
 
 	if (fmt && *fmt) {
-		if (!(fmt_buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-		                                                          .type    = BUFFER_TYPE_LINEAR,
-		                                                          .mode    = BUFFER_MODE_PLAIN}),
-		                                  &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+		if (!(fmt_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+		                                                              .type    = SID_BUFFER_TYPE_LINEAR,
+		                                                              .mode    = SID_BUFFER_MODE_PLAIN}),
+		                                  &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
 		                                  &r)))
 			goto out;
 
@@ -203,7 +203,7 @@ int _do_service_link_notify(struct service_link *       sl,
 			if (!sid_buffer_fmt_add(buf, &r, SERVICE_KEY_STATUS EQ "%.*s\n", size, arg_value))
 				goto out;
 
-			if ((r = sid_buffer_rewind(buf, 1, BUFFER_POS_REL)) < 0)
+			if ((r = sid_buffer_rewind(buf, 1, SID_BUFFER_POS_REL)) < 0)
 				goto out;
 		}
 	}
@@ -213,7 +213,7 @@ int _do_service_link_notify(struct service_link *       sl,
 			if (!sid_buffer_fmt_add(buf, &r, SERVICE_KEY_ERRNO EQ "%.*s\n", size, arg_value))
 				goto out;
 
-			if ((r = sid_buffer_rewind(buf, 1, BUFFER_POS_REL)) < 0)
+			if ((r = sid_buffer_rewind(buf, 1, SID_BUFFER_POS_REL)) < 0)
 				goto out;
 		}
 	}

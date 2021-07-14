@@ -24,28 +24,28 @@
 
 #include <sys/types.h>
 
-struct buffer {
-	struct buffer_stat stat;
-	void *             mem;
-	int                fd;
+struct sid_buffer {
+	struct sid_buffer_stat stat;
+	void *                 mem;
+	int                    fd;
 };
 
-struct buffer_type {
-	int (*create)(struct buffer *buf);
-	int (*destroy)(struct buffer *buf);
-	int (*reset)(struct buffer *buf);
-	const void *(*add)(struct buffer *buf, void *data, size_t len, int *ret_code);
-	const void *(*fmt_add)(struct buffer *buf, int *ret_code, const char *fmt, va_list ap);
-	int (*rewind)(struct buffer *buf, size_t pos);
-	int (*rewind_mem)(struct buffer *buf, const void *mem);
-	bool (*is_complete)(struct buffer *buf, int *ret_code);
-	int (*get_data)(struct buffer *buf, const void **data, size_t *data_size);
-	int (*get_fd)(struct buffer *buf);
-	ssize_t (*read)(struct buffer *buf, int fd);
-	ssize_t (*write)(struct buffer *buf, int fd, size_t pos);
+struct sid_buffer_type {
+	int (*create)(struct sid_buffer *buf);
+	int (*destroy)(struct sid_buffer *buf);
+	int (*reset)(struct sid_buffer *buf);
+	const void *(*add)(struct sid_buffer *buf, void *data, size_t len, int *ret_code);
+	const void *(*fmt_add)(struct sid_buffer *buf, int *ret_code, const char *fmt, va_list ap);
+	int (*rewind)(struct sid_buffer *buf, size_t pos);
+	int (*rewind_mem)(struct sid_buffer *buf, const void *mem);
+	bool (*is_complete)(struct sid_buffer *buf, int *ret_code);
+	int (*get_data)(struct sid_buffer *buf, const void **data, size_t *data_size);
+	int (*get_fd)(struct sid_buffer *buf);
+	ssize_t (*read)(struct sid_buffer *buf, int fd);
+	ssize_t (*write)(struct sid_buffer *buf, int fd, size_t pos);
 };
 
-extern const struct buffer_type sid_buffer_type_linear;
-extern const struct buffer_type sid_buffer_type_vector;
+extern const struct sid_buffer_type sid_buffer_type_linear;
+extern const struct sid_buffer_type sid_buffer_type_vector;
 
 #endif

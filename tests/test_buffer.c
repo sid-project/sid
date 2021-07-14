@@ -16,14 +16,15 @@
 
 int test_fmt_add(int buf_size)
 {
-	int            r   = 0;
-	struct buffer *buf = NULL;
-	char *         data;
-	size_t         data_size;
-	buf = sid_buffer_create(
-		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
-		&((struct buffer_init) {.size = buf_size, .alloc_step = 1, .limit = 0}),
-		NULL);
+	int                r   = 0;
+	struct sid_buffer *buf = NULL;
+	char *             data;
+	size_t             data_size;
+	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                    .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                    .mode    = SID_BUFFER_MODE_PLAIN}),
+	                        &((struct sid_buffer_init) {.size = buf_size, .alloc_step = 1, .limit = 0}),
+	                        NULL);
 	assert_non_null(buf);
 	assert_non_null(sid_buffer_fmt_add(buf, NULL, TEST_STR));
 	assert_int_equal(sid_buffer_get_data(buf, (const void **) &data, &data_size), 0);
@@ -42,7 +43,7 @@ static void test_no_realloc_fmt_add(void **state)
 	test_fmt_add(8);
 }
 
-static const void *do_rewind_test(struct buffer *buf)
+static const void *do_rewind_test(struct sid_buffer *buf)
 {
 	const void *rewind_mem;
 
@@ -57,12 +58,13 @@ static const void *do_rewind_test(struct buffer *buf)
 
 static void test_linear_rewind_mem(void **state)
 {
-	struct buffer *buf;
+	struct sid_buffer *buf;
 
-	buf = sid_buffer_create(
-		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
-		&((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-		NULL);
+	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                    .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                    .mode    = SID_BUFFER_MODE_PLAIN}),
+	                        &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                        NULL);
 
 	do_rewind_test(buf);
 	sid_buffer_destroy(buf);
@@ -70,18 +72,19 @@ static void test_linear_rewind_mem(void **state)
 
 static void test_vector_rewind_mem(void **state)
 {
-	struct buffer *buf;
+	struct sid_buffer *buf;
 
-	buf = sid_buffer_create(
-		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_VECTOR, .mode = BUFFER_MODE_PLAIN}),
-		&((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-		NULL);
+	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                    .type    = SID_BUFFER_TYPE_VECTOR,
+	                                                    .mode    = SID_BUFFER_MODE_PLAIN}),
+	                        &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                        NULL);
 
 	do_rewind_test(buf);
 	sid_buffer_destroy(buf);
 }
 
-static void do_test_zero_add(struct buffer *buf)
+static void do_test_zero_add(struct sid_buffer *buf)
 {
 	const void *rewind_mem, *tmp_mem_start;
 
@@ -95,24 +98,26 @@ static void do_test_zero_add(struct buffer *buf)
 
 static void test_linear_zero_add(void **state)
 {
-	struct buffer *buf;
+	struct sid_buffer *buf;
 
-	buf = sid_buffer_create(
-		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
-		&((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-		NULL);
+	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                    .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                    .mode    = SID_BUFFER_MODE_PLAIN}),
+	                        &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                        NULL);
 
 	do_test_zero_add(buf);
 }
 
 static void test_vector_zero_add(void **state)
 {
-	struct buffer *buf;
+	struct sid_buffer *buf;
 
-	buf = sid_buffer_create(
-		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_VECTOR, .mode = BUFFER_MODE_PLAIN}),
-		&((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-		NULL);
+	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                    .type    = SID_BUFFER_TYPE_VECTOR,
+	                                                    .mode    = SID_BUFFER_MODE_PLAIN}),
+	                        &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                        NULL);
 
 	do_test_zero_add(buf);
 }

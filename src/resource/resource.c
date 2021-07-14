@@ -1002,15 +1002,18 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 
 static void _write_event_source_elem_fields(sid_resource_event_source_t *es,
                                             output_format_t              format,
-                                            struct buffer *              outbuf,
+                                            struct sid_buffer *          outbuf,
                                             bool                         add_comma,
                                             int                          level)
 {
 	print_str_field("name", (char *) es->name, format, outbuf, false, level);
 }
 
-static void
-	_write_resource_elem_fields(sid_resource_t *res, output_format_t format, struct buffer *outbuf, bool add_comma, int level)
+static void _write_resource_elem_fields(sid_resource_t *   res,
+                                        output_format_t    format,
+                                        struct sid_buffer *outbuf,
+                                        bool               add_comma,
+                                        int                level)
 {
 	sid_resource_event_source_t *es, *tmp_es;
 	int                          es_count, item = 0;
@@ -1034,11 +1037,11 @@ static void
 	print_int64_field("prio", res->prio, format, outbuf, add_comma, level);
 }
 
-int sid_resource_write_tree_recursively(sid_resource_t *res,
-                                        output_format_t format,
-                                        bool            add_comma,
-                                        struct buffer * outbuf,
-                                        int             level)
+int sid_resource_write_tree_recursively(sid_resource_t *   res,
+                                        output_format_t    format,
+                                        bool               add_comma,
+                                        struct sid_buffer *outbuf,
+                                        int                level)
 {
 	sid_resource_t *child_res;
 	int             count, item = 0;

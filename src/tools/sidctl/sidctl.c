@@ -71,13 +71,14 @@ static int _sid_cmd(sid_cmd_t cmd, uint16_t format)
 
 static int _sid_cmd_version(uint16_t format)
 {
-	struct buffer *outbuf = NULL;
-	int            r;
+	struct sid_buffer *outbuf = NULL;
+	int                r;
 
-	outbuf = sid_buffer_create(
-		&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = BUFFER_MODE_PLAIN}),
-		&((struct buffer_init) {.size = 4096, .alloc_step = 1, .limit = 0}),
-		NULL);
+	outbuf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                       .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                       .mode    = SID_BUFFER_MODE_PLAIN}),
+	                           &((struct sid_buffer_init) {.size = 4096, .alloc_step = 1, .limit = 0}),
+	                           NULL);
 	if (!outbuf)
 		return -1;
 
