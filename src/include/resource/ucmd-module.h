@@ -22,7 +22,6 @@
 
 #include "internal/common.h"
 
-#include "internal/formatter.h"
 #include "resource/module.h"
 
 #include <inttypes.h>
