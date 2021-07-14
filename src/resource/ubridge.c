@@ -101,9 +101,9 @@ const sid_resource_type_t sid_resource_type_ubridge_connection;
 const sid_resource_type_t sid_resource_type_ubridge_command;
 
 struct sid_ucmd_mod_ctx {
-	sid_resource_t *kv_store_res; /* KV store main or snapshot */
-	sid_resource_t *modules_res;  /* top-level resource for all ucmd module registries */
-	struct buffer * gen_buf;      /* generic buffer */
+	sid_resource_t *   kv_store_res; /* KV store main or snapshot */
+	sid_resource_t *   modules_res;  /* top-level resource for all ucmd module registries */
+	struct sid_buffer *gen_buf;      /* generic buffer */
 };
 
 struct umonitor {
@@ -149,8 +149,8 @@ struct udevice {
 };
 
 struct connection {
-	int            fd;
-	struct buffer *buf;
+	int                fd;
+	struct sid_buffer *buf;
 };
 
 struct sid_ucmd_ctx {
@@ -158,8 +158,8 @@ struct sid_ucmd_ctx {
 	struct udevice          udev_dev;       /* udev context for currently processed device */
 	cmd_scan_phase_t        scan_phase;     /* current phase at the time of use of this context */
 	struct sid_ucmd_mod_ctx ucmd_mod_ctx;   /* commod module context */
-	struct buffer *         res_buf;        /* result buffer */
-	struct buffer *         exp_buf;        /* export buffer */
+	struct sid_buffer *     res_buf;        /* result buffer */
+	struct sid_buffer *     exp_buf;        /* export buffer */
 	struct sid_msg_header   request_header; /* original request header (keep last, contains flexible array) */
 };
 
@@ -218,11 +218,11 @@ enum
 #define KV_VALUE_DATA(iov)   (((struct iovec *) iov)[KV_VALUE_IDX_DATA].iov_base)
 
 struct kv_update_arg {
-	sid_resource_t *res;
-	struct buffer * gen_buf;
-	const char *    owner;    /* in */
-	void *          custom;   /* in/out */
-	int             ret_code; /* out */
+	sid_resource_t *   res;
+	struct sid_buffer *gen_buf;
+	const char *       owner;    /* in */
+	void *             custom;   /* in/out */
+	int                ret_code; /* out */
 };
 
 typedef enum
@@ -241,11 +241,11 @@ typedef enum
 } delta_flags_t;
 
 struct kv_delta {
-	kv_op_t        op;
-	delta_flags_t  flags;
-	struct buffer *plus;
-	struct buffer *minus;
-	struct buffer *final;
+	kv_op_t            op;
+	delta_flags_t      flags;
+	struct sid_buffer *plus;
+	struct sid_buffer *minus;
+	struct sid_buffer *final;
 };
 
 typedef enum
@@ -380,7 +380,7 @@ const char *sid_ucmd_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
 	return ucmd_ctx->udev_dev.synth_uuid;
 }
 
-static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec *spec, int prefix_only)
+static const char *_do_buffer_compose_key(struct sid_buffer *buf, struct kv_key_spec *spec, int prefix_only)
 {
 	static const char *op_to_key_prefix_map[] = {[KV_OP_ILLEGAL] = KV_PREFIX_OP_ILLEGAL_C,
 	                                             [KV_OP_SET]     = KV_PREFIX_OP_SET_C,
@@ -415,13 +415,13 @@ static const char *_do_buffer_compose_key(struct buffer *buf, struct kv_key_spec
 	                          prefix_only ? KEY_NULL : spec->key);
 }
 
-static const char *_buffer_compose_key(struct buffer *buf, struct kv_key_spec *spec)
+static const char *_buffer_compose_key(struct sid_buffer *buf, struct kv_key_spec *spec)
 {
 	/* <op>:<dom>:<ns>:<ns_part>:<id>:<id_part>:<key> */
 	return _do_buffer_compose_key(buf, spec, 0);
 }
 
-static const char *_buffer_compose_key_prefix(struct buffer *buf, struct kv_key_spec *spec)
+static const char *_buffer_compose_key_prefix(struct sid_buffer *buf, struct kv_key_spec *spec)
 {
 	/* <op>:<dom>:<ns>:<ns_part><id>:<id_part> */
 	return _do_buffer_compose_key(buf, spec, 1);
@@ -498,7 +498,7 @@ static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
 		return KV_NS_UNDEFINED;
 }
 
-static const char *_buffer_copy_ns_part_from_key(struct buffer *buf, const char *key)
+static const char *_buffer_copy_ns_part_from_key(struct sid_buffer *buf, const char *key)
 {
 	const char *str;
 	size_t      len;
@@ -533,7 +533,7 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 	return iov;
 }
 
-static const char *_get_iov_str(struct buffer *buf, bool unset, struct iovec *iov, size_t iov_size)
+static const char *_get_iov_str(struct sid_buffer *buf, bool unset, struct iovec *iov, size_t iov_size)
 {
 	size_t      i;
 	const char *str;
@@ -784,7 +784,7 @@ bool _is_string_data(char *ptr, size_t len)
 	return true;
 }
 
-static void _print_kv_value(struct iovec *iov, size_t size, output_format_t format, struct buffer *buf, bool vector, int level)
+static void _print_kv_value(struct iovec *iov, size_t size, output_format_t format, struct sid_buffer *buf, bool vector, int level)
 {
 	int i;
 
@@ -833,7 +833,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 	struct iovec *         iov;
 	unsigned               i, records = 0;
 	int                    r           = -1;
-	struct buffer *        export_buf  = NULL;
+	struct sid_buffer *    export_buf  = NULL;
 	bool                   needs_comma = false;
 	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
 
@@ -841,7 +841,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 	 * For udev namespace, we append key=value pairs to the output buffer.
 	 *
 	 * For other namespaces, we serialize the key-value records to export
-	 * buffer which is backed by BUFFER_BACKEND_MEMFD/BUFFER_TYPE_LINEAR
+	 * buffer which is backed by SID_BUFFER_BACKEND_MEMFD/SID_BUFFER_TYPE_LINEAR
 	 * so we can send the FD where we want to.
 	 *
 	 * We only add key=value pairs to buffers which are marked with
@@ -854,10 +854,10 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 		goto fail;
 	}
 
-	if (!(export_buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MEMFD,
-	                                                             .type    = BUFFER_TYPE_LINEAR,
-	                                                             .mode    = BUFFER_MODE_SIZE_PREFIX}),
-	                                     &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
+	if (!(export_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
+	                                                                 .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                                 .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
+	                                     &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
 	                                     &r))) {
 		log_error(ID(cmd_res), "Failed to create export buffer.");
 		goto fail;
@@ -944,7 +944,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 			 * Export keys with data to main process.
 			 *
 			 * Serialization format fields (message size is implicitly set
-			 * when using BUFFER_MODE_SIZE_PREFIX):
+			 * when using SID_BUFFER_MODE_SIZE_PREFIX):
 			 *
 			 *  1) message size         (MSG_SIGE_PREFIX_TYPE)
 			 *  2) flags                (uint32_t)
@@ -2111,11 +2111,11 @@ const void *sid_ucmd_part_get_disk_kv(struct module *      mod,
 	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
 }
 
-static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iovec *header, size_t header_size)
+static int _init_delta_buffer(struct sid_buffer **delta_buf, size_t size, struct iovec *header, size_t header_size)
 {
-	struct buffer *buf = NULL;
-	size_t         i;
-	int            r = 0;
+	struct sid_buffer *buf = NULL;
+	size_t             i;
+	int                r = 0;
 
 	if (!size)
 		return 0;
@@ -2125,10 +2125,10 @@ static int _init_delta_buffer(struct buffer **delta_buf, size_t size, struct iov
 		goto out;
 	}
 
-	if (!(buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                                      .type    = BUFFER_TYPE_VECTOR,
-	                                                      .mode    = BUFFER_MODE_PLAIN}),
-	                              &((struct buffer_init) {.size = size, .alloc_step = 0, .limit = 0}),
+	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                          .type    = SID_BUFFER_TYPE_VECTOR,
+	                                                          .mode    = SID_BUFFER_MODE_PLAIN}),
+	                              &((struct sid_buffer_init) {.size = size, .alloc_step = 0, .limit = 0}),
 	                              &r)))
 		goto out;
 
@@ -2849,7 +2849,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	const char *         tmp_mem_start = sid_buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
 	const char *         s;
 	struct dirent **     dirent  = NULL;
-	struct buffer *      vec_buf = NULL;
+	struct sid_buffer *  vec_buf = NULL;
 	char                 devno_buf[16];
 	struct iovec *       iov;
 	size_t               iov_cnt;
@@ -2919,10 +2919,10 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	 * -2 to subtract "." and ".." directory which we're not interested in
 	 * +3 for "seqnum|flags|owner" header
 	 */
-	if (!(vec_buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                                          .type    = BUFFER_TYPE_VECTOR,
-	                                                          .mode    = BUFFER_MODE_PLAIN}),
-	                                  &((struct buffer_init) {.size = count + 1, .alloc_step = 1, .limit = 0}),
+	if (!(vec_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                              .type    = SID_BUFFER_TYPE_VECTOR,
+	                                                              .mode    = SID_BUFFER_MODE_PLAIN}),
+	                                  &((struct sid_buffer_init) {.size = count + 1, .alloc_step = 1, .limit = 0}),
 	                                  &r))) {
 		log_error_errno(ID(cmd_res),
 		                r,
@@ -3568,7 +3568,7 @@ out:
 			if ((r = _send_fd_over_unix_comms(sid_buffer_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0)
 				log_error_errno(ID(cmd_res), r, "Failed to send command exports to client.");
 		} else {
-			if (sid_buffer_stat(ucmd_ctx->exp_buf).usage.used > BUFFER_SIZE_PREFIX_LEN) {
+			if (sid_buffer_stat(ucmd_ctx->exp_buf).usage.used > SID_BUFFER_SIZE_PREFIX_LEN) {
 				data_spec.data               = NULL;
 				data_spec.data_size          = 0;
 				data_spec.ext.used           = true;
@@ -3595,7 +3595,7 @@ static int _reply_failure(sid_resource_t *conn_res)
 
 	(void) sid_buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 	prot = msg.header->prot;
-	(void) sid_buffer_rewind(conn->buf, BUFFER_SIZE_PREFIX_LEN, BUFFER_POS_ABS);
+	(void) sid_buffer_rewind(conn->buf, SID_BUFFER_SIZE_PREFIX_LEN, SID_BUFFER_POS_ABS);
 	if (prot <= SID_PROTOCOL) {
 		response_header.prot = prot;
 		if (sid_buffer_add(conn->buf, &response_header, sizeof(response_header), &r))
@@ -3684,10 +3684,10 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 		goto fail;
 	}
 
-	if (!(conn->buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                                            .type    = BUFFER_TYPE_LINEAR,
-	                                                            .mode    = BUFFER_MODE_SIZE_PREFIX}),
-	                                    &((struct buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	if (!(conn->buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                                .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                                .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
+	                                    &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
 	                                    &r))) {
 		log_error_errno(ID(res), r, "Failed to create connection buffer");
 		goto fail;
@@ -3748,10 +3748,10 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		return -1;
 	}
 
-	if (!(ucmd_ctx->res_buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                                                    .type    = BUFFER_TYPE_VECTOR,
-	                                                                    .mode    = BUFFER_MODE_SIZE_PREFIX}),
-	                                            &((struct buffer_init) {.size = 1, .alloc_step = 1, .limit = 0}),
+	if (!(ucmd_ctx->res_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                                        .type    = SID_BUFFER_TYPE_VECTOR,
+	                                                                        .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
+	                                            &((struct sid_buffer_init) {.size = 1, .alloc_step = 1, .limit = 0}),
 	                                            &r))) {
 		log_error_errno(ID(res), r, "Failed to create response buffer");
 		goto fail;
@@ -3760,10 +3760,10 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	ucmd_ctx->request_header = *msg->header;
 
 	if (!(ucmd_ctx->ucmd_mod_ctx.gen_buf =
-	              sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                                        .type    = BUFFER_TYPE_LINEAR,
-	                                                        .mode    = BUFFER_MODE_PLAIN}),
-	                                &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
+	              sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                            .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                            .mode    = SID_BUFFER_MODE_PLAIN}),
+	                                &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
 	                                &r))) {
 		log_error_errno(ID(res), r, "Failed to create generic buffer");
 		goto fail;
@@ -3909,21 +3909,21 @@ static int _main_kv_store_update(const char *full_key, struct kv_store_update_sp
 
 static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t *internal_ubridge_res, int fd)
 {
-	static const char       syncing_msg[] = "Syncing main key-value store:  %s = %s (seqnum %" PRIu64 ")";
-	struct ubridge *        ubridge       = sid_resource_get_data(internal_ubridge_res);
-	sid_resource_t *        kv_store_res;
-	kv_store_value_flags_t  flags;
-	BUFFER_SIZE_PREFIX_TYPE msg_size;
-	size_t                  full_key_size, data_size, data_offset, i;
-	char *                  full_key, *shm = MAP_FAILED, *p, *end;
-	struct kv_value *       value = NULL;
-	struct iovec *          iov   = NULL;
-	const char *            iov_str;
-	void *                  data_to_store;
-	struct kv_rel_spec      rel_spec   = {.delta = &((struct kv_delta) {0})};
-	struct kv_update_arg    update_arg = {.gen_buf = ubridge->ucmd_mod_ctx.gen_buf, .custom = &rel_spec};
-	bool                    unset;
-	int                     r = -1;
+	static const char           syncing_msg[] = "Syncing main key-value store:  %s = %s (seqnum %" PRIu64 ")";
+	struct ubridge *            ubridge       = sid_resource_get_data(internal_ubridge_res);
+	sid_resource_t *            kv_store_res;
+	kv_store_value_flags_t      flags;
+	SID_BUFFER_SIZE_PREFIX_TYPE msg_size;
+	size_t                      full_key_size, data_size, data_offset, i;
+	char *                      full_key, *shm = MAP_FAILED, *p, *end;
+	struct kv_value *           value = NULL;
+	struct iovec *              iov   = NULL;
+	const char *                iov_str;
+	void *                      data_to_store;
+	struct kv_rel_spec          rel_spec   = {.delta = &((struct kv_delta) {0})};
+	struct kv_update_arg        update_arg = {.gen_buf = ubridge->ucmd_mod_ctx.gen_buf, .custom = &rel_spec};
+	bool                        unset;
+	int                         r = -1;
 
 	if (!(kv_store_res = sid_resource_search(internal_ubridge_res,
 	                                         SID_RESOURCE_SEARCH_IMM_DESC,
@@ -3933,12 +3933,12 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 
 	ubridge = sid_resource_get_data(internal_ubridge_res);
 
-	if (read(fd, &msg_size, BUFFER_SIZE_PREFIX_LEN) != BUFFER_SIZE_PREFIX_LEN) {
+	if (read(fd, &msg_size, SID_BUFFER_SIZE_PREFIX_LEN) != SID_BUFFER_SIZE_PREFIX_LEN) {
 		log_error_errno(ID(worker_proxy_res), errno, "Failed to read shared memory size");
 		goto out;
 	}
 
-	if (msg_size <= BUFFER_SIZE_PREFIX_LEN) { /* nothing to sync */
+	if (msg_size <= SID_BUFFER_SIZE_PREFIX_LEN) { /* nothing to sync */
 		r = 0;
 		goto out;
 	}
@@ -4409,10 +4409,10 @@ static const struct sid_kv_store_resource_params main_kv_store_res_params = {.ba
 
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
-	struct ubridge *ubridge = NULL;
-	sid_resource_t *internal_res, *kv_store_res, *modules_res;
-	struct buffer * buf;
-	int             r;
+	struct ubridge *   ubridge = NULL;
+	sid_resource_t *   internal_res, *kv_store_res, *modules_res;
+	struct sid_buffer *buf;
+	int                r;
 
 	if (!(ubridge = mem_zalloc(sizeof(struct ubridge)))) {
 		log_error(ID(res), "Failed to allocate memory for ubridge structure.");
@@ -4491,10 +4491,10 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(buf = sid_buffer_create(&((struct buffer_spec) {.backend = BUFFER_BACKEND_MALLOC,
-	                                                      .type    = BUFFER_TYPE_LINEAR,
-	                                                      .mode    = BUFFER_MODE_PLAIN}),
-	                              &((struct buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
+	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                          .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                          .mode    = SID_BUFFER_MODE_PLAIN}),
+	                              &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
 	                              &r))) {
 		log_error_errno(ID(res), r, "Failed to create generic buffer");
 		goto fail;

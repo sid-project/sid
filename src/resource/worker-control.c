@@ -73,8 +73,8 @@ struct worker_control {
 struct worker_channel {
 	sid_resource_t *                  owner; /* either worker_proxy or worker instance */
 	const struct worker_channel_spec *spec;
-	struct buffer *                   in_buf;
-	struct buffer *                   out_buf;
+	struct sid_buffer *               in_buf;
+	struct sid_buffer *               out_buf;
 	int                               fd;
 };
 
@@ -245,7 +245,7 @@ static int _chan_buf_recv(const struct worker_channel *chan,
 
 	if (n > 0) {
 		/* For plain buffers, we are waiting for EOF to complete the message. */
-		if (sid_buffer_stat(chan->in_buf).spec.mode == BUFFER_MODE_PLAIN)
+		if (sid_buffer_stat(chan->in_buf).spec.mode == SID_BUFFER_MODE_PLAIN)
 			return 0;
 
 		if (!sid_buffer_is_complete(chan->in_buf, NULL))
@@ -254,7 +254,7 @@ static int _chan_buf_recv(const struct worker_channel *chan,
 		(void) sid_buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
 
 		/*
-		 * Internal workers and associated proxies use BUFFER_MODE_SIZE_PREFIX buffers and
+		 * Internal workers and associated proxies use SID_BUFFER_MODE_SIZE_PREFIX buffers and
 		 * they always transmit worker_channel_cmd_t as header before actual data.
 		 */
 		memcpy(cmd, buf_data, sizeof(*cmd));
@@ -304,7 +304,7 @@ static int _chan_buf_recv(const struct worker_channel *chan,
 		log_error_errno(ID(chan->owner), n, "Failed to read data on channel %s", chan->spec->id);
 		return n;
 	} else {
-		if (sid_buffer_stat(chan->in_buf).spec.mode == BUFFER_MODE_PLAIN) {
+		if (sid_buffer_stat(chan->in_buf).spec.mode == SID_BUFFER_MODE_PLAIN) {
 			(void) sid_buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
 
 			*cmd                 = WORKER_CHANNEL_CMD_DATA;
@@ -435,11 +435,11 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 static int
 	_setup_channel(sid_resource_t *owner, const char *alt_id, bool is_worker, worker_type_t type, struct worker_channel *chan)
 {
-	struct buffer **   buf1, **buf2;
-	struct buffer_spec buf_spec = {.backend = BUFFER_BACKEND_MALLOC, .type = BUFFER_TYPE_LINEAR, .mode = 0};
-	struct buffer_init buf_init = {0};
-	const char *       id       = owner ? ID(owner) : alt_id;
-	int                r;
+	struct sid_buffer **   buf1, **buf2;
+	struct sid_buffer_spec buf_spec = {.backend = SID_BUFFER_BACKEND_MALLOC, .type = SID_BUFFER_TYPE_LINEAR, .mode = 0};
+	struct sid_buffer_init buf_init = {0};
+	const char *           id       = owner ? ID(owner) : alt_id;
+	int                    r;
 
 	if (chan->in_buf || chan->out_buf) {
 		log_error(id, INTERNAL_ERROR "%s: Buffers already set.", __func__);
@@ -499,7 +499,7 @@ static int
 				 * use of data size prefixes on both sides of the channel so we always know how much data
 				 * to receive on the other side and we can preallocate proper buffer size for it.
 				 */
-				buf_spec.mode       = BUFFER_MODE_SIZE_PREFIX;
+				buf_spec.mode       = SID_BUFFER_MODE_SIZE_PREFIX;
 				buf_init.size       = WORKER_INT_CHANNEL_MIN_BUF_SIZE;
 				buf_init.alloc_step = 1;
 				break;
@@ -510,7 +510,7 @@ static int
 				 * and then we extend the buffer with WORKER_EXT_CHANNEL_MIN_BUF_SIZE each time it's filled up
 				 * and data are still incoming.
 				 */
-				buf_spec.mode       = BUFFER_MODE_PLAIN;
+				buf_spec.mode       = SID_BUFFER_MODE_PLAIN;
 				buf_init.size       = WORKER_EXT_CHANNEL_MIN_BUF_SIZE;
 				buf_init.alloc_step = WORKER_EXT_CHANNEL_MIN_BUF_SIZE;
 				break;
@@ -916,10 +916,10 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 	int                  r = 0;
 
 	/*
-	 * Internal workers and associated proxies use BUFFER_MODE_SIZE_PREFIX buffers and
+	 * Internal workers and associated proxies use SID_BUFFER_MODE_SIZE_PREFIX buffers and
 	 * they always transmit worker_channel_cmd_t as header before actual data.
 	 */
-	if (sid_buffer_stat(chan->out_buf).spec.mode == BUFFER_MODE_SIZE_PREFIX &&
+	if (sid_buffer_stat(chan->out_buf).spec.mode == SID_BUFFER_MODE_SIZE_PREFIX &&
 	    !sid_buffer_add(chan->out_buf, &cmd, sizeof(cmd), &r)) {
 		r = -ENOMEM;
 		goto out;

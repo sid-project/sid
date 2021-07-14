@@ -24,12 +24,12 @@
 #include <errno.h>
 #include <stdlib.h>
 
-static const struct buffer_type *_buffer_type_registry[] =
-	{[BUFFER_TYPE_LINEAR] = &sid_buffer_type_linear, [BUFFER_TYPE_VECTOR] = &sid_buffer_type_vector};
+static const struct sid_buffer_type *_buffer_type_registry[] =
+	{[SID_BUFFER_TYPE_LINEAR] = &sid_buffer_type_linear, [SID_BUFFER_TYPE_VECTOR] = &sid_buffer_type_vector};
 
-static bool _check_buf(struct buffer *buf)
+static bool _check_buf(struct sid_buffer *buf)
 {
-	struct buffer_stat *stat = &buf->stat;
+	struct sid_buffer_stat *stat = &buf->stat;
 
 	/* We are checking only limit right now so if no limit, nothing to check as well. */
 	if (stat->init.limit == 0)
@@ -39,20 +39,20 @@ static bool _check_buf(struct buffer *buf)
 	        stat->init.limit % stat->init.alloc_step == 0);
 }
 
-struct buffer *sid_buffer_create(struct buffer_spec *spec, struct buffer_init *init, int *ret_code)
+struct sid_buffer *sid_buffer_create(struct sid_buffer_spec *spec, struct sid_buffer_init *init, int *ret_code)
 {
-	struct buffer *buf;
-	int            r = 0;
+	struct sid_buffer *buf;
+	int                r = 0;
 
 	if (!(buf = malloc(sizeof(*buf)))) {
 		r = -ENOMEM;
 		goto out;
 	}
 
-	buf->stat = (struct buffer_stat) {
+	buf->stat = (struct sid_buffer_stat) {
 		.spec  = *spec,
 		.init  = *init,
-		.usage = (struct buffer_usage) {0},
+		.usage = (struct sid_buffer_usage) {0},
 	};
 
 	buf->mem = NULL;
@@ -75,15 +75,15 @@ out:
 		return buf;
 }
 
-void sid_buffer_destroy(struct buffer *buf)
+void sid_buffer_destroy(struct sid_buffer *buf)
 {
 	(void) _buffer_type_registry[buf->stat.spec.type]->destroy(buf);
 	free(buf);
 }
 
-int sid_buffer_reset_init(struct buffer *buf, struct buffer_init *init)
+int sid_buffer_reset_init(struct sid_buffer *buf, struct sid_buffer_init *init)
 {
-	struct buffer_stat orig_stat = buf->stat;
+	struct sid_buffer_stat orig_stat = buf->stat;
 
 	buf->stat.init = *init;
 
@@ -95,17 +95,17 @@ int sid_buffer_reset_init(struct buffer *buf, struct buffer_init *init)
 	return _buffer_type_registry[buf->stat.spec.type]->reset(buf);
 }
 
-int sid_buffer_reset(struct buffer *buf)
+int sid_buffer_reset(struct sid_buffer *buf)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->reset(buf);
 }
 
-const void *sid_buffer_add(struct buffer *buf, void *data, size_t len, int *ret_code)
+const void *sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, int *ret_code)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->add(buf, data, len, ret_code);
 }
 
-const void *sid_buffer_fmt_add(struct buffer *buf, int *ret_code, const char *fmt, ...)
+const void *sid_buffer_fmt_add(struct sid_buffer *buf, int *ret_code, const char *fmt, ...)
 {
 	va_list     ap;
 	const void *p;
@@ -117,14 +117,14 @@ const void *sid_buffer_fmt_add(struct buffer *buf, int *ret_code, const char *fm
 	return p;
 }
 
-const void *sid_buffer_vfmt_add(struct buffer *buf, int *ret_code, const char *fmt, va_list ap)
+const void *sid_buffer_vfmt_add(struct sid_buffer *buf, int *ret_code, const char *fmt, va_list ap)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, ret_code, fmt, ap);
 }
 
-int sid_buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
+int sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence)
 {
-	if (whence == BUFFER_POS_REL) {
+	if (whence == SID_BUFFER_POS_REL) {
 		if (pos == 0)
 			return 0; /* otherwise this fails on an empty size-prefixed buffer */
 		if (pos > buf->stat.usage.used)
@@ -136,7 +136,7 @@ int sid_buffer_rewind(struct buffer *buf, size_t pos, buffer_pos_t whence)
 	return _buffer_type_registry[buf->stat.spec.type]->rewind(buf, pos);
 }
 
-int sid_buffer_rewind_mem(struct buffer *buf, const void *mem)
+int sid_buffer_rewind_mem(struct sid_buffer *buf, const void *mem)
 {
 	if (mem < buf->mem)
 		return -EINVAL;
@@ -144,37 +144,37 @@ int sid_buffer_rewind_mem(struct buffer *buf, const void *mem)
 	return _buffer_type_registry[buf->stat.spec.type]->rewind_mem(buf, mem);
 }
 
-bool sid_buffer_is_complete(struct buffer *buf, int *ret_code)
+bool sid_buffer_is_complete(struct sid_buffer *buf, int *ret_code)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->is_complete(buf, ret_code);
 }
 
-int sid_buffer_get_data(struct buffer *buf, const void **data, size_t *data_size)
+int sid_buffer_get_data(struct sid_buffer *buf, const void **data, size_t *data_size)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->get_data(buf, data, data_size);
 }
 
-int sid_buffer_get_fd(struct buffer *buf)
+int sid_buffer_get_fd(struct sid_buffer *buf)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->get_fd(buf);
 }
 
-ssize_t sid_buffer_read(struct buffer *buf, int fd)
+ssize_t sid_buffer_read(struct sid_buffer *buf, int fd)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->read(buf, fd);
 }
 
-ssize_t sid_buffer_write(struct buffer *buf, int fd, size_t pos)
+ssize_t sid_buffer_write(struct sid_buffer *buf, int fd, size_t pos)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->write(buf, fd, pos);
 }
 
-struct buffer_stat sid_buffer_stat(struct buffer *buf)
+struct sid_buffer_stat sid_buffer_stat(struct sid_buffer *buf)
 {
 	return buf->stat;
 }
 
-int sid_buffer_write_all(struct buffer *buf, int fd)
+int sid_buffer_write_all(struct sid_buffer *buf, int fd)
 {
 	size_t  pos;
 	ssize_t n;

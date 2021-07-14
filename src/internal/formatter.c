@@ -35,7 +35,7 @@
 
 #define JOIN_STR(format) ((format == TABLE) ? ": " : "=")
 
-static int _print_fmt(struct buffer *buf, const char *fmt, ...)
+static int _print_fmt(struct sid_buffer *buf, const char *fmt, ...)
 {
 	va_list ap;
 	int     r;
@@ -45,12 +45,12 @@ static int _print_fmt(struct buffer *buf, const char *fmt, ...)
 	va_start(ap, fmt);
 	sid_buffer_vfmt_add(buf, &r, fmt, ap);
 	if (!r)
-		r = sid_buffer_rewind(buf, 1, BUFFER_POS_REL);
+		r = sid_buffer_rewind(buf, 1, SID_BUFFER_POS_REL);
 	va_end(ap);
 	return r;
 }
 
-static int _print_binary(const unsigned char *value, size_t len, struct buffer *buf)
+static int _print_binary(const unsigned char *value, size_t len, struct sid_buffer *buf)
 {
 	int         r;
 	size_t      enc_len = sid_binary_len_encode(len);
@@ -64,11 +64,11 @@ static int _print_binary(const unsigned char *value, size_t len, struct buffer *
 	if (!r)
 		r = sid_binary_encode(value, len, (unsigned char *) ptr, enc_len);
 	if (!r)
-		r = sid_buffer_rewind(buf, 1, BUFFER_POS_REL);
+		r = sid_buffer_rewind(buf, 1, SID_BUFFER_POS_REL);
 	return r;
 }
 
-int print_indent(int level, struct buffer *buf)
+int print_indent(int level, struct sid_buffer *buf)
 {
 	int r = 0;
 
@@ -80,7 +80,7 @@ int print_indent(int level, struct buffer *buf)
 	return r;
 }
 
-int print_start_document(output_format_t format, struct buffer *buf, int level)
+int print_start_document(output_format_t format, struct sid_buffer *buf, int level)
 {
 	int r = 0;
 
@@ -94,7 +94,7 @@ int print_start_document(output_format_t format, struct buffer *buf, int level)
 	return r;
 }
 
-int print_end_document(output_format_t format, struct buffer *buf, int level)
+int print_end_document(output_format_t format, struct sid_buffer *buf, int level)
 {
 	int r = 0;
 
@@ -108,7 +108,7 @@ int print_end_document(output_format_t format, struct buffer *buf, int level)
 	return r;
 }
 
-int print_start_array(const char *array_name, output_format_t format, struct buffer *buf, int level)
+int print_start_array(const char *array_name, output_format_t format, struct sid_buffer *buf, int level)
 {
 	int r = 0;
 
@@ -124,7 +124,7 @@ int print_start_array(const char *array_name, output_format_t format, struct buf
 	return r;
 }
 
-int print_end_array(bool needs_comma, output_format_t format, struct buffer *buf, int level)
+int print_end_array(bool needs_comma, output_format_t format, struct sid_buffer *buf, int level)
 {
 	int r = 0;
 
@@ -140,7 +140,7 @@ int print_end_array(bool needs_comma, output_format_t format, struct buffer *buf
 	return r;
 }
 
-int print_start_elem(bool needs_comma, output_format_t format, struct buffer *buf, int level)
+int print_start_elem(bool needs_comma, output_format_t format, struct sid_buffer *buf, int level)
 {
 	int r = 0;
 
@@ -159,7 +159,7 @@ int print_start_elem(bool needs_comma, output_format_t format, struct buffer *bu
 	return r;
 }
 
-int print_end_elem(output_format_t format, struct buffer *buf, int level)
+int print_end_elem(output_format_t format, struct sid_buffer *buf, int level)
 {
 	int r = 0;
 
@@ -173,7 +173,7 @@ int print_end_elem(output_format_t format, struct buffer *buf, int level)
 	return r;
 }
 
-int print_elem_name(bool needs_comma, const char *elem_name, output_format_t format, struct buffer *buf, int level)
+int print_elem_name(bool needs_comma, const char *elem_name, output_format_t format, struct sid_buffer *buf, int level)
 {
 	int r = 0;
 
@@ -192,12 +192,12 @@ int print_elem_name(bool needs_comma, const char *elem_name, output_format_t for
 	return r;
 }
 
-int print_str_field(const char *    field_name,
-                    const char *    value,
-                    output_format_t format,
-                    struct buffer * buf,
-                    bool            trailing_comma,
-                    int             level)
+int print_str_field(const char *       field_name,
+                    const char *       value,
+                    output_format_t    format,
+                    struct sid_buffer *buf,
+                    bool               trailing_comma,
+                    int                level)
 {
 	int r = 0;
 
@@ -213,13 +213,13 @@ int print_str_field(const char *    field_name,
 	return r;
 }
 
-int print_binary_field(const char *    field_name,
-                       const char *    value,
-                       size_t          len,
-                       output_format_t format,
-                       struct buffer * buf,
-                       bool            trailing_comma,
-                       int             level)
+int print_binary_field(const char *       field_name,
+                       const char *       value,
+                       size_t             len,
+                       output_format_t    format,
+                       struct sid_buffer *buf,
+                       bool               trailing_comma,
+                       int                level)
 {
 	int r = 0;
 
@@ -241,7 +241,12 @@ int print_binary_field(const char *    field_name,
 	return r;
 }
 
-int print_uint_field(const char *field_name, uint value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
+int print_uint_field(const char *       field_name,
+                     uint               value,
+                     output_format_t    format,
+                     struct sid_buffer *buf,
+                     bool               trailing_comma,
+                     int                level)
 {
 	int r = 0;
 
@@ -257,12 +262,12 @@ int print_uint_field(const char *field_name, uint value, output_format_t format,
 	return r;
 }
 
-int print_uint64_field(const char *    field_name,
-                       uint64_t        value,
-                       output_format_t format,
-                       struct buffer * buf,
-                       bool            trailing_comma,
-                       int             level)
+int print_uint64_field(const char *       field_name,
+                       uint64_t           value,
+                       output_format_t    format,
+                       struct sid_buffer *buf,
+                       bool               trailing_comma,
+                       int                level)
 {
 	int r = 0;
 
@@ -278,12 +283,12 @@ int print_uint64_field(const char *    field_name,
 	return r;
 }
 
-int print_int64_field(const char *    field_name,
-                      int64_t         value,
-                      output_format_t format,
-                      struct buffer * buf,
-                      bool            trailing_comma,
-                      int             level)
+int print_int64_field(const char *       field_name,
+                      int64_t            value,
+                      output_format_t    format,
+                      struct sid_buffer *buf,
+                      bool               trailing_comma,
+                      int                level)
 {
 	int r = 0;
 
@@ -299,12 +304,12 @@ int print_int64_field(const char *    field_name,
 	return r;
 }
 
-int print_bool_array_elem(const char *    field_name,
-                          bool            value,
-                          output_format_t format,
-                          struct buffer * buf,
-                          bool            trailing_comma,
-                          int             level)
+int print_bool_array_elem(const char *       field_name,
+                          bool               value,
+                          output_format_t    format,
+                          struct sid_buffer *buf,
+                          bool               trailing_comma,
+                          int                level)
 {
 	int r = 0;
 
@@ -322,7 +327,7 @@ int print_bool_array_elem(const char *    field_name,
 	return r;
 }
 
-int print_uint_array_elem(uint value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
+int print_uint_array_elem(uint value, output_format_t format, struct sid_buffer *buf, bool trailing_comma, int level)
 {
 	int r = 0;
 
@@ -338,7 +343,7 @@ int print_uint_array_elem(uint value, output_format_t format, struct buffer *buf
 	return r;
 }
 
-int print_str_array_elem(const char *value, output_format_t format, struct buffer *buf, bool trailing_comma, int level)
+int print_str_array_elem(const char *value, output_format_t format, struct sid_buffer *buf, bool trailing_comma, int level)
 {
 	int r = 0;
 
@@ -354,12 +359,12 @@ int print_str_array_elem(const char *value, output_format_t format, struct buffe
 	return r;
 }
 
-int print_binary_array_elem(const char *    value,
-                            size_t          len,
-                            output_format_t format,
-                            struct buffer * buf,
-                            bool            trailing_comma,
-                            int             level)
+int print_binary_array_elem(const char *       value,
+                            size_t             len,
+                            output_format_t    format,
+                            struct sid_buffer *buf,
+                            bool               trailing_comma,
+                            int                level)
 {
 	int r = 0;
 
@@ -381,7 +386,7 @@ int print_binary_array_elem(const char *    value,
 	return r;
 }
 
-int print_null_byte(struct buffer *buf)
+int print_null_byte(struct sid_buffer *buf)
 {
 	int r;
 
