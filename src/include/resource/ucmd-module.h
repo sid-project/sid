@@ -207,22 +207,26 @@ int sid_ucmd_dev_remove_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
 int sid_ucmd_group_create(struct module          *mod,
                           struct sid_ucmd_ctx    *ucmd_ctx,
                           sid_ucmd_kv_namespace_t group_ns,
-                          const char             *group_id,
-                          sid_ucmd_kv_flags_t     group_flags);
+                          sid_ucmd_kv_flags_t     group_flags,
+                          const char             *group_cat,
+                          const char             *group_id);
 
 int sid_ucmd_group_add_current_dev(struct module          *mod,
                                    struct sid_ucmd_ctx    *ucmd_ctx,
                                    sid_ucmd_kv_namespace_t group_ns,
+                                   const char             *group_cat,
                                    const char             *group_id);
 
 int sid_ucmd_group_remove_current_dev(struct module          *mod,
                                       struct sid_ucmd_ctx    *ucmd_ctx,
                                       sid_ucmd_kv_namespace_t group_ns,
+                                      const char             *group_cat,
                                       const char             *group_id);
 
 int sid_ucmd_group_destroy(struct module          *mod,
                            struct sid_ucmd_ctx    *ucmd_ctx,
                            sid_ucmd_kv_namespace_t group_ns,
+                           const char             *group_cat,
                            const char             *group_id,
                            int                     force);
 
