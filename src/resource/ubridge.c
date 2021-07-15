@@ -97,6 +97,7 @@
 #define KV_KEY_DEV_MOD                              KV_PREFIX_KEY_SYS_C "MOD"
 
 #define KV_KEY_DOM_ALIAS                            "ALS"
+#define KV_KEY_DOM_GROUP                            "GRP"
 #define KV_KEY_DOM_USER                             "USR"
 
 #define KV_KEY_GEN_GROUP_MEMBERS                    KV_PREFIX_KEY_SYS_C "GMB"
@@ -2484,7 +2485,7 @@ int sid_ucmd_group_create(struct module          *mod,
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
 
-	return _do_sid_ucmd_group_create(mod, ucmd_ctx, KV_KEY_DOM_USER, group_ns, group_id, group_flags);
+	return _do_sid_ucmd_group_create(mod, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_id, group_flags);
 }
 
 int _handle_current_dev_for_group(struct module          *mod,
@@ -2552,7 +2553,7 @@ int sid_ucmd_group_add_current_dev(struct module          *mod,
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
 
-	return _handle_current_dev_for_group(mod, ucmd_ctx, KV_KEY_DOM_USER, group_ns, group_id, KV_OP_PLUS);
+	return _handle_current_dev_for_group(mod, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_id, KV_OP_PLUS);
 }
 
 int sid_ucmd_group_remove_current_dev(struct module          *mod,
@@ -2563,7 +2564,7 @@ int sid_ucmd_group_remove_current_dev(struct module          *mod,
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
 
-	return _handle_current_dev_for_group(mod, ucmd_ctx, KV_KEY_DOM_USER, group_ns, group_id, KV_OP_MINUS);
+	return _handle_current_dev_for_group(mod, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_id, KV_OP_MINUS);
 }
 
 static int _do_sid_ucmd_group_destroy(struct module          *mod,
@@ -2584,7 +2585,7 @@ static int _do_sid_ucmd_group_destroy(struct module          *mod,
 	                                .abs_delta    = &((struct kv_delta) {0}),
 
 	                                .cur_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
-	                                                                        .dom     = ID_NULL,
+	                                                                        .dom     = dom ?: ID_NULL,
 	                                                                        .ns      = group_ns,
 	                                                                        .ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
 	                                                                        .id      = group_id,
@@ -2642,7 +2643,7 @@ int sid_ucmd_group_destroy(struct module          *mod,
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
 
-	return _do_sid_ucmd_group_destroy(mod, ucmd_ctx, KV_KEY_DOM_USER, group_ns, group_id, force);
+	return _do_sid_ucmd_group_destroy(mod, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_id, force);
 }
 
 static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
