@@ -62,6 +62,7 @@ struct sid_kv_store_resource_params {
 };
 
 struct kv_store_update_spec {
+	const char *              key;
 	void *                    old_data;
 	size_t                    old_data_size;
 	kv_store_value_flags_t    old_flags;
@@ -76,7 +77,7 @@ struct kv_store_update_spec {
  *   0 to keep old_data
  *   1 to update old_data with new_data
  */
-typedef int (*kv_store_update_fn_t)(const char *key, struct kv_store_update_spec *update_spec, void *arg);
+typedef int (*kv_store_update_fn_t)(struct kv_store_update_spec *update_spec, void *arg);
 
 // clang-format off
 /*
