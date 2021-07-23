@@ -303,7 +303,9 @@ static int _hash_update_fn(const char *               key,
 		update_spec.new_data_size = orig_new_data_size = orig_new_value->size;
 		update_spec.new_flags = orig_new_flags = orig_new_value->ext_flags;
 
-		r = relay->kv_update_fn(&update_spec, relay->kv_update_fn_arg);
+		update_spec.arg = relay->kv_update_fn_arg;
+
+		r = relay->kv_update_fn(&update_spec);
 
 		/* Check if there has been any change... */
 		if ((r > 0) && ((update_spec.new_data != orig_new_data) || (update_spec.new_data_size != orig_new_data_size) ||
@@ -437,7 +439,9 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store
 	update_spec.old_data_size = found->size;
 	update_spec.old_flags     = found->ext_flags;
 
-	if (kv_unset_fn && !kv_unset_fn(&update_spec, kv_unset_fn_arg))
+	update_spec.arg = kv_unset_fn_arg;
+
+	if (kv_unset_fn && !kv_unset_fn(&update_spec))
 		return -EREMOTEIO;
 
 	_destroy_kv_store_value(found);
