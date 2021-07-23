@@ -342,7 +342,7 @@ static sid_ucmd_kv_flags_t kv_flags_no_persist = (DEFAULT_KV_FLAGS_CORE) & ~KV_P
 static sid_ucmd_kv_flags_t kv_flags_persist    = DEFAULT_KV_FLAGS_CORE;
 static char *              core_owner          = OWNER_CORE;
 
-static int        _kv_delta(struct kv_store_update_spec *spec, void *arg);
+static int        _kv_delta(struct kv_store_update_spec *spec);
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
 
 udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
@@ -711,9 +711,9 @@ out:
 		kv_store_iter_destroy(iter);
 }
 
-static int _kv_overwrite(struct kv_store_update_spec *spec, void *arg)
+static int _kv_overwrite(struct kv_store_update_spec *spec)
 {
-	struct kv_update_arg *update_arg = arg;
+	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
 	struct iovec          tmp_iov_new[KV_VALUE_IDX_DATA + 1];
 	struct iovec *        iov_old, *iov_new;
@@ -1288,9 +1288,9 @@ const void *sid_ucmd_get_kv(struct module *         mod,
 	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, value_size, flags);
 }
 
-static int _kv_reserve(struct kv_store_update_spec *spec, void *arg)
+static int _kv_reserve(struct kv_store_update_spec *spec)
 {
-	struct kv_update_arg *update_arg = arg;
+	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
 	struct iovec          tmp_iov_new[KV_VALUE_IDX_DATA + 1];
 	struct iovec *        iov_old, *iov_new;
@@ -1314,9 +1314,9 @@ static int _kv_reserve(struct kv_store_update_spec *spec, void *arg)
 	return 1;
 }
 
-static int _kv_unreserve(struct kv_store_update_spec *spec, void *arg)
+static int _kv_unreserve(struct kv_store_update_spec *spec)
 {
-	struct kv_update_arg *update_arg = arg;
+	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
 	struct iovec *        iov_old;
 
@@ -1504,7 +1504,7 @@ dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx
 	return result;
 }
 
-static int _kv_write_new_only(struct kv_store_update_spec *spec, void *arg)
+static int _kv_write_new_only(struct kv_store_update_spec *spec)
 {
 	if (spec->old_data)
 		return 0;
@@ -2169,16 +2169,17 @@ static int _iov_str_item_cmp(const void *a, const void *b)
 	return strcmp((const char *) iovec_item_a->iov_base, (const char *) iovec_item_b->iov_base);
 }
 
-static int _delta_step_calculate(struct kv_store_update_spec *spec, struct kv_update_arg *update_arg)
+static int _delta_step_calculate(struct kv_store_update_spec *spec)
 {
-	struct kv_delta *delta     = ((struct kv_rel_spec *) update_arg->custom)->delta;
-	struct iovec *   old_value = spec->old_data;
-	size_t           old_size  = spec->old_data_size;
-	struct iovec *   new_value = spec->new_data;
-	size_t           new_size  = spec->new_data_size;
-	size_t           i_old, i_new;
-	int              cmp_result;
-	int              r = -1;
+	struct kv_update_arg *update_arg = (struct kv_update_arg *) spec->arg;
+	struct kv_delta *     delta      = ((struct kv_rel_spec *) update_arg->custom)->delta;
+	struct iovec *        old_value  = spec->old_data;
+	size_t                old_size   = spec->old_data_size;
+	struct iovec *        new_value  = spec->new_data;
+	size_t                new_size   = spec->new_data_size;
+	size_t                i_old, i_new;
+	int                   cmp_result;
+	int                   r = -1;
 
 	if (_init_delta_struct(delta, old_size, new_size, old_size + new_size, new_value, KV_VALUE_IDX_DATA) < 0)
 		goto out;
@@ -2389,12 +2390,13 @@ static void _delta_cross_bitmap_calculate(struct cross_bitmap_calc_arg *cross)
 	}
 }
 
-static int _delta_abs_calculate(struct kv_store_update_spec *spec, struct kv_update_arg *update_arg, struct kv_delta *abs_delta)
+static int _delta_abs_calculate(struct kv_store_update_spec *spec, struct kv_delta *abs_delta)
 {
-	struct cross_bitmap_calc_arg cross1   = {0};
-	struct cross_bitmap_calc_arg cross2   = {0};
-	struct kv_rel_spec *         rel_spec = update_arg->custom;
-	kv_op_t                      orig_op  = rel_spec->cur_key_spec->op;
+	struct cross_bitmap_calc_arg cross1     = {0};
+	struct cross_bitmap_calc_arg cross2     = {0};
+	struct kv_update_arg *       update_arg = (struct kv_update_arg *) spec->arg;
+	struct kv_rel_spec *         rel_spec   = update_arg->custom;
+	kv_op_t                      orig_op    = rel_spec->cur_key_spec->op;
 	const char *                 delta_full_key;
 	struct iovec *               abs_plus, *abs_minus;
 	size_t                       i, abs_plus_size, abs_minus_size;
@@ -2565,19 +2567,19 @@ static void _flip_key_specs(struct kv_rel_spec *rel_spec)
 	rel_spec->rel_key_spec = tmp_key_spec;
 }
 
-static int
-	_delta_update(struct kv_store_update_spec *spec, struct kv_update_arg *update_arg, struct kv_delta *abs_delta, kv_op_t op)
+static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs_delta, kv_op_t op)
 {
-	uint64_t            seqnum        = KV_VALUE_SEQNUM(spec->new_data);
-	struct kv_rel_spec *rel_spec      = update_arg->custom;
-	kv_op_t             orig_op       = rel_spec->cur_key_spec->op;
-	const char *        tmp_mem_start = sid_buffer_add(update_arg->gen_buf, "", 0, NULL);
-	struct kv_delta *   orig_delta;
-	struct iovec *      delta_iov, *abs_delta_iov;
-	size_t              delta_iov_cnt, abs_delta_iov_cnt, i;
-	const char *        key_prefix, *ns_part, *full_key;
-	struct iovec        rel_iov[KV_VALUE_IDX_DATA + 1];
-	int                 r = 0;
+	uint64_t              seqnum        = KV_VALUE_SEQNUM(spec->new_data);
+	struct kv_update_arg *update_arg    = (struct kv_update_arg *) spec->arg;
+	struct kv_rel_spec *  rel_spec      = update_arg->custom;
+	kv_op_t               orig_op       = rel_spec->cur_key_spec->op;
+	const char *          tmp_mem_start = sid_buffer_add(update_arg->gen_buf, "", 0, NULL);
+	struct kv_delta *     orig_delta;
+	struct iovec *        delta_iov, *abs_delta_iov;
+	size_t                delta_iov_cnt, abs_delta_iov_cnt, i;
+	const char *          key_prefix, *ns_part, *full_key;
+	struct iovec          rel_iov[KV_VALUE_IDX_DATA + 1];
+	int                   r = 0;
 
 	if (op == KV_OP_PLUS) {
 		if (!abs_delta->plus)
@@ -2785,12 +2787,11 @@ fail:
  *	      (the same as 8_1, just for the minus vectors instead of plus vectors)
  *
  */
-static int _kv_delta(struct kv_store_update_spec *spec, void *arg)
+static int _kv_delta(struct kv_store_update_spec *spec)
 {
-	struct kv_update_arg *update_arg = arg;
-	struct kv_rel_spec *  rel_spec   = update_arg->custom;
-	struct kv_delta       abs_delta  = {0};
-	int                   r          = 0; /* no change by default */
+	struct kv_rel_spec *rel_spec  = ((struct kv_update_arg *) spec->arg)->custom;
+	struct kv_delta     abs_delta = {0};
+	int                 r         = 0; /* no change by default */
 
 	/* FIXME: propagate error out of this function so it can be reported by caller. */
 
@@ -2798,7 +2799,7 @@ static int _kv_delta(struct kv_store_update_spec *spec, void *arg)
 	 * Take previous and current vector and calculate differential "plus" and "minus" vectors.
 	 * These are "step vectors".
 	 */
-	if (_delta_step_calculate(spec, update_arg) < 0)
+	if (_delta_step_calculate(spec) < 0)
 		goto out;
 
 	/*
@@ -2814,13 +2815,13 @@ static int _kv_delta(struct kv_store_update_spec *spec, void *arg)
 	 *
 	 */
 	if (rel_spec->delta->flags & (DELTA_WITH_DIFF | DELTA_WITH_REL)) {
-		if (_delta_abs_calculate(spec, update_arg, &abs_delta) < 0)
+		if (_delta_abs_calculate(spec, &abs_delta) < 0)
 			goto out;
 
-		if (_delta_update(spec, update_arg, &abs_delta, KV_OP_PLUS) < 0)
+		if (_delta_update(spec, &abs_delta, KV_OP_PLUS) < 0)
 			goto out;
 
-		if (_delta_update(spec, update_arg, &abs_delta, KV_OP_MINUS) < 0)
+		if (_delta_update(spec, &abs_delta, KV_OP_MINUS) < 0)
 			goto out;
 	}
 
@@ -3842,9 +3843,9 @@ static int _destroy_command(sid_resource_t *res)
 	return 0;
 }
 
-static int _main_kv_store_unset(struct kv_store_update_spec *spec, void *arg)
+static int _main_kv_store_unset(struct kv_store_update_spec *spec)
 {
-	struct kv_update_arg *update_arg = arg;
+	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
 	struct iovec *        iov_old;
 
@@ -3868,9 +3869,9 @@ static int _main_kv_store_unset(struct kv_store_update_spec *spec, void *arg)
 	return 1;
 }
 
-static int _main_kv_store_update(struct kv_store_update_spec *spec, void *arg)
+static int _main_kv_store_update(struct kv_store_update_spec *spec)
 {
-	struct kv_update_arg *update_arg = arg;
+	struct kv_update_arg *update_arg = spec->arg;
 	struct kv_rel_spec *  rel_spec   = update_arg->custom;
 	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
 	struct iovec          tmp_iov_new[KV_VALUE_IDX_DATA + 1];
@@ -3882,10 +3883,10 @@ static int _main_kv_store_update(struct kv_store_update_spec *spec, void *arg)
 
 	if (rel_spec->delta->op == KV_OP_SET)
 		/* overwrite whole value */
-		r = (!iov_old || ((KV_VALUE_SEQNUM(iov_new) >= KV_VALUE_SEQNUM(iov_old)) && _kv_overwrite(spec, update_arg)));
+		r = (!iov_old || ((KV_VALUE_SEQNUM(iov_new) >= KV_VALUE_SEQNUM(iov_old)) && _kv_overwrite(spec)));
 	else {
 		/* resolve delta */
-		r = _kv_delta(spec, update_arg);
+		r = _kv_delta(spec);
 		/* resolving delta might have changed new_data so get it afresh for the log_debug below */
 		iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 	}

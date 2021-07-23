@@ -70,6 +70,7 @@ struct kv_store_update_spec {
 	size_t                    new_data_size;
 	kv_store_value_flags_t    new_flags;
 	kv_store_value_op_flags_t op_flags;
+	void *                    arg; /* kv_update_fn_arg or kv_unset_fn_arg from kv_store_set/unset_value call */
 };
 
 /*
@@ -77,7 +78,7 @@ struct kv_store_update_spec {
  *   0 to keep old_data
  *   1 to update old_data with new_data
  */
-typedef int (*kv_store_update_fn_t)(struct kv_store_update_spec *update_spec, void *arg);
+typedef int (*kv_store_update_fn_t)(struct kv_store_update_spec *update_spec);
 
 // clang-format off
 /*
