@@ -342,7 +342,7 @@ static sid_ucmd_kv_flags_t kv_flags_no_persist = (DEFAULT_KV_FLAGS_CORE) & ~KV_P
 static sid_ucmd_kv_flags_t kv_flags_persist    = DEFAULT_KV_FLAGS_CORE;
 static char *              core_owner          = OWNER_CORE;
 
-static int        _kv_delta(const char *full_key, struct kv_store_update_spec *spec, void *arg);
+static int        _kv_delta(struct kv_store_update_spec *spec, void *arg);
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
 
 udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
@@ -711,7 +711,7 @@ out:
 		kv_store_iter_destroy(iter);
 }
 
-static int _kv_overwrite(const char *full_key, struct kv_store_update_spec *spec, void *arg)
+static int _kv_overwrite(struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
 	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
@@ -751,7 +751,7 @@ keep_old:
 	log_debug(ID(update_arg->res),
 	          "Module %s can't overwrite value with key %s which is %s and attached to %s module.",
 	          KV_VALUE_OWNER(iov_new),
-	          full_key,
+	          spec->key,
 	          reason,
 	          KV_VALUE_OWNER(iov_old));
 	return 0;
@@ -1288,7 +1288,7 @@ const void *sid_ucmd_get_kv(struct module *         mod,
 	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, value_size, flags);
 }
 
-static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, void *arg)
+static int _kv_reserve(struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
 	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
@@ -1305,7 +1305,7 @@ static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, 
 		log_debug(ID(update_arg->res),
 		          "Module %s can't reserve key %s which is already reserved by %s module.",
 		          KV_VALUE_OWNER(iov_new),
-		          full_key,
+		          spec->key,
 		          KV_VALUE_OWNER(iov_old));
 		update_arg->ret_code = -EBUSY;
 		return 0;
@@ -1314,7 +1314,7 @@ static int _kv_reserve(const char *full_key, struct kv_store_update_spec *spec, 
 	return 1;
 }
 
-static int _kv_unreserve(const char *full_key, struct kv_store_update_spec *spec, void *arg)
+static int _kv_unreserve(struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
 	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
@@ -1329,7 +1329,7 @@ static int _kv_unreserve(const char *full_key, struct kv_store_update_spec *spec
 		log_debug(ID(update_arg->res),
 		          "Module %s can't unreserve key %s which is reserved by %s module.",
 		          update_arg->owner,
-		          full_key,
+		          spec->key,
 		          KV_VALUE_OWNER(iov_old));
 		update_arg->ret_code = -EBUSY;
 		return 0;
@@ -1504,7 +1504,7 @@ dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx
 	return result;
 }
 
-static int _kv_write_new_only(const char *full_key, struct kv_store_update_spec *spec, void *arg)
+static int _kv_write_new_only(struct kv_store_update_spec *spec, void *arg)
 {
 	if (spec->old_data)
 		return 0;
@@ -2785,7 +2785,7 @@ fail:
  *	      (the same as 8_1, just for the minus vectors instead of plus vectors)
  *
  */
-static int _kv_delta(const char *full_key __attribute__((unused)), struct kv_store_update_spec *spec, void *arg)
+static int _kv_delta(struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
 	struct kv_rel_spec *  rel_spec   = update_arg->custom;
@@ -3842,7 +3842,7 @@ static int _destroy_command(sid_resource_t *res)
 	return 0;
 }
 
-static int _main_kv_store_unset(const char *full_key, struct kv_store_update_spec *spec, void *arg)
+static int _main_kv_store_unset(struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
 	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
@@ -3858,7 +3858,7 @@ static int _main_kv_store_unset(const char *full_key, struct kv_store_update_spe
 		          "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
 		          "which belongs to module %s.",
 		          update_arg->owner,
-		          full_key,
+		          spec->key,
 		          KV_VALUE_SEQNUM(iov_old),
 		          KV_VALUE_OWNER(iov_old));
 		update_arg->ret_code = EBUSY;
@@ -3868,7 +3868,7 @@ static int _main_kv_store_unset(const char *full_key, struct kv_store_update_spe
 	return 1;
 }
 
-static int _main_kv_store_update(const char *full_key, struct kv_store_update_spec *spec, void *arg)
+static int _main_kv_store_update(struct kv_store_update_spec *spec, void *arg)
 {
 	struct kv_update_arg *update_arg = arg;
 	struct kv_rel_spec *  rel_spec   = update_arg->custom;
@@ -3882,11 +3882,10 @@ static int _main_kv_store_update(const char *full_key, struct kv_store_update_sp
 
 	if (rel_spec->delta->op == KV_OP_SET)
 		/* overwrite whole value */
-		r = (!iov_old ||
-		     ((KV_VALUE_SEQNUM(iov_new) >= KV_VALUE_SEQNUM(iov_old)) && _kv_overwrite(full_key, spec, update_arg)));
+		r = (!iov_old || ((KV_VALUE_SEQNUM(iov_new) >= KV_VALUE_SEQNUM(iov_old)) && _kv_overwrite(spec, update_arg)));
 	else {
 		/* resolve delta */
-		r = _kv_delta(full_key, spec, update_arg);
+		r = _kv_delta(spec, update_arg);
 		/* resolving delta might have changed new_data so get it afresh for the log_debug below */
 		iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 	}
@@ -3894,13 +3893,13 @@ static int _main_kv_store_update(const char *full_key, struct kv_store_update_sp
 	if (r)
 		log_debug(ID(update_arg->res),
 		          "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
-		          full_key,
+		          spec->key,
 		          KV_VALUE_SEQNUM(iov_new),
 		          iov_old ? KV_VALUE_SEQNUM(iov_old) : 0);
 	else
 		log_debug(ID(update_arg->res),
 		          "Keeping old value for key %s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
-		          full_key,
+		          spec->key,
 		          KV_VALUE_SEQNUM(iov_new),
 		          iov_old ? KV_VALUE_SEQNUM(iov_old) : 0);
 

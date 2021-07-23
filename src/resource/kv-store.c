@@ -47,7 +47,6 @@ struct kv_store_value {
 };
 
 struct kv_update_fn_relay {
-	const char *         key;
 	kv_store_update_fn_t kv_update_fn;
 	void *               kv_update_fn_arg;
 	int                  ret_code;
@@ -286,7 +285,7 @@ static int _hash_update_fn(const char *               key,
 	void *                      orig_new_data      = NULL;
 	size_t                      orig_new_data_size = 0;
 	kv_store_value_flags_t      orig_new_flags     = 0;
-	struct kv_store_update_spec update_spec        = {0};
+	struct kv_store_update_spec update_spec        = {.key = key};
 	struct iovec                tmp_iov[1];
 	struct iovec *              iov;
 	size_t                      iov_cnt;
@@ -304,7 +303,7 @@ static int _hash_update_fn(const char *               key,
 		update_spec.new_data_size = orig_new_data_size = orig_new_value->size;
 		update_spec.new_flags = orig_new_flags = orig_new_value->ext_flags;
 
-		r = relay->kv_update_fn(relay->key, &update_spec, relay->kv_update_fn_arg);
+		r = relay->kv_update_fn(&update_spec, relay->kv_update_fn_arg);
 
 		/* Check if there has been any change... */
 		if ((r > 0) && ((update_spec.new_data != orig_new_data) || (update_spec.new_data_size != orig_new_data_size) ||
@@ -368,8 +367,7 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
                          kv_store_update_fn_t      kv_update_fn,
                          void *                    kv_update_fn_arg)
 {
-	struct kv_update_fn_relay relay        = {.key              = key,
-                                           .kv_update_fn     = kv_update_fn,
+	struct kv_update_fn_relay relay        = {.kv_update_fn     = kv_update_fn,
                                            .kv_update_fn_arg = kv_update_fn_arg,
                                            .ret_code         = -EREMOTEIO};
 	struct kv_store *         kv_store     = sid_resource_get_data(kv_store_res);
@@ -426,7 +424,7 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store
 {
 	struct kv_store *           kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_store_value *     found;
-	struct kv_store_update_spec update_spec = {0};
+	struct kv_store_update_spec update_spec = {.key = key};
 
 	/*
 	 * FIXME: hash_lookup and hash_remove are two searches inside hash - maybe try to do
@@ -439,7 +437,7 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store
 	update_spec.old_data_size = found->size;
 	update_spec.old_flags     = found->ext_flags;
 
-	if (kv_unset_fn && !kv_unset_fn(key, &update_spec, kv_unset_fn_arg))
+	if (kv_unset_fn && !kv_unset_fn(&update_spec, kv_unset_fn_arg))
 		return -EREMOTEIO;
 
 	_destroy_kv_store_value(found);
