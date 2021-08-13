@@ -546,6 +546,12 @@ void kv_store_iter_destroy(kv_store_iter_t *iter)
 	free(iter);
 }
 
+size_t kv_store_num_entries(sid_resource_t *kv_store_res)
+{
+	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+	return hash_get_num_entries(kv_store->ht);
+}
+
 size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t *data_size)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
