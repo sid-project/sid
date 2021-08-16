@@ -2437,7 +2437,8 @@ static int _do_sid_ucmd_group_create(struct module          *mod,
                                      const char             *group_cat,
                                      const char             *group_id)
 {
-	char        *key = NULL;
+	const char  *owner = _get_mod_name(mod);
+	char        *key   = NULL;
 	struct iovec vvalue[VVALUE_HEADER_CNT];
 	int          r                  = -1;
 
@@ -2450,14 +2451,15 @@ static int _do_sid_ucmd_group_create(struct module          *mod,
 	                                   .core    = KV_KEY_GEN_GROUP_MEMBERS};
 
 	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kv_store_res,
-	                                   .owner    = _get_mod_name(mod),
+	                                   .owner    = owner,
 	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                   .custom   = NULL,
 	                                   .ret_code = 0};
 
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
 		goto out;
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_sync, core_owner);
+
+	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_sync, (char *) owner);
 
 	if (!kv_store_set_value(ucmd_ctx->common->kv_store_res,
 	                        key,
