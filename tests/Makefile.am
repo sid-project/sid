@@ -18,6 +18,7 @@ test_hash_SOURCES = test_hash.c
 test_hash_LDADD = $(top_builddir)/src/internal/libsidinternal.la \
 		  $(top_builddir)/src/base/libsidbase.la -lcmocka
 test_kv_store_SOURCES = test_kv_store.c
+test_kv_store_CFLAGS = -I$(top_builddir)/src/include/resource
 test_kv_store_LDADD = \
 	$(top_builddir)/src/base/libsidbase.la \
 	$(top_builddir)/src/resource/libsidresource.la -lcmocka
