@@ -164,6 +164,106 @@ static void test_kvstore_iterate(void **state)
 	sid_resource_destroy(kv_store_res);
 }
 
+static size_t add_sequential_test_data(char *                    key,
+                                       struct iovec              test_iov[MAX_TEST_ENTRIES],
+                                       sid_resource_t *          kv_store_res,
+                                       int                       num_entries,
+                                       kv_store_value_flags_t    flags,
+                                       kv_store_value_op_flags_t op_flags)
+{
+	size_t size = 0;
+
+	for (int i = 0; i < num_entries; i++) {
+		int   strlen = snprintf(NULL, 0, "%d", i);
+		char *str    = malloc(strlen + 1);
+		snprintf(str, strlen + 1, "%d", i);
+		test_iov[i].iov_base = str;
+		test_iov[i].iov_len  = strlen + 1;
+		size += strlen + 1;
+	}
+	assert_ptr_not_equal(kv_store_set_value(kv_store_res, MERGE_KEY, test_iov, MAX_TEST_ENTRIES, flags, op_flags, NULL, NULL),
+	                     NULL);
+
+	/* if the kv store is making a copy, free this copy */
+	if ((flags & KV_STORE_VALUE_REF) == 0) {
+		for (int i = 0; i < num_entries; i++) {
+			free(test_iov[i].iov_base);
+		}
+	}
+	return size;
+}
+
+static void release_test_data(int num_entries, struct iovec test_iov[MAX_TEST_ENTRIES], kv_store_value_flags_t flags)
+{
+	/* non references are released when the kv-store makes a copy */
+	if ((flags & KV_STORE_VALUE_REF) == 0)
+		return;
+
+	for (int i = 0; i < num_entries; i++) {
+		free(test_iov[i].iov_base);
+		test_iov[i].iov_base = NULL;
+		test_iov[i].iov_len  = 0;
+	}
+}
+
+/*
+ * Note: Currently the kv store merges data in order.  This may change, if it does the
+ * validation will need to be updated.
+ */
+static int validate_merged_data(int num_entries, char *data)
+{
+	char  int_buff[20];
+	char *temp_ptr;
+	temp_ptr = data;
+	for (int i = 0; i < num_entries; i++) {
+		int strlen = snprintf(int_buff, 20, "%d", i);
+		if (strncmp(temp_ptr, temp_ptr, strlen) != 0)
+			return 1;
+		temp_ptr += strlen + 1;
+	}
+	return 0;
+}
+
+static void test_kvstore_merge_op(void **state)
+{
+	struct iovec           test_iov[MAX_TEST_ENTRIES];
+	size_t                 data_size;
+	void *                 data;
+	kv_store_iter_t *      iter;
+	kv_store_value_flags_t flags        = KV_STORE_VALUE_VECTOR;
+	sid_resource_t *       kv_store_res = NULL;
+
+	kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
+	                                   &sid_resource_type_kv_store,
+	                                   SID_RESOURCE_RESTRICT_WALK_UP,
+	                                   "testkvstore",
+	                                   &main_kv_store_res_params,
+	                                   SID_RESOURCE_PRIO_NORMAL,
+	                                   SID_RESOURCE_NO_SERVICE_LINKS);
+
+	add_sequential_test_data(MERGE_KEY, test_iov, kv_store_res, MAX_TEST_ENTRIES, flags, KV_STORE_VALUE_OP_MERGE);
+	assert_int_equal(kv_store_num_entries(kv_store_res), 1);
+
+	data = kv_store_get_value(kv_store_res, MERGE_KEY, &data_size, NULL);
+
+	/* Validate the concatenated contents of the kv store.
+	 * The data variable contains all of the test_iov[].iov_base
+	 * values in merged into continuous memory - it will not be
+	 * returned as an iovec.*/
+	assert_int_equal(validate_merged_data(MAX_TEST_ENTRIES, data), 0);
+	assert_ptr_not_equal(iter = kv_store_iter_create(kv_store_res), NULL);
+	while ((data = kv_store_iter_next(iter, &data_size, &flags))) {
+		assert_int_equal(validate_merged_data(MAX_TEST_ENTRIES, data), 0);
+	}
+
+	kv_store_iter_destroy(iter);
+	assert_int_equal(kv_store_num_entries(kv_store_res), 1);
+	assert_int_equal(kv_store_unset_value(kv_store_res, MERGE_KEY, NULL, NULL), 0);
+	assert_int_equal(kv_store_num_entries(kv_store_res), 0);
+	release_test_data(MAX_TEST_ENTRIES, test_iov, flags);
+	sid_resource_destroy(kv_store_res);
+}
+
 int main(void)
 {
 	cmocka_set_message_output(CM_OUTPUT_STDOUT);
@@ -173,6 +273,7 @@ int main(void)
 		cmocka_unit_test(test_type_G),
 		cmocka_unit_test(test_type_H),
 		cmocka_unit_test(test_kvstore_iterate),
+		cmocka_unit_test(test_kvstore_merge_op),
 	};
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
