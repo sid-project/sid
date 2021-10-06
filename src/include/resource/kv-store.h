@@ -161,7 +161,7 @@ int              kv_store_iter_current_size(kv_store_iter_t *iter,
                                             size_t *         ext_data_size);
 const char *     kv_store_iter_current_key(kv_store_iter_t *iter);
 void *           kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags);
-void *           kv_store_iter_next(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags);
+void *           kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **return_key, kv_store_value_flags_t *flags);
 void             kv_store_iter_reset(kv_store_iter_t *iter);
 void             kv_store_iter_destroy(kv_store_iter_t *iter);
 
