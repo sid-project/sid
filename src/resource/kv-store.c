@@ -529,9 +529,12 @@ const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 	return iter->current ? hash_get_key(iter->store->ht, iter->current, NULL) : NULL;
 }
 
-void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags)
+void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **return_key, kv_store_value_flags_t *flags)
 {
 	iter->current = iter->current ? hash_get_next(iter->store->ht, iter->current) : hash_get_first(iter->store->ht);
+
+	if (return_key != NULL)
+		*return_key = kv_store_iter_current_key(iter);
 
 	return kv_store_iter_current(iter, size, flags);
 }

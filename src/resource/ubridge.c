@@ -571,9 +571,8 @@ static int _write_kv_store_stats(struct sid_stats *stats, sid_resource_t *kv_sto
 		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
 		return -ENOMEM;
 	}
-	while ((value = kv_store_iter_next(iter, &size, &flags))) {
+	while ((value = kv_store_iter_next(iter, &size, &key, &flags))) {
 		stats->nr_kv_pairs++;
-		key = kv_store_iter_current_key(iter);
 		kv_store_iter_current_size(iter, &int_size, &int_data_size, &ext_size, &ext_data_size);
 		stats->key_size += strlen(key) + 1;
 		stats->value_int_size += int_size;
@@ -601,6 +600,7 @@ static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 	void *                 value;
 	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
 	struct iovec *         iov;
+	const char *           key;
 	unsigned int           i = 0, j;
 
 	if (!(iter = kv_store_iter_create(kv_store_res))) {
@@ -609,9 +609,9 @@ static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 	}
 
 	log_print(ID(kv_store_res), "\n======= KV STORE DUMP BEGIN %s =======", str);
-	while ((value = kv_store_iter_next(iter, &size, &flags))) {
+	while ((value = kv_store_iter_next(iter, &size, &key, &flags))) {
 		iov = _get_value_vector(flags, value, size, tmp_iov);
-		if (!strncmp(kv_store_iter_current_key(iter), "U:", 2))
+		if (!strncmp(key, "U:", 2))
 			continue;
 		log_print(ID(kv_store_res), "  --- RECORD %u", i);
 		log_print(ID(kv_store_res), "      key: %s", kv_store_iter_current_key(iter));
@@ -661,9 +661,7 @@ static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_
 
 	log_print(ID, "digraph stack {");
 
-	while ((value = kv_store_iter_next(iter, &value_size, &flags))) {
-		full_key = kv_store_iter_current_key(iter);
-
+	while ((value = kv_store_iter_next(iter, &value_size, &full_key, &flags))) {
 		/* we're intested in KV_NS_DEVICE records only */
 		if (_get_ns_from_key(full_key) != KV_NS_DEVICE)
 			continue;
@@ -871,7 +869,7 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 		print_start_array("siddb", format, export_buf, 1);
 	}
 
-	while ((value = kv_store_iter_next(iter, &size, &flags))) {
+	while ((value = kv_store_iter_next(iter, &size, &key, &flags))) {
 		vector = flags & KV_STORE_VALUE_VECTOR;
 
 		if (vector) {
@@ -898,7 +896,6 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 			}
 		}
 
-		key      = kv_store_iter_current_key(iter);
 		key_size = strlen(key) + 1;
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.

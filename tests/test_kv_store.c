@@ -105,6 +105,7 @@ static void test_kvstore_iterate(void **state)
 {
 	struct iovec           test_iov[_KV_VALUE_IDX_COUNT];
 	size_t                 data_size, kv_size;
+	const char *           key;
 	struct iovec *         return_iov;
 	kv_store_iter_t *      iter;
 	sid_ucmd_kv_flags_t    ucmd_flags = DEFAULT_KV_FLAGS_CORE;
@@ -145,7 +146,8 @@ static void test_kvstore_iterate(void **state)
 
 	assert_ptr_not_equal(iter = kv_store_iter_create(kv_store_res), NULL);
 	/* validate the contents of the kv store */
-	while ((return_iov = kv_store_iter_next(iter, &data_size, &flags))) {
+	while ((return_iov = kv_store_iter_next(iter, &data_size, &key, &flags))) {
+		assert_int_equal(strcmp(TEST_KEY, key), 0);
 		assert_true(flags == KV_STORE_VALUE_VECTOR);
 		assert_int_equal(strcmp(return_iov[KV_VALUE_IDX_DATA].iov_base, "test"), 0);
 		assert_int_equal(return_iov[KV_VALUE_IDX_DATA].iov_len, sizeof("test"));
@@ -228,6 +230,7 @@ static void test_kvstore_merge_op(void **state)
 {
 	struct iovec           test_iov[MAX_TEST_ENTRIES];
 	size_t                 data_size;
+	const char *           key;
 	void *                 data;
 	kv_store_iter_t *      iter;
 	kv_store_value_flags_t flags        = KV_STORE_VALUE_VECTOR;
@@ -252,7 +255,8 @@ static void test_kvstore_merge_op(void **state)
 	 * returned as an iovec.*/
 	assert_int_equal(validate_merged_data(MAX_TEST_ENTRIES, data), 0);
 	assert_ptr_not_equal(iter = kv_store_iter_create(kv_store_res), NULL);
-	while ((data = kv_store_iter_next(iter, &data_size, &flags))) {
+	while ((data = kv_store_iter_next(iter, &data_size, &key, &flags))) {
+		assert_int_equal(strcmp(MERGE_KEY, key), 0);
 		assert_int_equal(validate_merged_data(MAX_TEST_ENTRIES, data), 0);
 	}
 
