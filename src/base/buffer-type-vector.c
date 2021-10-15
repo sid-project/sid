@@ -22,6 +22,7 @@
 #include "base/buffer-type.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
@@ -59,6 +60,10 @@ static int _buffer_vector_realloc(struct sid_buffer *buf, size_t needed, int for
 
 		case SID_BUFFER_BACKEND_MEMFD:
 			if (buf->fd == -1 && (buf->fd = memfd_create("buffer", MFD_CLOEXEC | MFD_ALLOW_SEALING)) < 0)
+				return -errno;
+			/* fall through */
+		case SID_BUFFER_BACKEND_FILE:
+			if (buf->fd == -1 && (buf->fd = open(buf->stat.spec.ext.file.path, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)) < 0)
 				return -errno;
 
 			if (ftruncate(buf->fd, needed * VECTOR_ITEM_SIZE) < 0)
@@ -112,7 +117,7 @@ static int _buffer_vector_create(struct sid_buffer *buf)
 		return r;
 	}
 
-	// TODO: also count with SID_BUFFER_BACKEND_MEMFD where we don't want to use malloc.
+	// TODO: also count with SID_BUFFER_BACKEND_MEMFD/FILE where we don't want to use malloc.
 	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) {
 		if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(SID_BUFFER_SIZE_PREFIX_LEN))) {
 			free(buf->mem);
@@ -143,6 +148,7 @@ static int _buffer_vector_destroy(struct sid_buffer *buf)
 			break;
 
 		case SID_BUFFER_BACKEND_MEMFD:
+		case SID_BUFFER_BACKEND_FILE:
 			(void) close(buf->fd);
 			r = munmap(buf->mem, buf->stat.usage.allocated);
 			break;

@@ -36,6 +36,7 @@ typedef enum
 {
 	SID_BUFFER_BACKEND_MALLOC,
 	SID_BUFFER_BACKEND_MEMFD,
+	SID_BUFFER_BACKEND_FILE,
 } sid_buffer_backend_t;
 
 typedef enum
@@ -54,6 +55,11 @@ struct sid_buffer_spec {
 	sid_buffer_backend_t backend;
 	sid_buffer_type_t    type;
 	sid_buffer_mode_t    mode;
+	union {
+		struct {
+			const char *path;
+		} file;
+	} ext;
 };
 
 struct sid_buffer_init {

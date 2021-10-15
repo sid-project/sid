@@ -22,6 +22,7 @@
 #include "base/buffer-type.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,6 +59,10 @@ static int _buffer_linear_realloc(struct sid_buffer *buf, size_t needed, int for
 
 		case SID_BUFFER_BACKEND_MEMFD:
 			if (buf->fd == -1 && (buf->fd = memfd_create("buffer", MFD_CLOEXEC | MFD_ALLOW_SEALING)) < 0)
+				return -errno;
+			/* fall through */
+		case SID_BUFFER_BACKEND_FILE:
+			if (buf->fd == -1 && (buf->fd = open(buf->stat.spec.ext.file.path, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)) < 0)
 				return -errno;
 
 			if (ftruncate(buf->fd, needed) < 0)
@@ -117,6 +122,7 @@ static int _buffer_linear_destroy(struct sid_buffer *buf)
 			break;
 
 		case SID_BUFFER_BACKEND_MEMFD:
+		case SID_BUFFER_BACKEND_FILE:
 			(void) close(buf->fd);
 			r = munmap(buf->mem, buf->stat.usage.allocated);
 			break;
@@ -383,6 +389,7 @@ static ssize_t _buffer_linear_write(struct sid_buffer *buf, int fd, size_t pos)
 			break;
 
 		case SID_BUFFER_BACKEND_MEMFD:
+		case SID_BUFFER_BACKEND_FILE:
 			offset = pos;
 			n      = sendfile(fd, buf->fd, &offset, buf->stat.usage.used - pos);
 			break;
