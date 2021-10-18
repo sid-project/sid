@@ -818,7 +818,7 @@ static void _print_kv_value(struct iovec *iov, size_t size, output_format_t form
 		print_str_field("value", "", format, buf, false, level);
 }
 
-static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool export_sid, output_format_t format)
+static int _build_kv_buffers(sid_resource_t *cmd_res, bool export_udev, bool export_sid, output_format_t format)
 {
 	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct kv_value *      kv_value;
@@ -836,14 +836,17 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
 
 	/*
-	 * For udev namespace, we append key=value pairs to the output buffer.
+	 * For udev namespace, we append key=value pairs to the result buffer,
+	 * that is ucmd_ctx->res_buf.
 	 *
 	 * For other namespaces, we serialize the key-value records to export
-	 * buffer which is backed by SID_BUFFER_BACKEND_MEMFD/SID_BUFFER_TYPE_LINEAR
-	 * so we can send the FD where we want to.
+	 * buffer, that is ucmd_ctx->exp_buf. The export buffer is backed by
+	 * SID_BUFFER_BACKEND_MEMFD/SID_BUFFER_TYPE_LINEAR so we can send
+	 * the FD directly to client for it to read it directly.
 	 *
-	 * We only add key=value pairs to buffers which are marked with
-	 * KV_PERSISTENT flag.
+	 * If the format is NO_FORMAT, we only add KV records to buffers which
+	 * are marked with KV_PERSISTENT flag. For all the other formats, we
+	 * don't care and we add all KV records to buffers.
 	 */
 
 	if (!(iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res))) {
@@ -931,9 +934,11 @@ static int _build_kv_buffer(sid_resource_t *cmd_res, bool export_udev, bool expo
 				          kv_value->data + data_offset);
 				continue;
 			}
-		} else if (!export_sid) {
-			log_debug(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
-			continue;
+		} else { /* _get_ns_from_key(key) != KV_NS_UDEV */
+			if (!export_sid) {
+				log_debug(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
+				continue;
+			}
 		}
 
 		if (format == NO_FORMAT) {
@@ -3542,11 +3547,11 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	}
 
 	if (cmd_reg->flags & CMD_KV_EXPORT_UDEV || cmd_reg->flags & CMD_KV_EXPORT_SID) {
-		if ((r = _build_kv_buffer(cmd_res,
-		                          cmd_reg->flags & CMD_KV_EXPORT_UDEV,
-		                          cmd_reg->flags & CMD_KV_EXPORT_SID,
-		                          cmd_reg->flags & CMD_KV_EXPORT_CLIENT ? flags_to_format(ucmd_ctx->request_header.flags)
-		                                                                : NO_FORMAT)) < 0) {
+		if ((r = _build_kv_buffers(cmd_res,
+		                           cmd_reg->flags & CMD_KV_EXPORT_UDEV,
+		                           cmd_reg->flags & CMD_KV_EXPORT_SID,
+		                           cmd_reg->flags & CMD_KV_EXPORT_CLIENT ? flags_to_format(ucmd_ctx->request_header.flags)
+		                                                                 : NO_FORMAT)) < 0) {
 			log_error(ID(cmd_res), "Failed to export KV store.");
 			goto out;
 		}
