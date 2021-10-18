@@ -37,6 +37,19 @@
 #define SYSTEM_MAX_MAJOR ((1U << 20) - 1)
 #define SYSTEM_MAX_MINOR ((1U << 12) - 1)
 
+static const char *const _cmd_names[] = {
+	[SID_CMD_UNDEFINED]  = "undefined",
+	[SID_CMD_UNKNOWN]    = "unknown",
+	[SID_CMD_ACTIVE]     = "active",
+	[SID_CMD_CHECKPOINT] = "checkpoint",
+	[SID_CMD_REPLY]      = "reply",
+	[SID_CMD_SCAN]       = "scan",
+	[SID_CMD_VERSION]    = "version",
+	[SID_CMD_DUMP]       = "dump",
+	[SID_CMD_STATS]      = "stats",
+	[SID_CMD_TREE]       = "tree",
+};
+
 struct sid_result {
 	struct sid_buffer *buf;
 	const char *       shm;
@@ -109,6 +122,11 @@ const char *sid_result_data(struct sid_result *res, size_t *size_p)
 	return NULL;
 }
 
+const char *sid_cmd_type_to_name(sid_cmd_t cmd)
+{
+	return _cmd_names[cmd];
+}
+
 sid_cmd_t sid_cmd_name_to_type(const char *cmd_name)
 {
 	sid_cmd_t cmd;
@@ -117,7 +135,7 @@ sid_cmd_t sid_cmd_name_to_type(const char *cmd_name)
 		return SID_CMD_UNDEFINED;
 
 	for (cmd = _SID_CMD_START; cmd <= _SID_CMD_END; cmd++) {
-		if (!strcmp(cmd_name, sid_cmd_names[cmd]))
+		if (!strcmp(cmd_name, _cmd_names[cmd]))
 			return cmd;
 	}
 

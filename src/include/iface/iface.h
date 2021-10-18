@@ -46,19 +46,6 @@ typedef enum
 	_SID_CMD_END       = SID_CMD_TREE,
 } sid_cmd_t;
 
-static const char *const sid_cmd_names[] = {
-	[SID_CMD_UNDEFINED]  = "undefined",
-	[SID_CMD_UNKNOWN]    = "unknown",
-	[SID_CMD_ACTIVE]     = "active",
-	[SID_CMD_CHECKPOINT] = "checkpoint",
-	[SID_CMD_REPLY]      = "reply",
-	[SID_CMD_SCAN]       = "scan",
-	[SID_CMD_VERSION]    = "version",
-	[SID_CMD_DUMP]       = "dump",
-	[SID_CMD_STATS]      = "stats",
-	[SID_CMD_TREE]       = "tree",
-};
-
 #define SID_CMD_STATUS_MASK_OVERALL UINT64_C(0x0000000000000001)
 #define SID_CMD_STATUS_SUCCESS      UINT64_C(0x0000000000000000)
 #define SID_CMD_STATUS_FAILURE      UINT64_C(0x0000000000000001)
@@ -92,6 +79,7 @@ struct sid_request {
 
 struct sid_result;
 
+const char *sid_cmd_type_to_name(sid_cmd_t cmd);
 sid_cmd_t   sid_cmd_name_to_type(const char *cmd_name);
 int         sid_req(struct sid_request *req, struct sid_result **res);
 void        sid_result_free(struct sid_result *res);
