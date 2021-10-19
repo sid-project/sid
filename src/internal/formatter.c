@@ -1,8 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2001-2004 Sistina Software, Inc. All rights reserved.
- * Copyright (C) 2004-2021 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2020-2021 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
