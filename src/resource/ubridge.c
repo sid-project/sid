@@ -291,7 +291,7 @@ struct cross_bitmap_calc_arg {
 	struct bitmap *new_bmp;
 };
 
-struct sid_stats {
+struct sid_dbstats {
 	uint64_t key_size;
 	uint64_t value_int_size;
 	uint64_t value_int_data_size;
@@ -332,9 +332,9 @@ static bool _cmd_root_only[] = {
 	[SID_CMD_REPLY]      = false,
 	[SID_CMD_SCAN]       = true,
 	[SID_CMD_VERSION]    = false,
-	[SID_CMD_DUMP]       = true,
-	[SID_CMD_STATS]      = true,
-	[SID_CMD_TREE]       = true,
+	[SID_CMD_DBDUMP]     = true,
+	[SID_CMD_DBSTATS]    = true,
+	[SID_CMD_RESOURCES]  = true,
 };
 
 static struct cmd_reg      _cmd_scan_phase_regs[];
@@ -557,7 +557,7 @@ fail:
 	return NULL;
 }
 
-static int _write_kv_store_stats(struct sid_stats *stats, sid_resource_t *kv_store_res)
+static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_store_res)
 {
 	kv_store_iter_t *      iter;
 	const char *           key;
@@ -1972,7 +1972,7 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	return r;
 }
 
-static int _cmd_exec_tree(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 {
 	int                  r;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
@@ -1993,11 +1993,11 @@ static int _cmd_exec_tree(struct cmd_exec_arg *exec_arg)
 	return r;
 }
 
-static int _cmd_exec_stats(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 {
 	int                  r;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct sid_stats     stats;
+	struct sid_dbstats   stats;
 	char *               stats_data;
 	size_t               size;
 	output_format_t      format = flags_to_format(ucmd_ctx->request_header.flags);
@@ -3487,9 +3487,9 @@ static struct cmd_reg _cmd_regs[] = {
                           .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_SESSION_ID,
                           .exec  = _cmd_exec_scan},
 	[SID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
-	[SID_CMD_DUMP]       = {.name = NULL, .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_CLIENT, .exec = NULL},
-	[SID_CMD_STATS]      = {.name = NULL, .flags = 0, .exec = _cmd_exec_stats},
-	[SID_CMD_TREE]       = {.name = NULL, .flags = 0, .exec = _cmd_exec_tree},
+	[SID_CMD_DBDUMP]     = {.name = NULL, .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_CLIENT, .exec = NULL},
+	[SID_CMD_DBSTATS]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_dbstats},
+	[SID_CMD_RESOURCES]  = {.name = NULL, .flags = 0, .exec = _cmd_exec_resources},
 };
 
 static ssize_t _send_fd_over_unix_comms(int fd, int unix_comms_fd)

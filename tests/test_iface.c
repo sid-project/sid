@@ -22,9 +22,9 @@ static void test_sid_cmd_name_to_type(void **state)
 	assert_int_equal(sid_cmd_name_to_type("reply"), SID_CMD_REPLY);
 	assert_int_equal(sid_cmd_name_to_type("scan"), SID_CMD_SCAN);
 	assert_int_equal(sid_cmd_name_to_type("version"), SID_CMD_VERSION);
-	assert_int_equal(sid_cmd_name_to_type("dump"), SID_CMD_DUMP);
-	assert_int_equal(sid_cmd_name_to_type("stats"), SID_CMD_STATS);
-	assert_int_equal(sid_cmd_name_to_type("tree"), SID_CMD_TREE);
+	assert_int_equal(sid_cmd_name_to_type("dbdump"), SID_CMD_DBDUMP);
+	assert_int_equal(sid_cmd_name_to_type("dbstats"), SID_CMD_DBSTATS);
+	assert_int_equal(sid_cmd_name_to_type("resources"), SID_CMD_RESOURCES);
 }
 
 char *__wrap_getenv(const char *name)
@@ -467,7 +467,7 @@ static void test_sid_req_checkpoint(void **state)
 
 static void test_sid_req_export_pass(void **state)
 {
-	struct sid_request req = {.cmd = SID_CMD_DUMP};
+	struct sid_request req = {.cmd = SID_CMD_DBDUMP};
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + SID_BUFFER_SIZE_PREFIX_LEN);
@@ -479,7 +479,7 @@ static void test_sid_req_export_pass(void **state)
 
 static void test_sid_req_export_fail1(void **state)
 {
-	struct sid_request req = {.cmd = SID_CMD_DUMP};
+	struct sid_request req = {.cmd = SID_CMD_DBDUMP};
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + SID_BUFFER_SIZE_PREFIX_LEN);
@@ -491,7 +491,7 @@ static void test_sid_req_export_fail1(void **state)
 
 static void test_sid_req_export_fail2(void **state)
 {
-	struct sid_request req = {.cmd = SID_CMD_DUMP};
+	struct sid_request req = {.cmd = SID_CMD_DBDUMP};
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + SID_BUFFER_SIZE_PREFIX_LEN);
@@ -503,7 +503,7 @@ static void test_sid_req_export_fail2(void **state)
 
 static void test_sid_req_export_no_data(void **state)
 {
-	struct sid_request req = {.cmd = SID_CMD_DUMP};
+	struct sid_request req = {.cmd = SID_CMD_DBDUMP};
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, SID_BUFFER_SIZE_PREFIX_LEN);
@@ -512,7 +512,7 @@ static void test_sid_req_export_no_data(void **state)
 
 static void test_sid_req_fail_recv_fd(void **state)
 {
-	struct sid_request req = {.cmd = SID_CMD_DUMP};
+	struct sid_request req = {.cmd = SID_CMD_DBDUMP};
 	struct sid_result *res;
 
 	will_return(__wrap_sid_comms_unix_recv, -EINTR);
@@ -523,7 +523,7 @@ static void test_sid_req_fail_recv_fd(void **state)
 
 static void test_sid_req_fail_read_fd1(void **state)
 {
-	struct sid_request req = {.cmd = SID_CMD_DUMP};
+	struct sid_request req = {.cmd = SID_CMD_DBDUMP};
 	struct sid_result *res;
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
@@ -535,7 +535,7 @@ static void test_sid_req_fail_read_fd1(void **state)
 
 static void test_sid_req_fail_read_fd2(void **state)
 {
-	struct sid_request req = {.cmd = SID_CMD_DUMP};
+	struct sid_request req = {.cmd = SID_CMD_DBDUMP};
 	struct sid_result *res;
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
@@ -546,7 +546,7 @@ static void test_sid_req_fail_read_fd2(void **state)
 
 static void test_sid_req_fail_mmap(void **state)
 {
-	struct sid_request req = {.cmd = SID_CMD_DUMP};
+	struct sid_request req = {.cmd = SID_CMD_DBDUMP};
 	struct sid_result *res;
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));

@@ -45,9 +45,9 @@ static const char *const _cmd_names[] = {
 	[SID_CMD_REPLY]      = "reply",
 	[SID_CMD_SCAN]       = "scan",
 	[SID_CMD_VERSION]    = "version",
-	[SID_CMD_DUMP]       = "dump",
-	[SID_CMD_STATS]      = "stats",
-	[SID_CMD_TREE]       = "tree",
+	[SID_CMD_DBDUMP]     = "dbdump",
+	[SID_CMD_DBSTATS]    = "dbstats",
+	[SID_CMD_RESOURCES]  = "resources",
 };
 
 struct sid_result {
@@ -58,7 +58,7 @@ struct sid_result {
 
 static inline bool _needs_mem_fd(sid_cmd_t cmd)
 {
-	return (cmd == SID_CMD_DUMP);
+	return (cmd == SID_CMD_DBDUMP);
 }
 
 void sid_result_free(struct sid_result *res)

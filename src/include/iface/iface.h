@@ -40,10 +40,10 @@ typedef enum
 	SID_CMD_REPLY      = 4,
 	SID_CMD_SCAN       = 5,
 	SID_CMD_VERSION    = 6,
-	SID_CMD_DUMP       = 7,
-	SID_CMD_STATS      = 8,
-	SID_CMD_TREE       = 9,
-	_SID_CMD_END       = SID_CMD_TREE,
+	SID_CMD_DBDUMP     = 7,
+	SID_CMD_DBSTATS    = 8,
+	SID_CMD_RESOURCES  = 9,
+	_SID_CMD_END       = SID_CMD_RESOURCES,
 } sid_cmd_t;
 
 #define SID_CMD_STATUS_MASK_OVERALL UINT64_C(0x0000000000000001)

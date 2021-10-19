@@ -129,17 +129,17 @@ static void _help(FILE *f)
 	        "      Output: SID_PROTOCOL/MAJOR/MINOR/RELEASE for SIDCTL version.\n"
 	        "              SID_PROTOCOL/MAJOR/MINOR/RELEASE for SID version.\n"
 	        "\n"
-	        "    dump\n"
+	        "    dbdump\n"
 	        "      Dump the SID daemon database.\n"
 	        "      Input:  None.\n"
 	        "      Output: Listing of all database entries.\n"
 	        "\n"
-	        "    stats\n"
-	        "      Show stats for the SID daemon key value store.\n"
+	        "    dbstats\n"
+	        "      Show stats for the SID daemon database.\n"
 	        "      Input:  None.\n"
-	        "      Output: Key value store stats.\n"
+	        "      Output: Database statistics.\n"
 	        "\n"
-	        "    tree\n"
+	        "    resources\n"
 	        "      Show current SID resource tree.\n"
 	        "      Input:  None.\n"
 	        "      Output: Resource tree.\n"
@@ -216,9 +216,9 @@ int main(int argc, char *argv[])
 		case SID_CMD_VERSION:
 			r = _sid_cmd_version(format);
 			break;
-		case SID_CMD_DUMP:
-		case SID_CMD_TREE:
-		case SID_CMD_STATS:
+		case SID_CMD_DBDUMP:
+		case SID_CMD_DBSTATS:
+		case SID_CMD_RESOURCES:
 			r = _sid_cmd(cmd, format);
 			break;
 		default:
