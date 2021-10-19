@@ -1997,33 +1997,32 @@ static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 {
 	int                  r;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_buffer *  buf      = ucmd_ctx->ucmd_mod_ctx.gen_buf;
 	struct sid_dbstats   stats;
 	char *               stats_data;
 	size_t               size;
 	output_format_t      format = flags_to_format(ucmd_ctx->request_header.flags);
 
 	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0) {
-		print_start_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
-		print_uint64_field("KEYS_SIZE", stats.key_size, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
-		print_uint64_field("VALUES_INTERNAL_SIZE", stats.value_int_size, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
-		print_uint64_field("VALUES_INTERNAL_DATA_SIZE",
-		                   stats.value_int_data_size,
-		                   format,
-		                   ucmd_ctx->ucmd_mod_ctx.gen_buf,
-		                   true,
-		                   1);
-		print_uint64_field("VALUES_EXTERNAL_SIZE", stats.value_ext_size, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
+		print_start_document(format, buf, 0);
+
+		print_uint64_field("KEYS_SIZE", stats.key_size, format, buf, true, 1);
+		print_uint64_field("VALUES_INTERNAL_SIZE", stats.value_int_size, format, buf, true, 1);
+		print_uint64_field("VALUES_INTERNAL_DATA_SIZE", stats.value_int_data_size, format, buf, true, 1);
+		print_uint64_field("VALUES_EXTERNAL_SIZE", stats.value_ext_size, format, buf, true, 1);
 		print_uint64_field("VALUES_EXTERNAL_DATA_SIZE",
 		                   stats.value_ext_data_size,
 		                   format,
 		                   ucmd_ctx->ucmd_mod_ctx.gen_buf,
 		                   true,
 		                   1);
-		print_uint64_field("METADATA_SIZE", stats.meta_size, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
-		print_uint_field("NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
-		print_end_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
-		print_null_byte(ucmd_ctx->ucmd_mod_ctx.gen_buf);
-		sid_buffer_get_data(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &stats_data, &size);
+		print_uint64_field("METADATA_SIZE", stats.meta_size, format, buf, true, 1);
+		print_uint_field("NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, format, buf, true, 1);
+
+		print_end_document(format, buf, 0);
+		print_null_byte(buf);
+
+		sid_buffer_get_data(buf, (const void **) &stats_data, &size);
 		sid_buffer_add(ucmd_ctx->res_buf, stats_data, size, &r);
 	}
 	return r;
