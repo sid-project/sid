@@ -3526,7 +3526,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 
 	if (ucmd_ctx->request_header.prot < 2) {
 		log_error(ID(cmd_res), "Client protocol version unsupported: %u", ucmd_ctx->request_header.prot);
-		(void) _connection_cleanup(conn_res);
+		goto fail;
 		return -1;
 	} else if (ucmd_ctx->request_header.prot <= SID_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
@@ -3542,8 +3542,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		}
 	} else {
 		log_error(ID(cmd_res), "Client protocol unknown version: %u > %u ", ucmd_ctx->request_header.prot, SID_PROTOCOL);
-		(void) _connection_cleanup(conn_res);
-		return -1;
+		goto fail;
 	}
 
 	if (cmd_reg->flags & CMD_KV_EXPORT_UDEV || cmd_reg->flags & CMD_KV_EXPORT_SID) {
@@ -3561,9 +3560,8 @@ out:
 		response_header.status |= SID_CMD_STATUS_FAILURE;
 
 	if (sid_buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
-		(void) _connection_cleanup(conn_res);
 		log_error(ID(cmd_res), "Failed to send command response.");
-		r = -1;
+		goto fail;
 	}
 
 	if (ucmd_ctx->exp_buf && r >= 0) {
@@ -3584,6 +3582,9 @@ out:
 	}
 
 	return r;
+fail:
+	(void) _connection_cleanup(conn_res);
+	return -1;
 }
 
 static int _reply_failure(sid_resource_t *conn_res)
@@ -3622,8 +3623,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 			log_error(ID(conn_res), "Peer connection closed prematurely.");
 		else
 			log_error(ID(conn_res), "Connection error.");
-		(void) _connection_cleanup(conn_res);
-		return -1;
+		goto fail;
 	}
 
 	n = sid_buffer_read(conn->buf, fd);
@@ -3631,10 +3631,9 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 		if (sid_buffer_is_complete(conn->buf, NULL)) {
 			(void) sid_buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 
-			if (msg.size < sizeof(struct sid_msg_header)) {
-				(void) _connection_cleanup(conn_res);
-				return -1;
-			}
+			if (msg.size < sizeof(struct sid_msg_header))
+				goto fail;
+
 			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
 			if (msg.header->cmd < _SID_CMD_START || msg.header->cmd > _SID_CMD_END)
 				msg.header->cmd = SID_CMD_UNKNOWN;
@@ -3649,10 +3648,8 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 			                         SID_RESOURCE_PRIO_NORMAL,
 			                         SID_RESOURCE_NO_SERVICE_LINKS)) {
 				log_error(ID(conn_res), "Failed to register command for processing.");
-				if (_reply_failure(conn_res) < 0) {
-					(void) _connection_cleanup(conn_res);
-					return -1;
-				}
+				if (_reply_failure(conn_res) < 0)
+					goto fail;
 			}
 			(void) sid_buffer_reset(conn->buf);
 		}
@@ -3667,6 +3664,9 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 	}
 
 	return r;
+fail:
+	(void) _connection_cleanup(conn_res);
+	return -1;
 }
 
 static int _init_connection(sid_resource_t *res, const void *kickstart_data, void **data)
