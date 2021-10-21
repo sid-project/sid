@@ -592,6 +592,7 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 	return 0;
 }
 
+#if 0
 static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 {
 	kv_store_iter_t *      iter;
@@ -708,6 +709,7 @@ out:
 	if (iter)
 		kv_store_iter_destroy(iter);
 }
+#endif
 
 static int _kv_overwrite(struct kv_store_update_spec *spec)
 {
