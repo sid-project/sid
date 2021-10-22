@@ -119,6 +119,12 @@ struct ubridge {
 
 typedef enum
 {
+	CMD_CATEGORY_INTERNAL, /* internally/self-induced command */
+	CMD_CATEGORY_EXTERNAL, /* externally induced command using a connection */
+} cmd_category_t;
+
+typedef enum
+{
 	CMD_SCAN_PHASE_A_INIT = 0,          /* core initializes phase "A" */
 	CMD_SCAN_PHASE_A_IDENT,             /* module */
 	CMD_SCAN_PHASE_A_SCAN_PRE,          /* module */
@@ -3623,12 +3629,46 @@ static bool _socket_client_is_capable(int fd, sid_cmd_t cmd)
 	return !_cmd_root_only[cmd];
 }
 
+static int _create_command_resource(sid_resource_t *parent_res, struct sid_msg *msg)
+{
+	char id[32];
+
+	/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
+	if (msg->header->cmd < _SID_CMD_START || msg->header->cmd > _SID_CMD_END)
+		msg->header->cmd = SID_CMD_UNKNOWN;
+
+	if (sid_resource_match(parent_res, &sid_resource_type_ubridge_connection, NULL)) {
+		struct connection *conn = sid_resource_get_data(parent_res);
+
+		if (!_socket_client_is_capable(conn->fd, msg->header->cmd)) {
+			log_error(ID(parent_res),
+			          "Client does not have permission to run command %s.",
+			          sid_cmd_type_to_name(msg->header->cmd));
+			return -1;
+		}
+	}
+
+	snprintf(id, sizeof(id), "%d/%s", getpid(), sid_cmd_type_to_name(msg->header->cmd));
+
+	if (!sid_resource_create(parent_res,
+	                         &sid_resource_type_ubridge_command,
+	                         SID_RESOURCE_NO_FLAGS,
+	                         id,
+	                         msg,
+	                         SID_RESOURCE_PRIO_NORMAL,
+	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
+		log_error(ID(parent_res), "Failed to register command for processing.");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *   conn_res = data;
 	struct connection *conn     = sid_resource_get_data(conn_res);
 	struct sid_msg     msg;
-	char               id[32];
 	ssize_t            n;
 	int                r = 0;
 
@@ -3645,33 +3685,16 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 		if (sid_buffer_is_complete(conn->buf, NULL)) {
 			(void) sid_buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 
-			if (msg.size < sizeof(struct sid_msg_header))
+			if (msg.size < sizeof(struct sid_msg_header)) {
+				log_error(ID(conn_res), "Incorrect message header size.");
 				goto fail;
-
-			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
-			if (msg.header->cmd < _SID_CMD_START || msg.header->cmd > _SID_CMD_END)
-				msg.header->cmd = SID_CMD_UNKNOWN;
-
-			if (!_socket_client_is_capable(conn->fd, msg.header->cmd)) {
-				log_error(ID(conn_res),
-				          "Client does not have permission to run command %s.",
-				          sid_cmd_type_to_name(msg.header->cmd));
-				return -1;
 			}
 
-			snprintf(id, sizeof(id), "%d/%s", getpid(), sid_cmd_type_to_name(msg.header->cmd));
-
-			if (!sid_resource_create(conn_res,
-			                         &sid_resource_type_ubridge_command,
-			                         SID_RESOURCE_NO_FLAGS,
-			                         id,
-			                         &msg,
-			                         SID_RESOURCE_PRIO_NORMAL,
-			                         SID_RESOURCE_NO_SERVICE_LINKS)) {
-				log_error(ID(conn_res), "Failed to register command for processing.");
+			if (_create_command_resource(conn_res, &msg) < 0) {
 				if (_reply_failure(conn_res) < 0)
 					goto fail;
 			}
+
 			(void) sid_buffer_reset(conn->buf);
 		}
 	} else if (n < 0) {
@@ -4107,20 +4130,33 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
 
 static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *chan, struct worker_data_spec *data_spec, void *arg)
 {
-	if (data_spec->ext.used) {
-		if (!sid_resource_create(worker_res,
-		                         &sid_resource_type_ubridge_connection,
-		                         SID_RESOURCE_NO_FLAGS,
-		                         SID_RESOURCE_NO_CUSTOM_ID,
-		                         data_spec,
-		                         SID_RESOURCE_PRIO_NORMAL,
-		                         SID_RESOURCE_NO_SERVICE_LINKS)) {
-			log_error(ID(worker_res), "Failed to create connection resource.");
-			return -1;
-		}
-	} else {
-		log_error(ID(worker_res), "Received command from worker proxy, but connection handle missing.");
-		return -1;
+	cmd_category_t cmd_cat = *((cmd_category_t *) data_spec->data);
+
+	switch (cmd_cat) {
+		case CMD_CATEGORY_EXTERNAL:
+			/* command requested through a connection */
+			if (data_spec->ext.used) {
+				if (!sid_resource_create(worker_res,
+				                         &sid_resource_type_ubridge_connection,
+				                         SID_RESOURCE_NO_FLAGS,
+				                         SID_RESOURCE_NO_CUSTOM_ID,
+				                         data_spec,
+				                         SID_RESOURCE_PRIO_NORMAL,
+				                         SID_RESOURCE_NO_SERVICE_LINKS)) {
+					log_error(ID(worker_res), "Failed to create connection resource.");
+					return -1;
+				}
+			} else {
+				log_error(ID(worker_res), "Received command from worker proxy, but connection handle missing.");
+				return -1;
+			}
+			break;
+		case CMD_CATEGORY_INTERNAL:
+			/* command requested internally */
+			/* TODO: complete this passing proper sid_msg *msg
+			if (_create_command_resource(worker_res, NULL) < 0)
+			        return -1;*/
+			break;
 	}
 
 	return 0;
@@ -4199,8 +4235,8 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	if (!(worker_proxy_res = _get_worker(internal_ubridge_res)))
 		return -1;
 
-	data_spec.data      = NULL;
-	data_spec.data_size = 0;
+	data_spec.data      = &((cmd_category_t) {CMD_CATEGORY_EXTERNAL});
+	data_spec.data_size = sizeof(cmd_category_t);
 	data_spec.ext.used  = true;
 
 	if ((data_spec.ext.socket.fd_pass = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
