@@ -3609,6 +3609,18 @@ static int _reply_failure(sid_resource_t *conn_res)
 	return r;
 }
 
+static bool _socket_client_is_capable(int fd, sid_cmd_t cmd)
+{
+	struct ucred uc;
+	socklen_t    len = sizeof(struct ucred);
+
+	/* root can run any command */
+	if ((fd >= 0) && (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &len) == 0) && (uc.uid == 0))
+		return true;
+
+	return !_cmd_root_only[cmd];
+}
+
 static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *   conn_res = data;
@@ -3637,6 +3649,13 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 			/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
 			if (msg.header->cmd < _SID_CMD_START || msg.header->cmd > _SID_CMD_END)
 				msg.header->cmd = SID_CMD_UNKNOWN;
+
+			if (!_socket_client_is_capable(conn->fd, msg.header->cmd)) {
+				log_error(ID(conn_res),
+				          "Client does not have permission to run command %s.",
+				          sid_cmd_type_to_name(msg.header->cmd));
+				return -1;
+			}
 
 			snprintf(id, sizeof(id), "%d/%s", getpid(), sid_cmd_type_to_name(msg.header->cmd));
 
@@ -3721,30 +3740,12 @@ static int _destroy_connection(sid_resource_t *res)
 	return 0;
 }
 
-static bool _socket_client_is_capable(int fd, sid_cmd_t cmd)
-{
-	socklen_t    len = 0;
-	struct ucred uc;
-
-	len = sizeof(struct ucred);
-	/* root can run any command */
-	if ((fd >= 0) && (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &uc, &len) == 0) && (uc.uid == 0))
-		return true;
-	return !_cmd_root_only[cmd];
-}
-
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct sid_msg *msg      = kickstart_data;
 	struct sid_ucmd_ctx * ucmd_ctx = NULL;
-	struct connection *   conn     = sid_resource_get_data(sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	const char *          worker_id;
 	int                   r;
-
-	if (!conn || !_socket_client_is_capable(conn->fd, msg->header->cmd)) {
-		log_error(ID(res), "Client does not have permission to run this command.");
-		return -1;
-	}
 
 	if (!(ucmd_ctx = mem_zalloc(sizeof(*ucmd_ctx)))) {
 		log_error(ID(res), "Failed to allocate new command structure.");
