@@ -3528,7 +3528,6 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	if (ucmd_ctx->request_header.prot < 2) {
 		log_error(ID(cmd_res), "Client protocol version unsupported: %u", ucmd_ctx->request_header.prot);
 		goto fail;
-		return -1;
 	} else if (ucmd_ctx->request_header.prot <= SID_PROTOCOL) {
 		/* If client speaks older protocol, reply using this protocol, if possible. */
 		response_header.prot  = ucmd_ctx->request_header.prot;
