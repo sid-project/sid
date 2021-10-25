@@ -150,7 +150,9 @@ static int _create_channel(sid_resource_t *                  worker_control_res,
 			break;
 
 		case WORKER_WIRE_SOCKET:
-			if (socketpair(AF_LOCAL, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, comms_fds) < 0) {
+			// FIXME: See if SOCK_SEQPACKET would be more appropriate here but looks buffers would
+			//        also need to be enhanced to use sendmsg/recvmsg instead of pure read/write somehow.
+			if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, comms_fds) < 0) {
 				proxy_chan->fd = chan->fd = -1;
 				log_sys_error(ID(worker_control_res), "socketpair", "Failed to create socket.");
 				return -1;
