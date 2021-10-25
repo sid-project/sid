@@ -4154,24 +4154,18 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 	return 0;
 }
 
-static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
+static sid_resource_t *_get_worker(sid_resource_t *internal_ubridge_res)
 {
-	char                    uuid[UTIL_UUID_STR_SIZE];
-	util_mem_t              mem                  = {.base = uuid, .size = sizeof(uuid)};
-	sid_resource_t *        internal_ubridge_res = data;
-	sid_resource_t *        worker_control_res, *worker_proxy_res;
-	struct ubridge *        ubridge = sid_resource_get_data(internal_ubridge_res);
-	struct worker_data_spec data_spec;
-	int                     r;
-
-	log_debug(ID(internal_ubridge_res), "Received an event.");
+	char            uuid[UTIL_UUID_STR_SIZE];
+	util_mem_t      mem = {.base = uuid, .size = sizeof(uuid)};
+	sid_resource_t *worker_control_res, *worker_proxy_res;
 
 	if (!(worker_control_res = sid_resource_search(internal_ubridge_res,
 	                                               SID_RESOURCE_SEARCH_IMM_DESC,
 	                                               &sid_resource_type_worker_control,
 	                                               NULL))) {
 		log_error(ID(internal_ubridge_res), INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
-		return -1;
+		NULL;
 	}
 
 	if (!(worker_proxy_res = worker_control_get_idle_worker(worker_control_res))) {
@@ -4179,14 +4173,29 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 
 		if (!util_uuid_gen_str(&mem)) {
 			log_error(ID(internal_ubridge_res), "Failed to generate UUID for new worker.");
-			return -1;
+			NULL;
 		}
 
 		if (!(worker_proxy_res = worker_control_get_new_worker(worker_control_res, &((struct worker_params) {.id = uuid}))))
-			return -1;
+			return NULL;
 	}
 
 	/* worker never reaches this point, only worker-proxy does */
+	return worker_proxy_res;
+}
+
+static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
+{
+	sid_resource_t *        internal_ubridge_res = data;
+	struct ubridge *        ubridge              = sid_resource_get_data(internal_ubridge_res);
+	sid_resource_t *        worker_proxy_res;
+	struct worker_data_spec data_spec;
+	int                     r;
+
+	log_debug(ID(internal_ubridge_res), "Received an event.");
+
+	if (!(worker_proxy_res = _get_worker(internal_ubridge_res)))
+		return -1;
 
 	data_spec.data      = NULL;
 	data_spec.data_size = 0;
