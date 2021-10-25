@@ -224,7 +224,7 @@ fail:
  */
 static int _chan_buf_recv(const struct worker_channel *chan,
                           uint32_t                     revents,
-                          worker_channel_cmd_t *       cmd,
+                          worker_channel_cmd_t *       chan_cmd,
                           struct worker_data_spec *    data_spec)
 {
 	// TODO: Double check we're really interested in EPOLLRDHUP.
@@ -259,11 +259,11 @@ static int _chan_buf_recv(const struct worker_channel *chan,
 		 * Internal workers and associated proxies use SID_BUFFER_MODE_SIZE_PREFIX buffers and
 		 * they always transmit worker_channel_cmd_t as header before actual data.
 		 */
-		memcpy(cmd, buf_data, sizeof(*cmd));
-		data_spec->data_size = buf_data_size - sizeof(*cmd);
-		data_spec->data      = data_spec->data_size > 0 ? buf_data + sizeof(*cmd) : NULL;
+		memcpy(chan_cmd, buf_data, sizeof(*chan_cmd));
+		data_spec->data_size = buf_data_size - sizeof(*chan_cmd);
+		data_spec->data      = data_spec->data_size > 0 ? buf_data + sizeof(*chan_cmd) : NULL;
 
-		if (*cmd == WORKER_CHANNEL_CMD_DATA_EXT) {
+		if (*chan_cmd == WORKER_CHANNEL_CMD_DATA_EXT) {
 			if (chan->spec->wire.type == WORKER_WIRE_SOCKET) {
 				/* Also read ancillary data in a channel with socket wire - an FD might be passed through this way.
 				 */
@@ -309,7 +309,7 @@ static int _chan_buf_recv(const struct worker_channel *chan,
 		if (sid_buffer_stat(chan->in_buf).spec.mode == SID_BUFFER_MODE_PLAIN) {
 			(void) sid_buffer_get_data(chan->in_buf, (const void **) &buf_data, &buf_data_size);
 
-			*cmd                 = WORKER_CHANNEL_CMD_DATA;
+			*chan_cmd            = WORKER_CHANNEL_CMD_DATA;
 			data_spec->data_size = buf_data_size;
 			data_spec->data      = buf_data;
 
@@ -337,12 +337,12 @@ static const char _custom_message_handling_failed_msg[] = "Custom message handli
 static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	struct worker_channel * chan = data;
-	worker_channel_cmd_t    cmd;
+	worker_channel_cmd_t    chan_cmd;
 	struct worker_data_spec data_spec = {0};
 	/*uint64_t timeout_usec;*/
 	int r;
 
-	r = _chan_buf_recv(chan, revents, &cmd, &data_spec);
+	r = _chan_buf_recv(chan, revents, &chan_cmd, &data_spec);
 
 	if (r == 0)
 		return 0;
@@ -353,7 +353,7 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 	}
 
 	if (r & CHAN_BUF_RECV_MSG) {
-		switch (cmd) {
+		switch (chan_cmd) {
 			case WORKER_CHANNEL_CMD_YIELD:
 				/* FIXME: Make timeout configurable. If timeout is set to zero, exit worker right away - call
 				_make_worker_exit.
@@ -376,7 +376,7 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 			default:
 				log_error(ID(chan->owner),
 				          INTERNAL_ERROR "%s %s",
-				          worker_channel_cmd_str[cmd],
+				          worker_channel_cmd_str[chan_cmd],
 				          _unexpected_internal_command_msg);
 		}
 
@@ -392,11 +392,11 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	struct worker_channel * chan = data;
-	worker_channel_cmd_t    cmd;
+	worker_channel_cmd_t    chan_cmd;
 	struct worker_data_spec data_spec = {0};
 	int                     r;
 
-	r = _chan_buf_recv(chan, revents, &cmd, &data_spec);
+	r = _chan_buf_recv(chan, revents, &chan_cmd, &data_spec);
 
 	if (r == 0)
 		return 0;
@@ -407,7 +407,7 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 	}
 
 	if (r & CHAN_BUF_RECV_MSG) {
-		switch (cmd) {
+		switch (chan_cmd) {
 			case WORKER_CHANNEL_CMD_DATA:
 			case WORKER_CHANNEL_CMD_DATA_EXT:
 				if (chan->spec->worker_rx_cb.cb) {
@@ -421,7 +421,7 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 			default:
 				log_error(ID(chan->owner),
 				          INTERNAL_ERROR "%s %s",
-				          worker_channel_cmd_str[cmd],
+				          worker_channel_cmd_str[chan_cmd],
 				          _unexpected_internal_command_msg);
 		}
 
@@ -910,7 +910,7 @@ const char *worker_control_get_worker_id(sid_resource_t *res)
 }
 
 /* FIXME: Consider making this a part of event loop. */
-static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_t cmd, struct worker_data_spec *data_spec)
+static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_t chan_cmd, struct worker_data_spec *data_spec)
 {
 	static unsigned char byte     = 0xFF;
 	int                  has_data = data_spec && data_spec->data && data_spec->data_size;
@@ -922,7 +922,7 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 	 * they always transmit worker_channel_cmd_t as header before actual data.
 	 */
 	if (sid_buffer_stat(chan->out_buf).spec.mode == SID_BUFFER_MODE_SIZE_PREFIX &&
-	    !sid_buffer_add(chan->out_buf, &cmd, sizeof(cmd), &r)) {
+	    !sid_buffer_add(chan->out_buf, &chan_cmd, sizeof(chan_cmd), &r)) {
 		r = -ENOMEM;
 		goto out;
 	}
