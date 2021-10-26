@@ -820,9 +820,26 @@ static void _print_kv_value(struct iovec *iov, size_t size, output_format_t form
 		print_str_field("value", "", format, buf, false, level);
 }
 
-static int _build_kv_buffers(sid_resource_t *cmd_res, bool export_udev, bool export_sid, output_format_t format)
+static output_format_t flags_to_format(uint16_t flags)
 {
-	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
+	switch (flags & SID_CMD_FLAGS_FMT_MASK) {
+		case SID_CMD_FLAGS_FMT_TABLE:
+			return TABLE;
+		case SID_CMD_FLAGS_FMT_JSON:
+			return JSON;
+		case SID_CMD_FLAGS_FMT_ENV:
+			return ENV;
+	}
+	return TABLE; /* default to TABLE on invalid format */
+}
+
+static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, struct cmd_reg *cmd_reg)
+{
+	struct sid_ucmd_ctx *ucmd_ctx    = sid_resource_get_data(cmd_res);
+	bool                 export_udev = cmd_reg->flags & CMD_KV_EXPORT_UDEV;
+	bool                 export_sid  = cmd_reg->flags & CMD_KV_EXPORT_SID;
+	output_format_t      format =
+                cmd_reg->flags & CMD_KV_EXPORT_CLIENT ? flags_to_format(ucmd_ctx->request_header.flags) : NO_FORMAT;
 	struct kv_value *      kv_value;
 	kv_store_iter_t *      iter;
 	const char *           key;
@@ -850,6 +867,10 @@ static int _build_kv_buffers(sid_resource_t *cmd_res, bool export_udev, bool exp
 	 * are marked with KV_PERSISTENT flag. For all the other formats, we
 	 * don't care and we add all KV records to buffers.
 	 */
+
+	if (!(cmd_reg->flags & (CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID)))
+		/* nothing to export for this command */
+		return 0;
 
 	if (!(iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res))) {
 		// TODO: Discard udev kv-store we've already appended to the output buffer!
@@ -1939,19 +1960,6 @@ static int _connection_cleanup(sid_resource_t *conn_res)
 	(void) worker_control_worker_yield(worker_res);
 
 	return 0;
-}
-
-static output_format_t flags_to_format(uint16_t flags)
-{
-	switch (flags & SID_CMD_FLAGS_FMT_MASK) {
-		case SID_CMD_FLAGS_FMT_TABLE:
-			return TABLE;
-		case SID_CMD_FLAGS_FMT_JSON:
-			return JSON;
-		case SID_CMD_FLAGS_FMT_ENV:
-			return ENV;
-	}
-	return TABLE; /* default to TABLE on invalid format */
 }
 
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
@@ -3545,15 +3553,9 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		goto fail;
 	}
 
-	if (cmd_reg->flags & CMD_KV_EXPORT_UDEV || cmd_reg->flags & CMD_KV_EXPORT_SID) {
-		if ((r = _build_kv_buffers(cmd_res,
-		                           cmd_reg->flags & CMD_KV_EXPORT_UDEV,
-		                           cmd_reg->flags & CMD_KV_EXPORT_SID,
-		                           cmd_reg->flags & CMD_KV_EXPORT_CLIENT ? flags_to_format(ucmd_ctx->request_header.flags)
-		                                                                 : NO_FORMAT)) < 0) {
-			log_error(ID(cmd_res), "Failed to export KV store.");
-			goto out;
-		}
+	if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
+		log_error(ID(cmd_res), "Failed to export KV store.");
+		goto out;
 	}
 out:
 	if (r < 0)
