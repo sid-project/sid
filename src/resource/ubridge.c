@@ -303,6 +303,11 @@ struct sid_msg {
 	struct sid_msg_header *header;
 };
 
+struct internal_msg {
+	cmd_category_t        cat; /* keep this first so we can decide how to read the rest */
+	struct sid_msg_header header;
+} __attribute__((packed));
+
 /*
  * Generic flags for all commands.
  */
@@ -4121,11 +4126,14 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
 
 static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *chan, struct worker_data_spec *data_spec, void *arg)
 {
-	cmd_category_t cmd_cat = *((cmd_category_t *) data_spec->data);
+	struct internal_msg *int_msg = (struct internal_msg *) data_spec->data;
 
-	switch (cmd_cat) {
+	switch (int_msg->cat) {
 		case CMD_CATEGORY_EXTERNAL:
-			/* command requested through a connection */
+			/*
+			 * Command requested externally through a connection.
+			 * sid_msg will be read from client through the connection.
+			 */
 			if (data_spec->ext.used) {
 				if (!sid_resource_create(worker_res,
 				                         &sid_resource_type_ubridge_connection,
@@ -4143,10 +4151,14 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 			}
 			break;
 		case CMD_CATEGORY_INTERNAL:
-			/* command requested internally */
-			/* TODO: complete this passing proper sid_msg *msg
-			if (_create_command_resource(worker_res, NULL) < 0)
-			        return -1;*/
+			/*
+			 * Command requested internally.
+			 * Generate sid_msg out of int_msg as if it was sent through a connection.
+			 */
+			if (_create_command_resource(
+				    worker_res,
+				    &((struct sid_msg) {.size = sizeof(int_msg->header), .header = &int_msg->header})) < 0)
+				return -1;
 			break;
 	}
 
@@ -4325,6 +4337,30 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 	*ubridge_socket_fd = fd;
 	return 0;
 }
+
+#if 0
+static int _dbdump_file(sid_resource_t *internal_ubridge_res)
+{
+	sid_resource_t *        worker_proxy_res;
+	struct internal_msg     int_msg;
+	struct worker_data_spec data_spec;
+	int                     r;
+
+	worker_proxy_res = _get_worker(internal_ubridge_res);
+
+	int_msg.cat = CMD_CATEGORY_INTERNAL;
+	int_msg.header =
+		(struct sid_msg_header) {.status = 0, .prot = SID_PROTOCOL, .cmd = SID_CMD_DBDUMP, .flags = SID_CMD_FLAGS_FMT_JSON};
+
+	data_spec.data      = &int_msg;
+	data_spec.data_size = sizeof(int_msg);
+	data_spec.ext.used  = false;
+
+	r = worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
+
+	return r;
+}
+#endif
 
 static int _set_up_udev_monitor(sid_resource_t *ubridge_res, sid_resource_t *internal_ubridge_res, struct umonitor *umonitor)
 {
