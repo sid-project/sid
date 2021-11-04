@@ -279,11 +279,6 @@ struct kv_rel_spec {
 	struct kv_key_spec *rel_key_spec;
 };
 
-struct kv_key_res_def {
-	sid_ucmd_kv_namespace_t ns;
-	const char *            key;
-};
-
 struct cross_bitmap_calc_arg {
 	struct iovec * old_value;
 	size_t         old_size;
