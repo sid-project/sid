@@ -202,12 +202,12 @@ sid_resource_t *sid_resource_create(sid_resource_t *                parent_res,
 	sid_resource_t *             child_res, *tmp_child_res;
 
 	/* +1 for '/' if id is defined and +1 for '\0' at the end */
-	id_size = (type->name ? strlen(type->name) : 0) + (id_part ? strlen(id_part) + 1 : 0) + 1;
+	id_size = (type->short_name ? strlen(type->short_name) : 0) + (id_part ? strlen(id_part) + 1 : 0) + 1;
 
 	if (!(id = malloc(id_size)))
 		goto fail;
 
-	if (snprintf(id, id_size, "%s%s%s", type->name ?: "", id_part ? "/" : "", id_part ?: "") < 0)
+	if (snprintf(id, id_size, "%s%s%s", type->short_name ?: "", id_part ? " " : "", id_part ?: "") < 0)
 		goto fail;
 
 	log_debug(id, "Creating resource.");
@@ -374,10 +374,10 @@ const char *sid_resource_get_full_id(sid_resource_t *res)
 
 const char *sid_resource_get_id(sid_resource_t *res)
 {
-	if (!res->type->name)
+	if (!res->type->short_name)
 		return res->id;
 
-	return res->id + strlen(res->type->name) + 1;
+	return res->id + strlen(res->type->short_name) + 1;
 }
 
 void *sid_resource_get_data(sid_resource_t *res)

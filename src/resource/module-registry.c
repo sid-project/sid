@@ -30,9 +30,6 @@
 #include <limits.h>
 #include <stdio.h>
 
-#define MODULE_REGISTRY_NAME "module-registry"
-#define MODULE_NAME          "module"
-
 const sid_resource_type_t sid_resource_type_module;
 
 struct module_registry {
@@ -559,13 +556,17 @@ static int _destroy_module_registry(sid_resource_t *module_registry_res)
 }
 
 const sid_resource_type_t sid_resource_type_module = {
-	.name    = MODULE_NAME,
-	.init    = _init_module,
-	.destroy = _destroy_module,
+	.name        = "module",
+	.short_name  = "mod",
+	.description = "Resource representing a single module with loaded symbols.",
+	.init        = _init_module,
+	.destroy     = _destroy_module,
 };
 
 const sid_resource_type_t sid_resource_type_module_registry = {
-	.name    = MODULE_REGISTRY_NAME,
-	.init    = _init_module_registry,
-	.destroy = _destroy_module_registry,
+	.name        = "module-registry",
+	.short_name  = "mrg",
+	.description = "Resource providing module registration and loading.",
+	.init        = _init_module_registry,
+	.destroy     = _destroy_module_registry,
 };

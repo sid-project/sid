@@ -24,8 +24,6 @@
 
 #include <signal.h>
 
-#define SID_NAME "sid"
-
 static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *arg)
 {
 	sid_resource_t *res = arg;
@@ -87,7 +85,9 @@ fail:
 }
 
 const sid_resource_type_t sid_resource_type_sid = {
-	.name            = SID_NAME,
+	.name            = "Storage Instantiation Daemon",
+	.short_name      = "sid",
+	.description     = "Top level resource representing Storage Instantiation Daemon.",
 	.with_event_loop = 1,
 	.with_watchdog   = 1,
 	.init            = _init_sid,

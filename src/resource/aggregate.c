@@ -19,8 +19,6 @@
 
 #include "resource/resource.h"
 
-#define AGGREGATE_NAME "aggregate"
-
 /*
  * This resource is only used to aggregate other resources.
  * There's no resource-specific implementation here.
@@ -33,6 +31,8 @@ static int _init_aggregate(sid_resource_t *res, const void *kickstart_data, void
 }
 
 const sid_resource_type_t sid_resource_type_aggregate = {
-	.name = AGGREGATE_NAME,
-	.init = _init_aggregate,
+	.name        = "aggregate",
+	.short_name  = "agg",
+	.description = "Simple resource to aggregate other resources.",
+	.init        = _init_aggregate,
 };

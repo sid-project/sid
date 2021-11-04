@@ -29,10 +29,7 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
-#define WORKER_CONTROL_NAME "worker-control"
-#define WORKER_PROXY_NAME   "worker-proxy"
-#define WORKER_INT_NAME     "worker"
-#define WORKER_EXT_NAME     "ext-worker"
+#define WORKER_EXT_NAME "ext-worker"
 
 #define DEFAULT_WORKER_IDLE_TIMEOUT_USEC 5000000
 
@@ -1302,20 +1299,31 @@ static int _destroy_worker_control(sid_resource_t *worker_control_res)
 }
 
 const sid_resource_type_t sid_resource_type_worker_proxy = {
-	.name    = WORKER_PROXY_NAME,
+	.name        = "worker-proxy",
+	.short_name  = "wrp",
+	.description = "Resource under worker-control management providing worker representation "
+		       "on parent process side ('proxy') and containting communication endpoints "
+		       "for worker-proxy <--> worker channels.",
 	.init    = _init_worker_proxy,
 	.destroy = _destroy_worker_proxy,
 };
 
 const sid_resource_type_t sid_resource_type_worker = {
-	.name            = WORKER_INT_NAME,
+	.name        = "worker",
+	.short_name  = "wrk",
+	.description = "Top-level resource in a worker process spawned by worker-control "
+		       "resource and containting worker communication endpoints for "
+		       "worker <--> worker-proxy channels.",
 	.init            = _init_worker,
 	.destroy         = _destroy_worker,
 	.with_event_loop = 1,
 };
 
 const sid_resource_type_t sid_resource_type_worker_control = {
-	.name    = WORKER_CONTROL_NAME,
+	.name        = "worker-control",
+	.short_name  = "wcl",
+	.description = "Resource providing capabilities to spawn worker processes "
+		       "and setting up communication channels with workers.",
 	.init    = _init_worker_control,
 	.destroy = _destroy_worker_control,
 };

@@ -43,12 +43,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define UBRIDGE_NAME    "ubridge"
-#define CONNECTION_NAME "connection"
-#define COMMAND_NAME    "command"
-
-#define INTERNAL_AGGREGATE_ID "ubridge-internal"
-#define MODULES_AGGREGATE_ID  "modules"
+#define INTERNAL_AGGREGATE_ID "ubr-int"
+#define MODULES_AGGREGATE_ID  "mods"
 #define MODULES_BLOCK_ID      "block"
 #define MODULES_TYPE_ID       "type"
 
@@ -96,7 +92,7 @@
 #define CMD_DEV_ID_FMT       "%s (%d:%d)"
 #define CMD_DEV_ID(ucmd_ctx) ucmd_ctx->udev_dev.name, ucmd_ctx->udev_dev.major, ucmd_ctx->udev_dev.minor
 
-/* internal resources */
+const sid_resource_type_t sid_resource_type_ubridge;
 const sid_resource_type_t sid_resource_type_ubridge_connection;
 const sid_resource_type_t sid_resource_type_ubridge_command;
 
@@ -3648,7 +3644,7 @@ static int _create_command_resource(sid_resource_t *parent_res, struct sid_msg *
 		}
 	}
 
-	snprintf(id, sizeof(id), "%d/%s", getpid(), sid_cmd_type_to_name(msg->header->cmd));
+	snprintf(id, sizeof(id), "%s", sid_cmd_type_to_name(msg->header->cmd));
 
 	if (!sid_resource_create(parent_res,
 	                         &sid_resource_type_ubridge_command,
@@ -4613,7 +4609,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                                        ubridge->socket_fd,
 	                                        _on_ubridge_interface_event,
 	                                        0,
-	                                        UBRIDGE_NAME,
+	                                        sid_resource_type_ubridge.name,
 	                                        internal_res) < 0) {
 		log_error(ID(res), "Failed to register interface with event loop.");
 		goto fail;
@@ -4660,19 +4656,25 @@ static int _destroy_ubridge(sid_resource_t *res)
 }
 
 const sid_resource_type_t sid_resource_type_ubridge_command = {
-	.name    = COMMAND_NAME,
-	.init    = _init_command,
-	.destroy = _destroy_command,
+	.name        = "command",
+	.short_name  = "com",
+	.description = "Internal resource representing single request (command) on ubridge interface.",
+	.init        = _init_command,
+	.destroy     = _destroy_command,
 };
 
 const sid_resource_type_t sid_resource_type_ubridge_connection = {
-	.name    = CONNECTION_NAME,
-	.init    = _init_connection,
-	.destroy = _destroy_connection,
+	.name        = "connection",
+	.short_name  = "con",
+	.description = "Internal resource representing single ubridge connection to handle requests.",
+	.init        = _init_connection,
+	.destroy     = _destroy_connection,
 };
 
 const sid_resource_type_t sid_resource_type_ubridge = {
-	.name    = UBRIDGE_NAME,
-	.init    = _init_ubridge,
-	.destroy = _destroy_ubridge,
+	.name        = "ubridge",
+	.short_name  = "ubr",
+	.description = "Resource primarily providing bridge interface between udev and SID. ",
+	.init        = _init_ubridge,
+	.destroy     = _destroy_ubridge,
 };

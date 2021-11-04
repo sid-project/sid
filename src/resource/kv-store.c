@@ -28,8 +28,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define KV_STORE_NAME "kv-store"
-
 typedef enum
 {
 	KV_STORE_VALUE_INT_ALLOC = UINT32_C(0x00000001),
@@ -599,7 +597,9 @@ static int _destroy_kv_store(sid_resource_t *kv_store_res)
 }
 
 const sid_resource_type_t sid_resource_type_kv_store = {
-	.name    = KV_STORE_NAME,
-	.init    = _init_kv_store,
-	.destroy = _destroy_kv_store,
+	.name        = "kv-store",
+	.short_name  = "kvs",
+	.description = "Resource providing key-value store capabilities with selectable backends.",
+	.init        = _init_kv_store,
+	.destroy     = _destroy_kv_store,
 };
