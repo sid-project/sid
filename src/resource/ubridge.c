@@ -4488,32 +4488,6 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	struct worker_channel_spec channel_specs[] = {
-		{
-			.id = MAIN_WORKER_CHANNEL_ID,
-
-			.wire =
-				(struct worker_wire_spec) {
-					.type = WORKER_WIRE_SOCKET,
-				},
-
-			.worker_tx_cb = NULL_WORKER_CHANNEL_CB_SPEC,
-			.worker_rx_cb =
-				(struct worker_channel_cb_spec) {
-					.cb  = _worker_recv_fn,
-					.arg = NULL,
-				},
-
-			.proxy_tx_cb = NULL_WORKER_CHANNEL_CB_SPEC,
-			.proxy_rx_cb =
-				(struct worker_channel_cb_spec) {
-					.cb  = _worker_proxy_recv_fn,
-					.arg = internal_res,
-				},
-		},
-		NULL_WORKER_CHANNEL_SPEC,
-	};
-
 	struct worker_control_resource_params worker_control_res_params = {
 		.worker_type = WORKER_TYPE_INTERNAL,
 
@@ -4523,8 +4497,31 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 				.arg = internal_res,
 			},
 
-		.channel_specs = channel_specs,
-	};
+		.channel_specs = (struct worker_channel_spec[]) {
+			{
+				.id = MAIN_WORKER_CHANNEL_ID,
+
+				.wire =
+					(struct worker_wire_spec) {
+						.type = WORKER_WIRE_SOCKET,
+					},
+
+				.worker_tx_cb = NULL_WORKER_CHANNEL_CB_SPEC,
+				.worker_rx_cb =
+					(struct worker_channel_cb_spec) {
+						.cb  = _worker_recv_fn,
+						.arg = NULL,
+					},
+
+				.proxy_tx_cb = NULL_WORKER_CHANNEL_CB_SPEC,
+				.proxy_rx_cb =
+					(struct worker_channel_cb_spec) {
+						.cb  = _worker_proxy_recv_fn,
+						.arg = internal_res,
+					},
+			},
+			NULL_WORKER_CHANNEL_SPEC,
+		}};
 
 	if (!sid_resource_create(internal_res,
 	                         &sid_resource_type_worker_control,
