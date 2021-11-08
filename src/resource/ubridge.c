@@ -4238,6 +4238,7 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	if (!(worker_proxy_res = _get_worker(internal_ubridge_res)))
 		return -1;
 
+	/* optimization here - not sending the whole struct internal_msg, only the first cmd_category_t type field */
 	data_spec.data      = &((cmd_category_t) {CMD_CATEGORY_EXTERNAL});
 	data_spec.data_size = sizeof(cmd_category_t);
 	data_spec.ext.used  = true;
