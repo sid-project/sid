@@ -3629,6 +3629,11 @@ static int _create_command_resource(sid_resource_t *parent_res, struct sid_msg *
 {
 	char id[32];
 
+	if (msg->size < sizeof(struct sid_msg_header)) {
+		log_error(ID(parent_res), "Incorrect message header size.");
+		return -1;
+	}
+
 	/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
 	if (msg->header->cmd < _SID_CMD_START || msg->header->cmd > _SID_CMD_END)
 		msg->header->cmd = SID_CMD_UNKNOWN;
@@ -3680,11 +3685,6 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 	if (n > 0) {
 		if (sid_buffer_is_complete(conn->buf, NULL)) {
 			(void) sid_buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
-
-			if (msg.size < sizeof(struct sid_msg_header)) {
-				log_error(ID(conn_res), "Incorrect message header size.");
-				goto fail;
-			}
 
 			if (_create_command_resource(conn_res, &msg) < 0) {
 				if (_reply_failure(conn_res) < 0)
