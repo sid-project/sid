@@ -294,11 +294,12 @@ struct sid_dbstats {
 
 typedef enum
 {
-	MSG_CATEGORY_INTERNAL, /* internally/self-induced message */
-	MSG_CATEGORY_EXTERNAL, /* externally induced message using a connection */
+	MSG_CATEGORY_SELF,   /* self-induced message */
+	MSG_CATEGORY_CLIENT, /* message coming from a client */
 } msg_category_t;
 
 struct sid_msg {
+	msg_category_t         cat;
 	size_t                 size; /* header + data */
 	struct sid_msg_header *header;
 };
@@ -3678,6 +3679,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 	n = sid_buffer_read(conn->buf, fd);
 	if (n > 0) {
 		if (sid_buffer_is_complete(conn->buf, NULL)) {
+			msg.cat = MSG_CATEGORY_CLIENT;
 			(void) sid_buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 
 			if (_create_command_resource(conn_res, &msg) < 0) {
@@ -4123,7 +4125,7 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 	struct internal_msg *int_msg = (struct internal_msg *) data_spec->data;
 
 	switch (int_msg->cat) {
-		case MSG_CATEGORY_EXTERNAL:
+		case MSG_CATEGORY_CLIENT:
 			/*
 			 * Command requested externally through a connection.
 			 * sid_msg will be read from client through the connection.
@@ -4144,14 +4146,15 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 				return -1;
 			}
 			break;
-		case MSG_CATEGORY_INTERNAL:
+		case MSG_CATEGORY_SELF:
 			/*
 			 * Command requested internally.
 			 * Generate sid_msg out of int_msg as if it was sent through a connection.
 			 */
-			if (_create_command_resource(
-				    worker_res,
-				    &((struct sid_msg) {.size = sizeof(int_msg->header), .header = &int_msg->header})) < 0)
+			if (_create_command_resource(worker_res,
+			                             &((struct sid_msg) {.cat    = MSG_CATEGORY_SELF,
+			                                                 .size   = sizeof(int_msg->header),
+			                                                 .header = &int_msg->header})) < 0)
 				return -1;
 			break;
 	}
@@ -4233,7 +4236,7 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 		return -1;
 
 	/* optimization here - not sending the whole struct internal_msg, only the first msg_category_t type field */
-	data_spec.data      = &((msg_category_t) {MSG_CATEGORY_EXTERNAL});
+	data_spec.data      = &((msg_category_t) {MSG_CATEGORY_CLIENT});
 	data_spec.data_size = sizeof(msg_category_t);
 	data_spec.ext.used  = true;
 
@@ -4343,7 +4346,7 @@ static int _dbdump_file(sid_resource_t *internal_ubridge_res)
 
 	worker_proxy_res = _get_worker(internal_ubridge_res);
 
-	int_msg.cat = MSG_CATEGORY_INTERNAL;
+	int_msg.cat = MSG_CATEGORY_SELF;
 	int_msg.header =
 		(struct sid_msg_header) {.status = 0, .prot = SID_PROTOCOL, .cmd = SID_CMD_DBDUMP, .flags = SID_CMD_FLAGS_FMT_JSON};
 
