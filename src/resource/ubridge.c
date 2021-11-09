@@ -3535,24 +3535,18 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	if (!sid_buffer_add(ucmd_ctx->res_buf, &response_header, sizeof(response_header), &r))
 		goto out;
 
-	if (ucmd_ctx->request_header.prot < 2) {
+	/* Require exact protocol version. We can add possible backward/forward compatibility in future stable versions. */
+	if (ucmd_ctx->request_header.prot != SID_PROTOCOL) {
 		log_error(ID(cmd_res), "Client protocol version unsupported: %u", ucmd_ctx->request_header.prot);
 		goto fail;
-	} else if (ucmd_ctx->request_header.prot <= SID_PROTOCOL) {
-		/* If client speaks older protocol, reply using this protocol, if possible. */
-		response_header.prot  = ucmd_ctx->request_header.prot;
-		response_header.flags = ucmd_ctx->request_header.flags;
+	}
 
-		cmd_reg          = &_cmd_regs[ucmd_ctx->request_header.cmd];
-		exec_arg.cmd_res = cmd_res;
+	cmd_reg          = &_cmd_regs[ucmd_ctx->request_header.cmd];
+	exec_arg.cmd_res = cmd_res;
 
-		if (cmd_reg->exec && ((r = cmd_reg->exec(&exec_arg)) < 0)) {
-			log_error(ID(cmd_res), "Failed to execute command");
-			goto out;
-		}
-	} else {
-		log_error(ID(cmd_res), "Client protocol unknown version: %u > %u ", ucmd_ctx->request_header.prot, SID_PROTOCOL);
-		goto fail;
+	if (cmd_reg->exec && ((r = cmd_reg->exec(&exec_arg)) < 0)) {
+		log_error(ID(cmd_res), "Failed to execute command");
+		goto out;
 	}
 
 	if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
