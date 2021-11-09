@@ -115,12 +115,6 @@ struct ubridge {
 
 typedef enum
 {
-	CMD_CATEGORY_INTERNAL, /* internally/self-induced command */
-	CMD_CATEGORY_EXTERNAL, /* externally induced command using a connection */
-} cmd_category_t;
-
-typedef enum
-{
 	CMD_SCAN_PHASE_A_INIT = 0,          /* core initializes phase "A" */
 	CMD_SCAN_PHASE_A_IDENT,             /* module */
 	CMD_SCAN_PHASE_A_SCAN_PRE,          /* module */
@@ -298,13 +292,19 @@ struct sid_dbstats {
 	uint32_t nr_kv_pairs;
 };
 
+typedef enum
+{
+	MSG_CATEGORY_INTERNAL, /* internally/self-induced message */
+	MSG_CATEGORY_EXTERNAL, /* externally induced message using a connection */
+} msg_category_t;
+
 struct sid_msg {
 	size_t                 size; /* header + data */
 	struct sid_msg_header *header;
 };
 
 struct internal_msg {
-	cmd_category_t        cat; /* keep this first so we can decide how to read the rest */
+	msg_category_t        cat; /* keep this first so we can decide how to read the rest */
 	struct sid_msg_header header;
 } __attribute__((packed));
 
@@ -4123,7 +4123,7 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 	struct internal_msg *int_msg = (struct internal_msg *) data_spec->data;
 
 	switch (int_msg->cat) {
-		case CMD_CATEGORY_EXTERNAL:
+		case MSG_CATEGORY_EXTERNAL:
 			/*
 			 * Command requested externally through a connection.
 			 * sid_msg will be read from client through the connection.
@@ -4144,7 +4144,7 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 				return -1;
 			}
 			break;
-		case CMD_CATEGORY_INTERNAL:
+		case MSG_CATEGORY_INTERNAL:
 			/*
 			 * Command requested internally.
 			 * Generate sid_msg out of int_msg as if it was sent through a connection.
@@ -4232,9 +4232,9 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	if (!(worker_proxy_res = _get_worker(internal_ubridge_res)))
 		return -1;
 
-	/* optimization here - not sending the whole struct internal_msg, only the first cmd_category_t type field */
-	data_spec.data      = &((cmd_category_t) {CMD_CATEGORY_EXTERNAL});
-	data_spec.data_size = sizeof(cmd_category_t);
+	/* optimization here - not sending the whole struct internal_msg, only the first msg_category_t type field */
+	data_spec.data      = &((msg_category_t) {MSG_CATEGORY_EXTERNAL});
+	data_spec.data_size = sizeof(msg_category_t);
 	data_spec.ext.used  = true;
 
 	if ((data_spec.ext.socket.fd_pass = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
@@ -4343,7 +4343,7 @@ static int _dbdump_file(sid_resource_t *internal_ubridge_res)
 
 	worker_proxy_res = _get_worker(internal_ubridge_res);
 
-	int_msg.cat = CMD_CATEGORY_INTERNAL;
+	int_msg.cat = MSG_CATEGORY_INTERNAL;
 	int_msg.header =
 		(struct sid_msg_header) {.status = 0, .prot = SID_PROTOCOL, .cmd = SID_CMD_DBDUMP, .flags = SID_CMD_FLAGS_FMT_JSON};
 
