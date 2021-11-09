@@ -149,14 +149,21 @@ struct connection {
 	struct sid_buffer *buf;
 };
 
+typedef enum
+{
+	MSG_CATEGORY_SELF,   /* self-induced message */
+	MSG_CATEGORY_CLIENT, /* message coming from a client */
+} msg_category_t;
+
 struct sid_ucmd_ctx {
-	char *                  dev_id;         /* device identifier (major_minor) */
-	struct udevice          udev_dev;       /* udev context for currently processed device */
-	cmd_scan_phase_t        scan_phase;     /* current phase at the time of use of this context */
-	struct sid_ucmd_mod_ctx ucmd_mod_ctx;   /* commod module context */
-	struct sid_buffer *     res_buf;        /* result buffer */
-	struct sid_buffer *     exp_buf;        /* export buffer */
-	struct sid_msg_header   request_header; /* original request header (keep last, contains flexible array) */
+	char *                  dev_id;       /* device identifier (major_minor) */
+	struct udevice          udev_dev;     /* udev context for currently processed device */
+	cmd_scan_phase_t        scan_phase;   /* current phase at the time of use of this context */
+	struct sid_ucmd_mod_ctx ucmd_mod_ctx; /* commod module context */
+	struct sid_buffer *     res_buf;      /* result buffer */
+	struct sid_buffer *     exp_buf;      /* export buffer */
+	msg_category_t          req_cat;      /* request category */
+	struct sid_msg_header   req_hdr;      /* original request header (keep last, contains flexible array) */
 };
 
 struct cmd_mod_fns {
@@ -294,9 +301,12 @@ struct sid_dbstats {
 
 typedef enum
 {
-	MSG_CATEGORY_SELF,   /* self-induced message */
-	MSG_CATEGORY_CLIENT, /* message coming from a client */
-} msg_category_t;
+	_SELF_CMD_START    = 0,
+	SELF_CMD_UNDEFINED = _SELF_CMD_START,
+	SELF_CMD_UNKNOWN,
+	SELF_CMD_DBDUMP,
+	_SELF_CMD_END = SELF_CMD_DBDUMP,
+} self_cmd_t;
 
 struct sid_msg {
 	msg_category_t         cat;
@@ -305,8 +315,8 @@ struct sid_msg {
 };
 
 struct internal_msg {
-	msg_category_t        cat; /* keep this first so we can decide how to read the rest */
-	struct sid_msg_header header;
+	msg_category_t        cat;    /* keep this first so we can decide how to read the rest */
+	struct sid_msg_header header; /* reusing sid_msg_header here to avoid defining a new struct with subset of fields we need */
 } __attribute__((packed));
 
 /*
@@ -317,8 +327,8 @@ struct internal_msg {
 #define CMD_KV_EXPORT_UDEV   UINT32_C(0x00000002) /* exports KV_NS_UDEV records */
 #define CMD_KV_EXPORT_SID    UINT32_C(0x00000004) /* exports KV_NS_<!UDEV> records */
 #define CMD_KV_EXPORT_CLIENT UINT32_C(0x00000008) /* exports KV records to client */
-
-#define CMD_SESSION_ID UINT32_C(0x00000010) /* uses session ID */
+#define CMD_KV_EXPORT_FILE   UINT32_C(0x00000010) /* exports KV records to file */
+#define CMD_SESSION_ID       UINT32_C(0x00000020) /* uses session ID */
 
 /*
  * Capability flags for 'scan' command phases (phases are represented as subcommands).
@@ -836,19 +846,18 @@ static output_format_t flags_to_format(uint16_t flags)
 	return TABLE; /* default to TABLE on invalid format */
 }
 
-static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, struct cmd_reg *cmd_reg)
+static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *cmd_reg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx    = sid_resource_get_data(cmd_res);
 	bool                 export_udev = cmd_reg->flags & CMD_KV_EXPORT_UDEV;
 	bool                 export_sid  = cmd_reg->flags & CMD_KV_EXPORT_SID;
-	output_format_t      format =
-                cmd_reg->flags & CMD_KV_EXPORT_CLIENT ? flags_to_format(ucmd_ctx->request_header.flags) : NO_FORMAT;
-	struct kv_value *      kv_value;
-	kv_store_iter_t *      iter;
-	const char *           key;
-	void *                 value;
-	bool                   vector;
-	size_t                 size, iov_size, key_size, data_offset;
+	output_format_t      format = cmd_reg->flags & CMD_KV_EXPORT_CLIENT ? flags_to_format(ucmd_ctx->req_hdr.flags) : NO_FORMAT;
+	struct kv_value *    kv_value;
+	kv_store_iter_t *    iter;
+	const char *         key;
+	void *               value;
+	bool                 vector;
+	size_t               size, iov_size, key_size, data_offset;
 	kv_store_value_flags_t flags;
 	struct iovec *         iov;
 	unsigned               i, records = 0;
@@ -1971,7 +1980,7 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	char *               version_data;
 	size_t               size;
-	output_format_t      format = flags_to_format(ucmd_ctx->request_header.flags);
+	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	print_start_document(format, ucmd_ctx->ucmd_mod_ctx.gen_buf, 0);
 	print_uint_field("SID_PROTOCOL", SID_PROTOCOL, format, ucmd_ctx->ucmd_mod_ctx.gen_buf, true, 1);
@@ -1991,7 +2000,7 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	char *               resource_tree_data;
 	size_t               size;
-	output_format_t      format = flags_to_format(ucmd_ctx->request_header.flags);
+	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	if ((r = sid_resource_write_tree_recursively(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
 	                                             format,
@@ -2014,7 +2023,7 @@ static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 	struct sid_dbstats   stats;
 	char *               stats_data;
 	size_t               size;
-	output_format_t      format = flags_to_format(ucmd_ctx->request_header.flags);
+	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0) {
 		print_start_document(format, buf, 0);
@@ -3490,18 +3499,26 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static struct cmd_reg _cmd_regs[] = {
-	[SID_CMD_UNKNOWN]    = {.name = NULL, .flags = 0, .exec = NULL},
-	[SID_CMD_ACTIVE]     = {.name = NULL, .flags = 0, .exec = NULL},
-	[SID_CMD_CHECKPOINT] = {.name = NULL, .flags = CMD_KV_IMPORT_UDEV, .exec = NULL},
-	[SID_CMD_REPLY]      = {.name = NULL, .flags = 0, .exec = NULL},
-	[SID_CMD_SCAN]       = {.name  = NULL,
+static struct cmd_reg _client_cmd_regs[] = {
+	[SID_CMD_UNKNOWN]    = {.name = "c-unknown", .flags = 0, .exec = NULL},
+	[SID_CMD_ACTIVE]     = {.name = "c-active", .flags = 0, .exec = NULL},
+	[SID_CMD_CHECKPOINT] = {.name = "c-checkpoint", .flags = CMD_KV_IMPORT_UDEV, .exec = NULL},
+	[SID_CMD_REPLY]      = {.name = "c-reply", .flags = 0, .exec = NULL},
+	[SID_CMD_SCAN]       = {.name  = "c-scan",
                           .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_SESSION_ID,
                           .exec  = _cmd_exec_scan},
-	[SID_CMD_VERSION]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_version},
-	[SID_CMD_DBDUMP]     = {.name = NULL, .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_CLIENT, .exec = NULL},
-	[SID_CMD_DBSTATS]    = {.name = NULL, .flags = 0, .exec = _cmd_exec_dbstats},
-	[SID_CMD_RESOURCES]  = {.name = NULL, .flags = 0, .exec = _cmd_exec_resources},
+	[SID_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
+	[SID_CMD_DBDUMP]     = {.name  = "c-dbdump",
+                            .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_CLIENT,
+                            .exec  = NULL},
+	[SID_CMD_DBSTATS]    = {.name = "c-dbstats", .flags = 0, .exec = _cmd_exec_dbstats},
+	[SID_CMD_RESOURCES]  = {.name = "c-resource", .flags = 0, .exec = _cmd_exec_resources},
+};
+
+static struct cmd_reg _self_cmd_regs[] = {
+	[SELF_CMD_DBDUMP] = {.name  = "s-dbdump",
+                             .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_FILE,
+                             .exec  = NULL},
 };
 
 static ssize_t _send_fd_over_unix_comms(int fd, int unix_comms_fd)
@@ -3521,6 +3538,16 @@ static ssize_t _send_fd_over_unix_comms(int fd, int unix_comms_fd)
 	return n;
 }
 
+static const struct cmd_reg *_get_cmd_reg(msg_category_t cat, struct sid_msg_header *hdr)
+{
+	switch (cat) {
+		case MSG_CATEGORY_SELF:
+			return &_self_cmd_regs[hdr->cmd];
+		case MSG_CATEGORY_CLIENT:
+			return &_client_cmd_regs[hdr->cmd];
+	}
+}
+
 static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
 	sid_resource_t *        cmd_res         = data;
@@ -3531,18 +3558,18 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	struct cmd_exec_arg     exec_arg        = {0};
 	int                     r               = -1;
 	struct worker_data_spec data_spec;
-	struct cmd_reg *        cmd_reg;
+	const struct cmd_reg *  cmd_reg;
 
 	if (!sid_buffer_add(ucmd_ctx->res_buf, &response_header, sizeof(response_header), &r))
 		goto out;
 
 	/* Require exact protocol version. We can add possible backward/forward compatibility in future stable versions. */
-	if (ucmd_ctx->request_header.prot != SID_PROTOCOL) {
-		log_error(ID(cmd_res), "Client protocol version unsupported: %u", ucmd_ctx->request_header.prot);
+	if (ucmd_ctx->req_hdr.prot != SID_PROTOCOL) {
+		log_error(ID(cmd_res), "Client protocol version unsupported: %u", ucmd_ctx->req_hdr.prot);
 		goto fail;
 	}
 
-	cmd_reg          = &_cmd_regs[ucmd_ctx->request_header.cmd];
+	cmd_reg          = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
 	exec_arg.cmd_res = cmd_res;
 
 	if (cmd_reg->exec && ((r = cmd_reg->exec(&exec_arg)) < 0)) {
@@ -3620,36 +3647,52 @@ static bool _socket_client_is_capable(int fd, sid_cmd_t cmd)
 	return !_cmd_root_only[cmd];
 }
 
-static int _create_command_resource(sid_resource_t *parent_res, struct sid_msg *msg)
+static int _check_msg(sid_resource_t *res, struct sid_msg *msg)
 {
-	char id[32];
-
 	if (msg->size < sizeof(struct sid_msg_header)) {
-		log_error(ID(parent_res), "Incorrect message header size.");
+		log_error(ID(res), "Incorrect message header size.");
 		return -1;
 	}
 
 	/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
-	if (msg->header->cmd < _SID_CMD_START || msg->header->cmd > _SID_CMD_END)
-		msg->header->cmd = SID_CMD_UNKNOWN;
+	switch (msg->cat) {
+		case MSG_CATEGORY_SELF:
+			if (msg->header->cmd < _SELF_CMD_START || msg->header->cmd > _SELF_CMD_END)
+				msg->header->cmd = SELF_CMD_UNKNOWN;
+			break;
 
-	if (sid_resource_match(parent_res, &sid_resource_type_ubridge_connection, NULL)) {
-		struct connection *conn = sid_resource_get_data(parent_res);
+		case MSG_CATEGORY_CLIENT:
+			if (msg->header->cmd < _SID_CMD_START || msg->header->cmd > _SID_CMD_END)
+				msg->header->cmd = SID_CMD_UNKNOWN;
 
-		if (!_socket_client_is_capable(conn->fd, msg->header->cmd)) {
-			log_error(ID(parent_res),
-			          "Client does not have permission to run command %s.",
-			          sid_cmd_type_to_name(msg->header->cmd));
-			return -1;
-		}
+			if (!sid_resource_match(res, &sid_resource_type_ubridge_connection, NULL)) {
+				log_error(ID(res),
+				          INTERNAL_ERROR "Connection resource missing for client command %s.",
+				          sid_cmd_type_to_name(msg->header->cmd));
+				return -1;
+			}
+
+			if (!_socket_client_is_capable(((struct connection *) sid_resource_get_data(res))->fd, msg->header->cmd)) {
+				log_error(ID(res),
+				          "Client does not have permission to run command %s.",
+				          sid_cmd_type_to_name(msg->header->cmd));
+				return -1;
+			}
+			break;
 	}
 
-	snprintf(id, sizeof(id), "%s", sid_cmd_type_to_name(msg->header->cmd));
+	return 0;
+}
+
+static int _create_command_resource(sid_resource_t *parent_res, struct sid_msg *msg)
+{
+	if (_check_msg(parent_res, msg) < 0)
+		return -1;
 
 	if (!sid_resource_create(parent_res,
 	                         &sid_resource_type_ubridge_command,
 	                         SID_RESOURCE_NO_FLAGS,
-	                         id,
+	                         _get_cmd_reg(msg->cat, msg->header)->name,
 	                         msg,
 	                         SID_RESOURCE_PRIO_NORMAL,
 	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
@@ -3761,6 +3804,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 {
 	const struct sid_msg *msg      = kickstart_data;
 	struct sid_ucmd_ctx * ucmd_ctx = NULL;
+	const struct cmd_reg *cmd_reg;
 	const char *          worker_id;
 	int                   r;
 
@@ -3777,18 +3821,6 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		log_error_errno(ID(res), r, "Failed to create response buffer");
 		goto fail;
 	}
-
-	/*
-	 * FIXME: msg->header->data not copied, only the reference to data is copied! If connection resource is destroyed
-	 *        with its connection buffer out of which the msg->header->data is allocated, then there's a risk we access
-	 *        already freed data (e.g. in _cmd_handler which is executed as deferred, that is, after the connection
-	 *        buffer is reset).
-	 *
-	 *        Right now, we use msg->header->data to carry over udev environmnent from 'usid scan' only. This data
-	 *        are parsed here in _init_command, not in _cmd_handler, so we're OK. But be careful with any other
-	 *        future use of msg->header->data!
-	 */
-	ucmd_ctx->request_header = *msg->header;
 
 	if (!(ucmd_ctx->ucmd_mod_ctx.gen_buf =
 	              sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
@@ -3812,7 +3844,21 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (_cmd_regs[msg->header->cmd].flags & CMD_KV_IMPORT_UDEV) {
+	/*
+	 * FIXME: msg->header->data not copied, only the reference to data is copied! If connection resource is destroyed
+	 *        with its connection buffer out of which the msg->header->data is allocated, then there's a risk we access
+	 *        already freed data (e.g. in _cmd_handler which is executed as deferred, that is, after the connection
+	 *        buffer is reset).
+	 *
+	 *        Right now, we use msg->header->data to carry over udev environmnent from 'usid scan' only. This data
+	 *        are parsed here in _init_command, not in _cmd_handler, so we're OK. But be careful with any other
+	 *        future use of msg->header->data!
+	 */
+	ucmd_ctx->req_cat = msg->cat;
+	ucmd_ctx->req_hdr = *msg->header;
+	cmd_reg           = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
+
+	if (cmd_reg->flags & CMD_KV_IMPORT_UDEV) {
 		/* currently, we only parse udev environment for the SCAN command */
 		if ((r = _parse_cmd_nullstr_udev_env(ucmd_ctx, msg->header->data, msg->size - sizeof(*msg->header))) < 0) {
 			log_error_errno(ID(res), r, "Failed to parse udev environment variables");
@@ -3820,7 +3866,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		}
 	}
 
-	if (_cmd_regs[msg->header->cmd].flags & CMD_SESSION_ID) {
+	if (cmd_reg->flags & CMD_SESSION_ID) {
 		if (!(worker_id = worker_control_get_worker_id(res))) {
 			log_error(ID(res), "Failed to get worker ID to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
 			goto fail;
@@ -4347,26 +4393,22 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 }
 
 #if 0
-static int _dbdump_file(sid_resource_t *internal_ubridge_res)
+static int _self_cmd_dbdump(sid_resource_t *internal_ubridge_res)
 {
 	sid_resource_t *        worker_proxy_res;
 	struct internal_msg     int_msg;
 	struct worker_data_spec data_spec;
-	int                     r;
 
-	worker_proxy_res = _get_worker(internal_ubridge_res);
+	if (!(worker_proxy_res = _get_worker(internal_ubridge_res)))
+		return -1;
 
-	int_msg.cat = MSG_CATEGORY_SELF;
-	int_msg.header =
-		(struct sid_msg_header) {.status = 0, .prot = SID_PROTOCOL, .cmd = SID_CMD_DBDUMP, .flags = SID_CMD_FLAGS_FMT_JSON};
+	int_msg = (struct internal_msg) {
+		.cat    = MSG_CATEGORY_SELF,
+		.header = (struct sid_msg_header) {.status = 0, .prot = SID_PROTOCOL, .cmd = SELF_CMD_DBDUMP, .flags = 0}};
 
-	data_spec.data      = &int_msg;
-	data_spec.data_size = sizeof(int_msg);
-	data_spec.ext.used  = false;
+	data_spec = (struct worker_data_spec) {.data = &int_msg, .data_size = sizeof(int_msg), .ext.used = false};
 
-	r = worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
-
-	return r;
+	return worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
 }
 #endif
 
