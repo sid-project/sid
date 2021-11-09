@@ -3778,6 +3778,16 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
+	/*
+	 * FIXME: msg->header->data not copied, only the reference to data is copied! If connection resource is destroyed
+	 *        with its connection buffer out of which the msg->header->data is allocated, then there's a risk we access
+	 *        already freed data (e.g. in _cmd_handler which is executed as deferred, that is, after the connection
+	 *        buffer is reset).
+	 *
+	 *        Right now, we use msg->header->data to carry over udev environmnent from 'usid scan' only. This data
+	 *        are parsed here in _init_command, not in _cmd_handler, so we're OK. But be careful with any other
+	 *        future use of msg->header->data!
+	 */
 	ucmd_ctx->request_header = *msg->header;
 
 	if (!(ucmd_ctx->ucmd_mod_ctx.gen_buf =
