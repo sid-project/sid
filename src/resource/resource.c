@@ -59,16 +59,41 @@ typedef struct sid_resource_iter {
 	struct list *   next; /* for safety */
 } sid_resource_iter_t;
 
+typedef enum
+{
+	EVENT_SOURCE_GENERIC,
+	EVENT_SOURCE_IO,
+	EVENT_SOURCE_SIGNAL,
+	EVENT_SOURCE_CHILD,
+	EVENT_SOURCE_TIME,
+	EVENT_SOURCE_DEFERRED,
+	EVENT_SOURCE_POST,
+	EVENT_SOURCE_EXIT,
+} event_source_type_t;
+
+static const char *const _event_source_type_names[] = {
+	[EVENT_SOURCE_GENERIC]  = "Generic",
+	[EVENT_SOURCE_IO]       = "IO",
+	[EVENT_SOURCE_SIGNAL]   = "Signal",
+	[EVENT_SOURCE_TIME]     = "Time",
+	[EVENT_SOURCE_CHILD]    = "Child",
+	[EVENT_SOURCE_DEFERRED] = "Deferred",
+	[EVENT_SOURCE_POST]     = "Post",
+	[EVENT_SOURCE_EXIT]     = "Exit",
+};
+
 typedef struct sid_resource_event_source {
-	struct list      list;
-	sid_resource_t * res;
-	sd_event_source *sd_es;
-	const char *     name;
-	void *           handler;
-	void *           data;
+	struct list         list;
+	sid_resource_t *    res;
+	event_source_type_t type;
+	sd_event_source *   sd_es;
+	const char *        name;
+	void *              handler;
+	void *              data;
 } sid_resource_event_source_t;
 
 static int _create_event_source(sid_resource_t *              res,
+                                event_source_type_t           type,
                                 const char *                  name,
                                 sd_event_source *             sd_es,
                                 void *                        handler,
@@ -85,6 +110,7 @@ static int _create_event_source(sid_resource_t *              res,
 	}
 
 	new_es->res     = res;
+	new_es->type    = type;
 	new_es->sd_es   = sd_es;
 	new_es->handler = handler;
 	new_es->data    = data;
@@ -106,7 +132,7 @@ static int _create_event_source(sid_resource_t *              res,
 	} else
 		name = unnamed;
 
-	log_debug(res->id, "Event source created: %s.", name);
+	log_debug(res->id, "%s event source created: %s.", _event_source_type_names[type], name);
 
 	list_add(&res->event_sources, &new_es->list);
 out:
@@ -120,7 +146,7 @@ out:
 
 static void _destroy_event_source(sid_resource_event_source_t *es)
 {
-	log_debug(es->res->id, "Event source removed: %s.", es->name);
+	log_debug(es->res->id, "%s event source removed: %s.", _event_source_type_names[es->type], es->name);
 
 	sd_event_source_unref(es->sd_es);
 	list_del(&es->list);
@@ -457,7 +483,7 @@ int sid_resource_create_io_event_source(sid_resource_t *                res,
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_IO, name, sd_es, handler, data, es)) < 0)
 		goto fail;
 
 	return 0;
@@ -534,7 +560,7 @@ int sid_resource_create_signal_event_source(sid_resource_t *                    
 		goto fail;
 	}
 
-	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_SIGNAL, name, sd_es, handler, data, es)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -585,7 +611,7 @@ int sid_resource_create_child_event_source(sid_resource_t *                   re
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_CHILD, name, sd_es, handler, data, es)) < 0)
 		goto fail;
 
 	return 0;
@@ -632,7 +658,7 @@ int sid_resource_create_time_event_source(sid_resource_t *                  res,
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_TIME, name, sd_es, handler, data, es)) < 0)
 		goto fail;
 
 	return 0;
@@ -673,7 +699,7 @@ int sid_resource_create_deferred_event_source(sid_resource_t *                  
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_DEFERRED, name, sd_es, handler, data, es)) < 0)
 		goto fail;
 
 	return 0;
@@ -708,7 +734,7 @@ int sid_resource_create_post_event_source(sid_resource_t *                     r
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_POST, name, sd_es, handler, data, es)) < 0)
 		goto fail;
 
 	return 0;
@@ -743,7 +769,7 @@ int sid_resource_create_exit_event_source(sid_resource_t *                     r
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_EXIT, name, sd_es, handler, data, es)) < 0)
 		goto fail;
 
 	return 0;
