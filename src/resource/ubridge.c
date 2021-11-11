@@ -322,13 +322,15 @@ struct internal_msg {
 /*
  * Generic flags for all commands.
  */
-#define CMD_KV_IMPORT_UDEV UINT32_C(0x00000001) /* imports udev environment as KV_NS_UDEV records */
-
-#define CMD_KV_EXPORT_UDEV   UINT32_C(0x00000002) /* exports KV_NS_UDEV records */
-#define CMD_KV_EXPORT_SID    UINT32_C(0x00000004) /* exports KV_NS_<!UDEV> records */
-#define CMD_KV_EXPORT_CLIENT UINT32_C(0x00000008) /* exports KV records to client */
-#define CMD_KV_EXPORT_FILE   UINT32_C(0x00000010) /* exports KV records to file */
-#define CMD_SESSION_ID       UINT32_C(0x00000020) /* uses session ID */
+#define CMD_KV_IMPORT_UDEV           UINT32_C(0x00000001) /* import udev environment as KV_NS_UDEV records */
+#define CMD_KV_EXPORT_UDEV_TO_RESBUF UINT32_C(0x00000002) /* export KV_NS_UDEV records to result buffer  */
+#define CMD_KV_EXPORT_UDEV_TO_EXPBUF UINT32_C(0x00000004) /* export KV_NS_UDEV records to export buffer */
+#define CMD_KV_EXPORT_SID_TO_RESBUF  UINT32_C(0x00000008) /* export KV_NS_<!UDEV> records to result buffer */
+#define CMD_KV_EXPORT_SID_TO_EXPBUF  UINT32_C(0x00000010) /* export KV_NS_<!UDEV> records to export buffer */
+#define CMD_KV_EXPORT_PERSISTENT     UINT32_C(0x00000080) /* export only KV records marked with persistent flags */
+#define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000020) /* export KV records from export buffer to a file */
+#define CMD_KV_EXPBUF_TO_MAIN        UINT32_C(0x00000040) /* export KV records from export buffer to main process */
+#define CMD_SESSION_ID               UINT32_C(0x00000100) /* generate session ID */
 
 /*
  * Capability flags for 'scan' command phases (phases are represented as subcommands).
@@ -848,16 +850,15 @@ static output_format_t flags_to_format(uint16_t flags)
 
 static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *cmd_reg)
 {
-	struct sid_ucmd_ctx *ucmd_ctx    = sid_resource_get_data(cmd_res);
-	bool                 export_udev = cmd_reg->flags & CMD_KV_EXPORT_UDEV;
-	bool                 export_sid  = cmd_reg->flags & CMD_KV_EXPORT_SID;
-	output_format_t      format = cmd_reg->flags & CMD_KV_EXPORT_CLIENT ? flags_to_format(ucmd_ctx->req_hdr.flags) : NO_FORMAT;
-	struct kv_value *    kv_value;
-	kv_store_iter_t *    iter;
-	const char *         key;
-	void *               value;
-	bool                 vector;
-	size_t               size, iov_size, key_size, data_offset;
+	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
+	output_format_t        format;
+	struct sid_buffer_spec buf_spec;
+	struct kv_value *      kv_value;
+	kv_store_iter_t *      iter;
+	const char *           key;
+	void *                 value;
+	bool                   vector;
+	size_t                 size, iov_size, key_size, data_offset;
 	kv_store_value_flags_t flags;
 	struct iovec *         iov;
 	unsigned               i, records = 0;
@@ -880,7 +881,8 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	 * don't care and we add all KV records to buffers.
 	 */
 
-	if (!(cmd_reg->flags & (CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID)))
+	if (!(cmd_reg->flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_RESBUF |
+	                        CMD_KV_EXPORT_SID_TO_EXPBUF)))
 		/* nothing to export for this command */
 		return 0;
 
@@ -890,18 +892,26 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		goto fail;
 	}
 
-	if (!(export_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
-	                                                                 .type    = SID_BUFFER_TYPE_LINEAR,
-	                                                                 .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
+	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE)
+		buf_spec = (struct sid_buffer_spec) {.backend  = SID_BUFFER_BACKEND_FILE,
+		                                     .type     = SID_BUFFER_TYPE_LINEAR,
+		                                     .mode     = SID_BUFFER_MODE_PLAIN,
+		                                     .ext.file = "/run/sid.db.test"};
+	else
+		buf_spec = (struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
+		                                     .type    = SID_BUFFER_TYPE_LINEAR,
+		                                     .mode    = SID_BUFFER_MODE_SIZE_PREFIX};
+
+	if (!(export_buf = sid_buffer_create(&buf_spec,
 	                                     &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
 	                                     &r))) {
 		log_error(ID(cmd_res), "Failed to create export buffer.");
 		goto fail;
 	}
 
-	/*
-	 * For exporting the raw kv-store, format is set to NO_FORMAT
-	 */
+	/* For exporting the raw kv-store, format is set to NO_FORMAT. */
+	format = cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN ? NO_FORMAT : flags_to_format(ucmd_ctx->req_hdr.flags);
+
 	if (format != NO_FORMAT) {
 		print_start_document(format, export_buf, 0);
 		print_start_array("siddb", format, export_buf, 1);
@@ -915,7 +925,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			iov_size = size;
 			kv_value = NULL;
 
-			if (format == NO_FORMAT) {
+			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
 				if (!(KV_VALUE_FLAGS(iov) & KV_PERSISTENT))
 					continue;
 
@@ -926,7 +936,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			iov_size = 0;
 			kv_value = value;
 
-			if (format == NO_FORMAT) {
+			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
 				if (!(kv_value->flags & KV_PERSISTENT))
 					continue;
 
@@ -938,7 +948,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
-			if (!export_udev) {
+			if (!(cmd_reg->flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF))) {
 				log_debug(ID(cmd_res), "Ignoring request to export record with key %s to udev.", key);
 				continue;
 			}
@@ -951,7 +961,8 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 				r = -ENOTSUP;
 				goto fail;
 			}
-			if (format == NO_FORMAT) {
+
+			if (cmd_reg->flags & CMD_KV_EXPORT_UDEV_TO_RESBUF) {
 				key = _get_key_part(key, KEY_PART_CORE, NULL);
 				if (!sid_buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), &r) ||
 				    !sid_buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, &r))
@@ -967,10 +978,12 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 				          "Exported udev property %s=%s",
 				          key,
 				          kv_value->data + data_offset);
-				continue;
 			}
+
+			if (!(cmd_reg->flags & CMD_KV_EXPORT_UDEV_TO_EXPBUF))
+				continue;
 		} else { /* _get_ns_from_key(key) != KV_NS_UDEV */
-			if (!export_sid) {
+			if (!(cmd_reg->flags & (CMD_KV_EXPORT_SID_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF))) {
 				log_debug(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
 				continue;
 			}
@@ -1057,6 +1070,12 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		print_end_document(format, export_buf, 0);
 		print_null_byte(export_buf);
 	}
+
+	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
+		if ((r = fsync(sid_buffer_get_fd(export_buf))) < 0)
+			log_error_errno(ID(cmd_res), r, "Failed to fsync command exports to a file.");
+	}
+
 	ucmd_ctx->exp_buf = export_buf;
 	kv_store_iter_destroy(iter);
 	return 0;
@@ -3505,19 +3524,18 @@ static struct cmd_reg _client_cmd_regs[] = {
 	[SID_CMD_CHECKPOINT] = {.name = "c-checkpoint", .flags = CMD_KV_IMPORT_UDEV, .exec = NULL},
 	[SID_CMD_REPLY]      = {.name = "c-reply", .flags = 0, .exec = NULL},
 	[SID_CMD_SCAN]       = {.name  = "c-scan",
-                          .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_SESSION_ID,
-                          .exec  = _cmd_exec_scan},
+                          .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF |
+                                   CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_PERSISTENT | CMD_SESSION_ID,
+                          .exec = _cmd_exec_scan},
 	[SID_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
-	[SID_CMD_DBDUMP]     = {.name  = "c-dbdump",
-                            .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_CLIENT,
-                            .exec  = NULL},
-	[SID_CMD_DBSTATS]    = {.name = "c-dbstats", .flags = 0, .exec = _cmd_exec_dbstats},
-	[SID_CMD_RESOURCES]  = {.name = "c-resource", .flags = 0, .exec = _cmd_exec_resources},
+	[SID_CMD_DBDUMP]  = {.name = "c-dbdump", .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF, .exec = NULL},
+	[SID_CMD_DBSTATS] = {.name = "c-dbstats", .flags = 0, .exec = _cmd_exec_dbstats},
+	[SID_CMD_RESOURCES] = {.name = "c-resource", .flags = 0, .exec = _cmd_exec_resources},
 };
 
 static struct cmd_reg _self_cmd_regs[] = {
 	[SELF_CMD_DBDUMP] = {.name  = "s-dbdump",
-                             .flags = CMD_KV_EXPORT_UDEV | CMD_KV_EXPORT_SID | CMD_KV_EXPORT_FILE,
+                             .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF | CMD_KV_EXPBUF_TO_FILE,
                              .exec  = NULL},
 };
 
@@ -3548,31 +3566,86 @@ static const struct cmd_reg *_get_cmd_reg(msg_category_t cat, struct sid_msg_hea
 	}
 }
 
+static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *cmd_reg)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	sid_resource_t *     conn_res = NULL;
+	struct connection *  conn     = NULL;
+	int                  r        = -1;
+
+	/* Send out response buffer. */
+	switch (ucmd_ctx->req_cat) {
+		case MSG_CATEGORY_CLIENT:
+			conn_res = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
+			conn     = sid_resource_get_data(conn_res);
+
+			if (sid_buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
+				log_error(ID(cmd_res), "Failed to send command response to client.");
+				(void) _connection_cleanup(conn_res);
+				goto out;
+			}
+			break;
+
+		case MSG_CATEGORY_SELF:
+			// TODO: Return result buffer content to the resource which created this cmd resource.
+			break;
+	}
+
+	/* Send out export buffer. */
+	if (ucmd_ctx->exp_buf) {
+		if (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN) {
+			if (sid_buffer_stat(ucmd_ctx->exp_buf).usage.used > SID_BUFFER_SIZE_PREFIX_LEN) {
+				if ((r = worker_control_channel_send(
+					     cmd_res,
+					     MAIN_WORKER_CHANNEL_ID,
+					     &(struct worker_data_spec) {.data      = NULL,
+				                                         .data_size = 0,
+				                                         .ext.used  = true,
+				                                         .ext.socket.fd_pass =
+				                                                 sid_buffer_get_fd(ucmd_ctx->exp_buf)})) < 0) {
+					log_error_errno(ID(cmd_res), r, "Failed to send command exports to main SID process.");
+					goto out;
+				}
+			}
+		} else {
+			switch (ucmd_ctx->req_cat) {
+				case MSG_CATEGORY_CLIENT:
+					if ((r = _send_fd_over_unix_comms(sid_buffer_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0) {
+						log_error_errno(ID(cmd_res), r, "Failed to send command exports to client.");
+						goto out;
+					}
+					break;
+
+				case MSG_CATEGORY_SELF:
+					/* nothing to do here right now */
+					break;
+			}
+		}
+	}
+
+	r = 0;
+out:
+	return r;
+}
+
 static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
-	sid_resource_t *        cmd_res         = data;
-	struct sid_ucmd_ctx *   ucmd_ctx        = sid_resource_get_data(cmd_res);
-	sid_resource_t *        conn_res        = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
-	struct connection *     conn            = sid_resource_get_data(conn_res);
-	struct sid_msg_header   response_header = {.status = SID_CMD_STATUS_SUCCESS, .prot = SID_PROTOCOL, .cmd = SID_CMD_REPLY};
-	struct cmd_exec_arg     exec_arg        = {0};
-	int                     r               = -1;
-	struct worker_data_spec data_spec;
-	const struct cmd_reg *  cmd_reg;
+	sid_resource_t *      cmd_res         = data;
+	struct sid_ucmd_ctx * ucmd_ctx        = sid_resource_get_data(cmd_res);
+	struct sid_msg_header response_header = {.status = SID_CMD_STATUS_SUCCESS, .prot = SID_PROTOCOL, .cmd = SID_CMD_REPLY};
+	const struct cmd_reg *cmd_reg         = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
+	int                   r               = -1;
 
 	if (!sid_buffer_add(ucmd_ctx->res_buf, &response_header, sizeof(response_header), &r))
-		goto out;
+		return -1;
 
 	/* Require exact protocol version. We can add possible backward/forward compatibility in future stable versions. */
 	if (ucmd_ctx->req_hdr.prot != SID_PROTOCOL) {
 		log_error(ID(cmd_res), "Client protocol version unsupported: %u", ucmd_ctx->req_hdr.prot);
-		goto fail;
+		goto out;
 	}
 
-	cmd_reg          = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
-	exec_arg.cmd_res = cmd_res;
-
-	if (cmd_reg->exec && ((r = cmd_reg->exec(&exec_arg)) < 0)) {
+	if (cmd_reg->exec && ((r = cmd_reg->exec(&(struct cmd_exec_arg) {.cmd_res = cmd_res})) < 0)) {
 		log_error(ID(cmd_res), "Failed to execute command");
 		goto out;
 	}
@@ -3581,36 +3654,15 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		log_error(ID(cmd_res), "Failed to export KV store.");
 		goto out;
 	}
+
+	if ((r = _send_out_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
+		log_error(ID(cmd_res), "Failed to send out result and/or export buffer.");
+		goto out;
+	}
 out:
 	if (r < 0)
 		response_header.status |= SID_CMD_STATUS_FAILURE;
-
-	if (sid_buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
-		log_error(ID(cmd_res), "Failed to send command response.");
-		goto fail;
-	}
-
-	if (ucmd_ctx->exp_buf && r >= 0) {
-		if (cmd_reg->flags & CMD_KV_EXPORT_CLIENT) {
-			if ((r = _send_fd_over_unix_comms(sid_buffer_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0)
-				log_error_errno(ID(cmd_res), r, "Failed to send command exports to client.");
-		} else {
-			if (sid_buffer_stat(ucmd_ctx->exp_buf).usage.used > SID_BUFFER_SIZE_PREFIX_LEN) {
-				data_spec.data               = NULL;
-				data_spec.data_size          = 0;
-				data_spec.ext.used           = true;
-				data_spec.ext.socket.fd_pass = sid_buffer_get_fd(ucmd_ctx->exp_buf);
-
-				if ((r = worker_control_channel_send(cmd_res, MAIN_WORKER_CHANNEL_ID, &data_spec)) < 0)
-					log_error_errno(ID(cmd_res), r, "Failed to send command exports to main SID process.");
-			}
-		}
-	}
-
 	return r;
-fail:
-	(void) _connection_cleanup(conn_res);
-	return -1;
 }
 
 static int _reply_failure(sid_resource_t *conn_res)
