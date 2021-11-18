@@ -162,6 +162,7 @@ struct sid_ucmd_ctx {
 	struct udevice          udev_dev;     /* udev context for currently processed device */
 	cmd_scan_phase_t        scan_phase;   /* current phase at the time of use of this context */
 	struct sid_ucmd_mod_ctx ucmd_mod_ctx; /* commod module context */
+	struct sid_msg_header   res_hdr;      /* response header */
 	struct sid_buffer *     res_buf;      /* response buffer */
 	struct sid_buffer *     exp_buf;      /* export buffer */
 };
@@ -3552,12 +3553,13 @@ static const struct cmd_reg *_get_cmd_reg(msg_category_t cat, struct sid_msg_hea
 	}
 }
 
-static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *cmd_reg)
+static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	sid_resource_t *     conn_res = NULL;
-	struct connection *  conn     = NULL;
-	int                  r        = -1;
+	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(cmd_res);
+	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
+	sid_resource_t *      conn_res = NULL;
+	struct connection *   conn     = NULL;
+	int                   r        = -1;
 
 	/* Send out response buffer. */
 	switch (ucmd_ctx->req_cat) {
@@ -3616,14 +3618,10 @@ out:
 
 static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
-	sid_resource_t *      cmd_res         = data;
-	struct sid_ucmd_ctx * ucmd_ctx        = sid_resource_get_data(cmd_res);
-	struct sid_msg_header response_header = {.status = SID_CMD_STATUS_SUCCESS, .prot = SID_PROTOCOL, .cmd = SID_CMD_REPLY};
-	const struct cmd_reg *cmd_reg         = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
-	int                   r               = -1;
-
-	if (!sid_buffer_add(ucmd_ctx->res_buf, &response_header, sizeof(response_header), &r))
-		return -1;
+	sid_resource_t *      cmd_res  = data;
+	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(cmd_res);
+	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
+	int                   r        = -1;
 
 	/* Require exact protocol version. We can add possible backward/forward compatibility in future stable versions. */
 	if (ucmd_ctx->req_hdr.prot != SID_PROTOCOL) {
@@ -3641,13 +3639,13 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		goto out;
 	}
 
-	if ((r = _send_out_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
-		log_error(ID(cmd_res), "Failed to send out result and/or export buffer.");
+	if ((r = _send_out_cmd_kv_buffers(cmd_res)) < 0) {
+		log_error(ID(cmd_res), "Failed to send out command results.");
 		goto out;
 	}
 out:
 	if (r < 0)
-		response_header.status |= SID_CMD_STATUS_FAILURE;
+		ucmd_ctx->res_hdr.status |= SID_CMD_STATUS_FAILURE;
 	return r;
 }
 
@@ -3848,7 +3846,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 
 	if (!(ucmd_ctx = mem_zalloc(sizeof(*ucmd_ctx)))) {
 		log_error(ID(res), "Failed to allocate new command structure.");
-		return -1;
+		goto fail;
 	}
 
 	if (!(ucmd_ctx->res_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
@@ -3859,6 +3857,10 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		log_error_errno(ID(res), r, "Failed to create response buffer");
 		goto fail;
 	}
+
+	ucmd_ctx->res_hdr = (struct sid_msg_header) {.status = SID_CMD_STATUS_SUCCESS, .prot = SID_PROTOCOL, .cmd = SID_CMD_REPLY};
+	if (!sid_buffer_add(ucmd_ctx->res_buf, &ucmd_ctx->res_hdr, sizeof(ucmd_ctx->res_hdr), &r))
+		goto fail;
 
 	if (!(ucmd_ctx->ucmd_mod_ctx.gen_buf =
 	              sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
