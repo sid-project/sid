@@ -162,7 +162,7 @@ struct sid_ucmd_ctx {
 	struct udevice          udev_dev;     /* udev context for currently processed device */
 	cmd_scan_phase_t        scan_phase;   /* current phase at the time of use of this context */
 	struct sid_ucmd_mod_ctx ucmd_mod_ctx; /* commod module context */
-	struct sid_buffer *     res_buf;      /* result buffer */
+	struct sid_buffer *     res_buf;      /* response buffer */
 	struct sid_buffer *     exp_buf;      /* export buffer */
 };
 
@@ -323,9 +323,9 @@ struct internal_msg {
  * Generic flags for all commands.
  */
 #define CMD_KV_IMPORT_UDEV           UINT32_C(0x00000001) /* import udev environment as KV_NS_UDEV records */
-#define CMD_KV_EXPORT_UDEV_TO_RESBUF UINT32_C(0x00000002) /* export KV_NS_UDEV records to result buffer  */
+#define CMD_KV_EXPORT_UDEV_TO_RESBUF UINT32_C(0x00000002) /* export KV_NS_UDEV records to response buffer  */
 #define CMD_KV_EXPORT_UDEV_TO_EXPBUF UINT32_C(0x00000004) /* export KV_NS_UDEV records to export buffer */
-#define CMD_KV_EXPORT_SID_TO_RESBUF  UINT32_C(0x00000008) /* export KV_NS_<!UDEV> records to result buffer */
+#define CMD_KV_EXPORT_SID_TO_RESBUF  UINT32_C(0x00000008) /* export KV_NS_<!UDEV> records to response buffer */
 #define CMD_KV_EXPORT_SID_TO_EXPBUF  UINT32_C(0x00000010) /* export KV_NS_<!UDEV> records to export buffer */
 #define CMD_KV_EXPORT_PERSISTENT     UINT32_C(0x00000080) /* export only KV records marked with persistent flags */
 #define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000020) /* export KV records from export buffer to a file */
@@ -3573,7 +3573,7 @@ static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_re
 			break;
 
 		case MSG_CATEGORY_SELF:
-			// TODO: Return result buffer content to the resource which created this cmd resource.
+			// TODO: Return response buffer content to the resource which created this cmd resource.
 			break;
 	}
 
