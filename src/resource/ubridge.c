@@ -3543,20 +3543,20 @@ static ssize_t _send_fd_over_unix_comms(int fd, int unix_comms_fd)
 	return n;
 }
 
-static const struct cmd_reg *_get_cmd_reg(msg_category_t cat, struct sid_msg_header *hdr)
+static const struct cmd_reg *_get_cmd_reg(struct sid_ucmd_ctx *ucmd_ctx)
 {
-	switch (cat) {
+	switch (ucmd_ctx->req_cat) {
 		case MSG_CATEGORY_SELF:
-			return &_self_cmd_regs[hdr->cmd];
+			return &_self_cmd_regs[ucmd_ctx->req_hdr.cmd];
 		case MSG_CATEGORY_CLIENT:
-			return &_client_cmd_regs[hdr->cmd];
+			return &_client_cmd_regs[ucmd_ctx->req_hdr.cmd];
 	}
 }
 
 static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(cmd_res);
-	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
+	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 	sid_resource_t *      conn_res = NULL;
 	struct connection *   conn     = NULL;
 	int                   r        = -1;
@@ -3620,7 +3620,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
 	sid_resource_t *      cmd_res  = data;
 	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(cmd_res);
-	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
+	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 	int                   r        = -1;
 
 	/* Require exact protocol version. We can add possible backward/forward compatibility in future stable versions. */
@@ -3728,7 +3728,7 @@ static int _create_command_resource(sid_resource_t *parent_res, struct sid_msg *
 	if (!sid_resource_create(parent_res,
 	                         &sid_resource_type_ubridge_command,
 	                         SID_RESOURCE_NO_FLAGS,
-	                         _get_cmd_reg(msg->cat, msg->header)->name,
+	                         _get_cmd_reg(&((struct sid_ucmd_ctx) {.req_cat = msg->cat, .req_hdr = *msg->header}))->name,
 	                         msg,
 	                         SID_RESOURCE_PRIO_NORMAL,
 	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
@@ -3886,7 +3886,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 
 	ucmd_ctx->req_cat = msg->cat;
 	ucmd_ctx->req_hdr = *msg->header;
-	cmd_reg           = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
+	cmd_reg           = _get_cmd_reg(ucmd_ctx);
 
 	if (cmd_reg->flags & CMD_KV_IMPORT_UDEV) {
 		/* currently, we only parse udev environment for the SCAN command */
