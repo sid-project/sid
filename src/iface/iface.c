@@ -117,7 +117,7 @@ const char *sid_result_data(struct sid_result *res, size_t *size_p)
 	} else if (size > SID_MSG_HEADER_SIZE) {
 		if (size_p)
 			*size_p = size - SID_MSG_HEADER_SIZE;
-		return hdr->data;
+		return (const char *) hdr + SID_MSG_HEADER_SIZE;
 	}
 	return NULL;
 }

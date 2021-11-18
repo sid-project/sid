@@ -156,14 +156,14 @@ typedef enum
 } msg_category_t;
 
 struct sid_ucmd_ctx {
+	msg_category_t          req_cat;      /* request category */
+	struct sid_msg_header   req_hdr;      /* request header */
 	char *                  dev_id;       /* device identifier (major_minor) */
 	struct udevice          udev_dev;     /* udev context for currently processed device */
 	cmd_scan_phase_t        scan_phase;   /* current phase at the time of use of this context */
 	struct sid_ucmd_mod_ctx ucmd_mod_ctx; /* commod module context */
 	struct sid_buffer *     res_buf;      /* result buffer */
 	struct sid_buffer *     exp_buf;      /* export buffer */
-	msg_category_t          req_cat;      /* request category */
-	struct sid_msg_header   req_hdr;      /* original request header (keep last, contains flexible array) */
 };
 
 struct cmd_mod_fns {
@@ -866,20 +866,6 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	struct sid_buffer *    export_buf  = NULL;
 	bool                   needs_comma = false;
 	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
-
-	/*
-	 * For udev namespace, we append key=value pairs to the result buffer,
-	 * that is ucmd_ctx->res_buf.
-	 *
-	 * For other namespaces, we serialize the key-value records to export
-	 * buffer, that is ucmd_ctx->exp_buf. The export buffer is backed by
-	 * SID_BUFFER_BACKEND_MEMFD/SID_BUFFER_TYPE_LINEAR so we can send
-	 * the FD directly to client for it to read it directly.
-	 *
-	 * If the format is NO_FORMAT, we only add KV records to buffers which
-	 * are marked with KV_PERSISTENT flag. For all the other formats, we
-	 * don't care and we add all KV records to buffers.
-	 */
 
 	if (!(cmd_reg->flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_RESBUF |
 	                        CMD_KV_EXPORT_SID_TO_EXPBUF)))
@@ -3896,23 +3882,15 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	/*
-	 * FIXME: msg->header->data not copied, only the reference to data is copied! If connection resource is destroyed
-	 *        with its connection buffer out of which the msg->header->data is allocated, then there's a risk we access
-	 *        already freed data (e.g. in _cmd_handler which is executed as deferred, that is, after the connection
-	 *        buffer is reset).
-	 *
-	 *        Right now, we use msg->header->data to carry over udev environmnent from 'usid scan' only. This data
-	 *        are parsed here in _init_command, not in _cmd_handler, so we're OK. But be careful with any other
-	 *        future use of msg->header->data!
-	 */
 	ucmd_ctx->req_cat = msg->cat;
 	ucmd_ctx->req_hdr = *msg->header;
 	cmd_reg           = _get_cmd_reg(ucmd_ctx->req_cat, &ucmd_ctx->req_hdr);
 
 	if (cmd_reg->flags & CMD_KV_IMPORT_UDEV) {
 		/* currently, we only parse udev environment for the SCAN command */
-		if ((r = _parse_cmd_nullstr_udev_env(ucmd_ctx, msg->header->data, msg->size - sizeof(*msg->header))) < 0) {
+		if ((r = _parse_cmd_nullstr_udev_env(ucmd_ctx,
+		                                     (const char *) msg->header + SID_MSG_HEADER_SIZE,
+		                                     msg->size - SID_MSG_HEADER_SIZE)) < 0) {
 			log_error_errno(ID(res), r, "Failed to parse udev environment variables");
 			goto fail;
 		}

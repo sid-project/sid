@@ -327,7 +327,7 @@ static struct sid_result *__do_sid_req(struct sid_request *req,
 	req_hdr->flags  = req->flags;
 	if (req_data) {
 		assert_true(req_data_size > 0);
-		memcpy(req_hdr->data, req_data, req_data_size);
+		memcpy((char *) req_hdr + SID_MSG_HEADER_SIZE, req_data, req_data_size);
 	}
 	res_hdr = calloc(1, sizeof(*res_hdr) + res_data_size);
 	assert_non_null(res_hdr);
@@ -337,7 +337,7 @@ static struct sid_result *__do_sid_req(struct sid_request *req,
 	res_hdr->flags  = req->flags;
 	if (res_data) {
 		assert_true(res_data_size > 0);
-		memcpy(res_hdr->data, res_data, res_data_size);
+		memcpy((char *) res_hdr + SID_MSG_HEADER_SIZE, res_data, res_data_size);
 	}
 	will_return(__wrap_sid_buffer_write_all, 0);
 	will_return(__wrap_sid_buffer_write_all, sizeof(*req_hdr) + req_data_size);

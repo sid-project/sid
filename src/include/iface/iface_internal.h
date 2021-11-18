@@ -31,7 +31,6 @@ struct sid_msg_header {
 	uint8_t  prot;
 	uint8_t  cmd;
 	uint16_t flags;
-	char     data[];
 } __attribute__((packed));
 
 #define SID_MSG_HEADER_SIZE sizeof(struct sid_msg_header)
