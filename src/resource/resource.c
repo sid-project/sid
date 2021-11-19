@@ -627,15 +627,16 @@ static int _sd_time_event_handler(sd_event_source *sd_es, uint64_t usec, void *d
 	return ((sid_resource_time_event_handler_t) es->handler)(es, usec, es->data);
 }
 
-int sid_resource_create_time_event_source(sid_resource_t *                  res,
-                                          sid_resource_event_source_t **    es,
-                                          clockid_t                         clock,
-                                          uint64_t                          usec,
-                                          uint64_t                          accuracy,
-                                          sid_resource_time_event_handler_t handler,
-                                          int64_t                           prio,
-                                          const char *                      name,
-                                          void *                            data)
+static int _create_time_event_source(sid_resource_t *                  res,
+                                     sid_resource_event_source_t **    es,
+                                     clockid_t                         clock,
+                                     uint64_t                          usec,
+                                     uint64_t                          accuracy,
+                                     sid_resource_time_event_handler_t handler,
+                                     int64_t                           prio,
+                                     const char *                      name,
+                                     void *                            data,
+                                     bool                              relative)
 {
 	sid_resource_t * res_event_loop;
 	sd_event_source *sd_es = NULL;
@@ -646,14 +647,26 @@ int sid_resource_create_time_event_source(sid_resource_t *                  res,
 		goto fail;
 	}
 
-	if ((r = sd_event_add_time(res_event_loop->event_loop.sd_event_loop,
-	                           &sd_es,
-	                           clock,
-	                           usec,
-	                           accuracy,
-	                           handler ? _sd_time_event_handler : NULL,
-	                           NULL)) < 0)
-		goto fail;
+	if (relative) {
+		if ((r = sd_event_add_time_relative(res_event_loop->event_loop.sd_event_loop,
+		                                    &sd_es,
+		                                    clock,
+		                                    usec,
+		                                    accuracy,
+		                                    handler ? _sd_time_event_handler : NULL,
+		                                    NULL)) < 0)
+			goto fail;
+
+	} else {
+		if ((r = sd_event_add_time(res_event_loop->event_loop.sd_event_loop,
+		                           &sd_es,
+		                           clock,
+		                           usec,
+		                           accuracy,
+		                           handler ? _sd_time_event_handler : NULL,
+		                           NULL)) < 0)
+			goto fail;
+	}
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
@@ -666,6 +679,32 @@ fail:
 	if (sd_es)
 		sd_event_source_unref(sd_es);
 	return r;
+}
+
+int sid_resource_create_time_event_source(sid_resource_t *                  res,
+                                          sid_resource_event_source_t **    es,
+                                          clockid_t                         clock,
+                                          uint64_t                          usec,
+                                          uint64_t                          accuracy,
+                                          sid_resource_time_event_handler_t handler,
+                                          int64_t                           prio,
+                                          const char *                      name,
+                                          void *                            data)
+{
+	return _create_time_event_source(res, es, clock, usec, accuracy, handler, prio, name, data, false);
+}
+
+int sid_resource_create_relative_time_event_source(sid_resource_t *                  res,
+                                                   sid_resource_event_source_t **    es,
+                                                   clockid_t                         clock,
+                                                   uint64_t                          usec,
+                                                   uint64_t                          accuracy,
+                                                   sid_resource_time_event_handler_t handler,
+                                                   int64_t                           prio,
+                                                   const char *                      name,
+                                                   void *                            data)
+{
+	return _create_time_event_source(res, es, clock, usec, accuracy, handler, prio, name, data, true);
 }
 
 static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
