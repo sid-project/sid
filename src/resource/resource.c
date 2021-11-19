@@ -707,6 +707,26 @@ int sid_resource_create_relative_time_event_source(sid_resource_t *             
 	return _create_time_event_source(res, es, clock, usec, accuracy, handler, prio, name, data, true);
 }
 
+int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, uint64_t usec)
+{
+	int r;
+
+	if ((r = sd_event_source_set_time(es->sd_es, usec) < 0))
+		return r;
+
+	return sd_event_source_set_enabled(es->sd_es, SD_EVENT_ONESHOT);
+}
+
+int sid_resource_rearm_relative_time_event_source(sid_resource_event_source_t *es, uint64_t usec)
+{
+	int r;
+
+	if ((r = sd_event_source_set_time_relative(es->sd_es, usec)))
+		return r;
+
+	return sd_event_source_set_enabled(es->sd_es, SD_EVENT_ONESHOT);
+}
+
 static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
 {
 	sid_resource_event_source_t *es = data;

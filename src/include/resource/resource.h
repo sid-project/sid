@@ -218,6 +218,10 @@ int sid_resource_create_relative_time_event_source(sid_resource_t *             
                                                    const char *                      name,
                                                    void *                            data);
 
+int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, uint64_t usec);
+
+int sid_resource_rearm_relative_time_event_source(sid_resource_event_source_t *es, uint64_t usec);
+
 int sid_resource_create_deferred_event_source(sid_resource_t *                     res,
                                               sid_resource_event_source_t **       es,
                                               sid_resource_generic_event_handler_t handler,
