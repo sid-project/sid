@@ -897,7 +897,10 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	}
 
 	/* For exporting the raw kv-store, format is set to NO_FORMAT. */
-	format = cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN ? NO_FORMAT : flags_to_format(ucmd_ctx->req_hdr.flags);
+	if ((ucmd_ctx->req_cat == MSG_CATEGORY_SELF) || (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN))
+		format = NO_FORMAT;
+	else
+		format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	if (format != NO_FORMAT) {
 		print_start_document(format, export_buf, 0);
