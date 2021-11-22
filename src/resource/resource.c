@@ -148,6 +148,7 @@ static void _destroy_event_source(sid_resource_event_source_t *es)
 {
 	log_debug(es->res->id, "%s event source removed: %s.", _event_source_type_names[es->type], es->name);
 
+	sd_event_source_set_enabled(es->sd_es, SD_EVENT_OFF);
 	sd_event_source_unref(es->sd_es);
 	list_del(&es->list);
 	free(es);
