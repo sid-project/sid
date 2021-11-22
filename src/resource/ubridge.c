@@ -3646,6 +3646,13 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		goto out;
 	}
 out:
+	/*
+	 * At the end of processing a 'SELF' request, there's no other external entity or event
+	 * that would cause the worker to yield itself so do it now before we resume the event loop.
+	 */
+	if (ucmd_ctx->req_cat == MSG_CATEGORY_SELF)
+		(void) worker_control_worker_yield(sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+
 	if (r < 0)
 		ucmd_ctx->res_hdr.status |= SID_CMD_STATUS_FAILURE;
 	return r;
