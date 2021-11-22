@@ -883,7 +883,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		buf_spec = (struct sid_buffer_spec) {.backend  = SID_BUFFER_BACKEND_FILE,
 		                                     .type     = SID_BUFFER_TYPE_LINEAR,
 		                                     .mode     = SID_BUFFER_MODE_PLAIN,
-		                                     .ext.file = "/run/sid.db.test"};
+		                                     .ext.file = {"/run/sid.db.test"}};
 	else
 		buf_spec = (struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
 		                                     .type    = SID_BUFFER_TYPE_LINEAR,
@@ -3551,6 +3551,8 @@ static const struct cmd_reg *_get_cmd_reg(struct sid_ucmd_ctx *ucmd_ctx)
 		case MSG_CATEGORY_CLIENT:
 			return &_client_cmd_regs[ucmd_ctx->req_hdr.cmd];
 	}
+
+	return NULL;
 }
 
 static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
