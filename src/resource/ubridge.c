@@ -882,7 +882,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE)
 		buf_spec = (struct sid_buffer_spec) {.backend  = SID_BUFFER_BACKEND_FILE,
 		                                     .type     = SID_BUFFER_TYPE_LINEAR,
-		                                     .mode     = SID_BUFFER_MODE_PLAIN,
+		                                     .mode     = SID_BUFFER_MODE_SIZE_PREFIX,
 		                                     .ext.file = {"/run/sid.db.test"}};
 	else
 		buf_spec = (struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
