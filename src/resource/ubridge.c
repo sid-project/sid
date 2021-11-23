@@ -57,6 +57,8 @@
 #define MAIN_KV_STORE_NAME     "main"
 #define MAIN_WORKER_CHANNEL_ID "main"
 
+#define MAIN_KV_STORE_FILE_PATH "/run/sid.db"
+
 #define KV_PAIR_C "="
 #define KV_END_C  ""
 
@@ -883,7 +885,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		buf_spec = (struct sid_buffer_spec) {.backend  = SID_BUFFER_BACKEND_FILE,
 		                                     .type     = SID_BUFFER_TYPE_LINEAR,
 		                                     .mode     = SID_BUFFER_MODE_SIZE_PREFIX,
-		                                     .ext.file = {"/run/sid.db.test"}};
+		                                     .ext.file = {MAIN_KV_STORE_FILE_PATH}};
 	else
 		buf_spec = (struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
 		                                     .type    = SID_BUFFER_TYPE_LINEAR,
@@ -4385,6 +4387,25 @@ static int _on_ubridge_time_event(sid_resource_event_source_t *es, uint64_t usec
 	return 0;
 }
 
+static int _load_kv_store(sid_resource_t *res, sid_resource_t *internal_ubridge_res)
+{
+	int fd;
+	int r;
+
+	if (access(MAIN_KV_STORE_FILE_PATH, R_OK) < 0)
+		return 0;
+
+	if ((fd = open(MAIN_KV_STORE_FILE_PATH, O_RDONLY)) < 0) {
+		log_error_errno(ID(res), fd, "Failed to open db file");
+		return -1;
+	}
+
+	r = _sync_main_kv_store(res, internal_ubridge_res, fd);
+
+	close(fd);
+	return r;
+}
+
 static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_t *    internal_ubridge_res = data;
@@ -4730,6 +4751,8 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		log_error(ID(res), "Failed to create module handler.");
 		goto fail;
 	}
+
+	_load_kv_store(res, internal_res);
 
 	if (_set_up_ubridge_socket(res, &ubridge->socket_fd) < 0) {
 		log_error(ID(res), "Failed to set up local server socket.");
