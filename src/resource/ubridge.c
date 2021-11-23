@@ -4027,7 +4027,7 @@ static int _main_kv_store_update(struct kv_store_update_spec *spec)
 	return r;
 }
 
-static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t *internal_ubridge_res, int fd)
+static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubridge_res, int fd)
 {
 	static const char           syncing_msg[] = "Syncing main key-value store:  %s = %s (seqnum %" PRIu64 ")";
 	struct ubridge *            ubridge       = sid_resource_get_data(internal_ubridge_res);
@@ -4054,7 +4054,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 	ubridge = sid_resource_get_data(internal_ubridge_res);
 
 	if (read(fd, &msg_size, SID_BUFFER_SIZE_PREFIX_LEN) != SID_BUFFER_SIZE_PREFIX_LEN) {
-		log_error_errno(ID(worker_proxy_res), errno, "Failed to read shared memory size");
+		log_error_errno(ID(res), errno, "Failed to read shared memory size");
 		goto out;
 	}
 
@@ -4064,7 +4064,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 	}
 
 	if ((p = shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
-		log_error_errno(ID(worker_proxy_res), errno, "Failed to map memory with key-value store");
+		log_error_errno(ID(res), errno, "Failed to map memory with key-value store");
 		goto out;
 	}
 
@@ -4092,14 +4092,14 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 
 		if (flags & KV_STORE_VALUE_VECTOR) {
 			if (data_size < KV_VALUE_IDX_DATA) {
-				log_error(ID(worker_proxy_res),
+				log_error(ID(res),
 				          "Received incorrect vector of size %zu to sync with main key-value store.",
 				          data_size);
 				goto out;
 			}
 
 			if (!(iov = malloc(data_size * sizeof(struct iovec)))) {
-				log_error(ID(worker_proxy_res), "Failed to allocate vector to sync main key-value store.");
+				log_error(ID(res), "Failed to allocate vector to sync main key-value store.");
 				goto out;
 			}
 
@@ -4117,7 +4117,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 			update_arg.ret_code = -EREMOTEIO;
 
 			iov_str = _get_iov_str(ubridge->ucmd_mod_ctx.gen_buf, unset, iov, data_size);
-			log_debug(ID(worker_proxy_res), syncing_msg, full_key, iov_str, KV_VALUE_SEQNUM(iov));
+			log_debug(ID(res), syncing_msg, full_key, iov_str, KV_VALUE_SEQNUM(iov));
 			if (iov_str)
 				sid_buffer_rewind_mem(ubridge->ucmd_mod_ctx.gen_buf, iov_str);
 
@@ -4131,7 +4131,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 				case KV_OP_SET:
 					break;
 				case KV_OP_ILLEGAL:
-					log_error(ID(worker_proxy_res),
+					log_error(ID(res),
 					          INTERNAL_ERROR
 					          "Illegal operator found for key %s while trying to sync main key-value store.",
 					          full_key);
@@ -4141,7 +4141,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 			data_to_store = iov;
 		} else {
 			if (data_size <= sizeof(struct kv_value)) {
-				log_error(ID(worker_proxy_res),
+				log_error(ID(res),
 				          "Received incorrect value of size %zu to sync with main key-value store.",
 				          data_size);
 				goto out;
@@ -4157,7 +4157,7 @@ static int _sync_main_kv_store(sid_resource_t *worker_proxy_res, sid_resource_t 
 			update_arg.res      = kv_store_res;
 			update_arg.ret_code = -EREMOTEIO;
 
-			log_debug(ID(worker_proxy_res),
+			log_debug(ID(res),
 			          syncing_msg,
 			          full_key,
 			          unset         ? "NULL"
@@ -4194,7 +4194,7 @@ out:
 	free(iov);
 
 	if (shm != MAP_FAILED && munmap(shm, msg_size) < 0) {
-		log_error_errno(ID(worker_proxy_res), errno, "Failed to unmap memory with key-value store");
+		log_error_errno(ID(res), errno, "Failed to unmap memory with key-value store");
 		r = -1;
 	}
 
