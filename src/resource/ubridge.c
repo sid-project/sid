@@ -4357,54 +4357,56 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	return 0;
 }
 
+/*
 static int _self_cmd_dbdump(sid_resource_t *internal_ubridge_res)
 {
-	sid_resource_t *        worker_proxy_res;
-	struct internal_msg     int_msg;
-	struct worker_data_spec data_spec;
+        sid_resource_t *        worker_proxy_res;
+        struct internal_msg     int_msg;
+        struct worker_data_spec data_spec;
 
-	if (!(worker_proxy_res = _get_worker(internal_ubridge_res)))
-		return -1;
+        if (!(worker_proxy_res = _get_worker(internal_ubridge_res)))
+                return -1;
 
-	int_msg = (struct internal_msg) {
-		.cat    = MSG_CATEGORY_SELF,
-		.header = (struct sid_msg_header) {.status = 0, .prot = SID_PROTOCOL, .cmd = SELF_CMD_DBDUMP, .flags = 0}};
+        int_msg = (struct internal_msg) {
+                .cat    = MSG_CATEGORY_SELF,
+                .header = (struct sid_msg_header) {.status = 0, .prot = SID_PROTOCOL, .cmd = SELF_CMD_DBDUMP, .flags = 0}};
 
-	data_spec = (struct worker_data_spec) {.data = &int_msg, .data_size = sizeof(int_msg), .ext.used = false};
+        data_spec = (struct worker_data_spec) {.data = &int_msg, .data_size = sizeof(int_msg), .ext.used = false};
 
-	return worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
+        return worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
 }
 
 static int _on_ubridge_time_event(sid_resource_event_source_t *es, uint64_t usec, void *data)
 {
-	sid_resource_t *internal_ubridge_res = data;
-	static int      counter              = 0;
+        sid_resource_t *internal_ubridge_res = data;
+        static int      counter              = 0;
 
-	log_debug(ID(internal_ubridge_res), "dumping db (%d)", counter++);
-	(void) _self_cmd_dbdump(data);
+        log_debug(ID(internal_ubridge_res), "dumping db (%d)", counter++);
+        (void) _self_cmd_dbdump(data);
 
-	sid_resource_rearm_relative_time_event_source(es, 3000000);
-	return 0;
+        sid_resource_rearm_relative_time_event_source(es, 3000000);
+        return 0;
 }
 
 static int _load_kv_store(sid_resource_t *res, sid_resource_t *internal_ubridge_res)
 {
-	int fd;
-	int r;
+        int fd;
+        int r;
 
-	if (access(MAIN_KV_STORE_FILE_PATH, R_OK) < 0)
-		return 0;
+        if (access(MAIN_KV_STORE_FILE_PATH, R_OK) < 0)
+                return 0;
 
-	if ((fd = open(MAIN_KV_STORE_FILE_PATH, O_RDONLY)) < 0) {
-		log_error_errno(ID(res), fd, "Failed to open db file");
-		return -1;
-	}
+        if ((fd = open(MAIN_KV_STORE_FILE_PATH, O_RDONLY)) < 0) {
+                log_error_errno(ID(res), fd, "Failed to open db file");
+                return -1;
+        }
 
-	r = _sync_main_kv_store(res, internal_ubridge_res, fd);
+        r = _sync_main_kv_store(res, internal_ubridge_res, fd);
 
-	close(fd);
-	return r;
+        close(fd);
+        return r;
 }
+*/
 
 static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
@@ -4752,7 +4754,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	_load_kv_store(res, internal_res);
+	/* _load_kv_store(res, internal_res); */
 
 	if (_set_up_ubridge_socket(res, &ubridge->socket_fd) < 0) {
 		log_error(ID(res), "Failed to set up local server socket.");
@@ -4775,15 +4777,15 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	sid_resource_create_relative_time_event_source(res,
-	                                               NULL,
-	                                               CLOCK_MONOTONIC,
-	                                               10000000,
-	                                               0,
-	                                               _on_ubridge_time_event,
-	                                               0,
-	                                               "timer",
-	                                               internal_res);
+	/*	sid_resource_create_relative_time_event_source(res,
+	                                                       NULL,
+	                                                       CLOCK_MONOTONIC,
+	                                                       10000000,
+	                                                       0,
+	                                                       _on_ubridge_time_event,
+	                                                       0,
+	                                                       "timer",
+	                                                       internal_res);*/
 
 	/*
 	 * Call util_cmdline_get_arg here to only read the kernel command line
