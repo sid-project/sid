@@ -77,9 +77,10 @@
 
 #define KEY_SYS_C "#"
 
-#define KV_KEY_DEV_READY    KEY_SYS_C "RDY"
-#define KV_KEY_DEV_RESERVED KEY_SYS_C "RES"
-#define KV_KEY_DEV_MOD      KEY_SYS_C "MOD"
+#define KV_KEY_DB_GENERATION KEY_SYS_C "DBGEN"
+#define KV_KEY_DEV_READY     KEY_SYS_C "RDY"
+#define KV_KEY_DEV_RESERVED  KEY_SYS_C "RES"
+#define KV_KEY_DEV_MOD       KEY_SYS_C "MOD"
 
 #define KV_KEY_DOM_LAYER "LYR"
 #define KV_KEY_DOM_USER  "USR"
@@ -99,6 +100,7 @@ const sid_resource_type_t sid_resource_type_ubridge_connection;
 const sid_resource_type_t sid_resource_type_ubridge_command;
 
 struct sid_ucmd_mod_ctx {
+	uint16_t           gennum;       /* current KV store generation number */
 	sid_resource_t *   kv_store_res; /* KV store main or snapshot */
 	sid_resource_t *   modules_res;  /* top-level resource for all ucmd module registries */
 	struct sid_buffer *gen_buf;      /* generic buffer */
@@ -196,6 +198,7 @@ struct cmd_reg {
 };
 
 struct kv_value {
+	uint16_t            gennum;
 	uint64_t            seqnum;
 	sid_ucmd_kv_flags_t flags;
 	char                data[]; /* contains both internal and external data */
@@ -203,6 +206,7 @@ struct kv_value {
 
 enum
 {
+	KV_VALUE_IDX_GENNUM,
 	KV_VALUE_IDX_SEQNUM,
 	KV_VALUE_IDX_FLAGS,
 	KV_VALUE_IDX_OWNER,
@@ -213,7 +217,8 @@ enum
 #define KV_VALUE_VEC_HEADER_CNT KV_VALUE_IDX_DATA
 #define KV_VALUE_VEC_SINGLE_CNT KV_VALUE_IDX_DATA + 1
 
-#define KV_VALUE_VEC_HEADER_PREP(iov, seqnum, flags, owner)                                                                        \
+#define KV_VALUE_VEC_HEADER_PREP(iov, gennum, seqnum, flags, owner)                                                                \
+	iov[KV_VALUE_IDX_GENNUM] = (struct iovec) {&(gennum), sizeof(gennum)};                                                     \
 	iov[KV_VALUE_IDX_SEQNUM] = (struct iovec) {&(seqnum), sizeof(seqnum)};                                                     \
 	iov[KV_VALUE_IDX_FLAGS]  = (struct iovec) {&(flags), sizeof(flags)};                                                       \
 	iov[KV_VALUE_IDX_OWNER]  = (struct iovec)                                                                                  \
@@ -221,10 +226,11 @@ enum
 		owner, strlen(owner) + 1                                                                                           \
 	}
 
-#define KV_VALUE_VEC_BUF_HEADER_PREP(buf, seqnum, flags, owner, r_ptr)                                                             \
-	(sid_buffer_add(buf, &(seqnum), sizeof(seqnum), r_ptr) && sid_buffer_add(buf, &(flags), sizeof(flags), r_ptr) &&           \
-	 sid_buffer_add(buf, (owner), strlen(owner) + 1, r_ptr))
+#define KV_VALUE_VEC_BUF_HEADER_PREP(buf, gennum, seqnum, flags, owner, r_ptr)                                                     \
+	(sid_buffer_add(buf, &(gennum), sizeof(gennum), r_ptr) && sid_buffer_add(buf, &(seqnum), sizeof(seqnum), r_ptr) &&         \
+	 sid_buffer_add(buf, &(flags), sizeof(flags), r_ptr) && sid_buffer_add(buf, (owner), strlen(owner) + 1, r_ptr))
 
+#define KV_VALUE_VEC_GENNUM(iov) (*((uint16_t *) ((struct iovec *) iov)[KV_VALUE_IDX_GENNUM].iov_base))
 #define KV_VALUE_VEC_SEQNUM(iov) (*((uint64_t *) ((struct iovec *) iov)[KV_VALUE_IDX_SEQNUM].iov_base))
 #define KV_VALUE_VEC_FLAGS(iov)  (*((sid_ucmd_kv_flags_t *) ((struct iovec *) iov)[KV_VALUE_IDX_FLAGS].iov_base))
 #define KV_VALUE_VEC_OWNER(iov)  ((char *) ((struct iovec *) iov)[KV_VALUE_IDX_OWNER].iov_base)
@@ -366,6 +372,7 @@ static struct cmd_reg      _cmd_scan_phase_regs[];
 static sid_ucmd_kv_flags_t kv_flags_no_persist = (DEFAULT_KV_FLAGS_CORE) & ~KV_PERSISTENT;
 static sid_ucmd_kv_flags_t kv_flags_persist    = DEFAULT_KV_FLAGS_CORE;
 static char *              core_owner          = OWNER_CORE;
+static uint64_t            null_int            = 0;
 
 static int        _kv_delta(struct kv_store_update_spec *spec);
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
@@ -552,7 +559,7 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 	kv_value   = value;
 	owner_size = strlen(kv_value->data) + 1;
 
-	KV_VALUE_VEC_HEADER_PREP(iov, kv_value->seqnum, kv_value->flags, kv_value->data);
+	KV_VALUE_VEC_HEADER_PREP(iov, kv_value->gennum, kv_value->seqnum, kv_value->flags, kv_value->data);
 	iov[KV_VALUE_IDX_DATA] = (struct iovec) {kv_value->data + owner_size, value_size - sizeof(*kv_value) - owner_size};
 
 	return iov;
@@ -920,6 +927,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			print_uint_field("RECORD", records, format, export_buf, true, 3);
 			print_str_field("key", key, format, export_buf, true, 3);
 			iov = _get_value_vector(flags, value, size, tmp_iov);
+			print_uint_field("gennum", KV_VALUE_VEC_GENNUM(iov), format, export_buf, true, 3);
 			print_uint64_field("seqnum", KV_VALUE_VEC_SEQNUM(iov), format, export_buf, true, 3);
 			print_start_array("flags", format, export_buf, 3);
 			print_bool_array_elem("KV_PERSISTENT",
@@ -1119,7 +1127,7 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 	if (!(full_key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
 		goto out;
 
-	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->udev_dev.seqnum, flags, (char *) owner);
+	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->udev_dev.seqnum, flags, (char *) owner);
 	iov[KV_VALUE_IDX_DATA] = (struct iovec) {(void *) value, value ? value_size : 0};
 
 	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
@@ -1293,8 +1301,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 	const char *         owner    = _get_mod_name(mod);
 	const char *         full_key = NULL;
 	struct iovec         iov[KV_VALUE_VEC_HEADER_CNT]; /* only header */
-	static uint64_t      null_int = 0;
-	sid_ucmd_kv_flags_t  flags    = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
+	sid_ucmd_kv_flags_t  flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
 	int                  is_worker;
 	struct kv_key_spec   key_spec =
@@ -1322,7 +1329,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 		kv_store_unset_value(ucmd_mod_ctx->kv_store_res, full_key, _kv_unreserve, &update_arg);
 		goto out;
 	} else {
-		KV_VALUE_VEC_HEADER_PREP(iov, null_int, flags, (char *) owner);
+		KV_VALUE_VEC_HEADER_PREP(iov, ucmd_mod_ctx->gennum, null_int, flags, (char *) owner);
 		if (!kv_store_set_value(ucmd_mod_ctx->kv_store_res,
 		                        full_key,
 		                        iov,
@@ -1487,7 +1494,7 @@ int sid_ucmd_group_create(struct module *         mod,
 
 	if (!(full_key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
 		goto out;
-	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->udev_dev.seqnum, kv_flags_persist, core_owner);
+	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->udev_dev.seqnum, kv_flags_persist, core_owner);
 
 	if (!kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                        full_key,
@@ -1546,7 +1553,7 @@ int _handle_current_dev_for_group(struct module *         mod,
 
 	// TODO: check return values / maybe also pass flags / use proper owner
 
-	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->udev_dev.seqnum, kv_flags_no_persist, core_owner);
+	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->udev_dev.seqnum, kv_flags_no_persist, core_owner);
 	rel_key_prefix = _buffer_compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
 	if (!rel_key_prefix)
 		goto out;
@@ -1649,7 +1656,11 @@ int sid_ucmd_group_destroy(struct module *         mod,
 		goto out;
 	}
 
-	KV_VALUE_VEC_HEADER_PREP(iov_blank, ucmd_ctx->udev_dev.seqnum, kv_flags_persist_no_reserved, core_owner);
+	KV_VALUE_VEC_HEADER_PREP(iov_blank,
+	                         ucmd_ctx->ucmd_mod_ctx.gennum,
+	                         ucmd_ctx->udev_dev.seqnum,
+	                         kv_flags_persist_no_reserved,
+	                         core_owner);
 
 	if (!kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                        cur_full_key,
@@ -2495,6 +2506,7 @@ static void _flip_key_specs(struct kv_rel_spec *rel_spec)
 
 static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs_delta, kv_op_t op)
 {
+	uint16_t              gennum        = KV_VALUE_VEC_GENNUM(spec->new_data);
 	uint64_t              seqnum        = KV_VALUE_VEC_SEQNUM(spec->new_data);
 	struct kv_update_arg *update_arg    = (struct kv_update_arg *) spec->arg;
 	struct kv_rel_spec *  rel_spec      = update_arg->custom;
@@ -2565,7 +2577,7 @@ static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs
 			r = -1;
 			goto fail;
 		}
-		KV_VALUE_VEC_HEADER_PREP(rel_iov, seqnum, kv_flags_no_persist, (char *) update_arg->owner);
+		KV_VALUE_VEC_HEADER_PREP(rel_iov, gennum, seqnum, kv_flags_no_persist, (char *) update_arg->owner);
 		rel_iov[KV_VALUE_IDX_DATA] = (struct iovec) {.iov_base = (void *) key_prefix, .iov_len = strlen(key_prefix) + 1};
 
 		for (i = KV_VALUE_IDX_DATA; i < delta_iov_cnt; i++) {
@@ -2859,7 +2871,12 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		goto out;
 	}
 
-	if (!KV_VALUE_VEC_BUF_HEADER_PREP(vec_buf, ucmd_ctx->udev_dev.seqnum, kv_flags_no_persist, core_owner, &r))
+	if (!KV_VALUE_VEC_BUF_HEADER_PREP(vec_buf,
+	                                  ucmd_ctx->ucmd_mod_ctx.gennum,
+	                                  ucmd_ctx->udev_dev.seqnum,
+	                                  kv_flags_no_persist,
+	                                  core_owner,
+	                                  &r))
 		goto out;
 
 	/* Read relatives from sysfs into vec_buf. */
@@ -2976,7 +2993,11 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
 	                                   .custom  = &rel_spec};
 
-	KV_VALUE_VEC_HEADER_PREP(iov_to_store, ucmd_ctx->udev_dev.seqnum, kv_flags_no_persist, core_owner);
+	KV_VALUE_VEC_HEADER_PREP(iov_to_store,
+	                         ucmd_ctx->ucmd_mod_ctx.gennum,
+	                         ucmd_ctx->udev_dev.seqnum,
+	                         kv_flags_no_persist,
+	                         core_owner);
 	if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 		goto out;
 
@@ -3740,6 +3761,47 @@ static int _destroy_connection(sid_resource_t *res)
 	return 0;
 }
 
+static int _set_up_kv_store_generation(struct sid_ucmd_mod_ctx *ctx, bool increase)
+{
+	struct iovec     iov[KV_VALUE_IDX_DATA + 1];
+	const char *     full_key;
+	struct kv_value *kv_value;
+
+	if (!(full_key = _buffer_compose_key(ctx->gen_buf,
+	                                     &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                             .dom     = ID_NULL,
+	                                                             .ns      = KV_NS_GLOBAL,
+	                                                             .ns_part = ID_NULL,
+	                                                             .id      = ID_NULL,
+	                                                             .id_part = ID_NULL,
+	                                                             .key     = KV_KEY_DB_GENERATION}))))
+		return -1;
+
+	if ((kv_value = kv_store_get_value(ctx->kv_store_res, full_key, NULL, NULL))) {
+		memcpy(&ctx->gennum, kv_value->data + _kv_value_ext_data_offset(kv_value), sizeof(uint16_t));
+		if (increase)
+			ctx->gennum++;
+	} else
+		ctx->gennum = 1;
+
+	if (increase) {
+		KV_VALUE_VEC_HEADER_PREP(iov, ctx->gennum, null_int, kv_flags_no_persist, core_owner);
+		iov[KV_VALUE_IDX_DATA] = (struct iovec) {.iov_base = &ctx->gennum, .iov_len = sizeof(ctx->gennum)};
+
+		kv_store_set_value(ctx->kv_store_res,
+		                   full_key,
+		                   iov,
+		                   KV_VALUE_IDX_DATA + 1,
+		                   KV_STORE_VALUE_VECTOR,
+		                   KV_STORE_VALUE_OP_MERGE,
+		                   NULL,
+		                   NULL);
+	}
+
+	sid_buffer_rewind_mem(ctx->gen_buf, full_key);
+	return 0;
+}
+
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct sid_msg *msg      = kickstart_data;
@@ -3787,6 +3849,8 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find key-value store.", __func__);
 		goto fail;
 	}
+
+	_set_up_kv_store_generation(&ucmd_ctx->ucmd_mod_ctx, false);
 
 	ucmd_ctx->req_cat = msg->cat;
 	ucmd_ctx->req_hdr = *msg->header;
@@ -4277,8 +4341,14 @@ static int _on_ubridge_time_event(sid_resource_event_source_t *es, uint64_t usec
 
 static int _load_kv_store(sid_resource_t *res, sid_resource_t *internal_ubridge_res)
 {
-        int fd;
-        int r;
+        struct ubridge *ubridge = sid_resource_get_data(internal_ubridge_res);
+        int             fd;
+        int             r;
+
+        if (ubridge->ucmd_mod_ctx.gennum != 0) {
+                log_error(ID(res), INTERNAL_ERROR "%s: unexpected KV generation number, KV store already loaded.", __func__);
+                return -1;
+        }
 
         if (access(MAIN_KV_STORE_FILE_PATH, R_OK) < 0)
                 return 0;
@@ -4289,7 +4359,7 @@ static int _load_kv_store(sid_resource_t *res, sid_resource_t *internal_ubridge_
         }
 
         r = _sync_main_kv_store(res, internal_ubridge_res, fd);
-
+out:
         close(fd);
         return r;
 }
@@ -4642,6 +4712,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	/* _load_kv_store(res, internal_res); */
+	_set_up_kv_store_generation(&ubridge->ucmd_mod_ctx, true);
 
 	if (_set_up_ubridge_socket(res, &ubridge->socket_fd) < 0) {
 		log_error(ID(res), "Failed to set up local server socket.");

@@ -123,7 +123,7 @@ static void test_kvstore_iterate(void **state)
 	                                   SID_RESOURCE_PRIO_NORMAL,
 	                                   SID_RESOURCE_NO_SERVICE_LINKS);
 
-	KV_VALUE_VEC_HEADER_PREP(test_iov, seqnum, ucmd_flags, (char *) TEST_OWNER);
+	KV_VALUE_VEC_HEADER_PREP(test_iov, seqnum, seqnum, ucmd_flags, (char *) TEST_OWNER);
 	test_iov[KV_VALUE_IDX_DATA].iov_base = "test";
 	test_iov[KV_VALUE_IDX_DATA].iov_len  = sizeof("test");
 
