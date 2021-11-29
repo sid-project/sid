@@ -4384,7 +4384,7 @@ static int _on_ubridge_time_event(sid_resource_event_source_t *es, uint64_t usec
         log_debug(ID(internal_ubridge_res), "dumping db (%d)", counter++);
         (void) _self_cmd_dbdump(data);
 
-        sid_resource_rearm_relative_time_event_source(es, 3000000);
+        sid_resource_rearm_time_event_source(es, SID_EVENT_TIME_RELATIVE, 10000000);
         return 0;
 }
 
@@ -4777,15 +4777,16 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	/*	sid_resource_create_relative_time_event_source(res,
-	                                                       NULL,
-	                                                       CLOCK_MONOTONIC,
-	                                                       10000000,
-	                                                       0,
-	                                                       _on_ubridge_time_event,
-	                                                       0,
-	                                                       "timer",
-	                                                       internal_res);*/
+	/*	sid_resource_create_time_event_source(res,
+	                                              NULL,
+	                                              CLOCK_MONOTONIC,
+	                                              SID_EVENT_TIME_RELATIVE,
+	                                              10000000,
+	                                              0,
+	                                              _on_ubridge_time_event,
+	                                              0,
+	                                              "timer",
+	                                              internal_res);*/
 
 	/*
 	 * Call util_cmdline_get_arg here to only read the kernel command line
