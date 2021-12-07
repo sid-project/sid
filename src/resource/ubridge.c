@@ -210,6 +210,9 @@ enum
 	_KV_VALUE_IDX_COUNT,
 };
 
+#define KV_VALUE_VEC_HEADER_CNT KV_VALUE_IDX_DATA
+#define KV_VALUE_VEC_SINGLE_CNT KV_VALUE_IDX_DATA + 1
+
 #define KV_VALUE_PREPARE_HEADER(iov, seqnum, flags, owner)                                                                         \
 	iov[KV_VALUE_IDX_SEQNUM] = (struct iovec) {&(seqnum), sizeof(seqnum)};                                                     \
 	iov[KV_VALUE_IDX_FLAGS]  = (struct iovec) {&(flags), sizeof(flags)};                                                       \
@@ -617,7 +620,7 @@ static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
 	size_t                 size;
 	kv_store_value_flags_t flags;
 	void *                 value;
-	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec           tmp_iov[KV_VALUE_VEC_SINGLE_CNT];
 	struct iovec *         iov;
 	const char *           key;
 	unsigned int           i = 0, j;
@@ -669,7 +672,7 @@ static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_
 	const char *      full_key, *key, *dom, *this_dev, *ref_dev;
 
 	kv_store_value_flags_t flags;
-	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec           tmp_iov[KV_VALUE_VEC_SINGLE_CNT];
 	struct iovec *         iov;
 	int                    i;
 
@@ -714,7 +717,7 @@ static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_
 		if (flags & KV_STORE_VALUE_VECTOR)
 			elem_count = value_size;
 		else
-			elem_count = KV_VALUE_IDX_DATA + 1;
+			elem_count = KV_VALUE_VEC_SINGLE_CNT;
 
 		for (i = KV_VALUE_IDX_DATA; i < elem_count; i++) {
 			ref_dev = _get_key_part((const char *) iov[i].iov_base, KEY_PART_NS_PART, &ref_dev_len);
@@ -732,8 +735,8 @@ out:
 static int _kv_overwrite(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
-	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
-	struct iovec          tmp_iov_new[KV_VALUE_IDX_DATA + 1];
+	struct iovec          tmp_iov_old[KV_VALUE_VEC_SINGLE_CNT];
+	struct iovec          tmp_iov_new[KV_VALUE_VEC_SINGLE_CNT];
 	struct iovec *        iov_old, *iov_new;
 	const char *          reason;
 
@@ -868,7 +871,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	int                    r           = -1;
 	struct sid_buffer *    export_buf  = NULL;
 	bool                   needs_comma = false;
-	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec           tmp_iov[KV_VALUE_VEC_SINGLE_CNT];
 
 	if (!(cmd_reg->flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_RESBUF |
 	                        CMD_KV_EXPORT_SID_TO_EXPBUF)))
@@ -1086,7 +1089,7 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx *   ucmd_ctx,
                                             sid_ucmd_kv_namespace_t ns,
                                             const char *            key)
 {
-	struct iovec           tmp_iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec           tmp_iov[KV_VALUE_VEC_SINGLE_CNT];
 	struct iovec *         iov;
 	const char *           full_key = NULL;
 	void *                 found;
@@ -1162,14 +1165,14 @@ static void _destroy_delta(struct kv_delta *delta)
 static void _destroy_unused_delta(struct kv_delta *delta)
 {
 	if (delta->plus) {
-		if (sid_buffer_stat(delta->plus).usage.used <= KV_VALUE_IDX_DATA) {
+		if (sid_buffer_stat(delta->plus).usage.used < KV_VALUE_VEC_SINGLE_CNT) {
 			sid_buffer_destroy(delta->plus);
 			delta->plus = NULL;
 		}
 	}
 
 	if (delta->minus) {
-		if (sid_buffer_stat(delta->minus).usage.used <= KV_VALUE_IDX_DATA) {
+		if (sid_buffer_stat(delta->minus).usage.used < KV_VALUE_VEC_SINGLE_CNT) {
 			sid_buffer_destroy(delta->minus);
 			delta->minus = NULL;
 		}
@@ -1187,7 +1190,7 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 {
 	const char *         owner    = _get_mod_name(mod);
 	const char *         full_key = NULL;
-	struct iovec         iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec         iov[KV_VALUE_VEC_SINGLE_CNT];
 	struct kv_value *    kv_value;
 	struct kv_update_arg update_arg;
 	struct kv_key_spec   key_spec = {.op      = KV_OP_SET,
@@ -1233,7 +1236,7 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 	if (!(kv_value = kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                                    full_key,
 	                                    iov,
-	                                    KV_VALUE_IDX_DATA + 1,
+	                                    KV_VALUE_VEC_SINGLE_CNT,
 	                                    KV_STORE_VALUE_VECTOR,
 	                                    KV_STORE_VALUE_OP_MERGE,
 	                                    _kv_overwrite,
@@ -1339,8 +1342,8 @@ const void *sid_ucmd_get_kv(struct module *         mod,
 static int _kv_reserve(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
-	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
-	struct iovec          tmp_iov_new[KV_VALUE_IDX_DATA + 1];
+	struct iovec          tmp_iov_old[KV_VALUE_VEC_SINGLE_CNT];
+	struct iovec          tmp_iov_new[KV_VALUE_VEC_SINGLE_CNT];
 	struct iovec *        iov_old, *iov_new;
 
 	if (!spec->old_data)
@@ -1365,7 +1368,7 @@ static int _kv_reserve(struct kv_store_update_spec *spec)
 static int _kv_unreserve(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
-	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
+	struct iovec          tmp_iov_old[KV_VALUE_VEC_SINGLE_CNT];
 	struct iovec *        iov_old;
 
 	if (!spec->old_data)
@@ -1394,7 +1397,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 {
 	const char *         owner    = _get_mod_name(mod);
 	const char *         full_key = NULL;
-	struct iovec         iov[KV_VALUE_IDX_DATA]; /* without KV_VALUE_IDX_DATA */
+	struct iovec         iov[KV_VALUE_VEC_HEADER_CNT]; /* only header */
 	static uint64_t      null_int = 0;
 	sid_ucmd_kv_flags_t  flags    = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
@@ -1428,7 +1431,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 		if (!kv_store_set_value(ucmd_mod_ctx->kv_store_res,
 		                        full_key,
 		                        iov,
-		                        KV_VALUE_IDX_DATA,
+		                        KV_VALUE_VEC_HEADER_CNT,
 		                        KV_STORE_VALUE_VECTOR,
 		                        KV_STORE_VALUE_OP_MERGE,
 		                        _kv_reserve,
@@ -1567,7 +1570,7 @@ int sid_ucmd_group_create(struct module *         mod,
                           sid_ucmd_kv_flags_t     group_flags)
 {
 	const char * full_key = NULL;
-	struct iovec iov[KV_VALUE_IDX_DATA];
+	struct iovec iov[KV_VALUE_VEC_HEADER_CNT];
 	int          r = -1;
 
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
@@ -1594,7 +1597,7 @@ int sid_ucmd_group_create(struct module *         mod,
 	if (!kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                        full_key,
 	                        iov,
-	                        KV_VALUE_IDX_DATA,
+	                        KV_VALUE_VEC_HEADER_CNT,
 	                        KV_STORE_VALUE_VECTOR,
 	                        KV_STORE_VALUE_NO_OP,
 	                        _kv_write_new_only,
@@ -1616,7 +1619,7 @@ int _handle_current_dev_for_group(struct module *         mod,
 {
 	const char * tmp_mem_start = sid_buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
 	const char * cur_full_key, *rel_key_prefix;
-	struct iovec iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec iov[KV_VALUE_VEC_SINGLE_CNT];
 	int          r = -1;
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op    = op,
@@ -1660,7 +1663,7 @@ int _handle_current_dev_for_group(struct module *         mod,
 	if (kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                       cur_full_key,
 	                       iov,
-	                       KV_VALUE_IDX_DATA + 1,
+	                       KV_VALUE_VEC_SINGLE_CNT,
 	                       KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 	                       KV_STORE_VALUE_NO_OP,
 	                       _kv_delta,
@@ -1704,7 +1707,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	static sid_ucmd_kv_flags_t kv_flags_persist_no_reserved = (DEFAULT_KV_FLAGS_CORE) & ~KV_MOD_RESERVED;
 	const char *               cur_full_key                 = NULL;
 	size_t                     size;
-	struct iovec               iov_blank[KV_VALUE_IDX_DATA];
+	struct iovec               iov_blank[KV_VALUE_VEC_HEADER_CNT];
 	int                        r = -1;
 
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
@@ -1746,7 +1749,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	if (!kv_store_get_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res, cur_full_key, &size, NULL))
 		goto out;
 
-	if (size > KV_VALUE_IDX_DATA && !force) {
+	if (size > KV_VALUE_VEC_HEADER_CNT && !force) {
 		r = -ENOTEMPTY;
 		goto out;
 	}
@@ -1756,7 +1759,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	if (!kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                        cur_full_key,
 	                        iov_blank,
-	                        KV_VALUE_IDX_DATA,
+	                        KV_VALUE_VEC_HEADER_CNT,
 	                        KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 	                        KV_STORE_VALUE_NO_OP,
 	                        _kv_delta,
@@ -2215,17 +2218,17 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec)
 	int                   cmp_result;
 	int                   r = -1;
 
-	if (_init_delta_struct(delta, old_size, new_size, old_size + new_size, new_value, KV_VALUE_IDX_DATA) < 0)
+	if (_init_delta_struct(delta, old_size, new_size, old_size + new_size, new_value, KV_VALUE_VEC_HEADER_CNT) < 0)
 		goto out;
 
 	if (!old_size)
-		old_size = KV_VALUE_IDX_DATA;
+		old_size = KV_VALUE_VEC_HEADER_CNT;
 
 	if (!new_size)
-		new_size = KV_VALUE_IDX_DATA;
+		new_size = KV_VALUE_VEC_HEADER_CNT;
 
 	/* start right beyond the header */
-	i_old = i_new = KV_VALUE_IDX_DATA;
+	i_old = i_new = KV_VALUE_VEC_HEADER_CNT;
 
 	/* look for differences between old_value and new_value vector */
 	while (1) {
@@ -2389,13 +2392,13 @@ static void _delta_cross_bitmap_calculate(struct cross_bitmap_calc_arg *cross)
 	size_t i_old, i_new;
 	int    cmp_result;
 
-	if ((old_size = cross->old_size) < KV_VALUE_IDX_DATA)
-		old_size = KV_VALUE_IDX_DATA;
+	if ((old_size = cross->old_size) < KV_VALUE_VEC_HEADER_CNT)
+		old_size = KV_VALUE_VEC_HEADER_CNT;
 
-	if ((new_size = cross->new_size) < KV_VALUE_IDX_DATA)
-		new_size = KV_VALUE_IDX_DATA;
+	if ((new_size = cross->new_size) < KV_VALUE_VEC_HEADER_CNT)
+		new_size = KV_VALUE_VEC_HEADER_CNT;
 
-	i_old = i_new = KV_VALUE_IDX_DATA;
+	i_old = i_new = KV_VALUE_VEC_HEADER_CNT;
 
 	while (1) {
 		if ((i_old < old_size) && (i_new < new_size)) {
@@ -2508,15 +2511,15 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec, struct kv_del
 	abs_minus_size = ((cross2.old_bmp ? bitmap_get_bit_set_count(cross2.old_bmp) : 0) +
 	                  (cross1.new_bmp ? bitmap_get_bit_set_count(cross1.new_bmp) : 0));
 	if (cross2.old_bmp && cross1.new_bmp)
-		abs_minus_size -= KV_VALUE_IDX_DATA;
+		abs_minus_size -= KV_VALUE_VEC_HEADER_CNT;
 
 	abs_plus_size = ((cross1.old_bmp ? bitmap_get_bit_set_count(cross1.old_bmp) : 0) +
 	                 (cross2.new_bmp ? bitmap_get_bit_set_count(cross2.new_bmp) : 0));
 	if (cross1.old_bmp && cross2.new_bmp)
-		abs_plus_size -= KV_VALUE_IDX_DATA;
+		abs_plus_size -= KV_VALUE_VEC_HEADER_CNT;
 
 	/* go through the old and new plus and minus vectors and merge non-contradicting items */
-	if (_init_delta_struct(abs_delta, abs_minus_size, abs_plus_size, 0, spec->new_data, KV_VALUE_IDX_DATA) < 0)
+	if (_init_delta_struct(abs_delta, abs_minus_size, abs_plus_size, 0, spec->new_data, KV_VALUE_VEC_HEADER_CNT) < 0)
 		goto out;
 
 	if (rel_spec->delta->flags & DELTA_WITH_REL)
@@ -2612,7 +2615,7 @@ static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs
 	struct iovec *        delta_iov, *abs_delta_iov;
 	size_t                delta_iov_cnt, abs_delta_iov_cnt, i;
 	const char *          key_prefix, *ns_part, *full_key;
-	struct iovec          rel_iov[KV_VALUE_IDX_DATA + 1];
+	struct iovec          rel_iov[KV_VALUE_VEC_SINGLE_CNT];
 	int                   r = 0;
 
 	if (op == KV_OP_PLUS) {
@@ -2687,7 +2690,7 @@ static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs
 			kv_store_set_value(update_arg->res,
 			                   full_key,
 			                   rel_iov,
-			                   KV_VALUE_IDX_DATA + 1,
+			                   KV_VALUE_VEC_SINGLE_CNT,
 			                   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 			                   KV_STORE_VALUE_NO_OP,
 			                   _kv_delta,
@@ -2950,15 +2953,16 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 	/*
 	 * Create vec_buf used to set up database records.
-	 * (count - 2 + 3) == (count + 1)
-	 * -2 to subtract "." and ".." directory which we're not interested in
-	 * +3 for "seqnum|flags|owner" header
+	 * The size of the vec_buf is:
+	 *   +KV_VALUE_VEC_HEADER_CNT to include record header
+	 *   -2 to subtract "." and ".." directory which we're not interested in
 	 */
-	if (!(vec_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
-	                                                              .type    = SID_BUFFER_TYPE_VECTOR,
-	                                                              .mode    = SID_BUFFER_MODE_PLAIN}),
-	                                  &((struct sid_buffer_init) {.size = count + 1, .alloc_step = 1, .limit = 0}),
-	                                  &r))) {
+	if (!(vec_buf = sid_buffer_create(
+		      &((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                          .type    = SID_BUFFER_TYPE_VECTOR,
+	                                          .mode    = SID_BUFFER_MODE_PLAIN}),
+		      &((struct sid_buffer_init) {.size = count + KV_VALUE_VEC_HEADER_CNT - 2, .alloc_step = 1, .limit = 0}),
+		      &r))) {
 		log_error_errno(ID(cmd_res),
 		                r,
 		                "Failed to create buffer to record hierarchy for device " CMD_DEV_ID_FMT,
@@ -3015,7 +3019,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 	/* Get the actual vector with relatives and sort it. */
 	sid_buffer_get_data(vec_buf, (const void **) (&iov), &iov_cnt);
-	qsort(iov + 3, iov_cnt - 3, sizeof(struct iovec), _iov_str_item_cmp);
+	qsort(iov + KV_VALUE_VEC_HEADER_CNT, iov_cnt - KV_VALUE_VEC_HEADER_CNT, sizeof(struct iovec), _iov_str_item_cmp);
 
 	if (!(s = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res),
@@ -3053,7 +3057,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 {
 	struct sid_ucmd_ctx *ucmd_ctx      = sid_resource_get_data(cmd_res);
 	const char *         tmp_mem_start = sid_buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
-	struct iovec         iov_to_store[KV_VALUE_IDX_DATA + 1];
+	struct iovec         iov_to_store[KV_VALUE_VEC_SINGLE_CNT];
 	char                 devno_buf[16];
 	const char *         s;
 	int                  r = -1;
@@ -3116,7 +3120,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                   s,
 	                   iov_to_store,
-	                   KV_VALUE_IDX_DATA + 1,
+	                   KV_VALUE_VEC_SINGLE_CNT,
 	                   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 	                   KV_STORE_VALUE_NO_OP,
 	                   _kv_delta,
@@ -3968,7 +3972,7 @@ static int _destroy_command(sid_resource_t *res)
 static int _main_kv_store_unset(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
-	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
+	struct iovec          tmp_iov_old[KV_VALUE_VEC_SINGLE_CNT];
 	struct iovec *        iov_old;
 
 	if (!spec->old_data)
@@ -3995,8 +3999,8 @@ static int _main_kv_store_update(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct kv_rel_spec *  rel_spec   = update_arg->custom;
-	struct iovec          tmp_iov_old[KV_VALUE_IDX_DATA + 1];
-	struct iovec          tmp_iov_new[KV_VALUE_IDX_DATA + 1];
+	struct iovec          tmp_iov_old[KV_VALUE_VEC_SINGLE_CNT];
+	struct iovec          tmp_iov_new[KV_VALUE_VEC_SINGLE_CNT];
 	struct iovec *        iov_old, *iov_new;
 	int                   r;
 
@@ -4093,7 +4097,7 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 		 */
 
 		if (flags & KV_STORE_VALUE_VECTOR) {
-			if (data_size < KV_VALUE_IDX_DATA) {
+			if (data_size < KV_VALUE_VEC_HEADER_CNT) {
 				log_error(ID(res),
 				          "Received incorrect vector of size %zu to sync with main key-value store.",
 				          data_size);
@@ -4112,7 +4116,7 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 				p += iov[i].iov_len;
 			}
 
-			unset = !(KV_VALUE_FLAGS(iov) & KV_MOD_RESERVED) && (data_size == KV_VALUE_IDX_DATA);
+			unset = !(KV_VALUE_FLAGS(iov) & KV_MOD_RESERVED) && (data_size == KV_VALUE_VEC_HEADER_CNT);
 
 			update_arg.owner    = KV_VALUE_OWNER(iov);
 			update_arg.res      = kv_store_res;
