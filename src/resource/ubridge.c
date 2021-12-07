@@ -90,7 +90,7 @@
 
 #define MOD_NAME_CORE         "#core"
 #define OWNER_CORE            MOD_NAME_CORE
-#define DEFAULT_KV_FLAGS_CORE KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
+#define DEFAULT_KV_FLAGS_CORE KV_SYNC | KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
 
 #define CMD_DEV_ID_FMT       "%s (%d:%d)"
 #define CMD_DEV_ID(ucmd_ctx) ucmd_ctx->udev_dev.name, ucmd_ctx->udev_dev.major, ucmd_ctx->udev_dev.minor
@@ -343,9 +343,10 @@ struct internal_msg {
 #define CMD_KV_EXPORT_UDEV_TO_EXPBUF UINT32_C(0x00000004) /* export KV_NS_UDEV records to export buffer */
 #define CMD_KV_EXPORT_SID_TO_RESBUF  UINT32_C(0x00000008) /* export KV_NS_<!UDEV> records to response buffer */
 #define CMD_KV_EXPORT_SID_TO_EXPBUF  UINT32_C(0x00000010) /* export KV_NS_<!UDEV> records to export buffer */
-#define CMD_KV_EXPORT_PERSISTENT     UINT32_C(0x00000080) /* export only KV records marked with persistent flags */
-#define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000020) /* export KV records from export buffer to a file */
-#define CMD_KV_EXPBUF_TO_MAIN        UINT32_C(0x00000040) /* export KV records from export buffer to main process */
+#define CMD_KV_EXPORT_SYNC           UINT32_C(0x00000020) /* export only KV records marked with sync flag */
+#define CMD_KV_EXPORT_PERSISTENT     UINT32_C(0x00000040) /* export only KV records marked with persistent flag */
+#define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000080) /* export KV records from export buffer to a file */
+#define CMD_KV_EXPBUF_TO_MAIN        UINT32_C(0x00000100) /* export KV records from export buffer to main process */
 #define CMD_SESSION_ID               UINT32_C(0x00000100) /* generate session ID */
 
 /*
@@ -369,10 +370,10 @@ static bool _cmd_root_only[] = {
 };
 
 static struct cmd_reg      _cmd_scan_phase_regs[];
-static sid_ucmd_kv_flags_t kv_flags_no_persist = (DEFAULT_KV_FLAGS_CORE) & ~KV_PERSISTENT;
-static sid_ucmd_kv_flags_t kv_flags_persist    = DEFAULT_KV_FLAGS_CORE;
-static char *              core_owner          = OWNER_CORE;
-static uint64_t            null_int            = 0;
+static sid_ucmd_kv_flags_t kv_flags_no_sync = (DEFAULT_KV_FLAGS_CORE) & ~KV_SYNC;
+static sid_ucmd_kv_flags_t kv_flags_sync    = DEFAULT_KV_FLAGS_CORE;
+static char *              core_owner       = OWNER_CORE;
+static uint64_t            null_int         = 0;
 
 static int        _kv_delta(struct kv_store_update_spec *spec);
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
@@ -812,22 +813,22 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			iov_size = size;
 			kv_value = NULL;
 
-			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
-				if (!(KV_VALUE_VEC_FLAGS(iov) & KV_PERSISTENT))
+			if (cmd_reg->flags & (CMD_KV_EXPORT_SYNC | CMD_KV_EXPORT_PERSISTENT)) {
+				if (!(KV_VALUE_VEC_FLAGS(iov) & (KV_SYNC | KV_PERSISTENT)))
 					continue;
 
-				KV_VALUE_VEC_FLAGS(iov) &= ~KV_PERSISTENT;
+				KV_VALUE_VEC_FLAGS(iov) &= ~KV_SYNC;
 			}
 		} else {
 			iov      = NULL;
 			iov_size = 0;
 			kv_value = value;
 
-			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
-				if (!(kv_value->flags & KV_PERSISTENT))
+			if (cmd_reg->flags & (CMD_KV_EXPORT_SYNC | CMD_KV_EXPORT_PERSISTENT)) {
+				if (!(kv_value->flags & (KV_SYNC | KV_PERSISTENT)))
 					continue;
 
-				kv_value->flags &= ~KV_PERSISTENT;
+				kv_value->flags &= ~KV_SYNC;
 			}
 		}
 
@@ -930,6 +931,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			print_uint_field("gennum", KV_VALUE_VEC_GENNUM(iov), format, export_buf, true, 3);
 			print_uint64_field("seqnum", KV_VALUE_VEC_SEQNUM(iov), format, export_buf, true, 3);
 			print_start_array("flags", format, export_buf, 3);
+			print_bool_array_elem("KV_SYNC", KV_VALUE_VEC_FLAGS(iov) & KV_SYNC, format, export_buf, true, 4);
 			print_bool_array_elem("KV_PERSISTENT",
 			                      KV_VALUE_VEC_FLAGS(iov) & KV_PERSISTENT,
 			                      format,
@@ -1166,7 +1168,7 @@ void *sid_ucmd_set_kv(struct module *         mod,
 		return NULL;
 
 	if (ns == KV_NS_UDEV)
-		flags |= KV_PERSISTENT;
+		flags |= (KV_SYNC | KV_PERSISTENT);
 
 	return _do_sid_ucmd_set_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, flags, value, value_size);
 }
@@ -1323,7 +1325,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 	is_worker = worker_control_is_worker(ucmd_mod_ctx->kv_store_res);
 
 	if (is_worker)
-		flags |= KV_PERSISTENT;
+		flags |= (KV_SYNC | KV_PERSISTENT);
 
 	if (unset && !is_worker) {
 		kv_store_unset_value(ucmd_mod_ctx->kv_store_res, full_key, _kv_unreserve, &update_arg);
@@ -1494,7 +1496,7 @@ int sid_ucmd_group_create(struct module *         mod,
 
 	if (!(full_key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
 		goto out;
-	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->udev_dev.seqnum, kv_flags_persist, core_owner);
+	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->udev_dev.seqnum, kv_flags_sync, core_owner);
 
 	if (!kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                        full_key,
@@ -1553,7 +1555,7 @@ int _handle_current_dev_for_group(struct module *         mod,
 
 	// TODO: check return values / maybe also pass flags / use proper owner
 
-	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->udev_dev.seqnum, kv_flags_no_persist, core_owner);
+	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->udev_dev.seqnum, kv_flags_no_sync, core_owner);
 	rel_key_prefix = _buffer_compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
 	if (!rel_key_prefix)
 		goto out;
@@ -1606,8 +1608,8 @@ int sid_ucmd_group_destroy(struct module *         mod,
                            const char *            group_id,
                            int                     force)
 {
-	static sid_ucmd_kv_flags_t kv_flags_persist_no_reserved = (DEFAULT_KV_FLAGS_CORE) & ~KV_MOD_RESERVED;
-	const char *               cur_full_key                 = NULL;
+	static sid_ucmd_kv_flags_t kv_flags_sync_no_reserved = (DEFAULT_KV_FLAGS_CORE) & ~KV_MOD_RESERVED;
+	const char *               cur_full_key              = NULL;
 	size_t                     size;
 	struct iovec               iov_blank[KV_VALUE_VEC_HEADER_CNT];
 	int                        r = -1;
@@ -1659,7 +1661,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	KV_VALUE_VEC_HEADER_PREP(iov_blank,
 	                         ucmd_ctx->ucmd_mod_ctx.gennum,
 	                         ucmd_ctx->udev_dev.seqnum,
-	                         kv_flags_persist_no_reserved,
+	                         kv_flags_sync_no_reserved,
 	                         core_owner);
 
 	if (!kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
@@ -2487,12 +2489,12 @@ out:
 }
 
 // TODO: Make it possible to set all flags at once or change selected flag bits.
-static void _value_vector_mark_persist(struct iovec *iov, int persist)
+static void _value_vector_mark_sync(struct iovec *iov, int persist)
 {
 	if (persist)
-		iov[KV_VALUE_IDX_FLAGS] = (struct iovec) {&kv_flags_persist, sizeof(kv_flags_persist)};
+		iov[KV_VALUE_IDX_FLAGS] = (struct iovec) {&kv_flags_sync, sizeof(kv_flags_sync)};
 	else
-		iov[KV_VALUE_IDX_FLAGS] = (struct iovec) {&kv_flags_no_persist, sizeof(kv_flags_no_persist)};
+		iov[KV_VALUE_IDX_FLAGS] = (struct iovec) {&kv_flags_no_sync, sizeof(kv_flags_no_sync)};
 }
 
 static void _flip_key_specs(struct kv_rel_spec *rel_spec)
@@ -2541,7 +2543,7 @@ static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs
 	if (!full_key)
 		return -1;
 
-	_value_vector_mark_persist(abs_delta_iov, 1);
+	_value_vector_mark_sync(abs_delta_iov, 1);
 
 	kv_store_set_value(update_arg->res,
 	                   full_key,
@@ -2552,7 +2554,7 @@ static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs
 	                   _kv_overwrite,
 	                   update_arg);
 
-	_value_vector_mark_persist(abs_delta_iov, 0);
+	_value_vector_mark_sync(abs_delta_iov, 0);
 
 	sid_buffer_rewind_mem(update_arg->gen_buf, full_key);
 
@@ -2577,7 +2579,7 @@ static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs
 			r = -1;
 			goto fail;
 		}
-		KV_VALUE_VEC_HEADER_PREP(rel_iov, gennum, seqnum, kv_flags_no_persist, (char *) update_arg->owner);
+		KV_VALUE_VEC_HEADER_PREP(rel_iov, gennum, seqnum, kv_flags_no_sync, (char *) update_arg->owner);
 		rel_iov[KV_VALUE_IDX_DATA] = (struct iovec) {.iov_base = (void *) key_prefix, .iov_len = strlen(key_prefix) + 1};
 
 		for (i = KV_VALUE_IDX_DATA; i < delta_iov_cnt; i++) {
@@ -2874,7 +2876,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	if (!KV_VALUE_VEC_BUF_HEADER_PREP(vec_buf,
 	                                  ucmd_ctx->ucmd_mod_ctx.gennum,
 	                                  ucmd_ctx->udev_dev.seqnum,
-	                                  kv_flags_no_persist,
+	                                  kv_flags_no_sync,
 	                                  core_owner,
 	                                  &r))
 		goto out;
@@ -2996,7 +2998,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	KV_VALUE_VEC_HEADER_PREP(iov_to_store,
 	                         ucmd_ctx->ucmd_mod_ctx.gennum,
 	                         ucmd_ctx->udev_dev.seqnum,
-	                         kv_flags_no_persist,
+	                         kv_flags_no_sync,
 	                         core_owner);
 	if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 		goto out;
@@ -3428,7 +3430,7 @@ static struct cmd_reg _client_cmd_regs[] = {
 	[SID_CMD_REPLY]      = {.name = "c-reply", .flags = 0, .exec = NULL},
 	[SID_CMD_SCAN]       = {.name  = "c-scan",
                           .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF |
-                                   CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_PERSISTENT | CMD_SESSION_ID,
+                                   CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_SESSION_ID,
                           .exec = _cmd_exec_scan},
 	[SID_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
 	[SID_CMD_DBDUMP]  = {.name = "c-dbdump", .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF, .exec = NULL},
@@ -3438,8 +3440,9 @@ static struct cmd_reg _client_cmd_regs[] = {
 
 static struct cmd_reg _self_cmd_regs[] = {
 	[SELF_CMD_DBDUMP] = {.name  = "s-dbdump",
-                             .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF | CMD_KV_EXPBUF_TO_FILE,
-                             .exec  = NULL},
+                             .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF | CMD_KV_EXPBUF_TO_FILE |
+                                      CMD_KV_EXPORT_PERSISTENT,
+                             .exec = NULL},
 };
 
 static ssize_t _send_fd_over_unix_comms(int fd, int unix_comms_fd)
@@ -3785,7 +3788,7 @@ static int _set_up_kv_store_generation(struct sid_ucmd_mod_ctx *ctx, bool increa
 		ctx->gennum = 1;
 
 	if (increase) {
-		KV_VALUE_VEC_HEADER_PREP(iov, ctx->gennum, null_int, kv_flags_no_persist, core_owner);
+		KV_VALUE_VEC_HEADER_PREP(iov, ctx->gennum, null_int, kv_flags_no_sync, core_owner);
 		iov[KV_VALUE_IDX_DATA] = (struct iovec) {.iov_base = &ctx->gennum, .iov_len = sizeof(ctx->gennum)};
 
 		kv_store_set_value(ctx->kv_store_res,
@@ -3877,7 +3880,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		                         NULL,
 		                         KV_NS_UDEV,
 		                         KV_KEY_UDEV_SID_SESSION_ID,
-		                         KV_PERSISTENT,
+		                         KV_SYNC | KV_PERSISTENT,
 		                         worker_id,
 		                         strlen(worker_id) + 1)) {
 			log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);

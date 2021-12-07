@@ -167,9 +167,15 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 		                VALID_KEY,
 		                valid_str,
 		                sizeof(valid_str),
-		                KV_MOD_PROTECTED | KV_PERSISTENT);
+		                KV_MOD_PROTECTED | KV_SYNC | KV_PERSISTENT);
 	if (wwid) {
-		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVICE, WWID_KEY, wwid, strlen(wwid) + 1, KV_MOD_PROTECTED | KV_PERSISTENT);
+		sid_ucmd_set_kv(module,
+		                ucmd_ctx,
+		                KV_NS_DEVICE,
+		                WWID_KEY,
+		                wwid,
+		                strlen(wwid) + 1,
+		                KV_MOD_PROTECTED | KV_SYNC | KV_PERSISTENT);
 		free(wwid);
 	}
 	return (r != MPATH_IS_ERROR) ? 0 : -1;

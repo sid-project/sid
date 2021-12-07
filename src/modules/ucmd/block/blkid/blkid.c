@@ -164,7 +164,7 @@ static void _add_property(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, con
 			                keys[SID_NEXT_MOD],
 			                blkid_type->module_name,
 			                strlen(blkid_type->module_name) + 1,
-			                KV_PERSISTENT | KV_MOD_PROTECTED);
+			                KV_SYNC | KV_PERSISTENT | KV_MOD_PROTECTED);
 	} else if (!strcmp(name, "USAGE")) {
 		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, keys[ID_FS_USAGE], value, strlen(value) + 1, KV_MOD_PROTECTED);
 	} else if (!strcmp(name, "VERSION")) {

@@ -126,11 +126,12 @@ typedef enum
 typedef enum
 {
 	KV_FLAGS_UNSET   = UINT64_C(0x0000000000000000), /* no flags set */
-	KV_PERSISTENT    = UINT64_C(0x0000000000000001), /* persist record */
-	KV_MOD_PROTECTED = UINT64_C(0x0000000000000002), /* protect record - other modules can read, but can't write */
-	KV_MOD_PRIVATE   = UINT64_C(0x0000000000000004), /* make record private - other modules can't read and can't write */
+	KV_SYNC          = UINT64_C(0x0000000000000001), /* synchronize record with main KV store */
+	KV_PERSISTENT    = UINT64_C(0x0000000000000002), /* persist record */
+	KV_MOD_PROTECTED = UINT64_C(0x0000000000000004), /* protect record - other modules can read, but can't write */
+	KV_MOD_PRIVATE   = UINT64_C(0x0000000000000008), /* make record private - other modules can't read and can't write */
 	KV_MOD_RESERVED =
-		UINT64_C(0x0000000000000008), /* reserve key - other modules can't take over the key until the flag is dropped */
+		UINT64_C(0x0000000000000010), /* reserve key - other modules can't take over the key until the flag is dropped */
 } sid_ucmd_kv_flags_t;
 
 #define SID_UCMD_KEY_DEVICE_NEXT_MOD "SID_NEXT_MOD"
