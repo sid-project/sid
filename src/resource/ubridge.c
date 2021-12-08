@@ -221,6 +221,10 @@ enum
 		owner, strlen(owner) + 1                                                                                           \
 	}
 
+#define KV_VALUE_VEC_BUF_HEADER_PREP(buf, seqnum, flags, owner, r_ptr)                                                             \
+	(sid_buffer_add(buf, &(seqnum), sizeof(seqnum), r_ptr) && sid_buffer_add(buf, &(flags), sizeof(flags), r_ptr) &&           \
+	 sid_buffer_add(buf, (owner), strlen(owner) + 1, r_ptr))
+
 #define KV_VALUE_VEC_SEQNUM(iov) (*((uint64_t *) ((struct iovec *) iov)[KV_VALUE_IDX_SEQNUM].iov_base))
 #define KV_VALUE_VEC_FLAGS(iov)  (*((sid_ucmd_kv_flags_t *) ((struct iovec *) iov)[KV_VALUE_IDX_FLAGS].iov_base))
 #define KV_VALUE_VEC_OWNER(iov)  ((char *) ((struct iovec *) iov)[KV_VALUE_IDX_OWNER].iov_base)
@@ -2974,10 +2978,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		goto out;
 	}
 
-	/* Add record header to vec_buf: seqnum | flags | owner. */
-	if (!sid_buffer_add(vec_buf, &ucmd_ctx->udev_dev.seqnum, sizeof(ucmd_ctx->udev_dev.seqnum), &r) ||
-	    !sid_buffer_add(vec_buf, &kv_flags_no_persist, sizeof(kv_flags_no_persist), &r) ||
-	    !sid_buffer_add(vec_buf, core_owner, strlen(core_owner) + 1, &r))
+	if (!KV_VALUE_VEC_BUF_HEADER_PREP(vec_buf, ucmd_ctx->udev_dev.seqnum, kv_flags_no_persist, core_owner, &r))
 		goto out;
 
 	/* Read relatives from sysfs into vec_buf. */
