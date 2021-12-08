@@ -617,125 +617,6 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 	return 0;
 }
 
-#if 0
-static void _dump_kv_store(const char *str, sid_resource_t *kv_store_res)
-{
-	kv_store_iter_t *      iter;
-	size_t                 size;
-	kv_store_value_flags_t flags;
-	void *                 value;
-	struct iovec           tmp_iov[KV_VALUE_VEC_SINGLE_CNT];
-	struct iovec *         iov;
-	const char *           key;
-	unsigned int           i = 0, j;
-
-	if (!(iter = kv_store_iter_create(kv_store_res))) {
-		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
-		return;
-	}
-
-	log_print(ID(kv_store_res), "\n======= KV STORE DUMP BEGIN %s =======", str);
-	while ((value = kv_store_iter_next(iter, &size, &key, &flags))) {
-		iov = _get_value_vector(flags, value, size, tmp_iov);
-		if (!strncmp(key, "U:", 2))
-			continue;
-		log_print(ID(kv_store_res), "  --- RECORD %u", i);
-		log_print(ID(kv_store_res), "      key: %s", kv_store_iter_current_key(iter));
-		log_print(ID(kv_store_res),
-		          "      seqnum: %" PRIu64 "  flags: %s%s%s%s  owner: %s",
-		          KV_VALUE_VEC_SEQNUM(iov),
-		          KV_VALUE_VEC_FLAGS(iov) & KV_PERSISTENT ? "KV_PERSISTENT " : "",
-		          KV_VALUE_VEC_FLAGS(iov) & KV_MOD_PROTECTED ? "KV_MOD_PROTECTED " : "",
-		          KV_VALUE_VEC_FLAGS(iov) & KV_MOD_PRIVATE ? "KV_MOD_PRIVATE " : "",
-		          KV_VALUE_VEC_FLAGS(iov) & KV_MOD_RESERVED ? "KV_MOD_RESERVED " : "",
-		          KV_VALUE_VEC_OWNER(iov));
-		log_print(ID(kv_store_res),
-		          "      value: %s",
-		          flags & KV_STORE_VALUE_VECTOR ? "vector" : (const char *) KV_VALUE_DATA(iov));
-		if (flags & KV_STORE_VALUE_VECTOR) {
-			for (j = KV_VALUE_IDX_DATA; j < size; j++)
-				log_print(ID(kv_store_res),
-				          "        [%u] = %s",
-				          j - KV_VALUE_IDX_DATA,
-				          (const char *) iov[j].iov_base);
-		}
-		log_print(ID(kv_store_res), " ");
-		i++;
-	}
-	log_print(ID(kv_store_res), "======= KV STORE DUMP END %s =========\n", str);
-
-	kv_store_iter_destroy(iter);
-}
-
-static void _dump_kv_store_dev_stack_in_dot(const char *str, sid_resource_t *kv_store_res)
-{
-	static const char ID[] = "DOT";
-	kv_store_iter_t * iter;
-	void *            value;
-	size_t            value_size, elem_count, dom_len, this_dev_len, ref_dev_len;
-	const char *      full_key, *key, *dom, *this_dev, *ref_dev;
-
-	kv_store_value_flags_t flags;
-	struct iovec           tmp_iov[KV_VALUE_VEC_SINGLE_CNT];
-	struct iovec *         iov;
-	int                    i;
-
-	if (!(iter = kv_store_iter_create(kv_store_res))) {
-		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
-		goto out;
-	}
-
-	log_print(ID, "digraph stack {");
-
-	while ((value = kv_store_iter_next(iter, &value_size, &full_key, &flags))) {
-		/* we're intested in KV_NS_DEVICE records only */
-		if (_get_ns_from_key(full_key) != KV_NS_DEVICE)
-			continue;
-
-		key = _get_key_part(full_key, KEY_PART_CORE, NULL);
-
-		/*
-		 * We need to print:
-		 *
-		 *   '"this dev"' once
-		 *     (we're using KV_KEY_DEV_READY key for that as that is set only once for each dev)
-		 *
-		 *   '"this dev" -> "ref_dev"' for each ref dev
-		 *     (that's the KV_KEY_GEN_GROUP_IN + KV_KEY_DOM_LAYER key)
-		 *
-		 */
-
-		if (!strcmp(key, KV_KEY_DEV_READY)) {
-			this_dev = _get_key_part(full_key, KEY_PART_NS_PART, &this_dev_len);
-			log_print(ID, "\"%.*s\"", (int) this_dev_len, this_dev);
-			continue;
-		}
-
-		if (strcmp(key, KV_KEY_GEN_GROUP_IN) || (!(dom = _get_key_part(full_key, KEY_PART_DOM, &dom_len))) || !dom_len ||
-		    strncmp(dom, KV_KEY_DOM_LAYER, dom_len))
-			continue;
-
-		this_dev = _get_key_part(full_key, KEY_PART_NS_PART, &this_dev_len);
-		iov      = _get_value_vector(flags, value, value_size, tmp_iov);
-
-		if (flags & KV_STORE_VALUE_VECTOR)
-			elem_count = value_size;
-		else
-			elem_count = KV_VALUE_VEC_SINGLE_CNT;
-
-		for (i = KV_VALUE_IDX_DATA; i < elem_count; i++) {
-			ref_dev = _get_key_part((const char *) iov[i].iov_base, KEY_PART_NS_PART, &ref_dev_len);
-			log_print(ID, "\"%.*s\" -> \"%.*s\"", (int) this_dev_len, this_dev, (int) ref_dev_len, ref_dev);
-		}
-	}
-
-	log_print(ID, "}");
-out:
-	if (iter)
-		kv_store_iter_destroy(iter);
-}
-#endif
-
 static int _kv_overwrite(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
@@ -4198,9 +4079,6 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 	}
 
 	r = 0;
-
-	//_dump_kv_store(__func__, kv_store_res);
-	//_dump_kv_store_dev_stack_in_dot(__func__, kv_store_res);
 out:
 	free(iov);
 
