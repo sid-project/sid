@@ -2148,7 +2148,7 @@ const void *sid_ucmd_part_get_disk_kv(struct module *      mod,
 	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
 }
 
-static int _init_delta_buffer(struct sid_buffer **delta_buf, size_t size, struct iovec *header, size_t header_size)
+static int _init_delta_buffer(struct iovec *header, struct sid_buffer **delta_buf, size_t size)
 {
 	struct sid_buffer *buf = NULL;
 	size_t             i;
@@ -2157,7 +2157,7 @@ static int _init_delta_buffer(struct sid_buffer **delta_buf, size_t size, struct
 	if (!size)
 		return 0;
 
-	if (size < header_size) {
+	if (size < KV_VALUE_VEC_HEADER_CNT) {
 		r = -EINVAL;
 		goto out;
 	}
@@ -2169,7 +2169,7 @@ static int _init_delta_buffer(struct sid_buffer **delta_buf, size_t size, struct
 	                              &r)))
 		goto out;
 
-	for (i = 0; i < header_size; i++) {
+	for (i = 0; i < KV_VALUE_VEC_HEADER_CNT; i++) {
 		if (!sid_buffer_add(buf, header[i].iov_base, header[i].iov_len, &r))
 			goto out;
 	}
@@ -2181,16 +2181,10 @@ out:
 	return r;
 }
 
-static int _init_delta_struct(struct kv_delta *delta,
-                              size_t           minus_size,
-                              size_t           plus_size,
-                              size_t           final_size,
-                              struct iovec *   header,
-                              size_t           header_size)
+static int _init_delta_struct(struct kv_delta *delta, struct iovec *header, size_t minus_size, size_t plus_size, size_t final_size)
 {
-	if (_init_delta_buffer(&delta->plus, plus_size, header, header_size) < 0 ||
-	    _init_delta_buffer(&delta->minus, minus_size, header, header_size) < 0 ||
-	    _init_delta_buffer(&delta->final, final_size, header, header_size) < 0) {
+	if (_init_delta_buffer(header, &delta->plus, plus_size) < 0 || _init_delta_buffer(header, &delta->minus, minus_size) < 0 ||
+	    _init_delta_buffer(header, &delta->final, final_size) < 0) {
 		_destroy_delta(delta);
 		return -1;
 	}
@@ -2218,7 +2212,7 @@ static int _delta_step_calculate(struct kv_store_update_spec *spec)
 	int                   cmp_result;
 	int                   r = -1;
 
-	if (_init_delta_struct(delta, old_size, new_size, old_size + new_size, new_value, KV_VALUE_VEC_HEADER_CNT) < 0)
+	if (_init_delta_struct(delta, new_value, old_size, new_size, old_size + new_size) < 0)
 		goto out;
 
 	if (!old_size)
@@ -2519,7 +2513,7 @@ static int _delta_abs_calculate(struct kv_store_update_spec *spec, struct kv_del
 		abs_plus_size -= KV_VALUE_VEC_HEADER_CNT;
 
 	/* go through the old and new plus and minus vectors and merge non-contradicting items */
-	if (_init_delta_struct(abs_delta, abs_minus_size, abs_plus_size, 0, spec->new_data, KV_VALUE_VEC_HEADER_CNT) < 0)
+	if (_init_delta_struct(abs_delta, spec->new_data, abs_minus_size, abs_plus_size, 0) < 0)
 		goto out;
 
 	if (rel_spec->delta->flags & DELTA_WITH_REL)
