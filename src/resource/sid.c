@@ -37,8 +37,6 @@ static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct si
 			break;
 		case SIGHUP: /* TODO: Reload config on SIGHUP? */
 			break;
-		case SIGCHLD:
-			break;
 		default:
 			break;
 	};
