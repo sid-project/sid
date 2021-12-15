@@ -641,6 +641,7 @@ int sid_resource_create_time_event_source(sid_resource_t *                  res,
 {
 	sid_resource_t * res_event_loop;
 	sd_event_source *sd_es = NULL;
+	uint64_t         usec_now;
 	int              r;
 
 	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
@@ -661,13 +662,21 @@ int sid_resource_create_time_event_source(sid_resource_t *                  res,
 			break;
 
 		case SID_EVENT_TIME_RELATIVE:
-			if ((r = sd_event_add_time_relative(res_event_loop->event_loop.sd_event_loop,
-			                                    &sd_es,
-			                                    clock,
-			                                    usec,
-			                                    accuracy,
-			                                    handler ? _sd_time_event_handler : NULL,
-			                                    NULL)) < 0)
+			if ((r = sd_event_now(res_event_loop->event_loop.sd_event_loop, clock, &usec_now) < 0))
+				goto fail;
+
+			if (usec >= UINT64_MAX - usec_now) {
+				r = -EOVERFLOW;
+				goto fail;
+			}
+
+			if ((r = sd_event_add_time(res_event_loop->event_loop.sd_event_loop,
+			                           &sd_es,
+			                           clock,
+			                           usec_now + usec,
+			                           accuracy,
+			                           handler ? _sd_time_event_handler : NULL,
+			                           NULL)) < 0)
 				goto fail;
 			break;
 	}
@@ -687,7 +696,10 @@ fail:
 
 int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, sid_event_time_type_t time_type, uint64_t usec)
 {
-	int r;
+	sid_resource_t *res_event_loop;
+	clockid_t       clock;
+	uint64_t        usec_now;
+	int             r;
 
 	switch (time_type) {
 		case SID_EVENT_TIME_ABSOLUTE:
@@ -696,7 +708,19 @@ int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, sid_ev
 			break;
 
 		case SID_EVENT_TIME_RELATIVE:
-			if ((r = sd_event_source_set_time_relative(es->sd_es, usec)))
+			if (!(res_event_loop = _get_resource_with_event_loop(es->res, 1)))
+				return -ENOMEDIUM;
+
+			if ((r = sd_event_source_get_time_clock(es->sd_es, &clock)) < 0)
+				return r;
+
+			if ((r = sd_event_now(res_event_loop->event_loop.sd_event_loop, clock, &usec_now)) < 0)
+				return r;
+
+			if (usec >= UINT64_MAX - usec_now)
+				return -EOVERFLOW;
+
+			if ((r = sd_event_source_set_time(es->sd_es, usec_now + usec)))
 				return r;
 			break;
 	}
