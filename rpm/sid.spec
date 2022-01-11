@@ -156,7 +156,7 @@ Storage Instantiation Daemon (SID) and its modules. Currently, it contains
 basic support for bitmaps, hashing, lists, memory handling and other helper
 functions.
 
-%files base-libs
+%files internal-libs
 %dir %{_libdir}/sid
 %{_libdir}/sid/libsidinternal.so.*
 %doc README.md
