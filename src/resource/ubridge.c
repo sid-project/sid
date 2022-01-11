@@ -3499,8 +3499,8 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const char          *uuid_p;
-	char                 uuid[UTIL_UUID_STR_SIZE];
-	util_mem_t           mem = {.base = uuid, .size = sizeof(uuid)};
+	char                 buf[UTIL_UUID_STR_SIZE]; /* used for both uuid and diskseq */
+	util_mem_t           mem = {.base = buf, .size = sizeof(buf)};
 	dev_ready_t          ready;
 	dev_reserved_t       reserved;
 
@@ -3520,6 +3520,19 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 		}
 	} else
 		ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
+
+	if (snprintf(buf, sizeof(buf), "%" PRIu64, ucmd_ctx->req_env.dev.udev.diskseq) < 0) {
+		log_error(ID(cmd_res), "Failed to convert DISKSEQ to string.");
+		return -1;
+	}
+
+	if (_handle_current_dev_for_alias(NULL, ucmd_ctx, KV_KEY_DOM_ALIAS, "dseq", buf, KV_OP_PLUS) < 0 ||
+	    _handle_current_dev_for_alias(NULL, ucmd_ctx, KV_KEY_DOM_ALIAS, "devno", ucmd_ctx->req_env.dev.num_s, KV_OP_PLUS) < 0 ||
+	    _handle_current_dev_for_alias(NULL, ucmd_ctx, KV_KEY_DOM_ALIAS, "name", ucmd_ctx->req_env.dev.udev.name, KV_OP_PLUS) <
+	            0) {
+		log_error(ID(cmd_res), "Failed to add dseq/devno/name device alias.");
+		return -1;
+	}
 
 	if (!_do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)) {
 		ready    = DEV_NOT_RDY_UNPROCESSED;
@@ -3574,10 +3587,8 @@ static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 		goto fail;
 	}
 
-	if (_set_device_kv_records(exec_arg->cmd_res) < 0) {
-		log_error(ID(exec_arg->cmd_res), "Failed to set device hierarchy.");
+	if (_set_device_kv_records(exec_arg->cmd_res) < 0)
 		goto fail;
-	}
 
 	return 0;
 fail:
