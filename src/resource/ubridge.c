@@ -4163,11 +4163,11 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
                                  struct worker_data_spec *data_spec,
                                  void *                   arg)
 {
-	sid_resource_t *internal_ubridge_res = arg;
+	struct ubridge *ubridge = sid_resource_get_data((sid_resource_t *) arg);
 	int             r;
 
 	if (data_spec->ext.used) {
-		r = _sync_main_kv_store(worker_proxy_res, internal_ubridge_res, data_spec->ext.socket.fd_pass);
+		r = _sync_main_kv_store(worker_proxy_res, ubridge->internal_res, data_spec->ext.socket.fd_pass);
 		close(data_spec->ext.socket.fd_pass);
 	} else {
 		log_error(ID(worker_proxy_res), "Received response from worker, but database synchronization handle missing.");
@@ -4221,53 +4221,41 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 
 static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 {
-	sid_resource_t *ubridge_internal_res = arg;
-	sid_resource_t *modules_res, *kv_store_res;
-
-	if (!(modules_res = sid_resource_search(ubridge_internal_res,
-	                                        SID_RESOURCE_SEARCH_IMM_DESC,
-	                                        &sid_resource_type_aggregate,
-	                                        MODULES_AGGREGATE_ID)))
-		return -ENOMEDIUM;
-
-	if (!(kv_store_res = sid_resource_search(ubridge_internal_res,
-	                                         SID_RESOURCE_SEARCH_IMM_DESC,
-	                                         &sid_resource_type_kv_store,
-	                                         MAIN_KV_STORE_NAME)))
-		return -ENOMEDIUM;
+	struct ubridge *ubridge = sid_resource_get_data((sid_resource_t *) arg);
 
 	/* we take only inherited modules and kv_store for the worker */
-	(void) sid_resource_isolate_with_children(modules_res);
-	(void) sid_resource_isolate_with_children(kv_store_res);
+	(void) sid_resource_isolate_with_children(ubridge->ucmd_mod_ctx.modules_res);
+	(void) sid_resource_isolate_with_children(ubridge->ucmd_mod_ctx.kv_store_res);
 
-	(void) sid_resource_add_child(worker_res, modules_res, SID_RESOURCE_NO_FLAGS);
-	(void) sid_resource_add_child(worker_res, kv_store_res, SID_RESOURCE_RESTRICT_WALK_UP);
+	(void) sid_resource_add_child(worker_res, ubridge->ucmd_mod_ctx.modules_res, SID_RESOURCE_NO_FLAGS);
+	(void) sid_resource_add_child(worker_res, ubridge->ucmd_mod_ctx.kv_store_res, SID_RESOURCE_RESTRICT_WALK_UP);
 
 	/* destroy the rest */
-	(void) sid_resource_unref(sid_resource_search(ubridge_internal_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
+	(void) sid_resource_unref(sid_resource_search((sid_resource_t *) arg, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 
 	return 0;
 }
 
-static sid_resource_t *_get_worker(sid_resource_t *internal_ubridge_res)
+static sid_resource_t *_get_worker(sid_resource_t *ubridge_res)
 {
+	struct ubridge *ubridge = sid_resource_get_data(ubridge_res);
 	char            uuid[UTIL_UUID_STR_SIZE];
 	util_mem_t      mem = {.base = uuid, .size = sizeof(uuid)};
 	sid_resource_t *worker_control_res, *worker_proxy_res;
 
-	if (!(worker_control_res = sid_resource_search(internal_ubridge_res,
+	if (!(worker_control_res = sid_resource_search(ubridge->internal_res,
 	                                               SID_RESOURCE_SEARCH_IMM_DESC,
 	                                               &sid_resource_type_worker_control,
 	                                               NULL))) {
-		log_error(ID(internal_ubridge_res), INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
+		log_error(ID(ubridge_res), INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
 		NULL;
 	}
 
 	if (!(worker_proxy_res = worker_control_get_idle_worker(worker_control_res))) {
-		log_debug(ID(internal_ubridge_res), "Idle worker not found, creating a new one.");
+		log_debug(ID(ubridge_res), "Idle worker not found, creating a new one.");
 
 		if (!util_uuid_gen_str(&mem)) {
-			log_error(ID(internal_ubridge_res), "Failed to generate UUID for new worker.");
+			log_error(ID(ubridge_res), "Failed to generate UUID for new worker.");
 			NULL;
 		}
 
@@ -4281,15 +4269,15 @@ static sid_resource_t *_get_worker(sid_resource_t *internal_ubridge_res)
 
 static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	sid_resource_t *        internal_ubridge_res = data;
-	struct ubridge *        ubridge              = sid_resource_get_data(internal_ubridge_res);
+	sid_resource_t *        ubridge_res = data;
+	struct ubridge *        ubridge     = sid_resource_get_data(ubridge_res);
 	sid_resource_t *        worker_proxy_res;
 	struct worker_data_spec data_spec;
 	int                     r;
 
-	log_debug(ID(internal_ubridge_res), "Received an event.");
+	log_debug(ID(ubridge_res), "Received an event.");
 
-	if (!(worker_proxy_res = _get_worker(internal_ubridge_res)))
+	if (!(worker_proxy_res = _get_worker(ubridge_res)))
 		return -1;
 
 	/* optimization here - not sending the whole struct internal_msg, only the first msg_category_t type field */
@@ -4298,12 +4286,12 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	data_spec.ext.used  = true;
 
 	if ((data_spec.ext.socket.fd_pass = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
-		log_sys_error(ID(internal_ubridge_res), "accept", "");
+		log_sys_error(ID(ubridge_res), "accept", "");
 		return -1;
 	}
 
 	if ((r = worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec)) < 0) {
-		log_error_errno(ID(internal_ubridge_res), r, "worker_control_channel_send");
+		log_error_errno(ID(ubridge_res), r, "worker_control_channel_send");
 		(void) close(data_spec.ext.socket.fd_pass);
 		return -1;
 	}
@@ -4313,13 +4301,13 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 }
 
 /*
-static int _self_cmd_dbdump(sid_resource_t *internal_ubridge_res)
+static int _self_cmd_dbdump(sid_resource_t *ubridge_res)
 {
         sid_resource_t *        worker_proxy_res;
         struct internal_msg     int_msg;
         struct worker_data_spec data_spec;
 
-        if (!(worker_proxy_res = _get_worker(internal_ubridge_res)))
+        if (!(worker_proxy_res = _get_worker(ubridge_res)))
                 return -1;
 
         int_msg = (struct internal_msg) {
@@ -4333,24 +4321,25 @@ static int _self_cmd_dbdump(sid_resource_t *internal_ubridge_res)
 
 static int _on_ubridge_time_event(sid_resource_event_source_t *es, uint64_t usec, void *data)
 {
-        sid_resource_t *internal_ubridge_res = data;
-        static int      counter              = 0;
+        sid_resource_t *ubridge_res = data;
+        static int      counter     = 0;
 
-        log_debug(ID(internal_ubridge_res), "dumping db (%d)", counter++);
-        (void) _self_cmd_dbdump(data);
+        log_debug(ID(ubridge_res), "dumping db (%d)", counter++);
+        (void) _self_cmd_dbdump(ubridge_res);
 
         sid_resource_rearm_time_event_source(es, SID_EVENT_TIME_RELATIVE, 10000000);
         return 0;
 }
 
-static int _load_kv_store(sid_resource_t *res, sid_resource_t *internal_ubridge_res)
+static int _load_kv_store(sid_resource_t *ubridge_res, struct ubridge *ubridge)
 {
-        struct ubridge *ubridge = sid_resource_get_data(internal_ubridge_res);
-        int             fd;
-        int             r;
+        int fd;
+        int r;
 
         if (ubridge->ucmd_mod_ctx.gennum != 0) {
-                log_error(ID(res), INTERNAL_ERROR "%s: unexpected KV generation number, KV store already loaded.", __func__);
+                log_error(ID(ubridge_res),
+                          INTERNAL_ERROR "%s: unexpected KV generation number, KV store already loaded.",
+                          __func__);
                 return -1;
         }
 
@@ -4358,12 +4347,12 @@ static int _load_kv_store(sid_resource_t *res, sid_resource_t *internal_ubridge_
                 return 0;
 
         if ((fd = open(MAIN_KV_STORE_FILE_PATH, O_RDONLY)) < 0) {
-                log_error_errno(ID(res), fd, "Failed to open db file");
+                log_error_errno(ID(ubridge_res), fd, "Failed to open db file");
                 return -1;
         }
 
-        r = _sync_main_kv_store(res, internal_ubridge_res, fd);
-out:
+        r = _sync_main_kv_store(ubridge_res, ubridge->internal_res, fd);
+
         close(fd);
         return r;
 }
@@ -4371,8 +4360,8 @@ out:
 
 static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	sid_resource_t *    internal_ubridge_res = data;
-	struct ubridge *    ubridge              = sid_resource_get_data(internal_ubridge_res);
+	sid_resource_t *    ubridge_res = data;
+	struct ubridge *    ubridge     = sid_resource_get_data(ubridge_res);
 	sid_resource_t *    worker_control_res;
 	struct udev_device *udev_dev;
 	const char *        worker_id;
@@ -4384,10 +4373,8 @@ static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int f
 	if (!(worker_id = udev_device_get_property_value(udev_dev, KV_KEY_UDEV_SID_SESSION_ID)))
 		goto out;
 
-	if (!(worker_control_res = sid_resource_search(internal_ubridge_res,
-	                                               SID_RESOURCE_SEARCH_IMM_DESC,
-	                                               &sid_resource_type_worker_control,
-	                                               NULL)))
+	if (!(worker_control_res =
+	              sid_resource_search(ubridge_res, SID_RESOURCE_SEARCH_IMM_DESC, &sid_resource_type_worker_control, NULL)))
 		goto out;
 
 	if (!worker_control_find_worker(worker_control_res, worker_id))
@@ -4450,7 +4437,7 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 	return 0;
 }
 
-static int _set_up_udev_monitor(sid_resource_t *ubridge_res, sid_resource_t *internal_ubridge_res, struct umonitor *umonitor)
+static int _set_up_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *umonitor)
 {
 	int umonitor_fd = -1;
 
@@ -4477,7 +4464,7 @@ static int _set_up_udev_monitor(sid_resource_t *ubridge_res, sid_resource_t *int
 	                                        _on_ubridge_udev_monitor_event,
 	                                        0,
 	                                        "udev monitor",
-	                                        internal_ubridge_res) < 0) {
+	                                        ubridge_res) < 0) {
 		log_error(ID(ubridge_res), "Failed to register udev monitoring.");
 		goto fail;
 	}
@@ -4574,10 +4561,8 @@ static const struct sid_kv_store_resource_params main_kv_store_res_params = {.ba
 
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
-	struct ubridge *   ubridge = NULL;
-	sid_resource_t *   kv_store_res, *modules_res;
-	struct sid_buffer *buf;
-	int                r;
+	struct ubridge *ubridge = NULL;
+	int             r;
 
 	if (!(ubridge = mem_zalloc(sizeof(struct ubridge)))) {
 		log_error(ID(res), "Failed to allocate memory for ubridge structure.");
@@ -4596,13 +4581,13 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(kv_store_res = sid_resource_create(ubridge->internal_res,
-	                                         &sid_resource_type_kv_store,
-	                                         SID_RESOURCE_RESTRICT_WALK_UP,
-	                                         MAIN_KV_STORE_NAME,
-	                                         &main_kv_store_res_params,
-	                                         SID_RESOURCE_PRIO_NORMAL,
-	                                         SID_RESOURCE_NO_SERVICE_LINKS))) {
+	if (!(ubridge->ucmd_mod_ctx.kv_store_res = sid_resource_create(ubridge->internal_res,
+	                                                               &sid_resource_type_kv_store,
+	                                                               SID_RESOURCE_RESTRICT_WALK_UP,
+	                                                               MAIN_KV_STORE_NAME,
+	                                                               &main_kv_store_res_params,
+	                                                               SID_RESOURCE_PRIO_NORMAL,
+	                                                               SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create main key-value store.");
 		goto fail;
 	}
@@ -4613,7 +4598,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		.init_cb_spec =
 			(struct worker_init_cb_spec) {
 				.cb  = _worker_init_fn,
-				.arg = ubridge->internal_res,
+				.arg = res,
 			},
 
 		.channel_specs = (struct worker_channel_spec[]) {
@@ -4636,7 +4621,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 				.proxy_rx_cb =
 					(struct worker_channel_cb_spec) {
 						.cb  = _worker_proxy_recv_fn,
-						.arg = ubridge->internal_res,
+						.arg = res,
 					},
 			},
 			NULL_WORKER_CHANNEL_SPEC,
@@ -4653,31 +4638,26 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
-	                                                          .type    = SID_BUFFER_TYPE_LINEAR,
-	                                                          .mode    = SID_BUFFER_MODE_PLAIN}),
-	                              &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
-	                              &r))) {
+	if (!(ubridge->ucmd_mod_ctx.gen_buf =
+	              sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                            .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                            .mode    = SID_BUFFER_MODE_PLAIN}),
+	                                &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
+	                                &r))) {
 		log_error_errno(ID(res), r, "Failed to create generic buffer");
 		goto fail;
 	}
 
-	if (!(modules_res = sid_resource_create(ubridge->internal_res,
-	                                        &sid_resource_type_aggregate,
-	                                        SID_RESOURCE_NO_FLAGS,
-	                                        MODULES_AGGREGATE_ID,
-	                                        SID_RESOURCE_NO_PARAMS,
-	                                        SID_RESOURCE_PRIO_NORMAL,
-	                                        SID_RESOURCE_NO_SERVICE_LINKS))) {
+	if (!(ubridge->ucmd_mod_ctx.modules_res = sid_resource_create(ubridge->internal_res,
+	                                                              &sid_resource_type_aggregate,
+	                                                              SID_RESOURCE_NO_FLAGS,
+	                                                              MODULES_AGGREGATE_ID,
+	                                                              SID_RESOURCE_NO_PARAMS,
+	                                                              SID_RESOURCE_PRIO_NORMAL,
+	                                                              SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
 		goto fail;
 	}
-
-	ubridge->ucmd_mod_ctx = (struct sid_ucmd_mod_ctx) {
-		.kv_store_res = kv_store_res,
-		.modules_res  = modules_res,
-		.gen_buf      = buf,
-	};
 
 	struct module_registry_resource_params block_res_mod_params = {
 		.directory     = SID_UCMD_BLOCK_MOD_DIR,
@@ -4697,14 +4677,14 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		.cb_arg        = &ubridge->ucmd_mod_ctx,
 	};
 
-	if (!(sid_resource_create(modules_res,
+	if (!(sid_resource_create(ubridge->ucmd_mod_ctx.modules_res,
 	                          &sid_resource_type_module_registry,
 	                          SID_RESOURCE_DISALLOW_ISOLATION,
 	                          MODULES_BLOCK_ID,
 	                          &block_res_mod_params,
 	                          SID_RESOURCE_PRIO_NORMAL,
 	                          SID_RESOURCE_NO_SERVICE_LINKS)) ||
-	    !(sid_resource_create(modules_res,
+	    !(sid_resource_create(ubridge->ucmd_mod_ctx.modules_res,
 	                          &sid_resource_type_module_registry,
 	                          SID_RESOURCE_DISALLOW_ISOLATION,
 	                          MODULES_TYPE_ID,
@@ -4715,7 +4695,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	/* _load_kv_store(res, ubridge->internal_res); */
+	/* _load_kv_store(res, ubridge); */
 	_set_up_kv_store_generation(&ubridge->ucmd_mod_ctx, true);
 
 	if (_set_up_ubridge_socket(res, &ubridge->socket_fd) < 0) {
@@ -4729,26 +4709,28 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                                        _on_ubridge_interface_event,
 	                                        0,
 	                                        sid_resource_type_ubridge.name,
-	                                        ubridge->internal_res) < 0) {
+	                                        res) < 0) {
 		log_error(ID(res), "Failed to register interface with event loop.");
 		goto fail;
 	}
 
-	if (_set_up_udev_monitor(res, ubridge->internal_res, &ubridge->umonitor) < 0) {
+	if (_set_up_udev_monitor(res, &ubridge->umonitor) < 0) {
 		log_error(ID(res), "Failed to set up udev monitor.");
 		goto fail;
 	}
 
-	/*	sid_resource_create_time_event_source(res,
-	                                              NULL,
-	                                              CLOCK_MONOTONIC,
-	                                              SID_EVENT_TIME_RELATIVE,
-	                                              10000000,
-	                                              0,
-	                                              _on_ubridge_time_event,
-	                                              0,
-	                                              "timer",
-	                                              ubridge->internal_res);*/
+	/*
+	sid_resource_create_time_event_source(res,
+	                                      NULL,
+	                                      CLOCK_MONOTONIC,
+	                                      SID_EVENT_TIME_RELATIVE,
+	                                      10000000,
+	                                      0,
+	                                      _on_ubridge_time_event,
+	                                      0,
+	                                      "timer",
+	                                      res);
+	*/
 
 	/*
 	 * Call util_cmdline_get_arg here to only read the kernel command line
