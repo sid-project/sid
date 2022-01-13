@@ -289,6 +289,7 @@ resource libraries.
 %{_includedir}/sid/resource/resource-type-regs.h
 %{_includedir}/sid/resource/resource.h
 %{_includedir}/sid/resource/ucmd-module.h
+%{_includedir}/sid/resource/ubridge.h
 %{_includedir}/sid/resource/worker-control.h
 %doc README.md
 

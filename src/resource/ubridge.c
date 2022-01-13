@@ -30,6 +30,7 @@
 #include "resource/kv-store.h"
 #include "resource/module-registry.h"
 #include "resource/resource.h"
+#include "resource/ubridge.h"
 #include "resource/ucmd-module.h"
 #include "resource/worker-control.h"
 
@@ -168,6 +169,7 @@ struct sid_ucmd_ctx {
 			char *         id;
 			struct udevice udev;
 		} dev;
+		const char *exp_path;
 	} req_env;
 	cmd_scan_phase_t        scan_phase;   /* current phase at the time of use of this context */
 	struct sid_ucmd_mod_ctx ucmd_mod_ctx; /* commod module context */
@@ -786,7 +788,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		buf_spec = (struct sid_buffer_spec) {.backend  = SID_BUFFER_BACKEND_FILE,
 		                                     .type     = SID_BUFFER_TYPE_LINEAR,
 		                                     .mode     = SID_BUFFER_MODE_SIZE_PREFIX,
-		                                     .ext.file = {MAIN_KV_STORE_FILE_PATH}};
+		                                     .ext.file = {ucmd_ctx->req_env.exp_path ?: MAIN_KV_STORE_FILE_PATH}};
 	else
 		buf_spec = (struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
 		                                     .type    = SID_BUFFER_TYPE_LINEAR,
@@ -3878,6 +3880,12 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		}
 	}
 
+	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
+		if ((msg->size > sizeof(*msg->header)) &&
+		    !(ucmd_ctx->req_env.exp_path = strdup((char *) msg->header + sizeof(*msg->header))))
+			goto fail;
+	}
+
 	if (cmd_reg->flags & CMD_SESSION_ID) {
 		if (!(worker_id = worker_control_get_worker_id(res))) {
 			log_error(ID(res), "Failed to get worker ID to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
@@ -3906,6 +3914,8 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	return 0;
 fail:
 	if (ucmd_ctx) {
+		if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE && ucmd_ctx->req_env.exp_path)
+			free((void *) ucmd_ctx->req_env.exp_path);
 		if (ucmd_ctx->ucmd_mod_ctx.gen_buf)
 			sid_buffer_destroy(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 		if (ucmd_ctx->res_buf)
@@ -3919,15 +3929,21 @@ fail:
 
 static int _destroy_command(sid_resource_t *res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(res);
+	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(res);
+	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 
 	sid_buffer_destroy(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 	sid_buffer_destroy(ucmd_ctx->res_buf);
+
 	if (ucmd_ctx->exp_buf)
 		sid_buffer_destroy(ucmd_ctx->exp_buf);
-	free(ucmd_ctx->req_env.dev.id);
-	free(ucmd_ctx);
 
+	if ((cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE))
+		free((void *) ucmd_ctx->req_env.exp_path);
+	else
+		free(ucmd_ctx->req_env.dev.id);
+
+	free(ucmd_ctx);
 	return 0;
 }
 
@@ -4218,7 +4234,7 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 			 */
 			if (_create_command_resource(worker_res,
 			                             &((struct sid_msg) {.cat    = MSG_CATEGORY_SELF,
-			                                                 .size   = sizeof(int_msg->header),
+			                                                 .size   = data_spec->data_size - sizeof(int_msg->cat),
 			                                                 .header = &int_msg->header})) < 0)
 				return -1;
 			break;
@@ -4308,32 +4324,43 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	return 0;
 }
 
-/*
-static int _self_cmd_dbdump(sid_resource_t *ubridge_res)
+int ubridge_cmd_dbdump(sid_resource_t *ubridge_res, const char *file_path)
 {
-        sid_resource_t *        worker_proxy_res;
-        struct internal_msg     int_msg;
-        struct worker_data_spec data_spec;
+	sid_resource_t *        worker_proxy_res;
+	struct internal_msg *   int_msg;
+	struct worker_data_spec data_spec;
+	size_t                  file_path_size;
+	char                    buf[sizeof(struct internal_msg) + PATH_MAX + 1];
 
-        if (!(worker_proxy_res = _get_worker(ubridge_res)))
-                return -1;
+	if (!(worker_proxy_res = _get_worker(ubridge_res)))
+		return -1;
 
-        int_msg = (struct internal_msg) {
-                .cat    = MSG_CATEGORY_SELF,
-                .header = (struct sid_msg_header) {.status = 0, .prot = SID_PROTOCOL, .cmd = SELF_CMD_DBDUMP, .flags = 0}};
+	int_msg         = (struct internal_msg *) buf;
+	int_msg->cat    = MSG_CATEGORY_SELF;
+	int_msg->header = (struct sid_msg_header) {.status = 0, .prot = SID_PROTOCOL, .cmd = SELF_CMD_DBDUMP, .flags = 0};
 
-        data_spec = (struct worker_data_spec) {.data = &int_msg, .data_size = sizeof(int_msg), .ext.used = false};
+	if (!file_path || !*file_path)
+		file_path_size = 0;
+	else {
+		file_path_size = strlen(file_path) + 1;
+		memcpy(buf + sizeof(struct internal_msg), file_path, file_path_size);
+	}
 
-        return worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
+	data_spec = (struct worker_data_spec) {.data      = buf,
+	                                       .data_size = sizeof(struct internal_msg) + file_path_size,
+	                                       .ext.used  = false};
+
+	return worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
 }
 
+/*
 static int _on_ubridge_time_event(sid_resource_event_source_t *es, uint64_t usec, void *data)
 {
         sid_resource_t *ubridge_res = data;
         static int      counter     = 0;
 
         log_debug(ID(ubridge_res), "dumping db (%d)", counter++);
-        (void) _self_cmd_dbdump(ubridge_res);
+        (void) ubridge_cmd_dbdump(ubridge_res);
 
         sid_resource_rearm_time_event_source(es, SID_EVENT_TIME_RELATIVE, 10000000);
         return 0;
