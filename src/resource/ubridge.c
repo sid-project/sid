@@ -4683,6 +4683,9 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
+	/* _load_kv_store(res, ubridge); */
+	_set_up_kv_store_generation(&ubridge->ucmd_mod_ctx, true);
+
 	if (!(ubridge->ucmd_mod_ctx.modules_res = sid_resource_create(ubridge->internal_res,
 	                                                              &sid_resource_type_aggregate,
 	                                                              SID_RESOURCE_NO_FLAGS,
@@ -4729,9 +4732,6 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		log_error(ID(res), "Failed to create module handler.");
 		goto fail;
 	}
-
-	/* _load_kv_store(res, ubridge); */
-	_set_up_kv_store_generation(&ubridge->ucmd_mod_ctx, true);
 
 	if (_set_up_ubridge_socket(res, &ubridge->socket_fd) < 0) {
 		log_error(ID(res), "Failed to set up local server socket.");
