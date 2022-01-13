@@ -4360,7 +4360,7 @@ static int _on_ubridge_time_event(sid_resource_event_source_t *es, uint64_t usec
         static int      counter     = 0;
 
         log_debug(ID(ubridge_res), "dumping db (%d)", counter++);
-        (void) ubridge_cmd_dbdump(ubridge_res);
+        (void) ubridge_cmd_dbdump(ubridge_res, NULL);
 
         sid_resource_rearm_time_event_source(es, SID_EVENT_TIME_RELATIVE, 10000000);
         return 0;

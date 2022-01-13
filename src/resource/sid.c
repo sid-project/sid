@@ -21,12 +21,14 @@
 #include "internal/mem.h"
 #include "log/log.h"
 #include "resource/resource.h"
+#include "resource/ubridge.h"
 
 #include <signal.h>
 
 static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *arg)
 {
 	sid_resource_t *res = arg;
+	sid_resource_t *ubridge_res;
 
 	switch (si->ssi_signo) {
 		case SIGTERM:
@@ -37,6 +39,10 @@ static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct si
 			break;
 		case SIGHUP: /* TODO: Reload config on SIGHUP? */
 			break;
+		case SIGUSR1:
+			if ((ubridge_res =
+			             sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_DESC, &sid_resource_type_ubridge, NULL)))
+				(void) ubridge_cmd_dbdump(ubridge_res, NULL);
 		default:
 			break;
 	};
@@ -60,6 +66,7 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 	sigaddset(&mask, SIGINT);
 	sigaddset(&mask, SIGPIPE);
 	sigaddset(&mask, SIGHUP);
+	sigaddset(&mask, SIGUSR1);
 
 	if (sid_resource_create_signal_event_source(res, NULL, mask, _on_sid_signal_event, 0, "signal_handler", res) < 0) {
 		log_error(ID(res), "Failed to create signal handlers.");
