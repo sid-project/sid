@@ -93,7 +93,7 @@
 #define DEFAULT_KV_FLAGS_CORE KV_SYNC | KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
 
 #define CMD_DEV_ID_FMT       "%s (%d:%d)"
-#define CMD_DEV_ID(ucmd_ctx) ucmd_ctx->udev_dev.name, ucmd_ctx->udev_dev.major, ucmd_ctx->udev_dev.minor
+#define CMD_DEV_ID(ucmd_ctx) ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.udev.major, ucmd_ctx->req_env.dev.udev.minor
 
 const sid_resource_type_t sid_resource_type_ubridge;
 const sid_resource_type_t sid_resource_type_ubridge_connection;
@@ -161,10 +161,14 @@ typedef enum
 } msg_category_t;
 
 struct sid_ucmd_ctx {
-	msg_category_t          req_cat;      /* request category */
-	struct sid_msg_header   req_hdr;      /* request header */
-	char *                  dev_id;       /* device identifier (major_minor) */
-	struct udevice          udev_dev;     /* udev context for currently processed device */
+	msg_category_t        req_cat; /* request category */
+	struct sid_msg_header req_hdr; /* request header */
+	union {
+		struct {
+			char *         id;
+			struct udevice udev;
+		} dev;
+	} req_env;
 	cmd_scan_phase_t        scan_phase;   /* current phase at the time of use of this context */
 	struct sid_ucmd_mod_ctx ucmd_mod_ctx; /* commod module context */
 	struct sid_msg_header   res_hdr;      /* response header */
@@ -381,37 +385,37 @@ static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hie
 
 udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
 {
-	return ucmd_ctx->udev_dev.action;
+	return ucmd_ctx->req_env.dev.udev.action;
 }
 
 int sid_ucmd_dev_get_major(struct sid_ucmd_ctx *ucmd_ctx)
 {
-	return ucmd_ctx->udev_dev.major;
+	return ucmd_ctx->req_env.dev.udev.major;
 }
 
 int sid_ucmd_dev_get_minor(struct sid_ucmd_ctx *ucmd_ctx)
 {
-	return ucmd_ctx->udev_dev.minor;
+	return ucmd_ctx->req_env.dev.udev.minor;
 }
 
 const char *sid_ucmd_dev_get_name(struct sid_ucmd_ctx *ucmd_ctx)
 {
-	return ucmd_ctx->udev_dev.name;
+	return ucmd_ctx->req_env.dev.udev.name;
 }
 
 udev_devtype_t sid_ucmd_dev_get_type(struct sid_ucmd_ctx *ucmd_ctx)
 {
-	return ucmd_ctx->udev_dev.type;
+	return ucmd_ctx->req_env.dev.udev.type;
 }
 
 uint64_t sid_ucmd_dev_get_seqnum(struct sid_ucmd_ctx *ucmd_ctx)
 {
-	return ucmd_ctx->udev_dev.seqnum;
+	return ucmd_ctx->req_env.dev.udev.seqnum;
 }
 
 const char *sid_ucmd_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
 {
-	return ucmd_ctx->udev_dev.synth_uuid;
+	return ucmd_ctx->req_env.dev.udev.synth_uuid;
 }
 
 static const char *_do_buffer_compose_key(struct sid_buffer *buf, struct kv_key_spec *spec, int prefix_only)
@@ -1039,7 +1043,7 @@ static const char *_get_ns_part(struct module *mod, struct sid_ucmd_ctx *ucmd_ct
 	switch (ns) {
 		case KV_NS_UDEV:
 		case KV_NS_DEVICE:
-			return ucmd_ctx->dev_id;
+			return ucmd_ctx->req_env.dev.id;
 		case KV_NS_MODULE:
 			return _get_mod_name(mod);
 		case KV_NS_GLOBAL:
@@ -1130,7 +1134,7 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 	if (!(full_key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
 		goto out;
 
-	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->udev_dev.seqnum, flags, (char *) owner);
+	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->req_env.dev.udev.seqnum, flags, (char *) owner);
 	iov[KV_VALUE_IDX_DATA] = (struct iovec) {(void *) value, value ? value_size : 0};
 
 	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
@@ -1497,7 +1501,7 @@ int sid_ucmd_group_create(struct module *         mod,
 
 	if (!(full_key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
 		goto out;
-	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->udev_dev.seqnum, kv_flags_sync, core_owner);
+	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->req_env.dev.udev.seqnum, kv_flags_sync, core_owner);
 
 	if (!kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                        full_key,
@@ -1556,7 +1560,11 @@ int _handle_current_dev_for_group(struct module *         mod,
 
 	// TODO: check return values / maybe also pass flags / use proper owner
 
-	KV_VALUE_VEC_HEADER_PREP(iov, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->udev_dev.seqnum, kv_flags_no_sync, core_owner);
+	KV_VALUE_VEC_HEADER_PREP(iov,
+	                         ucmd_ctx->ucmd_mod_ctx.gennum,
+	                         ucmd_ctx->req_env.dev.udev.seqnum,
+	                         kv_flags_no_sync,
+	                         core_owner);
 	rel_key_prefix = _buffer_compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
 	if (!rel_key_prefix)
 		goto out;
@@ -1661,7 +1669,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 
 	KV_VALUE_VEC_HEADER_PREP(iov_blank,
 	                         ucmd_ctx->ucmd_mod_ctx.gennum,
-	                         ucmd_ctx->udev_dev.seqnum,
+	                         ucmd_ctx->req_env.dev.udev.seqnum,
 	                         kv_flags_sync_no_reserved,
 	                         core_owner);
 
@@ -1704,17 +1712,17 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 
 	/* Common key=value pairs are also directly in the ucmd_ctx->udev_dev structure. */
 	if (!strcmp(key, UDEV_KEY_ACTION))
-		ucmd_ctx->udev_dev.action = util_udev_str_to_udev_action(value);
+		ucmd_ctx->req_env.dev.udev.action = util_udev_str_to_udev_action(value);
 	else if (!strcmp(key, UDEV_KEY_DEVPATH)) {
-		ucmd_ctx->udev_dev.path = value;
-		ucmd_ctx->udev_dev.name = util_str_rstr(value, "/");
-		ucmd_ctx->udev_dev.name++;
+		ucmd_ctx->req_env.dev.udev.path = value;
+		ucmd_ctx->req_env.dev.udev.name = util_str_rstr(value, "/");
+		ucmd_ctx->req_env.dev.udev.name++;
 	} else if (!strcmp(key, UDEV_KEY_DEVTYPE))
-		ucmd_ctx->udev_dev.type = util_udev_str_to_udev_devtype(value);
+		ucmd_ctx->req_env.dev.udev.type = util_udev_str_to_udev_devtype(value);
 	else if (!strcmp(key, UDEV_KEY_SEQNUM))
-		ucmd_ctx->udev_dev.seqnum = strtoull(value, NULL, 10);
+		ucmd_ctx->req_env.dev.udev.seqnum = strtoull(value, NULL, 10);
 	else if (!strcmp(key, UDEV_KEY_SYNTH_UUID))
-		ucmd_ctx->udev_dev.synth_uuid = value;
+		ucmd_ctx->req_env.dev.udev.synth_uuid = value;
 
 	r = 0;
 out:
@@ -1734,10 +1742,10 @@ static int _parse_cmd_nullstr_udev_env(struct sid_ucmd_ctx *ucmd_ctx, const char
 	}
 
 	memcpy(&devno, env, sizeof(devno));
-	ucmd_ctx->udev_dev.major = major(devno);
-	ucmd_ctx->udev_dev.minor = minor(devno);
+	ucmd_ctx->req_env.dev.udev.major = major(devno);
+	ucmd_ctx->req_env.dev.udev.minor = minor(devno);
 
-	if (asprintf(&ucmd_ctx->dev_id, "%d_%d", ucmd_ctx->udev_dev.major, ucmd_ctx->udev_dev.minor) < 0) {
+	if (asprintf(&ucmd_ctx->req_env.dev.id, "%d_%d", ucmd_ctx->req_env.dev.udev.major, ucmd_ctx->req_env.dev.udev.minor) < 0) {
 		r = -ENOMEM;
 		goto out;
 	}
@@ -1831,7 +1839,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 			continue;
 
 		/* is it the major we're looking for? */
-		if (major == ucmd_ctx->udev_dev.major) {
+		if (major == ucmd_ctx->req_env.dev.udev.major) {
 			found = end + 1;
 			break;
 		}
@@ -1840,8 +1848,8 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	if (!found) {
 		log_error(ID(cmd_res),
 		          "Unable to find major number %d for device %s in %s.",
-		          ucmd_ctx->udev_dev.major,
-		          ucmd_ctx->udev_dev.name,
+		          ucmd_ctx->req_env.dev.udev.major,
+		          ucmd_ctx->req_env.dev.udev.name,
 		          SYSTEM_PROC_DEVICES_PATH);
 		goto out;
 	}
@@ -2015,7 +2023,7 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 	                             &r,
 	                             "%s%s/../dev",
 	                             SYSTEM_SYSFS_PATH,
-	                             ucmd_ctx->udev_dev.path))) {
+	                             ucmd_ctx->req_env.dev.udev.path))) {
 		log_error_errno(_get_mod_name(mod),
 		                r,
 		                "Failed to compose sysfs path for whole device of partition device " CMD_DEV_ID_FMT,
@@ -2826,12 +2834,12 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
 	                                   .custom  = &rel_spec};
 
-	if (ucmd_ctx->udev_dev.action != UDEV_ACTION_REMOVE) {
+	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
 		if (!(s = sid_buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf,
 		                             &r,
 		                             "%s%s/%s",
 		                             SYSTEM_SYSFS_PATH,
-		                             ucmd_ctx->udev_dev.path,
+		                             ucmd_ctx->req_env.dev.udev.path,
 		                             SYSTEM_SYSFS_SLAVES))) {
 			log_error_errno(ID(cmd_res),
 			                r,
@@ -2843,7 +2851,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 		if ((count = scandir(s, &dirent, NULL, NULL)) < 0) {
 			/*
-			 * FIXME: Add code to deal with/warn about: (errno == ENOENT) && (ucmd_ctx->udev_dev.action !=
+			 * FIXME: Add code to deal with/warn about: (errno == ENOENT) && (ucmd_ctx->req_env.dev.udev.action !=
 			 * UDEV_ACTION_REMOVE). That means we don't have REMOVE uevent, but at the same time, we don't have sysfs
 			 * content, e.g. because we're processing this uevent too late: the device has already been removed right
 			 * after this uevent was triggered. For now, error out even in this case.
@@ -2876,14 +2884,14 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 	if (!KV_VALUE_VEC_BUF_HEADER_PREP(vec_buf,
 	                                  ucmd_ctx->ucmd_mod_ctx.gennum,
-	                                  ucmd_ctx->udev_dev.seqnum,
+	                                  ucmd_ctx->req_env.dev.udev.seqnum,
 	                                  kv_flags_no_sync,
 	                                  core_owner,
 	                                  &r))
 		goto out;
 
 	/* Read relatives from sysfs into vec_buf. */
-	if (ucmd_ctx->udev_dev.action != UDEV_ACTION_REMOVE) {
+	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
 		for (i = 0; i < count; i++) {
 			if (dirent[i]->d_name[0] == '.') {
 				free(dirent[i]);
@@ -2894,7 +2902,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 			                            &r,
 			                            "%s%s/%s/%s/dev",
 			                            SYSTEM_SYSFS_PATH,
-			                            ucmd_ctx->udev_dev.path,
+			                            ucmd_ctx->req_env.dev.udev.path,
 			                            SYSTEM_SYSFS_SLAVES,
 			                            dirent[i]->d_name))) {
 				if (_get_sysfs_value(NULL, s, devno_buf, sizeof(devno_buf)) < 0) {
@@ -2930,9 +2938,9 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	if (!(s = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res),
 		          _key_prefix_err_msg,
-		          ucmd_ctx->udev_dev.name,
-		          ucmd_ctx->udev_dev.major,
-		          ucmd_ctx->udev_dev.minor);
+		          ucmd_ctx->req_env.dev.udev.name,
+		          ucmd_ctx->req_env.dev.udev.major,
+		          ucmd_ctx->req_env.dev.udev.minor);
 		goto out;
 	}
 
@@ -2998,7 +3006,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 
 	KV_VALUE_VEC_HEADER_PREP(iov_to_store,
 	                         ucmd_ctx->ucmd_mod_ctx.gennum,
-	                         ucmd_ctx->udev_dev.seqnum,
+	                         ucmd_ctx->req_env.dev.udev.seqnum,
 	                         kv_flags_no_sync,
 	                         core_owner);
 	if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
@@ -3016,9 +3024,9 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	if (!(s = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res),
 		          _key_prefix_err_msg,
-		          ucmd_ctx->udev_dev.name,
-		          ucmd_ctx->udev_dev.major,
-		          ucmd_ctx->udev_dev.minor);
+		          ucmd_ctx->req_env.dev.udev.name,
+		          ucmd_ctx->req_env.dev.udev.major,
+		          ucmd_ctx->req_env.dev.udev.minor);
 		goto out;
 	}
 
@@ -3047,7 +3055,7 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 
-	switch (ucmd_ctx->udev_dev.type) {
+	switch (ucmd_ctx->req_env.dev.udev.type) {
 		case UDEV_DEVTYPE_DISK:
 			if ((_refresh_device_disk_hierarchy_from_sysfs(cmd_res) < 0))
 				return -1;
@@ -3902,8 +3910,8 @@ fail:
 			sid_buffer_destroy(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 		if (ucmd_ctx->res_buf)
 			sid_buffer_destroy(ucmd_ctx->res_buf);
-		if (ucmd_ctx->dev_id)
-			free(ucmd_ctx->dev_id);
+		if (ucmd_ctx->req_env.dev.id)
+			free(ucmd_ctx->req_env.dev.id);
 		free(ucmd_ctx);
 	}
 	return -1;
@@ -3917,7 +3925,7 @@ static int _destroy_command(sid_resource_t *res)
 	sid_buffer_destroy(ucmd_ctx->res_buf);
 	if (ucmd_ctx->exp_buf)
 		sid_buffer_destroy(ucmd_ctx->exp_buf);
-	free(ucmd_ctx->dev_id);
+	free(ucmd_ctx->req_env.dev.id);
 	free(ucmd_ctx);
 
 	return 0;
