@@ -72,7 +72,7 @@ AC_CONFIG_FILES([Makefile
 		 tests/Makefile])
 
 AC_CONFIG_HEADERS([src/include/config.h])
-AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h])
+AC_CHECK_HEADERS([fcntl.h limits.h stddef.h stdlib.h syslog.h sys/socket.h tkrzw_langc.h])
 AC_CHECK_HEADER_STDBOOL
 AC_CHECK_FUNCS([clock_gettime dup2 memchr memset mkdir munmap select socket strcasecmp strchr strdup strerror strspn strstr strtoul strtoull])
 AC_C_INLINE
@@ -99,6 +99,9 @@ PKG_CHECK_MODULES(UDEV, libudev >= 174) # support for device tagging added in li
 PKG_CHECK_MODULES(BLKID, blkid)
 
 PKG_CHECK_MODULES(UUID, uuid)
+
+PKG_CHECK_MODULES(TKRZW, tkrzw)
+AC_CHECK_LIB([libtkrzw],[tkrzw_dbm_open])
 
 AC_MSG_CHECKING(for systemd system unit directory)
 PKG_CHECK_VAR(SYSTEMD_SYSTEM_UNIT_DIR, systemd, systemdsystemunitdir)

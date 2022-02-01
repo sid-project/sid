@@ -160,8 +160,10 @@ static void test_kvstore_iterate(void **state)
 	/* TODO: if update_arg is NULL in the following call it causes SEGV */
 	assert_int_equal(kv_store_unset_value(kv_store_res, TEST_KEY, _main_kv_store_unset, &update_arg), 0);
 	assert_int_equal(kv_store_num_entries(kv_store_res), 0);
-	kv_store_get_size(kv_store_res, &meta_size, &data_size);
-	assert_int_equal(data_size, 0);
+	/* TODO: tkrzw doesn't implement functions to check meta/data sizes
+	    kv_store_get_size(kv_store_res, &meta_size, &data_size);
+	    assert_int_equal(data_size, 0);
+	*/
 
 	sid_resource_destroy(kv_store_res);
 }
@@ -255,6 +257,7 @@ static void test_kvstore_merge_op(void **state)
 	 * returned as an iovec.*/
 	assert_int_equal(validate_merged_data(MAX_TEST_ENTRIES, data), 0);
 	assert_ptr_not_equal(iter = kv_store_iter_create(kv_store_res), NULL);
+
 	while ((data = kv_store_iter_next(iter, &data_size, &key, &flags))) {
 		assert_int_equal(strcmp(MERGE_KEY, key), 0);
 		assert_int_equal(validate_merged_data(MAX_TEST_ENTRIES, data), 0);

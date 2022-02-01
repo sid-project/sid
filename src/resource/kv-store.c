@@ -27,6 +27,7 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <tkrzw_langc.h>
 
 typedef enum
 {
@@ -34,7 +35,7 @@ typedef enum
 } kv_store_value_int_flags_t;
 
 struct kv_store {
-	struct hash_table *ht;
+	TkrzwDBM *db;
 };
 
 struct kv_store_value {
@@ -51,8 +52,7 @@ struct kv_update_fn_relay {
 };
 
 struct kv_store_iter {
-	struct kv_store * store;
-	struct hash_node *current;
+	TkrzwDBMIter *tkrzw_iter;
 };
 
 static void _set_ptr(void *dest, const void *p)
@@ -367,15 +367,11 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
                          kv_store_update_fn_t      kv_update_fn,
                          void *                    kv_update_fn_arg)
 {
-	struct kv_update_fn_relay relay        = {.kv_update_fn     = kv_update_fn,
-                                           .kv_update_fn_arg = kv_update_fn_arg,
-                                           .ret_code         = -EREMOTEIO};
-	struct kv_store *         kv_store     = sid_resource_get_data(kv_store_res);
-	struct iovec              iov_internal = {.iov_base = value, .iov_len = value_size};
-	struct iovec *            iov;
-	int                       iov_cnt;
-	size_t                    kv_store_value_size;
-	struct kv_store_value *   kv_store_value;
+	struct iovec           iov_internal = {.iov_base = value, .iov_len = value_size};
+	struct iovec *         iov;
+	int                    iov_cnt;
+	size_t                 kv_store_value_size;
+	struct kv_store_value *kv_store_value;
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		iov     = value;
@@ -388,17 +384,12 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
 	if (!(kv_store_value = _create_kv_store_value(iov, iov_cnt, flags, op_flags, &kv_store_value_size)))
 		return NULL;
 
-	if (hash_update(kv_store->ht,
-	                key,
-	                strlen(key) + 1,
-	                (void **) &kv_store_value,
-	                &kv_store_value_size,
-	                (hash_update_fn_t) _hash_update_fn,
-	                &relay))
-		return NULL;
+	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 
-	if (relay.ret_code < 0)
+	/* TODO: implement replacement for hash_update_fn */
+	if (tkrzw_dbm_set(kv_store->db, key, strlen(key) + 1, (char *) kv_store_value, kv_store_value_size, true) == false) {
 		return NULL;
+	}
 
 	return _get_data(kv_store_value);
 }
@@ -407,8 +398,9 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *
 {
 	struct kv_store *      kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_store_value *found;
+	int32_t                data_size;
 
-	if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
+	if (!(found = (struct kv_store_value *) tkrzw_dbm_get(kv_store->db, key, strlen(key) + 1, &data_size)))
 		return NULL;
 
 	if (value_size)
@@ -425,12 +417,13 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store
 	struct kv_store *           kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_store_value *     found;
 	struct kv_store_update_spec update_spec = {.key = key};
+	int32_t                     value_size;
 
 	/*
 	 * FIXME: hash_lookup and hash_remove are two searches inside hash - maybe try to do
 	 *        this in one step (...that requires hash interface extension).
 	 */
-	if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
+	if (!(found = (struct kv_store_value *) tkrzw_dbm_get(kv_store->db, key, strlen(key) + 1, &value_size)))
 		return -ENODATA;
 
 	update_spec.old_data      = _get_data(found);
@@ -443,7 +436,7 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store
 		return -EREMOTEIO;
 
 	_destroy_kv_store_value(found);
-	hash_remove(kv_store->ht, key, strlen(key) + 1);
+	tkrzw_dbm_remove(kv_store->db, key, strlen(key) + 1);
 
 	return 0;
 }
@@ -451,12 +444,16 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store
 kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res)
 {
 	kv_store_iter_t *iter;
+	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+
+	if (kv_store == NULL)
+		return NULL;
 
 	if (!(iter = malloc(sizeof(*iter))))
 		return NULL;
 
-	iter->store   = sid_resource_get_data(kv_store_res);
-	iter->current = NULL;
+	iter->tkrzw_iter = tkrzw_dbm_make_iterator(kv_store->db);
+	tkrzw_dbm_iter_first(iter->tkrzw_iter);
 
 	return iter;
 }
@@ -464,9 +461,13 @@ kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res)
 void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags)
 {
 	struct kv_store_value *value;
+	char *                 value_ptr;
+	char *                 key_ptr;
+	int32_t                key_size, value_size;
 
-	if (!(value = iter->current ? hash_get_data(iter->store->ht, iter->current, NULL) : NULL))
+	if (!tkrzw_dbm_iter_get(iter->tkrzw_iter, &key_ptr, &key_size, &value_ptr, &value_size))
 		return NULL;
+	value = (struct kv_store_value *) value_ptr;
 
 	if (size)
 		*size = value->size;
@@ -485,12 +486,16 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
 {
 	size_t                 iov_size, data_size;
 	struct kv_store_value *value;
+	char *                 value_ptr;
+	char *                 key_ptr;
+	int32_t                key_size, value_size;
 
 	if (!iter || !int_size || !int_data_size || !ext_size || !ext_data_size)
 		return -1;
 
-	if (!(value = iter->current ? hash_get_data(iter->store->ht, iter->current, NULL) : NULL))
+	if (!tkrzw_dbm_iter_get(iter->tkrzw_iter, &key_ptr, &key_size, &value_ptr, &value_size))
 		return -1;
+	value = (struct kv_store_value *) value_ptr;
 
 	if (value->ext_flags & KV_STORE_VALUE_VECTOR) {
 		int           i;
@@ -524,62 +529,88 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
 
 const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 {
-	return iter->current ? hash_get_key(iter->store->ht, iter->current, NULL) : NULL;
+	char *key_ptr;
+	tkrzw_dbm_iter_get(iter->tkrzw_iter, &key_ptr, NULL, NULL, NULL);
+
+	return key_ptr;
 }
 
 void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **return_key, kv_store_value_flags_t *flags)
 {
-	iter->current = iter->current ? hash_get_next(iter->store->ht, iter->current) : hash_get_first(iter->store->ht);
+	void *value;
 
 	if (return_key != NULL)
 		*return_key = kv_store_iter_current_key(iter);
 
-	return kv_store_iter_current(iter, size, flags);
+	value = kv_store_iter_current(iter, size, flags);
+
+	tkrzw_dbm_iter_next(iter->tkrzw_iter);
+
+	return value;
 }
 
 void kv_store_iter_reset(kv_store_iter_t *iter)
 {
-	iter->current = NULL;
+	tkrzw_dbm_iter_first(iter->tkrzw_iter);
 }
 
 void kv_store_iter_destroy(kv_store_iter_t *iter)
 {
+	tkrzw_dbm_iter_free(iter->tkrzw_iter);
+	iter->tkrzw_iter = NULL;
 	free(iter);
 }
 
 size_t kv_store_num_entries(sid_resource_t *kv_store_res)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
-	return hash_get_num_entries(kv_store->ht);
+	return tkrzw_dbm_count(kv_store->db);
 }
 
 size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t *data_size)
 {
-	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
-	return hash_get_size(kv_store->ht, meta_size, data_size);
+	/* TODO: tkrzw doesn't provide these values */
+	if (data_size != NULL)
+		*data_size = tkrzw_get_memory_usage();
+
+	/* TODO properly set meta_size */
+	if (meta_size != NULL)
+		*meta_size = 0;
+
+	return *data_size;
 }
 
 static int _init_kv_store(sid_resource_t *kv_store_res, const void *kickstart_data, void **data)
 {
-	const struct sid_kv_store_resource_params *params = kickstart_data;
-	struct kv_store *                          kv_store;
+	struct kv_store *kv_store;
 
 	if (!(kv_store = mem_zalloc(sizeof(*kv_store)))) {
 		log_error(ID(kv_store_res), "Failed to allocate key-value store structure.");
 		goto out;
 	}
 
-	if (!(kv_store->ht = hash_create(params->hash.initial_size))) {
-		log_error(ID(kv_store_res), "Failed to create hash table for key-value store.");
+	/*
+	 * We may want to supply a file name of sid.tkmb if we want to sync
+	 * to disk.
+	 *
+	 * The extension of the file dictates the type of database, although
+	 * Adding dbm=BabyDBM overrides the file name extension.
+	 *
+	 * The C binding uses the PolyDBM adapter.
+	 */
+	if (!(kv_store->db = tkrzw_dbm_open("", true, "dbm=BabyDBM"))) {
+		log_error(ID(kv_store_res), "Failed to tkrzw_dbm_open().");
 		goto out;
 	}
-
 	*data = kv_store;
 	return 0;
+
 out:
 	if (kv_store) {
-		if (kv_store->ht)
-			hash_destroy(kv_store->ht);
+		if (kv_store->db) {
+			tkrzw_dbm_close(kv_store->db);
+			kv_store->db = NULL;
+		}
 		free(kv_store);
 	}
 	return -1;
@@ -589,8 +620,9 @@ static int _destroy_kv_store(sid_resource_t *kv_store_res)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 
-	hash_iter(kv_store->ht, (hash_iterate_fn) _destroy_kv_store_value);
-	hash_destroy(kv_store->ht);
+	if (kv_store->db == NULL || tkrzw_dbm_close(kv_store->db) == false) {
+		log_error(ID(kv_store_res), "_destroy_kv_store: Failed to tkrzw_dbm_close().");
+	}
 	free(kv_store);
 
 	return 0;
