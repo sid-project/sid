@@ -382,7 +382,7 @@ static sid_ucmd_kv_flags_t kv_flags_sync    = DEFAULT_KV_FLAGS_CORE;
 static char *              core_owner       = OWNER_CORE;
 static uint64_t            null_int         = 0;
 
-static int        _kv_delta(struct kv_store_update_spec *spec);
+static int        _kv_cb_delta(struct kv_store_update_spec *spec);
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
 
 udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
@@ -632,7 +632,7 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 	return 0;
 }
 
-static int _kv_overwrite(struct kv_store_update_spec *spec)
+static int _kv_cb_overwrite(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_iov_old[KV_VALUE_VEC_SINGLE_CNT];
@@ -1151,7 +1151,7 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 	                                    KV_VALUE_VEC_SINGLE_CNT,
 	                                    KV_STORE_VALUE_VECTOR,
 	                                    KV_STORE_VALUE_OP_MERGE,
-	                                    _kv_overwrite,
+	                                    _kv_cb_overwrite,
 	                                    &update_arg)) ||
 	    !value_size)
 		goto out;
@@ -1251,7 +1251,7 @@ const void *sid_ucmd_get_kv(struct module *         mod,
 	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, value_size, flags);
 }
 
-static int _kv_reserve(struct kv_store_update_spec *spec)
+static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_iov_old[KV_VALUE_VEC_SINGLE_CNT];
@@ -1277,7 +1277,7 @@ static int _kv_reserve(struct kv_store_update_spec *spec)
 	return 1;
 }
 
-static int _kv_unreserve(struct kv_store_update_spec *spec)
+static int _kv_cb_unreserve(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_iov_old[KV_VALUE_VEC_SINGLE_CNT];
@@ -1335,7 +1335,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 		flags |= (KV_SYNC | KV_PERSISTENT);
 
 	if (unset && !is_worker) {
-		kv_store_unset_value(ucmd_mod_ctx->kv_store_res, full_key, _kv_unreserve, &update_arg);
+		kv_store_unset_value(ucmd_mod_ctx->kv_store_res, full_key, _kv_cb_unreserve, &update_arg);
 		goto out;
 	} else {
 		KV_VALUE_VEC_HEADER_PREP(iov, ucmd_mod_ctx->gennum, null_int, flags, (char *) owner);
@@ -1345,7 +1345,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 		                        KV_VALUE_VEC_HEADER_CNT,
 		                        KV_STORE_VALUE_VECTOR,
 		                        KV_STORE_VALUE_OP_MERGE,
-		                        _kv_reserve,
+		                        _kv_cb_reserve,
 		                        &update_arg))
 			goto out;
 	}
@@ -1466,7 +1466,7 @@ dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx
 	return result;
 }
 
-static int _kv_write_new_only(struct kv_store_update_spec *spec)
+static int _kv_cb_write_new_only(struct kv_store_update_spec *spec)
 {
 	if (spec->old_data)
 		return 0;
@@ -1511,7 +1511,7 @@ int sid_ucmd_group_create(struct module *         mod,
 	                        KV_VALUE_VEC_HEADER_CNT,
 	                        KV_STORE_VALUE_VECTOR,
 	                        KV_STORE_VALUE_NO_OP,
-	                        _kv_write_new_only,
+	                        _kv_cb_write_new_only,
 	                        &update_arg))
 		goto out;
 
@@ -1581,7 +1581,7 @@ int _handle_current_dev_for_group(struct module *         mod,
 	                       KV_VALUE_VEC_SINGLE_CNT,
 	                       KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 	                       KV_STORE_VALUE_NO_OP,
-	                       _kv_delta,
+	                       _kv_cb_delta,
 	                       &update_arg))
 		r = 0;
 
@@ -1655,8 +1655,8 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
 	                                   .custom  = &rel_spec};
 
-	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_delta wrapper
-	//       to do the "is empty?" check before the actual _kv_delta operation
+	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_cb_delta wrapper
+	//       to do the "is empty?" check before the actual _kv_cb_delta operation
 
 	if (!(cur_full_key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec)))
 		goto out;
@@ -1681,7 +1681,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	                        KV_VALUE_VEC_HEADER_CNT,
 	                        KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 	                        KV_STORE_VALUE_NO_OP,
-	                        _kv_delta,
+	                        _kv_cb_delta,
 	                        &update_arg)) {
 		r = update_arg.ret_code;
 		goto out;
@@ -2562,7 +2562,7 @@ static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs
 	                   abs_delta_iov_cnt,
 	                   KV_STORE_VALUE_VECTOR,
 	                   KV_STORE_VALUE_NO_OP,
-	                   _kv_overwrite,
+	                   _kv_cb_overwrite,
 	                   update_arg);
 
 	_value_vector_mark_sync(abs_delta_iov, 0);
@@ -2578,8 +2578,8 @@ static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs
 		rel_spec->delta->op = op;
 		/*
 		 * WARNING: Be careful here - never call with DELTA_WITH_REL flag otherwise
-		 *          we'd get into infinite loop. Mind that we are using _kv_delta
-		 *          here for the kv_store_set_value BUT we're already inside _kv_delta
+		 *          we'd get into infinite loop. Mind that we are using _kv_cb_delta
+		 *          here for the kv_store_set_value BUT we're already inside _kv_cb_delta
 		 *          here. We just need to store the final and absolute vectors for
 		 *          relatives, nothing else.
 		 */
@@ -2607,7 +2607,7 @@ static int _delta_update(struct kv_store_update_spec *spec, struct kv_delta *abs
 			                   KV_VALUE_VEC_SINGLE_CNT,
 			                   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 			                   KV_STORE_VALUE_NO_OP,
-			                   _kv_delta,
+			                   _kv_cb_delta,
 			                   update_arg);
 
 			_destroy_delta(rel_spec->delta);
@@ -2623,13 +2623,13 @@ fail:
 }
 
 /*
- * The _kv_delta function is a helper responsible for calculating changes
+ * The _kv_cb_delta function is a helper responsible for calculating changes
  * between old and new vector values and then updating the database accordingly.
  * It is supposed to be called as update callback in kv_store_set_value.
  *
  * The sequence of steps taken is this:
  *
- *   1) kv_store_set_value is called with _kv_delta update callback.
+ *   1) kv_store_set_value is called with _kv_cb_delta update callback.
  *
  *   2) kv_store_set_value checks database content and fills in
  *      the 'spec' with old vector (the one already written in database)
@@ -2638,18 +2638,18 @@ fail:
  *      updated depends on combination of defined operation and flags
  *      (described later).
  *
- *   3) kv_store_set_value calls _kv_delta to resolve the update.
+ *   3) kv_store_set_value calls _kv_cb_delta to resolve the update.
  *
- *   4) _kv_delta casts 'arg' to the proper 'struct kv_update_arg'
+ *   4) _kv_cb_delta casts 'arg' to the proper 'struct kv_update_arg'
  *      instance, called 'update_arg' here.
  *
- *   5) _kv_delta casts 'update_arg->custom' to proper
+ *   5) _kv_cb_delta casts 'update_arg->custom' to proper
  *      'struct kv_rel_spec' instance, called 'rel_spec' here.
  *
- *   6) _kv_delta takes the 'spec' arg with old and new value and
+ *   6) _kv_cb_delta takes the 'spec' arg with old and new value and
  *      calculates changes between the two, depending on which
  *      'rel_spec->delta->op' operation is used (this is done
- *      in _delta_step_calculate helper function that _kv_delta
+ *      in _delta_step_calculate helper function that _kv_cb_delta
  *      calls):
  *
  *        - 'KV_OP_SET' overwrites old vector with new vector
@@ -2705,28 +2705,28 @@ fail:
  *          In addition to that, it does the reciprocal updates for each
  *          delta step as defined by step vectors.
  *
- *   7) _kv_delta calculates DELTA ABSOLUTE VECTORS and it stores them
+ *   7) _kv_cb_delta calculates DELTA ABSOLUTE VECTORS and it stores them
  *      in internal 'abs_delta' variable for both DELTA_WITH_DIFF and DELTA_WITH_REL case
- *      (this is done in _delta_step_calculate helper function that _kv_delta calls).
+ *      (this is done in _delta_step_calculate helper function that _kv_cb_delta calls).
  *
- *   8) _kv_delta updates database (this is done in _delta_update helper function that
- *      _kv_delta calls):
+ *   8) _kv_cb_delta updates database (this is done in _delta_update helper function that
+ *      _kv_cb_delta calls):
  *
  *        8_1 delta plus vectors are processed:
  *
  *          8_1_1) absolute delta plus vector is stored in database with
- *                _kv_overwrite database callback (so simply overwriting any existing value)
+ *                _kv_cb_overwrite database callback (so simply overwriting any existing value)
  *
  *          8_1_2) if we want reciprocal updates, then for each item as defined
  *	           by rel_spec->delta->plus vector, we store the reciprocal
- *                 relation in database with _kv_delta database callback (because
+ *                 relation in database with _kv_cb_delta database callback (because
  *                 we need to trigger the the same kind of update just like we
  *                 do for current update.)
  *
  *                 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- *                 WARNING: Here we use _kv_delta inside _kv_delta, so that's a
+ *                 WARNING: Here we use _kv_cb_delta inside _kv_cb_delta, so that's a
  *                          recursive call!!! We have to be very careful here and
- *                          we have to call this internal _kv_delta only with
+ *                          we have to call this internal _kv_cb_delta only with
  *                          DELTA_WITH_DIFF flag, never with DELTA_WITH_REL!!!
  *                          Otherwise, we'd get into infinite loop updating,
  *                          for example:
@@ -2738,7 +2738,7 @@ fail:
  *	      (the same as 8_1, just for the minus vectors instead of plus vectors)
  *
  */
-static int _kv_delta(struct kv_store_update_spec *spec)
+static int _kv_cb_delta(struct kv_store_update_spec *spec)
 {
 	struct kv_rel_spec *rel_spec  = ((struct kv_update_arg *) spec->arg)->custom;
 	struct kv_delta     abs_delta = {0};
@@ -2948,8 +2948,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 	/*
 	 * Handle delta.final vector for this device.
-	 * The delta.final is computed inside _kv_delta out of vec_buf.
-	 * The _kv_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
+	 * The delta.final is computed inside _kv_cb_delta out of vec_buf.
+	 * The _kv_cb_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
 	 */
 	iov = kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                         s,
@@ -2957,7 +2957,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	                         iov_cnt,
 	                         KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 	                         KV_STORE_VALUE_NO_OP,
-	                         _kv_delta,
+	                         _kv_cb_delta,
 	                         &update_arg);
 
 	r = 0;
@@ -3034,8 +3034,8 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 
 	/*
 	 * Handle delta.final vector for this device.
-	 * The delta.final is computed inside _kv_delta out of vec_buf.
-	 * The _kv_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
+	 * The delta.final is computed inside _kv_cb_delta out of vec_buf.
+	 * The _kv_cb_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
 	 */
 	kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
 	                   s,
@@ -3043,7 +3043,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	                   KV_VALUE_VEC_SINGLE_CNT,
 	                   KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 	                   KV_STORE_VALUE_NO_OP,
-	                   _kv_delta,
+	                   _kv_cb_delta,
 	                   &update_arg);
 
 	r = 0;
@@ -3947,7 +3947,7 @@ static int _destroy_command(sid_resource_t *res)
 	return 0;
 }
 
-static int _main_kv_store_unset(struct kv_store_update_spec *spec)
+static int _kv_cb_main_kv_store_unset(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_iov_old[KV_VALUE_VEC_SINGLE_CNT];
@@ -3973,7 +3973,7 @@ static int _main_kv_store_unset(struct kv_store_update_spec *spec)
 	return 1;
 }
 
-static int _main_kv_store_update(struct kv_store_update_spec *spec)
+static int _kv_cb_main_kv_store_update(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct kv_rel_spec *  rel_spec   = update_arg->custom;
@@ -3987,10 +3987,10 @@ static int _main_kv_store_update(struct kv_store_update_spec *spec)
 
 	if (rel_spec->delta->op == KV_OP_SET)
 		/* overwrite whole value */
-		r = (!iov_old || ((KV_VALUE_VEC_SEQNUM(iov_new) >= KV_VALUE_VEC_SEQNUM(iov_old)) && _kv_overwrite(spec)));
+		r = (!iov_old || ((KV_VALUE_VEC_SEQNUM(iov_new) >= KV_VALUE_VEC_SEQNUM(iov_old)) && _kv_cb_overwrite(spec)));
 	else {
 		/* resolve delta */
-		r = _kv_delta(spec);
+		r = _kv_cb_delta(spec);
 		/* resolving delta might have changed new_data so get it afresh for the log_debug below */
 		iov_new = _get_value_vector(spec->new_flags, spec->new_data, spec->new_data_size, tmp_iov_new);
 	}
@@ -4155,7 +4155,7 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 		}
 
 		if (unset)
-			kv_store_unset_value(kv_store_res, full_key, _main_kv_store_unset, &update_arg);
+			kv_store_unset_value(kv_store_res, full_key, _kv_cb_main_kv_store_unset, &update_arg);
 		else
 			kv_store_set_value(kv_store_res,
 			                   full_key,
@@ -4163,7 +4163,7 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 			                   data_size,
 			                   flags,
 			                   KV_STORE_VALUE_NO_OP,
-			                   _main_kv_store_update,
+			                   _kv_cb_main_kv_store_update,
 			                   &update_arg);
 
 		_destroy_delta(rel_spec.delta);
