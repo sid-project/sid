@@ -3301,9 +3301,11 @@ static struct cmd_reg _client_cmd_regs[] = {
                                    CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_SESSION_ID,
                           .exec = _cmd_exec_scan},
 	[SID_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
-	[SID_CMD_DBDUMP]  = {.name = "c-dbdump", .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF, .exec = NULL},
-	[SID_CMD_DBSTATS] = {.name = "c-dbstats", .flags = 0, .exec = _cmd_exec_dbstats},
-	[SID_CMD_RESOURCES] = {.name = "c-resource", .flags = 0, .exec = _cmd_exec_resources},
+	[SID_CMD_DBDUMP]     = {.name  = "c-dbdump",
+                            .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF | CMD_KV_EXPORT_PERSISTENT,
+                            .exec  = NULL},
+	[SID_CMD_DBSTATS]    = {.name = "c-dbstats", .flags = 0, .exec = _cmd_exec_dbstats},
+	[SID_CMD_RESOURCES]  = {.name = "c-resource", .flags = 0, .exec = _cmd_exec_resources},
 };
 
 static struct cmd_reg _self_cmd_regs[] = {
