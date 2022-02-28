@@ -769,6 +769,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	size_t                 size, vvalue_size, key_size, data_offset;
 	kv_store_value_flags_t flags;
 	struct iovec *         vvalue;
+	bool                   to_sync, to_persist;
 	unsigned               i, records = 0;
 	int                    r           = -1;
 	struct sid_buffer *    export_buf  = NULL;
@@ -822,23 +823,27 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			vvalue_size = size;
 			kv_value    = NULL;
 
-			if (cmd_reg->flags & (CMD_KV_EXPORT_SYNC | CMD_KV_EXPORT_PERSISTENT)) {
-				if (!(KV_VALUE_VEC_FLAGS(vvalue) & (KV_SYNC | KV_PERSISTENT)))
-					continue;
+			to_sync    = (cmd_reg->flags & CMD_KV_EXPORT_SYNC) && (KV_VALUE_VEC_FLAGS(vvalue) & KV_SYNC);
+			to_persist = (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) && (KV_VALUE_VEC_FLAGS(vvalue) & KV_PERSISTENT);
 
+			if (!to_sync && !to_persist)
+				continue;
+
+			if (to_sync)
 				KV_VALUE_VEC_FLAGS(vvalue) &= ~KV_SYNC;
-			}
 		} else {
 			vvalue      = NULL;
 			vvalue_size = 0;
 			kv_value    = value;
 
-			if (cmd_reg->flags & (CMD_KV_EXPORT_SYNC | CMD_KV_EXPORT_PERSISTENT)) {
-				if (!(kv_value->flags & (KV_SYNC | KV_PERSISTENT)))
-					continue;
+			to_sync    = (cmd_reg->flags & CMD_KV_EXPORT_SYNC) && (kv_value->flags & KV_SYNC);
+			to_persist = (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) && (kv_value->flags & KV_PERSISTENT);
 
+			if (!to_sync && !to_persist)
+				continue;
+
+			if (to_sync)
 				kv_value->flags &= ~KV_SYNC;
-			}
 		}
 
 		key_size = strlen(key) + 1;
