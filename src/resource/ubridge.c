@@ -1681,6 +1681,19 @@ static int _kv_delta_set(const char *key, struct iovec *vvalue, size_t vsize, st
 
 	// TODO: assign proper return code, including update_arg->ret_code
 
+	/*
+	 * First, we calculate the difference between currently stored (old) vvalue
+	 * and provided (new) vvalue with _kv_cb_delta_step/_delta_step_calc,
+	 * taking into account requested operation (update_arg->delta->op):
+	 *   KV_OP_SET overwrites old vvalue with new vvalue
+	 *   KV_OP_PLUS adds items listed in new vvalue to old vvalue
+	 *   KV_OP_MINUS remove items listed in new vvalue from old vvalue
+	 *
+	 * The result of _delta_step_calc is stored in rel_spec->delta:
+	 *   delta->final contains the final new vvalue to be stored in db snapshot
+	 *   delta->plus contains list of items which have been added to the old vvalue (not stored in db)
+	 *   delta->minus contains list of items which have been remove from the old vvalue (not stored in db)
+	 */
 	if (!kv_store_set_value(update_arg->res,
 	                        key,
 	                        vvalue,
@@ -1691,6 +1704,36 @@ static int _kv_delta_set(const char *key, struct iovec *vvalue, size_t vsize, st
 	                        update_arg))
 		goto out;
 
+	/*
+	 * Next, depending on further requested handling based on rel_spec->delta->flags,
+	 * we calculate absolute delta (_delta_abs_calc) which is a cummulative difference
+	 * with respect to the old vvalue from the very beginning of db snapshot (original vvalue).
+	 *
+	 * The results of _delta_abs_calc are stored in rel_spec->abs_delta:
+	 *  (delta->final unused here)
+	 *  abs_delta->plus contains list of items which have been added to the original vvalue since db snapshot started
+	 *  abs_delta->minus contains list of items which have been added to the original vvalue since db snapshot started
+	 *
+	 * Then:
+	 *   DELTA_WITH_DIFF will cause the abs_delta->plus and abs_delta->minus to be stored in db snapshot
+	 *   DELTA_WITH_REL will cause relation changes to be calculated and stored.
+	 *
+	 *   Note: the relation changes mean that we take each item of delta->plus and delta->minus as key to construct
+	 *   relation records.
+	 *
+	 *   For example, if we change the vvalue for a key 'K':
+	 *      K: old vvalue = {A}
+	 *      K: new vvalue = {B}
+	 *      op = KV_OP_PLUS
+	 *   which results in:
+	 *      delta->final = {A, B}
+	 *      delta->plus  = {B}
+	 *      delta->minus = {}
+	 *   then this will result in this db state in turn for related 'A' and 'B' keys:
+	 *      K: vvalue = {A, B}  ('B' has been added to vvalue under key 'K')
+	 *      A: vvalue = {K}     (already stored in db)
+	 *      B: new vvalue = {K} (newly stored record in db)
+	 */
 	if (rel_spec->delta->flags & (DELTA_WITH_DIFF | DELTA_WITH_REL)) {
 		if (_delta_abs_calc(vvalue, update_arg) < 0)
 			goto out;
@@ -2822,11 +2865,6 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		goto out;
 	}
 
-	/*
-	 * Handle delta.final vector for this device.
-	 * The delta.final is computed inside _kv_cb_delta out of vec_buf.
-	 * The _kv_cb_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
-	 */
 	_kv_delta_set(s, vvalue, vsize, &update_arg);
 
 	r = 0;
