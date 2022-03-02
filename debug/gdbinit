@@ -1,4 +1,5 @@
-set args -f -vvvv
+set prompt \033[91m(gdb) \033[0m
+set args -f -vv
 set detach-on-fork on
 set follow-fork-mode child
 
@@ -15,3 +16,16 @@ Print the string elements of struct iovec.
 
 	Usage: str_vector_dump <vector> <start_index> <end_index>
 end
+
+define print_gdb_env
+	show args
+	show follow-fork-mode
+	show detach-on-fork
+end
+
+alias -a btf = backtrace -full -frame-arguments all
+alias -a ffmc = set follow-fork-mode child
+alias -a ffmp = set follow-fork-mode parent
+alias -a dof0 = set detach-on-fork off
+alias -a dof1 = set detach-on-fork on
+alias -a pge = print_gdb_env
