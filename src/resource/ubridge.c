@@ -3872,8 +3872,8 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 	SID_BUFFER_SIZE_PREFIX_TYPE msg_size;
 	size_t                      key_size, value_size, data_offset, i;
 	char *                      key, *shm = MAP_FAILED, *p, *end;
-	struct kv_value *           value  = NULL;
-	struct iovec *              vvalue = NULL;
+	struct kv_value *           kv_value = NULL;
+	struct iovec *              vvalue   = NULL;
 	const char *                vvalue_str;
 	void *                      value_to_store;
 	struct kv_rel_spec          rel_spec   = {.delta = &((struct kv_delta) {0}), .abs_delta = &((struct kv_delta) {0})};
@@ -3983,13 +3983,13 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 				goto out;
 			}
 
-			value = (struct kv_value *) p;
+			kv_value = (struct kv_value *) p;
 			p += value_size;
 
-			data_offset = _kv_value_ext_data_offset(value);
-			unset = ((value->flags != KV_MOD_RESERVED) && (value_size == (sizeof(struct kv_value) + data_offset)));
+			data_offset = _kv_value_ext_data_offset(kv_value);
+			unset = ((kv_value->flags != KV_MOD_RESERVED) && (value_size == (sizeof(struct kv_value) + data_offset)));
 
-			update_arg.owner    = value->data;
+			update_arg.owner    = kv_value->data;
 			update_arg.res      = kv_store_res;
 			update_arg.ret_code = -EREMOTEIO;
 
@@ -3997,13 +3997,13 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 			          syncing_msg,
 			          key,
 			          unset         ? "NULL"
-			          : data_offset ? value->data + data_offset
-			                        : value->data,
-			          value->seqnum);
+			          : data_offset ? kv_value->data + data_offset
+			                        : kv_value->data,
+			          kv_value->seqnum);
 
 			rel_spec.delta->op = KV_OP_SET;
 
-			value_to_store = value;
+			value_to_store = kv_value;
 		}
 
 		if (unset)
