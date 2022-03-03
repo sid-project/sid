@@ -29,7 +29,7 @@ static void _comms_unix_addr_init(const char *path, size_t path_len, struct sock
 {
 	memset(addr, 0, sizeof(*addr));
 	addr->sun_family = AF_UNIX;
-	memccpy(addr->sun_path, path, path_len, sizeof(addr->sun_path));
+	memcpy(addr->sun_path, path, path_len);
 	*addr_len = offsetof(struct sockaddr_un, sun_path) + path_len;
 }
 
@@ -40,7 +40,7 @@ int sid_comms_unix_create(const char *path, size_t path_len, int type)
 	socklen_t          addr_len;
 	int                r;
 
-	if (!path_len) {
+	if (!path_len || path_len >= sizeof(addr.sun_path)) {
 		r = -EINVAL;
 		goto fail;
 	}
@@ -78,7 +78,7 @@ int sid_comms_unix_init(const char *path, size_t path_len, int type)
 	socklen_t          addr_len;
 	int                r;
 
-	if (!path_len) {
+	if (!path_len || path_len >= sizeof(addr.sun_path)) {
 		r = -EINVAL;
 		goto fail;
 	}
