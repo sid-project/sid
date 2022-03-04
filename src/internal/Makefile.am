@@ -24,7 +24,8 @@ libsidinternal_la_SOURCES = mem.c \
 			    list.c \
 			    util.c \
 			    hash.c \
-			    formatter.c
+			    formatter.c \
+			    bptree.c
 
 internaldir = $(pkgincludedir)/internal
 
@@ -34,7 +35,8 @@ internal_HEADERS = $(top_builddir)/src/include/internal/common.h \
 		   $(top_builddir)/src/include/internal/list.h \
 		   $(top_builddir)/src/include/internal/util.h \
 		   $(top_builddir)/src/include/internal/formatter.h \
-		   $(top_builddir)/src/include/internal/hash.h
+		   $(top_builddir)/src/include/internal/hash.h \
+		   $(top_builddir)/src/include/internal/bptree.h
 
 libsidinternal_la_CFLAGS = $(UUID_CFLAGS)
 
