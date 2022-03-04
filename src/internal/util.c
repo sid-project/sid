@@ -397,8 +397,12 @@ char **util_strv_copy(util_mem_t *mem, const char **strv)
 	copier.s    = ret_strv + _get_strv_header_size(&counter);
 
 	for (p = strv; *p; p++) {
-		if (_copy_token_to_strv(*p, strlen(*p), &copier) < 0)
-			return mem_freen(mem);
+		if (_copy_token_to_strv(*p, strlen(*p), &copier) < 0) {
+			if (_mem_avail(mem))
+				return NULL;
+			else
+				return mem_freen(copier.strv);
+		}
 	}
 
 	return copier.strv;
