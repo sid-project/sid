@@ -136,9 +136,7 @@ static int _create_event_source(sid_resource_t *              res,
 
 	list_add(&res->event_sources, &new_es->list);
 out:
-	if (r < 0)
-		sd_event_source_unref(sd_es);
-	else if (es)
+	if (r == 0 && es)
 		*es = new_es;
 
 	return r;
