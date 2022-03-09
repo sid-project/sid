@@ -3717,7 +3717,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 {
 	const struct sid_msg *msg      = kickstart_data;
 	struct sid_ucmd_ctx * ucmd_ctx = NULL;
-	const struct cmd_reg *cmd_reg;
+	const struct cmd_reg *cmd_reg  = NULL;
 	const char *          worker_id;
 	int                   r;
 
@@ -3767,6 +3767,11 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	ucmd_ctx->req_hdr = *msg->header;
 	cmd_reg           = _get_cmd_reg(ucmd_ctx);
 
+	if (!cmd_reg) {
+		log_error(ID(res), INTERNAL_ERROR "%s: Unknown request category: %d.", __func__, (int) ucmd_ctx->req_cat);
+		goto fail;
+	}
+
 	if (cmd_reg->flags & CMD_KV_IMPORT_UDEV) {
 		/* currently, we only parse udev environment for the SCAN command */
 		if ((r = _parse_cmd_nullstr_udev_env(ucmd_ctx,
@@ -3811,7 +3816,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	return 0;
 fail:
 	if (ucmd_ctx) {
-		if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE && ucmd_ctx->req_env.exp_path)
+		if (cmd_reg && cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE && ucmd_ctx->req_env.exp_path)
 			free((void *) ucmd_ctx->req_env.exp_path);
 		if (ucmd_ctx->ucmd_mod_ctx.gen_buf)
 			sid_buffer_destroy(ucmd_ctx->ucmd_mod_ctx.gen_buf);
