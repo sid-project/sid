@@ -65,7 +65,7 @@ udev_devtype_t util_udev_str_to_udev_devtype(const char *str);
 char *util_str_rstr(const char *haystack, const char *needle);
 char *util_str_combstr(const char *haystack, const char *prefix, const char *needle, const char *suffix, bool ignorecase);
 
-typedef int (*util_str_token_fn_t)(const char *token, size_t len, void *data);
+typedef int (*util_str_token_fn_t)(const char *token, size_t len, bool merge_back, void *data);
 int util_str_iterate_tokens(const char *        str,
                             const char *        delims,
                             const char *        quotes,
