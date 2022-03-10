@@ -8,7 +8,8 @@ check_PROGRAMS = \
 	test_notify \
 	test_kv_store \
 	test_bitmap \
-	test_iface
+	test_iface \
+	test_internal
 
 TESTS = $(check_PROGRAMS)
 test_buffer_SOURCES = test_buffer.c
@@ -35,5 +36,8 @@ test_iface_LDFLAGS = -Wl,--wrap=read -Wl,--wrap=close -Wl,--wrap=getenv \
 	-Wl,--wrap=sid_buffer_write_all -Wl,--wrap=sid_buffer_read \
 	-Wl,--wrap=mmap -Wl,--wrap=munmap
 test_iface_LDADD = $(top_builddir)/src/base/libsidbase.la -lcmocka
+test_internal_SOURCES = test_internal.c
+test_internal_LDADD = $(top_builddir)/src/internal/libsidinternal.la \
+		      $(top_builddir)/src/base/libsidbase.la -lcmocka
 
 endif # HAVE_CMOCKA
