@@ -41,6 +41,8 @@
  *   - changed value type in bptree_record_t from 'int' to generic 'void * data'
  *   - also store data_size in bptree_record_t
  *   - add 'bptree_update' function with 'bptree_update_fn_t' callback
+ *   - copy key on insert and use reference counting so only a single key
+ *     copy is used if key is referenced in leaf and/or internal nodes
  */
 
 #include "internal/bptree.h"
@@ -53,6 +55,11 @@ typedef struct bptree_record {
 	size_t data_size;
 	void * data;
 } bptree_record_t;
+
+typedef struct bptree_key {
+	const char *key;
+	unsigned    ref_count;
+} bptree_key_t;
 
 /*
  * Type representing a node in the B+ tree.
@@ -82,7 +89,7 @@ typedef struct bptree_record {
 
 typedef struct bptree_node {
 	void **             pointers;
-	const char **       keys;
+	bptree_key_t **     bkeys;
 	struct bptree_node *parent;
 	bool                is_leaf;
 	int                 num_keys;
@@ -103,8 +110,8 @@ typedef struct bptree {
 	int            order;
 } bptree_t;
 
-static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left, const char *key, bptree_node_t *right);
-static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, const char *key, void *pointer);
+static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left, bptree_key_t *bkey, bptree_node_t *right);
+static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, bptree_key_t *bkey, void *pointer);
 
 /*
  * Create new tree.
@@ -161,7 +168,7 @@ static bptree_node_t *_find_leaf(bptree_t *bptree, const char *key)
 		i = 0;
 
 		while (i < c->num_keys) {
-			if (strcmp(key, c->keys[i]) >= 0)
+			if (strcmp(key, c->bkeys[i]->key) >= 0)
 				i++;
 			else
 				break;
@@ -176,7 +183,7 @@ static bptree_node_t *_find_leaf(bptree_t *bptree, const char *key)
 /*
  * Looks up and returns the record to which a key refers.
  */
-bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_out)
+bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_out, bptree_key_t **bkey_out)
 {
 	int            i;
 	bptree_node_t *leaf;
@@ -184,6 +191,8 @@ bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_o
 	if (bptree->root == NULL) {
 		if (leaf_out != NULL)
 			*leaf_out = NULL;
+		if (bkey_out != NULL)
+			*bkey_out = NULL;
 		return NULL;
 	}
 
@@ -197,17 +206,22 @@ bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_o
 	 */
 
 	for (i = 0; i < leaf->num_keys; i++) {
-		if (!strcmp(leaf->keys[i], key))
+		if (!strcmp(leaf->bkeys[i]->key, key))
 			break;
 	}
 
 	if (leaf_out != NULL)
 		*leaf_out = leaf;
 
-	if (i == leaf->num_keys)
+	if (i == leaf->num_keys) {
+		if (bkey_out != NULL)
+			*bkey_out = NULL;
 		return NULL;
-	else
+	} else {
+		if (bkey_out != NULL)
+			*bkey_out = leaf->bkeys[i];
 		return (bptree_record_t *) leaf->pointers[i];
+	}
 }
 
 /*
@@ -217,7 +231,7 @@ void *bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size)
 {
 	bptree_record_t *rec;
 
-	if (!(rec = _find(bptree, key, NULL)))
+	if (!(rec = _find(bptree, key, NULL, NULL)))
 		return NULL;
 
 	if (data_size)
@@ -250,6 +264,40 @@ static bptree_record_t *_make_record(void *data, size_t data_size)
 	return rec;
 }
 
+static bptree_key_t *_make_bkey(const char *key)
+{
+	bptree_key_t *bkey;
+
+	if (!(bkey = malloc(sizeof(bptree_key_t))))
+		return NULL;
+
+	if (!(bkey->key = strdup(key))) {
+		free(bkey);
+		return NULL;
+	}
+
+	bkey->ref_count = 0;
+	return bkey;
+}
+
+static bptree_key_t *_ref_bkey(bptree_key_t *bkey)
+{
+	bkey->ref_count++;
+	return bkey;
+}
+
+static bptree_key_t *_unref_bkey(bptree_key_t *bkey)
+{
+	--bkey->ref_count;
+
+	if (bkey->ref_count == 0) {
+		free((void *) bkey->key);
+		free(bkey);
+	}
+
+	return NULL;
+}
+
 /*
  * Creates a new general node, which can be adapted
  * to serve as either a leaf or an internal node.
@@ -261,13 +309,13 @@ static bptree_node_t *_make_node(bptree_t *bptree)
 	if (!(new_node = malloc(sizeof(bptree_node_t))))
 		return NULL;
 
-	if (!(new_node->keys = malloc((bptree->order - 1) * sizeof(char *)))) {
+	if (!(new_node->bkeys = malloc((bptree->order - 1) * sizeof(bptree_key_t *)))) {
 		free(new_node);
 		return NULL;
 	}
 
 	if (!(new_node->pointers = malloc(bptree->order * sizeof(void *)))) {
-		free(new_node->keys);
+		free(new_node->bkeys);
 		free(new_node);
 		return NULL;
 	}
@@ -310,20 +358,20 @@ static int _get_left_index(bptree_node_t *parent, bptree_node_t *left)
  * Inserts a new pointer to a record and its corresponding key into a leaf.
  * Returns the altered leaf.
  */
-static bptree_node_t *_insert_into_leaf(bptree_node_t *leaf, const char *key, bptree_record_t *pointer)
+static bptree_node_t *_insert_into_leaf(bptree_node_t *leaf, bptree_key_t *bkey, bptree_record_t *pointer)
 {
 	int i, insertion_point = 0;
 
-	while (insertion_point < leaf->num_keys && strcmp(leaf->keys[insertion_point], key) < 0) {
+	while (insertion_point < leaf->num_keys && strcmp(leaf->bkeys[insertion_point]->key, bkey->key) < 0) {
 		insertion_point++;
 	}
 
 	for (i = leaf->num_keys; i > insertion_point; i--) {
-		leaf->keys[i]     = leaf->keys[i - 1];
+		leaf->bkeys[i]    = leaf->bkeys[i - 1];
 		leaf->pointers[i] = leaf->pointers[i - 1];
 	}
 
-	leaf->keys[insertion_point]     = key;
+	leaf->bkeys[insertion_point]    = _ref_bkey(bkey);
 	leaf->pointers[insertion_point] = pointer;
 	leaf->num_keys++;
 
@@ -335,37 +383,37 @@ static bptree_node_t *_insert_into_leaf(bptree_node_t *leaf, const char *key, bp
  * exceed the tree's order, causing the leaf to be split in half.
  */
 static bptree_node_t *
-	_insert_into_leaf_after_splitting(bptree_t *bptree, bptree_node_t *leaf, const char *key, bptree_record_t *pointer)
+	_insert_into_leaf_after_splitting(bptree_t *bptree, bptree_node_t *leaf, bptree_key_t *bkey, bptree_record_t *pointer)
 {
 	bptree_node_t *new_leaf;
-	const char **  temp_keys;
+	bptree_key_t **temp_bkeys;
 	void **        temp_pointers;
-	const char *   new_key;
+	bptree_key_t * new_bkey;
 	int            insertion_index, split, i, j;
 
 	if (!(new_leaf = _make_leaf(bptree)))
 		return NULL;
 
 	// FIXME: try to optimize to avoid allocating temporary key and pointer arrays
-	if (!(temp_keys = malloc(bptree->order * sizeof(char *))))
+	if (!(temp_bkeys = malloc(bptree->order * sizeof(bptree_key_t *))))
 		return NULL;
 
 	if (!(temp_pointers = malloc(bptree->order * sizeof(void *))))
 		return NULL;
 
 	insertion_index = 0;
-	while (insertion_index < bptree->order - 1 && strcmp(leaf->keys[insertion_index], key) < 0)
+	while (insertion_index < bptree->order - 1 && strcmp(leaf->bkeys[insertion_index]->key, bkey->key) < 0)
 		insertion_index++;
 
 	for (i = 0, j = 0; i < leaf->num_keys; i++, j++) {
 		if (j == insertion_index)
 			j++;
 
-		temp_keys[j]     = leaf->keys[i];
+		temp_bkeys[j]    = leaf->bkeys[i];
 		temp_pointers[j] = leaf->pointers[i];
 	}
 
-	temp_keys[insertion_index]     = key;
+	temp_bkeys[insertion_index]    = _ref_bkey(bkey);
 	temp_pointers[insertion_index] = pointer;
 
 	leaf->num_keys = 0;
@@ -374,18 +422,18 @@ static bptree_node_t *
 
 	for (i = 0; i < split; i++) {
 		leaf->pointers[i] = temp_pointers[i];
-		leaf->keys[i]     = temp_keys[i];
+		leaf->bkeys[i]    = temp_bkeys[i];
 		leaf->num_keys++;
 	}
 
 	for (i = split, j = 0; i < bptree->order; i++, j++) {
 		new_leaf->pointers[j] = temp_pointers[i];
-		new_leaf->keys[j]     = temp_keys[i];
+		new_leaf->bkeys[j]    = temp_bkeys[i];
 		new_leaf->num_keys++;
 	}
 
 	free(temp_pointers);
-	free(temp_keys);
+	free(temp_bkeys);
 
 	new_leaf->pointers[bptree->order - 1] = leaf->pointers[bptree->order - 1];
 	leaf->pointers[bptree->order - 1]     = new_leaf;
@@ -397,26 +445,27 @@ static bptree_node_t *
 		new_leaf->pointers[i] = NULL;
 
 	new_leaf->parent = leaf->parent;
-	new_key          = new_leaf->keys[0];
+	new_bkey         = new_leaf->bkeys[0];
 
-	return _insert_into_parent(bptree, leaf, new_key, new_leaf);
+	return _insert_into_parent(bptree, leaf, new_bkey, new_leaf);
 }
 
 /*
  * Inserts a new key and pointer to a node into a node into
  * which these can fit without violating the B+ tree properties.
  */
-static bptree_node_t *_insert_into_node(bptree_t *bptree, bptree_node_t *n, int left_index, const char *key, bptree_node_t *right)
+static bptree_node_t *
+	_insert_into_node(bptree_t *bptree, bptree_node_t *n, int left_index, bptree_key_t *bkey, bptree_node_t *right)
 {
 	int i;
 
 	for (i = n->num_keys; i > left_index; i--) {
 		n->pointers[i + 1] = n->pointers[i];
-		n->keys[i]         = n->keys[i - 1];
+		n->bkeys[i]        = n->bkeys[i - 1];
 	}
 
 	n->pointers[left_index + 1] = right;
-	n->keys[left_index]         = key;
+	n->bkeys[left_index]        = _ref_bkey(bkey);
 	n->num_keys++;
 
 	return bptree->root;
@@ -429,14 +478,15 @@ static bptree_node_t *_insert_into_node(bptree_t *bptree, bptree_node_t *n, int 
 static bptree_node_t *_insert_into_node_after_splitting(bptree_t *     bptree,
                                                         bptree_node_t *old_node,
                                                         int            left_index,
-                                                        const char *   key,
+                                                        bptree_key_t * bkey,
                                                         bptree_node_t *right)
 {
 	int             i, j, split;
 	bptree_node_t * new_node, *child;
-	const char *    k_prime;
-	const char **   temp_keys;
+	bptree_key_t *  bk_prime;
+	bptree_key_t ** temp_bkeys;
 	bptree_node_t **temp_pointers;
+	bptree_node_t * n;
 
 	/*
 	 * First create a temporary set of keys and pointers to hold
@@ -451,7 +501,7 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t *     bptree,
 	if (!(temp_pointers = malloc((bptree->order + 1) * sizeof(bptree_node_t *))))
 		return NULL;
 
-	if (!(temp_keys = malloc(bptree->order * sizeof(char *))))
+	if (!(temp_bkeys = malloc(bptree->order * sizeof(bptree_key_t *))))
 		return NULL;
 
 	for (i = 0, j = 0; i < old_node->num_keys + 1; i++, j++) {
@@ -465,11 +515,11 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t *     bptree,
 		if (j == left_index)
 			j++;
 
-		temp_keys[j] = old_node->keys[i];
+		temp_bkeys[j] = old_node->bkeys[i];
 	}
 
 	temp_pointers[left_index + 1] = right;
-	temp_keys[left_index]         = key;
+	temp_bkeys[left_index]        = _ref_bkey(bkey);
 
 	/*
 	 * Create the new node and copy half the keys
@@ -481,23 +531,31 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t *     bptree,
 
 	for (i = 0; i < split - 1; i++) {
 		old_node->pointers[i] = temp_pointers[i];
-		old_node->keys[i]     = temp_keys[i];
+		old_node->bkeys[i]    = temp_bkeys[i];
 		old_node->num_keys++;
 	}
 
 	old_node->pointers[i] = temp_pointers[i];
-	k_prime               = temp_keys[split - 1];
+	bk_prime              = temp_bkeys[split - 1];
+
+	/*
+	 * The bk_prime will be moved up one level in the tree and removed
+	 * from current level after splitting. To avoid dropping the
+	 * ref_count to 0 and hence premature freeing of the whole bk_prime,
+	 * first, we will insert it into parent and then unref it at the end
+	 * of this function.
+	 */
 
 	for (++i, j = 0; i < bptree->order; i++, j++) {
 		new_node->pointers[j] = temp_pointers[i];
-		new_node->keys[j]     = temp_keys[i];
+		new_node->bkeys[j]    = temp_bkeys[i];
 		new_node->num_keys++;
 	}
 
 	new_node->pointers[j] = temp_pointers[i];
 
 	free(temp_pointers);
-	free(temp_keys);
+	free(temp_bkeys);
 
 	new_node->parent = old_node->parent;
 
@@ -512,18 +570,21 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t *     bptree,
 	 * to the right.
 	 */
 
-	return _insert_into_parent(bptree, old_node, k_prime, new_node);
+	n = _insert_into_parent(bptree, old_node, bk_prime, new_node);
+	_unref_bkey(bk_prime);
+
+	return n;
 }
 
 /*
  * Creates a new root for two subtrees and inserts
  * the appropriate key into the new root.
  */
-static bptree_node_t *_insert_into_new_root(bptree_t *bptree, bptree_node_t *left, const char *key, bptree_node_t *right)
+static bptree_node_t *_insert_into_new_root(bptree_t *bptree, bptree_node_t *left, bptree_key_t *bkey, bptree_node_t *right)
 {
 	bptree->root = _make_node(bptree);
 
-	bptree->root->keys[0]     = key;
+	bptree->root->bkeys[0]    = _ref_bkey(bkey);
 	bptree->root->pointers[0] = left;
 	bptree->root->pointers[1] = right;
 	bptree->root->num_keys++;
@@ -539,7 +600,7 @@ static bptree_node_t *_insert_into_new_root(bptree_t *bptree, bptree_node_t *lef
  * Inserts a new node (leaf or internal node) into the B+ tree.
  * Returns the root of the tree after insertion.
  */
-static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left, const char *key, bptree_node_t *right)
+static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left, bptree_key_t *bkey, bptree_node_t *right)
 {
 	int            left_index;
 	bptree_node_t *parent;
@@ -549,7 +610,7 @@ static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left,
 	/* Case: new root. */
 
 	if (parent == NULL)
-		return _insert_into_new_root(bptree, left, key, right);
+		return _insert_into_new_root(bptree, left, bkey, right);
 
 	/* Case: leaf or node. (Remainder of function body.) */
 
@@ -560,17 +621,17 @@ static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left,
 	/* Simple case: the new key fits into the node. */
 
 	if (parent->num_keys < bptree->order - 1)
-		return _insert_into_node(bptree, parent, left_index, key, right);
+		return _insert_into_node(bptree, parent, left_index, bkey, right);
 
 	/* Harder case: split a node in order to preserve the B+ tree properties. */
 
-	return _insert_into_node_after_splitting(bptree, parent, left_index, key, right);
+	return _insert_into_node_after_splitting(bptree, parent, left_index, bkey, right);
 }
 
 /*
  * First insertion: start a new tree.
  */
-bptree_node_t *_create_root(bptree_t *bptree, const char *key, bptree_record_t *pointer)
+bptree_node_t *_create_root(bptree_t *bptree, bptree_key_t *bkey, bptree_record_t *pointer)
 {
 	bptree_node_t *leaf;
 
@@ -578,7 +639,7 @@ bptree_node_t *_create_root(bptree_t *bptree, const char *key, bptree_record_t *
 		return NULL;
 
 	bptree->root                              = leaf;
-	bptree->root->keys[0]                     = key;
+	bptree->root->bkeys[0]                    = _ref_bkey(bkey);
 	bptree->root->pointers[0]                 = pointer;
 	bptree->root->pointers[bptree->order - 1] = NULL;
 	bptree->root->parent                      = NULL;
@@ -596,20 +657,26 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 {
 	bptree_record_t *rec;
 	bptree_node_t *  leaf;
+	bptree_key_t *   bkey;
 
-	if ((rec = _find(bptree, key, NULL))) {
+	if ((rec = _find(bptree, key, NULL, NULL))) {
 		rec->data      = data;
 		rec->data_size = data_size;
 		return 0;
 	}
 
-	if (!(rec = _make_record(data, data_size)))
+	if (!(bkey = _make_bkey(key)))
 		return -1;
+
+	if (!(rec = _make_record(data, data_size))) {
+		free(bkey);
+		return -1;
+	}
 
 	/* Case: the tree does not exist yet. Start a new tree. */
 
 	if (bptree->root == NULL)
-		return _create_root(bptree, key, rec) ? 0 : -1;
+		return _create_root(bptree, bkey, rec) ? 0 : -1;
 
 	/* Case: the tree already exists. (Rest of function body.) */
 
@@ -618,11 +685,11 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	/* Case: leaf has room for key and record pointer. */
 
 	if (leaf->num_keys < bptree->order - 1)
-		return _insert_into_leaf(leaf, key, rec) ? 0 : -1;
+		return _insert_into_leaf(leaf, bkey, rec) ? 0 : -1;
 
 	/* Case: leaf must be split. */
 
-	return _insert_into_leaf_after_splitting(bptree, leaf, key, rec) ? 0 : -1;
+	return _insert_into_leaf_after_splitting(bptree, leaf, bkey, rec) ? 0 : -1;
 }
 
 int bptree_update(bptree_t *         bptree,
@@ -632,7 +699,7 @@ int bptree_update(bptree_t *         bptree,
                   bptree_update_fn_t bptree_update_fn,
                   void *             bptree_update_fn_arg)
 {
-	bptree_record_t *rec = _find(bptree, key, NULL);
+	bptree_record_t *rec = _find(bptree, key, NULL, NULL);
 
 	if (rec) {
 		if (!bptree_update_fn || bptree_update_fn(key, rec->data, rec->data_size, data, data_size, bptree_update_fn_arg)) {
@@ -671,17 +738,20 @@ static int _get_neighbor_index(bptree_node_t *n)
 	return -1;
 }
 
-static bptree_node_t *_remove_entry_from_node(bptree_t *bptree, bptree_node_t *n, const char *key, bptree_node_t *pointer)
+static bptree_node_t *_remove_entry_from_node(bptree_t *bptree, bptree_node_t *n, bptree_key_t *bkey, bptree_node_t *pointer)
 {
 	int i, num_pointers;
 
 	/* Remove the key and shift other keys accordingly. */
+	// TODO: no need to look for the key with strcmp, we already have the shared bkey so compare bkey pointers directly
 	i = 0;
-	while (strcmp(n->keys[i], key))
+	while (strcmp(n->bkeys[i]->key, bkey->key))
 		i++;
 
+	_unref_bkey(bkey);
+
 	for (++i; i < n->num_keys; i++)
-		n->keys[i - 1] = n->keys[i];
+		n->bkeys[i - 1] = n->bkeys[i];
 
 	/*
 	 * Remove the pointer and shift other pointers accordingly.
@@ -739,7 +809,7 @@ static bptree_node_t *_adjust_root(bptree_t *bptree)
 	else
 		new_root = NULL;
 
-	free(bptree->root->keys);
+	free(bptree->root->bkeys);
 	free(bptree->root->pointers);
 	free(bptree->root);
 
@@ -753,7 +823,7 @@ static bptree_node_t *_adjust_root(bptree_t *bptree)
  * exceeding the maximum.
  */
 static bptree_node_t *
-	_coalesce_nodes(bptree_t *bptree, bptree_node_t *n, bptree_node_t *neighbor, int neighbor_index, const char *k_prime)
+	_coalesce_nodes(bptree_t *bptree, bptree_node_t *n, bptree_node_t *neighbor, int neighbor_index, bptree_key_t *bk_prime)
 {
 	int            i, j, neighbor_insertion_index, n_end;
 	bptree_node_t *tmp, *c;
@@ -784,15 +854,15 @@ static bptree_node_t *
 	 */
 
 	if (!n->is_leaf) {
-		/* Append k_prime. */
+		/* Append bk_prime. */
 
-		neighbor->keys[neighbor_insertion_index] = k_prime;
+		neighbor->bkeys[neighbor_insertion_index] = _ref_bkey(bk_prime);
 		neighbor->num_keys++;
 
 		n_end = n->num_keys;
 
 		for (i = neighbor_insertion_index + 1, j = 0; j < n_end; i++, j++) {
-			neighbor->keys[i]     = n->keys[j];
+			neighbor->bkeys[i]    = n->bkeys[j];
 			neighbor->pointers[i] = n->pointers[j];
 			neighbor->num_keys++;
 			n->num_keys--;
@@ -821,7 +891,7 @@ static bptree_node_t *
 
 	else {
 		for (i = neighbor_insertion_index, j = 0; j < n->num_keys; i++, j++) {
-			neighbor->keys[i]     = n->keys[j];
+			neighbor->bkeys[i]    = n->bkeys[j];
 			neighbor->pointers[i] = n->pointers[j];
 			neighbor->num_keys++;
 		}
@@ -829,8 +899,8 @@ static bptree_node_t *
 		neighbor->pointers[bptree->order - 1] = n->pointers[bptree->order - 1];
 	}
 
-	c = _delete_entry(bptree, n->parent, k_prime, n);
-	free(n->keys);
+	c = _delete_entry(bptree, n->parent, bk_prime, n);
+	free(n->bkeys);
 	free(n->pointers);
 	free(n);
 
@@ -847,7 +917,7 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
                                           bptree_node_t *neighbor,
                                           int            neighbor_index,
                                           int            k_prime_index,
-                                          const char *   k_prime)
+                                          bptree_key_t * bk_prime)
 {
 	int            i;
 	bptree_node_t *tmp;
@@ -863,7 +933,7 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
 			n->pointers[n->num_keys + 1] = n->pointers[n->num_keys];
 
 		for (i = n->num_keys; i > 0; i--) {
-			n->keys[i]     = n->keys[i - 1];
+			n->bkeys[i]    = n->bkeys[i - 1];
 			n->pointers[i] = n->pointers[i - 1];
 		}
 
@@ -872,13 +942,13 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
 			tmp                                    = (bptree_node_t *) n->pointers[0];
 			tmp->parent                            = n;
 			neighbor->pointers[neighbor->num_keys] = NULL;
-			n->keys[0]                             = k_prime;
-			n->parent->keys[k_prime_index]         = neighbor->keys[neighbor->num_keys - 1];
+			n->bkeys[0]                            = bk_prime;
+			n->parent->bkeys[k_prime_index]        = _ref_bkey(neighbor->bkeys[neighbor->num_keys - 1]);
 		} else {
 			n->pointers[0]                             = neighbor->pointers[neighbor->num_keys - 1];
 			neighbor->pointers[neighbor->num_keys - 1] = NULL;
-			n->keys[0]                                 = neighbor->keys[neighbor->num_keys - 1];
-			n->parent->keys[k_prime_index]             = n->keys[0];
+			n->bkeys[0]                                = neighbor->bkeys[neighbor->num_keys - 1];
+			n->parent->bkeys[k_prime_index]            = _ref_bkey(n->bkeys[0]);
 		}
 	}
 
@@ -890,19 +960,19 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
 
 	else {
 		if (n->is_leaf) {
-			n->keys[n->num_keys]           = neighbor->keys[0];
-			n->pointers[n->num_keys]       = neighbor->pointers[0];
-			n->parent->keys[k_prime_index] = neighbor->keys[1];
+			n->bkeys[n->num_keys]           = neighbor->bkeys[0];
+			n->pointers[n->num_keys]        = neighbor->pointers[0];
+			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[1]);
 		} else {
-			n->keys[n->num_keys]           = k_prime;
-			n->pointers[n->num_keys + 1]   = neighbor->pointers[0];
-			tmp                            = (bptree_node_t *) n->pointers[n->num_keys + 1];
-			tmp->parent                    = n;
-			n->parent->keys[k_prime_index] = neighbor->keys[0];
+			n->bkeys[n->num_keys]           = bk_prime;
+			n->pointers[n->num_keys + 1]    = neighbor->pointers[0];
+			tmp                             = (bptree_node_t *) n->pointers[n->num_keys + 1];
+			tmp->parent                     = n;
+			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[0]);
 		}
 
 		for (i = 0; i < neighbor->num_keys - 1; i++) {
-			neighbor->keys[i]     = neighbor->keys[i + 1];
+			neighbor->bkeys[i]    = neighbor->bkeys[i + 1];
 			neighbor->pointers[i] = neighbor->pointers[i + 1];
 		}
 
@@ -926,18 +996,18 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
  * Removes the key and pointer from the leaf, and then makes all
  * appropriate changes to preserve the B+ tree properties.
  */
-static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, const char *key, void *pointer)
+static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, bptree_key_t *bkey, void *pointer)
 {
 	int            min_keys;
 	bptree_node_t *neighbor;
 	int            neighbor_index;
 	int            k_prime_index;
-	const char *   k_prime;
+	bptree_key_t * bk_prime;
 	int            capacity;
 
 	/* Remove key and pointer from node. */
 
-	n = _remove_entry_from_node(bptree, n, key, pointer);
+	n = _remove_entry_from_node(bptree, n, bkey, pointer);
 
 	/* Case: deletion from the root. */
 
@@ -976,7 +1046,7 @@ static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, const ch
 
 	neighbor_index = _get_neighbor_index(n);
 	k_prime_index  = neighbor_index == -1 ? 0 : neighbor_index;
-	k_prime        = n->parent->keys[k_prime_index];
+	bk_prime       = n->parent->bkeys[k_prime_index];
 	neighbor       = neighbor_index == -1 ? n->parent->pointers[1] : n->parent->pointers[neighbor_index];
 
 	capacity = n->is_leaf ? bptree->order : bptree->order - 1;
@@ -984,12 +1054,12 @@ static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, const ch
 	/* Coalescence. */
 
 	if (neighbor->num_keys + n->num_keys < capacity)
-		return _coalesce_nodes(bptree, n, neighbor, neighbor_index, k_prime);
+		return _coalesce_nodes(bptree, n, neighbor, neighbor_index, bk_prime);
 
 	/* Redistribution. */
 
 	else
-		return _redistribute_nodes(bptree, n, neighbor, neighbor_index, k_prime_index, k_prime);
+		return _redistribute_nodes(bptree, n, neighbor, neighbor_index, k_prime_index, bk_prime);
 }
 
 /*
@@ -999,14 +1069,15 @@ int bptree_remove(bptree_t *bptree, const char *key)
 {
 	bptree_node_t *  key_leaf = NULL;
 	bptree_record_t *rec      = NULL;
+	bptree_key_t *   bkey     = NULL;
 	int              r        = 0;
 
-	rec = _find(bptree, key, &key_leaf);
+	rec = _find(bptree, key, &key_leaf, &bkey);
 
 	/* CHANGE */
 
 	if (rec != NULL && key_leaf != NULL) {
-		r = _delete_entry(bptree, key_leaf, key, rec) ? 0 : -1;
+		r = _delete_entry(bptree, key_leaf, bkey, rec) ? 0 : -1;
 		free(rec);
 	}
 
@@ -1017,18 +1088,18 @@ static void _destroy_tree_nodes(bptree_node_t *root)
 {
 	int i;
 
-	if (root->is_leaf) {
-		for (i = 0; i < root->num_keys; i++) {
-			free(root->pointers[i]);
-		}
-	} else {
-		for (i = 0; i < root->num_keys + 1; i++) {
-			_destroy_tree_nodes(root->pointers[i]);
-		}
+	for (i = 0; i < root->num_keys; i++) {
+		_unref_bkey(root->bkeys[i]);
+		free(root->pointers[i]);
+	}
+
+	if (!root->is_leaf) {
+		/* one more pointer in non-leaf node */
+		_destroy_tree_nodes(root->pointers[root->num_keys]);
 	}
 
 	free(root->pointers);
-	free(root->keys);
+	free(root->bkeys);
 	free(root);
 }
 
