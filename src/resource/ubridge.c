@@ -4170,7 +4170,7 @@ static sid_resource_t *_get_worker(sid_resource_t *ubridge_res)
 	                                               &sid_resource_type_worker_control,
 	                                               NULL))) {
 		log_error(ID(ubridge_res), INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
-		NULL;
+		return NULL;
 	}
 
 	if (!(worker_proxy_res = worker_control_get_idle_worker(worker_control_res))) {
@@ -4178,7 +4178,7 @@ static sid_resource_t *_get_worker(sid_resource_t *ubridge_res)
 
 		if (!util_uuid_gen_str(&mem)) {
 			log_error(ID(ubridge_res), "Failed to generate UUID for new worker.");
-			NULL;
+			return NULL;
 		}
 
 		if (!(worker_proxy_res = worker_control_get_new_worker(worker_control_res, &((struct worker_params) {.id = uuid}))))
