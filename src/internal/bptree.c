@@ -943,12 +943,14 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
 			tmp->parent                            = n;
 			neighbor->pointers[neighbor->num_keys] = NULL;
 			n->bkeys[0]                            = bk_prime;
-			n->parent->bkeys[k_prime_index]        = _ref_bkey(neighbor->bkeys[neighbor->num_keys - 1]);
+			_unref_bkey(n->parent->bkeys[k_prime_index]);
+			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[neighbor->num_keys - 1]);
 		} else {
 			n->pointers[0]                             = neighbor->pointers[neighbor->num_keys - 1];
 			neighbor->pointers[neighbor->num_keys - 1] = NULL;
 			n->bkeys[0]                                = neighbor->bkeys[neighbor->num_keys - 1];
-			n->parent->bkeys[k_prime_index]            = _ref_bkey(n->bkeys[0]);
+			_unref_bkey(n->parent->bkeys[k_prime_index]);
+			n->parent->bkeys[k_prime_index] = _ref_bkey(n->bkeys[0]);
 		}
 	}
 
@@ -960,14 +962,16 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
 
 	else {
 		if (n->is_leaf) {
-			n->bkeys[n->num_keys]           = neighbor->bkeys[0];
-			n->pointers[n->num_keys]        = neighbor->pointers[0];
+			n->bkeys[n->num_keys]    = neighbor->bkeys[0];
+			n->pointers[n->num_keys] = neighbor->pointers[0];
+			_unref_bkey(n->parent->bkeys[k_prime_index]);
 			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[1]);
 		} else {
-			n->bkeys[n->num_keys]           = bk_prime;
-			n->pointers[n->num_keys + 1]    = neighbor->pointers[0];
-			tmp                             = (bptree_node_t *) n->pointers[n->num_keys + 1];
-			tmp->parent                     = n;
+			n->bkeys[n->num_keys]        = bk_prime;
+			n->pointers[n->num_keys + 1] = neighbor->pointers[0];
+			tmp                          = (bptree_node_t *) n->pointers[n->num_keys + 1];
+			tmp->parent                  = n;
+			_unref_bkey(n->parent->bkeys[k_prime_index]);
 			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[0]);
 		}
 
@@ -1084,28 +1088,32 @@ int bptree_remove(bptree_t *bptree, const char *key)
 	return r;
 }
 
-static void _destroy_tree_nodes(bptree_node_t *root)
+static void _destroy_tree_nodes(bptree_node_t *n)
 {
 	int i;
 
-	for (i = 0; i < root->num_keys; i++) {
-		_unref_bkey(root->bkeys[i]);
-		free(root->pointers[i]);
+	if (n->is_leaf) {
+		for (i = 0; i < n->num_keys; i++) {
+			_unref_bkey(n->bkeys[i]);
+			free(n->pointers[i]);
+		}
+	} else {
+		for (i = 0; i < n->num_keys + 1; i++) {
+			_destroy_tree_nodes(n->pointers[i]);
+			if (i < n->num_keys)
+				_unref_bkey(n->bkeys[i]);
+		}
 	}
 
-	if (!root->is_leaf) {
-		/* one more pointer in non-leaf node */
-		_destroy_tree_nodes(root->pointers[root->num_keys]);
-	}
-
-	free(root->pointers);
-	free(root->bkeys);
-	free(root);
+	free(n->pointers);
+	free(n->bkeys);
+	free(n);
 }
 
 int bptree_destroy(bptree_t *bptree)
 {
-	_destroy_tree_nodes(bptree->root);
+	if (bptree->root)
+		_destroy_tree_nodes(bptree->root);
 	free(bptree);
 	return 0;
 }
