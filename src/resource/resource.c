@@ -146,8 +146,7 @@ static void _destroy_event_source(sid_resource_event_source_t *es)
 {
 	log_debug(es->res->id, "%s event source removed: %s.", _event_source_type_names[es->type], es->name);
 
-	sd_event_source_set_enabled(es->sd_es, SD_EVENT_OFF);
-	sd_event_source_unref(es->sd_es);
+	sd_event_source_disable_unref(es->sd_es);
 	list_del(&es->list);
 	free(es);
 }
@@ -1066,7 +1065,10 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 	(void) service_link_group_notify(res->slg, SERVICE_NOTIFICATION_READY, NULL);
 
 	if ((r = sd_event_loop(res->event_loop.sd_event_loop)) < 0) {
-		log_error_errno(res->id, r, "Event loop failed");
+		if (r == -ECHILD)
+			log_debug(res->id, "Exitting event loop in child");
+		else
+			log_error_errno(res->id, r, "Event loop failed");
 		return r;
 	}
 
