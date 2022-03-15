@@ -669,7 +669,7 @@ void _destroy_channels(struct worker_channel *channels, unsigned channel_count)
 	free(channels);
 }
 
-sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params)
+int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params, sid_resource_t **res_p)
 {
 	struct worker_control * worker_control        = sid_resource_get_data(worker_control_res);
 	struct worker_channel * worker_proxy_channels = NULL, *worker_channels = NULL;
@@ -683,6 +683,8 @@ sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res
 	char                    gen_id[32];
 	char **                 argv, **envp;
 	int                     r = -1;
+
+	*res_p = NULL;
 
 	if (_create_channels(worker_control_res, &worker_proxy_channels, &worker_channels) < 0) {
 		log_error(ID(worker_control_res), "Failed to create worker channels.");
@@ -844,14 +846,14 @@ out:
 			_destroy_channels(worker_channels, worker_control->channel_spec_count);
 	}
 
-	if (signals_blocked && pid) {
-		if (sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
+	if (pid) {
+		if (signals_blocked && sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
 			log_sys_error(ID(res), "sigprocmask", "after forking process");
-	}
 
-	if (pid)
 		/* return worker proxy resource */
-		return res;
+		*res_p = res;
+		return res ? 0 : -1;
+	}
 
 	/* run event loop in worker's top-level resource */
 	if (r == 0)
