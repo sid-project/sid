@@ -43,6 +43,7 @@
  *   - add 'bptree_update' function with 'bptree_update_fn_t' callback
  *   - copy key on insert and use reference counting so only a single key
  *     copy is used if key is referenced in leaf and/or internal nodes
+ *   - add bptree_iter_* iterator interface
  */
 
 #include "internal/bptree.h"
@@ -94,6 +95,14 @@ typedef struct bptree_node {
 	bool                is_leaf;
 	int                 num_keys;
 } bptree_node_t;
+
+typedef struct bptree_iter {
+	bptree_t *     bptree;
+	const char *   key_start;
+	const char *   key_end;
+	bptree_node_t *c;
+	int            i;
+} bptree_iter_t;
 
 /*
  * Type representing whole B+ tree with its global properties.
@@ -1120,4 +1129,103 @@ int bptree_destroy(bptree_t *bptree)
 		_destroy_tree_nodes(bptree->root);
 	free(bptree);
 	return 0;
+}
+
+static bptree_node_t *_get_first_leaf_node(bptree_t *bptree)
+{
+	bptree_node_t *c;
+
+	if (!(c = bptree->root))
+		return NULL;
+
+	while (!c->is_leaf)
+		c = c->pointers[0];
+
+	return c;
+}
+
+bptree_iter_t *bptree_iter_create(bptree_t *bptree, const char *key_start, const char *key_end)
+{
+	bptree_iter_t *iter;
+
+	if (!(iter = malloc(sizeof(bptree_iter_t))))
+		return NULL;
+
+	iter->bptree    = bptree;
+	iter->key_start = key_start;
+	iter->key_end   = key_end;
+	iter->c         = NULL;
+	iter->i         = 0;
+
+	return iter;
+}
+
+void *bptree_iter_current(bptree_iter_t *iter, size_t *data_size, const char **key)
+{
+	bptree_record_t *rec;
+
+	if (iter->c) {
+		rec = iter->c->pointers[iter->i];
+
+		if (data_size)
+			*data_size = rec->data_size;
+		if (key)
+			*key = iter->c->bkeys[iter->i]->key;
+
+		return rec->data;
+	} else {
+		if (data_size)
+			*data_size = 0;
+		if (key)
+			*key = NULL;
+
+		return NULL;
+	}
+}
+
+const char *bptree_iter_current_key(bptree_iter_t *iter)
+{
+	if (iter->c)
+		return iter->c->bkeys[iter->i]->key;
+	else
+		return NULL;
+}
+
+void *bptree_iter_next(bptree_iter_t *iter, size_t *data_size, const char **key)
+{
+	if (iter->c) {
+		if (iter->i == (iter->c->num_keys - 1)) {
+			iter->c = iter->c->pointers[iter->bptree->order - 1];
+			iter->i = 0;
+		} else
+			iter->i++;
+
+		if (iter->key_end && iter->c && strcmp(iter->c->bkeys[iter->i]->key, iter->key_end) > 0) {
+			iter->c = NULL;
+			iter->i = 0;
+		}
+	} else {
+		if (iter->key_start) {
+			if (!_find(iter->bptree, iter->key_start, &iter->c, &iter->i, NULL))
+				return NULL;
+		} else {
+			iter->c = _get_first_leaf_node(iter->bptree);
+			iter->i = 0;
+		}
+	}
+
+	return bptree_iter_current(iter, data_size, key);
+}
+
+void bptree_iter_reset(bptree_iter_t *iter, const char *key_start, const char *key_end)
+{
+	iter->c         = NULL;
+	iter->i         = 0;
+	iter->key_start = key_start;
+	iter->key_end   = key_end;
+}
+
+void bptree_iter_destroy(bptree_iter_t *iter)
+{
+	free(iter);
 }

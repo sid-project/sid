@@ -28,7 +28,8 @@
 extern "C" {
 #endif
 
-typedef struct bptree bptree_t;
+typedef struct bptree      bptree_t;
+typedef struct bptree_iter bptree_iter_t;
 
 /*
  * bptree_update_fn_t callback type to define bptree_update's bptree_update_fn callback function.
@@ -55,6 +56,13 @@ int       bptree_remove(bptree_t *bptree, const char *key);
 void *    bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size);
 int       bptree_height(bptree_t *bptree);
 int       bptree_destroy(bptree_t *bptree);
+
+bptree_iter_t *bptree_iter_create(bptree_t *bptree, const char *key_start, const char *key_end);
+void *         bptree_iter_current(bptree_iter_t *iter, size_t *data_size, const char **key);
+const char *   bptree_iter_current_key(bptree_iter_t *iter);
+void *         bptree_iter_next(bptree_iter_t *iter, size_t *data_size, const char **key);
+void           bptree_iter_reset(bptree_iter_t *iter, const char *key_start, const char *key_end);
+void           bptree_iter_destroy(bptree_iter_t *iter);
 
 #ifdef __cplusplus
 }
