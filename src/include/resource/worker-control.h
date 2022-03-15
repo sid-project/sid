@@ -132,7 +132,7 @@ struct worker_params {
 	};
 };
 
-sid_resource_t *worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params);
+int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params, sid_resource_t **res_p);
 sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_res);
 sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, const char *id);
 

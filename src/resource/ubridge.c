@@ -4158,35 +4158,38 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 	return 0;
 }
 
-static sid_resource_t *_get_worker(sid_resource_t *ubridge_res)
+/* *res_p is set to the worker_proxy resource. If a new worker process is created, when it returns, *res_p will be NULL */
+static int _get_worker(sid_resource_t *ubridge_res, sid_resource_t **res_p)
 {
 	struct ubridge *ubridge = sid_resource_get_data(ubridge_res);
 	char            uuid[UTIL_UUID_STR_SIZE];
 	util_mem_t      mem = {.base = uuid, .size = sizeof(uuid)};
 	sid_resource_t *worker_control_res, *worker_proxy_res;
 
+	*res_p = NULL;
 	if (!(worker_control_res = sid_resource_search(ubridge->internal_res,
 	                                               SID_RESOURCE_SEARCH_IMM_DESC,
 	                                               &sid_resource_type_worker_control,
 	                                               NULL))) {
 		log_error(ID(ubridge_res), INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
-		return NULL;
+		return -1;
 	}
 
-	if (!(worker_proxy_res = worker_control_get_idle_worker(worker_control_res))) {
+	if ((worker_proxy_res = worker_control_get_idle_worker(worker_control_res)))
+		*res_p = worker_proxy_res;
+	else {
 		log_debug(ID(ubridge_res), "Idle worker not found, creating a new one.");
 
 		if (!util_uuid_gen_str(&mem)) {
 			log_error(ID(ubridge_res), "Failed to generate UUID for new worker.");
-			return NULL;
+			return -1;
 		}
 
-		if (!(worker_proxy_res = worker_control_get_new_worker(worker_control_res, &((struct worker_params) {.id = uuid}))))
-			return NULL;
+		if (worker_control_get_new_worker(worker_control_res, &((struct worker_params) {.id = uuid}), res_p) < 0)
+			return -1;
 	}
 
-	/* worker never reaches this point, only worker-proxy does */
-	return worker_proxy_res;
+	return 0;
 }
 
 static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
@@ -4199,8 +4202,12 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 
 	log_debug(ID(ubridge_res), "Received an event.");
 
-	if (!(worker_proxy_res = _get_worker(ubridge_res)))
+	if (_get_worker(ubridge_res, &worker_proxy_res) < 0)
 		return -1;
+
+	/* If this is a worker process, exit the handler */
+	if (!worker_proxy_res)
+		return 0;
 
 	/* optimization here - not sending the whole struct internal_msg, only the first msg_category_t type field */
 	data_spec.data      = &((msg_category_t) {MSG_CATEGORY_CLIENT});
@@ -4230,8 +4237,12 @@ int ubridge_cmd_dbdump(sid_resource_t *ubridge_res, const char *file_path)
 	size_t                  file_path_size;
 	char                    buf[sizeof(struct internal_msg) + PATH_MAX + 1];
 
-	if (!(worker_proxy_res = _get_worker(ubridge_res)))
+	if (_get_worker(ubridge_res, &worker_proxy_res) < 0)
 		return -1;
+
+	/* If this is a worker process, return right away */
+	if (!worker_proxy_res)
+		return 0;
 
 	int_msg         = (struct internal_msg *) buf;
 	int_msg->cat    = MSG_CATEGORY_SELF;
