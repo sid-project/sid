@@ -188,10 +188,10 @@ bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_o
 	int            i;
 	bptree_node_t *leaf;
 
-	if (bptree->root == NULL) {
-		if (leaf_out != NULL)
+	if (!bptree->root) {
+		if (leaf_out)
 			*leaf_out = NULL;
-		if (bkey_out != NULL)
+		if (bkey_out)
 			*bkey_out = NULL;
 		return NULL;
 	}
@@ -210,15 +210,15 @@ bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_o
 			break;
 	}
 
-	if (leaf_out != NULL)
+	if (leaf_out)
 		*leaf_out = leaf;
 
 	if (i == leaf->num_keys) {
-		if (bkey_out != NULL)
+		if (bkey_out)
 			*bkey_out = NULL;
 		return NULL;
 	} else {
-		if (bkey_out != NULL)
+		if (bkey_out)
 			*bkey_out = leaf->bkeys[i];
 		return (bptree_record_t *) leaf->pointers[i];
 	}
@@ -609,7 +609,7 @@ static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left,
 
 	/* Case: new root. */
 
-	if (parent == NULL)
+	if (!parent)
 		return _insert_into_new_root(bptree, left, bkey, right);
 
 	/* Case: leaf or node. (Remainder of function body.) */
@@ -675,7 +675,7 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 
 	/* Case: the tree does not exist yet. Start a new tree. */
 
-	if (bptree->root == NULL)
+	if (!bptree->root)
 		return _create_root(bptree, bkey, rec) ? 0 : -1;
 
 	/* Case: the tree already exists. (Rest of function body.) */
@@ -1080,7 +1080,7 @@ int bptree_remove(bptree_t *bptree, const char *key)
 
 	/* CHANGE */
 
-	if (rec != NULL && key_leaf != NULL) {
+	if (rec && key_leaf) {
 		r = _delete_entry(bptree, key_leaf, bkey, rec) ? 0 : -1;
 		free(rec);
 	}
