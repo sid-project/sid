@@ -65,6 +65,9 @@ struct worker_control {
 	struct worker_init_cb_spec  init_cb_spec;
 	unsigned                    channel_spec_count;
 	struct worker_channel_spec *channel_specs;
+	/* The following members are for initialzing the worker after fork() */
+	char *                 worker_id;
+	struct worker_channel *worker_channels;
 };
 
 struct worker_channel {
@@ -682,7 +685,6 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 	const char *            id;
 	char                    gen_id[32];
 	char **                 argv, **envp;
-	int                     r = -1;
 
 	*res_p = NULL;
 
@@ -729,41 +731,11 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 		worker_proxy_channels = NULL;
 
 		if (worker_control->worker_type == WORKER_TYPE_INTERNAL) {
-			/*
-			 * WORKER_TYPE_INTERNAL
-			 */
+			/* internal workers continue running in sid main function, after the event loop returns */
+			worker_control->worker_id       = params->id ? strdup(params->id) : NULL;
+			worker_control->worker_channels = worker_channels;
 
-			kickstart.type          = WORKER_TYPE_INTERNAL;
-			kickstart.pid           = getpid();
-			kickstart.channels      = worker_channels;
-			kickstart.channel_count = worker_control->channel_spec_count;
-
-			/*
-			 * We are going to destroy the worker_control so hand over the reference
-			 * to channel_specs from worker_control to worker.
-			 *
-			 * We need to do this because worker->channels reference the specs and
-			 * after destroying the worker_control we'd be left with incorrect
-			 * references to already freed specs.
-			 */
-			kickstart.channel_specs       = worker_control->channel_specs;
-			worker_control->channel_specs = NULL;
-
-			if (!(id = params->id)) {
-				(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
-				id = gen_id;
-			}
-
-			res = sid_resource_create(SID_RESOURCE_NO_PARENT,
-			                          &sid_resource_type_worker,
-			                          SID_RESOURCE_NO_FLAGS,
-			                          id,
-			                          &kickstart,
-			                          SID_RESOURCE_PRIO_NORMAL,
-			                          SID_RESOURCE_NO_SERVICE_LINKS);
-
-			if (worker_control->init_cb_spec.cb)
-				(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
+			return 0;
 		} else {
 			/*
 			 * WORKER_TYPE_EXTERNAL
@@ -787,7 +759,7 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 			                                   UTIL_STR_DEFAULT_DELIMS,
 			                                   UTIL_STR_DEFAULT_QUOTES))) {
 				log_error(gen_id, "Failed to convert argument and environment strings to vectors.");
-				goto out;
+				exit(1);
 			}
 
 			if (_setup_channels(NULL,
@@ -795,17 +767,17 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 			                    WORKER_TYPE_EXTERNAL,
 			                    worker_channels,
 			                    worker_control->channel_spec_count) < 0)
-				goto out;
+				exit(1);
 
 			if (worker_control->init_cb_spec.cb)
 				(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
 
 			/* TODO: check we have all unneeded FDs closed before we call exec! */
 
-			if (execve(params->external.exec_file, argv, envp) < 0) {
-				log_sys_error(gen_id, "execve", "");
-				goto out;
-			}
+			execve(params->external.exec_file, argv, envp);
+			/* On success, execve never returns */
+			log_sys_error(gen_id, "execve", "");
+			exit(1);
 		}
 	} else {
 		/*
@@ -835,10 +807,8 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 		                          SID_RESOURCE_PRIO_NORMAL,
 		                          SID_RESOURCE_NO_SERVICE_LINKS);
 	}
-
-	r = 0;
 out:
-	if (r < 0) {
+	if (!res) {
 		if (worker_proxy_channels)
 			_destroy_channels(worker_proxy_channels, worker_control->channel_spec_count);
 
@@ -846,22 +816,59 @@ out:
 			_destroy_channels(worker_channels, worker_control->channel_spec_count);
 	}
 
-	if (pid) {
-		if (signals_blocked && sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
-			log_sys_error(ID(res), "sigprocmask", "after forking process");
+	if (signals_blocked && sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
+		log_sys_error(ID(res), "sigprocmask", "after forking process");
 
-		/* return worker proxy resource */
-		*res_p = res;
-		return res ? 0 : -1;
+	/* return worker proxy resource */
+	*res_p = res;
+	return res ? 0 : -1;
+}
+
+int worker_control_run_worker(sid_resource_t *worker_control_res)
+{
+	struct worker_control * worker_control = sid_resource_get_data(worker_control_res);
+	struct worker_kickstart kickstart;
+	sid_resource_t *        res;
+	const char *            id;
+	char                    gen_id[32];
+	int                     r;
+
+	kickstart.type          = WORKER_TYPE_INTERNAL;
+	kickstart.pid           = getpid();
+	kickstart.channels      = worker_control->worker_channels;
+	kickstart.channel_count = worker_control->channel_spec_count;
+	kickstart.channel_specs = worker_control->channel_specs;
+
+	if (!(id = worker_control->worker_id)) {
+		(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
+		id = gen_id;
 	}
 
-	/* run event loop in worker's top-level resource */
-	if (r == 0)
-		r = sid_resource_run_event_loop(res);
-	if (res)
-		(void) sid_resource_destroy(res);
+	res = sid_resource_create(SID_RESOURCE_NO_PARENT,
+	                          &sid_resource_type_worker,
+	                          SID_RESOURCE_NO_FLAGS,
+	                          id,
+	                          &kickstart,
+	                          SID_RESOURCE_PRIO_NORMAL,
+	                          SID_RESOURCE_NO_SERVICE_LINKS);
+	if (!res) {
+		(void) sid_resource_unref(sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
+		return -1;
+	}
+	/*
+	 * We are going to destroy the worker_control and the worker already
+	 * has a reference to the channels and the channel_specs, .Set them
+	 * to NULL, so they aren't freed when the worker_control is destroyed
+	 */
+	worker_control->worker_channels = NULL;
+	worker_control->channel_specs   = NULL;
 
-	exit(-r);
+	if (worker_control->init_cb_spec.cb)
+		(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
+
+	r = sid_resource_run_event_loop(res);
+	sid_resource_destroy(res);
+	return r;
 }
 
 sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_res)
@@ -1295,6 +1302,9 @@ static int _destroy_worker_control(sid_resource_t *worker_control_res)
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
 
+	if (worker_control->worker_channels)
+		_destroy_channels(worker_control->worker_channels, worker_control->channel_spec_count);
+	free(worker_control->worker_id);
 	free(worker_control->channel_specs);
 	free(worker_control);
 	return 0;

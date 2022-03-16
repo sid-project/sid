@@ -22,6 +22,7 @@
 #include "base/util.h"
 #include "log/log.h"
 #include "resource/resource.h"
+#include "resource/worker-control.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -176,6 +177,20 @@ int main(int argc, char *argv[])
 		goto out;
 
 	r = sid_resource_run_event_loop(sid_res);
+	if (r == -ECHILD) {
+		sid_resource_t *worker_control_res;
+
+		if (!(worker_control_res = sid_resource_search(sid_res,
+		                                               SID_RESOURCE_SEARCH_WIDE_DFS,
+		                                               &sid_resource_type_worker_control,
+		                                               NULL))) {
+			log_error(LOG_PREFIX, INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
+			goto out;
+		}
+		sid_res = NULL;
+		r       = worker_control_run_worker(worker_control_res);
+	}
+
 out:
 	if (sid_res)
 		sid_resource_unref(sid_res);
