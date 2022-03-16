@@ -736,77 +736,71 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 			worker_control->worker_channels = worker_channels;
 
 			return 0;
-		} else {
-			/*
-			 * WORKER_TYPE_EXTERNAL
-			 */
-
-			if (params->id)
-				snprintf(gen_id, sizeof(gen_id), "%s/%s", WORKER_EXT_NAME, params->id);
-			else
-				snprintf(gen_id, sizeof(gen_id), "%s/%d", WORKER_EXT_NAME, getpid());
-
-			if (!(argv = util_str_comb_to_strv(NULL,
-			                                   params->external.exec_file,
-			                                   params->external.args,
-			                                   NULL,
-			                                   UTIL_STR_DEFAULT_DELIMS,
-			                                   UTIL_STR_DEFAULT_QUOTES)) ||
-			    !(envp = util_str_comb_to_strv(NULL,
-			                                   NULL,
-			                                   params->external.env,
-			                                   NULL,
-			                                   UTIL_STR_DEFAULT_DELIMS,
-			                                   UTIL_STR_DEFAULT_QUOTES))) {
-				log_error(gen_id, "Failed to convert argument and environment strings to vectors.");
-				exit(1);
-			}
-
-			if (_setup_channels(NULL,
-			                    gen_id,
-			                    WORKER_TYPE_EXTERNAL,
-			                    worker_channels,
-			                    worker_control->channel_spec_count) < 0)
-				exit(1);
-
-			if (worker_control->init_cb_spec.cb)
-				(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
-
-			/* TODO: check we have all unneeded FDs closed before we call exec! */
-
-			execve(params->external.exec_file, argv, envp);
-			/* On success, execve never returns */
-			log_sys_error(gen_id, "execve", "");
-			exit(1);
 		}
-	} else {
 		/*
-		 * WORKER PROXY HERE
+		 * WORKER_TYPE_EXTERNAL
 		 */
 
-		log_debug(ID(worker_control_res), "Created new worker process with PID %d.", pid);
+		if (params->id)
+			snprintf(gen_id, sizeof(gen_id), "%s/%s", WORKER_EXT_NAME, params->id);
+		else
+			snprintf(gen_id, sizeof(gen_id), "%s/%d", WORKER_EXT_NAME, getpid());
 
-		_destroy_channels(worker_channels, worker_control->channel_spec_count);
-		worker_channels = NULL;
-
-		kickstart.type          = worker_control->worker_type;
-		kickstart.pid           = pid;
-		kickstart.channels      = worker_proxy_channels;
-		kickstart.channel_count = worker_control->channel_spec_count;
-
-		if (!(id = params->id)) {
-			(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
-			id = gen_id;
+		if (!(argv = util_str_comb_to_strv(NULL,
+		                                   params->external.exec_file,
+		                                   params->external.args,
+		                                   NULL,
+		                                   UTIL_STR_DEFAULT_DELIMS,
+		                                   UTIL_STR_DEFAULT_QUOTES)) ||
+		    !(envp = util_str_comb_to_strv(NULL,
+		                                   NULL,
+		                                   params->external.env,
+		                                   NULL,
+		                                   UTIL_STR_DEFAULT_DELIMS,
+		                                   UTIL_STR_DEFAULT_QUOTES))) {
+			log_error(gen_id, "Failed to convert argument and environment strings to vectors.");
+			exit(1);
 		}
 
-		res = sid_resource_create(worker_control_res,
-		                          &sid_resource_type_worker_proxy,
-		                          SID_RESOURCE_DISALLOW_ISOLATION,
-		                          id,
-		                          &kickstart,
-		                          SID_RESOURCE_PRIO_NORMAL,
-		                          SID_RESOURCE_NO_SERVICE_LINKS);
+		if (_setup_channels(NULL, gen_id, WORKER_TYPE_EXTERNAL, worker_channels, worker_control->channel_spec_count) < 0)
+			exit(1);
+
+		if (worker_control->init_cb_spec.cb)
+			(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
+
+		/* TODO: check we have all unneeded FDs closed before we call exec! */
+
+		execve(params->external.exec_file, argv, envp);
+		/* On success, execve never returns */
+		log_sys_error(gen_id, "execve", "");
+		exit(1);
 	}
+	/*
+	 * WORKER PROXY HERE
+	 */
+
+	log_debug(ID(worker_control_res), "Created new worker process with PID %d.", pid);
+
+	_destroy_channels(worker_channels, worker_control->channel_spec_count);
+	worker_channels = NULL;
+
+	kickstart.type          = worker_control->worker_type;
+	kickstart.pid           = pid;
+	kickstart.channels      = worker_proxy_channels;
+	kickstart.channel_count = worker_control->channel_spec_count;
+
+	if (!(id = params->id)) {
+		(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
+		id = gen_id;
+	}
+
+	res = sid_resource_create(worker_control_res,
+	                          &sid_resource_type_worker_proxy,
+	                          SID_RESOURCE_DISALLOW_ISOLATION,
+	                          id,
+	                          &kickstart,
+	                          SID_RESOURCE_PRIO_NORMAL,
+	                          SID_RESOURCE_NO_SERVICE_LINKS);
 out:
 	if (!res) {
 		if (worker_proxy_channels)
