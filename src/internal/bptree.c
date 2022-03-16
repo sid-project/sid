@@ -183,7 +183,7 @@ static bptree_node_t *_find_leaf(bptree_t *bptree, const char *key)
 /*
  * Looks up and returns the record to which a key refers.
  */
-bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_out, bptree_key_t **bkey_out)
+bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_out, int *i_out, bptree_key_t **bkey_out)
 {
 	int            i;
 	bptree_node_t *leaf;
@@ -214,10 +214,14 @@ bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_o
 		*leaf_out = leaf;
 
 	if (i == leaf->num_keys) {
+		if (i_out)
+			*i_out = 0;
 		if (bkey_out)
 			*bkey_out = NULL;
 		return NULL;
 	} else {
+		if (i_out)
+			*i_out = i;
 		if (bkey_out)
 			*bkey_out = leaf->bkeys[i];
 		return (bptree_record_t *) leaf->pointers[i];
@@ -231,7 +235,7 @@ void *bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size)
 {
 	bptree_record_t *rec;
 
-	if (!(rec = _find(bptree, key, NULL, NULL)))
+	if (!(rec = _find(bptree, key, NULL, NULL, NULL)))
 		return NULL;
 
 	if (data_size)
@@ -659,7 +663,7 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	bptree_node_t *  leaf;
 	bptree_key_t *   bkey;
 
-	if ((rec = _find(bptree, key, NULL, NULL))) {
+	if ((rec = _find(bptree, key, NULL, NULL, NULL))) {
 		rec->data      = data;
 		rec->data_size = data_size;
 		return 0;
@@ -699,7 +703,7 @@ int bptree_update(bptree_t *         bptree,
                   bptree_update_fn_t bptree_update_fn,
                   void *             bptree_update_fn_arg)
 {
-	bptree_record_t *rec = _find(bptree, key, NULL, NULL);
+	bptree_record_t *rec = _find(bptree, key, NULL, NULL, NULL);
 
 	if (rec) {
 		if (!bptree_update_fn || bptree_update_fn(key, rec->data, rec->data_size, data, data_size, bptree_update_fn_arg)) {
@@ -1076,7 +1080,7 @@ int bptree_remove(bptree_t *bptree, const char *key)
 	bptree_key_t *   bkey     = NULL;
 	int              r        = 0;
 
-	rec = _find(bptree, key, &key_leaf, &bkey);
+	rec = _find(bptree, key, &key_leaf, NULL, &bkey);
 
 	/* CHANGE */
 
