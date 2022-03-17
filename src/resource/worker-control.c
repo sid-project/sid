@@ -198,11 +198,11 @@ static int _create_channels(sid_resource_t *        worker_control_res,
 	return 0;
 fail:
 	while (i > 0) {
+		i--;
 		if (proxy_chans[i].fd >= 0)
 			close(proxy_chans[i].fd);
 		if (chans[i].fd >= 0)
 			close(chans[i].fd);
-		i--;
 	}
 
 	if (proxy_chans)
