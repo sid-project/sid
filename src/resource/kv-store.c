@@ -463,7 +463,7 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store
 	return 0;
 }
 
-kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res)
+kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res, const char *key_start, const char *key_end)
 {
 	kv_store_iter_t *iter;
 
@@ -552,7 +552,7 @@ void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **retur
 	return kv_store_iter_current(iter, size, flags);
 }
 
-void kv_store_iter_reset(kv_store_iter_t *iter)
+void kv_store_iter_reset(kv_store_iter_t *iter, const char *key_start, const char *key_end)
 {
 	iter->ht.current = NULL;
 }

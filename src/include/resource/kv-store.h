@@ -153,7 +153,7 @@ size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t
 
 typedef struct kv_store_iter kv_store_iter_t;
 
-kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res);
+kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res, const char *key_start, const char *key_end);
 int              kv_store_iter_current_size(kv_store_iter_t *iter,
                                             size_t *         int_size,
                                             size_t *         int_data_size,
@@ -162,7 +162,7 @@ int              kv_store_iter_current_size(kv_store_iter_t *iter,
 const char *     kv_store_iter_current_key(kv_store_iter_t *iter);
 void *           kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags);
 void *           kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **return_key, kv_store_value_flags_t *flags);
-void             kv_store_iter_reset(kv_store_iter_t *iter);
+void             kv_store_iter_reset(kv_store_iter_t *iter, const char *key_start, const char *key_end);
 void             kv_store_iter_destroy(kv_store_iter_t *iter);
 
 #ifdef __cplusplus

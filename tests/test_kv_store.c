@@ -144,7 +144,7 @@ static void test_kvstore_iterate(void **state)
 	                                        &update_arg),
 	                     NULL);
 
-	assert_ptr_not_equal(iter = kv_store_iter_create(kv_store_res), NULL);
+	assert_ptr_not_equal(iter = kv_store_iter_create(kv_store_res, NULL, NULL), NULL);
 	/* validate the contents of the kv store */
 	while ((return_iov = kv_store_iter_next(iter, &data_size, &key, &flags))) {
 		assert_int_equal(strcmp(TEST_KEY, key), 0);
@@ -254,7 +254,7 @@ static void test_kvstore_merge_op(void **state)
 	 * values in merged into continuous memory - it will not be
 	 * returned as an iovec.*/
 	assert_int_equal(validate_merged_data(MAX_TEST_ENTRIES, data), 0);
-	assert_ptr_not_equal(iter = kv_store_iter_create(kv_store_res), NULL);
+	assert_ptr_not_equal(iter = kv_store_iter_create(kv_store_res, NULL, NULL), NULL);
 	while ((data = kv_store_iter_next(iter, &data_size, &key, &flags))) {
 		assert_int_equal(strcmp(MERGE_KEY, key), 0);
 		assert_int_equal(validate_merged_data(MAX_TEST_ENTRIES, data), 0);
