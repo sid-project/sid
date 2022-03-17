@@ -34,7 +34,10 @@ typedef enum
 } kv_store_value_int_flags_t;
 
 struct kv_store {
-	struct hash_table *ht;
+	kv_store_backend_t backend;
+	union {
+		struct hash_table *ht;
+	};
 };
 
 struct kv_store_value {
@@ -51,8 +54,12 @@ struct kv_update_fn_relay {
 };
 
 struct kv_store_iter {
-	struct kv_store * store;
-	struct hash_node *current;
+	struct kv_store *store;
+	union {
+		struct {
+			struct hash_node *current;
+		} ht;
+	};
 };
 
 static void _set_ptr(void *dest, const void *p)
@@ -463,8 +470,8 @@ kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res)
 	if (!(iter = malloc(sizeof(*iter))))
 		return NULL;
 
-	iter->store   = sid_resource_get_data(kv_store_res);
-	iter->current = NULL;
+	iter->store      = sid_resource_get_data(kv_store_res);
+	iter->ht.current = NULL;
 
 	return iter;
 }
@@ -473,7 +480,7 @@ void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_
 {
 	struct kv_store_value *value;
 
-	if (!(value = iter->current ? hash_get_data(iter->store->ht, iter->current, NULL) : NULL))
+	if (!(value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL))
 		return NULL;
 
 	if (size)
@@ -497,7 +504,7 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
 	if (!iter || !int_size || !int_data_size || !ext_size || !ext_data_size)
 		return -1;
 
-	if (!(value = iter->current ? hash_get_data(iter->store->ht, iter->current, NULL) : NULL))
+	if (!(value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL))
 		return -1;
 
 	if (value->ext_flags & KV_STORE_VALUE_VECTOR) {
@@ -532,12 +539,12 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
 
 const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 {
-	return iter->current ? hash_get_key(iter->store->ht, iter->current, NULL) : NULL;
+	return iter->ht.current ? hash_get_key(iter->store->ht, iter->ht.current, NULL) : NULL;
 }
 
 void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **return_key, kv_store_value_flags_t *flags)
 {
-	iter->current = iter->current ? hash_get_next(iter->store->ht, iter->current) : hash_get_first(iter->store->ht);
+	iter->ht.current = iter->ht.current ? hash_get_next(iter->store->ht, iter->ht.current) : hash_get_first(iter->store->ht);
 
 	if (return_key != NULL)
 		*return_key = kv_store_iter_current_key(iter);
@@ -547,7 +554,7 @@ void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **retur
 
 void kv_store_iter_reset(kv_store_iter_t *iter)
 {
-	iter->current = NULL;
+	iter->ht.current = NULL;
 }
 
 void kv_store_iter_destroy(kv_store_iter_t *iter)
