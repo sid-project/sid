@@ -19,6 +19,7 @@
 
 #include "resource/kv-store.h"
 
+#include "internal/bptree.h"
 #include "internal/hash.h"
 #include "internal/mem.h"
 #include "log/log.h"
@@ -37,6 +38,7 @@ struct kv_store {
 	kv_store_backend_t backend;
 	union {
 		struct hash_table *ht;
+		struct bptree *    bpt;
 	};
 };
 
@@ -59,6 +61,9 @@ struct kv_store_iter {
 		struct {
 			struct hash_node *current;
 		} ht;
+		struct {
+			bptree_iter_t *iter;
+		} bpt;
 	};
 };
 
@@ -133,6 +138,13 @@ static void _hash_destroy_kv_store_value(const char *           key __attribute_
                                          uint32_t               key_len __attribute__((unused)),
                                          struct kv_store_value *value,
                                          size_t                 value_size __attribute__((unused)))
+{
+	_destroy_kv_store_value(value);
+}
+
+static void _bptree_destroy_kv_store_value(const char *           key __attribute__((unused)),
+                                           struct kv_store_value *value,
+                                           size_t                 value_size __attribute__((unused)))
 {
 	_destroy_kv_store_value(value);
 }
@@ -280,13 +292,12 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *            i
 	return value;
 }
 
-static int _hash_update_fn(const char *               key,
-                           uint32_t                   key_len,
-                           struct kv_store_value *    old_value,
-                           size_t                     old_value_len,
-                           struct kv_store_value **   new_value,
-                           size_t *                   new_value_len,
-                           struct kv_update_fn_relay *relay)
+static int _update_fn(const char *               key,
+                      struct kv_store_value *    old_value,
+                      size_t                     old_value_len __attribute__((unused)),
+                      struct kv_store_value **   new_value,
+                      size_t *                   new_value_len,
+                      struct kv_update_fn_relay *relay)
 {
 	/*
 	 * Note that:
@@ -373,6 +384,17 @@ static int _hash_update_fn(const char *               key,
 	return r;
 }
 
+static int _hash_update_fn(const char *               key,
+                           uint32_t                   key_len __attribute__((unused)),
+                           struct kv_store_value *    old_value,
+                           size_t                     old_value_len,
+                           struct kv_store_value **   new_value,
+                           size_t *                   new_value_len,
+                           struct kv_update_fn_relay *relay)
+{
+	return _update_fn(key, old_value, old_value_len, new_value, new_value_len, relay);
+}
+
 void *kv_store_set_value(sid_resource_t *          kv_store_res,
                          const char *              key,
                          void *                    value,
@@ -403,14 +425,28 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
 	if (!(kv_store_value = _create_kv_store_value(iov, iov_cnt, flags, op_flags, &kv_store_value_size)))
 		return NULL;
 
-	if (hash_update(kv_store->ht,
-	                key,
-	                strlen(key) + 1,
-	                (void **) &kv_store_value,
-	                &kv_store_value_size,
-	                (hash_update_fn_t) _hash_update_fn,
-	                &relay))
-		return NULL;
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			if (hash_update(kv_store->ht,
+			                key,
+			                strlen(key) + 1,
+			                (void **) &kv_store_value,
+			                &kv_store_value_size,
+			                (hash_update_fn_t) _hash_update_fn,
+			                &relay))
+				return NULL;
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			if (bptree_update(kv_store->bpt,
+			                  key,
+			                  (void **) &kv_store_value,
+			                  &kv_store_value_size,
+			                  (bptree_update_fn_t) _update_fn,
+			                  &relay))
+				return NULL;
+			break;
+	}
 
 	if (relay.ret_code < 0)
 		return NULL;
@@ -423,8 +459,17 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *
 	struct kv_store *      kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_store_value *found;
 
-	if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
-		return NULL;
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
+				return NULL;
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			if (!(found = bptree_lookup(kv_store->bpt, key, NULL)))
+				return NULL;
+			break;
+	}
 
 	if (value_size)
 		*value_size = found->size;
@@ -442,11 +487,20 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store
 	struct kv_store_update_spec update_spec = {.key = key};
 
 	/*
-	 * FIXME: hash_lookup and hash_remove are two searches inside hash - maybe try to do
-	 *        this in one step (...that requires hash interface extension).
+	 * FIXME: lookup and remove are two searches inside backend - maybe try to do
+	 *        this in one step (...that requires backend interface extension).
 	 */
-	if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
-		return -ENODATA;
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
+				return -ENODATA;
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			if (!(found = bptree_lookup(kv_store->bpt, key, NULL)))
+				return -ENODATA;
+			break;
+	}
 
 	update_spec.old_data      = _get_data(found);
 	update_spec.old_data_size = found->size;
@@ -458,7 +512,16 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store
 		return -EREMOTEIO;
 
 	_destroy_kv_store_value(found);
-	hash_remove(kv_store->ht, key, strlen(key) + 1);
+
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			hash_remove(kv_store->ht, key, strlen(key) + 1);
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			bptree_remove(kv_store->bpt, key);
+			break;
+	}
 
 	return 0;
 }
@@ -470,8 +533,21 @@ kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res, const char *
 	if (!(iter = malloc(sizeof(*iter))))
 		return NULL;
 
-	iter->store      = sid_resource_get_data(kv_store_res);
-	iter->ht.current = NULL;
+	iter->store = sid_resource_get_data(kv_store_res);
+
+	switch (iter->store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			// TODO: use key_start and key_end
+			iter->ht.current = NULL;
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			if (!(iter->bpt.iter = bptree_iter_create(iter->store->bpt, key_start, key_end))) {
+				free(iter);
+				iter = NULL;
+			}
+			break;
+	};
 
 	return iter;
 }
@@ -480,8 +556,17 @@ void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_
 {
 	struct kv_store_value *value;
 
-	if (!(value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL))
-		return NULL;
+	switch (iter->store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			if (!(value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL))
+				return NULL;
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			if (!(value = bptree_iter_current(iter->bpt.iter, NULL, NULL)))
+				return NULL;
+			break;
+	}
 
 	if (size)
 		*size = value->size;
@@ -504,8 +589,17 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
 	if (!iter || !int_size || !int_data_size || !ext_size || !ext_data_size)
 		return -1;
 
-	if (!(value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL))
-		return -1;
+	switch (iter->store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			if (!(value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL))
+				return -1;
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			if (!(value = bptree_iter_current(iter->bpt.iter, NULL, NULL)))
+				return -1;
+			break;
+	}
 
 	if (value->ext_flags & KV_STORE_VALUE_VECTOR) {
 		int           i;
@@ -539,12 +633,29 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
 
 const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 {
-	return iter->ht.current ? hash_get_key(iter->store->ht, iter->ht.current, NULL) : NULL;
+	const char *key;
+
+	switch (iter->store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			return iter->ht.current ? hash_get_key(iter->store->ht, iter->ht.current, NULL) : NULL;
+
+		case KV_STORE_BACKEND_BPTREE:
+			return bptree_iter_current(iter->bpt.iter, NULL, &key) ? key : NULL;
+	}
 }
 
 void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **return_key, kv_store_value_flags_t *flags)
 {
-	iter->ht.current = iter->ht.current ? hash_get_next(iter->store->ht, iter->ht.current) : hash_get_first(iter->store->ht);
+	switch (iter->store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			iter->ht.current = iter->ht.current ? hash_get_next(iter->store->ht, iter->ht.current)
+			                                    : hash_get_first(iter->store->ht);
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			bptree_iter_next(iter->bpt.iter, NULL, NULL);
+			break;
+	}
 
 	if (return_key != NULL)
 		*return_key = kv_store_iter_current_key(iter);
@@ -554,24 +665,59 @@ void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **retur
 
 void kv_store_iter_reset(kv_store_iter_t *iter, const char *key_start, const char *key_end)
 {
-	iter->ht.current = NULL;
+	switch (iter->store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			// TODO: use key_start and key_end
+			iter->ht.current = NULL;
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			bptree_iter_reset(iter->bpt.iter, key_start, key_end);
+			break;
+	}
 }
 
 void kv_store_iter_destroy(kv_store_iter_t *iter)
 {
-	free(iter);
+	switch (iter->store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			free(iter);
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			bptree_iter_destroy(iter->bpt.iter);
+			free(iter);
+			break;
+	}
 }
 
 size_t kv_store_num_entries(sid_resource_t *kv_store_res)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
-	return hash_get_num_entries(kv_store->ht);
+
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			return hash_get_num_entries(kv_store->ht);
+
+		case KV_STORE_BACKEND_BPTREE:
+			// TODO: add bptree support
+			return 0;
+	}
 }
 
 size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t *data_size)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
-	return hash_get_size(kv_store->ht, meta_size, data_size);
+
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			return hash_get_size(kv_store->ht, meta_size, data_size);
+
+		case KV_STORE_BACKEND_BPTREE:
+			// TODO: add bptree support
+			*meta_size = *data_size = 0;
+			return 0;
+	}
 }
 
 static int _init_kv_store(sid_resource_t *kv_store_res, const void *kickstart_data, void **data)
@@ -584,19 +730,27 @@ static int _init_kv_store(sid_resource_t *kv_store_res, const void *kickstart_da
 		goto out;
 	}
 
-	if (!(kv_store->ht = hash_create(params->hash.initial_size))) {
-		log_error(ID(kv_store_res), "Failed to create hash table for key-value store.");
-		goto out;
+	kv_store->backend = params->backend;
+
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			if (!(kv_store->ht = hash_create(params->hash.initial_size))) {
+				log_error(ID(kv_store_res), "Failed to create hash table for key-value store.");
+				goto out;
+			}
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			if (!(kv_store->bpt = bptree_create(params->bptree.order))) {
+				log_error(ID(kv_store_res), "Failed to create B+ tree for key-value store.");
+				goto out;
+			}
 	}
 
 	*data = kv_store;
 	return 0;
 out:
-	if (kv_store) {
-		if (kv_store->ht)
-			hash_destroy(kv_store->ht);
-		free(kv_store);
-	}
+	free(kv_store);
 	return -1;
 }
 
@@ -604,10 +758,19 @@ static int _destroy_kv_store(sid_resource_t *kv_store_res)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 
-	hash_iter(kv_store->ht, (hash_iterate_fn_t) _hash_destroy_kv_store_value);
-	hash_destroy(kv_store->ht);
-	free(kv_store);
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			hash_iter(kv_store->ht, (hash_iterate_fn_t) _hash_destroy_kv_store_value);
+			hash_destroy(kv_store->ht);
+			break;
 
+		case KV_STORE_BACKEND_BPTREE:
+			bptree_iter(kv_store->bpt, (bptree_iterate_fn_t) _bptree_destroy_kv_store_value, NULL, NULL);
+			bptree_destroy(kv_store->bpt);
+			break;
+	}
+
+	free(kv_store);
 	return 0;
 }
 

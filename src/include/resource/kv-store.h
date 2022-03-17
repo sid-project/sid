@@ -34,6 +34,7 @@ extern "C" {
 typedef enum
 {
 	KV_STORE_BACKEND_HASH,
+	KV_STORE_BACKEND_BPTREE,
 } kv_store_backend_t;
 
 typedef enum
@@ -54,10 +55,15 @@ struct kv_store_hash_backend_params {
 	size_t initial_size;
 };
 
+struct kv_store_bptree_backend_params {
+	int order;
+};
+
 struct sid_kv_store_resource_params {
 	kv_store_backend_t backend;
 	union {
-		struct kv_store_hash_backend_params hash;
+		struct kv_store_hash_backend_params   hash;
+		struct kv_store_bptree_backend_params bptree;
 	};
 };
 
