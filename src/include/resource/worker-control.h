@@ -69,6 +69,9 @@ struct worker_wire_spec {
 			struct {
 				int fd_redir; /* FD to redirect into a pipe */
 			} pipe;
+			struct {
+				int fd_redir; /* FD to redirect into a socket */
+			} socket;
 		};
 	} ext;
 };
