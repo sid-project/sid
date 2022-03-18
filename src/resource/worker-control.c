@@ -572,14 +572,15 @@ static int
 				goto fail;
 			}
 
-			if (chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
-				if (dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir) < 0) {
+			if (is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.socket.fd_redir >= 0) {
+				if (dup2(chan->fd, chan->spec->wire.ext.socket.fd_redir) < 0) {
 					log_error_errno(id,
 					                errno,
 					                "Failed to redirect FD %d through channel %s : WORKER_WIRE_SOCKET",
 					                chan->spec->wire.ext.pipe.fd_redir,
 					                chan->spec->id);
 				}
+
 				close(chan->fd);
 			}
 			break;
@@ -635,12 +636,18 @@ static int _setup_channels(sid_resource_t *       owner,
 
 	return 0;
 fail:
-	while (i >= 0) {
+	/*
+	 * If _setup_channel failed, it already cleaned up channel buffers for the exact channel
+	 * it was processing. Here, we clean up all the buffers for channels already setup right
+	 * before this failure.
+	 */
+	while (i > 0) {
+		i--;
+
 		if (chans[i].in_buf)
 			sid_buffer_destroy(chans[i].in_buf);
 		if (chans[i].out_buf)
 			sid_buffer_destroy(chans[i].out_buf);
-		i--;
 	}
 
 	return -1;
