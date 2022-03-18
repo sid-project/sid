@@ -35,7 +35,7 @@ extern "C" {
 struct hash_table;
 struct hash_node;
 
-typedef void (*hash_iterate_fn)(void *data);
+typedef void (*hash_iterate_fn_t)(const void *key, uint32_t key_len, void *data, size_t data_len);
 
 struct hash_table *hash_create(unsigned size_hint);
 void               hash_wipe(struct hash_table *t);
@@ -47,7 +47,7 @@ void  hash_remove(struct hash_table *t, const void *key, uint32_t key_len);
 
 unsigned hash_get_num_entries(struct hash_table *t);
 size_t   hash_get_size(struct hash_table *t, size_t *meta_size, size_t *data_size);
-void     hash_iter(struct hash_table *t, hash_iterate_fn f);
+void     hash_iter(struct hash_table *t, hash_iterate_fn_t f);
 
 struct hash_node *hash_get_first(struct hash_table *t);
 struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n);

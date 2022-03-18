@@ -329,7 +329,7 @@ unsigned hash_get_num_entries(struct hash_table *t)
 	return t->num_nodes;
 }
 
-void hash_iter(struct hash_table *t, hash_iterate_fn f)
+void hash_iter(struct hash_table *t, hash_iterate_fn_t f)
 {
 	struct hash_node *c, *n;
 	unsigned          i;
@@ -337,7 +337,7 @@ void hash_iter(struct hash_table *t, hash_iterate_fn f)
 	for (i = 0; i < t->num_slots; i++)
 		for (c = t->slots[i]; c; c = n) {
 			n = c->next;
-			f(c->data);
+			f(c->key, c->key_len, c->data, c->data_len);
 		}
 }
 

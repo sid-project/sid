@@ -122,6 +122,14 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 	free(value);
 }
 
+static void _hash_destroy_kv_store_value(const char *           key __attribute__((unused)),
+                                         uint32_t               key_len __attribute__((unused)),
+                                         struct kv_store_value *value,
+                                         size_t                 value_size __attribute__((unused)))
+{
+	_destroy_kv_store_value(value);
+}
+
 /*
  *                     INPUT                                     OUTPUT (DB RECORD)                         NOTES
  *                       |                                               |
@@ -589,7 +597,7 @@ static int _destroy_kv_store(sid_resource_t *kv_store_res)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 
-	hash_iter(kv_store->ht, (hash_iterate_fn) _destroy_kv_store_value);
+	hash_iter(kv_store->ht, (hash_iterate_fn_t) _hash_destroy_kv_store_value);
 	hash_destroy(kv_store->ht);
 	free(kv_store);
 
