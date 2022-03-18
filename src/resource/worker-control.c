@@ -542,6 +542,7 @@ static int
 					goto fail;
 				}
 				close(chan->fd);
+				chan->fd = -1;
 			}
 
 			break;
@@ -561,6 +562,7 @@ static int
 					goto fail;
 				}
 				close(chan->fd);
+				chan->fd = -1;
 			}
 
 			break;
@@ -582,6 +584,7 @@ static int
 				}
 
 				close(chan->fd);
+				chan->fd = -1;
 			}
 			break;
 	}
@@ -644,10 +647,14 @@ fail:
 	while (i > 0) {
 		i--;
 
-		if (chans[i].in_buf)
+		if (chans[i].in_buf) {
 			sid_buffer_destroy(chans[i].in_buf);
-		if (chans[i].out_buf)
+			chans[i].in_buf = NULL;
+		}
+		if (chans[i].out_buf) {
 			sid_buffer_destroy(chans[i].out_buf);
+			chans[i].out_buf = NULL;
+		}
 	}
 
 	return -1;
@@ -667,7 +674,8 @@ void _destroy_channels(struct worker_channel *channels, unsigned channel_count)
 			case WORKER_WIRE_SOCKET:
 			case WORKER_WIRE_PIPE_TO_WORKER:
 			case WORKER_WIRE_PIPE_TO_PROXY:
-				close(chan->fd);
+				if (chan->fd >= 0)
+					close(chan->fd);
 				break;
 		}
 
