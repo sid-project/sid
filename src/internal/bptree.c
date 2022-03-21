@@ -158,6 +158,15 @@ int bptree_height(bptree_t *bptree)
 	return h;
 }
 
+size_t bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size)
+{
+	// TODO: implement this
+	*meta_size = 0;
+	*data_size = 0;
+
+	return 0;
+}
+
 /*
  * Traces the path from the root to a leaf, searching by key.
  * Returns the leaf containing the given key.

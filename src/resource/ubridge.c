@@ -605,7 +605,7 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 	size_t                 size;
 	kv_store_value_flags_t flags;
 	void *                 value;
-	size_t                 hash_size, int_size, int_data_size, ext_size, ext_data_size;
+	size_t                 meta_size, int_size, int_data_size, ext_size, ext_data_size;
 
 	memset(stats, 0, sizeof(*stats));
 	if (!(iter = kv_store_iter_create(kv_store_res, NULL, NULL))) {
@@ -621,14 +621,14 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 		stats->value_ext_size += ext_size;
 		stats->value_ext_data_size += ext_data_size;
 	}
-	kv_store_get_size(kv_store_res, &hash_size, &int_size);
+	kv_store_get_size(kv_store_res, &meta_size, &int_size);
 	if (stats->value_int_size != int_size)
 		log_error(ID(kv_store_res),
 		          INTERNAL_ERROR "%s: kv-store size mismatch: %" PRIu64 " is not equal to %zu",
 		          __func__,
 		          stats->value_int_size,
 		          int_size);
-	stats->meta_size = hash_size;
+	stats->meta_size = meta_size;
 	kv_store_iter_destroy(iter);
 	return 0;
 }
