@@ -34,16 +34,18 @@
  * (http://www.amittai.com/prose/bpt.c), version 1.16.1:
  *
  *   - edited code to comply with SID's code naming and organization
- *   - added bptree.h interface with bptree_t type to represent whole tree
+ *   - added 'bptree.h' interface with 'bptree_t' type to represent whole tree
  *   - removed 'main' function and all 'printf' calls inside code for more library-based approach
  *   - removed tree printing functionality
- *   - removed range finding functionality (it will be replaced by a different scheme later)
- *   - changed value type in bptree_record_t from 'int' to generic 'void * data'
- *   - also store data_size in bptree_record_t
- *   - add 'bptree_update' function with 'bptree_update_fn_t' callback
+ *   - removed original range finding functionality (replaced with iterator interface)
+ *   - changed value type in 'bptree_record_t' from 'int' to generic 'void * data'
+ *   - also store 'data_size' in 'bptree_record_t'
+ *   - added 'bptree_update' function with 'bptree_update_fn_t' callback
  *   - copy key on insert and use reference counting so only a single key
  *     copy is used if key is referenced in leaf and/or internal nodes
- *   - add bptree_iter_* iterator interface
+ *   - added 'bptree_iter_*' iterator interface
+ *   - track memory usage for both bptree's metadata and data and expose this
+ *     information through 'bptree_get_size'
  */
 
 #include "internal/bptree.h"
