@@ -714,8 +714,7 @@ size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t
 			return hash_get_size(kv_store->ht, meta_size, data_size);
 
 		case KV_STORE_BACKEND_BPTREE:
-			// TODO: add bptree support
-			*meta_size = *data_size = 0;
+			return bptree_get_size(kv_store->bpt, meta_size, data_size);
 			return 0;
 	}
 }
