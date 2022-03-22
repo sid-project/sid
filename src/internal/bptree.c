@@ -117,6 +117,8 @@ typedef struct bptree_iter {
 typedef struct bptree {
 	bptree_node_t *root;
 	int            order;
+	size_t         meta_size;
+	size_t         data_size;
 } bptree_t;
 
 static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left, bptree_key_t *bkey, bptree_node_t *right);
@@ -135,8 +137,10 @@ bptree_t *bptree_create(int order)
 	if (!(bptree = malloc(sizeof(bptree_t))))
 		return NULL;
 
-	bptree->root  = NULL;
-	bptree->order = order;
+	bptree->root      = NULL;
+	bptree->order     = order;
+	bptree->meta_size = sizeof(*bptree);
+	bptree->data_size = 0;
 
 	return bptree;
 }
@@ -160,11 +164,13 @@ int bptree_height(bptree_t *bptree)
 
 size_t bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size)
 {
-	// TODO: implement this
-	*meta_size = 0;
-	*data_size = 0;
+	if (meta_size)
+		*meta_size = bptree->meta_size;
 
-	return 0;
+	if (data_size)
+		*data_size = bptree->data_size;
+
+	return bptree->meta_size + bptree->data_size;
 }
 
 /*
@@ -273,7 +279,7 @@ static int _cut(int length)
 		return length / 2 + 1;
 }
 
-static bptree_record_t *_make_record(void *data, size_t data_size)
+static bptree_record_t *_make_record(bptree_t *bptree, void *data, size_t data_size)
 {
 	bptree_record_t *rec;
 
@@ -283,10 +289,21 @@ static bptree_record_t *_make_record(void *data, size_t data_size)
 	rec->data_size = data_size;
 	rec->data      = data;
 
+	bptree->meta_size += sizeof(*rec);
+	bptree->data_size += data_size;
+
 	return rec;
 }
 
-static bptree_key_t *_make_bkey(const char *key)
+static void _destroy_record(bptree_t *bptree, bptree_record_t *rec)
+{
+	bptree->meta_size -= sizeof(*rec);
+	bptree->data_size -= rec->data_size;
+
+	free(rec);
+}
+
+static bptree_key_t *_make_bkey(bptree_t *bptree, const char *key)
 {
 	bptree_key_t *bkey;
 
@@ -299,7 +316,18 @@ static bptree_key_t *_make_bkey(const char *key)
 	}
 
 	bkey->ref_count = 0;
+
+	bptree->meta_size += (sizeof(*bkey) + strlen(key) + 1);
+
 	return bkey;
+}
+
+static void _destroy_bkey(bptree_t *bptree, bptree_key_t *bkey)
+{
+	bptree->meta_size -= (sizeof(*bkey) + strlen(bkey->key) + 1);
+
+	free((void *) bkey->key);
+	free(bkey);
 }
 
 static bptree_key_t *_ref_bkey(bptree_key_t *bkey)
@@ -308,14 +336,12 @@ static bptree_key_t *_ref_bkey(bptree_key_t *bkey)
 	return bkey;
 }
 
-static bptree_key_t *_unref_bkey(bptree_key_t *bkey)
+static bptree_key_t *_unref_bkey(bptree_t *bptree, bptree_key_t *bkey)
 {
 	--bkey->ref_count;
 
-	if (bkey->ref_count == 0) {
-		free((void *) bkey->key);
-		free(bkey);
-	}
+	if (bkey->ref_count == 0)
+		_destroy_bkey(bptree, bkey);
 
 	return NULL;
 }
@@ -327,16 +353,20 @@ static bptree_key_t *_unref_bkey(bptree_key_t *bkey)
 static bptree_node_t *_make_node(bptree_t *bptree)
 {
 	bptree_node_t *new_node;
+	size_t         pointers_size;
+	size_t         bkeys_size;
 
 	if (!(new_node = malloc(sizeof(bptree_node_t))))
 		return NULL;
 
-	if (!(new_node->bkeys = malloc((bptree->order - 1) * sizeof(bptree_key_t *)))) {
+	bkeys_size = (bptree->order - 1) * sizeof(bptree_key_t *);
+	if (!(new_node->bkeys = malloc(bkeys_size))) {
 		free(new_node);
 		return NULL;
 	}
 
-	if (!(new_node->pointers = malloc(bptree->order * sizeof(void *)))) {
+	pointers_size = bptree->order * sizeof(void *);
+	if (!(new_node->pointers = malloc(pointers_size))) {
 		free(new_node->bkeys);
 		free(new_node);
 		return NULL;
@@ -346,7 +376,18 @@ static bptree_node_t *_make_node(bptree_t *bptree)
 	new_node->num_keys = 0;
 	new_node->parent   = NULL;
 
+	bptree->meta_size += (sizeof(*new_node) + pointers_size + bkeys_size);
+
 	return new_node;
+}
+
+static void _destroy_node(bptree_t *bptree, bptree_node_t *n)
+{
+	bptree->meta_size -= (sizeof(*n) + ((bptree->order - 1) * sizeof(bptree_key_t *)) + (bptree->order * sizeof(void *)));
+
+	free(n->bkeys);
+	free(n->pointers);
+	free(n);
 }
 
 /*
@@ -593,7 +634,7 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t *     bptree,
 	 */
 
 	n = _insert_into_parent(bptree, old_node, bk_prime, new_node);
-	_unref_bkey(bk_prime);
+	_unref_bkey(bptree, bk_prime);
 
 	return n;
 }
@@ -687,11 +728,11 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 		return 0;
 	}
 
-	if (!(bkey = _make_bkey(key)))
+	if (!(bkey = _make_bkey(bptree, key)))
 		return -1;
 
-	if (!(rec = _make_record(data, data_size))) {
-		free(bkey);
+	if (!(rec = _make_record(bptree, data, data_size))) {
+		_destroy_bkey(bptree, bkey);
 		return -1;
 	}
 
@@ -770,7 +811,7 @@ static bptree_node_t *_remove_entry_from_node(bptree_t *bptree, bptree_node_t *n
 	while (strcmp(n->bkeys[i]->key, bkey->key))
 		i++;
 
-	_unref_bkey(bkey);
+	_unref_bkey(bptree, bkey);
 
 	for (++i; i < n->num_keys; i++)
 		n->bkeys[i - 1] = n->bkeys[i];
@@ -831,10 +872,7 @@ static bptree_node_t *_adjust_root(bptree_t *bptree)
 	else
 		new_root = NULL;
 
-	free(bptree->root->bkeys);
-	free(bptree->root->pointers);
-	free(bptree->root);
-
+	_destroy_node(bptree, bptree->root);
 	bptree->root = new_root;
 	return new_root;
 }
@@ -922,10 +960,7 @@ static bptree_node_t *
 	}
 
 	c = _delete_entry(bptree, n->parent, bk_prime, n);
-	free(n->bkeys);
-	free(n->pointers);
-	free(n);
-
+	_destroy_node(bptree, n);
 	return c;
 }
 
@@ -965,13 +1000,13 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
 			tmp->parent                            = n;
 			neighbor->pointers[neighbor->num_keys] = NULL;
 			n->bkeys[0]                            = bk_prime;
-			_unref_bkey(n->parent->bkeys[k_prime_index]);
+			_unref_bkey(bptree, n->parent->bkeys[k_prime_index]);
 			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[neighbor->num_keys - 1]);
 		} else {
 			n->pointers[0]                             = neighbor->pointers[neighbor->num_keys - 1];
 			neighbor->pointers[neighbor->num_keys - 1] = NULL;
 			n->bkeys[0]                                = neighbor->bkeys[neighbor->num_keys - 1];
-			_unref_bkey(n->parent->bkeys[k_prime_index]);
+			_unref_bkey(bptree, n->parent->bkeys[k_prime_index]);
 			n->parent->bkeys[k_prime_index] = _ref_bkey(n->bkeys[0]);
 		}
 	}
@@ -986,14 +1021,14 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
 		if (n->is_leaf) {
 			n->bkeys[n->num_keys]    = neighbor->bkeys[0];
 			n->pointers[n->num_keys] = neighbor->pointers[0];
-			_unref_bkey(n->parent->bkeys[k_prime_index]);
+			_unref_bkey(bptree, n->parent->bkeys[k_prime_index]);
 			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[1]);
 		} else {
 			n->bkeys[n->num_keys]        = bk_prime;
 			n->pointers[n->num_keys + 1] = neighbor->pointers[0];
 			tmp                          = (bptree_node_t *) n->pointers[n->num_keys + 1];
 			tmp->parent                  = n;
-			_unref_bkey(n->parent->bkeys[k_prime_index]);
+			_unref_bkey(bptree, n->parent->bkeys[k_prime_index]);
 			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[0]);
 		}
 
@@ -1104,38 +1139,36 @@ int bptree_remove(bptree_t *bptree, const char *key)
 
 	if (rec && key_leaf) {
 		r = _delete_entry(bptree, key_leaf, bkey, rec) ? 0 : -1;
-		free(rec);
+		_destroy_record(bptree, rec);
 	}
 
 	return r;
 }
 
-static void _destroy_tree_nodes(bptree_node_t *n)
+static void _destroy_tree_nodes(bptree_t *bptree, bptree_node_t *n)
 {
 	int i;
 
 	if (n->is_leaf) {
 		for (i = 0; i < n->num_keys; i++) {
-			_unref_bkey(n->bkeys[i]);
-			free(n->pointers[i]);
+			_unref_bkey(bptree, n->bkeys[i]);
+			_destroy_record(bptree, n->pointers[i]);
 		}
 	} else {
 		for (i = 0; i < n->num_keys + 1; i++) {
-			_destroy_tree_nodes(n->pointers[i]);
+			_destroy_tree_nodes(bptree, n->pointers[i]);
 			if (i < n->num_keys)
-				_unref_bkey(n->bkeys[i]);
+				_unref_bkey(bptree, n->bkeys[i]);
 		}
 	}
 
-	free(n->pointers);
-	free(n->bkeys);
-	free(n);
+	_destroy_node(bptree, n);
 }
 
 int bptree_destroy(bptree_t *bptree)
 {
 	if (bptree->root)
-		_destroy_tree_nodes(bptree->root);
+		_destroy_tree_nodes(bptree, bptree->root);
 	free(bptree);
 	return 0;
 }
