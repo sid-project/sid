@@ -46,6 +46,8 @@
  *   - added 'bptree_iter_*' iterator interface
  *   - track memory usage for both bptree's metadata and data and expose this
  *     information through 'bptree_get_size'
+ *   - track number of record entries and expose this information through
+ *     'bptree_get_num_entries'
  */
 
 #include "internal/bptree.h"
@@ -121,6 +123,7 @@ typedef struct bptree {
 	int            order;
 	size_t         meta_size;
 	size_t         data_size;
+	size_t         num_entries;
 } bptree_t;
 
 static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left, bptree_key_t *bkey, bptree_node_t *right);
@@ -139,10 +142,11 @@ bptree_t *bptree_create(int order)
 	if (!(bptree = malloc(sizeof(bptree_t))))
 		return NULL;
 
-	bptree->root      = NULL;
-	bptree->order     = order;
-	bptree->meta_size = sizeof(*bptree);
-	bptree->data_size = 0;
+	bptree->root        = NULL;
+	bptree->order       = order;
+	bptree->meta_size   = sizeof(*bptree);
+	bptree->data_size   = 0;
+	bptree->num_entries = 0;
 
 	return bptree;
 }
@@ -173,6 +177,11 @@ size_t bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size)
 		*data_size = bptree->data_size;
 
 	return bptree->meta_size + bptree->data_size;
+}
+
+size_t bptree_get_num_entries(bptree_t *bptree)
+{
+	return bptree->num_entries;
 }
 
 /*
@@ -293,6 +302,7 @@ static bptree_record_t *_make_record(bptree_t *bptree, void *data, size_t data_s
 
 	bptree->meta_size += sizeof(*rec);
 	bptree->data_size += data_size;
+	bptree->num_entries++;
 
 	return rec;
 }
@@ -301,6 +311,7 @@ static void _destroy_record(bptree_t *bptree, bptree_record_t *rec)
 {
 	bptree->meta_size -= sizeof(*rec);
 	bptree->data_size -= rec->data_size;
+	bptree->num_entries--;
 
 	free(rec);
 }
