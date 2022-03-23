@@ -700,8 +700,7 @@ size_t kv_store_num_entries(sid_resource_t *kv_store_res)
 			return hash_get_num_entries(kv_store->ht);
 
 		case KV_STORE_BACKEND_BPTREE:
-			// TODO: add bptree support
-			return 0;
+			return bptree_get_num_entries(kv_store->bpt);
 	}
 }
 
