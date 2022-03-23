@@ -725,8 +725,10 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	bptree_key_t *   bkey;
 
 	if ((rec = _find(bptree, key, NULL, NULL, NULL))) {
-		rec->data      = data;
+		rec->data = data;
+		bptree->data_size -= rec->data_size;
 		rec->data_size = data_size;
+		bptree->data_size += rec->data_size;
 		return 0;
 	}
 
@@ -768,8 +770,10 @@ int bptree_update(bptree_t *         bptree,
 
 	if (rec) {
 		if (!bptree_update_fn || bptree_update_fn(key, rec->data, rec->data_size, data, data_size, bptree_update_fn_arg)) {
-			rec->data      = data ? *data : NULL;
+			rec->data = data ? *data : NULL;
+			bptree->data_size -= rec->data_size;
 			rec->data_size = data_size ? *data_size : 0;
+			bptree->data_size += rec->data_size;
 		}
 		return 0;
 	} else {
