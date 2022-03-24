@@ -240,7 +240,7 @@ static int _chan_buf_recv(const struct worker_channel *chan,
 		if (hup)
 			log_error(ID(chan->owner), "Peer closed channel %s prematurely.", chan->spec->id);
 		else
-			log_error(ID(chan->owner), "Error on read part of the channel %s.", chan->spec->id);
+			log_error(ID(chan->owner), "Error detected on channel %s.", chan->spec->id);
 
 		return -EPIPE;
 	}
@@ -350,7 +350,8 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 		return 0;
 
 	if (r < 0) {
-		sid_buffer_reset(chan->in_buf);
+		if (chan->in_buf)
+			sid_buffer_reset(chan->in_buf);
 		return r;
 	}
 
@@ -404,7 +405,8 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 		return 0;
 
 	if (r < 0) {
-		sid_buffer_reset(chan->in_buf);
+		if (chan->in_buf)
+			sid_buffer_reset(chan->in_buf);
 		return r;
 	}
 
