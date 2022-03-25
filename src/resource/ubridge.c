@@ -353,9 +353,10 @@ struct internal_msg {
 #define CMD_KV_EXPORT_SID_TO_EXPBUF  UINT32_C(0x00000010) /* export KV_NS_<!UDEV> records to export buffer */
 #define CMD_KV_EXPORT_SYNC           UINT32_C(0x00000020) /* export only KV records marked with sync flag */
 #define CMD_KV_EXPORT_PERSISTENT     UINT32_C(0x00000040) /* export only KV records marked with persistent flag */
-#define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000080) /* export KV records from export buffer to a file */
-#define CMD_KV_EXPBUF_TO_MAIN        UINT32_C(0x00000100) /* export KV records from export buffer to main process */
-#define CMD_SESSION_ID               UINT32_C(0x00000200) /* generate session ID */
+#define CMD_KV_EXPORT_ALL            UINT32_C(0x00000080) /* export all KV records */
+#define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000100) /* export KV records from export buffer to a file */
+#define CMD_KV_EXPBUF_TO_MAIN        UINT32_C(0x00000200) /* export KV records from export buffer to main process */
+#define CMD_SESSION_ID               UINT32_C(0x00000400) /* generate session ID */
 
 /*
  * Capability flags for 'scan' command phases (phases are represented as subcommands).
@@ -756,6 +757,18 @@ static output_format_t flags_to_format(uint16_t flags)
 	return TABLE; /* default to TABLE on invalid format */
 }
 
+static bool _check_kv_flags_for_buffers_build(const struct cmd_reg *cmd_reg, sid_ucmd_kv_flags_t kv_flags)
+{
+	if (cmd_reg->flags & CMD_KV_EXPORT_ALL)
+		return true;
+
+	if (!((cmd_reg->flags & CMD_KV_EXPORT_SYNC) && (kv_flags & KV_SYNC)) &&
+	    !((cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) && (kv_flags & KV_PERSISTENT)))
+		return false;
+
+	return true;
+}
+
 static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *cmd_reg)
 {
 	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
@@ -769,7 +782,6 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	size_t                 size, vvalue_size, key_size, data_offset;
 	kv_store_value_flags_t flags;
 	struct iovec *         vvalue;
-	bool                   to_sync, to_persist;
 	unsigned               i, records = 0;
 	int                    r           = -1;
 	struct sid_buffer *    export_buf  = NULL;
@@ -823,27 +835,19 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			vvalue_size = size;
 			kv_value    = NULL;
 
-			to_sync    = (cmd_reg->flags & CMD_KV_EXPORT_SYNC) && (KV_VALUE_VEC_FLAGS(vvalue) & KV_SYNC);
-			to_persist = (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) && (KV_VALUE_VEC_FLAGS(vvalue) & KV_PERSISTENT);
-
-			if (!to_sync && !to_persist)
+			if (!_check_kv_flags_for_buffers_build(cmd_reg, KV_VALUE_VEC_FLAGS(vvalue)))
 				continue;
 
-			if (to_sync)
-				KV_VALUE_VEC_FLAGS(vvalue) &= ~KV_SYNC;
+			KV_VALUE_VEC_FLAGS(vvalue) &= ~KV_SYNC;
 		} else {
 			vvalue      = NULL;
 			vvalue_size = 0;
 			kv_value    = value;
 
-			to_sync    = (cmd_reg->flags & CMD_KV_EXPORT_SYNC) && (kv_value->flags & KV_SYNC);
-			to_persist = (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) && (kv_value->flags & KV_PERSISTENT);
-
-			if (!to_sync && !to_persist)
+			if (!_check_kv_flags_for_buffers_build(cmd_reg, kv_value->flags))
 				continue;
 
-			if (to_sync)
-				kv_value->flags &= ~KV_SYNC;
+			kv_value->flags &= ~KV_SYNC;
 		}
 
 		key_size = strlen(key) + 1;
@@ -3340,7 +3344,7 @@ static struct cmd_reg _client_cmd_regs[] = {
                           .exec = _cmd_exec_scan},
 	[SID_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
 	[SID_CMD_DBDUMP]     = {.name  = "c-dbdump",
-                            .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF | CMD_KV_EXPORT_PERSISTENT,
+                            .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF | CMD_KV_EXPORT_ALL,
                             .exec  = NULL},
 	[SID_CMD_DBSTATS]    = {.name = "c-dbstats", .flags = 0, .exec = _cmd_exec_dbstats},
 	[SID_CMD_RESOURCES]  = {.name = "c-resource", .flags = 0, .exec = _cmd_exec_resources},
