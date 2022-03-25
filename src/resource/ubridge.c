@@ -355,7 +355,7 @@ struct internal_msg {
 #define CMD_KV_EXPORT_PERSISTENT     UINT32_C(0x00000040) /* export only KV records marked with persistent flag */
 #define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000080) /* export KV records from export buffer to a file */
 #define CMD_KV_EXPBUF_TO_MAIN        UINT32_C(0x00000100) /* export KV records from export buffer to main process */
-#define CMD_SESSION_ID               UINT32_C(0x00000100) /* generate session ID */
+#define CMD_SESSION_ID               UINT32_C(0x00000200) /* generate session ID */
 
 /*
  * Capability flags for 'scan' command phases (phases are represented as subcommands).
