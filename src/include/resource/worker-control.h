@@ -67,10 +67,10 @@ struct worker_wire_spec {
 		bool used;
 		union {
 			struct {
-				int fd_redir; /* FD to redirect into a pipe */
+				int fd_redir; /* FD to redirect into/from a pipe (depending on pipe direction) on worker side */
 			} pipe;
 			struct {
-				int fd_redir; /* FD to redirect into a socket */
+				int fd_redir; /* FD to redirect into a socket on worker side */
 			} socket;
 		};
 	} ext;
