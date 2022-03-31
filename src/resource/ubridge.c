@@ -3501,7 +3501,7 @@ static int _reply_failure(sid_resource_t *conn_res)
 
 	(void) sid_buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 	prot = msg.header->prot;
-	(void) sid_buffer_rewind(conn->buf, SID_BUFFER_SIZE_PREFIX_LEN, SID_BUFFER_POS_ABS);
+	(void) sid_buffer_rewind(conn->buf, 0, SID_BUFFER_POS_ABS);
 	if (prot <= SID_PROTOCOL) {
 		response_header.prot = prot;
 		if (sid_buffer_add(conn->buf, &response_header, sizeof(response_header), &r))
