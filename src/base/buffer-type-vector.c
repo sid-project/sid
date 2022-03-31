@@ -224,6 +224,16 @@ static const void *_buffer_vector_fmt_add(struct sid_buffer *buf, int *ret_code,
 	return NULL;
 }
 
+static size_t _buffer_vector_count(struct sid_buffer *buf)
+{
+	switch (buf->stat.spec.mode) {
+		case SID_BUFFER_MODE_PLAIN:
+			return buf->stat.usage.used;
+		case SID_BUFFER_MODE_SIZE_PREFIX:
+			return buf->stat.usage.used ? buf->stat.usage.used - 1 : 0;
+	}
+}
+
 static int _buffer_vector_rewind(struct sid_buffer *buf, size_t pos)
 {
 	size_t min_pos = (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) ? 1 : 0;
@@ -398,5 +408,6 @@ const struct sid_buffer_type sid_buffer_type_vector = {.create      = _buffer_ve
                                                        .is_complete = _buffer_vector_is_complete,
                                                        .get_data    = _buffer_vector_get_data,
                                                        .get_fd      = _buffer_vector_get_fd,
+                                                       .count       = _buffer_vector_count,
                                                        .read        = _buffer_vector_read,
                                                        .write       = _buffer_vector_write};

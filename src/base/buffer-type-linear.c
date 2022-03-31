@@ -212,6 +212,16 @@ out:
 	return start;
 }
 
+static size_t _buffer_linear_count(struct sid_buffer *buf)
+{
+	switch (buf->stat.spec.mode) {
+		case SID_BUFFER_MODE_PLAIN:
+			return buf->stat.usage.used;
+		case SID_BUFFER_MODE_SIZE_PREFIX:
+			return buf->stat.usage.used ? buf->stat.usage.used - SID_BUFFER_SIZE_PREFIX_LEN : 0;
+	}
+}
+
 static int _buffer_linear_rewind(struct sid_buffer *buf, size_t pos)
 {
 	size_t min_pos = (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) ? SID_BUFFER_SIZE_PREFIX_LEN : 0;
@@ -412,5 +422,6 @@ const struct sid_buffer_type sid_buffer_type_linear = {.create      = _buffer_li
                                                        .is_complete = _buffer_linear_is_complete,
                                                        .get_data    = _buffer_linear_get_data,
                                                        .get_fd      = _buffer_linear_get_fd,
+                                                       .count       = _buffer_linear_count,
                                                        .read        = _buffer_linear_read,
                                                        .write       = _buffer_linear_write};

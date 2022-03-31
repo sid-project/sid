@@ -169,6 +169,11 @@ ssize_t sid_buffer_write(struct sid_buffer *buf, int fd, size_t pos)
 	return _buffer_type_registry[buf->stat.spec.type]->write(buf, fd, pos);
 }
 
+size_t sid_buffer_count(struct sid_buffer *buf)
+{
+	return _buffer_type_registry[buf->stat.spec.type]->count(buf);
+}
+
 struct sid_buffer_stat sid_buffer_stat(struct sid_buffer *buf)
 {
 	return buf->stat;
