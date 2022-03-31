@@ -236,13 +236,8 @@ static size_t _buffer_vector_count(struct sid_buffer *buf)
 
 static int _buffer_vector_rewind(struct sid_buffer *buf, size_t pos)
 {
-	size_t min_pos = (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) ? 1 : 0;
-
-	if (!buf->stat.usage.used && pos == min_pos)
-		return 0;
-
-	if (pos > buf->stat.usage.used || pos < min_pos)
-		return -EINVAL;
+	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+		pos += 1;
 
 	buf->stat.usage.used = pos;
 	return 0;

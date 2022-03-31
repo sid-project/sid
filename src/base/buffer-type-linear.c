@@ -224,13 +224,8 @@ static size_t _buffer_linear_count(struct sid_buffer *buf)
 
 static int _buffer_linear_rewind(struct sid_buffer *buf, size_t pos)
 {
-	size_t min_pos = (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) ? SID_BUFFER_SIZE_PREFIX_LEN : 0;
-
-	if (!buf->stat.usage.used && pos == min_pos)
-		return 0;
-
-	if (pos > buf->stat.usage.used || pos < min_pos)
-		return -EINVAL;
+	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+		pos += SID_BUFFER_SIZE_PREFIX_LEN;
 
 	buf->stat.usage.used = pos;
 	return 0;

@@ -124,14 +124,16 @@ const void *sid_buffer_vfmt_add(struct sid_buffer *buf, int *ret_code, const cha
 
 int sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence)
 {
-	if (whence == SID_BUFFER_POS_REL) {
-		if (pos == 0)
-			return 0; /* otherwise this fails on an empty size-prefixed buffer */
-		if (pos > buf->stat.usage.used)
-			return -EINVAL;
+	size_t count = sid_buffer_count(buf);
 
-		pos = buf->stat.usage.used - pos;
-	}
+	if (!count)
+		return pos ? -ERANGE : 0;
+
+	if (pos > count)
+		return -ERANGE;
+
+	if (whence == SID_BUFFER_POS_REL)
+		pos = count - pos; /* translate relative to absolute */
 
 	return _buffer_type_registry[buf->stat.spec.type]->rewind(buf, pos);
 }
