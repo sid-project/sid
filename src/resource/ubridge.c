@@ -1093,14 +1093,14 @@ static void _destroy_delta(struct kv_delta *delta)
 static void _destroy_unused_delta(struct kv_delta *delta)
 {
 	if (delta->plus) {
-		if (sid_buffer_stat(delta->plus).usage.used < KV_VALUE_VEC_SINGLE_CNT) {
+		if (sid_buffer_count(delta->plus) < KV_VALUE_VEC_SINGLE_CNT) {
 			sid_buffer_destroy(delta->plus);
 			delta->plus = NULL;
 		}
 	}
 
 	if (delta->minus) {
-		if (sid_buffer_stat(delta->minus).usage.used < KV_VALUE_VEC_SINGLE_CNT) {
+		if (sid_buffer_count(delta->minus) < KV_VALUE_VEC_SINGLE_CNT) {
 			sid_buffer_destroy(delta->minus);
 			delta->minus = NULL;
 		}
@@ -3415,7 +3415,7 @@ static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
 	/* Send out export buffer. */
 	if (ucmd_ctx->exp_buf) {
 		if (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN) {
-			if (sid_buffer_stat(ucmd_ctx->exp_buf).usage.used > SID_BUFFER_SIZE_PREFIX_LEN) {
+			if (sid_buffer_count(ucmd_ctx->exp_buf) > 0) {
 				if ((r = worker_control_channel_send(
 					     cmd_res,
 					     MAIN_WORKER_CHANNEL_ID,

@@ -305,7 +305,7 @@ int sid_req(struct sid_request *req, struct sid_result **res_p)
 			break;
 		}
 	}
-	if (sid_buffer_stat(buf).usage.used < SID_MSG_HEADER_SIZE) {
+	if (sid_buffer_count(buf) < SID_MSG_HEADER_SIZE) {
 		r = -EBADMSG;
 		goto out;
 	}
