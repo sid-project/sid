@@ -228,9 +228,6 @@ static int _buffer_linear_rewind(struct sid_buffer *buf, size_t pos)
 
 static int _buffer_linear_rewind_mem(struct sid_buffer *buf, const void *mem)
 {
-	if (mem < buf->mem)
-		return -EINVAL;
-
 	return _buffer_linear_rewind(buf, mem - buf->mem);
 }
 
