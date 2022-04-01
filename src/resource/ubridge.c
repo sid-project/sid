@@ -577,13 +577,13 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 
 static const char *_buffer_get_vvalue_str(struct sid_buffer *buf, bool unset, struct iovec *vvalue, size_t vvalue_size)
 {
-	size_t      i;
+	size_t      buf_offset, i;
 	const char *str;
 
 	if (unset)
 		return sid_buffer_fmt_add(buf, NULL, "NULL");
 
-	str = sid_buffer_add(buf, "", 0, NULL);
+	buf_offset = sid_buffer_count(buf);
 
 	for (i = KV_VALUE_IDX_DATA; i < vvalue_size; i++) {
 		if (!sid_buffer_add(buf, vvalue[i].iov_base, vvalue[i].iov_len - 1, NULL) || !sid_buffer_add(buf, " ", 1, NULL))
@@ -591,11 +591,11 @@ static const char *_buffer_get_vvalue_str(struct sid_buffer *buf, bool unset, st
 	}
 
 	sid_buffer_add(buf, "\0", 1, NULL);
+	sid_buffer_get_data(buf, (const void **) &str, NULL);
 
-	return str;
+	return str + buf_offset;
 fail:
-	if (str)
-		sid_buffer_rewind_mem(buf, str);
+	sid_buffer_rewind(buf, buf_offset, SID_BUFFER_POS_ABS);
 	return NULL;
 }
 
@@ -1561,9 +1561,9 @@ static void _flip_key_specs(struct kv_rel_spec *rel_spec)
 
 static int _delta_update(struct iovec *header, kv_op_t op, struct kv_update_arg *update_arg)
 {
-	struct kv_rel_spec *rel_spec      = update_arg->custom;
-	const char *        tmp_mem_start = sid_buffer_add(update_arg->gen_buf, "", 0, NULL);
-	kv_op_t             orig_op       = rel_spec->cur_key_spec->op;
+	struct kv_rel_spec *rel_spec   = update_arg->custom;
+	size_t              buf_offset = sid_buffer_count(update_arg->gen_buf);
+	kv_op_t             orig_op    = rel_spec->cur_key_spec->op;
 	struct kv_delta *   orig_delta, *orig_abs_delta;
 	struct iovec *      delta_vvalue, *abs_delta_vvalue;
 	size_t              delta_vsize, abs_delta_vsize, i;
@@ -1659,7 +1659,7 @@ out:
 	}
 
 	rel_spec->cur_key_spec->op = orig_op;
-	sid_buffer_rewind_mem(update_arg->gen_buf, tmp_mem_start);
+	sid_buffer_rewind(update_arg->gen_buf, buf_offset, SID_BUFFER_POS_ABS);
 	return r;
 }
 
@@ -2203,7 +2203,7 @@ int _handle_current_dev_for_group(struct module *         mod,
                                   const char *            group_id,
                                   kv_op_t                 op)
 {
-	const char * tmp_mem_start = sid_buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
+	size_t       buf_offset = sid_buffer_count(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 	const char * key, *rel_key_prefix;
 	struct iovec vvalue[KV_VALUE_VEC_SINGLE_CNT];
 	int          r = -1;
@@ -2252,7 +2252,7 @@ int _handle_current_dev_for_group(struct module *         mod,
 	if (_kv_delta_set(key, vvalue, KV_VALUE_VEC_SINGLE_CNT, &update_arg) < 0)
 		goto out;
 out:
-	sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, tmp_mem_start);
+	sid_buffer_rewind(ucmd_ctx->ucmd_mod_ctx.gen_buf, buf_offset, SID_BUFFER_POS_ABS);
 	return r;
 }
 
@@ -2350,12 +2350,15 @@ out:
 
 static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 {
+	size_t      buf_offset;
 	const char *key;
 	const char *value;
 	int         r = -1;
 
 	if (!(value = strchr(start, KV_PAIR_C[0])) || !*(++value))
 		return -1;
+
+	buf_offset = sid_buffer_count(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 
 	if (!(key = sid_buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, &r, "%.*s", value - start - 1, start)))
 		return r;
@@ -2381,7 +2384,7 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 
 	r = 0;
 out:
-	sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	sid_buffer_rewind(ucmd_ctx->ucmd_mod_ctx.gen_buf, buf_offset, SID_BUFFER_POS_ABS);
 	return r;
 };
 
@@ -2723,8 +2726,8 @@ const void *sid_ucmd_part_get_disk_kv(struct module *      mod,
 static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
-	struct sid_ucmd_ctx *ucmd_ctx      = sid_resource_get_data(cmd_res);
-	const char *         tmp_mem_start = sid_buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
+	struct sid_ucmd_ctx *ucmd_ctx   = sid_resource_get_data(cmd_res);
+	size_t               buf_offset = sid_buffer_count(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 	const char *         s;
 	struct dirent **     dirent  = NULL;
 	struct sid_buffer *  vec_buf = NULL;
@@ -2876,14 +2879,14 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 out:
 	if (vec_buf)
 		sid_buffer_destroy(vec_buf);
-	sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, tmp_mem_start);
+	sid_buffer_rewind(ucmd_ctx->ucmd_mod_ctx.gen_buf, buf_offset, SID_BUFFER_POS_ABS);
 	return r;
 }
 
 static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx      = sid_resource_get_data(cmd_res);
-	const char *         tmp_mem_start = sid_buffer_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, "", 0, NULL);
+	struct sid_ucmd_ctx *ucmd_ctx   = sid_resource_get_data(cmd_res);
+	size_t               buf_offset = sid_buffer_count(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 	struct iovec         vvalue[KV_VALUE_VEC_SINGLE_CNT];
 	char                 devno_buf[16];
 	const char *         s;
@@ -2949,7 +2952,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 
 	r = 0;
 out:
-	sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, tmp_mem_start);
+	sid_buffer_rewind(ucmd_ctx->ucmd_mod_ctx.gen_buf, buf_offset, SID_BUFFER_POS_ABS);
 	return r;
 }
 
