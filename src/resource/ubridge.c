@@ -1133,9 +1133,10 @@ static int _init_delta_buffer(struct iovec *header, struct sid_buffer **delta_bu
 			goto out;
 	}
 out:
-	if (r < 0)
-		free(buf);
-	else
+	if (r < 0) {
+		if (buf)
+			sid_buffer_destroy(buf);
+	} else
 		*delta_buf = buf;
 	return r;
 }
