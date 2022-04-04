@@ -575,7 +575,7 @@ static struct iovec *_get_value_vector(kv_store_value_flags_t flags, void *value
 	return vvalue;
 }
 
-static const char *_get_vvalue_str(struct sid_buffer *buf, bool unset, struct iovec *vvalue, size_t vvalue_size)
+static const char *_buffer_get_vvalue_str(struct sid_buffer *buf, bool unset, struct iovec *vvalue, size_t vvalue_size)
 {
 	size_t      i;
 	const char *str;
@@ -1072,7 +1072,7 @@ static const char *_get_ns_part(struct module *mod, struct sid_ucmd_ctx *ucmd_ct
 	return ID_NULL;
 }
 
-static void _destroy_delta(struct kv_delta *delta)
+static void _destroy_delta_buffers(struct kv_delta *delta)
 {
 	if (delta->plus) {
 		sid_buffer_destroy(delta->plus);
@@ -1090,7 +1090,7 @@ static void _destroy_delta(struct kv_delta *delta)
 	}
 }
 
-static void _destroy_unused_delta(struct kv_delta *delta)
+static void _destroy_unused_delta_buffers(struct kv_delta *delta)
 {
 	if (delta->plus) {
 		if (sid_buffer_count(delta->plus) < KV_VALUE_VEC_SINGLE_CNT) {
@@ -1141,11 +1141,11 @@ out:
 	return r;
 }
 
-static int _init_delta_struct(struct kv_delta *delta, struct iovec *header, size_t minus_size, size_t plus_size, size_t final_size)
+static int _init_delta_buffers(struct kv_delta *delta, struct iovec *header, size_t minus_size, size_t plus_size, size_t final_size)
 {
 	if (_init_delta_buffer(header, &delta->plus, plus_size) < 0 || _init_delta_buffer(header, &delta->minus, minus_size) < 0 ||
 	    _init_delta_buffer(header, &delta->final, final_size) < 0) {
-		_destroy_delta(delta);
+		_destroy_delta_buffers(delta);
 		return -1;
 	}
 
@@ -1164,7 +1164,7 @@ static int _delta_step_calc(struct kv_store_update_spec *spec)
 	int                   cmp_result;
 	int                   r = -1;
 
-	if (_init_delta_struct(delta, new_vvalue, old_vsize, new_vsize, old_vsize + new_vsize) < 0)
+	if (_init_delta_buffers(delta, new_vvalue, old_vsize, new_vsize, old_vsize + new_vsize) < 0)
 		goto out;
 
 	if (!old_vsize)
@@ -1325,9 +1325,9 @@ static int _delta_step_calc(struct kv_store_update_spec *spec)
 	r = 0;
 out:
 	if (r < 0)
-		_destroy_delta(delta);
+		_destroy_delta_buffers(delta);
 	else
-		_destroy_unused_delta(delta);
+		_destroy_unused_delta_buffers(delta);
 
 	return r;
 }
@@ -1466,7 +1466,7 @@ static int _delta_abs_calc(struct iovec *header, struct kv_update_arg *update_ar
 		abs_plus_vsize -= KV_VALUE_VEC_HEADER_CNT;
 
 	/* go through the old and new plus and minus vectors and merge non-contradicting items */
-	if (_init_delta_struct(rel_spec->abs_delta, header, abs_minus_vsize, abs_plus_vsize, 0) < 0)
+	if (_init_delta_buffers(rel_spec->abs_delta, header, abs_minus_vsize, abs_plus_vsize, 0) < 0)
 		goto out;
 
 	if (rel_spec->delta->flags & DELTA_WITH_REL)
@@ -1536,7 +1536,7 @@ out:
 	rel_spec->cur_key_spec->op = orig_op;
 
 	if (r < 0)
-		_destroy_delta(rel_spec->abs_delta);
+		_destroy_delta_buffers(rel_spec->abs_delta);
 
 	return r;
 }
@@ -1752,8 +1752,8 @@ static int _kv_delta_set(const char *key, struct iovec *vvalue, size_t vsize, st
 
 	r = 0;
 out:
-	_destroy_delta(rel_spec->abs_delta);
-	_destroy_delta(rel_spec->delta);
+	_destroy_delta_buffers(rel_spec->abs_delta);
+	_destroy_delta_buffers(rel_spec->delta);
 	return r;
 }
 
@@ -4000,7 +4000,7 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 			update_arg.res      = kv_store_res;
 			update_arg.ret_code = -EREMOTEIO;
 
-			vvalue_str = _get_vvalue_str(ubridge->ucmd_mod_ctx.gen_buf, unset, vvalue, value_size);
+			vvalue_str = _buffer_get_vvalue_str(ubridge->ucmd_mod_ctx.gen_buf, unset, vvalue, value_size);
 			log_debug(ID(res), syncing_msg, key, vvalue_str, KV_VALUE_VEC_SEQNUM(vvalue));
 			if (vvalue_str)
 				sid_buffer_rewind_mem(ubridge->ucmd_mod_ctx.gen_buf, vvalue_str);
