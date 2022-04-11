@@ -239,6 +239,11 @@ out:
 
 static int _buffer_linear_rewind(struct sid_buffer *buf, size_t pos)
 {
+	if (buf->mark.set && pos <= buf->mark.pos) {
+		buf->mark.set = false;
+		buf->mark.pos = 0;
+	}
+
 	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
 		pos += SID_BUFFER_SIZE_PREFIX_LEN;
 
