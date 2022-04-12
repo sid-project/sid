@@ -100,26 +100,26 @@ int sid_buffer_reset(struct sid_buffer *buf)
 	return _buffer_type_registry[buf->stat.spec.type]->reset(buf);
 }
 
-const void *sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, int *ret_code)
+int sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos)
 {
-	return _buffer_type_registry[buf->stat.spec.type]->add(buf, data, len, ret_code);
+	return _buffer_type_registry[buf->stat.spec.type]->add(buf, data, len, mem, pos);
 }
 
-const void *sid_buffer_fmt_add(struct sid_buffer *buf, int *ret_code, const char *fmt, ...)
+int sid_buffer_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, ...)
 {
-	va_list     ap;
-	const void *p;
+	va_list ap;
+	int     r;
 
 	va_start(ap, fmt);
-	p = _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, ret_code, fmt, ap);
+	r = _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, mem, pos, fmt, ap);
 	va_end(ap);
 
-	return p;
+	return r;
 }
 
-const void *sid_buffer_vfmt_add(struct sid_buffer *buf, int *ret_code, const char *fmt, va_list ap)
+int sid_buffer_vfmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap)
 {
-	return _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, ret_code, fmt, ap);
+	return _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, mem, pos, fmt, ap);
 }
 
 int sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence)

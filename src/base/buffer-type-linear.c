@@ -30,6 +30,16 @@
 #include <sys/sendfile.h>
 #include <unistd.h>
 
+static size_t _buffer_linear_count(struct sid_buffer *buf)
+{
+	switch (buf->stat.spec.mode) {
+		case SID_BUFFER_MODE_PLAIN:
+			return buf->stat.usage.used;
+		case SID_BUFFER_MODE_SIZE_PREFIX:
+			return buf->stat.usage.used ? buf->stat.usage.used - SID_BUFFER_SIZE_PREFIX_LEN : 0;
+	}
+}
+
 static int _buffer_linear_realloc(struct sid_buffer *buf, size_t needed, int force)
 {
 	char * p;
@@ -148,14 +158,18 @@ static int _buffer_linear_reset(struct sid_buffer *buf)
 	return _buffer_linear_realloc(buf, needed, 1);
 }
 
-static const void *_buffer_linear_add(struct sid_buffer *buf, void *data, size_t len, int *ret_code)
+static int _buffer_linear_add(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos)
 {
 	size_t used  = buf->stat.usage.used;
 	void * start = NULL;
+	size_t start_pos;
 	int    r;
 
 	if (!used && buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
 		used = SID_BUFFER_SIZE_PREFIX_LEN;
+
+	if (pos)
+		start_pos = _buffer_linear_count(buf);
 
 	if ((r = _buffer_linear_realloc(buf, used + len, 0)) < 0)
 		goto out;
@@ -167,24 +181,32 @@ static const void *_buffer_linear_add(struct sid_buffer *buf, void *data, size_t
 		memset(start, 0, len);
 	buf->stat.usage.used = used + len;
 out:
-	if (ret_code)
-		*ret_code = r;
-	return start;
+	if (r == 0) {
+		if (mem)
+			*mem = start;
+		if (pos)
+			*pos = start_pos;
+	}
+	return r;
 }
 
-static const void *_buffer_linear_fmt_add(struct sid_buffer *buf, int *ret_code, const char *fmt, va_list ap)
+static int _buffer_linear_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap)
 {
 	va_list     ap_copy;
 	size_t      used = buf->stat.usage.used;
 	size_t      available;
 	int         printed;
 	const void *start = NULL;
+	size_t      start_pos;
 	int         r;
 
 	va_copy(ap_copy, ap);
 
 	if (!used && buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
 		used = SID_BUFFER_SIZE_PREFIX_LEN;
+
+	if (pos)
+		start_pos = _buffer_linear_count(buf);
 
 	available = buf->stat.usage.allocated - used;
 	printed   = vsnprintf(buf->mem + used, available, fmt, ap_copy);
@@ -206,20 +228,13 @@ static const void *_buffer_linear_fmt_add(struct sid_buffer *buf, int *ret_code,
 	start                = buf->mem + used;
 	buf->stat.usage.used = used + printed + 1;
 	r                    = 0;
-out:
-	if (ret_code)
-		*ret_code = r;
-	return start;
-}
 
-static size_t _buffer_linear_count(struct sid_buffer *buf)
-{
-	switch (buf->stat.spec.mode) {
-		case SID_BUFFER_MODE_PLAIN:
-			return buf->stat.usage.used;
-		case SID_BUFFER_MODE_SIZE_PREFIX:
-			return buf->stat.usage.used ? buf->stat.usage.used - SID_BUFFER_SIZE_PREFIX_LEN : 0;
-	}
+	if (mem)
+		*mem = start;
+	if (pos)
+		*pos = start_pos;
+out:
+	return r;
 }
 
 static int _buffer_linear_rewind(struct sid_buffer *buf, size_t pos)

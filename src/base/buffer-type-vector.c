@@ -30,6 +30,16 @@
 
 #define VECTOR_ITEM_SIZE sizeof(struct iovec)
 
+static size_t _buffer_vector_count(struct sid_buffer *buf)
+{
+	switch (buf->stat.spec.mode) {
+		case SID_BUFFER_MODE_PLAIN:
+			return buf->stat.usage.used;
+		case SID_BUFFER_MODE_SIZE_PREFIX:
+			return buf->stat.usage.used ? buf->stat.usage.used - 1 : 0;
+	}
+}
+
 static int _buffer_vector_realloc(struct sid_buffer *buf, size_t needed, int force)
 {
 	void * p;
@@ -185,53 +195,42 @@ static int _buffer_vector_reset(struct sid_buffer *buf)
 	return _buffer_vector_realloc(buf, needed, 1);
 }
 
-static const void *_buffer_vector_add(struct sid_buffer *buf, void *data, size_t len, int *ret_code)
+static int _buffer_vector_add(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos)
 {
 	size_t        used = buf->stat.usage.used;
 	struct iovec *iov;
+	size_t        start_pos;
 	int           r;
 
-	if (buf == NULL || buf->mem == NULL || data == NULL) {
-		if (ret_code)
-			*ret_code = -EINVAL;
-		return NULL;
-	}
+	if (buf == NULL || buf->mem == NULL || data == NULL)
+		return -EINVAL;
 
 	if (!used && buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
 		used = 1;
 
+	if (pos)
+		start_pos = _buffer_vector_count(buf);
+
 	if ((r = _buffer_vector_realloc(buf, used + 1, 0)) < 0)
 		goto out;
-	;
 
 	iov                  = buf->mem;
 	iov[used].iov_base   = data;
 	iov[used].iov_len    = len;
 	buf->stat.usage.used = used + 1;
 out:
-	if (ret_code)
-		*ret_code = r;
-	if (r < 0)
-		return NULL;
-	else
-		return &iov[buf->stat.usage.used - 1];
-}
-
-static const void *_buffer_vector_fmt_add(struct sid_buffer *buf, int *ret_code, const char *fmt, va_list ap)
-{
-	if (ret_code)
-		*ret_code = -ENOTSUP;
-	return NULL;
-}
-
-static size_t _buffer_vector_count(struct sid_buffer *buf)
-{
-	switch (buf->stat.spec.mode) {
-		case SID_BUFFER_MODE_PLAIN:
-			return buf->stat.usage.used;
-		case SID_BUFFER_MODE_SIZE_PREFIX:
-			return buf->stat.usage.used ? buf->stat.usage.used - 1 : 0;
+	if (r == 0) {
+		if (mem)
+			*mem = &iov[buf->stat.usage.used - 1];
+		if (pos)
+			*pos = start_pos;
 	}
+	return r;
+}
+
+static int _buffer_vector_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap)
+{
+	return -ENOTSUP;
 }
 
 static int _buffer_vector_rewind(struct sid_buffer *buf, size_t pos)

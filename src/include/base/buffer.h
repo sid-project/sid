@@ -40,9 +40,9 @@ struct sid_buffer *    sid_buffer_create(struct sid_buffer_spec *spec, struct si
 void                   sid_buffer_destroy(struct sid_buffer *buf);
 int                    sid_buffer_reset(struct sid_buffer *buf);
 int                    sid_buffer_reset_init(struct sid_buffer *buf, struct sid_buffer_init *init);
-const void *           sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, int *ret_code);
-const void *           sid_buffer_fmt_add(struct sid_buffer *buf, int *ret_code, const char *fmt, ...);
-const void *           sid_buffer_vfmt_add(struct sid_buffer *buf, int *ret_code, const char *fmt, va_list ap);
+int                    sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos);
+int                    sid_buffer_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, ...);
+int                    sid_buffer_vfmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
 int                    sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence);
 int                    sid_buffer_rewind_mem(struct sid_buffer *buf, const void *mem);
 bool                   sid_buffer_is_complete(struct sid_buffer *buf, int *ret_code);

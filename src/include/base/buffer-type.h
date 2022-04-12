@@ -34,8 +34,8 @@ struct sid_buffer_type {
 	int (*create)(struct sid_buffer *buf);
 	int (*destroy)(struct sid_buffer *buf);
 	int (*reset)(struct sid_buffer *buf);
-	const void *(*add)(struct sid_buffer *buf, void *data, size_t len, int *ret_code);
-	const void *(*fmt_add)(struct sid_buffer *buf, int *ret_code, const char *fmt, va_list ap);
+	int (*add)(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos);
+	int (*fmt_add)(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
 	int (*rewind)(struct sid_buffer *buf, size_t pos);
 	int (*rewind_mem)(struct sid_buffer *buf, const void *mem);
 	bool (*is_complete)(struct sid_buffer *buf, int *ret_code);
