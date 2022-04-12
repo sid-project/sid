@@ -160,9 +160,7 @@ static int _add_devt_env_to_buffer(struct sid_buffer *buf)
 	minor = val;
 
 	devnum = makedev(major, minor);
-	sid_buffer_add(buf, &devnum, sizeof(devnum), &r);
-
-	return r;
+	return sid_buffer_add(buf, &devnum, sizeof(devnum), NULL, NULL);
 }
 
 static int _add_checkpoint_env_to_buf(struct sid_buffer *buf, struct sid_checkpoint_data *data)
@@ -177,7 +175,7 @@ static int _add_checkpoint_env_to_buf(struct sid_buffer *buf, struct sid_checkpo
 		goto out;
 
 	/* add checkpoint name */
-	if (!sid_buffer_add(buf, data->name, strlen(data->name) + 1, &r))
+	if ((r = sid_buffer_add(buf, data->name, strlen(data->name) + 1, NULL, NULL)) < 0)
 		goto out;
 
 	/* add key=value pairs from current environment */
@@ -186,7 +184,7 @@ static int _add_checkpoint_env_to_buf(struct sid_buffer *buf, struct sid_checkpo
 		if (!(val = getenv(key)))
 			continue;
 
-		if (!sid_buffer_fmt_add(buf, &r, "%s=%s", key, val))
+		if ((r = sid_buffer_fmt_add(buf, NULL, NULL, "%s=%s", key, val)) < 0)
 			goto out;
 	}
 
@@ -205,7 +203,7 @@ static int _add_scan_env_to_buf(struct sid_buffer *buf)
 		goto out;
 
 	for (kv = environ; *kv; kv++)
-		if (!sid_buffer_add(buf, *kv, strlen(*kv) + 1, &r))
+		if ((r = sid_buffer_add(buf, *kv, strlen(*kv) + 1, NULL, NULL)) < 0)
 			goto out;
 out:
 	return r;
@@ -242,11 +240,12 @@ int sid_req(struct sid_request *req, struct sid_result **res_p)
 		goto out;
 	res->buf = buf;
 
-	if (!sid_buffer_add(
-		    buf,
-		    &((struct sid_msg_header) {.status = req->seqnum, .prot = SID_PROTOCOL, .cmd = req->cmd, .flags = req->flags}),
-		    SID_MSG_HEADER_SIZE,
-		    &r))
+	if ((r = sid_buffer_add(
+		     buf,
+		     &((struct sid_msg_header) {.status = req->seqnum, .prot = SID_PROTOCOL, .cmd = req->cmd, .flags = req->flags}),
+		     SID_MSG_HEADER_SIZE,
+		     NULL,
+		     NULL)) < 0)
 		goto out;
 
 	if (req->flags & SID_CMD_FLAGS_UNMODIFIED_DATA) {
@@ -255,7 +254,7 @@ int sid_req(struct sid_request *req, struct sid_result **res_p)
 			r = -EINVAL;
 			goto out;
 		}
-		if (data->size > 0 && !sid_buffer_add(buf, (void *) data->mem, data->size, &r))
+		if (data->size > 0 && ((r = sid_buffer_add(buf, (void *) data->mem, data->size, NULL, NULL)) < 0))
 			goto out;
 	} else {
 		switch (req->cmd) {

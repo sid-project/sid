@@ -988,12 +988,12 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 	 * they always transmit worker_channel_cmd_t as header before actual data.
 	 */
 	if (sid_buffer_stat(chan->out_buf).spec.mode == SID_BUFFER_MODE_SIZE_PREFIX &&
-	    !sid_buffer_add(chan->out_buf, &chan_cmd, sizeof(chan_cmd), &r)) {
+	    ((r = sid_buffer_add(chan->out_buf, &chan_cmd, sizeof(chan_cmd), NULL, NULL)) < 0)) {
 		r = -ENOMEM;
 		goto out;
 	}
 
-	if (has_data && !(sid_buffer_add(chan->out_buf, data_spec->data, data_spec->data_size, &r))) {
+	if (has_data && ((r = sid_buffer_add(chan->out_buf, data_spec->data, data_spec->data_size, NULL, NULL)) < 0)) {
 		r = -ENOMEM;
 		goto out;
 	}

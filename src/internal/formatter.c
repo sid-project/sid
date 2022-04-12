@@ -42,7 +42,7 @@ static int _print_fmt(struct sid_buffer *buf, const char *fmt, ...)
 	if (!buf || !fmt)
 		return -EINVAL;
 	va_start(ap, fmt);
-	sid_buffer_vfmt_add(buf, &r, fmt, ap);
+	r = sid_buffer_vfmt_add(buf, NULL, NULL, fmt, ap);
 	if (!r)
 		r = sid_buffer_rewind(buf, 1, SID_BUFFER_POS_REL);
 	va_end(ap);
@@ -59,7 +59,7 @@ static int _print_binary(const unsigned char *value, size_t len, struct sid_buff
 		return -EINVAL;
 	if (enc_len == 0)
 		return -ERANGE;
-	ptr = sid_buffer_add(buf, NULL, enc_len, &r);
+	r = sid_buffer_add(buf, NULL, enc_len, (const void **) &ptr, NULL);
 	if (!r)
 		r = sid_binary_encode(value, len, (unsigned char *) ptr, enc_len);
 	if (!r)
@@ -387,8 +387,5 @@ int print_binary_array_elem(const char *       value,
 
 int print_null_byte(struct sid_buffer *buf)
 {
-	int r;
-
-	sid_buffer_fmt_add(buf, &r, "");
-	return r;
+	return sid_buffer_fmt_add(buf, NULL, NULL, "");
 }

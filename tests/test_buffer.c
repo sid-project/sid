@@ -26,7 +26,7 @@ int test_fmt_add(int buf_size)
 	                        &((struct sid_buffer_init) {.size = buf_size, .alloc_step = 1, .limit = 0}),
 	                        NULL);
 	assert_non_null(buf);
-	assert_non_null(sid_buffer_fmt_add(buf, NULL, TEST_STR));
+	assert_int_equal(sid_buffer_fmt_add(buf, NULL, NULL, TEST_STR), 0);
 	assert_int_equal(sid_buffer_get_data(buf, (const void **) &data, &data_size), 0);
 	assert_true(data_size == TEST_SIZE);
 	sid_buffer_destroy(buf);
@@ -48,10 +48,10 @@ static const void *do_rewind_test(struct sid_buffer *buf)
 	const void *rewind_mem;
 
 	assert_non_null(buf);
-	assert_non_null(sid_buffer_add(buf, TEST_STR, TEST_SIZE, NULL));
-	rewind_mem = sid_buffer_add(buf, TEST_STR2, TEST_SIZE2, NULL);
+	assert_int_equal(sid_buffer_add(buf, TEST_STR, TEST_SIZE, NULL, NULL), 0);
+	assert_int_equal(sid_buffer_add(buf, TEST_STR2, TEST_SIZE2, &rewind_mem, NULL), 0);
 	assert_non_null(rewind_mem);
-	assert_non_null(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL));
+	assert_int_equal(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), 0);
 	assert_int_equal(sid_buffer_rewind_mem(buf, rewind_mem), 0);
 	return rewind_mem;
 }
@@ -88,10 +88,10 @@ static void do_test_zero_add(struct sid_buffer *buf)
 {
 	const void *rewind_mem, *tmp_mem_start;
 
-	rewind_mem    = do_rewind_test(buf);
-	tmp_mem_start = sid_buffer_add(buf, "", 0, NULL);
+	rewind_mem = do_rewind_test(buf);
+	assert_int_equal(sid_buffer_add(buf, "", 0, &tmp_mem_start, NULL), 0);
 	assert_ptr_equal(rewind_mem, tmp_mem_start);
-	assert_non_null(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL));
+	assert_int_equal(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), 0);
 	assert_int_equal(sid_buffer_rewind_mem(buf, tmp_mem_start), 0);
 	sid_buffer_destroy(buf);
 }

@@ -78,7 +78,7 @@ ssize_t __wrap_sid_buffer_read(struct sid_buffer *buf, int fd)
 	if (size <= 0)
 		return size;
 	data = mock_ptr_type(void *);
-	assert_non_null(sid_buffer_add(buf, data, size, NULL));
+	assert_int_equal(sid_buffer_add(buf, data, size, NULL, NULL), 0);
 	/* need to update size prefix */
 	sid_buffer_get_fd(buf);
 	return size;
