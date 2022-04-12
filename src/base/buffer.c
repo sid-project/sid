@@ -113,15 +113,17 @@ int sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, const void **
 	int    r;
 
 	/* FIXME: uncomment after we fixed all current issues
-	if (mem && buf->mark.set)
+	if (buf->mark.set)
 	        return -EBUSY;
 	*/
 
 	if ((r = _buffer_type_registry[buf->stat.spec.type]->add(buf, data, len, mem, &tmp_pos)) < 0)
 		return r;
 
-	buf->mark.set = true;
-	buf->mark.pos = tmp_pos;
+	if (mem) {
+		buf->mark.set = true;
+		buf->mark.pos = tmp_pos;
+	}
 
 	if (pos)
 		*pos = tmp_pos;
@@ -136,7 +138,7 @@ int sid_buffer_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, co
 	int     r;
 
 	/* FIXME: uncomment after we fixed all current issues
-	if (mem && buf->mark.set)
+	if (buf->mark.set)
 	        return -EBUSY;
 	*/
 
@@ -147,8 +149,10 @@ int sid_buffer_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, co
 	if (r < 0)
 		return r;
 
-	buf->mark.set = true;
-	buf->mark.pos = tmp_pos;
+	if (mem) {
+		buf->mark.set = true;
+		buf->mark.pos = tmp_pos;
+	}
 
 	if (pos)
 		*pos = tmp_pos;
@@ -162,15 +166,17 @@ int sid_buffer_vfmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, c
 	int    r;
 
 	/* FIXME: uncomment after we fixed all current issues
-	if (mem && buf->mark.set)
+	if (buf->mark.set)
 	        return -EBUSY;
 	*/
 
 	if ((r = _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, mem, &tmp_pos, fmt, ap)) < 0)
 		return r;
 
-	buf->mark.set = true;
-	buf->mark.pos = tmp_pos;
+	if (mem) {
+		buf->mark.set = true;
+		buf->mark.pos = tmp_pos;
+	}
 
 	if (pos)
 		*pos = tmp_pos;
