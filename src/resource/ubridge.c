@@ -424,8 +424,16 @@ const char *sid_ucmd_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
 	return ucmd_ctx->req_env.dev.udev.synth_uuid;
 }
 
-static const char *_do_buffer_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spec, int prefix_only)
+static const char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spec, int prefix_only)
 {
+	static const char fmt[] = "%s" KV_STORE_KEY_JOIN /* op */
+				  "%s" KV_STORE_KEY_JOIN /* dom */
+				  "%s" KV_STORE_KEY_JOIN /* ns */
+				  "%s" KV_STORE_KEY_JOIN /* ns_part */
+				  "%s" KV_STORE_KEY_JOIN /* id */
+				  "%s"
+				  "%s" /* id_part */
+				  "%s";
 	const char *key;
 
 	static const char *op_to_key_prefix_map[] = {[KV_OP_ILLEGAL] = KV_PREFIX_OP_ILLEGAL_C,
@@ -441,40 +449,58 @@ static const char *_do_buffer_compose_key(struct sid_buffer *buf, struct kv_key_
 
 	/* <op>:<dom>:<ns>:<ns_part>:<id>:<id_part>[:<core>] */
 
-	if (sid_buffer_fmt_add(buf,
-	                       (const void **) &key,
-	                       NULL,
-	                       "%s" KV_STORE_KEY_JOIN /* op */
-	                       "%s" KV_STORE_KEY_JOIN /* dom */
-	                       "%s" KV_STORE_KEY_JOIN /* ns */
-	                       "%s" KV_STORE_KEY_JOIN /* ns_part */
-	                       "%s" KV_STORE_KEY_JOIN /* id */
-	                       "%s"
-	                       "%s" /* id_part */
-	                       "%s",
-	                       op_to_key_prefix_map[key_spec->op],
-	                       key_spec->dom,
-	                       ns_to_key_prefix_map[key_spec->ns],
-	                       key_spec->ns_part,
-	                       key_spec->id,
-	                       key_spec->id_part,
-	                       prefix_only ? KEY_NULL : KV_STORE_KEY_JOIN,
-	                       prefix_only ? KEY_NULL : key_spec->core) < 0)
-		return NULL;
+	if (buf) {
+		if (sid_buffer_fmt_add(buf,
+		                       (const void **) &key,
+		                       NULL,
+		                       fmt,
+		                       op_to_key_prefix_map[key_spec->op],
+		                       key_spec->dom,
+		                       ns_to_key_prefix_map[key_spec->ns],
+		                       key_spec->ns_part,
+		                       key_spec->id,
+		                       key_spec->id_part,
+		                       prefix_only ? KEY_NULL : KV_STORE_KEY_JOIN,
+		                       prefix_only ? KEY_NULL : key_spec->core) < 0)
+			key = NULL;
+	} else {
+		if (asprintf((char **) &key,
+		             fmt,
+		             op_to_key_prefix_map[key_spec->op],
+		             key_spec->dom,
+		             ns_to_key_prefix_map[key_spec->ns],
+		             key_spec->ns_part,
+		             key_spec->id,
+		             key_spec->id_part,
+		             prefix_only ? KEY_NULL : KV_STORE_KEY_JOIN,
+		             prefix_only ? KEY_NULL : key_spec->core) < 0)
+			key = NULL;
+	}
 
 	return key;
 }
 
-static const char *_buffer_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spec)
+static const char *_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spec)
 {
 	/* <op>:<dom>:<ns>:<ns_part>:<id>:<id_part>:<core> */
-	return _do_buffer_compose_key(buf, key_spec, 0);
+	return _do_compose_key(buf, key_spec, 0);
 }
 
-static const char *_buffer_compose_key_prefix(struct sid_buffer *buf, struct kv_key_spec *key_spec)
+static const char *_compose_key_prefix(struct sid_buffer *buf, struct kv_key_spec *key_spec)
 {
 	/* <op>:<dom>:<ns>:<ns_part><id>:<id_part> */
-	return _do_buffer_compose_key(buf, key_spec, 1);
+	return _do_compose_key(buf, key_spec, 1);
+}
+
+static void _destroy_key(struct sid_buffer *buf, const char *key)
+{
+	if (!key)
+		return;
+
+	if (buf)
+		sid_buffer_rewind_mem(buf, key);
+	else
+		free((void *) key);
 }
 
 static const char *_get_key_part(const char *key, key_part_t req_part, size_t *len)
@@ -548,7 +574,7 @@ static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
 		return KV_NS_UNDEFINED;
 }
 
-static const char *_buffer_copy_ns_part_from_key(struct sid_buffer *buf, const char *key)
+static const char *_copy_ns_part_from_key(struct sid_buffer *buf, const char *key)
 {
 	const char *str, *ns;
 	size_t      len;
@@ -560,8 +586,14 @@ static const char *_buffer_copy_ns_part_from_key(struct sid_buffer *buf, const c
 	if (!(str = _get_key_part(key, KEY_PART_NS_PART, &len)))
 		return NULL;
 
-	if (sid_buffer_fmt_add(buf, (const void **) &ns, NULL, "%.*s", len, str) < 0)
-		return NULL;
+	if (buf) {
+		if (sid_buffer_fmt_add(buf, (const void **) &ns, NULL, "%.*s", len, str) < 0)
+			ns = NULL;
+	} else {
+		// FIXME: check '(int) len' cast is safe
+		if (asprintf((char **) &ns, "%.*s", (int) len, str) < 0)
+			ns = NULL;
+	}
 
 	return ns;
 }
@@ -1052,7 +1084,7 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx *   ucmd_ctx,
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
 		goto out;
 
-	if (!(key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec))) {
+	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec))) {
 		r = -ENOMEM;
 		goto out;
 	}
@@ -1428,7 +1460,7 @@ static int _delta_abs_calc(struct iovec *header, struct kv_update_arg *update_ar
 		return 0;
 
 	rel_spec->cur_key_spec->op = KV_OP_PLUS;
-	if (!(delta_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec)))
+	if (!(delta_key = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec)))
 		goto out;
 	cross1.old_vvalue = kv_store_get_value(update_arg->res, delta_key, &cross1.old_vsize, NULL);
 	sid_buffer_rewind_mem(update_arg->gen_buf, delta_key);
@@ -1436,7 +1468,7 @@ static int _delta_abs_calc(struct iovec *header, struct kv_update_arg *update_ar
 		goto out;
 
 	rel_spec->cur_key_spec->op = KV_OP_MINUS;
-	if (!(delta_key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec)))
+	if (!(delta_key = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec)))
 		goto out;
 	cross2.old_vvalue = kv_store_get_value(update_arg->res, delta_key, &cross2.old_vsize, NULL);
 	sid_buffer_rewind_mem(update_arg->gen_buf, delta_key);
@@ -1626,7 +1658,7 @@ static int _delta_update(struct iovec *header, kv_op_t op, struct kv_update_arg 
 
 	/* store absolute delta for current item - persistent */
 	rel_spec->cur_key_spec->op = op;
-	key                        = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
+	key                        = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
 	rel_spec->cur_key_spec->op = orig_op;
 	if (!key)
 		return -1;
@@ -1666,7 +1698,7 @@ static int _delta_update(struct iovec *header, kv_op_t op, struct kv_update_arg 
 
 		_flip_key_specs(rel_spec);
 
-		if (!(key_prefix = _buffer_compose_key_prefix(update_arg->gen_buf, rel_spec->rel_key_spec))) {
+		if (!(key_prefix = _compose_key_prefix(update_arg->gen_buf, rel_spec->rel_key_spec))) {
 			r = -1;
 			goto out;
 		}
@@ -1679,9 +1711,9 @@ static int _delta_update(struct iovec *header, kv_op_t op, struct kv_update_arg 
 		rel_vvalue[KV_VALUE_IDX_DATA] = (struct iovec) {.iov_base = (void *) key_prefix, .iov_len = strlen(key_prefix) + 1};
 
 		for (i = KV_VALUE_IDX_DATA; i < delta_vsize; i++) {
-			ns_part = _buffer_copy_ns_part_from_key(update_arg->gen_buf, delta_vvalue[i].iov_base);
+			ns_part                         = _copy_ns_part_from_key(update_arg->gen_buf, delta_vvalue[i].iov_base);
 			rel_spec->cur_key_spec->ns_part = ns_part;
-			if (!(key = _buffer_compose_key(update_arg->gen_buf, rel_spec->cur_key_spec))) {
+			if (!(key = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec))) {
 				r = -1;
 				goto out;
 			}
@@ -1835,7 +1867,7 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 			goto out;
 	}
 
-	if (!(key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
+	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
 		goto out;
 
 	KV_VALUE_VEC_HEADER_PREP(vvalue, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->req_env.dev.udev.seqnum, flags, (char *) owner);
@@ -1894,7 +1926,7 @@ static const void *_cmd_get_key_spec_value(struct module *      mod,
 	size_t           size, data_offset;
 	void *           ret = NULL;
 
-	if (!(key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key_spec)))
+	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key_spec)))
 		goto out;
 
 	if (!(kv_value = kv_store_get_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res, key, &size, NULL)))
@@ -2024,7 +2056,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
                                        .core    = key_core};
 	int                  r        = -1;
 
-	if (!(key = _buffer_compose_key(ucmd_mod_ctx->gen_buf, &key_spec)))
+	if (!(key = _compose_key(ucmd_mod_ctx->gen_buf, &key_spec)))
 		goto out;
 
 	if (!(ucmd_mod_ctx->kv_store_res))
@@ -2208,7 +2240,7 @@ int sid_ucmd_group_create(struct module *         mod,
 	                                   .custom   = NULL,
 	                                   .ret_code = 0};
 
-	if (!(key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
+	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
 		goto out;
 	KV_VALUE_VEC_HEADER_PREP(vvalue,
 	                         ucmd_ctx->ucmd_mod_ctx.gennum,
@@ -2271,10 +2303,10 @@ int _handle_current_dev_for_group(struct module *         mod,
 
 	// TODO: check return values / maybe also pass flags / use proper owner
 
-	if (!(key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec)))
+	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec)))
 		goto out;
 
-	if (!(rel_key_prefix = _buffer_compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec)))
+	if (!(rel_key_prefix = _compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec)))
 		goto out;
 
 	KV_VALUE_VEC_HEADER_PREP(vvalue,
@@ -2357,7 +2389,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_cb_delta wrapper
 	//       to do the "is empty?" check before the actual _kv_cb_delta operation
 
-	if (!(key = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec)))
+	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec)))
 		goto out;
 
 	if (!kv_store_get_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res, key, &size, NULL))
@@ -2894,7 +2926,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				_canonicalize_kv_key(devno_buf);
 				rel_spec.rel_key_spec->ns_part = devno_buf;
 
-				s = _buffer_compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
+				s = _compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
 				if (!s || ((r = sid_buffer_add(vec_buf, (void *) s, strlen(s) + 1, NULL, NULL)) < 0))
 					goto out;
 			}
@@ -2909,7 +2941,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	sid_buffer_get_data(vec_buf, (const void **) (&vvalue), &vsize);
 	qsort(vvalue + KV_VALUE_VEC_HEADER_CNT, vsize - KV_VALUE_VEC_HEADER_CNT, sizeof(struct iovec), _vvalue_str_cmp);
 
-	if (!(s = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
+	if (!(s = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res),
 		          _key_prefix_err_msg,
 		          ucmd_ctx->req_env.dev.udev.name,
@@ -2973,13 +3005,13 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 
 	rel_spec.rel_key_spec->ns_part = devno_buf;
 
-	if (!(s = _buffer_compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec)))
+	if (!(s = _compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec)))
 		goto out;
 
 	vvalue[KV_VALUE_IDX_DATA]      = (struct iovec) {(void *) s, strlen(s) + 1};
 	rel_spec.rel_key_spec->ns_part = ID_NULL;
 
-	if (!(s = _buffer_compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
+	if (!(s = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res),
 		          _key_prefix_err_msg,
 		          ucmd_ctx->req_env.dev.udev.name,
@@ -3731,14 +3763,14 @@ static int _set_up_kv_store_generation(struct sid_ucmd_mod_ctx *ctx, bool increa
 	const char *     key;
 	struct kv_value *kv_value;
 
-	if (!(key = _buffer_compose_key(ctx->gen_buf,
-	                                &((struct kv_key_spec) {.op      = KV_OP_SET,
-	                                                        .dom     = ID_NULL,
-	                                                        .ns      = KV_NS_GLOBAL,
-	                                                        .ns_part = ID_NULL,
-	                                                        .id      = ID_NULL,
-	                                                        .id_part = ID_NULL,
-	                                                        .core    = KV_KEY_DB_GENERATION}))))
+	if (!(key = _compose_key(ctx->gen_buf,
+	                         &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                 .dom     = ID_NULL,
+	                                                 .ns      = KV_NS_GLOBAL,
+	                                                 .ns_part = ID_NULL,
+	                                                 .id      = ID_NULL,
+	                                                 .id_part = ID_NULL,
+	                                                 .core    = KV_KEY_DB_GENERATION}))))
 		return -1;
 
 	if ((kv_value = kv_store_get_value(ctx->kv_store_res, key, NULL, NULL))) {
