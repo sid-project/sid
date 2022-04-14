@@ -1105,8 +1105,7 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx *   ucmd_ctx,
 
 	r = 0;
 out:
-	if (key)
-		sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
 	return r;
 }
 
@@ -1463,7 +1462,7 @@ static int _delta_abs_calc(struct iovec *header, struct kv_update_arg *update_ar
 	if (!(delta_key = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec)))
 		goto out;
 	cross1.old_vvalue = kv_store_get_value(update_arg->res, delta_key, &cross1.old_vsize, NULL);
-	sid_buffer_rewind_mem(update_arg->gen_buf, delta_key);
+	_destroy_key(update_arg->gen_buf, delta_key);
 	if (cross1.old_vvalue && !(cross1.old_bmp = bitmap_create(cross1.old_vsize, true, NULL)))
 		goto out;
 
@@ -1471,7 +1470,7 @@ static int _delta_abs_calc(struct iovec *header, struct kv_update_arg *update_ar
 	if (!(delta_key = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec)))
 		goto out;
 	cross2.old_vvalue = kv_store_get_value(update_arg->res, delta_key, &cross2.old_vsize, NULL);
-	sid_buffer_rewind_mem(update_arg->gen_buf, delta_key);
+	_destroy_key(update_arg->gen_buf, delta_key);
 	if (cross2.old_vvalue && !(cross2.old_bmp = bitmap_create(cross2.old_vsize, true, NULL)))
 		goto out;
 
@@ -1676,7 +1675,7 @@ static int _delta_update(struct iovec *header, kv_op_t op, struct kv_update_arg 
 
 	_value_vector_mark_sync(abs_delta_vvalue, 0);
 
-	sid_buffer_rewind_mem(update_arg->gen_buf, key);
+	_destroy_key(update_arg->gen_buf, key);
 
 	/* the other way round now - store final and absolute delta for each relative */
 	if (delta_vsize && rel_spec->delta->flags & DELTA_WITH_REL) {
@@ -1892,8 +1891,7 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 
 	ret = kv_value->data + _kv_value_ext_data_offset(kv_value);
 out:
-	if (key)
-		sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
 	return ret;
 }
 
@@ -1949,8 +1947,7 @@ static const void *_cmd_get_key_spec_value(struct module *      mod,
 	if (size)
 		ret = kv_value->data + data_offset;
 out:
-	if (key)
-		sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
 	return ret;
 }
 
@@ -2091,8 +2088,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 
 	r = 0;
 out:
-	if (key)
-		sid_buffer_rewind_mem(ucmd_mod_ctx->gen_buf, key);
+	_destroy_key(ucmd_mod_ctx->gen_buf, key);
 	return r;
 }
 
@@ -2260,8 +2256,7 @@ int sid_ucmd_group_create(struct module *         mod,
 
 	r = 0;
 out:
-	if (key)
-		sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
 	return r;
 }
 
@@ -2271,7 +2266,6 @@ int _handle_current_dev_for_group(struct module *         mod,
                                   const char *            group_id,
                                   kv_op_t                 op)
 {
-	size_t       buf_offset = sid_buffer_count(ucmd_ctx->ucmd_mod_ctx.gen_buf);
 	const char * key, *rel_key_prefix;
 	struct iovec vvalue[KV_VALUE_VEC_SINGLE_CNT];
 	int          r = -1;
@@ -2320,7 +2314,7 @@ int _handle_current_dev_for_group(struct module *         mod,
 	if (_kv_delta_set(key, vvalue, KV_VALUE_VEC_SINGLE_CNT, &update_arg) < 0)
 		goto out;
 out:
-	sid_buffer_rewind(ucmd_ctx->ucmd_mod_ctx.gen_buf, buf_offset, SID_BUFFER_POS_ABS);
+	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
 	return r;
 }
 
@@ -2411,8 +2405,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 
 	r = 0;
 out:
-	if (key)
-		sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
 	return r;
 }
 
@@ -3794,7 +3787,7 @@ static int _set_up_kv_store_generation(struct sid_ucmd_mod_ctx *ctx, bool increa
 		                   NULL);
 	}
 
-	sid_buffer_rewind_mem(ctx->gen_buf, key);
+	_destroy_key(ctx->gen_buf, key);
 	return 0;
 }
 
