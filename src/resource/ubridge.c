@@ -1628,15 +1628,14 @@ static void _flip_key_specs(struct kv_rel_spec *rel_spec)
 
 static int _delta_update(struct iovec *header, kv_op_t op, struct kv_update_arg *update_arg)
 {
-	struct kv_rel_spec *rel_spec   = update_arg->custom;
-	size_t              buf_offset = sid_buffer_count(update_arg->gen_buf);
-	kv_op_t             orig_op    = rel_spec->cur_key_spec->op;
+	struct kv_rel_spec *rel_spec = update_arg->custom;
+	kv_op_t             orig_op  = rel_spec->cur_key_spec->op;
 	struct kv_delta *   orig_delta, *orig_abs_delta;
 	struct iovec *      delta_vvalue, *abs_delta_vvalue;
 	size_t              delta_vsize, abs_delta_vsize, i;
 	const char *        key_prefix, *ns_part, *key;
 	struct iovec        rel_vvalue[KV_VALUE_VEC_SINGLE_CNT];
-	int                 r = 0;
+	int                 r = -1;
 
 	if (op == KV_OP_PLUS) {
 		if (!rel_spec->abs_delta->plus)
@@ -1661,7 +1660,6 @@ static int _delta_update(struct iovec *header, kv_op_t op, struct kv_update_arg 
 	rel_spec->cur_key_spec->op = orig_op;
 	if (!key)
 		return -1;
-
 	_value_vector_mark_sync(abs_delta_vvalue, 1);
 
 	kv_store_set_value(update_arg->res,
@@ -1674,7 +1672,6 @@ static int _delta_update(struct iovec *header, kv_op_t op, struct kv_update_arg 
 	                   update_arg);
 
 	_value_vector_mark_sync(abs_delta_vvalue, 0);
-
 	_destroy_key(update_arg->gen_buf, key);
 
 	/* the other way round now - store final and absolute delta for each relative */
@@ -1697,10 +1694,8 @@ static int _delta_update(struct iovec *header, kv_op_t op, struct kv_update_arg 
 
 		_flip_key_specs(rel_spec);
 
-		if (!(key_prefix = _compose_key_prefix(update_arg->gen_buf, rel_spec->rel_key_spec))) {
-			r = -1;
+		if (!(key_prefix = _compose_key_prefix(NULL, rel_spec->rel_key_spec)))
 			goto out;
-		}
 
 		KV_VALUE_VEC_HEADER_PREP(rel_vvalue,
 		                         KV_VALUE_VEC_GENNUM(header),
@@ -1710,23 +1705,31 @@ static int _delta_update(struct iovec *header, kv_op_t op, struct kv_update_arg 
 		rel_vvalue[KV_VALUE_IDX_DATA] = (struct iovec) {.iov_base = (void *) key_prefix, .iov_len = strlen(key_prefix) + 1};
 
 		for (i = KV_VALUE_IDX_DATA; i < delta_vsize; i++) {
-			ns_part                         = _copy_ns_part_from_key(update_arg->gen_buf, delta_vvalue[i].iov_base);
-			rel_spec->cur_key_spec->ns_part = ns_part;
-			if (!(key = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec))) {
-				r = -1;
+			if (!(ns_part = _copy_ns_part_from_key(NULL, delta_vvalue[i].iov_base)))
+				goto out;
+
+			if (!(key = _compose_key(NULL, rel_spec->cur_key_spec))) {
+				_destroy_key(NULL, ns_part);
 				goto out;
 			}
 
+			rel_spec->cur_key_spec->ns_part = ns_part;
 			_kv_delta_set(key, rel_vvalue, KV_VALUE_VEC_SINGLE_CNT, update_arg);
+			rel_spec->cur_key_spec->ns_part = NULL;
+
+			_destroy_key(NULL, key);
+			_destroy_key(NULL, ns_part);
 		}
+
+		r = 0;
 out:
+		_destroy_key(NULL, key_prefix);
 		rel_spec->abs_delta = orig_abs_delta;
 		rel_spec->delta     = orig_delta;
 		_flip_key_specs(rel_spec);
 	}
 
 	rel_spec->cur_key_spec->op = orig_op;
-	sid_buffer_rewind(update_arg->gen_buf, buf_offset, SID_BUFFER_POS_ABS);
 	return r;
 }
 
