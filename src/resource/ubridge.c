@@ -1578,9 +1578,9 @@ out:
 }
 
 // TODO: Make it possible to set all flags at once or change selected flag bits.
-static void _value_vector_mark_sync(struct iovec *vvalue, int persist)
+static void _value_vector_mark_sync(struct iovec *vvalue, int sync)
 {
-	if (persist)
+	if (sync)
 		vvalue[KV_VALUE_IDX_FLAGS] = (struct iovec) {&kv_flags_sync, sizeof(kv_flags_sync)};
 	else
 		vvalue[KV_VALUE_IDX_FLAGS] = (struct iovec) {&kv_flags_no_sync, sizeof(kv_flags_no_sync)};
