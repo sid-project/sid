@@ -2796,7 +2796,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	struct sid_buffer *  vec_buf = NULL;
 	char                 devno_buf[16];
 	struct iovec *       vvalue;
-	size_t               vsize;
+	size_t               vsize = 0;
 	int                  count = 0, i;
 	int                  r     = -1;
 
@@ -2915,7 +2915,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				_canonicalize_kv_key(devno_buf);
 				rel_spec.rel_key_spec->ns_part = devno_buf;
 
-				s = _compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec);
+				s = _compose_key_prefix(NULL, rel_spec.rel_key_spec);
 				if (!s || ((r = sid_buffer_add(vec_buf, (void *) s, strlen(s) + 1, NULL, NULL)) < 0))
 					goto out;
 			}
@@ -2930,7 +2930,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	sid_buffer_get_data(vec_buf, (const void **) (&vvalue), &vsize);
 	qsort(vvalue + KV_VALUE_VEC_HEADER_CNT, vsize - KV_VALUE_VEC_HEADER_CNT, sizeof(struct iovec), _vvalue_str_cmp);
 
-	if (!(s = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
+	if (!(s = _compose_key(NULL, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res),
 		          _key_prefix_err_msg,
 		          ucmd_ctx->req_env.dev.udev.name,
@@ -2941,10 +2941,18 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 	_kv_delta_set(s, vvalue, vsize, &update_arg);
 
+	_destroy_key(NULL, s);
 	r = 0;
 out:
-	if (vec_buf)
+	if (vec_buf) {
+		if (!vsize)
+			sid_buffer_get_data(vec_buf, (const void **) (&vvalue), &vsize);
+
+		for (i = KV_VALUE_VEC_HEADER_CNT; i < vsize; i++)
+			_destroy_key(NULL, vvalue[i].iov_base);
+
 		sid_buffer_destroy(vec_buf);
+	}
 	sid_buffer_rewind(ucmd_ctx->ucmd_mod_ctx.gen_buf, buf_offset, SID_BUFFER_POS_ABS);
 	return r;
 }
