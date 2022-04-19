@@ -2269,7 +2269,8 @@ int _handle_current_dev_for_group(struct module *         mod,
                                   const char *            group_id,
                                   kv_op_t                 op)
 {
-	const char * key, *rel_key_prefix;
+	const char * key            = NULL;
+	const char * rel_key_prefix = NULL;
 	struct iovec vvalue[KV_VALUE_VEC_SINGLE_CNT];
 	int          r = -1;
 
@@ -2300,10 +2301,10 @@ int _handle_current_dev_for_group(struct module *         mod,
 
 	// TODO: check return values / maybe also pass flags / use proper owner
 
-	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec)))
+	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec)))
 		goto out;
 
-	if (!(rel_key_prefix = _compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec)))
+	if (!(rel_key_prefix = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 		goto out;
 
 	KV_VALUE_VEC_HEADER_PREP(vvalue,
@@ -2317,7 +2318,8 @@ int _handle_current_dev_for_group(struct module *         mod,
 	if (_kv_delta_set(key, vvalue, KV_VALUE_VEC_SINGLE_CNT, &update_arg) < 0)
 		goto out;
 out:
-	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(NULL, key);
+	_destroy_key(NULL, rel_key_prefix);
 	return r;
 }
 
