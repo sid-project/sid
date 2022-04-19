@@ -2964,6 +2964,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	struct iovec         vvalue[KV_VALUE_VEC_SINGLE_CNT];
 	char                 devno_buf[16];
 	const char *         s;
+	const char *         key;
 	int                  r = -1;
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
@@ -3002,13 +3003,13 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 
 	rel_spec.rel_key_spec->ns_part = devno_buf;
 
-	if (!(s = _compose_key_prefix(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.rel_key_spec)))
+	if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 		goto out;
 
 	vvalue[KV_VALUE_IDX_DATA]      = (struct iovec) {(void *) s, strlen(s) + 1};
 	rel_spec.rel_key_spec->ns_part = ID_NULL;
 
-	if (!(s = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec))) {
+	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res),
 		          _key_prefix_err_msg,
 		          ucmd_ctx->req_env.dev.udev.name,
@@ -3022,8 +3023,10 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	 * The delta.final is computed inside _kv_cb_delta out of vec_buf.
 	 * The _kv_cb_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
 	 */
-	_kv_delta_set(s, vvalue, KV_VALUE_VEC_SINGLE_CNT, &update_arg);
+	_kv_delta_set(key, vvalue, KV_VALUE_VEC_SINGLE_CNT, &update_arg);
 
+	_destroy_key(NULL, key);
+	_destroy_key(NULL, s);
 	r = 0;
 out:
 	sid_buffer_rewind(ucmd_ctx->ucmd_mod_ctx.gen_buf, buf_offset, SID_BUFFER_POS_ABS);
