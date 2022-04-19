@@ -112,10 +112,8 @@ int sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, const void **
 	size_t tmp_pos;
 	int    r;
 
-	/* FIXME: uncomment after we fixed all current issues
 	if (buf->mark.set)
-	        return -EBUSY;
-	*/
+		return -EBUSY;
 
 	if ((r = _buffer_type_registry[buf->stat.spec.type]->add(buf, data, len, mem, &tmp_pos)) < 0)
 		return r;
@@ -137,10 +135,8 @@ int sid_buffer_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, co
 	va_list ap;
 	int     r;
 
-	/* FIXME: uncomment after we fixed all current issues
 	if (buf->mark.set)
-	        return -EBUSY;
-	*/
+		return -EBUSY;
 
 	va_start(ap, fmt);
 	r = _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, mem, &tmp_pos, fmt, ap);
@@ -165,10 +161,8 @@ int sid_buffer_vfmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, c
 	size_t tmp_pos;
 	int    r;
 
-	/* FIXME: uncomment after we fixed all current issues
 	if (buf->mark.set)
-	        return -EBUSY;
-	*/
+		return -EBUSY;
 
 	if ((r = _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, mem, &tmp_pos, fmt, ap)) < 0)
 		return r;
