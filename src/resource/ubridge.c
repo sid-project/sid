@@ -2414,22 +2414,17 @@ out:
 
 static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 {
-	size_t      buf_offset;
 	const char *key;
 	const char *value;
-	int         r = -1;
 
 	if (!(value = strchr(start, KV_PAIR_C[0])) || !*(++value))
 		return -1;
 
-	buf_offset = sid_buffer_count(ucmd_ctx->ucmd_mod_ctx.gen_buf);
-
-	if ((r = sid_buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf, (const void **) &key, NULL, "%.*s", value - start - 1, start)) <
-	    0)
-		return r;
+	if (asprintf((char **) &key, "%.*s", (int) (value - start - 1), start) < 0)
+		return -1;
 
 	if (!(value = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, key, 0, value, strlen(value) + 1)))
-		goto out;
+		return -1;
 
 	log_debug(ID(ucmd_ctx->ucmd_mod_ctx.kv_store_res), "Imported udev property %s=%s", key, value);
 
@@ -2447,10 +2442,8 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 	else if (!strcmp(key, UDEV_KEY_SYNTH_UUID))
 		ucmd_ctx->req_env.dev.udev.synth_uuid = value;
 
-	r = 0;
-out:
-	sid_buffer_rewind(ucmd_ctx->ucmd_mod_ctx.gen_buf, buf_offset, SID_BUFFER_POS_ABS);
-	return r;
+	free((void *) key);
+	return 0;
 };
 
 static int _parse_cmd_nullstr_udev_env(struct sid_ucmd_ctx *ucmd_ctx, const char *env, size_t env_size)
