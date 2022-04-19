@@ -1,5 +1,6 @@
 #include "base/buffer.h"
 
+#include <errno.h>
 #include <setjmp.h>
 #include <stdarg.h>
 #include <stddef.h>
@@ -51,7 +52,7 @@ static const void *do_rewind_test(struct sid_buffer *buf)
 	assert_int_equal(sid_buffer_add(buf, TEST_STR, TEST_SIZE, NULL, NULL), 0);
 	assert_int_equal(sid_buffer_add(buf, TEST_STR2, TEST_SIZE2, &rewind_mem, NULL), 0);
 	assert_non_null(rewind_mem);
-	assert_int_equal(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), 0);
+	assert_int_equal(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), -EBUSY);
 	assert_int_equal(sid_buffer_rewind_mem(buf, rewind_mem), 0);
 	return rewind_mem;
 }
@@ -91,7 +92,7 @@ static void do_test_zero_add(struct sid_buffer *buf)
 	rewind_mem = do_rewind_test(buf);
 	assert_int_equal(sid_buffer_add(buf, "", 0, &tmp_mem_start, NULL), 0);
 	assert_ptr_equal(rewind_mem, tmp_mem_start);
-	assert_int_equal(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), 0);
+	assert_int_equal(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), -EBUSY);
 	assert_int_equal(sid_buffer_rewind_mem(buf, tmp_mem_start), 0);
 	sid_buffer_destroy(buf);
 }
