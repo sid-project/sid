@@ -64,6 +64,8 @@ static int _print_binary(const unsigned char *value, size_t len, struct sid_buff
 		r = sid_binary_encode(value, len, (unsigned char *) ptr, enc_len);
 	if (!r)
 		r = sid_buffer_rewind(buf, 1, SID_BUFFER_POS_REL);
+
+	sid_buffer_unbind_mem(buf, ptr);
 	return r;
 }
 
