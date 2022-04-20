@@ -191,11 +191,6 @@ int sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whenc
 	if (whence == SID_BUFFER_POS_REL)
 		pos = count - pos; /* translate relative to absolute */
 
-	if (buf->mark.set && pos <= buf->mark.pos) {
-		buf->mark.pos = 0;
-		buf->mark.set = 0;
-	}
-
 	return _buffer_type_registry[buf->stat.spec.type]->rewind(buf, pos);
 }
 
