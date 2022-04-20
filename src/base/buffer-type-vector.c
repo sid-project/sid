@@ -233,23 +233,26 @@ static int _buffer_vector_fmt_add(struct sid_buffer *buf, const void **mem, size
 	return -ENOTSUP;
 }
 
-static int _buffer_vector_rewind(struct sid_buffer *buf, size_t pos)
+static int _buffer_vector_release(struct sid_buffer *buf, size_t pos, bool rewind)
 {
 	if (buf->mark.set && pos <= buf->mark.pos) {
 		buf->mark.set = false;
 		buf->mark.pos = 0;
 	}
 
-	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
-		pos += 1;
+	if (rewind) {
+		if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+			pos += 1;
 
-	buf->stat.usage.used = pos;
+		buf->stat.usage.used = pos;
+	}
+
 	return 0;
 }
 
-static int _buffer_vector_rewind_mem(struct sid_buffer *buf, const void *mem)
+static int _buffer_vector_release_mem(struct sid_buffer *buf, const void *mem, bool rewind)
 {
-	return _buffer_vector_rewind(buf, (struct iovec *) mem - (struct iovec *) buf->mem);
+	return _buffer_vector_release(buf, (struct iovec *) mem - (struct iovec *) buf->mem, rewind);
 }
 
 static bool _buffer_vector_is_complete(struct sid_buffer *buf, int *ret_code)
@@ -402,8 +405,8 @@ const struct sid_buffer_type sid_buffer_type_vector = {.create      = _buffer_ve
                                                        .reset       = _buffer_vector_reset,
                                                        .add         = _buffer_vector_add,
                                                        .fmt_add     = _buffer_vector_fmt_add,
-                                                       .rewind      = _buffer_vector_rewind,
-                                                       .rewind_mem  = _buffer_vector_rewind_mem,
+                                                       .release     = _buffer_vector_release,
+                                                       .release_mem = _buffer_vector_release_mem,
                                                        .is_complete = _buffer_vector_is_complete,
                                                        .get_data    = _buffer_vector_get_data,
                                                        .get_fd      = _buffer_vector_get_fd,

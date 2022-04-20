@@ -40,8 +40,8 @@ struct sid_buffer_type {
 	int (*reset)(struct sid_buffer *buf);
 	int (*add)(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos);
 	int (*fmt_add)(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
-	int (*rewind)(struct sid_buffer *buf, size_t pos);
-	int (*rewind_mem)(struct sid_buffer *buf, const void *mem);
+	int (*release)(struct sid_buffer *buf, size_t pos, bool rewind);
+	int (*release_mem)(struct sid_buffer *buf, const void *mem, bool rewind);
 	bool (*is_complete)(struct sid_buffer *buf, int *ret_code);
 	int (*get_data)(struct sid_buffer *buf, const void **data, size_t *data_size);
 	int (*get_fd)(struct sid_buffer *buf);

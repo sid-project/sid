@@ -43,7 +43,9 @@ int                    sid_buffer_reset_init(struct sid_buffer *buf, struct sid_
 int                    sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos);
 int                    sid_buffer_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, ...);
 int                    sid_buffer_vfmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
+int                    sid_buffer_unbind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence);
 int                    sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence);
+int                    sid_buffer_unbind_mem(struct sid_buffer *buf, const void *mem);
 int                    sid_buffer_rewind_mem(struct sid_buffer *buf, const void *mem);
 bool                   sid_buffer_is_complete(struct sid_buffer *buf, int *ret_code);
 ssize_t                sid_buffer_read(struct sid_buffer *buf, int fd);

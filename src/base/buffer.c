@@ -178,7 +178,7 @@ int sid_buffer_vfmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, c
 	return 0;
 }
 
-int sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence)
+int _do_sid_buffer_release(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence, bool rewind)
 {
 	size_t count = sid_buffer_count(buf);
 
@@ -191,15 +191,35 @@ int sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whenc
 	if (whence == SID_BUFFER_POS_REL)
 		pos = count - pos; /* translate relative to absolute */
 
-	return _buffer_type_registry[buf->stat.spec.type]->rewind(buf, pos);
+	return _buffer_type_registry[buf->stat.spec.type]->release(buf, pos, rewind);
 }
 
-int sid_buffer_rewind_mem(struct sid_buffer *buf, const void *mem)
+int sid_buffer_unbind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence)
+{
+	return _do_sid_buffer_release(buf, pos, whence, false);
+}
+
+int sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence)
+{
+	return _do_sid_buffer_release(buf, pos, whence, true);
+}
+
+int _do_sid_buffer_release_mem(struct sid_buffer *buf, const void *mem, bool rewind)
 {
 	if (mem < buf->mem)
 		return -EINVAL;
 
-	return _buffer_type_registry[buf->stat.spec.type]->rewind_mem(buf, mem);
+	return _buffer_type_registry[buf->stat.spec.type]->release_mem(buf, mem, rewind);
+}
+
+int sid_buffer_unbind_mem(struct sid_buffer *buf, const void *mem)
+{
+	return _do_sid_buffer_release_mem(buf, mem, false);
+}
+
+int sid_buffer_rewind_mem(struct sid_buffer *buf, const void *mem)
+{
+	return _do_sid_buffer_release_mem(buf, mem, true);
 }
 
 bool sid_buffer_is_complete(struct sid_buffer *buf, int *ret_code)
