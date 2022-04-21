@@ -4308,12 +4308,11 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 
 	if ((r = worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec)) < 0) {
 		log_error_errno(ID(ubridge_res), r, "worker_control_channel_send");
-		(void) close(data_spec.ext.socket.fd_pass);
-		return -1;
+		r = -1;
 	}
 
 	(void) close(data_spec.ext.socket.fd_pass);
-	return 0;
+	return r;
 }
 
 int ubridge_cmd_dbdump(sid_resource_t *ubridge_res, const char *file_path)
