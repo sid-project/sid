@@ -4586,8 +4586,7 @@ static struct module_symbol_params type_symbol_params[] = {{
 							   },
                                                            NULL_MODULE_SYMBOL_PARAMS};
 
-static const struct sid_kv_store_resource_params main_kv_store_res_params = {.backend           = KV_STORE_BACKEND_HASH,
-                                                                             .hash.initial_size = 32};
+static const struct sid_kv_store_resource_params main_kv_store_res_params = {.backend = KV_STORE_BACKEND_BPTREE, .bptree.order = 4};
 
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
