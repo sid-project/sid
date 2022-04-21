@@ -252,7 +252,12 @@ static int _buffer_vector_release(struct sid_buffer *buf, size_t pos, bool rewin
 
 static int _buffer_vector_release_mem(struct sid_buffer *buf, const void *mem, bool rewind)
 {
-	return _buffer_vector_release(buf, (struct iovec *) mem - (struct iovec *) buf->mem, rewind);
+	size_t pos = (struct iovec *) mem - (struct iovec *) buf->mem;
+
+	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+		pos -= 1;
+
+	return _buffer_vector_release(buf, pos, rewind);
 }
 
 static bool _buffer_vector_is_complete(struct sid_buffer *buf, int *ret_code)

@@ -256,7 +256,12 @@ static int _buffer_linear_release(struct sid_buffer *buf, size_t pos, bool rewin
 
 static int _buffer_linear_release_mem(struct sid_buffer *buf, const void *mem, bool rewind)
 {
-	return _buffer_linear_release(buf, mem - buf->mem, rewind);
+	size_t pos = mem - buf->mem;
+
+	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+		pos -= SID_BUFFER_SIZE_PREFIX_LEN;
+
+	return _buffer_linear_release(buf, pos, rewind);
 }
 
 #define EXPECTED(buf) (buf->stat.usage.used >= SID_BUFFER_SIZE_PREFIX_LEN ? *((SID_BUFFER_SIZE_PREFIX_TYPE *) buf->mem) : 0)
