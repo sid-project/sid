@@ -736,6 +736,24 @@ bptree_node_t *_create_root(bptree_t *bptree, bptree_key_t *bkey, bptree_record_
 	return bptree->root;
 }
 
+static int _insert(bptree_t *bptree, bptree_key_t *bkey, bptree_record_t *rec)
+{
+	bptree_node_t *leaf;
+
+	/* Case: the tree already exists. (Rest of function body.) */
+
+	leaf = _find_leaf(bptree, bkey->key);
+
+	/* Case: leaf has room for key and record pointer. */
+
+	if (leaf->num_keys < bptree->order - 1)
+		return _insert_into_leaf(leaf, bkey, rec) ? 0 : -1;
+
+	/* Case: leaf must be split. */
+
+	return _insert_into_leaf_after_splitting(bptree, leaf, bkey, rec) ? 0 : -1;
+}
+
 /*
  * Main insertion function.
  * Inserts a key and associated data into the B+ tree, causing the tree
@@ -744,7 +762,6 @@ bptree_node_t *_create_root(bptree_t *bptree, bptree_key_t *bkey, bptree_record_
 int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_size)
 {
 	bptree_record_t *rec;
-	bptree_node_t *  leaf;
 	bptree_key_t *   bkey;
 
 	if ((rec = _find(bptree, key, NULL, NULL, NULL))) {
@@ -768,18 +785,28 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	if (!bptree->root)
 		return _create_root(bptree, bkey, rec) ? 0 : -1;
 
-	/* Case: the tree already exists. (Rest of function body.) */
+	return _insert(bptree, bkey, rec);
+}
 
-	leaf = _find_leaf(bptree, key);
+int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias)
+{
+	bptree_record_t *rec;
+	bptree_record_t *rec_alias;
+	bptree_key_t *   bkey;
 
-	/* Case: leaf has room for key and record pointer. */
+	if (!(rec = _find(bptree, key, NULL, NULL, NULL)))
+		return -1;
 
-	if (leaf->num_keys < bptree->order - 1)
-		return _insert_into_leaf(leaf, bkey, rec) ? 0 : -1;
+	if ((rec_alias = _find(bptree, alias, NULL, NULL, NULL))) {
+		if (rec != rec_alias)
+			return -1;
+		return 0;
+	}
 
-	/* Case: leaf must be split. */
+	if (!(bkey = _make_bkey(bptree, alias)))
+		return -1;
 
-	return _insert_into_leaf_after_splitting(bptree, leaf, bkey, rec) ? 0 : -1;
+	return _insert(bptree, bkey, rec);
 }
 
 int bptree_update(bptree_t *         bptree,
