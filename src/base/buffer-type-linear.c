@@ -37,6 +37,8 @@ static size_t _buffer_linear_count(struct sid_buffer *buf)
 			return buf->stat.usage.used;
 		case SID_BUFFER_MODE_SIZE_PREFIX:
 			return buf->stat.usage.used ? buf->stat.usage.used - SID_BUFFER_SIZE_PREFIX_LEN : 0;
+		default:
+			return 0;
 	}
 }
 

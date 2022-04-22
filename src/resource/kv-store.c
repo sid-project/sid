@@ -641,6 +641,9 @@ const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 
 		case KV_STORE_BACKEND_BPTREE:
 			return bptree_iter_current(iter->bpt.iter, NULL, &key) ? key : NULL;
+
+		default:
+			return NULL;
 	}
 }
 
@@ -701,6 +704,9 @@ size_t kv_store_num_entries(sid_resource_t *kv_store_res)
 
 		case KV_STORE_BACKEND_BPTREE:
 			return bptree_get_num_entries(kv_store->bpt);
+
+		default:
+			return 0;
 	}
 }
 
@@ -714,6 +720,9 @@ size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t
 
 		case KV_STORE_BACKEND_BPTREE:
 			return bptree_get_size(kv_store->bpt, meta_size, data_size);
+
+		default:
+			return 0;
 	}
 }
 
