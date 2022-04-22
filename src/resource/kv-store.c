@@ -714,7 +714,6 @@ size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t
 
 		case KV_STORE_BACKEND_BPTREE:
 			return bptree_get_size(kv_store->bpt, meta_size, data_size);
-			return 0;
 	}
 }
 
