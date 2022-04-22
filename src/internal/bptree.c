@@ -48,6 +48,7 @@
  *     information through 'bptree_get_size'
  *   - track number of record entries and expose this information through
  *     'bptree_get_num_entries'
+ *   - added reference counting for records
  */
 
 #include "internal/bptree.h"
@@ -57,8 +58,9 @@
 #include <string.h>
 
 typedef struct bptree_record {
-	size_t data_size;
-	void * data;
+	size_t   data_size;
+	void *   data;
+	unsigned ref_count;
 } bptree_record_t;
 
 typedef struct bptree_key {
@@ -299,6 +301,7 @@ static bptree_record_t *_make_record(bptree_t *bptree, void *data, size_t data_s
 
 	rec->data_size = data_size;
 	rec->data      = data;
+	rec->ref_count = 0;
 
 	bptree->meta_size += sizeof(*rec);
 	bptree->data_size += data_size;
@@ -307,8 +310,17 @@ static bptree_record_t *_make_record(bptree_t *bptree, void *data, size_t data_s
 	return rec;
 }
 
-static void _destroy_record(bptree_t *bptree, bptree_record_t *rec)
+static bptree_record_t *_ref_record(bptree_record_t *rec)
 {
+	rec->ref_count++;
+	return rec;
+}
+
+static void _unref_record(bptree_t *bptree, bptree_record_t *rec)
+{
+	if (--rec->ref_count > 0)
+		return;
+
 	bptree->meta_size -= sizeof(*rec);
 	bptree->data_size -= rec->data_size;
 	bptree->num_entries--;
@@ -448,7 +460,7 @@ static bptree_node_t *_insert_into_leaf(bptree_node_t *leaf, bptree_key_t *bkey,
 	}
 
 	leaf->bkeys[insertion_point]    = _ref_bkey(bkey);
-	leaf->pointers[insertion_point] = pointer;
+	leaf->pointers[insertion_point] = _ref_record(pointer);
 	leaf->num_keys++;
 
 	return leaf;
@@ -490,7 +502,7 @@ static bptree_node_t *
 	}
 
 	temp_bkeys[insertion_index]    = _ref_bkey(bkey);
-	temp_pointers[insertion_index] = pointer;
+	temp_pointers[insertion_index] = _ref_record(pointer);
 
 	leaf->num_keys = 0;
 
@@ -716,7 +728,7 @@ bptree_node_t *_create_root(bptree_t *bptree, bptree_key_t *bkey, bptree_record_
 
 	bptree->root                              = leaf;
 	bptree->root->bkeys[0]                    = _ref_bkey(bkey);
-	bptree->root->pointers[0]                 = pointer;
+	bptree->root->pointers[0]                 = _ref_record(pointer);
 	bptree->root->pointers[bptree->order - 1] = NULL;
 	bptree->root->parent                      = NULL;
 	bptree->root->num_keys++;
@@ -1156,7 +1168,7 @@ int bptree_remove(bptree_t *bptree, const char *key)
 
 	if (rec && key_leaf) {
 		r = _delete_entry(bptree, key_leaf, bkey, rec) ? 0 : -1;
-		_destroy_record(bptree, rec);
+		_unref_record(bptree, rec);
 	}
 
 	return r;
@@ -1169,7 +1181,7 @@ static void _destroy_tree_nodes(bptree_t *bptree, bptree_node_t *n)
 	if (n->is_leaf) {
 		for (i = 0; i < n->num_keys; i++) {
 			_unref_bkey(bptree, n->bkeys[i]);
-			_destroy_record(bptree, n->pointers[i]);
+			_unref_record(bptree, n->pointers[i]);
 		}
 	} else {
 		for (i = 0; i < n->num_keys + 1; i++) {
