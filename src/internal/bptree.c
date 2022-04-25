@@ -740,8 +740,6 @@ static int _insert(bptree_t *bptree, bptree_key_t *bkey, bptree_record_t *rec)
 {
 	bptree_node_t *leaf;
 
-	/* Case: the tree already exists. (Rest of function body.) */
-
 	leaf = _find_leaf(bptree, bkey->key);
 
 	/* Case: leaf has room for key and record pointer. */
@@ -784,6 +782,8 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 
 	if (!bptree->root)
 		return _create_root(bptree, bkey, rec) ? 0 : -1;
+
+	/* Case: the tree already exists. Insert into the tree. */
 
 	return _insert(bptree, bkey, rec);
 }
