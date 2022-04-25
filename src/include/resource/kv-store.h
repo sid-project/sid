@@ -138,6 +138,18 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
                          kv_store_value_op_flags_t op_flags,
                          kv_store_update_fn_t      kv_update_fn,
                          void *                    kv_update_fn_arg);
+
+/*
+ * Add alias for given key.
+ *   - if the alias is already used and is pointing to a different record
+ *     than the original key, the 'force=true' will cause the alias to
+ *     point to the same record as key (otherwise returns -1 to indicate error)
+ *
+ *  Returns:
+ *      0 if alias added
+ *     -1 if alias not added
+ */
+int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char *alias, bool force);
 /*
  * Gets value for given key.
  *   - If value_size is not NULL, the function returns the size of the value through this output argument.

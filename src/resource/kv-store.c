@@ -473,6 +473,19 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
 	return _get_data(kv_store_value);
 }
 
+int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char *alias, bool force)
+{
+	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_BPTREE:
+			return bptree_insert_alias(kv_store->bpt, key, alias, force);
+
+		default:
+			return -ENOTSUP;
+	}
+}
+
 void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *value_size, kv_store_value_flags_t *flags)
 {
 	struct kv_store *      kv_store = sid_resource_get_data(kv_store_res);
