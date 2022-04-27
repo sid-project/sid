@@ -103,12 +103,12 @@ static void test_type_H(void **state)
 
 static void test_kvstore_iterate(void **state)
 {
-	struct iovec           test_iov[_KV_VALUE_IDX_COUNT];
+	struct iovec           test_iov[_VVALUE_IDX_COUNT];
 	size_t                 data_size, kv_size;
 	const char *           key;
 	struct iovec *         return_iov;
 	kv_store_iter_t *      iter;
-	sid_ucmd_kv_flags_t    ucmd_flags = DEFAULT_KV_FLAGS_CORE;
+	sid_ucmd_kv_flags_t    ucmd_flags = DEFAULT_VALUE_FLAGS_CORE;
 	kv_store_value_flags_t flags;
 	uint64_t               seqnum       = 0;
 	sid_resource_t *       kv_store_res = NULL;
@@ -123,9 +123,9 @@ static void test_kvstore_iterate(void **state)
 	                                   SID_RESOURCE_PRIO_NORMAL,
 	                                   SID_RESOURCE_NO_SERVICE_LINKS);
 
-	KV_VALUE_VEC_HEADER_PREP(test_iov, seqnum, seqnum, ucmd_flags, (char *) TEST_OWNER);
-	test_iov[KV_VALUE_IDX_DATA].iov_base = "test";
-	test_iov[KV_VALUE_IDX_DATA].iov_len  = sizeof("test");
+	VVALUE_HEADER_PREP(test_iov, seqnum, seqnum, ucmd_flags, (char *) TEST_OWNER);
+	test_iov[VVALUE_IDX_DATA].iov_base = "test";
+	test_iov[VVALUE_IDX_DATA].iov_len  = sizeof("test");
 
 	update_arg = (struct kv_update_arg) {.res      = kv_store_res,
 	                                     .gen_buf  = NULL,
@@ -137,7 +137,7 @@ static void test_kvstore_iterate(void **state)
 	assert_ptr_not_equal(kv_store_set_value(kv_store_res,
 	                                        TEST_KEY,
 	                                        test_iov,
-	                                        KV_VALUE_IDX_DATA + 1,
+	                                        VVALUE_IDX_DATA + 1,
 	                                        KV_STORE_VALUE_VECTOR,
 	                                        KV_STORE_VALUE_NO_OP,
 	                                        _kv_cb_overwrite,
@@ -149,8 +149,8 @@ static void test_kvstore_iterate(void **state)
 	while ((return_iov = kv_store_iter_next(iter, &data_size, &key, &flags))) {
 		assert_int_equal(strcmp(TEST_KEY, key), 0);
 		assert_true(flags == KV_STORE_VALUE_VECTOR);
-		assert_int_equal(strcmp(return_iov[KV_VALUE_IDX_DATA].iov_base, "test"), 0);
-		assert_int_equal(return_iov[KV_VALUE_IDX_DATA].iov_len, sizeof("test"));
+		assert_int_equal(strcmp(return_iov[VVALUE_IDX_DATA].iov_base, "test"), 0);
+		assert_int_equal(return_iov[VVALUE_IDX_DATA].iov_len, sizeof("test"));
 	}
 
 	kv_store_iter_destroy(iter);
