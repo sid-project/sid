@@ -2778,8 +2778,7 @@ const void *sid_ucmd_part_get_disk_kv(struct module *      mod,
 static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
-	struct sid_ucmd_ctx *ucmd_ctx   = sid_resource_get_data(cmd_res);
-	size_t               buf_offset = sid_buffer_count(ucmd_ctx->ucmd_mod_ctx.gen_buf);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const char *         s;
 	struct dirent **     dirent  = NULL;
 	struct sid_buffer *  vec_buf = NULL;
@@ -2839,6 +2838,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 			 * after this uevent was triggered. For now, error out even in this case.
 			 */
 			log_sys_error(ID(cmd_res), "scandir", s);
+			sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, s);
 			goto out;
 		}
 
@@ -2942,14 +2942,12 @@ out:
 
 		sid_buffer_destroy(vec_buf);
 	}
-	sid_buffer_rewind(ucmd_ctx->ucmd_mod_ctx.gen_buf, buf_offset, SID_BUFFER_POS_ABS);
 	return r;
 }
 
 static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx   = sid_resource_get_data(cmd_res);
-	size_t               buf_offset = sid_buffer_count(ucmd_ctx->ucmd_mod_ctx.gen_buf);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct iovec         vvalue[VVALUE_SINGLE_CNT];
 	char                 devno_buf[16];
 	const char *         s;
@@ -3018,7 +3016,6 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	_destroy_key(NULL, s);
 	r = 0;
 out:
-	sid_buffer_rewind(ucmd_ctx->ucmd_mod_ctx.gen_buf, buf_offset, SID_BUFFER_POS_ABS);
 	return r;
 }
 
