@@ -49,11 +49,12 @@
  *   - track number of record entries and expose this information through
  *     'bptree_get_num_entries'
  *   - added reference counting for records
+ *   - added 'bptree_insert_alias' to insert alias for a key which then shares
+ *     the same record with the original key
  */
 
 #include "internal/bptree.h"
 
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -788,18 +789,25 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	return _insert(bptree, bkey, rec);
 }
 
-int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias)
+int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bool force)
 {
 	bptree_record_t *rec;
 	bptree_record_t *rec_alias;
+	bptree_node_t *  leaf;
+	int              i;
 	bptree_key_t *   bkey;
 
 	if (!(rec = _find(bptree, key, NULL, NULL, NULL)))
 		return -1;
 
-	if ((rec_alias = _find(bptree, alias, NULL, NULL, NULL))) {
-		if (rec != rec_alias)
-			return -1;
+	if ((rec_alias = _find(bptree, alias, &leaf, &i, NULL))) {
+		if (rec != rec_alias) {
+			if (!force)
+				return -1;
+
+			leaf->pointers[i] = _ref_record(rec);
+			_unref_record(bptree, rec_alias);
+		}
 		return 0;
 	}
 

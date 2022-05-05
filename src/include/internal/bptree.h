@@ -22,6 +22,7 @@
 
 #include "internal/common.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #ifdef __cplusplus
@@ -48,7 +49,7 @@ typedef void (*bptree_iterate_fn_t)(const char *key, void *data, size_t data_siz
 
 bptree_t *bptree_create(int order);
 int       bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_size);
-int       bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias);
+int       bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bool force);
 int       bptree_update(bptree_t *         bptree,
                         const char *       key,
                         void **            data,
