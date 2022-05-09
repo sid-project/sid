@@ -2065,7 +2065,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 		flags |= (KV_SYNC | KV_PERSISTENT);
 
 	if (unset && !is_worker) {
-		kv_store_unset_value(ucmd_mod_ctx->kv_store_res, key, _kv_cb_unreserve, &update_arg);
+		kv_store_unset(ucmd_mod_ctx->kv_store_res, key, _kv_cb_unreserve, &update_arg);
 		goto out;
 	} else {
 		VVALUE_HEADER_PREP(vvalue, ucmd_mod_ctx->gennum, null_int, flags, (char *) owner);
@@ -4120,7 +4120,7 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 		}
 
 		if (unset)
-			(void) kv_store_unset_value(kv_store_res, key, _kv_cb_main_unset, &update_arg);
+			(void) kv_store_unset(kv_store_res, key, _kv_cb_main_unset, &update_arg);
 		else {
 			if (rel_spec.delta->op == KV_OP_SET)
 				(void) kv_store_set_value(kv_store_res,

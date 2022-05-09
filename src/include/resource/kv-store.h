@@ -158,14 +158,14 @@ int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char
 void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *value_size, kv_store_value_flags_t *flags);
 
 /*
- * Unsets value for given key.
- *   - Before the value is actually unset, unset_resolver with unset_resolver_arg is called to confirm the action.
+ * Unset given key. If this is the last key for the value (no more aliases), unsets the value too.
+ *   - Before unsetting, kv_unset_fn with kv_unset_fn_arg is called to confirm the action.
  *
  * Returns:
  *    0 if value unset
  *   -1 if value not unset
  */
-int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg);
+int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg);
 
 size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t *data_size);
 

@@ -603,7 +603,7 @@ static bptree_update_action_t _bptree_unset_fn(const char *key,
 	return BPTREE_UPDATE_SKIP;
 }
 
-int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg)
+int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg)
 {
 	struct kv_store *         kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_update_fn_relay relay    = {.kv_update_fn     = kv_unset_fn,

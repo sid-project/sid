@@ -158,7 +158,7 @@ static void test_kvstore_iterate(void **state)
 
 	assert_int_equal(kv_store_num_entries(kv_store_res), 1);
 	/* TODO: if update_arg is NULL in the following call it causes SEGV */
-	assert_int_equal(kv_store_unset_value(kv_store_res, TEST_KEY, _kv_cb_main_unset, &update_arg), 0);
+	assert_int_equal(kv_store_unset(kv_store_res, TEST_KEY, _kv_cb_main_unset, &update_arg), 0);
 	assert_int_equal(kv_store_num_entries(kv_store_res), 0);
 	kv_store_get_size(kv_store_res, &meta_size, &data_size);
 	assert_int_equal(data_size, 0);
@@ -262,7 +262,7 @@ static void test_kvstore_merge_op(void **state)
 
 	kv_store_iter_destroy(iter);
 	assert_int_equal(kv_store_num_entries(kv_store_res), 1);
-	assert_int_equal(kv_store_unset_value(kv_store_res, MERGE_KEY, NULL, NULL), 0);
+	assert_int_equal(kv_store_unset(kv_store_res, MERGE_KEY, NULL, NULL), 0);
 	assert_int_equal(kv_store_num_entries(kv_store_res), 0);
 	release_test_data(MAX_TEST_ENTRIES, test_iov, flags);
 	sid_resource_destroy(kv_store_res);
