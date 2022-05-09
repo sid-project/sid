@@ -681,6 +681,22 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 	return 0;
 }
 
+static int _check_index_needed(struct iovec *vvalue_old, struct iovec *vvalue_new)
+{
+	int old_indexed, new_indexed;
+
+	old_indexed = vvalue_old ? VVALUE_FLAGS(vvalue_old) & (KV_SYNC | KV_PERSISTENT) : 0;
+	new_indexed = vvalue_new ? VVALUE_FLAGS(vvalue_new) & (KV_SYNC | KV_PERSISTENT) : 0;
+
+	if (old_indexed && !new_indexed)
+		return 2;
+
+	if (!old_indexed && new_indexed)
+		return 1;
+
+	return 0;
+}
+
 static int _kv_cb_overwrite(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
@@ -689,33 +705,32 @@ static int _kv_cb_overwrite(struct kv_store_update_spec *spec)
 	struct iovec *        vvalue_old, *vvalue_new;
 	const char *          reason;
 
-	if (!spec->old_data)
-		return 1;
-
-	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old);
+	vvalue_old = spec->old_data ? _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old) : NULL;
 	vvalue_new = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new);
 
-	if (VVALUE_FLAGS(vvalue_old) & KV_MOD_PRIVATE) {
-		if (strcmp(VVALUE_OWNER(vvalue_old), VVALUE_OWNER(vvalue_new))) {
-			reason               = "private";
-			update_arg->ret_code = -EACCES;
-			goto keep_old;
-		}
-	} else if (VVALUE_FLAGS(vvalue_old) & KV_MOD_PROTECTED) {
-		if (strcmp(VVALUE_OWNER(vvalue_old), VVALUE_OWNER(vvalue_new))) {
-			reason               = "protected";
-			update_arg->ret_code = -EPERM;
-			goto keep_old;
-		}
-	} else if (VVALUE_FLAGS(vvalue_old) & KV_MOD_RESERVED) {
-		if (strcmp(VVALUE_OWNER(vvalue_old), VVALUE_OWNER(vvalue_new))) {
-			reason               = "reserved";
-			update_arg->ret_code = -EBUSY;
-			goto keep_old;
+	if (spec->old_data) {
+		if (VVALUE_FLAGS(vvalue_old) & KV_MOD_PRIVATE) {
+			if (strcmp(VVALUE_OWNER(vvalue_old), VVALUE_OWNER(vvalue_new))) {
+				reason               = "private";
+				update_arg->ret_code = -EACCES;
+				goto keep_old;
+			}
+		} else if (VVALUE_FLAGS(vvalue_old) & KV_MOD_PROTECTED) {
+			if (strcmp(VVALUE_OWNER(vvalue_old), VVALUE_OWNER(vvalue_new))) {
+				reason               = "protected";
+				update_arg->ret_code = -EPERM;
+				goto keep_old;
+			}
+		} else if (VVALUE_FLAGS(vvalue_old) & KV_MOD_RESERVED) {
+			if (strcmp(VVALUE_OWNER(vvalue_old), VVALUE_OWNER(vvalue_new))) {
+				reason               = "reserved";
+				update_arg->ret_code = -EBUSY;
+				goto keep_old;
+			}
 		}
 	}
 
-	update_arg->ret_code = 0;
+	update_arg->ret_code = _check_index_needed(vvalue_old, vvalue_new);
 	return 1;
 keep_old:
 	log_debug(ID(update_arg->res),
@@ -1999,6 +2014,7 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 		return 0;
 	}
 
+	update_arg->ret_code = _check_index_needed(vvalue_old, vvalue_new);
 	return 1;
 }
 
@@ -2023,6 +2039,7 @@ static int _kv_cb_unreserve(struct kv_store_update_spec *spec)
 		return 0;
 	}
 
+	update_arg->ret_code = _check_index_needed(vvalue_old, NULL);
 	return 1;
 }
 
@@ -2197,9 +2214,12 @@ dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx
 
 static int _kv_cb_write_new_only(struct kv_store_update_spec *spec)
 {
+	struct kv_update_arg *update_arg = spec->arg;
+
 	if (spec->old_data)
 		return 0;
 
+	update_arg->ret_code = _check_index_needed(spec->old_data, spec->new_data);
 	return 1;
 }
 
