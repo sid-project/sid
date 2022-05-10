@@ -426,7 +426,8 @@ const char *sid_ucmd_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
 
 static const char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spec, int prefix_only)
 {
-	static const char fmt[] = "%s" KV_STORE_KEY_JOIN /* op */
+	static const char fmt[] = "%s"                   /* space for extra op */
+				  "%s" KV_STORE_KEY_JOIN /* op */
 				  "%s" KV_STORE_KEY_JOIN /* dom */
 				  "%s" KV_STORE_KEY_JOIN /* ns */
 				  "%s" KV_STORE_KEY_JOIN /* ns_part */
@@ -454,6 +455,7 @@ static const char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *k
 		                       (const void **) &key,
 		                       NULL,
 		                       fmt,
+		                       prefix_only ? KEY_NULL : " ",
 		                       op_to_key_prefix_map[key_spec->op],
 		                       key_spec->dom,
 		                       ns_to_key_prefix_map[key_spec->ns],
@@ -466,6 +468,7 @@ static const char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *k
 	} else {
 		if (asprintf((char **) &key,
 		             fmt,
+		             prefix_only ? KEY_NULL : " ",
 		             op_to_key_prefix_map[key_spec->op],
 		             key_spec->dom,
 		             ns_to_key_prefix_map[key_spec->ns],
@@ -482,7 +485,7 @@ static const char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *k
 
 static const char *_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spec)
 {
-	/* <op>:<dom>:<ns>:<ns_part>:<id>:<id_part>:<core> */
+	/* <extra_op><op>:<dom>:<ns>:<ns_part>:<id>:<id_part>:<core> */
 	return _do_compose_key(buf, key_spec, 0);
 }
 
