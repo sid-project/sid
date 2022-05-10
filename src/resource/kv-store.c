@@ -25,6 +25,7 @@
 #include "log/log.h"
 #include "resource/resource.h"
 
+#include <ctype.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -425,6 +426,17 @@ static bptree_update_action_t _bptree_update_fn(const char *key,
 	return BPTREE_UPDATE_SKIP;
 }
 
+static const char *_canonicalize_key(const char *key)
+{
+	if (!key || !*key)
+		return key;
+
+	while (isspace(*key))
+		key++;
+
+	return key;
+}
+
 void *kv_store_set_value(sid_resource_t *          kv_store_res,
                          const char *              key,
                          void *                    value,
@@ -454,6 +466,8 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
 
 	if (!(kv_store_value = _create_kv_store_value(iov, iov_cnt, flags, op_flags, &kv_store_value_size)))
 		return NULL;
+
+	key = _canonicalize_key(key);
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
@@ -487,6 +501,9 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
 int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char *alias, bool force)
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+
+	key   = _canonicalize_key(key);
+	alias = _canonicalize_key(alias);
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_BPTREE:
