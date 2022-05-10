@@ -76,7 +76,8 @@
 #define KV_PREFIX_NS_MODULE_C    "M"
 #define KV_PREFIX_NS_GLOBAL_C    "G"
 
-#define KEY_SYS_C "#"
+#define KEY_OP_SYNC_C ">"
+#define KEY_SYS_C     "#"
 
 #define KV_KEY_DB_GENERATION KEY_SYS_C "DBGEN"
 #define KV_KEY_DEV_READY     KEY_SYS_C "RDY"
@@ -386,7 +387,7 @@ static sid_ucmd_kv_flags_t value_flags_sync    = DEFAULT_VALUE_FLAGS_CORE;
 static char *              core_owner          = OWNER_CORE;
 static uint64_t            null_int            = 0;
 
-static int        _kv_delta_set(const char *key, struct iovec *vvalue, size_t vsize, struct kv_update_arg *update_arg);
+static int        _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct kv_update_arg *update_arg);
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
 
 udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
@@ -698,6 +699,26 @@ static int _check_index_needed(struct iovec *vvalue_old, struct iovec *vvalue_ne
 		return 1;
 
 	return 0;
+}
+
+static int _manage_index(struct kv_update_arg *update_arg, char *key)
+{
+	int r;
+
+	key[0] = KEY_OP_SYNC_C[0];
+	switch (update_arg->ret_code) {
+		case 1:
+			r = kv_store_add_alias(update_arg->res, key + 1, key, false);
+			break;
+		case 2:
+			r = kv_store_unset(update_arg->res, key, NULL, NULL);
+			break;
+		default:
+			r = 0;
+	}
+	key[0] = ' ';
+
+	return r;
 }
 
 static int _kv_cb_overwrite(struct kv_store_update_spec *spec)
@@ -1642,7 +1663,8 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 	struct kv_delta *   orig_delta, *orig_abs_delta;
 	struct iovec *      delta_vvalue, *abs_delta_vvalue;
 	size_t              delta_vsize, abs_delta_vsize, i;
-	const char *        key_prefix, *ns_part, *key;
+	const char *        key_prefix, *ns_part;
+	char *              key;
 	struct iovec        rel_vvalue[VVALUE_SINGLE_CNT];
 	int                 r = -1;
 
@@ -1679,6 +1701,8 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 	                   KV_STORE_VALUE_NO_OP,
 	                   _kv_cb_overwrite,
 	                   update_arg);
+
+	(void) _manage_index(update_arg, key);
 
 	_value_vector_mark_sync(abs_delta_vvalue, 0);
 	_destroy_key(update_arg->gen_buf, key);
@@ -1758,7 +1782,7 @@ static int _kv_cb_delta_step(struct kv_store_update_spec *spec)
 	return 0;
 }
 
-static int _kv_delta_set(const char *key, struct iovec *vvalue, size_t vsize, struct kv_update_arg *update_arg)
+static int _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct kv_update_arg *update_arg)
 {
 	struct kv_rel_spec *rel_spec = update_arg->custom;
 	int                 r        = -1;
@@ -1787,6 +1811,8 @@ static int _kv_delta_set(const char *key, struct iovec *vvalue, size_t vsize, st
 	                        _kv_cb_delta_step,
 	                        update_arg))
 		goto out;
+
+	(void) _manage_index(update_arg, key);
 
 	/*
 	 * Next, depending on further requested handling based on rel_spec->delta->flags,
@@ -1846,7 +1872,7 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
                                  size_t                  value_size)
 {
 	const char *         owner = _get_mod_name(mod);
-	const char *         key   = NULL;
+	char *               key   = NULL;
 	struct iovec         vvalue[VVALUE_SINGLE_CNT];
 	struct kv_value *    svalue;
 	struct kv_update_arg update_arg;
@@ -1900,6 +1926,8 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 	                                  &update_arg)) ||
 	    !value_size)
 		goto out;
+
+	(void) _manage_index(&update_arg, key);
 
 	ret = svalue->data + _svalue_ext_data_offset(svalue);
 out:
@@ -2053,7 +2081,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
                                 int                      unset)
 {
 	const char *         owner = _get_mod_name(mod);
-	const char *         key   = NULL;
+	char *               key   = NULL;
 	struct iovec         vvalue[VVALUE_HEADER_CNT]; /* only header */
 	sid_ucmd_kv_flags_t  flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
@@ -2098,6 +2126,8 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 		                        _kv_cb_reserve,
 		                        &update_arg))
 			goto out;
+
+		(void) _manage_index(&update_arg, key);
 	}
 
 	r = 0;
@@ -2232,7 +2262,7 @@ int sid_ucmd_group_create(struct module *         mod,
                           const char *            group_id,
                           sid_ucmd_kv_flags_t     group_flags)
 {
-	const char * key = NULL;
+	char *       key = NULL;
 	struct iovec vvalue[VVALUE_HEADER_CNT];
 	int          r = -1;
 
@@ -2267,6 +2297,8 @@ int sid_ucmd_group_create(struct module *         mod,
 	                        &update_arg))
 		goto out;
 
+	(void) _manage_index(&update_arg, key);
+
 	r = 0;
 out:
 	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
@@ -2279,7 +2311,7 @@ int _handle_current_dev_for_group(struct module *         mod,
                                   const char *            group_id,
                                   kv_op_t                 op)
 {
-	const char * key            = NULL;
+	char *       key            = NULL;
 	const char * rel_key_prefix = NULL;
 	struct iovec vvalue[VVALUE_SINGLE_CNT];
 	int          r = -1;
@@ -2362,7 +2394,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
                            int                     force)
 {
 	static sid_ucmd_kv_flags_t kv_flags_sync_no_reserved = (DEFAULT_VALUE_FLAGS_CORE) & ~KV_MOD_RESERVED;
-	const char *               key                       = NULL;
+	char *                     key                       = NULL;
 	size_t                     size;
 	struct iovec               vvalue[VVALUE_HEADER_CNT];
 	int                        r = -1;
@@ -2802,7 +2834,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	const char *         s;
+	char *               s;
 	struct dirent **     dirent  = NULL;
 	struct sid_buffer *  vec_buf = NULL;
 	char                 devno_buf[16];
@@ -2974,7 +3006,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	struct iovec         vvalue[VVALUE_SINGLE_CNT];
 	char                 devno_buf[16];
 	const char *         s;
-	const char *         key;
+	char *               key;
 	int                  r = -1;
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
