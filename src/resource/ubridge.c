@@ -76,8 +76,9 @@
 #define KV_PREFIX_NS_MODULE_C    "M"
 #define KV_PREFIX_NS_GLOBAL_C    "G"
 
-#define KEY_OP_SYNC_C ">"
-#define KEY_SYS_C     "#"
+#define KEY_OP_SYNC_C     ">"
+#define KEY_OP_SYNC_END_C "?" /* right after '>' */
+#define KEY_SYS_C         "#"
 
 #define KV_KEY_DB_GENERATION KEY_SYS_C "DBGEN"
 #define KV_KEY_DEV_READY     KEY_SYS_C "RDY"
@@ -878,7 +879,12 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		/* nothing to export for this command */
 		return 0;
 
-	if (!(iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res, NULL, NULL))) {
+	if (cmd_reg->flags & (CMD_KV_EXPORT_SYNC | CMD_KV_EXPORT_PERSISTENT))
+		iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res, KEY_OP_SYNC_C, KEY_OP_SYNC_END_C);
+	else
+		iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res, NULL, NULL);
+
+	if (!iter) {
 		// TODO: Discard udev kv-store we've already appended to the output buffer!
 		log_error(ID(cmd_res), "Failed to create iterator for temp key-value store.");
 		goto fail;
@@ -935,6 +941,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			svalue->flags &= ~KV_SYNC;
 		}
 
+		key += 1; /* remove leading KEY_OP_SYNC_C */
 		key_size = strlen(key) + 1;
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
