@@ -424,7 +424,7 @@ const char *sid_ucmd_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
 	return ucmd_ctx->req_env.dev.udev.synth_uuid;
 }
 
-static const char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spec, int prefix_only)
+static char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spec, int prefix_only)
 {
 	static const char fmt[] = "%s"                   /* space for extra op */
 				  "%s" KV_STORE_KEY_JOIN /* op */
@@ -435,7 +435,7 @@ static const char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *k
 				  "%s"
 				  "%s" /* id_part */
 				  "%s";
-	const char *key;
+	char *key;
 
 	static const char *op_to_key_prefix_map[] = {[KV_OP_ILLEGAL] = KV_PREFIX_OP_ILLEGAL_C,
 	                                             [KV_OP_SET]     = KV_PREFIX_OP_SET_C,
@@ -483,13 +483,13 @@ static const char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *k
 	return key;
 }
 
-static const char *_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spec)
+static char *_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spec)
 {
 	/* <extra_op><op>:<dom>:<ns>:<ns_part>:<id>:<id_part>:<core> */
 	return _do_compose_key(buf, key_spec, 0);
 }
 
-static const char *_compose_key_prefix(struct sid_buffer *buf, struct kv_key_spec *key_spec)
+static char *_compose_key_prefix(struct sid_buffer *buf, struct kv_key_spec *key_spec)
 {
 	/* <op>:<dom>:<ns>:<ns_part><id>:<id_part> */
 	return _do_compose_key(buf, key_spec, 1);
