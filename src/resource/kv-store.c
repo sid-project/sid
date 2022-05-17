@@ -395,6 +395,20 @@ static int _hash_update_fn(const char *               key,
 	return _update_fn(key, old_value, old_value_len, new_value, new_value_len, relay);
 }
 
+static bptree_update_action_t _bptree_update_fn(const char *               key,
+                                                struct kv_store_value *    old_value,
+                                                size_t                     old_value_len,
+                                                unsigned                   old_value_ref_count,
+                                                struct kv_store_value **   new_value,
+                                                size_t *                   new_value_len,
+                                                struct kv_update_fn_relay *relay)
+{
+	if (_update_fn(key, old_value, old_value_len, new_value, new_value_len, relay))
+		return BPTREE_UPDATE_WRITE;
+
+	return BPTREE_UPDATE_SKIP;
+}
+
 void *kv_store_set_value(sid_resource_t *          kv_store_res,
                          const char *              key,
                          void *                    value,
@@ -442,7 +456,7 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
 			                  key,
 			                  (void **) &kv_store_value,
 			                  &kv_store_value_size,
-			                  (bptree_update_fn_t) _update_fn,
+			                  (bptree_update_fn_t) _bptree_update_fn,
 			                  &relay))
 				return NULL;
 			break;
