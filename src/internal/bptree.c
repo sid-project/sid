@@ -824,22 +824,58 @@ int bptree_update(bptree_t *         bptree,
                   bptree_update_fn_t bptree_update_fn,
                   void *             bptree_update_fn_arg)
 {
-	bptree_record_t *rec = _find(bptree, key, NULL, NULL, NULL);
+	bptree_node_t *        key_leaf;
+	bptree_record_t *      rec;
+	bptree_key_t *         bkey;
+	bptree_update_action_t act;
+	int                    r;
 
-	if (rec) {
-		if (!bptree_update_fn || bptree_update_fn(key, rec->data, rec->data_size, data, data_size, bptree_update_fn_arg)) {
-			rec->data = data ? *data : NULL;
-			bptree->data_size -= rec->data_size;
-			rec->data_size = data_size ? *data_size : 0;
-			bptree->data_size += rec->data_size;
-		}
-		return 0;
+	rec = _find(bptree, key, &key_leaf, NULL, &bkey);
+
+	if (bptree_update_fn) {
+		if (rec)
+			act = bptree_update_fn(key,
+			                       rec->data,
+			                       rec->data_size,
+			                       rec->ref_count,
+			                       data,
+			                       data_size,
+			                       bptree_update_fn_arg);
+		else
+			act = bptree_update_fn(key, NULL, 0, 0, data, data_size, bptree_update_fn_arg);
 	} else {
-		if (!bptree_update_fn || bptree_update_fn(key, NULL, 0, data, data_size, bptree_update_fn_arg))
-			return bptree_insert(bptree, key, data ? *data : NULL, data_size ? *data_size : 0);
+		if (data)
+			act = BPTREE_UPDATE_WRITE;
+		else
+			act = BPTREE_UPDATE_REMOVE;
 	}
 
-	return 0;
+	switch (act) {
+		case BPTREE_UPDATE_WRITE:
+			if (rec) {
+				rec->data = data ? *data : NULL;
+				bptree->data_size -= rec->data_size;
+				rec->data_size = data_size ? *data_size : 0;
+				bptree->data_size += rec->data_size;
+				r = 0;
+			} else
+				r = bptree_insert(bptree, key, data ? *data : NULL, data_size ? *data_size : 0);
+			break;
+
+		case BPTREE_UPDATE_REMOVE:
+			if (rec && key_leaf) {
+				r = _delete_entry(bptree, key_leaf, bkey, rec) ? 0 : -1;
+				_unref_record(bptree, rec);
+			} else
+				r = 0;
+			break;
+
+		case BPTREE_UPDATE_SKIP:
+			r = 0;
+			break;
+	}
+
+	return r;
 }
 
 /*

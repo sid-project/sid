@@ -32,18 +32,26 @@ extern "C" {
 typedef struct bptree      bptree_t;
 typedef struct bptree_iter bptree_iter_t;
 
+typedef enum
+{
+	BPTREE_UPDATE_SKIP,   /* skip new value (keep old value) */
+	BPTREE_UPDATE_WRITE,  /* write new value (overwrite old value) */
+	BPTREE_UPDATE_REMOVE, /* remove old value */
+} bptree_update_action_t;
+
 /*
  * bptree_update_fn_t callback type to define bptree_update's bptree_update_fn callback function.
  * Function of this type returns:
  *      0 for bptree to keep old data
  *      1 for bptree to update old_data with new_data (new_data may be modified and/or newly allocated by this function)
  */
-typedef int (*bptree_update_fn_t)(const char *key,
-                                  void *      old_data,
-                                  size_t      old_data_size,
-                                  void **     new_data,
-                                  size_t *    new_data_size,
-                                  void *      bptree_update_fn_arg);
+typedef bptree_update_action_t (*bptree_update_fn_t)(const char *key,
+                                                     void *      old_data,
+                                                     size_t      old_data_size,
+                                                     unsigned    old_data_ref_count,
+                                                     void **     new_data,
+                                                     size_t *    new_data_size,
+                                                     void *      bptree_update_fn_arg);
 
 typedef void (*bptree_iterate_fn_t)(const char *key, void *data, size_t data_size);
 
