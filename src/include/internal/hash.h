@@ -110,19 +110,26 @@ void  hash_remove_with_data(struct hash_table *t, const char *key, uint32_t key_
  * THE FUNCTIONS BELOW ARE EXTRA TO ORIGINAL CODE TAKEN FROM LVM2 SOURCE TREE AND ITS dm_hash_table IMPLEMENTATION.
  */
 
+typedef enum
+{
+	HASH_UPDATE_SKIP,   /* skip new value (keep old value) */
+	HASH_UPDATE_WRITE,  /* write new value (overwrite old value) */
+	HASH_UPDATE_REMOVE, /* remove old value */
+} hash_update_action_t;
+
 /*
  * hash_update_fn_t callback type to define hash_update's hash_update_fn callback function.
  * Function of this type returns:
  * 	0 for hash table to keep old_data
  * 	1 for hash table to update old_data with new_data (new_data may be modified and/or newly allocated by this function)
  */
-typedef int (*hash_update_fn_t)(const void *key,
-                                uint32_t    key_len,
-                                void *      old_data,
-                                size_t      old_data_len,
-                                void **     new_data,
-                                size_t *    new_data_len,
-                                void *      hash_update_fn_arg);
+typedef hash_update_action_t (*hash_update_fn_t)(const void *key,
+                                                 uint32_t    key_len,
+                                                 void *      old_data,
+                                                 size_t      old_data_len,
+                                                 void **     new_data,
+                                                 size_t *    new_data_len,
+                                                 void *      hash_update_fn_arg);
 
 /*
  * hash_update function calls hash_update_fn callback with hash_update_fn_arg right before the update

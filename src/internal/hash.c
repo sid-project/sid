@@ -191,16 +191,21 @@ int hash_insert(struct hash_table *t, const void *key, uint32_t key_len, void *d
 	return _do_hash_insert(t, c, key, key_len, data, data_len);
 }
 
+static void _do_hash_remove(struct hash_table *t, struct hash_node **c)
+{
+	struct hash_node *old = *c;
+
+	*c = (*c)->next;
+	free(old);
+	t->num_nodes--;
+}
+
 void hash_remove(struct hash_table *t, const void *key, uint32_t key_len)
 {
 	struct hash_node **c = _find(t, key, key_len);
 
-	if (*c) {
-		struct hash_node *old = *c;
-		*c                    = (*c)->next;
-		free(old);
-		t->num_nodes--;
-	}
+	if (*c)
+		_do_hash_remove(t, c);
 }
 
 static struct hash_node **
@@ -271,12 +276,8 @@ void hash_remove_with_data(struct hash_table *t, const char *key, uint32_t key_l
 
 	c = _find_with_data(t, key, key_len, data, data_len);
 
-	if (c && *c) {
-		struct hash_node *old = *c;
-		*c                    = (*c)->next;
-		free(old);
-		t->num_nodes--;
-	}
+	if (c && *c)
+		_do_hash_remove(t, c);
 }
 
 /*
@@ -395,25 +396,46 @@ int hash_update(struct hash_table *t,
                 hash_update_fn_t   hash_update_fn,
                 void *             hash_update_fn_arg)
 {
-	struct hash_node **c = _find(t, key, key_len);
+	struct hash_node **  c;
+	hash_update_action_t act;
+	int                  r;
 
-	/*
-	 * the hash_update_fn may add nodes to the hash table, but it must not
-	 * add this key to the hash table or remove any nodes.
-	 */
-	if (*c) {
-		if (!hash_update_fn ||
-		    hash_update_fn(key, key_len, (*c)->data, (*c)->data_len, data, data_len, hash_update_fn_arg)) {
-			(*c)->data     = data ? *data : NULL;
-			(*c)->data_len = data_len ? *data_len : 0;
-		}
-		return 0;
+	c = _find(t, key, key_len);
+
+	if (hash_update_fn) {
+		if (*c)
+			act = hash_update_fn(key, key_len, (*c)->data, (*c)->data_len, data, data_len, hash_update_fn_arg);
+		else
+			act = hash_update_fn(key, key_len, NULL, 0, data, data_len, hash_update_fn_arg);
 	} else {
-		if (!hash_update_fn || hash_update_fn(key, key_len, NULL, 0, data, data_len, hash_update_fn_arg))
-			return _do_hash_insert(t, c, key, key_len, data ? *data : NULL, data_len ? *data_len : 0);
+		if (data)
+			act = HASH_UPDATE_WRITE;
+		else
+			act = HASH_UPDATE_REMOVE;
 	}
 
-	return 0;
+	switch (act) {
+		case HASH_UPDATE_WRITE:
+			if (*c) {
+				(*c)->data     = data ? *data : NULL;
+				(*c)->data_len = data_len ? *data_len : 0;
+				r              = 0;
+			} else
+				r = _do_hash_insert(t, c, key, key_len, data ? *data : NULL, data_len ? *data_len : 0);
+			break;
+
+		case HASH_UPDATE_REMOVE:
+			if (*c)
+				_do_hash_remove(t, c);
+			r = 0;
+			break;
+
+		case HASH_UPDATE_SKIP:
+			r = 0;
+			break;
+	}
+
+	return r;
 }
 
 size_t hash_get_size(struct hash_table *t, size_t *meta_size, size_t *data_size)
