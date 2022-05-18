@@ -384,15 +384,18 @@ static int _update_fn(const char *               key,
 	return r;
 }
 
-static int _hash_update_fn(const char *               key,
-                           uint32_t                   key_len __attribute__((unused)),
-                           struct kv_store_value *    old_value,
-                           size_t                     old_value_len,
-                           struct kv_store_value **   new_value,
-                           size_t *                   new_value_len,
-                           struct kv_update_fn_relay *relay)
+static hash_update_action_t _hash_update_fn(const char *               key,
+                                            uint32_t                   key_len __attribute__((unused)),
+                                            struct kv_store_value *    old_value,
+                                            size_t                     old_value_len,
+                                            struct kv_store_value **   new_value,
+                                            size_t *                   new_value_len,
+                                            struct kv_update_fn_relay *relay)
 {
-	return _update_fn(key, old_value, old_value_len, new_value, new_value_len, relay);
+	if (_update_fn(key, old_value, old_value_len, new_value, new_value_len, relay))
+		return HASH_UPDATE_WRITE;
+
+	return HASH_UPDATE_SKIP;
 }
 
 static bptree_update_action_t _bptree_update_fn(const char *               key,
