@@ -51,6 +51,8 @@
  *   - added reference counting for records
  *   - added 'bptree_insert_alias' to insert alias for a key which then shares
  *     the same record with the original key
+ *   - added 'bptree_destroy_with_fn' to call custom fn before each record
+ *     is unreferenced/removed
  */
 
 #include "internal/bptree.h"
@@ -1247,18 +1249,23 @@ int bptree_remove(bptree_t *bptree, const char *key)
 	return r;
 }
 
-static void _destroy_tree_nodes(bptree_t *bptree, bptree_node_t *n)
+static void _destroy_tree_nodes(bptree_t *bptree, bptree_node_t *n, bptree_iterate_fn_t fn, void *fn_arg)
 {
-	int i;
+	bptree_record_t *rec;
+	int              i;
 
 	if (n->is_leaf) {
 		for (i = 0; i < n->num_keys; i++) {
+			if (fn) {
+				rec = n->pointers[i];
+				fn(n->bkeys[i]->key, rec->data, rec->data_size, rec->ref_count, fn_arg);
+			}
 			_unref_bkey(bptree, n->bkeys[i]);
 			_unref_record(bptree, n->pointers[i]);
 		}
 	} else {
 		for (i = 0; i < n->num_keys + 1; i++) {
-			_destroy_tree_nodes(bptree, n->pointers[i]);
+			_destroy_tree_nodes(bptree, n->pointers[i], fn, fn_arg);
 			if (i < n->num_keys)
 				_unref_bkey(bptree, n->bkeys[i]);
 		}
@@ -1270,7 +1277,15 @@ static void _destroy_tree_nodes(bptree_t *bptree, bptree_node_t *n)
 int bptree_destroy(bptree_t *bptree)
 {
 	if (bptree->root)
-		_destroy_tree_nodes(bptree, bptree->root);
+		_destroy_tree_nodes(bptree, bptree->root, NULL, NULL);
+	free(bptree);
+	return 0;
+}
+
+int bptree_destroy_with_fn(bptree_t *bptree, bptree_iterate_fn_t fn, void *fn_arg)
+{
+	if (bptree->root)
+		_destroy_tree_nodes(bptree, bptree->root, fn, fn_arg);
 	free(bptree);
 	return 0;
 }

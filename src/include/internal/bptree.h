@@ -71,6 +71,7 @@ int       bptree_get_height(bptree_t *bptree);
 size_t    bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size);
 size_t    bptree_get_num_entries(bptree_t *bptree);
 int       bptree_destroy(bptree_t *bptree);
+int       bptree_destroy_with_fn(bptree_t *bptree, bptree_iterate_fn_t fn, void *fn_arg);
 
 void bptree_iter(bptree_t *bptree, const char *key_start, const char *key_end, bptree_iterate_fn_t fn, void *fn_arg);
 
