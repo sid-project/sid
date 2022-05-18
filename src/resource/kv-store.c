@@ -497,46 +497,90 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *
 	return _get_data(found);
 }
 
+static int _unset_fn(const char *               key,
+                     struct kv_store_value *    old_value,
+                     size_t                     old_value_len __attribute__((unused)),
+                     unsigned                   old_value_ref_count,
+                     struct kv_store_value **   new_value,
+                     size_t *                   new_value_len,
+                     struct kv_update_fn_relay *relay)
+{
+	struct kv_store_update_spec update_spec;
+	int                         r;
+
+	if (relay->kv_update_fn) {
+		update_spec.key = key;
+
+		update_spec.new_data      = NULL;
+		update_spec.new_data_size = 0;
+		update_spec.new_flags     = 0;
+
+		if (old_value) {
+			update_spec.old_data      = _get_data(old_value);
+			update_spec.old_data_size = old_value->size;
+			update_spec.old_flags     = old_value->ext_flags;
+		} else {
+			update_spec.old_data      = NULL;
+			update_spec.old_data_size = 0;
+			update_spec.old_flags     = 0;
+		}
+
+		update_spec.arg = relay->kv_update_fn_arg;
+
+		r = relay->kv_update_fn(&update_spec);
+	} else
+		r = 1;
+
+	if (r == 1 && old_value_ref_count == 1)
+		_destroy_kv_store_value(old_value);
+
+	return r;
+}
+
+static hash_update_action_t _hash_unset_fn(const char *               key,
+                                           uint32_t                   key_len __attribute__((unused)),
+                                           struct kv_store_value *    old_value,
+                                           size_t                     old_value_len,
+                                           struct kv_store_value **   new_value,
+                                           size_t *                   new_value_len,
+                                           struct kv_update_fn_relay *relay)
+{
+	if (_unset_fn(key, old_value, old_value_len, 1, new_value, new_value_len, relay))
+		return HASH_UPDATE_REMOVE;
+
+	return HASH_UPDATE_SKIP;
+}
+
+static bptree_update_action_t _bptree_unset_fn(const char *               key,
+                                               struct kv_store_value *    old_value,
+                                               size_t                     old_value_len,
+                                               unsigned                   old_value_ref_count,
+                                               struct kv_store_value **   new_value,
+                                               size_t *                   new_value_len,
+                                               struct kv_update_fn_relay *relay)
+{
+	if (_unset_fn(key, old_value, old_value_len, old_value_ref_count, new_value, new_value_len, relay))
+		return BPTREE_UPDATE_REMOVE;
+
+	return BPTREE_UPDATE_SKIP;
+}
+
 int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg)
 {
-	struct kv_store *           kv_store = sid_resource_get_data(kv_store_res);
-	struct kv_store_value *     found;
-	struct kv_store_update_spec update_spec = {.key = key};
-
-	/*
-	 * FIXME: lookup and remove are two searches inside backend - maybe try to do
-	 *        this in one step (...that requires backend interface extension).
-	 */
-	switch (kv_store->backend) {
-		case KV_STORE_BACKEND_HASH:
-			if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
-				return -ENODATA;
-			break;
-
-		case KV_STORE_BACKEND_BPTREE:
-			if (!(found = bptree_lookup(kv_store->bpt, key, NULL)))
-				return -ENODATA;
-			break;
-	}
-
-	update_spec.old_data      = _get_data(found);
-	update_spec.old_data_size = found->size;
-	update_spec.old_flags     = found->ext_flags;
-
-	update_spec.arg = kv_unset_fn_arg;
-
-	if (kv_unset_fn && !kv_unset_fn(&update_spec))
-		return -EREMOTEIO;
-
-	_destroy_kv_store_value(found);
+	struct kv_store *         kv_store = sid_resource_get_data(kv_store_res);
+	struct kv_update_fn_relay relay    = {.kv_update_fn     = kv_unset_fn,
+                                           .kv_update_fn_arg = kv_unset_fn_arg,
+                                           .ret_code         = -EREMOTEIO};
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
-			hash_remove(kv_store->ht, key, strlen(key) + 1);
+			if (hash_update(kv_store->ht, key, strlen(key) + 1, NULL, 0, (hash_update_fn_t) _hash_unset_fn, &relay))
+				return -1;
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			bptree_remove(kv_store->bpt, key);
+			if (bptree_update(kv_store->bpt, key, NULL, 0, (bptree_update_fn_t) _bptree_unset_fn, &relay))
+				return -1;
 			break;
 	}
 
