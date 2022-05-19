@@ -144,7 +144,8 @@ static void _hash_destroy_kv_store_value(const char *           key __attribute_
 
 static void _bptree_destroy_kv_store_value(const char *           key __attribute__((unused)),
                                            struct kv_store_value *value,
-                                           size_t                 value_size __attribute__((unused)))
+                                           size_t                 value_size __attribute__((unused)),
+                                           unsigned               ref_count __attribute__((unused)))
 {
 	_destroy_kv_store_value(value);
 }
@@ -483,7 +484,7 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			if (!(found = bptree_lookup(kv_store->bpt, key, NULL)))
+			if (!(found = bptree_lookup(kv_store->bpt, key, NULL, NULL)))
 				return NULL;
 			break;
 	}
@@ -624,7 +625,7 @@ void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			if (!(value = bptree_iter_current(iter->bpt.iter, NULL, NULL)))
+			if (!(value = bptree_iter_current(iter->bpt.iter, NULL, NULL, NULL)))
 				return NULL;
 			break;
 	}
@@ -657,7 +658,7 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			if (!(value = bptree_iter_current(iter->bpt.iter, NULL, NULL)))
+			if (!(value = bptree_iter_current(iter->bpt.iter, NULL, NULL, NULL)))
 				return -1;
 			break;
 	}
@@ -701,7 +702,7 @@ const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 			return iter->ht.current ? hash_get_key(iter->store->ht, iter->ht.current, NULL) : NULL;
 
 		case KV_STORE_BACKEND_BPTREE:
-			return bptree_iter_current(iter->bpt.iter, NULL, &key) ? key : NULL;
+			return bptree_iter_current(iter->bpt.iter, &key, NULL, NULL) ? key : NULL;
 
 		default:
 			return NULL;
@@ -717,7 +718,7 @@ void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **retur
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			bptree_iter_next(iter->bpt.iter, NULL, NULL);
+			bptree_iter_next(iter->bpt.iter, NULL, NULL, NULL);
 			break;
 	}
 

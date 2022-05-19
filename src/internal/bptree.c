@@ -269,7 +269,7 @@ bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_o
 /*
  * Looks up and returns the data to which a key refers.
  */
-void *bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size)
+void *bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size, unsigned *data_ref_count)
 {
 	bptree_record_t *rec;
 
@@ -278,6 +278,8 @@ void *bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size)
 
 	if (data_size)
 		*data_size = rec->data_size;
+	if (data_ref_count)
+		*data_ref_count = rec->ref_count;
 
 	return rec->data;
 }
@@ -1302,24 +1304,28 @@ bptree_iter_t *bptree_iter_create(bptree_t *bptree, const char *key_start, const
 	return iter;
 }
 
-void *bptree_iter_current(bptree_iter_t *iter, size_t *data_size, const char **key)
+void *bptree_iter_current(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count)
 {
 	bptree_record_t *rec;
 
 	if (iter->c) {
 		rec = iter->c->pointers[iter->i];
 
-		if (data_size)
-			*data_size = rec->data_size;
 		if (key)
 			*key = iter->c->bkeys[iter->i]->key;
+		if (data_size)
+			*data_size = rec->data_size;
+		if (data_ref_count)
+			*data_ref_count = rec->ref_count;
 
 		return rec->data;
 	} else {
-		if (data_size)
-			*data_size = 0;
 		if (key)
 			*key = NULL;
+		if (data_size)
+			*data_size = 0;
+		if (data_ref_count)
+			*data_ref_count = 0;
 
 		return NULL;
 	}
@@ -1333,7 +1339,7 @@ const char *bptree_iter_current_key(bptree_iter_t *iter)
 		return NULL;
 }
 
-void *bptree_iter_next(bptree_iter_t *iter, size_t *data_size, const char **key)
+void *bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count)
 {
 	if (iter->c) {
 		if (iter->i == (iter->c->num_keys - 1)) {
@@ -1356,7 +1362,7 @@ void *bptree_iter_next(bptree_iter_t *iter, size_t *data_size, const char **key)
 		}
 	}
 
-	return bptree_iter_current(iter, data_size, key);
+	return bptree_iter_current(iter, key, data_size, data_ref_count);
 }
 
 void bptree_iter_reset(bptree_iter_t *iter, const char *key_start, const char *key_end)
@@ -1373,14 +1379,15 @@ void bptree_iter(bptree_t *bptree, bptree_iterate_fn_t f, const char *key_start,
 	const char *  key;
 	void *        data;
 	size_t        data_size;
+	unsigned      data_ref_count;
 
 	do {
-		data = bptree_iter_next(&iter, &data_size, &key);
+		data = bptree_iter_next(&iter, &key, &data_size, &data_ref_count);
 
 		if (!key)
 			break;
 
-		f(key, data, data_size);
+		f(key, data, data_size, data_ref_count);
 	} while (true);
 }
 

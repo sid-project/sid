@@ -53,7 +53,7 @@ typedef bptree_update_action_t (*bptree_update_fn_t)(const char *key,
                                                      size_t *    new_data_size,
                                                      void *      bptree_update_fn_arg);
 
-typedef void (*bptree_iterate_fn_t)(const char *key, void *data, size_t data_size);
+typedef void (*bptree_iterate_fn_t)(const char *key, void *data, size_t data_size, unsigned data_ref_count);
 
 bptree_t *bptree_create(int order);
 int       bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_size);
@@ -65,7 +65,7 @@ int       bptree_update(bptree_t *         bptree,
                         bptree_update_fn_t bptree_update_fn,
                         void *             bptree_update_fn_arg);
 int       bptree_remove(bptree_t *bptree, const char *key);
-void *    bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size);
+void *    bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size, unsigned *data_ref_count);
 int       bptree_get_height(bptree_t *bptree);
 size_t    bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size);
 size_t    bptree_get_num_entries(bptree_t *bptree);
@@ -74,9 +74,9 @@ int       bptree_destroy(bptree_t *bptree);
 void bptree_iter(bptree_t *bptree, bptree_iterate_fn_t f, const char *key_start, const char *key_end);
 
 bptree_iter_t *bptree_iter_create(bptree_t *bptree, const char *key_start, const char *key_end);
-void *         bptree_iter_current(bptree_iter_t *iter, size_t *data_size, const char **key);
+void *         bptree_iter_current(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);
 const char *   bptree_iter_current_key(bptree_iter_t *iter);
-void *         bptree_iter_next(bptree_iter_t *iter, size_t *data_size, const char **key);
+void *         bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);
 void           bptree_iter_reset(bptree_iter_t *iter, const char *key_start, const char *key_end);
 void           bptree_iter_destroy(bptree_iter_t *iter);
 
