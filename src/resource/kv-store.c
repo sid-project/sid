@@ -145,10 +145,11 @@ static void _hash_destroy_kv_store_value(const char *           key __attribute_
 static void _bptree_destroy_kv_store_value(const char *           key __attribute__((unused)),
                                            struct kv_store_value *value,
                                            size_t                 value_size __attribute__((unused)),
-                                           unsigned               ref_count __attribute__((unused)),
+                                           unsigned               ref_count,
                                            void *                 arg __attribute__((unused)))
 {
-	_destroy_kv_store_value(value);
+	if (ref_count == 1)
+		_destroy_kv_store_value(value);
 }
 
 /*
@@ -847,8 +848,7 @@ static int _destroy_kv_store(sid_resource_t *kv_store_res)
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			bptree_iter(kv_store->bpt, NULL, NULL, (bptree_iterate_fn_t) _bptree_destroy_kv_store_value, NULL);
-			bptree_destroy(kv_store->bpt);
+			bptree_destroy_with_fn(kv_store->bpt, (bptree_iterate_fn_t) _bptree_destroy_kv_store_value, NULL);
 			break;
 	}
 
