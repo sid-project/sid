@@ -868,10 +868,10 @@ int bptree_update(bptree_t *         bptree,
 
 		case BPTREE_UPDATE_REMOVE:
 			if (rec && key_leaf) {
-				r = _delete_entry(bptree, key_leaf, bkey, rec) ? 0 : -1;
+				(void) _delete_entry(bptree, key_leaf, bkey, rec);
 				_unref_record(bptree, rec);
-			} else
-				r = 0;
+			}
+			r = 0;
 			break;
 
 		case BPTREE_UPDATE_SKIP:
@@ -1235,18 +1235,17 @@ int bptree_remove(bptree_t *bptree, const char *key)
 	bptree_node_t *  key_leaf = NULL;
 	bptree_record_t *rec      = NULL;
 	bptree_key_t *   bkey     = NULL;
-	int              r        = 0;
 
 	rec = _find(bptree, key, &key_leaf, NULL, &bkey);
 
 	/* CHANGE */
 
 	if (rec && key_leaf) {
-		r = _delete_entry(bptree, key_leaf, bkey, rec) ? 0 : -1;
+		(void) _delete_entry(bptree, key_leaf, bkey, rec);
 		_unref_record(bptree, rec);
 	}
 
-	return r;
+	return 0;
 }
 
 static void _destroy_tree_nodes(bptree_t *bptree, bptree_node_t *n, bptree_iterate_fn_t fn, void *fn_arg)
