@@ -388,7 +388,7 @@ static sid_ucmd_kv_flags_t value_flags_sync    = DEFAULT_VALUE_FLAGS_CORE;
 static char *              core_owner          = OWNER_CORE;
 static uint64_t            null_int            = 0;
 
-static int        _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct kv_update_arg *update_arg);
+static int        _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index);
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_ID_FMT ".";
 
 udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
@@ -1663,7 +1663,7 @@ static void _flip_key_specs(struct kv_rel_spec *rel_spec)
 	rel_spec->rel_key_spec = tmp_key_spec;
 }
 
-static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg *update_arg)
+static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg *update_arg, bool index)
 {
 	struct kv_rel_spec *rel_spec = update_arg->custom;
 	kv_op_t             orig_op  = rel_spec->cur_key_spec->op;
@@ -1709,7 +1709,8 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 	                   _kv_cb_overwrite,
 	                   update_arg);
 
-	(void) _manage_index(update_arg, key);
+	if (index)
+		(void) _manage_index(update_arg, key);
 
 	_value_vector_mark_sync(abs_delta_vvalue, 0);
 	_destroy_key(update_arg->gen_buf, key);
@@ -1754,7 +1755,7 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 			}
 
 			rel_spec->cur_key_spec->ns_part = ns_part;
-			_kv_delta_set(key, rel_vvalue, VVALUE_SINGLE_CNT, update_arg);
+			_kv_delta_set(key, rel_vvalue, VVALUE_SINGLE_CNT, update_arg, index);
 			rel_spec->cur_key_spec->ns_part = NULL;
 
 			_destroy_key(NULL, key);
@@ -1789,7 +1790,7 @@ static int _kv_cb_delta_step(struct kv_store_update_spec *spec)
 	return 0;
 }
 
-static int _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct kv_update_arg *update_arg)
+static int _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index)
 {
 	struct kv_rel_spec *rel_spec = update_arg->custom;
 	int                 r        = -1;
@@ -1819,7 +1820,8 @@ static int _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct k
 	                        update_arg))
 		goto out;
 
-	(void) _manage_index(update_arg, key);
+	if (index)
+		(void) _manage_index(update_arg, key);
 
 	/*
 	 * Next, depending on further requested handling based on rel_spec->delta->flags,
@@ -1855,10 +1857,10 @@ static int _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct k
 		if (_delta_abs_calc(vvalue, update_arg) < 0)
 			goto out;
 
-		if (_delta_update(vvalue, KV_OP_PLUS, update_arg) < 0)
+		if (_delta_update(vvalue, KV_OP_PLUS, update_arg, index) < 0)
 			goto out;
 
-		if (_delta_update(vvalue, KV_OP_MINUS, update_arg) < 0)
+		if (_delta_update(vvalue, KV_OP_MINUS, update_arg, index) < 0)
 			goto out;
 	}
 
@@ -2364,7 +2366,7 @@ int _handle_current_dev_for_group(struct module *         mod,
 
 	vvalue[VVALUE_IDX_DATA] = (struct iovec) {(void *) rel_key_prefix, strlen(rel_key_prefix) + 1};
 
-	if (_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg) < 0)
+	if (_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg, true) < 0)
 		goto out;
 out:
 	_destroy_key(NULL, key);
@@ -2454,7 +2456,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	                   kv_flags_sync_no_reserved,
 	                   core_owner);
 
-	if ((r = _kv_delta_set(key, vvalue, VVALUE_HEADER_CNT, &update_arg)) < 0)
+	if ((r = _kv_delta_set(key, vvalue, VVALUE_HEADER_CNT, &update_arg, true)) < 0)
 		goto out;
 
 	r = 0;
@@ -2990,7 +2992,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		goto out;
 	}
 
-	_kv_delta_set(s, vvalue, vsize, &update_arg);
+	_kv_delta_set(s, vvalue, vsize, &update_arg, true);
 
 	_destroy_key(NULL, s);
 	r = 0;
@@ -3072,7 +3074,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	 * The delta.final is computed inside _kv_cb_delta out of vec_buf.
 	 * The _kv_cb_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
 	 */
-	_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg);
+	_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg, true);
 
 	_destroy_key(NULL, key);
 	_destroy_key(NULL, s);
@@ -4194,7 +4196,7 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 				                          _kv_cb_main_set,
 				                          &update_arg);
 			else
-				(void) _kv_delta_set(key, value_to_store, value_size, &update_arg);
+				(void) _kv_delta_set(key, value_to_store, value_size, &update_arg, false);
 		}
 
 		vvalue = mem_freen(vvalue);
