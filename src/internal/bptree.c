@@ -1373,7 +1373,7 @@ void bptree_iter_reset(bptree_iter_t *iter, const char *key_start, const char *k
 	iter->key_end   = key_end;
 }
 
-void bptree_iter(bptree_t *bptree, bptree_iterate_fn_t f, const char *key_start, const char *key_end)
+void bptree_iter(bptree_t *bptree, const char *key_start, const char *key_end, bptree_iterate_fn_t fn, void *fn_arg)
 {
 	bptree_iter_t iter = {.bptree = bptree, .key_start = key_start, .key_end = key_end, .c = NULL, .i = 0};
 	const char *  key;
@@ -1387,7 +1387,7 @@ void bptree_iter(bptree_t *bptree, bptree_iterate_fn_t f, const char *key_start,
 		if (!key)
 			break;
 
-		f(key, data, data_size, data_ref_count);
+		fn(key, data, data_size, data_ref_count, fn_arg);
 	} while (true);
 }
 
