@@ -134,19 +134,19 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 	free(value);
 }
 
-static void _hash_destroy_kv_store_value(const char *           key __attribute__((unused)),
-                                         uint32_t               key_len __attribute__((unused)),
-                                         struct kv_store_value *value,
-                                         size_t                 value_size __attribute__((unused)))
+static void _hash_destroy_kv_store_value(const void *key __attribute__((unused)),
+                                         uint32_t    key_len __attribute__((unused)),
+                                         void *      value,
+                                         size_t      value_size __attribute__((unused)))
 {
 	_destroy_kv_store_value(value);
 }
 
-static void _bptree_destroy_kv_store_value(const char *           key __attribute__((unused)),
-                                           struct kv_store_value *value,
-                                           size_t                 value_size __attribute__((unused)),
-                                           unsigned               ref_count,
-                                           void *                 arg __attribute__((unused)))
+static void _bptree_destroy_kv_store_value(const char *key __attribute__((unused)),
+                                           void *      value,
+                                           size_t      value_size __attribute__((unused)),
+                                           unsigned    ref_count,
+                                           void *      arg __attribute__((unused)))
 {
 	if (ref_count == 1)
 		_destroy_kv_store_value(value);
@@ -387,29 +387,39 @@ static int _update_fn(const char *               key,
 	return r;
 }
 
-static hash_update_action_t _hash_update_fn(const char *               key,
-                                            uint32_t                   key_len __attribute__((unused)),
-                                            struct kv_store_value *    old_value,
-                                            size_t                     old_value_len,
-                                            struct kv_store_value **   new_value,
-                                            size_t *                   new_value_len,
-                                            struct kv_update_fn_relay *relay)
+static hash_update_action_t _hash_update_fn(const void *key,
+                                            uint32_t    key_len __attribute__((unused)),
+                                            void *      old_value,
+                                            size_t      old_value_len,
+                                            void **     new_value,
+                                            size_t *    new_value_len,
+                                            void *      arg)
 {
-	if (_update_fn(key, old_value, old_value_len, new_value, new_value_len, relay))
+	if (_update_fn((const char *) key,
+	               (struct kv_store_value *) old_value,
+	               old_value_len,
+	               (struct kv_store_value **) new_value,
+	               new_value_len,
+	               (struct kv_update_fn_relay *) arg))
 		return HASH_UPDATE_WRITE;
 
 	return HASH_UPDATE_SKIP;
 }
 
-static bptree_update_action_t _bptree_update_fn(const char *               key,
-                                                struct kv_store_value *    old_value,
-                                                size_t                     old_value_len,
-                                                unsigned                   old_value_ref_count,
-                                                struct kv_store_value **   new_value,
-                                                size_t *                   new_value_len,
-                                                struct kv_update_fn_relay *relay)
+static bptree_update_action_t _bptree_update_fn(const char *key,
+                                                void *      old_value,
+                                                size_t      old_value_len,
+                                                unsigned    old_value_ref_count,
+                                                void **     new_value,
+                                                size_t *    new_value_len,
+                                                void *      arg)
 {
-	if (_update_fn(key, old_value, old_value_len, new_value, new_value_len, relay))
+	if (_update_fn(key,
+	               (struct kv_store_value *) old_value,
+	               old_value_len,
+	               (struct kv_store_value **) new_value,
+	               new_value_len,
+	               (struct kv_update_fn_relay *) arg))
 		return BPTREE_UPDATE_WRITE;
 
 	return BPTREE_UPDATE_SKIP;
@@ -452,7 +462,7 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
 			                strlen(key) + 1,
 			                (void **) &kv_store_value,
 			                &kv_store_value_size,
-			                (hash_update_fn_t) _hash_update_fn,
+			                _hash_update_fn,
 			                &relay))
 				return NULL;
 			break;
@@ -462,7 +472,7 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
 			                  key,
 			                  (void **) &kv_store_value,
 			                  &kv_store_value_size,
-			                  (bptree_update_fn_t) _bptree_update_fn,
+			                  _bptree_update_fn,
 			                  &relay))
 				return NULL;
 			break;
@@ -553,29 +563,41 @@ static int _unset_fn(const char *               key,
 	return r;
 }
 
-static hash_update_action_t _hash_unset_fn(const char *               key,
-                                           uint32_t                   key_len __attribute__((unused)),
-                                           struct kv_store_value *    old_value,
-                                           size_t                     old_value_len,
-                                           struct kv_store_value **   new_value,
-                                           size_t *                   new_value_len,
-                                           struct kv_update_fn_relay *relay)
+static hash_update_action_t _hash_unset_fn(const void *key,
+                                           uint32_t    key_len __attribute__((unused)),
+                                           void *      old_value,
+                                           size_t      old_value_len,
+                                           void **     new_value,
+                                           size_t *    new_value_len,
+                                           void *      arg)
 {
-	if (_unset_fn(key, old_value, old_value_len, 1, new_value, new_value_len, relay))
+	if (_unset_fn(key,
+	              (struct kv_store_value *) old_value,
+	              old_value_len,
+	              1,
+	              (struct kv_store_value **) new_value,
+	              new_value_len,
+	              (struct kv_update_fn_relay *) arg))
 		return HASH_UPDATE_REMOVE;
 
 	return HASH_UPDATE_SKIP;
 }
 
-static bptree_update_action_t _bptree_unset_fn(const char *               key,
-                                               struct kv_store_value *    old_value,
-                                               size_t                     old_value_len,
-                                               unsigned                   old_value_ref_count,
-                                               struct kv_store_value **   new_value,
-                                               size_t *                   new_value_len,
-                                               struct kv_update_fn_relay *relay)
+static bptree_update_action_t _bptree_unset_fn(const char *key,
+                                               void *      old_value,
+                                               size_t      old_value_len,
+                                               unsigned    old_value_ref_count,
+                                               void **     new_value,
+                                               size_t *    new_value_len,
+                                               void *      arg)
 {
-	if (_unset_fn(key, old_value, old_value_len, old_value_ref_count, new_value, new_value_len, relay))
+	if (_unset_fn(key,
+	              (struct kv_store_value *) old_value,
+	              old_value_len,
+	              old_value_ref_count,
+	              (struct kv_store_value **) new_value,
+	              new_value_len,
+	              (struct kv_update_fn_relay *) arg))
 		return BPTREE_UPDATE_REMOVE;
 
 	return BPTREE_UPDATE_SKIP;
@@ -590,12 +612,12 @@ int kv_store_unset_value(sid_resource_t *kv_store_res, const char *key, kv_store
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
-			if (hash_update(kv_store->ht, key, strlen(key) + 1, NULL, 0, (hash_update_fn_t) _hash_unset_fn, &relay))
+			if (hash_update(kv_store->ht, key, strlen(key) + 1, NULL, 0, _hash_unset_fn, &relay))
 				return -1;
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			if (bptree_update(kv_store->bpt, key, NULL, 0, (bptree_update_fn_t) _bptree_unset_fn, &relay))
+			if (bptree_update(kv_store->bpt, key, NULL, 0, _bptree_unset_fn, &relay))
 				return -1;
 			break;
 	}
@@ -843,12 +865,12 @@ static int _destroy_kv_store(sid_resource_t *kv_store_res)
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
-			hash_iter(kv_store->ht, (hash_iterate_fn_t) _hash_destroy_kv_store_value);
+			hash_iter(kv_store->ht, _hash_destroy_kv_store_value);
 			hash_destroy(kv_store->ht);
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			bptree_destroy_with_fn(kv_store->bpt, (bptree_iterate_fn_t) _bptree_destroy_kv_store_value, NULL);
+			bptree_destroy_with_fn(kv_store->bpt, _bptree_destroy_kv_store_value, NULL);
 			break;
 	}
 
