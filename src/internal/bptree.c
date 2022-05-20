@@ -131,6 +131,12 @@ typedef struct bptree {
 	size_t         num_entries;
 } bptree_t;
 
+typedef enum
+{
+	LOOKUP_EXACT,
+	LOOKUP_PREFIX,
+} bptree_lookup_method_t;
+
 static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left, bptree_key_t *bkey, bptree_node_t *right);
 static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, bptree_key_t *bkey, void *pointer);
 
@@ -223,10 +229,16 @@ static bptree_node_t *_find_leaf(bptree_t *bptree, const char *key)
 /*
  * Looks up and returns the record to which a key refers.
  */
-bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_out, int *i_out, bptree_key_t **bkey_out)
+bptree_record_t *_find(bptree_t *             bptree,
+                       const char *           key,
+                       bptree_lookup_method_t method,
+                       bptree_node_t **       leaf_out,
+                       int *                  i_out,
+                       bptree_key_t **        bkey_out)
 {
 	int            i;
 	bptree_node_t *leaf;
+	size_t         key_len;
 
 	if (!bptree->root) {
 		if (leaf_out)
@@ -238,6 +250,9 @@ bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_o
 
 	leaf = _find_leaf(bptree, key);
 
+	if (method == LOOKUP_PREFIX)
+		key_len = strlen(key);
+
 	/*
 	 * If root != NULL, leaf must have a value,
 	 * even if it does not contain the desired key.
@@ -246,8 +261,13 @@ bptree_record_t *_find(bptree_t *bptree, const char *key, bptree_node_t **leaf_o
 	 */
 
 	for (i = 0; i < leaf->num_keys; i++) {
-		if (!strcmp(leaf->bkeys[i]->key, key))
-			break;
+		if (method == LOOKUP_EXACT) {
+			if (!strcmp(key, leaf->bkeys[i]->key))
+				break;
+		} else {
+			if (!strncmp(key, leaf->bkeys[i]->key, key_len))
+				break;
+		}
 	}
 
 	if (leaf_out)
@@ -275,7 +295,7 @@ void *bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size, unsign
 {
 	bptree_record_t *rec;
 
-	if (!(rec = _find(bptree, key, NULL, NULL, NULL)))
+	if (!(rec = _find(bptree, key, LOOKUP_EXACT, NULL, NULL, NULL)))
 		return NULL;
 
 	if (data_size)
@@ -767,7 +787,7 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	bptree_record_t *rec;
 	bptree_key_t *   bkey;
 
-	if ((rec = _find(bptree, key, NULL, NULL, NULL))) {
+	if ((rec = _find(bptree, key, LOOKUP_EXACT, NULL, NULL, NULL))) {
 		rec->data = data;
 		bptree->data_size -= rec->data_size;
 		rec->data_size = data_size;
@@ -801,10 +821,10 @@ int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bo
 	int              i;
 	bptree_key_t *   bkey;
 
-	if (!(rec = _find(bptree, key, NULL, NULL, NULL)))
+	if (!(rec = _find(bptree, key, LOOKUP_EXACT, NULL, NULL, NULL)))
 		return -1;
 
-	if ((rec_alias = _find(bptree, alias, &leaf, &i, NULL))) {
+	if ((rec_alias = _find(bptree, alias, LOOKUP_EXACT, &leaf, &i, NULL))) {
 		if (rec != rec_alias) {
 			if (!force)
 				return -1;
@@ -834,7 +854,7 @@ int bptree_update(bptree_t *         bptree,
 	bptree_update_action_t act;
 	int                    r;
 
-	rec = _find(bptree, key, &key_leaf, NULL, &bkey);
+	rec = _find(bptree, key, LOOKUP_EXACT, &key_leaf, NULL, &bkey);
 
 	if (bptree_update_fn) {
 		if (rec)
@@ -1236,7 +1256,7 @@ int bptree_remove(bptree_t *bptree, const char *key)
 	bptree_record_t *rec      = NULL;
 	bptree_key_t *   bkey     = NULL;
 
-	rec = _find(bptree, key, &key_leaf, NULL, &bkey);
+	rec = _find(bptree, key, LOOKUP_EXACT, &key_leaf, NULL, &bkey);
 
 	/* CHANGE */
 
@@ -1368,7 +1388,7 @@ void *bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size,
 		}
 	} else {
 		if (iter->key_start) {
-			if (!_find(iter->bptree, iter->key_start, &iter->c, &iter->i, NULL))
+			if (!_find(iter->bptree, iter->key_start, LOOKUP_PREFIX, &iter->c, &iter->i, NULL))
 				return NULL;
 		} else {
 			iter->c = _get_first_leaf_node(iter->bptree);
