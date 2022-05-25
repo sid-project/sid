@@ -208,7 +208,7 @@ static bptree_node_t *_find_leaf(bptree_t *bptree, const char *key)
 		i = 0;
 
 		while (i < c->num_keys) {
-			if (strcmp(key, c->bkeys[i]->key) >= 0)
+			if (strcmp(key, c->bkeys[i]->key) > 0)
 				i++;
 			else
 				break;
@@ -455,7 +455,7 @@ static bptree_node_t *_insert_into_leaf(bptree_node_t *leaf, bptree_key_t *bkey,
 {
 	int i, insertion_point = 0;
 
-	while (insertion_point < leaf->num_keys && strcmp(leaf->bkeys[insertion_point]->key, bkey->key) < 0) {
+	while (insertion_point < leaf->num_keys && strcmp(leaf->bkeys[insertion_point]->key, bkey->key) <= 0) {
 		insertion_point++;
 	}
 
@@ -495,7 +495,7 @@ static bptree_node_t *
 		return NULL;
 
 	insertion_index = 0;
-	while (insertion_index < bptree->order - 1 && strcmp(leaf->bkeys[insertion_index]->key, bkey->key) < 0)
+	while (insertion_index < bptree->order - 1 && strcmp(leaf->bkeys[insertion_index]->key, bkey->key) <= 0)
 		insertion_index++;
 
 	for (i = 0, j = 0; i < leaf->num_keys; i++, j++) {
@@ -538,7 +538,7 @@ static bptree_node_t *
 		new_leaf->pointers[i] = NULL;
 
 	new_leaf->parent = leaf->parent;
-	new_bkey         = new_leaf->bkeys[0];
+	new_bkey         = leaf->bkeys[leaf->num_keys - 1];
 
 	return _insert_into_parent(bptree, leaf, new_bkey, new_leaf);
 }
