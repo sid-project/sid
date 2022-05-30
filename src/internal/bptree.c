@@ -930,9 +930,8 @@ static bptree_node_t *_remove_entry_from_node(bptree_t *bptree, bptree_node_t *n
 	int i, num_pointers;
 
 	/* Remove the key and shift other keys accordingly. */
-	// TODO: no need to look for the key with strcmp, we already have the shared bkey so compare bkey pointers directly
 	i = 0;
-	while (strcmp(n->bkeys[i]->key, bkey->key))
+	while (n->bkeys[i] != bkey)
 		i++;
 
 	_unref_bkey(bptree, bkey);
