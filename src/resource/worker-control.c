@@ -986,6 +986,7 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 	/*
 	 * Internal workers and associated proxies use SID_BUFFER_MODE_SIZE_PREFIX buffers and
 	 * they always transmit worker_channel_cmd_t as header before actual data.
+	 * FIXME: avoid using SID_BUFFER_MODE_SIZE_PREFIX for this detection
 	 */
 	if (sid_buffer_stat(chan->out_buf).spec.mode == SID_BUFFER_MODE_SIZE_PREFIX &&
 	    ((r = sid_buffer_add(chan->out_buf, &chan_cmd, sizeof(chan_cmd), NULL, NULL)) < 0)) {
