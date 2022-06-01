@@ -1078,11 +1078,6 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		print_null_byte(export_buf);
 	}
 
-	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
-		if ((r = fsync(sid_buffer_get_fd(export_buf))) < 0)
-			log_error_errno(ID(cmd_res), r, "Failed to fsync command exports to a file.");
-	}
-
 	ucmd_ctx->exp_buf = export_buf;
 	kv_store_iter_destroy(iter);
 	return 0;
@@ -3558,6 +3553,11 @@ static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
 					log_error_errno(ID(cmd_res), r, "Failed to send command exports to main SID process.");
 					goto out;
 				}
+			}
+		} else if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
+			if ((r = fsync(sid_buffer_get_fd(ucmd_ctx->exp_buf))) < 0) {
+				log_error_errno(ID(cmd_res), r, "Failed to fsync command exports to a file.");
+				goto out;
 			}
 		} else {
 			switch (ucmd_ctx->req_cat) {
