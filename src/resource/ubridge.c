@@ -159,6 +159,7 @@ struct connection {
 
 typedef enum
 {
+	MSG_CATEGORY_SYSTEM, /* system message */
 	MSG_CATEGORY_SELF,   /* self-induced message */
 	MSG_CATEGORY_CLIENT, /* message coming from a client */
 } msg_category_t;
@@ -335,6 +336,15 @@ typedef enum
 	SELF_CMD_DBDUMP,
 	_SELF_CMD_END = SELF_CMD_DBDUMP,
 } self_cmd_t;
+
+typedef enum
+{
+	_SYSTEM_CMD_START    = 0,
+	SYSTEM_CMD_UNDEFINED = _SYSTEM_CMD_START,
+	SYSTEM_CMD_UNKNOWN,
+	SYSTEM_CMD_SYNC,
+	_SYSTEM_CMD_END = SYSTEM_CMD_SYNC,
+} system_cmd_t;
 
 struct sid_msg {
 	msg_category_t         cat;  /* keep this first so we can decide how to read the rest */
@@ -3503,6 +3513,8 @@ static ssize_t _send_fd_over_unix_comms(int fd, int unix_comms_fd)
 static const struct cmd_reg *_get_cmd_reg(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	switch (ucmd_ctx->req_cat) {
+		case MSG_CATEGORY_SYSTEM:
+			return NULL;
 		case MSG_CATEGORY_SELF:
 			return &_self_cmd_regs[ucmd_ctx->req_hdr.cmd];
 		case MSG_CATEGORY_CLIENT:
@@ -3518,10 +3530,14 @@ static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 	sid_resource_t *      conn_res = NULL;
 	struct connection *   conn     = NULL;
-	int                   r        = -1;
+	struct internal_msg   int_msg;
+	int                   r = -1;
 
 	/* Send out response buffer. */
 	switch (ucmd_ctx->req_cat) {
+		case MSG_CATEGORY_SYSTEM:
+			break;
+
 		case MSG_CATEGORY_CLIENT:
 			conn_res = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
 			conn     = sid_resource_get_data(conn_res);
@@ -3542,11 +3558,19 @@ static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
 	if (ucmd_ctx->exp_buf) {
 		if (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN) {
 			if (sid_buffer_count(ucmd_ctx->exp_buf) > 0) {
+				int_msg.cat    = MSG_CATEGORY_SYSTEM;
+				int_msg.header = (struct sid_msg_header) {
+					.status = 0,
+					.prot   = 0,
+					.cmd    = SYSTEM_CMD_SYNC,
+					.flags  = 0,
+				};
+
 				if ((r = worker_control_channel_send(
 					     cmd_res,
 					     MAIN_WORKER_CHANNEL_ID,
-					     &(struct worker_data_spec) {.data      = NULL,
-				                                         .data_size = 0,
+					     &(struct worker_data_spec) {.data      = &int_msg,
+				                                         .data_size = sizeof(int_msg),
 				                                         .ext.used  = true,
 				                                         .ext.socket.fd_pass =
 				                                                 sid_buffer_get_fd(ucmd_ctx->exp_buf)})) < 0) {
@@ -3561,6 +3585,9 @@ static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
 			}
 		} else {
 			switch (ucmd_ctx->req_cat) {
+				case MSG_CATEGORY_SYSTEM:
+					break;
+
 				case MSG_CATEGORY_CLIENT:
 					if ((r = _send_fd_over_unix_comms(sid_buffer_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0) {
 						log_error_errno(ID(cmd_res), r, "Failed to send command exports to client.");
@@ -3663,6 +3690,9 @@ static int _check_msg(sid_resource_t *res, struct sid_msg *msg)
 
 	/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
 	switch (msg->cat) {
+		case MSG_CATEGORY_SYSTEM:
+			break;
+
 		case MSG_CATEGORY_SELF:
 			if (msg->header->cmd < _SELF_CMD_START || msg->header->cmd > _SELF_CMD_END)
 				msg->header->cmd = SELF_CMD_UNKNOWN;
@@ -4219,15 +4249,31 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
                                  struct worker_data_spec *data_spec,
                                  void *                   arg)
 {
-	struct ubridge *ubridge = sid_resource_get_data((sid_resource_t *) arg);
-	int             r;
+	struct ubridge *     ubridge = sid_resource_get_data((sid_resource_t *) arg);
+	struct internal_msg *int_msg = data_spec->data;
+	int                  r;
 
-	if (data_spec->ext.used) {
-		r = _sync_main_kv_store(worker_proxy_res, ubridge->internal_res, data_spec->ext.socket.fd_pass);
-		close(data_spec->ext.socket.fd_pass);
-	} else {
-		log_error(ID(worker_proxy_res), "Received response from worker, but database synchronization handle missing.");
-		r = -1;
+	if (int_msg->cat != MSG_CATEGORY_SYSTEM) {
+		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Received unexpected message category.");
+		return -1;
+	}
+
+	switch (int_msg->header.cmd) {
+		case SYSTEM_CMD_SYNC:
+			if (data_spec->ext.used) {
+				r = _sync_main_kv_store(worker_proxy_res, ubridge->internal_res, data_spec->ext.socket.fd_pass);
+				close(data_spec->ext.socket.fd_pass);
+			} else {
+				log_error(ID(worker_proxy_res),
+				          "Received response from worker, but database synchronization handle missing.");
+				r = -1;
+			}
+			break;
+
+		default:
+			log_error(ID(worker_proxy_res), "Unknown system command.");
+			r = -1;
+			break;
 	}
 
 	return r;
@@ -4239,6 +4285,9 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 	struct internal_msg *int_msg;
 
 	switch (*cat) {
+		case MSG_CATEGORY_SYSTEM:
+			break;
+
 		case MSG_CATEGORY_CLIENT:
 			/*
 			 * Command requested externally through a connection.
@@ -4260,6 +4309,7 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 				return -1;
 			}
 			break;
+
 		case MSG_CATEGORY_SELF:
 			/*
 			 * Command requested internally.
