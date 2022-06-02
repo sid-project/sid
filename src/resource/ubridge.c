@@ -186,6 +186,11 @@ struct sid_ucmd_ctx {
 		struct {
 			cmd_scan_phase_t phase; /* current scan phase */
 		} scan;
+
+		struct {
+			void * main_res_mem;      /* mmap-ed memory with result from main process */
+			size_t main_res_mem_size; /* overall size of main_res_mem */
+		} resources;
 	};
 
 	sid_resource_event_source_t *cmd_handler_es; /* event source for deferred execution of _cmd_handler */
@@ -361,7 +366,8 @@ typedef enum
 	SYSTEM_CMD_UNDEFINED = _SYSTEM_CMD_START,
 	SYSTEM_CMD_UNKNOWN,
 	SYSTEM_CMD_SYNC,
-	_SYSTEM_CMD_END = SYSTEM_CMD_SYNC,
+	SYSTEM_CMD_RESOURCES,
+	_SYSTEM_CMD_END = SYSTEM_CMD_RESOURCES,
 } system_cmd_t;
 
 struct sid_msg {
@@ -2715,25 +2721,116 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 {
-	int                  r;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	struct sid_buffer *  buf      = ucmd_ctx->common.gen_buf;
-	char *               resource_tree_data;
+	output_format_t      format;
+	const char *         id;
+	size_t               buf_pos0, buf_pos1, buf_pos2;
+	char *               data;
 	size_t               size;
-	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
+	int                  r = -1;
 
-	if ((r = sid_resource_write_tree_recursively(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
-	                                             format,
-	                                             false,
-	                                             buf,
-	                                             0)) == 0) {
-		sid_buffer_fmt_add(buf, NULL, NULL, "%s", "\n");
-		print_null_byte(buf);
+	// TODO: check return values from all sid_buffer_* and error out properly on error
 
-		sid_buffer_get_data(buf, (const void **) &resource_tree_data, &size);
+	/*
+	 * This handler is scheduled twice:
+	 * 	- right after we received the request to process the command from client
+	 * 	  (resources.main_res_mem is not set yet)
+	 *
+	 * 	- after we received the result of resource dump from main process
+	 * 	  (resources.main_res_mem is set already)
+	 */
+	if (ucmd_ctx->resources.main_res_mem == NULL) {
+		/*
+		 * We don't have the result from main process yet - send request to
+		 * the main process to dump and send back its resources tree.
+		 *
+		 * We will receive response in _worker_recv_fn/_worker_recv_system_cmd_resources.
+		 * For us to be able to lookup the cmd resource the original request came from,
+		 * we also need to send this cmd resource's id withing the request - it is sent
+		 * right after the struct internal_msg_header.
+		 */
+		id = sid_resource_get_id(exec_arg->cmd_res);
 
-		r = sid_buffer_add(ucmd_ctx->res_buf, resource_tree_data, size, NULL, NULL);
+		sid_buffer_add(buf,
+		               &(struct internal_msg_header) {.cat = MSG_CATEGORY_SYSTEM,
+		                                              .header =
+		                                                      (struct sid_msg_header) {
+									      .status = 0,
+									      .prot   = 0,
+									      .cmd    = SYSTEM_CMD_RESOURCES,
+									      .flags  = ucmd_ctx->req_hdr.flags,
+								      }},
+		               INTERNAL_MSG_HEADER_SIZE,
+		               NULL,
+		               &buf_pos0);
+		sid_buffer_add(buf, (void *) id, strlen(id) + 1, NULL, NULL);
+		sid_buffer_get_data(buf, (const void **) &data, &size);
+
+		if ((r = worker_control_channel_send(exec_arg->cmd_res,
+		                                     MAIN_WORKER_CHANNEL_ID,
+		                                     &(struct worker_data_spec) {
+							     .data      = data + buf_pos0,
+							     .data_size = size - buf_pos0,
+							     .ext.used  = false,
+						     })) < 0) {
+			log_error_errno(ID(exec_arg->cmd_res),
+			                r,
+			                "Failed to sent request to main process to write its resource tree.");
+			r = -1;
+		} else
+			ucmd_ctx->expect_more = 1;
+
+		sid_buffer_rewind(buf, buf_pos0, SID_BUFFER_POS_ABS);
+		return r;
 	}
+
+	if (ucmd_ctx->resources.main_res_mem == MAP_FAILED)
+		goto out;
+
+	/*
+	 * At this point, we already have received resource tree dump from
+	 * main process and so we are able to add both the resource tree from
+	 * main process as well as this process' resource tree to result buffer.
+	 *
+	 * The resulting output is composed of 3 parts:
+	 *   - start element + start array                                             (in genbuf)
+	 *   - the resource tree from main process                                     (in mmap'd memfd sent from main process)
+	 *   - the resource tree from current worker process + array end + end element (in genbuf)
+	 */
+	format = flags_to_format(ucmd_ctx->req_hdr.flags);
+
+	buf_pos0 = sid_buffer_count(buf);
+	print_start_elem(false, format, buf, 0);
+	print_start_array("sidresources", format, buf, 1);
+	buf_pos1 = sid_buffer_count(buf);
+
+	sid_resource_write_tree_recursively(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
+	                                    format,
+	                                    true,
+	                                    buf,
+	                                    2);
+
+	print_end_array(false, format, buf, 1);
+	print_end_elem(format, buf, 0);
+	print_null_byte(buf);
+	buf_pos2 = sid_buffer_count(buf);
+
+	sid_buffer_get_data(buf, (const void **) &data, &size);
+
+	sid_buffer_add(ucmd_ctx->res_buf, data + buf_pos0, buf_pos1 - buf_pos0, NULL, NULL);
+	sid_buffer_add(ucmd_ctx->res_buf,
+	               ucmd_ctx->resources.main_res_mem + SID_BUFFER_SIZE_PREFIX_LEN,
+	               ucmd_ctx->resources.main_res_mem_size - SID_BUFFER_SIZE_PREFIX_LEN,
+	               NULL,
+	               NULL);
+	sid_buffer_add(ucmd_ctx->res_buf, data + buf_pos1, buf_pos2 - buf_pos1, NULL, NULL);
+
+	r = 0;
+out:
+	ucmd_ctx->resources.main_res_mem      = NULL;
+	ucmd_ctx->resources.main_res_mem_size = 0;
+	ucmd_ctx->expect_more                 = 0;
 	return r;
 }
 
@@ -4020,6 +4117,11 @@ static int _destroy_command(sid_resource_t *res)
 	if (ucmd_ctx->exp_buf)
 		sid_buffer_destroy(ucmd_ctx->exp_buf);
 
+	if (ucmd_ctx->req_hdr.cmd == SID_CMD_RESOURCES) {
+		if (ucmd_ctx->resources.main_res_mem)
+			munmap(ucmd_ctx->resources.main_res_mem, ucmd_ctx->resources.main_res_mem_size);
+	}
+
 	if ((cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE))
 		free((void *) ucmd_ctx->req_env.exp_path);
 	else
@@ -4259,6 +4361,42 @@ out:
 	return r;
 }
 
+static int _worker_proxy_recv_system_cmd_resources(sid_resource_t *worker_proxy_res, struct worker_data_spec *data_spec)
+{
+	struct internal_msg_header *int_msg = data_spec->data;
+	struct sid_buffer *         buf;
+	int                         r = -1;
+
+	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
+	                                                          .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                          .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
+	                              &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
+	                              &r))) {
+		log_error_errno(ID(worker_proxy_res), r, "Failed to create temporary buffer.");
+		return -1;
+	}
+
+	if (sid_resource_write_tree_recursively(sid_resource_search(worker_proxy_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
+	                                        flags_to_format(int_msg->header.flags),
+	                                        false,
+	                                        buf,
+	                                        2)) {
+		log_error(ID(worker_proxy_res), "Failed to write resource tree.");
+		goto out;
+	}
+
+	/* reply to the worker with the same header and data (cmd id) */
+	r = worker_control_channel_send(worker_proxy_res,
+	                                MAIN_WORKER_CHANNEL_ID,
+	                                &(struct worker_data_spec) {.data               = data_spec->data,
+	                                                            .data_size          = data_spec->data_size,
+	                                                            .ext.used           = true,
+	                                                            .ext.socket.fd_pass = sid_buffer_get_fd(buf)});
+out:
+	sid_buffer_destroy(buf);
+	return r;
+}
+
 static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
                                  struct worker_channel *  chan,
                                  struct worker_data_spec *data_spec,
@@ -4285,12 +4423,69 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
 			}
 			break;
 
+		case SYSTEM_CMD_RESOURCES:
+			r = _worker_proxy_recv_system_cmd_resources(worker_proxy_res, data_spec);
+			break;
+
 		default:
 			log_error(ID(worker_proxy_res), "Unknown system command.");
 			r = -1;
 			break;
 	}
 
+	return r;
+}
+
+static int _worker_recv_system_cmd_resources(sid_resource_t *worker_res, struct worker_data_spec *data_spec)
+{
+	static const char           _msg_prologue[] = "Received result from resource cmd for main process, but";
+	const char *                cmd_id;
+	sid_resource_t *            cmd_res;
+	struct sid_ucmd_ctx *       ucmd_ctx;
+	SID_BUFFER_SIZE_PREFIX_TYPE msg_size;
+	int                         r = -1;
+
+	// TODO: make sure error path is not causing the client waiting for response to hang !!!
+
+	if (!data_spec->ext.used) {
+		log_error(ID(worker_res), "%s data handler is missing.", _msg_prologue);
+		return -1;
+	}
+
+	if (read(data_spec->ext.socket.fd_pass, &msg_size, SID_BUFFER_SIZE_PREFIX_LEN) != SID_BUFFER_SIZE_PREFIX_LEN) {
+		log_error_errno(ID(worker_res), errno, "%s failed to read shared memory size", _msg_prologue);
+		goto out;
+	}
+
+	if (!msg_size) {
+		log_error(ID(worker_res), "%s no data received.", _msg_prologue);
+		goto out;
+	}
+
+	if (data_spec->data_size <= INTERNAL_MSG_HEADER_SIZE) {
+		log_error(ID(worker_res), "%s command identifier missing.", _msg_prologue);
+		goto out;
+	}
+
+	cmd_id = data_spec->data + INTERNAL_MSG_HEADER_SIZE;
+
+	if (!(cmd_res = sid_resource_search(worker_res, SID_RESOURCE_SEARCH_DFS, &sid_resource_type_ubridge_command, cmd_id))) {
+		log_error(ID(worker_res), "%s failed to find command resource with id %s.", _msg_prologue, cmd_id);
+		goto out;
+	}
+
+	ucmd_ctx = sid_resource_get_data(cmd_res);
+
+	ucmd_ctx->resources.main_res_mem_size = msg_size;
+	ucmd_ctx->resources.main_res_mem =
+		mmap(NULL, ucmd_ctx->resources.main_res_mem_size, PROT_READ, MAP_SHARED, data_spec->ext.socket.fd_pass, 0);
+
+	close(data_spec->ext.socket.fd_pass);
+	sid_resource_set_event_source_counter(ucmd_ctx->cmd_handler_es, 1);
+
+	r = 0;
+out:
+	close(data_spec->ext.socket.fd_pass);
 	return r;
 }
 
@@ -4301,6 +4496,18 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 
 	switch (*cat) {
 		case MSG_CATEGORY_SYSTEM:
+			int_msg = (struct internal_msg_header *) data_spec->data;
+
+			switch (int_msg->header.cmd) {
+				case SYSTEM_CMD_RESOURCES:
+					if (_worker_recv_system_cmd_resources(worker_res, data_spec) < 0)
+						return -1;
+					break;
+
+				default:
+					log_error(ID(worker_res), INTERNAL_ERROR "Received unexpected system command.");
+					return -1;
+			}
 			break;
 
 		case MSG_CATEGORY_CLIENT:
