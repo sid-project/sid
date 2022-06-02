@@ -4265,7 +4265,7 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
 				close(data_spec->ext.socket.fd_pass);
 			} else {
 				log_error(ID(worker_proxy_res),
-				          "Received response from worker, but database synchronization handle missing.");
+				          INTERNAL_ERROR "Received KV store sync request, but KV store sync data missing.");
 				r = -1;
 			}
 			break;
