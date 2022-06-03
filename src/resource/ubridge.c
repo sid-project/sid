@@ -337,7 +337,7 @@ typedef enum
 } self_cmd_t;
 
 struct sid_msg {
-	msg_category_t         cat;
+	msg_category_t         cat;  /* keep this first so we can decide how to read the rest */
 	size_t                 size; /* header + data */
 	struct sid_msg_header *header;
 };
@@ -4235,9 +4235,10 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
 
 static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *chan, struct worker_data_spec *data_spec, void *arg)
 {
-	struct internal_msg *int_msg = (struct internal_msg *) data_spec->data;
+	msg_category_t *     cat = (msg_category_t *) data_spec->data;
+	struct internal_msg *int_msg;
 
-	switch (int_msg->cat) {
+	switch (*cat) {
 		case MSG_CATEGORY_CLIENT:
 			/*
 			 * Command requested externally through a connection.
@@ -4264,6 +4265,8 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 			 * Command requested internally.
 			 * Generate sid_msg out of int_msg as if it was sent through a connection.
 			 */
+			int_msg = (struct internal_msg *) data_spec->data;
+
 			if (_create_command_resource(worker_res,
 			                             &((struct sid_msg) {.cat    = MSG_CATEGORY_SELF,
 			                                                 .size   = data_spec->data_size - sizeof(int_msg->cat),
