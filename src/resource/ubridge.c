@@ -188,6 +188,11 @@ struct sid_ucmd_ctx {
 		} scan;
 	};
 
+	sid_resource_event_source_t *cmd_handler_es; /* event source for deferred execution of _cmd_handler */
+
+	/* flags */
+	int expect_more : 1; /* do not finish this cmd yet - expect more processing to follow */
+
 	/* response */
 	struct sid_msg_header res_hdr; /* response header */
 	struct sid_buffer *   res_buf; /* response buffer */
@@ -3627,25 +3632,30 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		goto out;
 	}
 
-	if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
-		log_error(ID(cmd_res), "Failed to export KV store.");
-		goto out;
-	}
+	if (!ucmd_ctx->expect_more) {
+		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
+			log_error(ID(cmd_res), "Failed to export KV store.");
+			goto out;
+		}
 
-	if ((r = _send_out_cmd_kv_buffers(cmd_res)) < 0) {
-		log_error(ID(cmd_res), "Failed to send out command results.");
-		goto out;
+		if ((r = _send_out_cmd_kv_buffers(cmd_res)) < 0) {
+			log_error(ID(cmd_res), "Failed to send out command results.");
+			goto out;
+		}
 	}
 out:
-	/*
-	 * At the end of processing a 'SELF' request, there's no other external entity or event
-	 * that would cause the worker to yield itself so do it now before we resume the event loop.
-	 */
-	if (ucmd_ctx->req_cat == MSG_CATEGORY_SELF)
-		(void) worker_control_worker_yield(sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	if (!ucmd_ctx->expect_more) {
+		/*
+		 * At the end of processing a 'SELF' request, there's no other external entity or event
+		 * that would cause the worker to yield itself so do it now before we resume the event loop.
+		 */
+		if (ucmd_ctx->req_cat == MSG_CATEGORY_SELF)
+			(void) worker_control_worker_yield(sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	}
 
 	if (r < 0)
 		ucmd_ctx->res_hdr.status |= SID_CMD_STATUS_FAILURE;
+
 	return r;
 }
 
@@ -3974,7 +3984,8 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		}
 	}
 
-	if (sid_resource_create_deferred_event_source(res, NULL, _cmd_handler, 0, "command handler", res) < 0) {
+	if (sid_resource_create_deferred_event_source(res, &ucmd_ctx->cmd_handler_es, _cmd_handler, 0, "command handler", res) <
+	    0) {
 		log_error(ID(res), "Failed to register command handler.");
 		goto fail;
 	}
