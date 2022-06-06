@@ -86,21 +86,21 @@ static const char *keys[_NUM_KEYS] = {
 	[SID_NEXT_MOD]         = SID_UCMD_KEY_DEVICE_NEXT_MOD,
 };
 
-static int _blkid_init(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
+static int _blkid_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	unsigned i;
 
 	log_debug(MID, "init");
 
 	for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
-		if (sid_ucmd_mod_reserve_kv(module, ucmd_mod_ctx, KV_NS_UDEV, keys[i]) < 0) {
+		if (sid_ucmd_mod_reserve_kv(module, ucmd_common_ctx, KV_NS_UDEV, keys[i]) < 0) {
 			log_error(MID, "Failed to reserve blkid udev key %s.", keys[i]);
 			return -1;
 		}
 	}
 
 	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
-		if (sid_ucmd_mod_reserve_kv(module, ucmd_mod_ctx, KV_NS_DEVICE, keys[i]) < 0) {
+		if (sid_ucmd_mod_reserve_kv(module, ucmd_common_ctx, KV_NS_DEVICE, keys[i]) < 0) {
 			log_error(MID, "Failed to reserve blkid device key %s.", keys[i]);
 			return -1;
 		}
@@ -110,21 +110,21 @@ static int _blkid_init(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_
 }
 SID_UCMD_MOD_INIT(_blkid_init)
 
-static int _blkid_exit(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
+static int _blkid_exit(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	log_debug(MID, "exit");
 
 	/*
 	 * 	TODO: Do not unreserve KVs in worker if we have modules preloaded in main process.
 	        for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
-	                if (sid_ucmd_mod_unreserve_kv(module, ucmd_mod_ctx, KV_NS_UDEV, keys[i]) < 0) {
+	                if (sid_ucmd_mod_unreserve_kv(module, ucmd_common_ctx, KV_NS_UDEV, keys[i]) < 0) {
 	                        log_error("Failed to unreserve blkid udev key %s.", keys[i]);
 	                        return -1;
 	                }
 	        }
 
 	        for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
-	                if (sid_ucmd_mod_unreserve_kv(module, ucmd_mod_ctx, KV_NS_DEVICE, keys[i]) < 0) {
+	                if (sid_ucmd_mod_unreserve_kv(module, ucmd_common_ctx, KV_NS_DEVICE, keys[i]) < 0) {
 	                        log_error("Failed to unreserve blkid device key %s.", keys[i]);
 	                        return -1;
 	                }
@@ -135,7 +135,7 @@ static int _blkid_exit(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_
 }
 SID_UCMD_MOD_EXIT(_blkid_exit)
 
-static int _blkid_reset(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
+static int _blkid_reset(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	log_debug(MID, "reset");
 	return 0;

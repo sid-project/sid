@@ -102,7 +102,7 @@ const sid_resource_type_t sid_resource_type_ubridge;
 const sid_resource_type_t sid_resource_type_ubridge_connection;
 const sid_resource_type_t sid_resource_type_ubridge_command;
 
-struct sid_ucmd_mod_ctx {
+struct sid_ucmd_common_ctx {
 	uint16_t           gennum;       /* current KV store generation number */
 	sid_resource_t *   kv_store_res; /* KV store main or snapshot */
 	sid_resource_t *   modules_res;  /* top-level resource for all ucmd module registries */
@@ -115,10 +115,10 @@ struct umonitor {
 };
 
 struct ubridge {
-	sid_resource_t *        internal_res;
-	int                     socket_fd;
-	struct sid_ucmd_mod_ctx ucmd_mod_ctx;
-	struct umonitor         umonitor;
+	sid_resource_t *           internal_res;
+	int                        socket_fd;
+	struct sid_ucmd_common_ctx common_ctx;
+	struct umonitor            umonitor;
 };
 
 typedef enum
@@ -174,11 +174,11 @@ struct sid_ucmd_ctx {
 		} dev;
 		const char *exp_path;
 	} req_env;
-	cmd_scan_phase_t        scan_phase;   /* current phase at the time of use of this context */
-	struct sid_ucmd_mod_ctx ucmd_mod_ctx; /* commod module context */
-	struct sid_msg_header   res_hdr;      /* response header */
-	struct sid_buffer *     res_buf;      /* response buffer */
-	struct sid_buffer *     exp_buf;      /* export buffer */
+	struct sid_ucmd_common_ctx common;     /* common context */
+	cmd_scan_phase_t           scan_phase; /* current phase at the time of use of this context */
+	struct sid_msg_header      res_hdr;    /* response header */
+	struct sid_buffer *        res_buf;    /* response buffer */
+	struct sid_buffer *        exp_buf;    /* export buffer */
 };
 
 struct cmd_mod_fns {
@@ -890,9 +890,9 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		return 0;
 
 	if (cmd_reg->flags & (CMD_KV_EXPORT_SYNC | CMD_KV_EXPORT_PERSISTENT))
-		iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res, KEY_OP_SYNC_C, KEY_OP_SYNC_END_C);
+		iter = kv_store_iter_create(ucmd_ctx->common.kv_store_res, KEY_OP_SYNC_C, KEY_OP_SYNC_END_C);
 	else
-		iter = kv_store_iter_create(ucmd_ctx->ucmd_mod_ctx.kv_store_res, NULL, NULL);
+		iter = kv_store_iter_create(ucmd_ctx->common.kv_store_res, NULL, NULL);
 
 	if (!iter) {
 		// TODO: Discard udev kv-store we've already appended to the output buffer!
@@ -983,7 +983,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 				                         NULL)) < 0) ||
 				    ((r = sid_buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, NULL, NULL)) < 0))
 					goto fail;
-				log_debug(ID(ucmd_ctx->ucmd_mod_ctx.kv_store_res),
+				log_debug(ID(ucmd_ctx->common.kv_store_res),
 				          "Exported udev property %s=%s",
 				          key,
 				          svalue->data + data_offset);
@@ -1124,12 +1124,12 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx *   ucmd_ctx,
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
 		goto out;
 
-	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec))) {
+	if (!(key = _compose_key(ucmd_ctx->common.gen_buf, &key_spec))) {
 		r = -ENOMEM;
 		goto out;
 	}
 
-	if (!(found = kv_store_get_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res, key, &value_size, &kv_store_value_flags)))
+	if (!(found = kv_store_get_value(ucmd_ctx->common.kv_store_res, key, &value_size, &kv_store_value_flags)))
 		goto out;
 
 	vvalue = _get_vvalue(kv_store_value_flags, found, value_size, tmp_vvalue);
@@ -1137,7 +1137,7 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx *   ucmd_ctx,
 	if ((VVALUE_FLAGS(vvalue) & KV_MOD_RESERVED) && (!strcmp(VVALUE_OWNER(vvalue), owner)))
 		goto out;
 
-	log_debug(ID(ucmd_ctx->ucmd_mod_ctx.kv_store_res),
+	log_debug(ID(ucmd_ctx->common.kv_store_res),
 	          "Module %s can't overwrite value with key %s which is reserved and attached to %s module.",
 	          owner,
 	          key,
@@ -1145,7 +1145,7 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx *   ucmd_ctx,
 
 	r = 0;
 out:
-	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(ucmd_ctx->common.gen_buf, key);
 	return r;
 }
 
@@ -1918,19 +1918,19 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 			goto out;
 	}
 
-	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
+	if (!(key = _compose_key(ucmd_ctx->common.gen_buf, &key_spec)))
 		goto out;
 
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->req_env.dev.udev.seqnum, flags, (char *) owner);
+	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common.gennum, ucmd_ctx->req_env.dev.udev.seqnum, flags, (char *) owner);
 	vvalue[VVALUE_IDX_DATA] = (struct iovec) {(void *) value, value ? value_size : 0};
 
-	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->common.kv_store_res,
 	                                     .owner    = owner,
-	                                     .gen_buf  = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                     .gen_buf  = ucmd_ctx->common.gen_buf,
 	                                     .custom   = NULL,
 	                                     .ret_code = -EREMOTEIO};
 
-	if (!(svalue = kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	if (!(svalue = kv_store_set_value(ucmd_ctx->common.kv_store_res,
 	                                  key,
 	                                  vvalue,
 	                                  VVALUE_SINGLE_CNT,
@@ -1945,7 +1945,7 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 
 	ret = svalue->data + _svalue_ext_data_offset(svalue);
 out:
-	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(ucmd_ctx->common.gen_buf, key);
 	return ret;
 }
 
@@ -1978,10 +1978,10 @@ static const void *_cmd_get_key_spec_value(struct module *      mod,
 	size_t           size, data_offset;
 	void *           ret = NULL;
 
-	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key_spec)))
+	if (!(key = _compose_key(ucmd_ctx->common.gen_buf, key_spec)))
 		goto out;
 
-	if (!(svalue = kv_store_get_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res, key, &size, NULL)))
+	if (!(svalue = kv_store_get_value(ucmd_ctx->common.kv_store_res, key, &size, NULL)))
 		goto out;
 
 	if (svalue->flags & KV_MOD_PRIVATE) {
@@ -2001,7 +2001,7 @@ static const void *_cmd_get_key_spec_value(struct module *      mod,
 	if (size)
 		ret = svalue->data + data_offset;
 out:
-	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(ucmd_ctx->common.gen_buf, key);
 	return ret;
 }
 
@@ -2088,11 +2088,11 @@ static int _kv_cb_unreserve(struct kv_store_update_spec *spec)
 	return 1;
 }
 
-int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
-                                struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
-                                sid_ucmd_kv_namespace_t  ns,
-                                const char *             key_core,
-                                int                      unset)
+int _do_sid_ucmd_mod_reserve_kv(struct module *             mod,
+                                struct sid_ucmd_common_ctx *common,
+                                sid_ucmd_kv_namespace_t     ns,
+                                const char *                key_core,
+                                int                         unset)
 {
 	const char *         owner = _get_mod_name(mod);
 	char *               key   = NULL;
@@ -2109,29 +2109,29 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
                                        .core    = key_core};
 	int                  r        = -1;
 
-	if (!(key = _compose_key(ucmd_mod_ctx->gen_buf, &key_spec)))
+	if (!(key = _compose_key(common->gen_buf, &key_spec)))
 		goto out;
 
-	if (!(ucmd_mod_ctx->kv_store_res))
+	if (!(common->kv_store_res))
 		goto out;
 
-	update_arg = (struct kv_update_arg) {.res      = ucmd_mod_ctx->kv_store_res,
+	update_arg = (struct kv_update_arg) {.res      = common->kv_store_res,
 	                                     .gen_buf  = NULL,
 	                                     .owner    = owner,
 	                                     .custom   = NULL,
 	                                     .ret_code = -EREMOTEIO};
 
-	is_worker = worker_control_is_worker(ucmd_mod_ctx->kv_store_res);
+	is_worker = worker_control_is_worker(common->kv_store_res);
 
 	if (is_worker)
 		flags |= (KV_SYNC | KV_PERSISTENT);
 
 	if (unset && !is_worker) {
-		kv_store_unset(ucmd_mod_ctx->kv_store_res, key, _kv_cb_unreserve, &update_arg);
+		kv_store_unset(common->kv_store_res, key, _kv_cb_unreserve, &update_arg);
 		goto out;
 	} else {
-		VVALUE_HEADER_PREP(vvalue, ucmd_mod_ctx->gennum, null_int, flags, (char *) owner);
-		if (!kv_store_set_value(ucmd_mod_ctx->kv_store_res,
+		VVALUE_HEADER_PREP(vvalue, common->gennum, null_int, flags, (char *) owner);
+		if (!kv_store_set_value(common->kv_store_res,
 		                        key,
 		                        vvalue,
 		                        VVALUE_HEADER_CNT,
@@ -2146,41 +2146,38 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *          mod,
 
 	r = 0;
 out:
-	_destroy_key(ucmd_mod_ctx->gen_buf, key);
+	_destroy_key(common->gen_buf, key);
 	return r;
 }
 
-int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx, sid_ucmd_kv_namespace_t ns, const char *key)
+int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
 {
-	if (!mod || !ucmd_mod_ctx || !key || !*key || (key[0] == KEY_SYS_C[0]))
+	if (!mod || !common || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return -EINVAL;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, ucmd_mod_ctx, ns, key, 0);
+	return _do_sid_ucmd_mod_reserve_kv(mod, common, ns, key, 0);
 }
 
-int sid_ucmd_mod_unreserve_kv(struct module *          mod,
-                              struct sid_ucmd_mod_ctx *ucmd_mod_ctx,
-                              sid_ucmd_kv_namespace_t  ns,
-                              const char *             key)
+int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
 {
-	if (!mod || !ucmd_mod_ctx || !key || !*key || (key[0] == KEY_SYS_C[0]))
+	if (!mod || !common || !key || !*key || (key[0] == KEY_SYS_C[0]))
 		return -EINVAL;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, ucmd_mod_ctx, ns, key, 1);
+	return _do_sid_ucmd_mod_reserve_kv(mod, common, ns, key, 1);
 }
 
-int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_mod_ctx *ucmd_mod_ctx, sid_resource_t *mod_subregistry)
+int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subregistry)
 {
 	sid_resource_t *res;
 	char **         pathv, **name;
 
-	if (!mod || !ucmd_mod_ctx || !mod_subregistry)
+	if (!mod || !common || !mod_subregistry)
 		return -EINVAL;
 
 	if (!(pathv = util_str_comb_to_strv(NULL, NULL, module_get_full_name(mod), NULL, MODULE_NAME_DELIM, NULL)))
 		return -ENOMEM;
 
-	for (res = ucmd_mod_ctx->modules_res, name = pathv; *name; name++) {
+	for (res = common->modules_res, name = pathv; *name; name++) {
 		if (!(res = sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_DESC, NULL, *name))) {
 			free(pathv);
 			return -ENOLINK;
@@ -2291,17 +2288,17 @@ int sid_ucmd_group_create(struct module *         mod,
 	                               .id_part = ID_NULL,
 	                               .core    = KV_KEY_GEN_GROUP_MEMBERS};
 
-	struct kv_update_arg update_arg = {.res      = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common.kv_store_res,
 	                                   .owner    = _get_mod_name(mod),
-	                                   .gen_buf  = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                   .gen_buf  = ucmd_ctx->common.gen_buf,
 	                                   .custom   = NULL,
 	                                   .ret_code = 0};
 
-	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, &key_spec)))
+	if (!(key = _compose_key(ucmd_ctx->common.gen_buf, &key_spec)))
 		goto out;
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->ucmd_mod_ctx.gennum, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_sync, core_owner);
+	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common.gennum, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_sync, core_owner);
 
-	if (!kv_store_set_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	if (!kv_store_set_value(ucmd_ctx->common.kv_store_res,
 	                        key,
 	                        vvalue,
 	                        VVALUE_HEADER_CNT,
@@ -2315,7 +2312,7 @@ int sid_ucmd_group_create(struct module *         mod,
 
 	r = 0;
 out:
-	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(ucmd_ctx->common.gen_buf, key);
 	return r;
 }
 
@@ -2350,9 +2347,9 @@ int _handle_current_dev_for_group(struct module *         mod,
 	                                                                       .id_part = ID_NULL,
 	                                                                       .core    = KV_KEY_GEN_GROUP_IN})};
 
-	struct kv_update_arg update_arg = {.res     = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common.kv_store_res,
 	                                   .owner   = OWNER_CORE,
-	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                   .gen_buf = ucmd_ctx->common.gen_buf,
 	                                   .custom  = &rel_spec};
 
 	// TODO: check return values / maybe also pass flags / use proper owner
@@ -2363,11 +2360,7 @@ int _handle_current_dev_for_group(struct module *         mod,
 	if (!(rel_key_prefix = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 		goto out;
 
-	VVALUE_HEADER_PREP(vvalue,
-	                   ucmd_ctx->ucmd_mod_ctx.gennum,
-	                   ucmd_ctx->req_env.dev.udev.seqnum,
-	                   value_flags_no_sync,
-	                   core_owner);
+	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common.gennum, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_no_sync, core_owner);
 
 	vvalue[VVALUE_IDX_DATA] = (struct iovec) {(void *) rel_key_prefix, strlen(rel_key_prefix) + 1};
 
@@ -2436,18 +2429,18 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	                                                                       .id_part = ID_NULL,
 	                                                                       .core    = KV_KEY_GEN_GROUP_IN})};
 
-	struct kv_update_arg update_arg = {.res     = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common.kv_store_res,
 	                                   .owner   = OWNER_CORE,
-	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                   .gen_buf = ucmd_ctx->common.gen_buf,
 	                                   .custom  = &rel_spec};
 
 	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_cb_delta wrapper
 	//       to do the "is empty?" check before the actual _kv_cb_delta operation
 
-	if (!(key = _compose_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, rel_spec.cur_key_spec)))
+	if (!(key = _compose_key(ucmd_ctx->common.gen_buf, rel_spec.cur_key_spec)))
 		goto out;
 
-	if (!kv_store_get_value(ucmd_ctx->ucmd_mod_ctx.kv_store_res, key, &size, NULL))
+	if (!kv_store_get_value(ucmd_ctx->common.kv_store_res, key, &size, NULL))
 		goto out;
 
 	if (size > VVALUE_HEADER_CNT && !force) {
@@ -2456,7 +2449,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 	}
 
 	VVALUE_HEADER_PREP(vvalue,
-	                   ucmd_ctx->ucmd_mod_ctx.gennum,
+	                   ucmd_ctx->common.gennum,
 	                   ucmd_ctx->req_env.dev.udev.seqnum,
 	                   kv_flags_sync_no_reserved,
 	                   core_owner);
@@ -2466,7 +2459,7 @@ int sid_ucmd_group_destroy(struct module *         mod,
 
 	r = 0;
 out:
-	_destroy_key(ucmd_ctx->ucmd_mod_ctx.gen_buf, key);
+	_destroy_key(ucmd_ctx->common.gen_buf, key);
 	return r;
 }
 
@@ -2484,7 +2477,7 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 	if (!(value = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, key, 0, value, strlen(value) + 1)))
 		return -1;
 
-	log_debug(ID(ucmd_ctx->ucmd_mod_ctx.kv_store_res), "Imported udev property %s=%s", key, value);
+	log_debug(ID(ucmd_ctx->common.kv_store_res), "Imported udev property %s=%s", key, value);
 
 	/* Common key=value pairs are also directly in the ucmd_ctx->udev_dev structure. */
 	if (!strcmp(key, UDEV_KEY_ACTION))
@@ -2682,7 +2675,7 @@ static int _connection_cleanup(sid_resource_t *conn_res)
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct sid_buffer *  buf      = ucmd_ctx->ucmd_mod_ctx.gen_buf;
+	struct sid_buffer *  buf      = ucmd_ctx->common.gen_buf;
 	char *               version_data;
 	size_t               size;
 	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
@@ -2704,7 +2697,7 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 {
 	int                  r;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct sid_buffer *  buf      = ucmd_ctx->ucmd_mod_ctx.gen_buf;
+	struct sid_buffer *  buf      = ucmd_ctx->common.gen_buf;
 	char *               resource_tree_data;
 	size_t               size;
 	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
@@ -2728,13 +2721,13 @@ static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 {
 	int                  r;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct sid_buffer *  buf      = ucmd_ctx->ucmd_mod_ctx.gen_buf;
+	struct sid_buffer *  buf      = ucmd_ctx->common.gen_buf;
 	struct sid_dbstats   stats;
 	char *               stats_data;
 	size_t               size;
 	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
-	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->ucmd_mod_ctx.kv_store_res)) == 0) {
+	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->common.kv_store_res)) == 0) {
 		print_start_document(format, buf, 0);
 
 		print_uint64_field("KEYS_SIZE", stats.key_size, format, buf, true, 1);
@@ -2744,7 +2737,7 @@ static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 		print_uint64_field("VALUES_EXTERNAL_DATA_SIZE",
 		                   stats.value_ext_data_size,
 		                   format,
-		                   ucmd_ctx->ucmd_mod_ctx.gen_buf,
+		                   ucmd_ctx->common.gen_buf,
 		                   true,
 		                   1);
 		print_uint64_field("METADATA_SIZE", stats.meta_size, format, buf, true, 1);
@@ -2797,7 +2790,7 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 	if (!ucmd_ctx || !mod || !devno || !size)
 		return -EINVAL;
 
-	if ((r = sid_buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	if ((r = sid_buffer_fmt_add(ucmd_ctx->common.gen_buf,
 	                            (const void **) &s,
 	                            NULL,
 	                            "%s%s/../dev",
@@ -2810,7 +2803,7 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 		return r;
 	}
 	r = _get_sysfs_value(mod, s, devno, size);
-	sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, s);
+	sid_buffer_rewind_mem(ucmd_ctx->common.gen_buf, s);
 	if (r < 0)
 		return r;
 
@@ -2878,13 +2871,13 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	                                                                       .id_part = ID_NULL,
 	                                                                       .core    = KV_KEY_GEN_GROUP_IN})};
 
-	struct kv_update_arg update_arg = {.res     = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common.kv_store_res,
 	                                   .owner   = OWNER_CORE,
-	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                   .gen_buf = ucmd_ctx->common.gen_buf,
 	                                   .custom  = &rel_spec};
 
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
-		if ((r = sid_buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf,
+		if ((r = sid_buffer_fmt_add(ucmd_ctx->common.gen_buf,
 		                            (const void **) &s,
 		                            NULL,
 		                            "%s%s/%s",
@@ -2907,11 +2900,11 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 			 * after this uevent was triggered. For now, error out even in this case.
 			 */
 			log_sys_error(ID(cmd_res), "scandir", s);
-			sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, s);
+			sid_buffer_rewind_mem(ucmd_ctx->common.gen_buf, s);
 			goto out;
 		}
 
-		sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, s);
+		sid_buffer_rewind_mem(ucmd_ctx->common.gen_buf, s);
 	}
 
 	/*
@@ -2934,7 +2927,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	}
 
 	if (!VVALUE_HEADER_PREP_BUF(vec_buf,
-	                            ucmd_ctx->ucmd_mod_ctx.gennum,
+	                            ucmd_ctx->common.gennum,
 	                            ucmd_ctx->req_env.dev.udev.seqnum,
 	                            value_flags_no_sync,
 	                            core_owner,
@@ -2949,7 +2942,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				continue;
 			}
 
-			if (sid_buffer_fmt_add(ucmd_ctx->ucmd_mod_ctx.gen_buf,
+			if (sid_buffer_fmt_add(ucmd_ctx->common.gen_buf,
 			                       (const void **) &s,
 			                       NULL,
 			                       "%s%s/%s/%s/dev",
@@ -2965,10 +2958,10 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 					CMD_DEV_ID(ucmd_ctx));
 			} else {
 				if (_get_sysfs_value(NULL, s, devno_buf, sizeof(devno_buf)) < 0) {
-					sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, s);
+					sid_buffer_rewind_mem(ucmd_ctx->common.gen_buf, s);
 					continue;
 				}
-				sid_buffer_rewind_mem(ucmd_ctx->ucmd_mod_ctx.gen_buf, s);
+				sid_buffer_rewind_mem(ucmd_ctx->common.gen_buf, s);
 
 				_canonicalize_kv_key(devno_buf);
 				rel_spec.rel_key_spec->ns_part = devno_buf;
@@ -3044,16 +3037,12 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	                                                                       .id_part = ID_NULL,
 	                                                                       .core    = KV_KEY_GEN_GROUP_IN})};
 
-	struct kv_update_arg update_arg = {.res     = ucmd_ctx->ucmd_mod_ctx.kv_store_res,
+	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common.kv_store_res,
 	                                   .owner   = OWNER_CORE,
-	                                   .gen_buf = ucmd_ctx->ucmd_mod_ctx.gen_buf,
+	                                   .gen_buf = ucmd_ctx->common.gen_buf,
 	                                   .custom  = &rel_spec};
 
-	VVALUE_HEADER_PREP(vvalue,
-	                   ucmd_ctx->ucmd_mod_ctx.gennum,
-	                   ucmd_ctx->req_env.dev.udev.seqnum,
-	                   value_flags_no_sync,
-	                   core_owner);
+	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common.gennum, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_no_sync, core_owner);
 	if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 		goto out;
 
@@ -3217,7 +3206,7 @@ static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t *     block_mod_registry_res;
 
-	if (!(block_mod_registry_res = sid_resource_search(ucmd_ctx->ucmd_mod_ctx.modules_res,
+	if (!(block_mod_registry_res = sid_resource_search(ucmd_ctx->common.modules_res,
 	                                                   SID_RESOURCE_SEARCH_IMM_DESC,
 	                                                   &sid_resource_type_module_registry,
 	                                                   MODULES_BLOCK_ID))) {
@@ -3230,7 +3219,7 @@ static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 		goto fail;
 	}
 
-	if (!(exec_arg->type_mod_registry_res = sid_resource_search(ucmd_ctx->ucmd_mod_ctx.modules_res,
+	if (!(exec_arg->type_mod_registry_res = sid_resource_search(ucmd_ctx->common.modules_res,
 	                                                            SID_RESOURCE_SEARCH_IMM_DESC,
 	                                                            &sid_resource_type_module_registry,
 	                                                            MODULES_TYPE_ID))) {
@@ -3837,7 +3826,7 @@ static int _destroy_connection(sid_resource_t *res)
 	return 0;
 }
 
-static int _set_up_kv_store_generation(struct sid_ucmd_mod_ctx *ctx, bool increase)
+static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx, bool increase)
 {
 	struct iovec     vvalue[VVALUE_IDX_DATA + 1];
 	const char *     key;
@@ -3904,7 +3893,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	if ((r = sid_buffer_add(ucmd_ctx->res_buf, &ucmd_ctx->res_hdr, sizeof(ucmd_ctx->res_hdr), NULL, NULL)) < 0)
 		goto fail;
 
-	if (!(ucmd_ctx->ucmd_mod_ctx.gen_buf =
+	if (!(ucmd_ctx->common.gen_buf =
 	              sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
 	                                                            .type    = SID_BUFFER_TYPE_LINEAR,
 	                                                            .mode    = SID_BUFFER_MODE_PLAIN}),
@@ -3914,19 +3903,19 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(ucmd_ctx->ucmd_mod_ctx.modules_res =
+	if (!(ucmd_ctx->common.modules_res =
 	              sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS, &sid_resource_type_aggregate, MODULES_AGGREGATE_ID))) {
 		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find module registry aggregator.", __func__);
 		goto fail;
 	}
 
-	if (!(ucmd_ctx->ucmd_mod_ctx.kv_store_res =
+	if (!(ucmd_ctx->common.kv_store_res =
 	              sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS, &sid_resource_type_kv_store, MAIN_KV_STORE_NAME))) {
 		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find key-value store.", __func__);
 		goto fail;
 	}
 
-	_set_up_kv_store_generation(&ucmd_ctx->ucmd_mod_ctx, false);
+	_set_up_kv_store_generation(&ucmd_ctx->common, false);
 
 	ucmd_ctx->req_cat = msg->cat;
 	ucmd_ctx->req_hdr = *msg->header;
@@ -3983,8 +3972,8 @@ fail:
 	if (ucmd_ctx) {
 		if (cmd_reg && cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE && ucmd_ctx->req_env.exp_path)
 			free((void *) ucmd_ctx->req_env.exp_path);
-		if (ucmd_ctx->ucmd_mod_ctx.gen_buf)
-			sid_buffer_destroy(ucmd_ctx->ucmd_mod_ctx.gen_buf);
+		if (ucmd_ctx->common.gen_buf)
+			sid_buffer_destroy(ucmd_ctx->common.gen_buf);
 		if (ucmd_ctx->res_buf)
 			sid_buffer_destroy(ucmd_ctx->res_buf);
 		if (ucmd_ctx->req_env.dev.id)
@@ -3999,7 +3988,7 @@ static int _destroy_command(sid_resource_t *res)
 	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(res);
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 
-	sid_buffer_destroy(ucmd_ctx->ucmd_mod_ctx.gen_buf);
+	sid_buffer_destroy(ucmd_ctx->common.gen_buf);
 	sid_buffer_destroy(ucmd_ctx->res_buf);
 
 	if (ucmd_ctx->exp_buf)
@@ -4084,7 +4073,7 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 	const char *                vvalue_str;
 	void *                      value_to_store;
 	struct kv_rel_spec          rel_spec   = {.delta = &((struct kv_delta) {0}), .abs_delta = &((struct kv_delta) {0})};
-	struct kv_update_arg        update_arg = {.gen_buf = ubridge->ucmd_mod_ctx.gen_buf, .custom = &rel_spec};
+	struct kv_update_arg        update_arg = {.gen_buf = ubridge->common_ctx.gen_buf, .custom = &rel_spec};
 	bool                        unset;
 	int                         r = -1;
 
@@ -4159,10 +4148,10 @@ static int _sync_main_kv_store(sid_resource_t *res, sid_resource_t *internal_ubr
 			update_arg.res      = kv_store_res;
 			update_arg.ret_code = -EREMOTEIO;
 
-			vvalue_str = _buffer_get_vvalue_str(ubridge->ucmd_mod_ctx.gen_buf, unset, vvalue, value_size);
+			vvalue_str = _buffer_get_vvalue_str(ubridge->common_ctx.gen_buf, unset, vvalue, value_size);
 			log_debug(ID(res), syncing_msg, key, vvalue_str, VVALUE_SEQNUM(vvalue));
 			if (vvalue_str)
-				sid_buffer_rewind_mem(ubridge->ucmd_mod_ctx.gen_buf, vvalue_str);
+				sid_buffer_rewind_mem(ubridge->common_ctx.gen_buf, vvalue_str);
 
 			switch (rel_spec.delta->op = _get_op_from_key(key)) {
 				case KV_OP_PLUS:
@@ -4333,11 +4322,11 @@ static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 	struct ubridge *ubridge = sid_resource_get_data((sid_resource_t *) arg);
 
 	/* we take only inherited modules and kv_store for the worker */
-	(void) sid_resource_isolate_with_children(ubridge->ucmd_mod_ctx.modules_res);
-	(void) sid_resource_isolate_with_children(ubridge->ucmd_mod_ctx.kv_store_res);
+	(void) sid_resource_isolate_with_children(ubridge->common_ctx.modules_res);
+	(void) sid_resource_isolate_with_children(ubridge->common_ctx.kv_store_res);
 
-	(void) sid_resource_add_child(worker_res, ubridge->ucmd_mod_ctx.modules_res, SID_RESOURCE_NO_FLAGS);
-	(void) sid_resource_add_child(worker_res, ubridge->ucmd_mod_ctx.kv_store_res, SID_RESOURCE_RESTRICT_WALK_UP);
+	(void) sid_resource_add_child(worker_res, ubridge->common_ctx.modules_res, SID_RESOURCE_NO_FLAGS);
+	(void) sid_resource_add_child(worker_res, ubridge->common_ctx.kv_store_res, SID_RESOURCE_RESTRICT_WALK_UP);
 
 	/* destroy the rest */
 	(void) sid_resource_unref(sid_resource_search((sid_resource_t *) arg, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
@@ -4466,7 +4455,7 @@ static int _load_kv_store(sid_resource_t *ubridge_res, struct ubridge *ubridge)
         int fd;
         int r;
 
-        if (ubridge->ucmd_mod_ctx.gennum != 0) {
+        if (ubridge->common.gennum != 0) {
                 log_error(ID(ubridge_res),
                           INTERNAL_ERROR "%s: unexpected KV generation number, KV store already loaded.",
                           __func__);
@@ -4710,13 +4699,13 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(ubridge->ucmd_mod_ctx.kv_store_res = sid_resource_create(ubridge->internal_res,
-	                                                               &sid_resource_type_kv_store,
-	                                                               SID_RESOURCE_RESTRICT_WALK_UP,
-	                                                               MAIN_KV_STORE_NAME,
-	                                                               &main_kv_store_res_params,
-	                                                               SID_RESOURCE_PRIO_NORMAL,
-	                                                               SID_RESOURCE_NO_SERVICE_LINKS))) {
+	if (!(ubridge->common_ctx.kv_store_res = sid_resource_create(ubridge->internal_res,
+	                                                             &sid_resource_type_kv_store,
+	                                                             SID_RESOURCE_RESTRICT_WALK_UP,
+	                                                             MAIN_KV_STORE_NAME,
+	                                                             &main_kv_store_res_params,
+	                                                             SID_RESOURCE_PRIO_NORMAL,
+	                                                             SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create main key-value store.");
 		goto fail;
 	}
@@ -4767,7 +4756,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	if (!(ubridge->ucmd_mod_ctx.gen_buf =
+	if (!(ubridge->common_ctx.gen_buf =
 	              sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
 	                                                            .type    = SID_BUFFER_TYPE_LINEAR,
 	                                                            .mode    = SID_BUFFER_MODE_PLAIN}),
@@ -4778,15 +4767,15 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	/* _load_kv_store(res, ubridge); */
-	_set_up_kv_store_generation(&ubridge->ucmd_mod_ctx, true);
+	_set_up_kv_store_generation(&ubridge->common_ctx, true);
 
-	if (!(ubridge->ucmd_mod_ctx.modules_res = sid_resource_create(ubridge->internal_res,
-	                                                              &sid_resource_type_aggregate,
-	                                                              SID_RESOURCE_NO_FLAGS,
-	                                                              MODULES_AGGREGATE_ID,
-	                                                              SID_RESOURCE_NO_PARAMS,
-	                                                              SID_RESOURCE_PRIO_NORMAL,
-	                                                              SID_RESOURCE_NO_SERVICE_LINKS))) {
+	if (!(ubridge->common_ctx.modules_res = sid_resource_create(ubridge->internal_res,
+	                                                            &sid_resource_type_aggregate,
+	                                                            SID_RESOURCE_NO_FLAGS,
+	                                                            MODULES_AGGREGATE_ID,
+	                                                            SID_RESOURCE_NO_PARAMS,
+	                                                            SID_RESOURCE_PRIO_NORMAL,
+	                                                            SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
 		goto fail;
 	}
@@ -4797,7 +4786,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		.module_suffix = ".so",
 		.flags         = MODULE_REGISTRY_PRELOAD,
 		.symbol_params = block_symbol_params,
-		.cb_arg        = &ubridge->ucmd_mod_ctx,
+		.cb_arg        = &ubridge->common_ctx,
 	};
 
 	struct module_registry_resource_params type_res_mod_params = {
@@ -4806,17 +4795,17 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 		.module_suffix = ".so",
 		.flags         = MODULE_REGISTRY_PRELOAD,
 		.symbol_params = type_symbol_params,
-		.cb_arg        = &ubridge->ucmd_mod_ctx,
+		.cb_arg        = &ubridge->common_ctx,
 	};
 
-	if (!(sid_resource_create(ubridge->ucmd_mod_ctx.modules_res,
+	if (!(sid_resource_create(ubridge->common_ctx.modules_res,
 	                          &sid_resource_type_module_registry,
 	                          SID_RESOURCE_DISALLOW_ISOLATION,
 	                          MODULES_BLOCK_ID,
 	                          &block_res_mod_params,
 	                          SID_RESOURCE_PRIO_NORMAL,
 	                          SID_RESOURCE_NO_SERVICE_LINKS)) ||
-	    !(sid_resource_create(ubridge->ucmd_mod_ctx.modules_res,
+	    !(sid_resource_create(ubridge->common_ctx.modules_res,
 	                          &sid_resource_type_module_registry,
 	                          SID_RESOURCE_DISALLOW_ISOLATION,
 	                          MODULES_TYPE_ID,
@@ -4871,8 +4860,8 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	return 0;
 fail:
 	if (ubridge) {
-		if (ubridge->ucmd_mod_ctx.gen_buf)
-			sid_buffer_destroy(ubridge->ucmd_mod_ctx.gen_buf);
+		if (ubridge->common_ctx.gen_buf)
+			sid_buffer_destroy(ubridge->common_ctx.gen_buf);
 		if (ubridge->socket_fd >= 0)
 			(void) close(ubridge->socket_fd);
 		free(ubridge);
@@ -4886,8 +4875,8 @@ static int _destroy_ubridge(sid_resource_t *res)
 
 	_destroy_udev_monitor(res, &ubridge->umonitor);
 
-	if (ubridge->ucmd_mod_ctx.gen_buf)
-		sid_buffer_destroy(ubridge->ucmd_mod_ctx.gen_buf);
+	if (ubridge->common_ctx.gen_buf)
+		sid_buffer_destroy(ubridge->common_ctx.gen_buf);
 
 	if (ubridge->socket_fd != -1)
 		(void) close(ubridge->socket_fd);

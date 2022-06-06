@@ -71,7 +71,7 @@ struct dm_mod_ctx {
 	sid_resource_t *submod_res_next;
 };
 
-static int _dm_init(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
+static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	struct dm_mod_ctx *dm_mod = NULL;
 	int                r;
@@ -104,7 +104,7 @@ static int _dm_init(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx
 		goto fail;
 	}
 
-	if ((r = sid_ucmd_mod_add_mod_subregistry(module, ucmd_mod_ctx, dm_mod->submod_registry)) < 0) {
+	if ((r = sid_ucmd_mod_add_mod_subregistry(module, ucmd_common_ctx, dm_mod->submod_registry)) < 0) {
 		sid_resource_destroy(dm_mod->submod_registry);
 		log_error(DM_ID, "Failed to attach submodule registry.");
 		goto fail;
@@ -118,7 +118,7 @@ fail:
 }
 SID_UCMD_MOD_INIT(_dm_init)
 
-static int _dm_exit(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
+static int _dm_exit(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	struct dm_mod_ctx *dm_mod;
 
@@ -131,7 +131,7 @@ static int _dm_exit(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx
 }
 SID_UCMD_MOD_EXIT(_dm_exit)
 
-static int _dm_reset(struct module *module, struct sid_ucmd_mod_ctx *ucmd_mod_ctx)
+static int _dm_reset(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	log_debug(DM_ID, "reset");
 	return 0;
