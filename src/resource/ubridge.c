@@ -174,11 +174,15 @@ struct sid_ucmd_ctx {
 		} dev;
 		const char *exp_path;
 	} req_env;
-	struct sid_ucmd_common_ctx common;     /* common context */
-	cmd_scan_phase_t           scan_phase; /* current phase at the time of use of this context */
-	struct sid_msg_header      res_hdr;    /* response header */
-	struct sid_buffer *        res_buf;    /* response buffer */
-	struct sid_buffer *        exp_buf;    /* export buffer */
+	struct sid_ucmd_common_ctx common; /* common context */
+	union {                            /* cmd specific context */
+		struct {
+			cmd_scan_phase_t phase; /* current phase at the time of use of this context */
+		} scan;
+	};
+	struct sid_msg_header res_hdr; /* response header */
+	struct sid_buffer *   res_buf; /* response buffer */
+	struct sid_buffer *   exp_buf; /* export buffer */
 };
 
 struct cmd_mod_fns {
@@ -2193,7 +2197,7 @@ int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, de
 	if (!mod || !ucmd_ctx || (ready == DEV_NOT_RDY_UNDEFINED))
 		return -EINVAL;
 
-	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan_phase].flags & CMD_SCAN_CAP_RDY))
+	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RDY))
 		return -EPERM;
 
 	if (ready == DEV_NOT_RDY_UNPROCESSED)
@@ -2225,7 +2229,7 @@ int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
 	if (!mod || !ucmd_ctx || (reserved == DEV_RES_UNDEFINED))
 		return -EINVAL;
 
-	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan_phase].flags & CMD_SCAN_CAP_RES))
+	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RES))
 		return -EPERM;
 
 	_do_sid_ucmd_set_kv(NULL,
@@ -3440,7 +3444,7 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 
 	for (phase = CMD_SCAN_PHASE_A_INIT; phase <= CMD_SCAN_PHASE_A_EXIT; phase++) {
 		log_debug(ID(exec_arg->cmd_res), "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
-		ucmd_ctx->scan_phase = phase;
+		ucmd_ctx->scan.phase = phase;
 
 		if (_cmd_scan_phase_regs[phase].exec(exec_arg) < 0) {
 			log_error(ID(exec_arg->cmd_res), "%s phase failed.", _cmd_scan_phase_regs[phase].name);
