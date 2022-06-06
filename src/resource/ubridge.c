@@ -165,21 +165,30 @@ typedef enum
 } msg_category_t;
 
 struct sid_ucmd_ctx {
+	/* request */
 	msg_category_t        req_cat; /* request category */
 	struct sid_msg_header req_hdr; /* request header */
+
+	/* request environment */
 	union {
 		struct {
-			char *         id;
-			struct udevice udev;
+			char *         id;   /* device id */
+			struct udevice udev; /* udev context */
 		} dev;
-		const char *exp_path;
+		const char *exp_path; /* export path */
 	} req_env;
-	struct sid_ucmd_common_ctx common; /* common context */
-	union {                            /* cmd specific context */
+
+	/* common context */
+	struct sid_ucmd_common_ctx common;
+
+	/* cmd specific context */
+	union {
 		struct {
-			cmd_scan_phase_t phase; /* current phase at the time of use of this context */
+			cmd_scan_phase_t phase; /* current scan phase */
 		} scan;
 	};
+
+	/* response */
 	struct sid_msg_header res_hdr; /* response header */
 	struct sid_buffer *   res_buf; /* response buffer */
 	struct sid_buffer *   exp_buf; /* export buffer */
