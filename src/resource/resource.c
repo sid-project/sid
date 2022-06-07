@@ -88,6 +88,8 @@ typedef struct sid_resource_event_source {
 	event_source_type_t type;
 	sd_event_source *   sd_es;
 	const char *        name;
+	uint64_t            events_fired;
+	uint64_t            events_max;
 	void *              handler;
 	void *              data;
 } sid_resource_event_source_t;
@@ -109,11 +111,13 @@ static int _create_event_source(sid_resource_t *              res,
 		goto out;
 	}
 
-	new_es->res     = res;
-	new_es->type    = type;
-	new_es->sd_es   = sd_es;
-	new_es->handler = handler;
-	new_es->data    = data;
+	new_es->res          = res;
+	new_es->type         = type;
+	new_es->sd_es        = sd_es;
+	new_es->events_fired = 0;
+	new_es->events_max   = 0;
+	new_es->handler      = handler;
+	new_es->data         = data;
 
 	sd_event_source_set_userdata(sd_es, new_es);
 	if (name) {
@@ -452,10 +456,22 @@ sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_
 	return NULL;
 }
 
+void _handle_event_counter(sid_resource_event_source_t *es)
+{
+	es->events_fired++;
+	if ((es->events_max != SID_RESOURCE_UNLIMITED_EVENT_COUNT) && (es->events_fired == es->events_max))
+		sd_event_source_set_enabled(es->sd_es, SD_EVENT_OFF);
+}
+
 static int _sd_io_event_handler(sd_event_source *sd_es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_event_source_t *es = data;
-	return ((sid_resource_io_event_handler_t) es->handler)(es, fd, revents, es->data);
+
+	_handle_event_counter(es);
+	if (es->handler)
+		return ((sid_resource_io_event_handler_t) es->handler)(es, fd, revents, es->data);
+
+	return 0;
 }
 
 int sid_resource_create_io_event_source(sid_resource_t *                res,
@@ -497,6 +513,8 @@ static int _sd_signal_event_handler(sd_event_source *sd_es, int sfd, uint32_t re
 	struct signalfd_siginfo      si;
 	ssize_t                      res;
 
+	_handle_event_counter(es);
+
 	res = read(sfd, &si, sizeof(si));
 
 	if (res < 0) {
@@ -508,7 +526,10 @@ static int _sd_signal_event_handler(sd_event_source *sd_es, int sfd, uint32_t re
 		return 1;
 	}
 
-	return ((sid_resource_signal_event_handler_t) es->handler)(es, &si, es->data);
+	if (es->handler)
+		return ((sid_resource_signal_event_handler_t) es->handler)(es, &si, es->data);
+
+	return 0;
 }
 
 /* This should not watch the SIGCHLD signal if sd_event_add_child() is also used */
@@ -577,7 +598,12 @@ fail:
 static int _sd_child_event_handler(sd_event_source *sd_es, const siginfo_t *si, void *data)
 {
 	sid_resource_event_source_t *es = data;
-	return ((sid_resource_child_event_handler_t) es->handler)(es, si, es->data);
+
+	_handle_event_counter(es);
+	if (es->handler)
+		return ((sid_resource_child_event_handler_t) es->handler)(es, si, es->data);
+
+	return 0;
 }
 
 int sid_resource_create_child_event_source(sid_resource_t *                   res,
@@ -602,7 +628,7 @@ int sid_resource_create_child_event_source(sid_resource_t *                   re
 	                            &sd_es,
 	                            pid,
 	                            options,
-	                            handler ? _sd_child_event_handler : NULL,
+	                            _sd_child_event_handler,
 	                            NULL)) < 0)
 		goto fail;
 
@@ -622,7 +648,12 @@ fail:
 static int _sd_time_event_handler(sd_event_source *sd_es, uint64_t usec, void *data)
 {
 	sid_resource_event_source_t *es = data;
-	return ((sid_resource_time_event_handler_t) es->handler)(es, usec, es->data);
+
+	_handle_event_counter(es);
+	if (es->handler)
+		return ((sid_resource_time_event_handler_t) es->handler)(es, usec, es->data);
+
+	return 0;
 }
 
 int sid_resource_create_time_event_source(sid_resource_t *                  res,
@@ -653,7 +684,7 @@ int sid_resource_create_time_event_source(sid_resource_t *                  res,
 			                           clock,
 			                           usec,
 			                           accuracy,
-			                           handler ? _sd_time_event_handler : NULL,
+			                           _sd_time_event_handler,
 			                           NULL)) < 0)
 				goto fail;
 			break;
@@ -672,7 +703,7 @@ int sid_resource_create_time_event_source(sid_resource_t *                  res,
 			                           clock,
 			                           usec_now + usec,
 			                           accuracy,
-			                           handler ? _sd_time_event_handler : NULL,
+			                           _sd_time_event_handler,
 			                           NULL)) < 0)
 				goto fail;
 			break;
@@ -728,7 +759,12 @@ int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, sid_ev
 static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
 {
 	sid_resource_event_source_t *es = data;
-	return ((sid_resource_generic_event_handler_t) es->handler)(es, es->data);
+
+	_handle_event_counter(es);
+	if (es->handler)
+		return ((sid_resource_generic_event_handler_t) es->handler)(es, es->data);
+
+	return 0;
 }
 
 int sid_resource_create_deferred_event_source(sid_resource_t *                     res,
@@ -747,10 +783,7 @@ int sid_resource_create_deferred_event_source(sid_resource_t *                  
 		goto fail;
 	}
 
-	if ((r = sd_event_add_defer(res_event_loop->event_loop.sd_event_loop,
-	                            &sd_es,
-	                            handler ? _sd_generic_event_handler : NULL,
-	                            NULL)) < 0)
+	if ((r = sd_event_add_defer(res_event_loop->event_loop.sd_event_loop, &sd_es, _sd_generic_event_handler, NULL)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -782,10 +815,7 @@ int sid_resource_create_post_event_source(sid_resource_t *                     r
 		goto fail;
 	}
 
-	if ((r = sd_event_add_post(res_event_loop->event_loop.sd_event_loop,
-	                           &sd_es,
-	                           handler ? _sd_generic_event_handler : NULL,
-	                           NULL)) < 0)
+	if ((r = sd_event_add_post(res_event_loop->event_loop.sd_event_loop, &sd_es, _sd_generic_event_handler, NULL)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -817,10 +847,7 @@ int sid_resource_create_exit_event_source(sid_resource_t *                     r
 		goto fail;
 	}
 
-	if ((r = sd_event_add_exit(res_event_loop->event_loop.sd_event_loop,
-	                           &sd_es,
-	                           handler ? _sd_generic_event_handler : NULL,
-	                           NULL)) < 0)
+	if ((r = sd_event_add_exit(res_event_loop->event_loop.sd_event_loop, &sd_es, _sd_generic_event_handler, NULL)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -834,6 +861,37 @@ fail:
 	if (sd_es)
 		sd_event_source_unref(sd_es);
 	return r;
+}
+
+int sid_resource_set_event_source_counter(sid_resource_event_source_t *es, uint64_t events_max)
+{
+	es->events_max = events_max;
+
+	if (events_max == 0)
+		sd_event_source_set_enabled(es->sd_es, SD_EVENT_OFF);
+	else if (events_max == 1)
+		sd_event_source_set_enabled(es->sd_es, SD_EVENT_ONESHOT);
+	else
+		sd_event_source_set_enabled(es->sd_es, SD_EVENT_ON);
+
+	return 0;
+}
+
+int sid_resource_get_event_source_counter(sid_resource_event_source_t *es, uint64_t *events_fired, uint64_t *events_max)
+{
+	if (events_fired)
+		*events_fired = es->events_fired;
+
+	if (events_max)
+		*events_max = es->events_max;
+
+	return 0;
+}
+
+int sid_resource_reset_event_source_counter(sid_resource_event_source_t *es)
+{
+	es->events_fired = 0;
+	return 0;
 }
 
 int sid_resource_destroy_event_source(sid_resource_event_source_t **es)

@@ -69,6 +69,8 @@ typedef enum
 #define SID_RESOURCE_NO_SERVICE_LINKS NULL
 #define SID_RESOURCE_PRIO_NORMAL      0
 
+#define SID_RESOURCE_UNLIMITED_EVENT_COUNT UINT64_MAX
+
 typedef struct sid_resource_service_link_def {
 	const char *                name;
 	service_link_type_t         type;
@@ -237,6 +239,10 @@ int sid_resource_create_exit_event_source(sid_resource_t *                     r
                                           int64_t                              prio,
                                           const char *                         name,
                                           void *                               data);
+
+int sid_resource_set_event_source_counter(sid_resource_event_source_t *es, uint64_t events_max);
+int sid_resource_get_event_source_counter(sid_resource_event_source_t *es, uint64_t *events_fired, uint64_t *events_max);
+int sid_resource_reset_event_source_counter(sid_resource_event_source_t *es);
 
 int sid_resource_destroy_event_source(sid_resource_event_source_t **es);
 
