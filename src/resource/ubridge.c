@@ -370,10 +370,12 @@ struct sid_msg {
 	struct sid_msg_header *header;
 };
 
-struct internal_msg {
+struct internal_msg_header {
 	msg_category_t        cat;    /* keep this first so we can decide how to read the rest */
 	struct sid_msg_header header; /* reusing sid_msg_header here to avoid defining a new struct with subset of fields we need */
 } __attribute__((packed));
+
+#define INTERNAL_MSG_HEADER_SIZE sizeof(struct internal_msg_header)
 
 /*
  * Generic flags for all commands.
@@ -3533,12 +3535,12 @@ static const struct cmd_reg *_get_cmd_reg(struct sid_ucmd_ctx *ucmd_ctx)
 
 static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(cmd_res);
-	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
-	sid_resource_t *      conn_res = NULL;
-	struct connection *   conn     = NULL;
-	struct internal_msg   int_msg;
-	int                   r = -1;
+	struct sid_ucmd_ctx *      ucmd_ctx = sid_resource_get_data(cmd_res);
+	const struct cmd_reg *     cmd_reg  = _get_cmd_reg(ucmd_ctx);
+	sid_resource_t *           conn_res = NULL;
+	struct connection *        conn     = NULL;
+	struct internal_msg_header int_msg;
+	int                        r = -1;
 
 	/* Send out response buffer. */
 	switch (ucmd_ctx->req_cat) {
@@ -4262,9 +4264,9 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
                                  struct worker_data_spec *data_spec,
                                  void *                   arg)
 {
-	struct ubridge *     ubridge = sid_resource_get_data((sid_resource_t *) arg);
-	struct internal_msg *int_msg = data_spec->data;
-	int                  r;
+	struct ubridge *            ubridge = sid_resource_get_data((sid_resource_t *) arg);
+	struct internal_msg_header *int_msg = data_spec->data;
+	int                         r;
 
 	if (int_msg->cat != MSG_CATEGORY_SYSTEM) {
 		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Received unexpected message category.");
@@ -4294,8 +4296,8 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
 
 static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *chan, struct worker_data_spec *data_spec, void *arg)
 {
-	msg_category_t *     cat = (msg_category_t *) data_spec->data;
-	struct internal_msg *int_msg;
+	msg_category_t *            cat = (msg_category_t *) data_spec->data;
+	struct internal_msg_header *int_msg;
 
 	switch (*cat) {
 		case MSG_CATEGORY_SYSTEM:
@@ -4328,7 +4330,7 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 			 * Command requested internally.
 			 * Generate sid_msg out of int_msg as if it was sent through a connection.
 			 */
-			int_msg = (struct internal_msg *) data_spec->data;
+			int_msg = (struct internal_msg_header *) data_spec->data;
 
 			if (_create_command_resource(worker_res,
 			                             &((struct sid_msg) {.cat    = MSG_CATEGORY_SELF,
@@ -4409,7 +4411,7 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	if (!worker_proxy_res)
 		return 0;
 
-	/* optimization here - not sending the whole struct internal_msg, only the first msg_category_t type field */
+	/* optimization here - not sending the whole struct internal_msg_header, only the first msg_category_t type field */
 	data_spec.data      = &((msg_category_t) {MSG_CATEGORY_CLIENT});
 	data_spec.data_size = sizeof(msg_category_t);
 	data_spec.ext.used  = true;
@@ -4430,11 +4432,11 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 
 int ubridge_cmd_dbdump(sid_resource_t *ubridge_res, const char *file_path)
 {
-	sid_resource_t *        worker_proxy_res;
-	struct internal_msg *   int_msg;
-	struct worker_data_spec data_spec;
-	size_t                  file_path_size;
-	char                    buf[sizeof(struct internal_msg) + PATH_MAX + 1];
+	sid_resource_t *            worker_proxy_res;
+	struct internal_msg_header *int_msg;
+	struct worker_data_spec     data_spec;
+	size_t                      file_path_size;
+	char                        buf[INTERNAL_MSG_HEADER_SIZE + PATH_MAX + 1];
 
 	if (_get_worker(ubridge_res, &worker_proxy_res) < 0)
 		return -1;
@@ -4443,7 +4445,7 @@ int ubridge_cmd_dbdump(sid_resource_t *ubridge_res, const char *file_path)
 	if (!worker_proxy_res)
 		return 0;
 
-	int_msg         = (struct internal_msg *) buf;
+	int_msg         = (struct internal_msg_header *) buf;
 	int_msg->cat    = MSG_CATEGORY_SELF;
 	int_msg->header = (struct sid_msg_header) {.status = 0, .prot = SID_PROTOCOL, .cmd = SELF_CMD_DBDUMP, .flags = 0};
 
@@ -4451,12 +4453,11 @@ int ubridge_cmd_dbdump(sid_resource_t *ubridge_res, const char *file_path)
 		file_path_size = 0;
 	else {
 		file_path_size = strlen(file_path) + 1;
-		memcpy(buf + sizeof(struct internal_msg), file_path, file_path_size);
+		memcpy(buf + INTERNAL_MSG_HEADER_SIZE, file_path, file_path_size);
 	}
 
-	data_spec = (struct worker_data_spec) {.data      = buf,
-	                                       .data_size = sizeof(struct internal_msg) + file_path_size,
-	                                       .ext.used  = false};
+	data_spec =
+		(struct worker_data_spec) {.data = buf, .data_size = INTERNAL_MSG_HEADER_SIZE + file_path_size, .ext.used = false};
 
 	return worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
 }
