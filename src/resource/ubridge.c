@@ -4495,13 +4495,10 @@ out:
 
 static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *chan, struct worker_data_spec *data_spec, void *arg)
 {
-	msg_category_t *            cat = (msg_category_t *) data_spec->data;
-	struct internal_msg_header *int_msg;
+	struct internal_msg_header *int_msg = (struct internal_msg_header *) data_spec->data;
 
-	switch (*cat) {
+	switch (int_msg->cat) {
 		case MSG_CATEGORY_SYSTEM:
-			int_msg = (struct internal_msg_header *) data_spec->data;
-
 			switch (int_msg->header.cmd) {
 				case SYSTEM_CMD_RESOURCES:
 					if (_worker_recv_system_cmd_resources(worker_res, data_spec) < 0)
@@ -4541,8 +4538,6 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 			 * Command requested internally.
 			 * Generate sid_msg out of int_msg as if it was sent through a connection.
 			 */
-			int_msg = (struct internal_msg_header *) data_spec->data;
-
 			if (_create_command_resource(worker_res,
 			                             &((struct sid_msg) {.cat    = MSG_CATEGORY_SELF,
 			                                                 .size   = data_spec->data_size - sizeof(int_msg->cat),
@@ -4607,11 +4602,12 @@ static int _get_worker(sid_resource_t *ubridge_res, sid_resource_t **res_p)
 
 static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	sid_resource_t *        ubridge_res = data;
-	struct ubridge *        ubridge     = sid_resource_get_data(ubridge_res);
-	sid_resource_t *        worker_proxy_res;
-	struct worker_data_spec data_spec;
-	int                     r;
+	sid_resource_t *           ubridge_res = data;
+	struct ubridge *           ubridge     = sid_resource_get_data(ubridge_res);
+	sid_resource_t *           worker_proxy_res;
+	struct worker_data_spec    data_spec;
+	struct internal_msg_header int_msg;
+	int                        r;
 
 	log_debug(ID(ubridge_res), "Received an event.");
 
@@ -4622,9 +4618,11 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	if (!worker_proxy_res)
 		return 0;
 
-	/* optimization here - not sending the whole struct internal_msg_header, only the first msg_category_t type field */
-	data_spec.data      = &((msg_category_t) {MSG_CATEGORY_CLIENT});
-	data_spec.data_size = sizeof(msg_category_t);
+	int_msg.cat    = MSG_CATEGORY_CLIENT;
+	int_msg.header = (struct sid_msg_header) {0};
+
+	data_spec.data      = &int_msg;
+	data_spec.data_size = INTERNAL_MSG_HEADER_SIZE;
 	data_spec.ext.used  = true;
 
 	if ((data_spec.ext.socket.fd_pass = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
