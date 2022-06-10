@@ -4361,7 +4361,25 @@ out:
 	return r;
 }
 
-static int _worker_proxy_recv_system_cmd_resources(sid_resource_t *worker_proxy_res, struct worker_data_spec *data_spec)
+static int _worker_proxy_recv_system_cmd_sync(sid_resource_t *worker_proxy_res, struct worker_data_spec *data_spec, void *arg)
+{
+	struct ubridge *ubridge = sid_resource_get_data((sid_resource_t *) arg);
+	int             r;
+
+	if (data_spec->ext.used) {
+		r = _sync_main_kv_store(worker_proxy_res, ubridge->internal_res, data_spec->ext.socket.fd_pass);
+		close(data_spec->ext.socket.fd_pass);
+	} else {
+		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Received KV store sync request, but KV store sync data missing.");
+		r = -1;
+	}
+
+	return r;
+}
+
+static int _worker_proxy_recv_system_cmd_resources(sid_resource_t *         worker_proxy_res,
+                                                   struct worker_data_spec *data_spec,
+                                                   void *                   arg __attribute__((unused)))
 {
 	struct internal_msg_header *int_msg = data_spec->data;
 	struct sid_buffer *         buf;
@@ -4402,9 +4420,7 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
                                  struct worker_data_spec *data_spec,
                                  void *                   arg)
 {
-	struct ubridge *            ubridge = sid_resource_get_data((sid_resource_t *) arg);
 	struct internal_msg_header *int_msg = data_spec->data;
-	int                         r;
 
 	if (int_msg->cat != MSG_CATEGORY_SYSTEM) {
 		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Received unexpected message category.");
@@ -4413,27 +4429,15 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
 
 	switch (int_msg->header.cmd) {
 		case SYSTEM_CMD_SYNC:
-			if (data_spec->ext.used) {
-				r = _sync_main_kv_store(worker_proxy_res, ubridge->internal_res, data_spec->ext.socket.fd_pass);
-				close(data_spec->ext.socket.fd_pass);
-			} else {
-				log_error(ID(worker_proxy_res),
-				          INTERNAL_ERROR "Received KV store sync request, but KV store sync data missing.");
-				r = -1;
-			}
-			break;
+			return _worker_proxy_recv_system_cmd_sync(worker_proxy_res, data_spec, arg);
 
 		case SYSTEM_CMD_RESOURCES:
-			r = _worker_proxy_recv_system_cmd_resources(worker_proxy_res, data_spec);
-			break;
+			return _worker_proxy_recv_system_cmd_resources(worker_proxy_res, data_spec, arg);
 
 		default:
 			log_error(ID(worker_proxy_res), "Unknown system command.");
-			r = -1;
-			break;
+			return -1;
 	}
-
-	return r;
 }
 
 static int _worker_recv_system_cmd_resources(sid_resource_t *worker_res, struct worker_data_spec *data_spec)
