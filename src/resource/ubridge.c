@@ -63,33 +63,38 @@
 #define KV_PAIR_C "="
 #define KV_END_C  ""
 
-#define ID_NULL  ""
-#define KEY_NULL ID_NULL
+#define ID_NULL     ""
+#define KV_KEY_NULL ID_NULL
 
-#define KV_PREFIX_OP_ILLEGAL_C   "X"
-#define KV_PREFIX_OP_SET_C       ""
-#define KV_PREFIX_OP_PLUS_C      "+"
-#define KV_PREFIX_OP_MINUS_C     "-"
+#define KV_INDEX_NOOP   0
+#define KV_INDEX_ADD    1
+#define KV_INDEX_REMOVE 2
+
+#define KV_PREFIX_OP_SYS_C      ">"
+#define KV_PREFIX_OP_SYNC_END_C "?" /* right after '>' */
+#define KV_PREFIX_OP_ILLEGAL_C  "X"
+#define KV_PREFIX_OP_SET_C      ""
+#define KV_PREFIX_OP_PLUS_C     "+"
+#define KV_PREFIX_OP_MINUS_C    "-"
+
 #define KV_PREFIX_NS_UNDEFINED_C ""
 #define KV_PREFIX_NS_UDEV_C      "U"
 #define KV_PREFIX_NS_DEVICE_C    "D"
 #define KV_PREFIX_NS_MODULE_C    "M"
 #define KV_PREFIX_NS_GLOBAL_C    "G"
 
-#define KEY_OP_SYNC_C     ">"
-#define KEY_OP_SYNC_END_C "?" /* right after '>' */
-#define KEY_SYS_C         "#"
+#define KV_PREFIX_KEY_SYS_C "#"
 
-#define KV_KEY_DB_GENERATION KEY_SYS_C "DBGEN"
-#define KV_KEY_DEV_READY     KEY_SYS_C "RDY"
-#define KV_KEY_DEV_RESERVED  KEY_SYS_C "RES"
-#define KV_KEY_DEV_MOD       KEY_SYS_C "MOD"
+#define KV_KEY_DB_GENERATION KV_PREFIX_KEY_SYS_C "DBGEN"
+#define KV_KEY_DEV_READY     KV_PREFIX_KEY_SYS_C "RDY"
+#define KV_KEY_DEV_RESERVED  KV_PREFIX_KEY_SYS_C "RES"
+#define KV_KEY_DEV_MOD       KV_PREFIX_KEY_SYS_C "MOD"
 
 #define KV_KEY_DOM_LAYER "LYR"
 #define KV_KEY_DOM_USER  "USR"
 
-#define KV_KEY_GEN_GROUP_MEMBERS KEY_SYS_C "GMB"
-#define KV_KEY_GEN_GROUP_IN      KEY_SYS_C "GIN"
+#define KV_KEY_GEN_GROUP_MEMBERS KV_PREFIX_KEY_SYS_C "GMB"
+#define KV_KEY_GEN_GROUP_IN      KV_PREFIX_KEY_SYS_C "GIN"
 
 #define MOD_NAME_CORE            "#core"
 #define OWNER_CORE               MOD_NAME_CORE
@@ -493,28 +498,28 @@ static char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spe
 		                       (const void **) &key,
 		                       NULL,
 		                       fmt,
-		                       prefix_only ? KEY_NULL : " ",
+		                       prefix_only ? KV_KEY_NULL : " ",
 		                       op_to_key_prefix_map[key_spec->op],
 		                       key_spec->dom,
 		                       ns_to_key_prefix_map[key_spec->ns],
 		                       key_spec->ns_part,
 		                       key_spec->id,
 		                       key_spec->id_part,
-		                       prefix_only ? KEY_NULL : KV_STORE_KEY_JOIN,
-		                       prefix_only ? KEY_NULL : key_spec->core) < 0)
+		                       prefix_only ? KV_KEY_NULL : KV_STORE_KEY_JOIN,
+		                       prefix_only ? KV_KEY_NULL : key_spec->core) < 0)
 			key = NULL;
 	} else {
 		if (asprintf((char **) &key,
 		             fmt,
-		             prefix_only ? KEY_NULL : " ",
+		             prefix_only ? KV_KEY_NULL : " ",
 		             op_to_key_prefix_map[key_spec->op],
 		             key_spec->dom,
 		             ns_to_key_prefix_map[key_spec->ns],
 		             key_spec->ns_part,
 		             key_spec->id,
 		             key_spec->id_part,
-		             prefix_only ? KEY_NULL : KV_STORE_KEY_JOIN,
-		             prefix_only ? KEY_NULL : key_spec->core) < 0)
+		             prefix_only ? KV_KEY_NULL : KV_STORE_KEY_JOIN,
+		             prefix_only ? KV_KEY_NULL : key_spec->core) < 0)
 			key = NULL;
 	}
 
@@ -722,7 +727,7 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 	return 0;
 }
 
-static int _check_index_needed(struct iovec *vvalue_old, struct iovec *vvalue_new)
+static int _check_kv_index_needed(struct iovec *vvalue_old, struct iovec *vvalue_new)
 {
 	int old_indexed, new_indexed;
 
@@ -730,24 +735,24 @@ static int _check_index_needed(struct iovec *vvalue_old, struct iovec *vvalue_ne
 	new_indexed = vvalue_new ? VVALUE_FLAGS(vvalue_new) & (KV_SYNC | KV_PERSISTENT) : 0;
 
 	if (old_indexed && !new_indexed)
-		return 2;
+		return KV_INDEX_REMOVE;
 
 	if (!old_indexed && new_indexed)
-		return 1;
+		return KV_INDEX_ADD;
 
-	return 0;
+	return KV_INDEX_NOOP;
 }
 
-static int _manage_index(struct kv_update_arg *update_arg, char *key)
+static int _manage_kv_index(struct kv_update_arg *update_arg, char *key)
 {
 	int r;
 
-	key[0] = KEY_OP_SYNC_C[0];
+	key[0] = KV_PREFIX_OP_SYS_C[0];
 	switch (update_arg->ret_code) {
-		case 1:
+		case KV_INDEX_ADD:
 			r = kv_store_add_alias(update_arg->res, key + 1, key, false);
 			break;
-		case 2:
+		case KV_INDEX_REMOVE:
 			r = kv_store_unset(update_arg->res, key, NULL, NULL);
 			break;
 		default:
@@ -791,7 +796,7 @@ static int _kv_cb_overwrite(struct kv_store_update_spec *spec)
 		}
 	}
 
-	update_arg->ret_code = _check_index_needed(vvalue_old, vvalue_new);
+	update_arg->ret_code = _check_kv_index_needed(vvalue_old, vvalue_new);
 	return 1;
 keep_old:
 	log_debug(ID(update_arg->res),
@@ -916,7 +921,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		return 0;
 
 	if (cmd_reg->flags & (CMD_KV_EXPORT_SYNC | CMD_KV_EXPORT_PERSISTENT))
-		iter = kv_store_iter_create(ucmd_ctx->common.kv_store_res, KEY_OP_SYNC_C, KEY_OP_SYNC_END_C);
+		iter = kv_store_iter_create(ucmd_ctx->common.kv_store_res, KV_PREFIX_OP_SYS_C, KV_PREFIX_OP_SYNC_END_C);
 	else
 		iter = kv_store_iter_create(ucmd_ctx->common.kv_store_res, NULL, NULL);
 
@@ -977,7 +982,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			svalue->flags &= ~KV_SYNC;
 		}
 
-		key += 1; /* remove leading KEY_OP_SYNC_C */
+		key += 1; /* remove leading KV_PREFIX_OP_SYS_C */
 		key_size = strlen(key) + 1;
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
@@ -1741,7 +1746,7 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 	                   update_arg);
 
 	if (index)
-		(void) _manage_index(update_arg, key);
+		(void) _manage_kv_index(update_arg, key);
 
 	_value_vector_mark_sync(abs_delta_vvalue, 0);
 	_destroy_key(update_arg->gen_buf, key);
@@ -1852,7 +1857,7 @@ static int _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct k
 		goto out;
 
 	if (index)
-		(void) _manage_index(update_arg, key);
+		(void) _manage_kv_index(update_arg, key);
 
 	/*
 	 * Next, depending on further requested handling based on rel_spec->delta->flags,
@@ -1967,7 +1972,7 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 	    !value_size)
 		goto out;
 
-	(void) _manage_index(&update_arg, key);
+	(void) _manage_kv_index(&update_arg, key);
 
 	ret = svalue->data + _svalue_ext_data_offset(svalue);
 out:
@@ -1983,7 +1988,7 @@ void *sid_ucmd_set_kv(struct module *         mod,
                       size_t                  value_size,
                       sid_ucmd_kv_flags_t     flags)
 {
-	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KEY_SYS_C[0]))
+	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	if (ns == KV_NS_UDEV)
@@ -2056,7 +2061,7 @@ const void *sid_ucmd_get_kv(struct module *         mod,
                             size_t *                value_size,
                             sid_ucmd_kv_flags_t *   flags)
 {
-	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KEY_SYS_C[0]))
+	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, value_size, flags);
@@ -2085,7 +2090,7 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 		return 0;
 	}
 
-	update_arg->ret_code = _check_index_needed(vvalue_old, vvalue_new);
+	update_arg->ret_code = _check_kv_index_needed(vvalue_old, vvalue_new);
 	return 1;
 }
 
@@ -2110,7 +2115,7 @@ static int _kv_cb_unreserve(struct kv_store_update_spec *spec)
 		return 0;
 	}
 
-	update_arg->ret_code = _check_index_needed(vvalue_old, NULL);
+	update_arg->ret_code = _check_kv_index_needed(vvalue_old, NULL);
 	return 1;
 }
 
@@ -2167,7 +2172,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *             mod,
 		                        &update_arg))
 			goto out;
 
-		(void) _manage_index(&update_arg, key);
+		(void) _manage_kv_index(&update_arg, key);
 	}
 
 	r = 0;
@@ -2178,7 +2183,7 @@ out:
 
 int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
 {
-	if (!mod || !common || !key || !*key || (key[0] == KEY_SYS_C[0]))
+	if (!mod || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
 	return _do_sid_ucmd_mod_reserve_kv(mod, common, ns, key, 0);
@@ -2186,7 +2191,7 @@ int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_common_ctx *comm
 
 int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
 {
-	if (!mod || !common || !key || !*key || (key[0] == KEY_SYS_C[0]))
+	if (!mod || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
 	return _do_sid_ucmd_mod_reserve_kv(mod, common, ns, key, 1);
@@ -2289,7 +2294,7 @@ static int _kv_cb_write_new_only(struct kv_store_update_spec *spec)
 	if (spec->old_data)
 		return 0;
 
-	update_arg->ret_code = _check_index_needed(spec->old_data, spec->new_data);
+	update_arg->ret_code = _check_kv_index_needed(spec->old_data, spec->new_data);
 	return 1;
 }
 
@@ -2334,7 +2339,7 @@ int sid_ucmd_group_create(struct module *         mod,
 	                        &update_arg))
 		goto out;
 
-	(void) _manage_index(&update_arg, key);
+	(void) _manage_kv_index(&update_arg, key);
 
 	r = 0;
 out:
@@ -2943,7 +2948,7 @@ const void *sid_ucmd_part_get_disk_kv(struct module *      mod,
 	                               .id_part = ID_NULL,
 	                               .core    = key_core};
 
-	if (!ucmd_ctx || !key_core || !*key_core || (key_core[0] == KEY_SYS_C[0]))
+	if (!ucmd_ctx || !key_core || !*key_core || (key_core[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	if (_part_get_whole_disk(mod, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
