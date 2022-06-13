@@ -52,6 +52,7 @@
 #define UDEV_TAG_SID               "sid"
 #define KV_KEY_UDEV_SID_SESSION_ID "SID_SESSION_ID"
 
+// TODO: once trigger-action is settled down, move this to ucmd-module.h
 #define SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ucmd_trigger_action_current"
 #define SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ucmd_trigger_action_next"
 
