@@ -240,7 +240,7 @@ int sid_resource_create_exit_event_source(sid_resource_t *                     r
                                           const char *                         name,
                                           void *                               data);
 
-int sid_resource_set_event_source_counter(sid_resource_event_source_t *es, uint64_t events_max);
+int sid_resource_set_event_source_counter(sid_resource_event_source_t *es, sid_resource_pos_t disposition, uint64_t events_max);
 int sid_resource_get_event_source_counter(sid_resource_event_source_t *es, uint64_t *events_fired, uint64_t *events_max);
 int sid_resource_reset_event_source_counter(sid_resource_event_source_t *es);
 

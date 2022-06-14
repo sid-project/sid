@@ -4491,7 +4491,7 @@ static int _worker_recv_system_cmd_resources(sid_resource_t *worker_res, struct 
 		mmap(NULL, ucmd_ctx->resources.main_res_mem_size, PROT_READ, MAP_SHARED, data_spec->ext.socket.fd_pass, 0);
 
 	close(data_spec->ext.socket.fd_pass);
-	sid_resource_set_event_source_counter(ucmd_ctx->cmd_handler_es, 1);
+	sid_resource_set_event_source_counter(ucmd_ctx->cmd_handler_es, SID_RESOURCE_POS_REL, 1);
 
 	r = 0;
 out:

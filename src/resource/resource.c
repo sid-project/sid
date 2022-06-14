@@ -474,12 +474,16 @@ void _handle_event_counter(sid_resource_event_source_t *es)
 static int _sd_io_event_handler(sd_event_source *sd_es, int fd, uint32_t revents, void *data)
 {
 	sid_resource_event_source_t *es = data;
+	int                          r;
 
 	_handle_event_counter(es);
-	if (es->handler)
-		return ((sid_resource_io_event_handler_t) es->handler)(es, fd, revents, es->data);
+	if (es->handler) {
+		if ((r = ((sid_resource_io_event_handler_t) es->handler)(es, fd, revents, es->data)) < 0)
+			es->events_max = es->events_fired;
+	} else
+		r = 0;
 
-	return 0;
+	return r;
 }
 
 int sid_resource_create_io_event_source(sid_resource_t *                res,
@@ -521,6 +525,7 @@ static int _sd_signal_event_handler(sd_event_source *sd_es, int sfd, uint32_t re
 	sid_resource_event_source_t *es = sd_event_source_get_userdata(sd_es);
 	struct signalfd_siginfo      si;
 	ssize_t                      res;
+	int                          r;
 
 	_handle_event_counter(es);
 
@@ -535,10 +540,13 @@ static int _sd_signal_event_handler(sd_event_source *sd_es, int sfd, uint32_t re
 		return 1;
 	}
 
-	if (es->handler)
-		return ((sid_resource_signal_event_handler_t) es->handler)(es, &si, es->data);
+	if (es->handler) {
+		if ((r = ((sid_resource_signal_event_handler_t) es->handler)(es, &si, es->data)) < 0)
+			es->events_max = es->events_fired;
+	} else
+		r = 0;
 
-	return 0;
+	return r;
 }
 
 /* This should not watch the SIGCHLD signal if sd_event_add_child() is also used */
@@ -614,10 +622,14 @@ fail:
 static int _sd_child_event_handler(sd_event_source *sd_es, const siginfo_t *si, void *data)
 {
 	sid_resource_event_source_t *es = data;
+	int                          r;
 
 	_handle_event_counter(es);
-	if (es->handler)
-		return ((sid_resource_child_event_handler_t) es->handler)(es, si, es->data);
+	if (es->handler) {
+		if ((r = ((sid_resource_child_event_handler_t) es->handler)(es, si, es->data)) > 0)
+			es->events_max = es->events_fired;
+	} else
+		r = 0;
 
 	return 0;
 }
@@ -671,12 +683,16 @@ fail:
 static int _sd_time_event_handler(sd_event_source *sd_es, uint64_t usec, void *data)
 {
 	sid_resource_event_source_t *es = data;
+	int                          r;
 
 	_handle_event_counter(es);
-	if (es->handler)
-		return ((sid_resource_time_event_handler_t) es->handler)(es, usec, es->data);
+	if (es->handler) {
+		if ((r = ((sid_resource_time_event_handler_t) es->handler)(es, usec, es->data)) < 0)
+			es->events_max = es->events_fired;
+	} else
+		r = 0;
 
-	return 0;
+	return r;
 }
 
 int sid_resource_create_time_event_source(sid_resource_t *                  res,
@@ -776,18 +792,23 @@ int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, sid_re
 			break;
 	}
 
+	es->events_max = 1;
 	return sd_event_source_set_enabled(es->sd_es, SD_EVENT_ONESHOT);
 }
 
 static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
 {
 	sid_resource_event_source_t *es = data;
+	int                          r;
 
 	_handle_event_counter(es);
-	if (es->handler)
-		return ((sid_resource_generic_event_handler_t) es->handler)(es, es->data);
+	if (es->handler) {
+		if ((r = ((sid_resource_generic_event_handler_t) es->handler)(es, es->data)) < 0)
+			es->events_max = es->events_fired;
+	} else
+		r = 0;
 
-	return 0;
+	return r;
 }
 
 int sid_resource_create_deferred_event_source(sid_resource_t *                     res,
@@ -887,17 +908,34 @@ fail:
 	return r;
 }
 
-int sid_resource_set_event_source_counter(sid_resource_event_source_t *es, uint64_t events_max)
+int sid_resource_set_event_source_counter(sid_resource_event_source_t *es, sid_resource_pos_t disposition, uint64_t events_max)
 {
-	es->events_max = events_max;
+	if (events_max == SID_RESOURCE_UNLIMITED_EVENT_COUNT) {
+		es->events_max = events_max;
+		sd_event_source_set_enabled(es->sd_es, SD_EVENT_ON);
+		return 0;
+	}
 
-	if (events_max == 0)
+	switch (disposition) {
+		case SID_RESOURCE_POS_ABS:
+			if (events_max < es->events_fired)
+				events_max = es->events_fired;
+			break;
+		case SID_RESOURCE_POS_REL:
+			events_max = es->events_fired + events_max;
+			if ((events_max == SID_RESOURCE_UNLIMITED_EVENT_COUNT) || (events_max < es->events_fired))
+				events_max = SID_RESOURCE_UNLIMITED_EVENT_COUNT - 1;
+			break;
+	}
+
+	if (es->events_fired == events_max)
 		sd_event_source_set_enabled(es->sd_es, SD_EVENT_OFF);
-	else if (events_max == 1)
+	else if (es->events_fired + 1 == events_max)
 		sd_event_source_set_enabled(es->sd_es, SD_EVENT_ONESHOT);
 	else
 		sd_event_source_set_enabled(es->sd_es, SD_EVENT_ON);
 
+	es->events_max = events_max;
 	return 0;
 }
 
