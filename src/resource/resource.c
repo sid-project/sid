@@ -100,6 +100,7 @@ static int _create_event_source(sid_resource_t *              res,
                                 sd_event_source *             sd_es,
                                 void *                        handler,
                                 void *                        data,
+                                uint64_t                      events_max,
                                 sid_resource_event_source_t **es)
 {
 	static const char            unnamed[] = "unnamed";
@@ -115,7 +116,7 @@ static int _create_event_source(sid_resource_t *              res,
 	new_es->type         = type;
 	new_es->sd_es        = sd_es;
 	new_es->events_fired = 0;
-	new_es->events_max   = 0;
+	new_es->events_max   = events_max;
 	new_es->handler      = handler;
 	new_es->data         = data;
 
@@ -135,6 +136,13 @@ static int _create_event_source(sid_resource_t *              res,
 			name = new_es->name = unnamed;
 	} else
 		name = unnamed;
+
+	if (events_max == 0)
+		sd_event_source_set_enabled(new_es->sd_es, SD_EVENT_OFF);
+	else if (events_max == 1)
+		sd_event_source_set_enabled(new_es->sd_es, SD_EVENT_ONESHOT);
+	else
+		sd_event_source_set_enabled(new_es->sd_es, SD_EVENT_ON);
 
 	log_debug(res->id, "%s event source created: %s.", _event_source_type_names[type], name);
 
@@ -497,7 +505,8 @@ int sid_resource_create_io_event_source(sid_resource_t *                res,
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, EVENT_SOURCE_IO, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_IO, name, sd_es, handler, data, SID_RESOURCE_UNLIMITED_EVENT_COUNT, es)) <
+	    0)
 		goto fail;
 
 	return 0;
@@ -579,7 +588,14 @@ int sid_resource_create_signal_event_source(sid_resource_t *                    
 		goto fail;
 	}
 
-	if ((r = _create_event_source(res, EVENT_SOURCE_SIGNAL, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res,
+	                              EVENT_SOURCE_SIGNAL,
+	                              name,
+	                              sd_es,
+	                              handler,
+	                              data,
+	                              SID_RESOURCE_UNLIMITED_EVENT_COUNT,
+	                              es)) < 0)
 		goto fail;
 
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
@@ -635,7 +651,14 @@ int sid_resource_create_child_event_source(sid_resource_t *                   re
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, EVENT_SOURCE_CHILD, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res,
+	                              EVENT_SOURCE_CHILD,
+	                              name,
+	                              sd_es,
+	                              handler,
+	                              data,
+	                              SID_RESOURCE_UNLIMITED_EVENT_COUNT,
+	                              es)) < 0)
 		goto fail;
 
 	return 0;
@@ -712,7 +735,7 @@ int sid_resource_create_time_event_source(sid_resource_t *                  res,
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, EVENT_SOURCE_TIME, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_TIME, name, sd_es, handler, data, 1, es)) < 0)
 		goto fail;
 
 	return 0;
@@ -789,7 +812,7 @@ int sid_resource_create_deferred_event_source(sid_resource_t *                  
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, EVENT_SOURCE_DEFERRED, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_DEFERRED, name, sd_es, handler, data, 1, es)) < 0)
 		goto fail;
 
 	return 0;
@@ -821,7 +844,8 @@ int sid_resource_create_post_event_source(sid_resource_t *                     r
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, EVENT_SOURCE_POST, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_POST, name, sd_es, handler, data, SID_RESOURCE_UNLIMITED_EVENT_COUNT, es)) <
+	    0)
 		goto fail;
 
 	return 0;
@@ -853,7 +877,7 @@ int sid_resource_create_exit_event_source(sid_resource_t *                     r
 	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
-	if ((r = _create_event_source(res, EVENT_SOURCE_EXIT, name, sd_es, handler, data, es)) < 0)
+	if ((r = _create_event_source(res, EVENT_SOURCE_EXIT, name, sd_es, handler, data, 1, es)) < 0)
 		goto fail;
 
 	return 0;
