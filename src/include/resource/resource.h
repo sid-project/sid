@@ -175,6 +175,12 @@ typedef int (*sid_resource_child_event_handler_t)(sid_resource_event_source_t *e
 typedef int (*sid_resource_time_event_handler_t)(sid_resource_event_source_t *es, uint64_t usec, void *data);
 typedef int (*sid_resource_generic_event_handler_t)(sid_resource_event_source_t *es, void *data);
 
+typedef enum
+{
+	SID_RESOURCE_POS_ABS,
+	SID_RESOURCE_POS_REL,
+} sid_resource_pos_t;
+
 int sid_resource_create_io_event_source(sid_resource_t *                res,
                                         sid_resource_event_source_t **  es,
                                         int                             fd,
@@ -200,16 +206,10 @@ int sid_resource_create_child_event_source(sid_resource_t *                   re
                                            const char *                       name,
                                            void *                             data);
 
-typedef enum
-{
-	SID_EVENT_TIME_ABSOLUTE,
-	SID_EVENT_TIME_RELATIVE,
-} sid_event_time_type_t;
-
 int sid_resource_create_time_event_source(sid_resource_t *                  res,
                                           sid_resource_event_source_t **    es,
                                           clockid_t                         clock,
-                                          sid_event_time_type_t             time_type,
+                                          sid_resource_pos_t                disposition,
                                           uint64_t                          usec,
                                           uint64_t                          accuracy,
                                           sid_resource_time_event_handler_t handler,
@@ -217,7 +217,7 @@ int sid_resource_create_time_event_source(sid_resource_t *                  res,
                                           const char *                      name,
                                           void *                            data);
 
-int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, sid_event_time_type_t, uint64_t usec);
+int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, sid_resource_pos_t disposition, uint64_t usec);
 
 int sid_resource_create_deferred_event_source(sid_resource_t *                     res,
                                               sid_resource_event_source_t **       es,

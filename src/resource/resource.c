@@ -682,7 +682,7 @@ static int _sd_time_event_handler(sd_event_source *sd_es, uint64_t usec, void *d
 int sid_resource_create_time_event_source(sid_resource_t *                  res,
                                           sid_resource_event_source_t **    es,
                                           clockid_t                         clock,
-                                          sid_event_time_type_t             time_type,
+                                          sid_resource_pos_t                disposition,
                                           uint64_t                          usec,
                                           uint64_t                          accuracy,
                                           sid_resource_time_event_handler_t handler,
@@ -700,8 +700,8 @@ int sid_resource_create_time_event_source(sid_resource_t *                  res,
 		goto fail;
 	}
 
-	switch (time_type) {
-		case SID_EVENT_TIME_ABSOLUTE:
+	switch (disposition) {
+		case SID_RESOURCE_POS_ABS:
 			if ((r = sd_event_add_time(res_event_loop->event_loop.sd_event_loop,
 			                           &sd_es,
 			                           clock,
@@ -712,7 +712,7 @@ int sid_resource_create_time_event_source(sid_resource_t *                  res,
 				goto fail;
 			break;
 
-		case SID_EVENT_TIME_RELATIVE:
+		case SID_RESOURCE_POS_REL:
 			if ((r = sd_event_now(res_event_loop->event_loop.sd_event_loop, clock, &usec_now) < 0))
 				goto fail;
 
@@ -745,20 +745,20 @@ fail:
 	return r;
 }
 
-int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, sid_event_time_type_t time_type, uint64_t usec)
+int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, sid_resource_pos_t disposition, uint64_t usec)
 {
 	sid_resource_t *res_event_loop;
 	clockid_t       clock;
 	uint64_t        usec_now;
 	int             r;
 
-	switch (time_type) {
-		case SID_EVENT_TIME_ABSOLUTE:
+	switch (disposition) {
+		case SID_RESOURCE_POS_ABS:
 			if ((r = sd_event_source_set_time(es->sd_es, usec) < 0))
 				return r;
 			break;
 
-		case SID_EVENT_TIME_RELATIVE:
+		case SID_RESOURCE_POS_REL:
 			if (!(res_event_loop = _get_resource_with_event_loop(es->res, 1)))
 				return -ENOMEDIUM;
 
