@@ -1206,8 +1206,8 @@ static void _write_event_source_elem_fields(sid_resource_event_source_t *es,
                                             bool                         add_comma,
                                             int                          level)
 {
-	print_str_field("name", (char *) es->name, format, outbuf, false, level);
-	print_uint64_field("events_max", es->events_max, format, outbuf, false, level);
+	print_str_field("name", (char *) es->name, format, outbuf, true, level);
+	print_uint64_field("events_max", es->events_max, format, outbuf, true, level);
 	print_uint64_field("events_fired", es->events_fired, format, outbuf, false, level);
 }
 
