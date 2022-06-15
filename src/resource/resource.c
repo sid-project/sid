@@ -950,12 +950,6 @@ int sid_resource_get_event_source_counter(sid_resource_event_source_t *es, uint6
 	return 0;
 }
 
-int sid_resource_reset_event_source_counter(sid_resource_event_source_t *es)
-{
-	es->events_fired = 0;
-	return 0;
-}
-
 int sid_resource_destroy_event_source(sid_resource_event_source_t **es)
 {
 	_destroy_event_source(*es);
