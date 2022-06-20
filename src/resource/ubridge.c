@@ -71,7 +71,7 @@
 #define KV_INDEX_ADD    1
 #define KV_INDEX_REMOVE 2
 
-#define KV_PREFIX_OP_SYS_C      ">"
+#define KV_PREFIX_OP_SYNC_C     ">"
 #define KV_PREFIX_OP_SYNC_END_C "?" /* right after '>' */
 #define KV_PREFIX_OP_ILLEGAL_C  "X"
 #define KV_PREFIX_OP_SET_C      ""
@@ -748,7 +748,7 @@ static int _manage_kv_index(struct kv_update_arg *update_arg, char *key)
 {
 	int r;
 
-	key[0] = KV_PREFIX_OP_SYS_C[0];
+	key[0] = KV_PREFIX_OP_SYNC_C[0];
 	switch (update_arg->ret_code) {
 		case KV_INDEX_ADD:
 			r = kv_store_add_alias(update_arg->res, key + 1, key, false);
@@ -922,7 +922,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		return 0;
 
 	if (cmd_reg->flags & (CMD_KV_EXPORT_SYNC | CMD_KV_EXPORT_PERSISTENT))
-		iter = kv_store_iter_create(ucmd_ctx->common.kv_store_res, KV_PREFIX_OP_SYS_C, KV_PREFIX_OP_SYNC_END_C);
+		iter = kv_store_iter_create(ucmd_ctx->common.kv_store_res, KV_PREFIX_OP_SYNC_C, KV_PREFIX_OP_SYNC_END_C);
 	else
 		iter = kv_store_iter_create(ucmd_ctx->common.kv_store_res, NULL, NULL);
 
@@ -983,7 +983,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			svalue->flags &= ~KV_SYNC;
 		}
 
-		key += 1; /* remove leading KV_PREFIX_OP_SYS_C */
+		key += 1; /* remove leading KV_PREFIX_OP_SYNC_C */
 		key_size = strlen(key) + 1;
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
