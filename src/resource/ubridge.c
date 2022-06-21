@@ -172,22 +172,26 @@ typedef enum
 
 typedef enum
 {
-	CMD_INITIALIZING,   /* initializing context for cmd */
-	CMD_EXEC_SCHEDULED, /* cmd handler execution scheduled */
-	CMD_EXECUTING,      /* executing cmd handler */
-	CMD_EXPECTING_DATA, /* expecting more data for further cmd processing */
-	CMD_EXEC_FINISHED,  /* cmd finished and ready for building and sending out results */
-	CMD_OK,             /* cmd completely executed and results successfully sent */
-	CMD_ERROR,          /* cmd error */
+	CMD_INITIALIZING,         /* initializing context for cmd */
+	CMD_EXEC_SCHEDULED,       /* cmd handler execution scheduled */
+	CMD_EXECUTING,            /* executing cmd handler */
+	CMD_EXPECTING_DATA,       /* expecting more data for further cmd processing */
+	CMD_EXEC_FINISHED,        /* cmd finished and ready for building and sending out results */
+	CMD_EXPECTING_EXPBUF_ACK, /* expecting ack of export buffer reception */
+	CMD_EXPBUF_ACKED,         /* export buffer ack received (cmd handler also scheduled) */
+	CMD_OK,                   /* cmd completely executed and results successfully sent (and ackowledged) */
+	CMD_ERROR,                /* cmd error */
 } cmd_state_t;
 
-static const char *cmd_state_str[] = {[CMD_INITIALIZING]   = "CMD_INITIALIZING",
-                                      [CMD_EXEC_SCHEDULED] = "CMD_EXEC_SCHEDULED",
-                                      [CMD_EXECUTING]      = "CMD_EXECUTING",
-                                      [CMD_EXPECTING_DATA] = "CMD_EXPECTING_DATA",
-                                      [CMD_EXEC_FINISHED]  = "CMD_EXEC_FINISHED",
-                                      [CMD_OK]             = "CMD_OK",
-                                      [CMD_ERROR]          = "CMD_ERROR"};
+static const char *cmd_state_str[] = {[CMD_INITIALIZING]         = "CMD_INITIALIZING",
+                                      [CMD_EXEC_SCHEDULED]       = "CMD_EXEC_SCHEDULED",
+                                      [CMD_EXECUTING]            = "CMD_EXECUTING",
+                                      [CMD_EXPECTING_DATA]       = "CMD_EXPECTING_DATA",
+                                      [CMD_EXEC_FINISHED]        = "CMD_EXEC_FINISHED",
+                                      [CMD_EXPECTING_EXPBUF_ACK] = "CMD_EXPECTING_EXPBUF_ACK",
+                                      [CMD_EXPBUF_ACKED]         = "CMD_EXPBUF_ACKED",
+                                      [CMD_OK]                   = "CMD_OK",
+                                      [CMD_ERROR]                = "CMD_ERROR"};
 
 struct sid_ucmd_ctx {
 	/* request */
@@ -419,7 +423,8 @@ struct internal_msg_header {
 #define CMD_KV_EXPORT_ALL            UINT32_C(0x00000080) /* export all KV records */
 #define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000100) /* export KV records from export buffer to a file */
 #define CMD_KV_EXPBUF_TO_MAIN        UINT32_C(0x00000200) /* export KV records from export buffer to main process */
-#define CMD_SESSION_ID               UINT32_C(0x00000400) /* generate session ID */
+#define CMD_KV_EXPECT_EXPBUF_ACK     UINT32_C(0x00000400) /* expect acknowledgment of expbuf reception */
+#define CMD_SESSION_ID               UINT32_C(0x00000800) /* generate session ID */
 
 /*
  * Capability flags for 'scan' command phases (phases are represented as subcommands).
@@ -3613,7 +3618,7 @@ static struct cmd_reg _client_cmd_regs[] = {
 	[SID_CMD_REPLY]      = {.name = "c-reply", .flags = 0, .exec = NULL},
 	[SID_CMD_SCAN]       = {.name  = "c-scan",
                           .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF |
-                                   CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_SESSION_ID,
+                                   CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_KV_EXPECT_EXPBUF_ACK | CMD_SESSION_ID,
                           .exec = _cmd_exec_scan},
 	[SID_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
 	[SID_CMD_DBDUMP]     = {.name  = "c-dbdump",
@@ -3661,14 +3666,89 @@ static const struct cmd_reg *_get_cmd_reg(struct sid_ucmd_ctx *ucmd_ctx)
 	return NULL;
 }
 
-static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
+static int _send_out_cmd_expbuf(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *      ucmd_ctx = sid_resource_get_data(cmd_res);
-	const struct cmd_reg *     cmd_reg  = _get_cmd_reg(ucmd_ctx);
-	sid_resource_t *           conn_res = NULL;
-	struct connection *        conn     = NULL;
-	struct internal_msg_header int_msg;
-	int                        r = -1;
+	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(cmd_res);
+	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
+	sid_resource_t *      conn_res = NULL;
+	struct connection *   conn     = NULL;
+	struct sid_buffer *   buf      = ucmd_ctx->common.gen_buf;
+	const char *          id;
+	size_t                buf_pos;
+	char *                data;
+	size_t                size;
+	int                   r = 0;
+
+	if (!ucmd_ctx->exp_buf)
+		return 0;
+
+	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN) {
+		if (sid_buffer_count(ucmd_ctx->exp_buf) > 0) {
+			id = sid_resource_get_id(cmd_res);
+
+			sid_buffer_add(buf,
+			               &(struct internal_msg_header) {.cat = MSG_CATEGORY_SYSTEM,
+			                                              .header =
+			                                                      (struct sid_msg_header) {
+										      .status = 0,
+										      .prot   = 0,
+										      .cmd    = SYSTEM_CMD_SYNC,
+										      .flags  = 0,
+									      }},
+			               INTERNAL_MSG_HEADER_SIZE,
+			               NULL,
+			               &buf_pos);
+			sid_buffer_add(buf, (void *) id, strlen(id) + 1, NULL, NULL);
+			sid_buffer_get_data(buf, (const void **) &data, &size);
+
+			if ((r = worker_control_channel_send(cmd_res,
+			                                     MAIN_WORKER_CHANNEL_ID,
+			                                     &(struct worker_data_spec) {.data               = data + buf_pos,
+			                                                                 .data_size          = size - buf_pos,
+			                                                                 .ext.used           = true,
+			                                                                 .ext.socket.fd_pass = sid_buffer_get_fd(
+												 ucmd_ctx->exp_buf)})) < 0) {
+				log_error_errno(ID(cmd_res), r, "Failed to send command exports to main SID process.");
+				r = -1;
+			}
+
+			sid_buffer_rewind(buf, buf_pos, SID_BUFFER_POS_ABS);
+		} // TODO: if sid_buffer_count returns 0, then set the cmd state as if the buffer was acked
+	} else if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
+		if ((r = fsync(sid_buffer_get_fd(ucmd_ctx->exp_buf))) < 0) {
+			log_error_errno(ID(cmd_res), r, "Failed to fsync command exports to a file.");
+			r = -1;
+		}
+	} else {
+		switch (ucmd_ctx->req_cat) {
+			case MSG_CATEGORY_SYSTEM:
+				break;
+
+			case MSG_CATEGORY_CLIENT:
+				conn_res = sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
+				conn     = sid_resource_get_data(conn_res);
+
+				if ((r = _send_fd_over_unix_comms(sid_buffer_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0) {
+					log_error_errno(ID(cmd_res), r, "Failed to send command exports to client.");
+					r = -1;
+				}
+				break;
+
+			case MSG_CATEGORY_SELF:
+				/* nothing to do here right now */
+				break;
+		}
+	}
+
+	return r;
+}
+
+static int _send_out_cmd_resbuf(sid_resource_t *cmd_res)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	sid_resource_t *     conn_res = NULL;
+	struct connection *  conn     = NULL;
+	int                  r        = -1;
 
 	/* Send out response buffer. */
 	switch (ucmd_ctx->req_cat) {
@@ -3691,54 +3771,6 @@ static int _send_out_cmd_kv_buffers(sid_resource_t *cmd_res)
 			break;
 	}
 
-	/* Send out export buffer. */
-	if (ucmd_ctx->exp_buf) {
-		if (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN) {
-			if (sid_buffer_count(ucmd_ctx->exp_buf) > 0) {
-				int_msg.cat    = MSG_CATEGORY_SYSTEM;
-				int_msg.header = (struct sid_msg_header) {
-					.status = 0,
-					.prot   = 0,
-					.cmd    = SYSTEM_CMD_SYNC,
-					.flags  = 0,
-				};
-
-				if ((r = worker_control_channel_send(
-					     cmd_res,
-					     MAIN_WORKER_CHANNEL_ID,
-					     &(struct worker_data_spec) {.data      = &int_msg,
-				                                         .data_size = sizeof(int_msg),
-				                                         .ext.used  = true,
-				                                         .ext.socket.fd_pass =
-				                                                 sid_buffer_get_fd(ucmd_ctx->exp_buf)})) < 0) {
-					log_error_errno(ID(cmd_res), r, "Failed to send command exports to main SID process.");
-					goto out;
-				}
-			}
-		} else if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
-			if ((r = fsync(sid_buffer_get_fd(ucmd_ctx->exp_buf))) < 0) {
-				log_error_errno(ID(cmd_res), r, "Failed to fsync command exports to a file.");
-				goto out;
-			}
-		} else {
-			switch (ucmd_ctx->req_cat) {
-				case MSG_CATEGORY_SYSTEM:
-					break;
-
-				case MSG_CATEGORY_CLIENT:
-					if ((r = _send_fd_over_unix_comms(sid_buffer_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0) {
-						log_error_errno(ID(cmd_res), r, "Failed to send command exports to client.");
-						goto out;
-					}
-					break;
-
-				case MSG_CATEGORY_SELF:
-					/* nothing to do here right now */
-					break;
-			}
-		}
-	}
-
 	r = 0;
 out:
 	return r;
@@ -3751,15 +3783,21 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 	int                   r        = -1;
 
-	_change_cmd_state(cmd_res, CMD_EXECUTING);
+	if (ucmd_ctx->state == CMD_EXEC_SCHEDULED) {
+		_change_cmd_state(cmd_res, CMD_EXECUTING);
 
-	if (cmd_reg->exec && ((r = cmd_reg->exec(&(struct cmd_exec_arg) {.cmd_res = cmd_res})) < 0)) {
-		log_error(ID(cmd_res), "Failed to execute command");
-		goto out;
+		if (cmd_reg->exec && ((r = cmd_reg->exec(&(struct cmd_exec_arg) {.cmd_res = cmd_res})) < 0)) {
+			log_error(ID(cmd_res), "Failed to execute command");
+			goto out;
+		}
+
+		/*
+		 * The cmd_reg->exec might have changed the state to CMD_EXPECTING_DATA,
+		 * so check if we're still in CMD_EXECUTING - if yes, change state to CMD_EXEC_FINISHED.
+		 */
+		if (ucmd_ctx->state == CMD_EXECUTING)
+			_change_cmd_state(cmd_res, CMD_EXEC_FINISHED);
 	}
-
-	if (ucmd_ctx->state == CMD_EXECUTING)
-		_change_cmd_state(cmd_res, CMD_EXEC_FINISHED);
 
 	if (ucmd_ctx->state == CMD_EXEC_FINISHED) {
 		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
@@ -3767,12 +3805,16 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 			goto out;
 		}
 
-		if ((r = _send_out_cmd_kv_buffers(cmd_res)) < 0) {
-			log_error(ID(cmd_res), "Failed to send out command results.");
-			goto out;
+		// TODO: check returned error code from _send_out_cmd_* fns
+		if (cmd_reg->flags & CMD_KV_EXPECT_EXPBUF_ACK) {
+			r = _send_out_cmd_expbuf(cmd_res);
+			_change_cmd_state(cmd_res, CMD_EXPECTING_EXPBUF_ACK);
+		} else {
+			r = _send_out_cmd_resbuf(cmd_res);
+			r = _send_out_cmd_expbuf(cmd_res);
 		}
-
-		_change_cmd_state(cmd_res, CMD_OK);
+	} else if (ucmd_ctx->state == CMD_EXPBUF_ACKED) {
+		r = _send_out_cmd_resbuf(cmd_res);
 	}
 out:
 	if (r < 0) {
@@ -3780,6 +3822,9 @@ out:
 		//       and also any results collected after the res_hdr must be discarded
 		ucmd_ctx->res_hdr.status |= SID_CMD_STATUS_FAILURE;
 		_change_cmd_state(cmd_res, CMD_ERROR);
+	} else {
+		if (ucmd_ctx->state == CMD_EXEC_FINISHED || ucmd_ctx->state == CMD_EXPBUF_ACKED)
+			_change_cmd_state(cmd_res, CMD_OK);
 	}
 
 	/*
@@ -4408,17 +4453,26 @@ out:
 
 static int _worker_proxy_recv_system_cmd_sync(sid_resource_t *worker_proxy_res, struct worker_data_spec *data_spec, void *arg)
 {
-	struct ubridge *ubridge = sid_resource_get_data((sid_resource_t *) arg);
-	int             r;
+	struct internal_msg_header *int_msg;
+	struct ubridge *            ubridge;
+	int                         r;
 
-	if (data_spec->ext.used) {
-		r = _sync_main_kv_store(worker_proxy_res, ubridge->internal_res, data_spec->ext.socket.fd_pass);
-		close(data_spec->ext.socket.fd_pass);
-	} else {
+	if (!data_spec->ext.used) {
 		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Received KV store sync request, but KV store sync data missing.");
-		r = -1;
+		return -1;
 	}
 
+	int_msg = data_spec->data;
+	ubridge = sid_resource_get_data((sid_resource_t *) arg);
+
+	r = _sync_main_kv_store(worker_proxy_res, ubridge->internal_res, data_spec->ext.socket.fd_pass);
+
+	r = worker_control_channel_send(
+		worker_proxy_res,
+		MAIN_WORKER_CHANNEL_ID,
+		&(struct worker_data_spec) {.data = data_spec->data, .data_size = data_spec->data_size, .ext.used = false});
+
+	close(data_spec->ext.socket.fd_pass);
 	return r;
 }
 
@@ -4539,6 +4593,30 @@ out:
 	return r;
 }
 
+static int _worker_recv_system_cmd_sync(sid_resource_t *worker_res, struct worker_data_spec *data_spec)
+{
+	const char *         cmd_id;
+	sid_resource_t *     cmd_res;
+	struct sid_ucmd_ctx *ucmd_ctx;
+
+	cmd_id = data_spec->data + INTERNAL_MSG_HEADER_SIZE;
+
+	if (!(cmd_res = sid_resource_search(worker_res, SID_RESOURCE_SEARCH_DFS, &sid_resource_type_ubridge_command, cmd_id))) {
+		log_error(ID(worker_res),
+		          "Received ack from main process, but failed to find command resource with id %s.",
+		          cmd_id);
+		_change_cmd_state(worker_res, CMD_ERROR);
+		return -1;
+	}
+
+	ucmd_ctx = sid_resource_get_data(cmd_res);
+
+	sid_resource_set_event_source_counter(ucmd_ctx->cmd_handler_es, SID_RESOURCE_POS_REL, 1);
+	_change_cmd_state(cmd_res, CMD_EXPBUF_ACKED);
+
+	return 0;
+}
+
 static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *chan, struct worker_data_spec *data_spec, void *arg)
 {
 	struct internal_msg_header *int_msg = (struct internal_msg_header *) data_spec->data;
@@ -4546,6 +4624,11 @@ static int _worker_recv_fn(sid_resource_t *worker_res, struct worker_channel *ch
 	switch (int_msg->cat) {
 		case MSG_CATEGORY_SYSTEM:
 			switch (int_msg->header.cmd) {
+				case SYSTEM_CMD_SYNC:
+					if (_worker_recv_system_cmd_sync(worker_res, data_spec) < 0)
+						return -1;
+					break;
+
 				case SYSTEM_CMD_RESOURCES:
 					if (_worker_recv_system_cmd_resources(worker_res, data_spec) < 0)
 						return -1;
