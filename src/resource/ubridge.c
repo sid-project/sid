@@ -170,6 +170,25 @@ typedef enum
 	MSG_CATEGORY_CLIENT, /* message coming from a client */
 } msg_category_t;
 
+typedef enum
+{
+	CMD_INITIALIZING,   /* initializing context for cmd */
+	CMD_EXEC_SCHEDULED, /* cmd handler execution scheduled */
+	CMD_EXECUTING,      /* executing cmd handler */
+	CMD_EXPECTING_DATA, /* expecting more data for further cmd processing */
+	CMD_EXEC_FINISHED,  /* cmd finished and ready for building and sending out results */
+	CMD_OK,             /* cmd completely executed and results successfully sent */
+	CMD_ERROR,          /* cmd error */
+} cmd_state_t;
+
+static const char *cmd_state_str[] = {[CMD_INITIALIZING]   = "CMD_INITIALIZING",
+                                      [CMD_EXEC_SCHEDULED] = "CMD_EXEC_SCHEDULED",
+                                      [CMD_EXECUTING]      = "CMD_EXECUTING",
+                                      [CMD_EXPECTING_DATA] = "CMD_EXPECTING_DATA",
+                                      [CMD_EXEC_FINISHED]  = "CMD_EXEC_FINISHED",
+                                      [CMD_OK]             = "CMD_OK",
+                                      [CMD_ERROR]          = "CMD_ERROR"};
+
 struct sid_ucmd_ctx {
 	/* request */
 	msg_category_t        req_cat; /* request category */
@@ -199,10 +218,8 @@ struct sid_ucmd_ctx {
 		} resources;
 	};
 
+	cmd_state_t                  state;          /* current command state */
 	sid_resource_event_source_t *cmd_handler_es; /* event source for deferred execution of _cmd_handler */
-
-	/* flags */
-	int expect_more : 1; /* do not finish this cmd yet - expect more processing to follow */
 
 	/* response */
 	struct sid_msg_header res_hdr; /* response header */
@@ -2704,6 +2721,14 @@ static int _connection_cleanup(sid_resource_t *conn_res)
 	return 0;
 }
 
+static void _change_cmd_state(sid_resource_t *cmd_res, cmd_state_t state)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+
+	ucmd_ctx->state = state;
+	log_debug(ID(cmd_res), "Command state changed to %s.", cmd_state_str[state]);
+}
+
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
@@ -2785,7 +2810,7 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 			                "Failed to sent request to main process to write its resource tree.");
 			r = -1;
 		} else
-			ucmd_ctx->expect_more = 1;
+			_change_cmd_state(exec_arg->cmd_res, CMD_EXPECTING_DATA);
 
 		sid_buffer_rewind(buf, buf_pos0, SID_BUFFER_POS_ABS);
 		return r;
@@ -2836,7 +2861,7 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 out:
 	ucmd_ctx->resources.main_res_mem      = NULL;
 	ucmd_ctx->resources.main_res_mem_size = 0;
-	ucmd_ctx->expect_more                 = 0;
+	_change_cmd_state(exec_arg->cmd_res, CMD_EXEC_FINISHED);
 	return r;
 }
 
@@ -3726,6 +3751,8 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 	int                   r        = -1;
 
+	_change_cmd_state(cmd_res, CMD_EXECUTING);
+
 	/* Require exact protocol version. We can add possible backward/forward compatibility in future stable versions. */
 	if (ucmd_ctx->req_hdr.prot != SID_PROTOCOL) {
 		log_error(ID(cmd_res), "Client protocol version unsupported: %u", ucmd_ctx->req_hdr.prot);
@@ -3737,7 +3764,10 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		goto out;
 	}
 
-	if (!ucmd_ctx->expect_more) {
+	if (ucmd_ctx->state == CMD_EXECUTING)
+		_change_cmd_state(cmd_res, CMD_EXEC_FINISHED);
+
+	if (ucmd_ctx->state == CMD_EXEC_FINISHED) {
 		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
 			log_error(ID(cmd_res), "Failed to export KV store.");
 			goto out;
@@ -3747,19 +3777,25 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 			log_error(ID(cmd_res), "Failed to send out command results.");
 			goto out;
 		}
+
+		_change_cmd_state(cmd_res, CMD_OK);
 	}
 out:
-	if (!ucmd_ctx->expect_more) {
-		/*
-		 * At the end of processing a 'SELF' request, there's no other external entity or event
-		 * that would cause the worker to yield itself so do it now before we resume the event loop.
-		 */
-		if (ucmd_ctx->req_cat == MSG_CATEGORY_SELF)
-			(void) worker_control_worker_yield(sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	if (r < 0) {
+		// TODO: res_hdr.status needs to be set before _send_out_cmd_kv_buffers so it's transmitted
+		//       and also any results collected after the res_hdr must be discarded
+		ucmd_ctx->res_hdr.status |= SID_CMD_STATUS_FAILURE;
+		_change_cmd_state(cmd_res, CMD_ERROR);
 	}
 
-	if (r < 0)
-		ucmd_ctx->res_hdr.status |= SID_CMD_STATUS_FAILURE;
+	/*
+	 * At the end of processing a 'SELF' request, there's no other external entity or event
+	 * that would cause the worker to yield itself so do it now before we resume the event loop.
+	 */
+	if (ucmd_ctx->req_cat == MSG_CATEGORY_SELF) {
+		if (ucmd_ctx->state == CMD_OK || ucmd_ctx->state == CMD_ERROR)
+			(void) worker_control_worker_yield(sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	}
 
 	return r;
 }
@@ -4008,6 +4044,9 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
+	*data = ucmd_ctx;
+	_change_cmd_state(res, CMD_INITIALIZING);
+
 	if (!(ucmd_ctx->res_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
 	                                                                        .type    = SID_BUFFER_TYPE_VECTOR,
 	                                                                        .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
@@ -4095,10 +4134,11 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
-	*data = ucmd_ctx;
+	_change_cmd_state(res, CMD_EXEC_SCHEDULED);
 	return 0;
 fail:
 	if (ucmd_ctx) {
+		*data = NULL;
 		if (cmd_reg && cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE && ucmd_ctx->req_env.exp_path)
 			free((void *) ucmd_ctx->req_env.exp_path);
 		if (ucmd_ctx->common.gen_buf)
@@ -4492,6 +4532,7 @@ static int _worker_recv_system_cmd_resources(sid_resource_t *worker_res, struct 
 
 	close(data_spec->ext.socket.fd_pass);
 	sid_resource_set_event_source_counter(ucmd_ctx->cmd_handler_es, SID_RESOURCE_POS_REL, 1);
+	_change_cmd_state(cmd_res, CMD_EXEC_SCHEDULED);
 
 	r = 0;
 out:
