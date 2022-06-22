@@ -3753,12 +3753,6 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 
 	_change_cmd_state(cmd_res, CMD_EXECUTING);
 
-	/* Require exact protocol version. We can add possible backward/forward compatibility in future stable versions. */
-	if (ucmd_ctx->req_hdr.prot != SID_PROTOCOL) {
-		log_error(ID(cmd_res), "Client protocol version unsupported: %u", ucmd_ctx->req_hdr.prot);
-		goto out;
-	}
-
 	if (cmd_reg->exec && ((r = cmd_reg->exec(&(struct cmd_exec_arg) {.cmd_res = cmd_res})) < 0)) {
 		log_error(ID(cmd_res), "Failed to execute command");
 		goto out;
@@ -4047,6 +4041,20 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	*data = ucmd_ctx;
 	_change_cmd_state(res, CMD_INITIALIZING);
 
+	ucmd_ctx->req_cat = msg->cat;
+	ucmd_ctx->req_hdr = *msg->header;
+
+	/* Require exact protocol version. We can add possible backward/forward compatibility in future stable versions. */
+	if (ucmd_ctx->req_hdr.prot != SID_PROTOCOL) {
+		log_error(ID(res), "Protocol version unsupported: %u", ucmd_ctx->req_hdr.prot);
+		goto fail;
+	}
+
+	if (!(cmd_reg = _get_cmd_reg(ucmd_ctx))) {
+		log_error(ID(res), INTERNAL_ERROR "%s: Unknown request category: %d.", __func__, (int) ucmd_ctx->req_cat);
+		goto fail;
+	}
+
 	if (!(ucmd_ctx->res_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
 	                                                                        .type    = SID_BUFFER_TYPE_VECTOR,
 	                                                                        .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
@@ -4083,15 +4091,6 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	}
 
 	_set_up_kv_store_generation(&ucmd_ctx->common, false);
-
-	ucmd_ctx->req_cat = msg->cat;
-	ucmd_ctx->req_hdr = *msg->header;
-	cmd_reg           = _get_cmd_reg(ucmd_ctx);
-
-	if (!cmd_reg) {
-		log_error(ID(res), INTERNAL_ERROR "%s: Unknown request category: %d.", __func__, (int) ucmd_ctx->req_cat);
-		goto fail;
-	}
 
 	if (cmd_reg->flags & CMD_KV_IMPORT_UDEV) {
 		/* currently, we only parse udev environment for the SCAN command */
