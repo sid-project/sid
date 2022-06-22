@@ -3893,7 +3893,6 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 	struct connection *conn     = sid_resource_get_data(conn_res);
 	struct sid_msg     msg;
 	ssize_t            n;
-	int                r = 0;
 
 	if (revents & EPOLLERR) {
 		if (revents & EPOLLHUP)
@@ -3904,6 +3903,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 	}
 
 	n = sid_buffer_read(conn->buf, fd);
+
 	if (n > 0) {
 		if (sid_buffer_is_complete(conn->buf, NULL)) {
 			msg.cat = MSG_CATEGORY_CLIENT;
@@ -3917,16 +3917,16 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 			(void) sid_buffer_reset(conn->buf);
 		}
 	} else if (n < 0) {
-		if (n == -EAGAIN || n == -EINTR)
-			return 0;
-		log_error_errno(ID(conn_res), n, "buffer_read_msg");
-		r = -1;
+		if (n != -EAGAIN && n != -EINTR) {
+			log_error_errno(ID(conn_res), n, "buffer_read_msg");
+			return -1;
+		}
 	} else {
 		if (_connection_cleanup(conn_res) < 0)
-			r = -1;
+			return -1;
 	}
 
-	return r;
+	return 0;
 fail:
 	(void) _connection_cleanup(conn_res);
 	return -1;
