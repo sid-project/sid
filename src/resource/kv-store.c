@@ -519,6 +519,8 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *
 	struct kv_store *      kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_store_value *found;
 
+	key = _canonicalize_key(key);
+
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
 			if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
