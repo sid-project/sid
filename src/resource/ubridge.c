@@ -4321,6 +4321,8 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 			log_error_errno(ID(res), r, "Failed to parse udev environment variables");
 			goto fail;
 		}
+
+		log_debug(ID(res), "Processing uevent for device " CMD_DEV_NAME_NUM_FMT, CMD_DEV_NAME_NUM(ucmd_ctx));
 	}
 
 	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
