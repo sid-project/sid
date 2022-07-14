@@ -967,7 +967,11 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		goto fail;
 	}
 
-	/* For exporting the raw kv-store, format is set to NO_FORMAT. */
+	/*
+	 * For exporting the KV store internally, that is MSG_CATEGORY_SELF commands and
+	 * commands exporting buffer to main process, we always use the raw NO_FORMAT.
+	 * For external clients, we export in format which is requested.
+	 */
 	if ((ucmd_ctx->req_cat == MSG_CATEGORY_SELF) || (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN))
 		format = NO_FORMAT;
 	else
