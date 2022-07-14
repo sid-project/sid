@@ -420,11 +420,10 @@ struct internal_msg_header {
 #define CMD_KV_EXPORT_SID_TO_EXPBUF  UINT32_C(0x00000010) /* export KV_NS_<!UDEV> records to export buffer */
 #define CMD_KV_EXPORT_SYNC           UINT32_C(0x00000020) /* export only KV records marked with sync flag */
 #define CMD_KV_EXPORT_PERSISTENT     UINT32_C(0x00000040) /* export only KV records marked with persistent flag */
-#define CMD_KV_EXPORT_ALL            UINT32_C(0x00000080) /* export all KV records */
-#define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000100) /* export KV records from export buffer to a file */
-#define CMD_KV_EXPBUF_TO_MAIN        UINT32_C(0x00000200) /* export KV records from export buffer to main process */
-#define CMD_KV_EXPECT_EXPBUF_ACK     UINT32_C(0x00000400) /* expect acknowledgment of expbuf reception */
-#define CMD_SESSION_ID               UINT32_C(0x00000800) /* generate session ID */
+#define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000080) /* export KV records from export buffer to a file */
+#define CMD_KV_EXPBUF_TO_MAIN        UINT32_C(0x00000100) /* export KV records from export buffer to main process */
+#define CMD_KV_EXPECT_EXPBUF_ACK     UINT32_C(0x00000200) /* expect acknowledgment of expbuf reception */
+#define CMD_SESSION_ID               UINT32_C(0x00000400) /* generate session ID */
 
 /*
  * Capability flags for 'scan' command phases (phases are represented as subcommands).
@@ -3602,11 +3601,9 @@ static struct cmd_reg _client_cmd_regs[] = {
                                    CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_KV_EXPECT_EXPBUF_ACK | CMD_SESSION_ID,
                           .exec = _cmd_exec_scan},
 	[SID_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
-	[SID_CMD_DBDUMP]     = {.name  = "c-dbdump",
-                            .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF | CMD_KV_EXPORT_ALL,
-                            .exec  = NULL},
-	[SID_CMD_DBSTATS]    = {.name = "c-dbstats", .flags = 0, .exec = _cmd_exec_dbstats},
-	[SID_CMD_RESOURCES]  = {.name = "c-resource", .flags = 0, .exec = _cmd_exec_resources},
+	[SID_CMD_DBDUMP]  = {.name = "c-dbdump", .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF, .exec = NULL},
+	[SID_CMD_DBSTATS] = {.name = "c-dbstats", .flags = 0, .exec = _cmd_exec_dbstats},
+	[SID_CMD_RESOURCES] = {.name = "c-resource", .flags = 0, .exec = _cmd_exec_resources},
 };
 
 static struct cmd_reg _self_cmd_regs[] = {
