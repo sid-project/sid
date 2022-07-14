@@ -1808,15 +1808,16 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 			if (!(ns_part = _copy_ns_part_from_key(NULL, delta_vvalue[i].iov_base)))
 				goto out;
 
+			rel_spec->cur_key_spec->ns_part = ns_part;
+
 			if (!(key = _compose_key(NULL, rel_spec->cur_key_spec))) {
 				_destroy_key(NULL, ns_part);
 				goto out;
 			}
 
-			rel_spec->cur_key_spec->ns_part = ns_part;
 			_kv_delta_set(key, rel_vvalue, VVALUE_SINGLE_CNT, update_arg, index);
-			rel_spec->cur_key_spec->ns_part = NULL;
 
+			rel_spec->cur_key_spec->ns_part = NULL;
 			_destroy_key(NULL, key);
 			_destroy_key(NULL, ns_part);
 		}
