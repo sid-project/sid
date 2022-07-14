@@ -1005,8 +1005,13 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			}
 		}
 
-		key += 1; /* remove leading KV_PREFIX_OP_SYNC_C */
 		key_size = strlen(key) + 1;
+
+		/* remove leading KV_PREFIX_OP_SYNC_C if present */
+		if (*key == KV_PREFIX_OP_SYNC_C[0]) {
+			key += 1;
+			key_size -= 1;
+		}
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
