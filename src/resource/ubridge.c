@@ -930,7 +930,16 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		/* nothing to export for this command */
 		return 0;
 
-	if (cmd_reg->flags & (CMD_KV_EXPORT_SYNC | CMD_KV_EXPORT_PERSISTENT))
+	/*
+	 * Note that, right now, for commands with CMD_KV_EXPORT_PERSISTENT,
+	 * we iterate through all records and match the ones with KV_PERSISTENT
+	 * flag set. This is because we don't expect this kind of dump to be
+	 * used frequently. If this matters in the future, we can create an index
+	 * just like we do for KV_SYNC records. Right now, it would not be worth
+	 * the extra memory usage caused by creating the index keys.
+	 */
+
+	if (cmd_reg->flags & CMD_KV_EXPORT_SYNC)
 		iter = kv_store_iter_create(ucmd_ctx->common.kv_store_res, KV_PREFIX_OP_SYNC_C, KV_PREFIX_OP_SYNC_END_C);
 	else
 		iter = kv_store_iter_create(ucmd_ctx->common.kv_store_res, NULL, NULL);
@@ -977,11 +986,19 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			vvalue_size = size;
 			svalue      = NULL;
 			VVALUE_FLAGS(vvalue) &= ~KV_SYNC;
+			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
+				if (!(VVALUE_FLAGS(vvalue) & KV_PERSISTENT))
+					continue;
+			}
 		} else {
 			vvalue      = NULL;
 			vvalue_size = 0;
 			svalue      = raw_value;
 			svalue->flags &= ~KV_SYNC;
+			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
+				if (!(svalue->flags & KV_PERSISTENT))
+					continue;
+			}
 		}
 
 		key += 1; /* remove leading KV_PREFIX_OP_SYNC_C */
