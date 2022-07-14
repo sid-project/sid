@@ -1963,6 +1963,11 @@ static void *_do_sid_ucmd_set_kv(struct module *         mod,
 	 * we can't control any global reservation at the moment so it doesn't make sense
 	 * to do the check here.
 	 */
+	/*
+	 * FIXME: So we have two KV store lookups here - one to check the global reservation
+	 *        and the other one inside kv_store_set_value. Can we come up with a better
+	 *        scheme so there's only one lookup?
+	 */
 	if (!((ns == KV_NS_UDEV) && !strcmp(owner, OWNER_CORE))) {
 		r = _passes_global_reservation_check(ucmd_ctx, owner, ns, key_core);
 		if (r <= 0)
