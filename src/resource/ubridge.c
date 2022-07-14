@@ -754,8 +754,8 @@ static int _check_kv_index_needed(struct iovec *vvalue_old, struct iovec *vvalue
 {
 	int old_indexed, new_indexed;
 
-	old_indexed = vvalue_old ? VVALUE_FLAGS(vvalue_old) & (KV_SYNC | KV_PERSISTENT) : 0;
-	new_indexed = vvalue_new ? VVALUE_FLAGS(vvalue_new) & (KV_SYNC | KV_PERSISTENT) : 0;
+	old_indexed = vvalue_old ? VVALUE_FLAGS(vvalue_old) & KV_SYNC : 0;
+	new_indexed = vvalue_new ? VVALUE_FLAGS(vvalue_new) & KV_SYNC : 0;
 
 	if (old_indexed && !new_indexed)
 		return KV_INDEX_REMOVE;
