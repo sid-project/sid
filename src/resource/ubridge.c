@@ -907,18 +907,6 @@ static output_format_t flags_to_format(uint16_t flags)
 	return TABLE; /* default to TABLE on invalid format */
 }
 
-static bool _check_kv_flags_for_buffers_build(const struct cmd_reg *cmd_reg, sid_ucmd_kv_flags_t kv_flags)
-{
-	if (cmd_reg->flags & CMD_KV_EXPORT_ALL)
-		return true;
-
-	if (!((cmd_reg->flags & CMD_KV_EXPORT_SYNC) && (kv_flags & KV_SYNC)) &&
-	    !((cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) && (kv_flags & KV_PERSISTENT)))
-		return false;
-
-	return true;
-}
-
 static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *cmd_reg)
 {
 	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
@@ -989,19 +977,11 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			vvalue      = raw_value;
 			vvalue_size = size;
 			svalue      = NULL;
-
-			if (!_check_kv_flags_for_buffers_build(cmd_reg, VVALUE_FLAGS(vvalue)))
-				continue;
-
 			VVALUE_FLAGS(vvalue) &= ~KV_SYNC;
 		} else {
 			vvalue      = NULL;
 			vvalue_size = 0;
 			svalue      = raw_value;
-
-			if (!_check_kv_flags_for_buffers_build(cmd_reg, svalue->flags))
-				continue;
-
 			svalue->flags &= ~KV_SYNC;
 		}
 
