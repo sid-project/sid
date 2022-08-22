@@ -792,8 +792,7 @@ int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, sid_re
 			break;
 	}
 
-	es->events_max = 1;
-	return sd_event_source_set_enabled(es->sd_es, SD_EVENT_ONESHOT);
+	return sid_resource_set_event_source_counter(es, SID_RESOURCE_POS_REL, 1);
 }
 
 static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
