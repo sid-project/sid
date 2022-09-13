@@ -35,6 +35,7 @@
 #define UDEV_KEY_MAJOR      "MAJOR"
 #define UDEV_KEY_MINOR      "MINOR"
 #define UDEV_KEY_SEQNUM     "SEQNUM"
+#define UDEV_KEY_DISKSEQ    "DISKSEQ"
 #define UDEV_KEY_SYNTH_UUID "SYNTH_UUID"
 
 #define UDEV_VALUE_DEVTYPE_UNKNOWN   "unknown"

@@ -155,6 +155,7 @@ struct udevice {
 	int            major;
 	int            minor;
 	uint64_t       seqnum;
+	uint64_t       diskseq;
 	const char *   synth_uuid;
 };
 
@@ -482,6 +483,11 @@ udev_devtype_t sid_ucmd_dev_get_type(struct sid_ucmd_ctx *ucmd_ctx)
 uint64_t sid_ucmd_dev_get_seqnum(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.seqnum;
+}
+
+uint64_t sid_ucmd_dev_get_diskseq(struct sid_ucmd_ctx *ucmd_ctx)
+{
+	return ucmd_ctx->req_env.dev.udev.diskseq;
 }
 
 const char *sid_ucmd_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
@@ -2555,6 +2561,8 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 		ucmd_ctx->req_env.dev.udev.type = util_udev_str_to_udev_devtype(value);
 	else if (!strcmp(key, UDEV_KEY_SEQNUM))
 		ucmd_ctx->req_env.dev.udev.seqnum = strtoull(value, NULL, 10);
+	else if (!strcmp(key, UDEV_KEY_DISKSEQ))
+		ucmd_ctx->req_env.dev.udev.diskseq = strtoull(value, NULL, 10);
 	else if (!strcmp(key, UDEV_KEY_SYNTH_UUID))
 		ucmd_ctx->req_env.dev.udev.synth_uuid = value;
 
@@ -2562,7 +2570,7 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 	return 0;
 };
 
-static int _parse_cmd_nullstr_udev_env(struct sid_ucmd_ctx *ucmd_ctx, const char *env, size_t env_size)
+static int _parse_cmd_udev_env(struct sid_ucmd_ctx *ucmd_ctx, const char *env, size_t env_size)
 {
 	dev_t       devno;
 	const char *end;
@@ -4148,9 +4156,9 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 
 	if (cmd_reg->flags & CMD_KV_IMPORT_UDEV) {
 		/* currently, we only parse udev environment for the SCAN command */
-		if ((r = _parse_cmd_nullstr_udev_env(ucmd_ctx,
-		                                     (const char *) msg->header + SID_MSG_HEADER_SIZE,
-		                                     msg->size - SID_MSG_HEADER_SIZE)) < 0) {
+		if ((r = _parse_cmd_udev_env(ucmd_ctx,
+		                             (const char *) msg->header + SID_MSG_HEADER_SIZE,
+		                             msg->size - SID_MSG_HEADER_SIZE)) < 0) {
 			log_error_errno(ID(res), r, "Failed to parse udev environment variables");
 			goto fail;
 		}
