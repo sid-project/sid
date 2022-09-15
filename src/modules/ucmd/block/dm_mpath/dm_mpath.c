@@ -84,8 +84,20 @@ SID_UCMD_MOD_INIT(_dm_mpath_init)
 
 static int _dm_mpath_exit(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
+	unsigned i;
+
 	log_debug(MID, "exit");
-	// Do we need to unreserve the key here?
+
+	for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
+		if (sid_ucmd_mod_unreserve_kv(module, ucmd_common_ctx, KV_NS_UDEV, keys[i]) < 0)
+			log_error(MID, "Failed to unreserve multipath udev key %s.", keys[i]);
+	}
+
+	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
+		if (sid_ucmd_mod_unreserve_kv(module, ucmd_common_ctx, KV_NS_DEVICE, keys[i]) < 0)
+			log_error(MID, "Failed to unreserve multipath device key %s.", keys[i]);
+	}
+
 	mpathvalid_exit();
 	return 0;
 }
