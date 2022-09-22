@@ -89,8 +89,6 @@ sid_resource_t *sid_resource_create(sid_resource_t *                parent_res,
                                     int64_t                         prio,
                                     sid_resource_service_link_def_t service_link_defs[]);
 
-int sid_resource_destroy(sid_resource_t *res);
-
 /*
  * reference counting support
  */

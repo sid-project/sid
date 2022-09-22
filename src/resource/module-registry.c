@@ -127,7 +127,7 @@ sid_resource_t *module_registry_get_module(sid_resource_t *module_registry_res, 
 
 int module_registry_unload_module(sid_resource_t *module_res)
 {
-	return sid_resource_destroy(module_res);
+	return sid_resource_unref(module_res);
 }
 
 int module_registry_get_module_symbols(sid_resource_t *module_res, const void ***ret)

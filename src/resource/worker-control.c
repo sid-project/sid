@@ -864,7 +864,7 @@ int _run_internal_worker(sid_resource_t *worker_control_res)
 		(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
 
 	r = sid_resource_run_event_loop(res);
-	sid_resource_destroy(res);
+	sid_resource_unref(res);
 	return r;
 }
 
@@ -1155,7 +1155,7 @@ static int _on_worker_proxy_child_event(sid_resource_event_source_t *es, const s
 	 * If this appears as an issue in the future, setting the state and destroying the
 	 * worker proxy needs to be separated.
 	 */
-	(void) sid_resource_destroy(worker_proxy_res);
+	(void) sid_resource_unref(worker_proxy_res);
 	return 0;
 }
 

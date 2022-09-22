@@ -163,7 +163,7 @@ static void test_kvstore_iterate(void **state)
 	kv_store_get_size(kv_store_res, &meta_size, &data_size);
 	assert_int_equal(data_size, 0);
 
-	sid_resource_destroy(kv_store_res);
+	sid_resource_unref(kv_store_res);
 }
 
 static size_t add_sequential_test_data(char *                    key,
@@ -265,7 +265,7 @@ static void test_kvstore_merge_op(void **state)
 	assert_int_equal(kv_store_unset(kv_store_res, MERGE_KEY, NULL, NULL), 0);
 	assert_int_equal(kv_store_num_entries(kv_store_res), 0);
 	release_test_data(MAX_TEST_ENTRIES, test_iov, flags);
-	sid_resource_destroy(kv_store_res);
+	sid_resource_unref(kv_store_res);
 }
 
 int main(void)

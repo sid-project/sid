@@ -105,7 +105,7 @@ static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_comm
 	}
 
 	if ((r = sid_ucmd_mod_add_mod_subregistry(module, ucmd_common_ctx, dm_mod->submod_registry)) < 0) {
-		sid_resource_destroy(dm_mod->submod_registry);
+		sid_resource_unref(dm_mod->submod_registry);
 		log_error(DM_ID, "Failed to attach submodule registry.");
 		goto fail;
 	}

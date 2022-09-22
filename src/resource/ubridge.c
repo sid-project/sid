@@ -2734,7 +2734,7 @@ static int _connection_cleanup(sid_resource_t *conn_res)
 {
 	sid_resource_t *worker_res = sid_resource_search(conn_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL);
 
-	sid_resource_destroy(conn_res);
+	sid_resource_unref(conn_res);
 
 	// TODO: If there are more connections per worker used,
 	// 	 then check if this is the last connection.

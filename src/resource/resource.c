@@ -293,11 +293,12 @@ sid_resource_t *sid_resource_create(sid_resource_t *                parent_res,
 
 	/* Drop the temporary reference! */
 	res->ref_count--;
+
 	return res;
 fail:
 	if (res) {
 		list_iterate_items_safe_back (child_res, tmp_child_res, &res->children)
-			(void) sid_resource_destroy(child_res);
+			(void) sid_resource_unref(child_res);
 
 		_remove_res_from_parent_res(res);
 
@@ -327,7 +328,7 @@ fail:
 	return NULL;
 }
 
-int sid_resource_destroy(sid_resource_t *res)
+int sid_resource_unref(sid_resource_t *res)
 {
 	static const char            msg_destroying[]          = "Destroying resource";
 	static const char            msg_destroyed[]           = "Resource destroyed";
@@ -336,13 +337,26 @@ int sid_resource_destroy(sid_resource_t *res)
 	sid_resource_t *             child_res, *tmp_child_res;
 	pid_t                        pid = getpid();
 
+	/*
+	 * Proceed to 'resource destroy' only if:
+	 *   - the res has a parent and ref_count == 1, that is, the parent is the only one that refers to this res
+	 *     (subsequent call to _remove_res_from_parent_res will drop the ref then)
+	 *
+	 *   - the res does not have a parent and ref_count == 0, that is, nothing refers to this res anymore
+	 *     (the res is currently 'floating')
+	 *
+	 *   - otherwise, drop the reference and check if we have reached ref_count == 0
+	 */
+	if (!((res->parent && res->ref_count == 1) || (!res->parent && res->ref_count == 0) || (--res->ref_count == 0)))
+		return 0;
+
 	if (pid == res->pid_created)
 		log_debug(res->id, "%s.", msg_destroying);
 	else
 		log_debug(res->id, "%s (%s: %d/%d).", msg_destroying, msg_pid_created_current, res->pid_created, pid);
 
 	list_iterate_items_safe_back (child_res, tmp_child_res, &res->children)
-		(void) sid_resource_destroy(child_res);
+		(void) sid_resource_unref(child_res);
 
 	list_iterate_items_safe_back (es, tmp_es, &res->event_sources)
 		_destroy_event_source(es);
@@ -359,12 +373,6 @@ int sid_resource_destroy(sid_resource_t *res)
 	}
 
 	_remove_res_from_parent_res(res);
-
-	if (res->ref_count > 0)
-		log_error(res->id,
-		          INTERNAL_ERROR "%s: Resource has %u references left while destroying it.",
-		          __func__,
-		          res->ref_count);
 
 	if (res->slg)
 		service_link_group_destroy_with_members(res->slg);
@@ -386,21 +394,6 @@ sid_resource_t *sid_resource_ref(sid_resource_t *res)
 		res->ref_count++;
 
 	return res;
-}
-
-int sid_resource_unref(sid_resource_t *res)
-{
-	if (res->ref_count == 0) {
-		log_error(res->id, INTERNAL_ERROR "%s: Resource has no references.", __func__);
-		return -EINVAL;
-	}
-
-	res->ref_count--;
-
-	if (res->ref_count == 0)
-		return sid_resource_destroy(res);
-
-	return 0;
 }
 
 const char *sid_resource_get_full_id(sid_resource_t *res)
