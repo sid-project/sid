@@ -118,30 +118,30 @@ typedef enum
 } hash_update_action_t;
 
 /*
- * hash_update_fn_t callback type to define hash_update's hash_update_fn callback function.
+ * hash_update_cb_fn_t callback type to define hash_update's hash_update_fn callback function.
  * Function of this type returns:
  * 	0 for hash table to keep old_data
  * 	1 for hash table to update old_data with new_data (new_data may be modified and/or newly allocated by this function)
  */
-typedef hash_update_action_t (*hash_update_fn_t)(const void *key,
-                                                 uint32_t    key_len,
-                                                 void *      old_data,
-                                                 size_t      old_data_len,
-                                                 void **     new_data,
-                                                 size_t *    new_data_len,
-                                                 void *      hash_update_fn_arg);
+typedef hash_update_action_t (*hash_update_cb_fn_t)(const void *key,
+                                                    uint32_t    key_len,
+                                                    void *      old_data,
+                                                    size_t      old_data_len,
+                                                    void **     new_data,
+                                                    size_t *    new_data_len,
+                                                    void *      arg);
 
 /*
  * hash_update function calls hash_update_fn callback with hash_update_fn_arg right before the update
  * and based on callback's return value, it either keeps the old data or updates with new data.
  */
-int hash_update(struct hash_table *t,
-                const void *       key,
-                uint32_t           key_len,
-                void **            data,
-                size_t *           data_len,
-                hash_update_fn_t   hash_update_fn,
-                void *             hash_update_fn_arg);
+int hash_update(struct hash_table * t,
+                const void *        key,
+                uint32_t            key_len,
+                void **             data,
+                size_t *            data_len,
+                hash_update_cb_fn_t hash_update_fn,
+                void *              hash_update_fn_arg);
 
 #ifdef __cplusplus
 }

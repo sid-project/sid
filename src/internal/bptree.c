@@ -40,7 +40,7 @@
  *   - removed original range finding functionality (replaced with iterator interface)
  *   - changed value type in 'bptree_record_t' from 'int' to generic 'void * data'
  *   - also store 'data_size' in 'bptree_record_t'
- *   - added 'bptree_update' function with 'bptree_update_fn_t' callback
+ *   - added 'bptree_update' function with 'bptree_update_cb_fn_t' callback
  *   - copy key on insert and use reference counting so only a single key
  *     copy is used if key is referenced in leaf and/or internal nodes
  *   - added 'bptree_iter_*' iterator interface
@@ -841,12 +841,12 @@ int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bo
 	return _insert(bptree, bkey, rec);
 }
 
-int bptree_update(bptree_t *         bptree,
-                  const char *       key,
-                  void **            data,
-                  size_t *           data_size,
-                  bptree_update_fn_t bptree_update_fn,
-                  void *             bptree_update_fn_arg)
+int bptree_update(bptree_t *            bptree,
+                  const char *          key,
+                  void **               data,
+                  size_t *              data_size,
+                  bptree_update_cb_fn_t bptree_update_fn,
+                  void *                bptree_update_fn_arg)
 {
 	bptree_node_t *        key_leaf;
 	bptree_record_t *      rec;

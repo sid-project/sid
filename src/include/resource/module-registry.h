@@ -47,7 +47,7 @@ struct module_registry_resource_params {
 	const char *                       module_prefix; /* common prefix for all modules */
 	const char *                       module_suffix; /* common suffix for all modules */
 	uint64_t                           flags;         /* MODULE_REGISTRY_* flags */
-	void *                             cb_arg;        /* custom arg passed to module_fn_t (init/exit/reset callbacks) */
+	void *                             cb_arg;        /* custom arg passed to module_cb_fn_t (init/exit/reset callbacks) */
 	const struct module_symbol_params *symbol_params; /* NULL-terminated list of symbol params */
 };
 

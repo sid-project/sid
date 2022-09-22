@@ -51,9 +51,9 @@ struct kv_store_value {
 };
 
 struct kv_update_fn_relay {
-	kv_store_update_fn_t kv_update_fn;
-	void *               kv_update_fn_arg;
-	int                  ret_code;
+	kv_store_update_cb_fn_t kv_update_fn;
+	void *                  kv_update_fn_arg;
+	int                     ret_code;
 };
 
 struct kv_store_iter {
@@ -443,7 +443,7 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
                          size_t                    value_size,
                          kv_store_value_flags_t    flags,
                          kv_store_value_op_flags_t op_flags,
-                         kv_store_update_fn_t      kv_update_fn,
+                         kv_store_update_cb_fn_t   kv_update_fn,
                          void *                    kv_update_fn_arg)
 {
 	struct kv_update_fn_relay relay        = {.kv_update_fn     = kv_update_fn,
@@ -622,7 +622,7 @@ static bptree_update_action_t _bptree_unset_fn(const char *key,
 	return BPTREE_UPDATE_SKIP;
 }
 
-int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg)
+int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg)
 {
 	struct kv_store *         kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_update_fn_relay relay    = {.kv_update_fn     = kv_unset_fn,

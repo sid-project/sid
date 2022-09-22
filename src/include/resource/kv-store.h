@@ -84,7 +84,7 @@ struct kv_store_update_spec {
  *   0 to keep old_data
  *   1 to update old_data with new_data
  */
-typedef int (*kv_store_update_fn_t)(struct kv_store_update_spec *update_spec);
+typedef int (*kv_store_update_cb_fn_t)(struct kv_store_update_spec *update_spec);
 
 // clang-format off
 /*
@@ -136,7 +136,7 @@ void *kv_store_set_value(sid_resource_t *          kv_store_res,
                          size_t                    value_size,
                          kv_store_value_flags_t    flags,
                          kv_store_value_op_flags_t op_flags,
-                         kv_store_update_fn_t      kv_update_fn,
+                         kv_store_update_cb_fn_t   kv_update_fn,
                          void *                    kv_update_fn_arg);
 
 /*
@@ -165,7 +165,7 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *
  *    0 if value unset
  *   -1 if value not unset
  */
-int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_fn_t kv_unset_fn, void *kv_unset_fn_arg);
+int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg);
 
 size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t *data_size);
 

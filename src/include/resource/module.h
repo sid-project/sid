@@ -29,12 +29,12 @@ extern "C" {
 struct module;
 
 typedef int64_t module_prio_t;
-typedef int     module_fn_t(struct module *module, void *cb_arg);
+typedef int     module_cb_fn_t(struct module *module, void *cb_arg);
 
 #define MODULE_NAME_MAX_LEN 255
 #define MODULE_NAME_DELIM   "/"
 
-#define MODULE_FN(name, fn) module_fn_t *module_##name = fn;
+#define MODULE_FN(name, fn) module_cb_fn_t *module_##name = fn;
 
 #define MODULE_PRIO(val) module_prio_t module_prio = val;
 #define MODULE_INIT(fn)  MODULE_FN(init, fn)

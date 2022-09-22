@@ -45,13 +45,13 @@ typedef enum
  *      0 for bptree to keep old data
  *      1 for bptree to update old_data with new_data (new_data may be modified and/or newly allocated by this function)
  */
-typedef bptree_update_action_t (*bptree_update_fn_t)(const char *key,
-                                                     void *      old_data,
-                                                     size_t      old_data_size,
-                                                     unsigned    old_data_ref_count,
-                                                     void **     new_data,
-                                                     size_t *    new_data_size,
-                                                     void *      bptree_update_fn_arg);
+typedef bptree_update_action_t (*bptree_update_cb_fn_t)(const char *key,
+                                                        void *      old_data,
+                                                        size_t      old_data_size,
+                                                        unsigned    old_data_ref_count,
+                                                        void **     new_data,
+                                                        size_t *    new_data_size,
+                                                        void *      arg);
 
 typedef void (
 	*bptree_iterate_fn_t)(const char *key, void *data, size_t data_size, unsigned data_ref_count, void *bptree_iterate_fn_arg);
@@ -59,12 +59,12 @@ typedef void (
 bptree_t *bptree_create(int order);
 int       bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_size);
 int       bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bool force);
-int       bptree_update(bptree_t *         bptree,
-                        const char *       key,
-                        void **            data,
-                        size_t *           data_size,
-                        bptree_update_fn_t bptree_update_fn,
-                        void *             bptree_update_fn_arg);
+int       bptree_update(bptree_t *            bptree,
+                        const char *          key,
+                        void **               data,
+                        size_t *              data_size,
+                        bptree_update_cb_fn_t bptree_update_fn,
+                        void *                bptree_update_fn_arg);
 int       bptree_remove(bptree_t *bptree, const char *key);
 void *    bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size, unsigned *data_ref_count);
 int       bptree_get_height(bptree_t *bptree);

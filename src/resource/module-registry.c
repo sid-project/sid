@@ -45,14 +45,14 @@ struct module_registry {
 };
 
 struct module {
-	module_fn_t *init_fn;
-	module_fn_t *exit_fn;
-	module_fn_t *reset_fn;
-	char *       full_name;
-	char *       name;
-	void *       handle;
-	void **      symbols;
-	void *       data;
+	module_cb_fn_t *init_fn;
+	module_cb_fn_t *exit_fn;
+	module_cb_fn_t *reset_fn;
+	char *          full_name;
+	char *          name;
+	void *          handle;
+	void **         symbols;
+	void *          data;
 };
 
 static int _set_module_name(struct module_registry *registry, struct module *module, const char *name)
