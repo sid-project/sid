@@ -1235,7 +1235,8 @@ static void _write_resource_elem_fields(sid_resource_t *   res,
 	}
 	print_uint_field("pid-created", res->pid_created, format, outbuf, true, level);
 	print_uint_field("flags", res->flags, format, outbuf, true, level);
-	print_int64_field("prio", res->prio, format, outbuf, add_comma, level);
+	print_int64_field("prio", res->prio, format, outbuf, true, level);
+	print_uint_field("ref-count", res->ref_count, format, outbuf, add_comma, level);
 }
 
 int sid_resource_write_tree_recursively(sid_resource_t *   res,
