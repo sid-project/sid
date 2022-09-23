@@ -92,7 +92,7 @@ static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_comm
 		.cb_arg        = NULL,
 	};
 
-	if (!(dm_mod->submod_registry = sid_resource_create(NULL,
+	if (!(dm_mod->submod_registry = sid_resource_create(SID_RESOURCE_NO_PARENT,
 	                                                    &sid_resource_type_module_registry,
 	                                                    SID_RESOURCE_NO_FLAGS,
 	                                                    DM_SUBMODULES_ID,
