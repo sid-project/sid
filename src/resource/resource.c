@@ -34,22 +34,33 @@
 #include <unistd.h>
 
 typedef struct sid_resource {
-	struct list                list;
+	/* structuring */
+	struct list     list;
+	sid_resource_t *parent;
+	struct list     children;
+
+	/* identification */
 	const sid_resource_type_t *type;
 	char *                     id;
-	unsigned                   ref_count;
-	sid_resource_t *           parent;
-	struct list                children;
-	sid_resource_flags_t       flags;
-	int64_t                    prio;
+
+	/* properties */
+	pid_t                pid_created;
+	sid_resource_flags_t flags;
+	int64_t              prio;
+	unsigned             ref_count;
+
+	/* event handling */
 	struct {
 		sd_event *sd_event_loop;
 		int       signalfd;
 	} event_loop;
-	struct list                event_sources;
+	struct list event_sources;
+
+	/* notification handling */
 	struct service_link_group *slg;
-	pid_t                      pid_created;
-	void *                     data;
+
+	/* custom data */
+	void *data;
 } sid_resource_t;
 
 typedef struct sid_resource_iter {
