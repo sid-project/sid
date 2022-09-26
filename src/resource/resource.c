@@ -69,6 +69,7 @@ typedef struct sid_resource_iter {
 	struct list *   prev; /* for safety */
 	struct list *   current;
 	struct list *   next; /* for safety */
+	bool            res_refd : 1;
 } sid_resource_iter_t;
 
 typedef enum
@@ -1110,7 +1111,10 @@ sid_resource_iter_t *sid_resource_iter_create(sid_resource_t *res)
 	if (!(iter = malloc(sizeof(*iter))))
 		return NULL;
 
-	iter->res = sid_resource_ref(res);
+	if ((iter->res_refd = res->initialized))
+		iter->res = sid_resource_ref(res);
+	else
+		iter->res = res;
 
 	iter->current = &res->children;
 	iter->prev    = iter->current->p;
@@ -1168,7 +1172,8 @@ void sid_resource_iter_reset(sid_resource_iter_t *iter)
 
 void sid_resource_iter_destroy(sid_resource_iter_t *iter)
 {
-	(void) sid_resource_unref(iter->res);
+	if (iter->res_refd)
+		(void) sid_resource_unref(iter->res);
 	free(iter);
 }
 
