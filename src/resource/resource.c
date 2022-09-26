@@ -48,6 +48,7 @@ typedef struct sid_resource {
 	sid_resource_flags_t flags;
 	int64_t              prio;
 	unsigned             ref_count;
+	bool                 initialized : 1;
 
 	/* event handling */
 	struct {
@@ -305,6 +306,7 @@ sid_resource_t *sid_resource_create(sid_resource_t *                parent_res,
 	/* Drop the temporary reference! */
 	res->ref_count--;
 
+	res->initialized = 1;
 	return res;
 fail:
 	if (res) {
