@@ -402,6 +402,15 @@ int sid_resource_unref(sid_resource_t *res)
 	return 0;
 }
 
+/*
+ * FIXME: Add sid_resource_ref_from_resource(sid_resource_t *current_res, sid_resource_t *res)
+ *        that checks if current_res is not below res in a resource tree. If that happens,
+ *        we can get into a problem -  we are moving on to recursive children traversal for
+ *        unref only if a resource count drops to 0. So the refence from any resource below
+ *        would never get unreffed. The same check also needs to be a part of
+ *        sid_resource_add_child  somehow - but for that we'd need to track all the refs that
+ *        a resource has made to other resources.
+ */
 sid_resource_t *sid_resource_ref(sid_resource_t *res)
 {
 	if (res)
