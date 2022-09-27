@@ -54,7 +54,6 @@ typedef int           sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *
 /*
  * Macros to register module's management functions.
  */
-#define SID_UCMD_MOD_FN(name, fn) sid_ucmd_mod_fn_t *sid_ucmd_mod_##name = fn;
 
 #define SID_UCMD_MOD_PRIO(val) MODULE_PRIO(val)
 
@@ -69,9 +68,11 @@ typedef int           sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *
 
 #else /* __GNUC__ */
 
-#define SID_UCMD_MOD_INIT(fn)  SID_UCMD_MOD_FN(mod_init, fn) MODULE_INIT((module_cb_fn_t *) fn)
-#define SID_UCMD_MOD_RESET(fn) SID_UCMD_MOD_FN(mod_reset, fn) MODULE_RESET((module_cb_fn_t *) fn)
-#define SID_UCMD_MOD_EXIT(fn)  SID_UCMD_MOD_FN(mod_exit, fn) MODULE_EXIT((module_cb_fn_t *) fn)
+#define SID_UCMD_MOD_FN(name, fn) sid_ucmd_mod_fn_t *sid_ucmd_mod_##name = fn;
+
+#define SID_UCMD_MOD_INIT(fn)  SID_UCMD_MOD_FN(init, fn) MODULE_INIT((module_cb_fn_t *) fn)
+#define SID_UCMD_MOD_RESET(fn) SID_UCMD_MOD_FN(reset, fn) MODULE_RESET((module_cb_fn_t *) fn)
+#define SID_UCMD_MOD_EXIT(fn)  SID_UCMD_MOD_FN(exit, fn) MODULE_EXIT((module_cb_fn_t *) fn)
 
 #endif /* __GNUC__ */
 
