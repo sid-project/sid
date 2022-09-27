@@ -342,7 +342,7 @@ fail:
 	return NULL;
 }
 
-int sid_resource_unref(sid_resource_t *res)
+static int _do_sid_resource_unref(sid_resource_t *res, int nested)
 {
 	static const char            msg_destroying[]          = "Destroying resource";
 	static const char            msg_destroyed[]           = "Resource destroyed";
@@ -350,18 +350,54 @@ int sid_resource_unref(sid_resource_t *res)
 	sid_resource_event_source_t *es, *tmp_es;
 	sid_resource_t *             child_res, *tmp_child_res;
 	pid_t                        pid = getpid();
+	int                          do_destroy;
 
-	/*
-	 * Proceed to 'resource destroy' only if:
-	 *   - the res has a parent and ref_count == 1, that is, the parent is the only one that refers to this res
-	 *     (subsequent call to _remove_res_from_parent_res will drop the ref then)
-	 *
-	 *   - the res does not have a parent and ref_count == 0, that is, nothing refers to this res anymore
-	 *     (the res is currently 'floating')
-	 *
-	 *   - otherwise, drop the reference and check if we have reached ref_count == 0
-	 */
-	if (!((res->parent && res->ref_count == 1) || (!res->parent && res->ref_count == 0) || (--res->ref_count == 0)))
+	if (res->parent && res->ref_count == 1) {
+		/*
+		 * The res has a parent and ref_count == 1, that is, the parent is the only one
+		 * that refers to this res. Subsequent call to _remove_res_from_parent_res will
+		 * drop the last ref then.
+		 */
+		do_destroy = 1;
+	} else if (!res->parent && res->ref_count == 0) {
+		/*
+		 * The res does not have a parent and ref_count == 0, that is, nothing refers
+		 * to this res - the res is currently 'floating'. This must be the top of the
+		 * resource tree that nobody references.
+		 */
+		do_destroy = 1;
+	} else {
+		/* Still some other references left. */
+		if (nested) {
+			/*
+			 * If we get here, we are nested inside the resource tree because of
+			 * recursive unref traversal. At the same time, we must have
+			 * ref_count >= 2, because one is surely coming from the parent-child
+			 * relationship and there must be at least one more (...if it wasn't,
+			 * then the first condition check 'res->parent && res->ref_count == 1'
+			 * would be hit instead of this one).
+			 *
+			 * So we have to remove res from parent res here - this will also
+			 * drop the one ref coming from the parent-child relationship.
+			 * Do not destroy yet though.
+			 */
+			/*
+			 * FIXME: also respect SID_RESOURCE_DISALLOW_ISOLATION,
+			 *        use sid_resource_isolate_with_children or similar.
+			 */
+			_remove_res_from_parent_res(res);
+			do_destroy = 0;
+		} else {
+			/*
+			 * Otherwise just drop the ref and check if we have
+			 * reached ref_count == 0 and destroy if it is.
+			 */
+			res->ref_count--;
+			do_destroy = res->ref_count == 0;
+		}
+	}
+
+	if (!do_destroy)
 		return 0;
 
 	if (pid == res->pid_created)
@@ -370,7 +406,8 @@ int sid_resource_unref(sid_resource_t *res)
 		log_debug(res->id, "%s (%s: %d/%d).", msg_destroying, msg_pid_created_current, res->pid_created, pid);
 
 	list_iterate_items_safe_back (child_res, tmp_child_res, &res->children)
-		(void) sid_resource_unref(child_res);
+		/* nesting... */
+		(void) _do_sid_resource_unref(child_res, 1);
 
 	list_iterate_items_safe_back (es, tmp_es, &res->event_sources)
 		_destroy_event_source(es);
@@ -400,6 +437,11 @@ int sid_resource_unref(sid_resource_t *res)
 	free(res);
 
 	return 0;
+}
+
+int sid_resource_unref(sid_resource_t *res)
+{
+	return _do_sid_resource_unref(res, 0);
 }
 
 /*
