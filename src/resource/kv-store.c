@@ -629,6 +629,8 @@ int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_updat
                                            .kv_update_fn_arg = kv_unset_fn_arg,
                                            .ret_code         = -EREMOTEIO};
 
+	key = _canonicalize_key(key);
+
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
 			if (hash_update(kv_store->ht, key, strlen(key) + 1, NULL, 0, _hash_unset_fn, &relay))
