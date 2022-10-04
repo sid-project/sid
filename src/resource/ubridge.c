@@ -2200,8 +2200,8 @@ int _do_sid_ucmd_mod_reserve_kv(struct module *             mod,
 		flags |= (KV_SYNC | KV_PERSISTENT);
 
 	if (unset && !is_worker) {
-		kv_store_unset(common->kv_store_res, key, _kv_cb_unreserve, &update_arg);
-		goto out;
+		if (kv_store_unset(common->kv_store_res, key, _kv_cb_unreserve, &update_arg) < 0)
+			goto out;
 	} else {
 		VVALUE_HEADER_PREP(vvalue, common->gennum, null_int, flags, (char *) owner);
 		if (!kv_store_set_value(common->kv_store_res,
