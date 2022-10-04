@@ -5042,12 +5042,16 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 	}
 	common_ctx->res = res;
 
+	/*
+	 * Set higher priority to kv_store_res compared to modules so they can
+	 * still use the KV store even when destroying the whole resource tree.
+	 */
 	if (!(common_ctx->kv_store_res = sid_resource_create(common_ctx->res,
 	                                                     &sid_resource_type_kv_store,
 	                                                     SID_RESOURCE_RESTRICT_WALK_UP,
 	                                                     MAIN_KV_STORE_NAME,
 	                                                     &main_kv_store_res_params,
-	                                                     SID_RESOURCE_PRIO_NORMAL,
+	                                                     SID_RESOURCE_PRIO_NORMAL - 1,
 	                                                     SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(ID(res), "Failed to create main key-value store.");
 		goto fail;
