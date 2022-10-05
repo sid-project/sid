@@ -1060,10 +1060,8 @@ static bptree_node_t *
 
 		/* All children must now point up to the same parent. */
 
-		for (i = 0; i < neighbor->num_keys + 1; i++) {
-			tmp         = (bptree_node_t *) neighbor->pointers[i];
-			tmp->parent = neighbor;
-		}
+		for (i = 0; i < neighbor->num_keys + 1; i++)
+			((bptree_node_t *) neighbor->pointers[i])->parent = neighbor;
 	}
 
 	/*
@@ -1099,8 +1097,7 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
                                           int            k_prime_index,
                                           bptree_key_t * bk_prime)
 {
-	int            i;
-	bptree_node_t *tmp;
+	int i;
 
 	/*
 	 * Case: n has a neighbor to the left.
@@ -1117,20 +1114,18 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
 			n->pointers[i] = n->pointers[i - 1];
 		}
 
-		if (!n->is_leaf) {
-			n->pointers[0]                         = neighbor->pointers[neighbor->num_keys];
-			tmp                                    = (bptree_node_t *) n->pointers[0];
-			tmp->parent                            = n;
-			neighbor->pointers[neighbor->num_keys] = NULL;
-			n->bkeys[0]                            = bk_prime;
-			_unref_bkey(bptree, n->parent->bkeys[k_prime_index]);
-			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[neighbor->num_keys - 1]);
-		} else {
+		if (n->is_leaf) {
 			n->pointers[0]                             = neighbor->pointers[neighbor->num_keys - 1];
 			neighbor->pointers[neighbor->num_keys - 1] = NULL;
 			n->bkeys[0]                                = neighbor->bkeys[neighbor->num_keys - 1];
-			_unref_bkey(bptree, n->parent->bkeys[k_prime_index]);
-			n->parent->bkeys[k_prime_index] = _ref_bkey(n->bkeys[0]);
+			n->parent->bkeys[k_prime_index]            = _ref_bkey(n->bkeys[0]);
+			_unref_bkey(bptree, bk_prime);
+		} else {
+			n->pointers[0]                             = neighbor->pointers[neighbor->num_keys];
+			((bptree_node_t *) n->pointers[0])->parent = n;
+			neighbor->pointers[neighbor->num_keys]     = NULL;
+			n->bkeys[0]                                = bk_prime;
+			n->parent->bkeys[k_prime_index]            = neighbor->bkeys[neighbor->num_keys - 1];
 		}
 	}
 
@@ -1142,17 +1137,15 @@ static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
 
 	else {
 		if (n->is_leaf) {
-			n->bkeys[n->num_keys]    = neighbor->bkeys[0];
-			n->pointers[n->num_keys] = neighbor->pointers[0];
-			_unref_bkey(bptree, n->parent->bkeys[k_prime_index]);
+			n->bkeys[n->num_keys]           = neighbor->bkeys[0];
+			n->pointers[n->num_keys]        = neighbor->pointers[0];
 			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[1]);
+			_unref_bkey(bptree, bk_prime);
 		} else {
-			n->bkeys[n->num_keys]        = bk_prime;
-			n->pointers[n->num_keys + 1] = neighbor->pointers[0];
-			tmp                          = (bptree_node_t *) n->pointers[n->num_keys + 1];
-			tmp->parent                  = n;
-			_unref_bkey(bptree, n->parent->bkeys[k_prime_index]);
-			n->parent->bkeys[k_prime_index] = _ref_bkey(neighbor->bkeys[0]);
+			n->bkeys[n->num_keys]                                    = bk_prime;
+			n->pointers[n->num_keys + 1]                             = neighbor->pointers[0];
+			((bptree_node_t *) n->pointers[n->num_keys + 1])->parent = n;
+			n->parent->bkeys[k_prime_index]                          = neighbor->bkeys[0];
 		}
 
 		for (i = 0; i < neighbor->num_keys - 1; i++) {
