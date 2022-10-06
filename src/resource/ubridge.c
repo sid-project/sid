@@ -4444,7 +4444,6 @@ out:
 
 static int _worker_proxy_recv_system_cmd_sync(sid_resource_t *worker_proxy_res, struct worker_data_spec *data_spec, void *arg)
 {
-	struct internal_msg_header *int_msg;
 	struct sid_ucmd_common_ctx *common_ctx = arg;
 	int                         r;
 
@@ -4452,8 +4451,6 @@ static int _worker_proxy_recv_system_cmd_sync(sid_resource_t *worker_proxy_res, 
 		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Received KV store sync request, but KV store sync data missing.");
 		return -1;
 	}
-
-	int_msg = data_spec->data;
 
 	r = _sync_main_kv_store(worker_proxy_res, common_ctx, data_spec->ext.socket.fd_pass);
 
