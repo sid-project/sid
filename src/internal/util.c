@@ -350,7 +350,7 @@ fail:
 		return mem_freen(copier.strv);
 }
 
-char **util_strv_copy(util_mem_t *mem, const char **strv)
+char **util_str_vec_copy(util_mem_t *mem, const char **strv)
 {
 	const char **        p;
 	struct token_counter counter = {0};

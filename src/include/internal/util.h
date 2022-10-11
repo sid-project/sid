@@ -80,7 +80,7 @@ char **util_str_comb_to_strv(util_mem_t *mem,
                              const char *suffix,
                              const char *delims,
                              const char *quotes);
-char **util_strv_copy(util_mem_t *mem, const char **strv);
+char **util_str_vec_copy(util_mem_t *mem, const char **strv);
 
 char *util_str_copy_substr(util_mem_t *mem, const char *str, size_t start, size_t len);
 
