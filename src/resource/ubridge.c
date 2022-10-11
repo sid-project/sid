@@ -4050,47 +4050,6 @@ static int _destroy_connection(sid_resource_t *res)
 	return 0;
 }
 
-static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx, bool increase)
-{
-	struct iovec     vvalue[VVALUE_IDX_DATA + 1];
-	const char *     key;
-	struct kv_value *svalue;
-
-	if (!(key = _compose_key(ctx->gen_buf,
-	                         &((struct kv_key_spec) {.op      = KV_OP_SET,
-	                                                 .dom     = ID_NULL,
-	                                                 .ns      = KV_NS_GLOBAL,
-	                                                 .ns_part = ID_NULL,
-	                                                 .id      = ID_NULL,
-	                                                 .id_part = ID_NULL,
-	                                                 .core    = KV_KEY_DB_GENERATION}))))
-		return -1;
-
-	if ((svalue = kv_store_get_value(ctx->kv_store_res, key, NULL, NULL))) {
-		memcpy(&ctx->gennum, svalue->data + _svalue_ext_data_offset(svalue), sizeof(uint16_t));
-		if (increase)
-			ctx->gennum++;
-	} else
-		ctx->gennum = 1;
-
-	if (increase) {
-		VVALUE_HEADER_PREP(vvalue, ctx->gennum, null_int, value_flags_no_sync, core_owner);
-		vvalue[VVALUE_IDX_DATA] = (struct iovec) {.iov_base = &ctx->gennum, .iov_len = sizeof(ctx->gennum)};
-
-		kv_store_set_value(ctx->kv_store_res,
-		                   key,
-		                   vvalue,
-		                   VVALUE_IDX_DATA + 1,
-		                   KV_STORE_VALUE_VECTOR,
-		                   KV_STORE_VALUE_OP_MERGE,
-		                   NULL,
-		                   NULL);
-	}
-
-	_destroy_key(ctx->gen_buf, key);
-	return 0;
-}
-
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct sid_msg *msg      = kickstart_data;
@@ -4140,8 +4099,6 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 	ucmd_ctx->common = sid_resource_get_data(common_res);
-
-	_set_up_kv_store_generation(ucmd_ctx->common, false);
 
 	if (cmd_reg->flags & CMD_KV_IMPORT_UDEV) {
 		/* currently, we only parse udev environment for the SCAN command */
@@ -4909,6 +4866,44 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 	return 0;
 }
 
+static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
+{
+	struct iovec     vvalue[VVALUE_IDX_DATA + 1];
+	const char *     key;
+	struct kv_value *svalue;
+
+	if (!(key = _compose_key(ctx->gen_buf,
+	                         &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                 .dom     = ID_NULL,
+	                                                 .ns      = KV_NS_GLOBAL,
+	                                                 .ns_part = ID_NULL,
+	                                                 .id      = ID_NULL,
+	                                                 .id_part = ID_NULL,
+	                                                 .core    = KV_KEY_DB_GENERATION}))))
+		return -1;
+
+	if ((svalue = kv_store_get_value(ctx->kv_store_res, key, NULL, NULL))) {
+		memcpy(&ctx->gennum, svalue->data + _svalue_ext_data_offset(svalue), sizeof(uint16_t));
+		ctx->gennum++;
+	} else
+		ctx->gennum = 1;
+
+	VVALUE_HEADER_PREP(vvalue, ctx->gennum, null_int, value_flags_no_sync, core_owner);
+	vvalue[VVALUE_IDX_DATA] = (struct iovec) {.iov_base = &ctx->gennum, .iov_len = sizeof(ctx->gennum)};
+
+	kv_store_set_value(ctx->kv_store_res,
+	                   key,
+	                   vvalue,
+	                   VVALUE_IDX_DATA + 1,
+	                   KV_STORE_VALUE_VECTOR,
+	                   KV_STORE_VALUE_OP_MERGE,
+	                   NULL,
+	                   NULL);
+
+	_destroy_key(ctx->gen_buf, key);
+	return 0;
+}
+
 static int _set_up_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *umonitor)
 {
 	int umonitor_fd = -1;
@@ -5066,7 +5061,7 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 	}
 
 	/* _load_kv_store(res, ubridge); */
-	_set_up_kv_store_generation(common_ctx, true);
+	_set_up_kv_store_generation(common_ctx);
 
 	if (!(common_ctx->modules_res = sid_resource_create(common_ctx->res,
 	                                                    &sid_resource_type_aggregate,
