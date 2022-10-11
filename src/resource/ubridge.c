@@ -60,7 +60,8 @@
 #define MAIN_KV_STORE_NAME     "main"
 #define MAIN_WORKER_CHANNEL_ID "main"
 
-#define MAIN_KV_STORE_FILE_PATH "/run/sid.db"
+#define SYSTEM_PROC_DEVICES_PATH SYSTEM_PROC_PATH "/devices"
+#define MAIN_KV_STORE_FILE_PATH  "/run/sid.db"
 
 #define KV_PAIR_C "="
 #define KV_END_C  ""
