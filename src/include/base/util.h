@@ -20,6 +20,7 @@
 #ifndef _SID_BASE_UTIL_H
 #define _SID_BASE_UTIL_H
 
+#include <stdbool.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -35,6 +36,13 @@ int sid_util_env_get_ull(const char *key, unsigned long long min, unsigned long 
  * fd-related utilities
  */
 ssize_t sid_util_fd_read_all(int fd, void *buf, size_t len);
+
+/*
+ * Kernel cmdline-related utilities.
+ */
+
+/* Note: sid_util_kernel_cmdline_get_arg reads kernel config line only once, then it is stored in internal static variable. */
+bool sid_util_kernel_cmdline_get_arg(const char *arg, char **value, int *ret_code);
 
 #ifdef __cplusplus
 }

@@ -21,6 +21,7 @@
 
 #include "base/buffer.h"
 #include "base/comms.h"
+#include "base/util.h"
 #include "iface/iface_internal.h"
 #include "internal/bitmap.h"
 #include "internal/formatter.h"
@@ -5252,10 +5253,10 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	*/
 
 	/*
-	 * Call util_cmdline_get_arg here to only read the kernel command line
-	 * so we already have that preloaded for any possible workers.
+	 * Call sid_util_kernel_cmdline_get_arg here to only read the kernel command
+	 * line so we already have that preloaded for any possible workers.
 	 */
-	(void) util_cmdline_get_arg("root", NULL, NULL);
+	(void) sid_util_kernel_cmdline_get_arg("root", NULL, NULL);
 
 	*data = ubridge;
 	return 0;

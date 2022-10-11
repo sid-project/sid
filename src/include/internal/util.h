@@ -96,12 +96,6 @@ uint64_t util_time_get_now_usec(clockid_t clock_id);
 
 char *util_uuid_gen_str(util_mem_t *mem);
 
-/*
- * Kernel cmdline-related utilities.
- */
-/* Note: util_cmdline_get_arg reads kernel config line only once, then it is stored in internal static variable. */
-bool util_cmdline_get_arg(const char *arg, char **value, int *ret_code);
-
 #ifdef __cplusplus
 }
 #endif

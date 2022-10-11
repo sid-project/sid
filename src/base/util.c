@@ -22,7 +22,9 @@
 #include "base/util.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 /*
@@ -73,4 +75,96 @@ ssize_t sid_util_fd_read_all(int fd, void *buf, size_t len)
 		len -= n;
 	}
 	return total;
+}
+
+/*
+ * Kernel cmdline-related utilities.
+ */
+
+int _get_proc_cmdline(char *buf, off_t size)
+{
+	int     fd, r = 0;
+	off_t   len = 0;
+	ssize_t bytes;
+
+	if (!buf || !size)
+		return -EINVAL;
+
+	fd = open("/proc/cmdline", O_RDONLY);
+	if (fd < 0) {
+		return (errno) ? -errno : -1;
+	}
+	while (len < size) {
+		bytes = read(fd, buf + len, size - len);
+		if (!bytes)
+			break;
+		if (bytes < 0) {
+			if (errno == EINTR || errno == EAGAIN)
+				continue;
+			r = (errno) ? -errno : -1;
+			goto out;
+		}
+		len += bytes;
+	}
+out:
+	close(fd);
+	if (r)
+		memset(buf, 0, size);
+	return r;
+}
+
+#define DELIM " \t\n"
+
+bool sid_util_kernel_cmdline_get_arg(const char *arg, char **value, int *ret_code)
+{
+	int         r = 0;
+	static char buf[4097];
+	char *      ptr, *limit, *next, *val, *end;
+
+	if (!arg) {
+		r = -EINVAL;
+		goto out;
+	}
+
+	if (buf[0] == '\0')
+		r = _get_proc_cmdline(buf, 4096);
+
+	if (r)
+		goto out;
+
+	end  = buf + strlen(buf);
+	next = buf;
+	while (next) {
+		while (*next && strchr(DELIM, *next))
+			next++;
+		if (!*next)
+			goto out;
+		ptr  = next;
+		next = strpbrk(ptr, DELIM);
+		val  = strchr(ptr, '=');
+		if (next && val >= next)
+			val = NULL;
+		limit = (val) ?: (next) ?: end;
+		if (strlen(arg) != limit - ptr || strncmp(arg, ptr, limit - ptr))
+			continue;
+		if (value) {
+			if (!val) {
+				r = -EINVAL;
+				goto out;
+			}
+			limit  = (next) ?: end;
+			*value = strndup(val, limit - val);
+			if (!*value) {
+				r = -ENOMEM;
+				goto out;
+			}
+		}
+		r = 1;
+		break;
+	}
+
+out:
+	if (ret_code)
+		*ret_code = (r < 0) ? r : 0;
+	return (r > 0);
 }

@@ -17,7 +17,7 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "internal/util.h"
+#include "base/util.h"
 #include "log/log.h"
 #include "resource/ucmd-module.h"
 
@@ -107,7 +107,7 @@ static int _kernel_cmdline_allow(void)
 {
 	char *value = NULL;
 
-	if (!util_cmdline_get_arg("nompath", NULL, NULL) && !util_cmdline_get_arg("nompath", &value, NULL))
+	if (!sid_util_kernel_cmdline_get_arg("nompath", NULL, NULL) && !sid_util_kernel_cmdline_get_arg("nompath", &value, NULL))
 		return 1;
 	if (value && strcmp(value, "off") != 0)
 		return 1;

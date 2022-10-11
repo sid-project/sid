@@ -22,9 +22,9 @@
 
 #include "config.h"
 
-#define SYSTEM_DEV_PATH          "/dev"
-#define SYSTEM_SYSFS_PATH        "/sys"
-#define SYSTEM_PROC_PATH         "/proc"
+#define SYSTEM_DEV_PATH   "/dev"
+#define SYSTEM_SYSFS_PATH "/sys"
+#define SYSTEM_PROC_PATH  "/proc"
 
 #define SYSTEM_SYSFS_SLAVES "slaves"
 
