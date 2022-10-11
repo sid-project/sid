@@ -29,6 +29,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#define SYSTEM_PROC_BOOT_ID_PATH SYSTEM_PROC_PATH "/sys/kernel/random/boot_id"
+
 /*
  * Common code.
  */
@@ -430,23 +432,57 @@ uint64_t util_time_get_now_usec(clockid_t clock_id)
  * UUID-related utilities.
  */
 
+static char *_get_uuid_mem(util_mem_t *mem)
+{
+	if (_mem_avail(mem)) {
+		if (mem->size < UUID_STR_LEN)
+			return NULL;
+
+		return mem->base;
+	} else
+		return malloc(UUID_STR_LEN);
+}
+
 char *util_uuid_gen_str(util_mem_t *mem)
 {
 	uuid_t uu;
 	char * str;
 
-	if (_mem_avail(mem)) {
-		if (UUID_STR_LEN > mem->size)
-			return NULL;
-
-		str = mem->base;
-	} else {
-		if (!(str = malloc(UUID_STR_LEN)))
-			return NULL;
-	}
+	if (!(str = _get_uuid_mem(mem)))
+		return NULL;
 
 	uuid_generate(uu);
 	uuid_unparse(uu, str);
+
+	return str;
+}
+
+char *util_uuid_get_boot_id(util_mem_t *mem, int *ret_code)
+{
+	char *str = NULL;
+	FILE *f   = NULL;
+	int   r;
+
+	if (!(str = _get_uuid_mem(mem))) {
+		r = -ENOMEM;
+		goto out;
+	}
+
+	if (!(f = fopen(SYSTEM_PROC_BOOT_ID_PATH, "r"))) {
+		r = -errno;
+		goto out;
+	}
+
+	if (!(str = fgets(str, UUID_STR_LEN, f))) {
+		r = -1;
+		goto out;
+	}
+out:
+	if (f)
+		fclose(f);
+
+	if (ret_code)
+		*ret_code = r;
 
 	return str;
 }
