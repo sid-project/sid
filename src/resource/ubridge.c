@@ -4889,6 +4889,8 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 	} else
 		ctx->gennum = 1;
 
+	log_debug(ID(ctx->res), "Current generation number: %" PRIu16, ctx->gennum);
+
 	VVALUE_HEADER_PREP(vvalue, ctx->gennum, null_int, value_flags_no_sync, core_owner);
 	vvalue[VVALUE_IDX_DATA] = (struct iovec) {.iov_base = &ctx->gennum, .iov_len = sizeof(ctx->gennum)};
 
