@@ -5112,8 +5112,8 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 	}
 
 	/* _load_kv_store(res, ubridge); */
-	_set_up_kv_store_generation(common_ctx);
-	_set_up_boot_id(common_ctx);
+	if (_set_up_kv_store_generation(common_ctx) < 0 || _set_up_boot_id(common_ctx) < 0)
+		goto fail;
 
 	if (!(common_ctx->modules_res = sid_resource_create(common_ctx->res,
 	                                                    &sid_resource_type_aggregate,
