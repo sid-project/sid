@@ -90,6 +90,7 @@
 #define KV_PREFIX_KEY_SYS_C "#"
 
 #define KV_KEY_DB_GENERATION KV_PREFIX_KEY_SYS_C "DBGEN"
+#define KV_KEY_BOOT_ID       KV_PREFIX_KEY_SYS_C "BOOTID"
 #define KV_KEY_DEV_READY     KV_PREFIX_KEY_SYS_C "RDY"
 #define KV_KEY_DEV_RESERVED  KV_PREFIX_KEY_SYS_C "RES"
 #define KV_KEY_DEV_MOD       KV_PREFIX_KEY_SYS_C "MOD"
@@ -4904,6 +4905,54 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 	return 0;
 }
 
+static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
+{
+	char             boot_id[UTIL_UUID_STR_SIZE];
+	struct iovec     vvalue[VVALUE_IDX_DATA + 1];
+	const char *     key;
+	struct kv_value *svalue;
+	char *           old_boot_id;
+	int              r;
+
+	if (!(key = _compose_key(ctx->gen_buf,
+	                         &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                 .dom     = ID_NULL,
+	                                                 .ns      = KV_NS_GLOBAL,
+	                                                 .ns_part = ID_NULL,
+	                                                 .id      = ID_NULL,
+	                                                 .id_part = ID_NULL,
+	                                                 .core    = KV_KEY_BOOT_ID}))))
+		return -1;
+
+	if ((svalue = kv_store_get_value(ctx->kv_store_res, key, NULL, NULL)))
+		old_boot_id = svalue->data + _svalue_ext_data_offset(svalue);
+	else
+		old_boot_id = NULL;
+
+	if (!(util_uuid_get_boot_id(&(util_mem_t) {.base = boot_id, .size = sizeof(boot_id)}, &r)))
+		return r;
+
+	if (old_boot_id)
+		log_debug(ID(ctx->res), "Previous system boot id: %s.", old_boot_id);
+
+	log_debug(ID(ctx->res), "Current system boot id: %s.", boot_id);
+
+	VVALUE_HEADER_PREP(vvalue, ctx->gennum, null_int, value_flags_no_sync, core_owner);
+	vvalue[VVALUE_IDX_DATA] = (struct iovec) {.iov_base = boot_id, .iov_len = sizeof(boot_id)};
+
+	kv_store_set_value(ctx->kv_store_res,
+	                   key,
+	                   vvalue,
+	                   VVALUE_IDX_DATA + 1,
+	                   KV_STORE_VALUE_VECTOR,
+	                   KV_STORE_VALUE_OP_MERGE,
+	                   NULL,
+	                   NULL);
+
+	_destroy_key(ctx->gen_buf, key);
+	return 0;
+}
+
 static int _set_up_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *umonitor)
 {
 	int umonitor_fd = -1;
@@ -5062,6 +5111,7 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 
 	/* _load_kv_store(res, ubridge); */
 	_set_up_kv_store_generation(common_ctx);
+	_set_up_boot_id(common_ctx);
 
 	if (!(common_ctx->modules_res = sid_resource_create(common_ctx->res,
 	                                                    &sid_resource_type_aggregate,
