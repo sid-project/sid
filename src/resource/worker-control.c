@@ -988,12 +988,12 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 	 * FIXME: avoid using SID_BUFFER_MODE_SIZE_PREFIX for this detection
 	 */
 	if (sid_buffer_stat(chan->out_buf).spec.mode == SID_BUFFER_MODE_SIZE_PREFIX &&
-	    ((r = sid_buffer_add(chan->out_buf, &chan_cmd, sizeof(chan_cmd), NULL, NULL)) < 0)) {
+	    (sid_buffer_add(chan->out_buf, &chan_cmd, sizeof(chan_cmd), NULL, NULL)) < 0) {
 		r = -ENOMEM;
 		goto out;
 	}
 
-	if (has_data && ((r = sid_buffer_add(chan->out_buf, data_spec->data, data_spec->data_size, NULL, NULL)) < 0)) {
+	if (has_data && (sid_buffer_add(chan->out_buf, data_spec->data, data_spec->data_size, NULL, NULL) < 0)) {
 		r = -ENOMEM;
 		goto out;
 	}

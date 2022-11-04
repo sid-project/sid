@@ -723,7 +723,6 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 	kv_store_iter_t *iter;
 	const char      *key;
 	size_t           size;
-	void            *value;
 	size_t           meta_size, int_size, int_data_size, ext_size, ext_data_size;
 
 	memset(stats, 0, sizeof(*stats));
@@ -731,7 +730,7 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
 		return -ENOMEM;
 	}
-	while ((value = kv_store_iter_next(iter, &size, &key, NULL))) {
+	while (kv_store_iter_next(iter, &size, &key, NULL)) {
 		stats->nr_kv_pairs++;
 		kv_store_iter_current_size(iter, &int_size, &int_data_size, &ext_size, &ext_data_size);
 		stats->key_size            += strlen(key) + 1;
@@ -3824,8 +3823,8 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 			r = _send_out_cmd_expbuf(cmd_res);
 			_change_cmd_state(cmd_res, CMD_EXPECTING_EXPBUF_ACK);
 		} else {
-			r = _send_out_cmd_resbuf(cmd_res);
-			r = _send_out_cmd_expbuf(cmd_res);
+			if ((r = _send_out_cmd_resbuf(cmd_res) == 0))
+				r = _send_out_cmd_expbuf(cmd_res);
 		}
 	} else if (ucmd_ctx->state == CMD_EXPBUF_ACKED) {
 		r = _send_out_cmd_resbuf(cmd_res);
@@ -4404,7 +4403,7 @@ static int _worker_proxy_recv_system_cmd_sync(sid_resource_t *worker_proxy_res, 
 		return -1;
 	}
 
-	r = _sync_main_kv_store(worker_proxy_res, common_ctx, data_spec->ext.socket.fd_pass);
+	(void) _sync_main_kv_store(worker_proxy_res, common_ctx, data_spec->ext.socket.fd_pass);
 
 	r = worker_control_channel_send(
 		worker_proxy_res,

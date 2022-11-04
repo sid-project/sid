@@ -95,7 +95,7 @@ static int _sid_cmd_version(uint16_t format)
 	if ((r = sid_buffer_write_all(outbuf, fileno(stdout))) < 0)
 		log_error_errno(LOG_PREFIX, r, "failed to write version information");
 	sid_buffer_reset(outbuf);
-	if ((r = _sid_cmd(SID_CMD_VERSION, format)) < 0) {
+	if (_sid_cmd(SID_CMD_VERSION, format) < 0) {
 		print_start_document(format, outbuf, 0);
 		print_end_document(format, outbuf, 0);
 	} else

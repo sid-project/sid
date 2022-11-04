@@ -206,7 +206,6 @@ static bptree_node_t *_find_leaf(bptree_t *bptree, const char *key)
 	if (!bptree->root)
 		return NULL;
 
-	i = 0;
 	c = bptree->root;
 
 	while (!c->is_leaf) {
@@ -510,8 +509,10 @@ static bptree_node_t *
 	if (!(temp_bkeys = malloc(bptree->order * sizeof(bptree_key_t *))))
 		return NULL;
 
-	if (!(temp_pointers = malloc(bptree->order * sizeof(void *))))
+	if (!(temp_pointers = malloc(bptree->order * sizeof(void *)))) {
+		free(temp_bkeys);
 		return NULL;
+	}
 
 	insertion_index = 0;
 	while (insertion_index < bptree->order - 1 && strcmp(leaf->bkeys[insertion_index]->key, bkey->key) <= 0)
@@ -613,8 +614,10 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t      *bptree,
 	if (!(temp_pointers = malloc((bptree->order + 1) * sizeof(bptree_node_t *))))
 		return NULL;
 
-	if (!(temp_bkeys = malloc(bptree->order * sizeof(bptree_key_t *))))
+	if (!(temp_bkeys = malloc(bptree->order * sizeof(bptree_key_t *)))) {
+		free(temp_pointers);
 		return NULL;
+	}
 
 	for (i = 0, j = 0; i < old_node->num_keys + 1; i++, j++) {
 		if (j == left_index + 1)
@@ -804,12 +807,25 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 
 	/* Case: the tree does not exist yet. Start a new tree. */
 
-	if (!bptree->root)
-		return _create_root(bptree, bkey, rec) ? 0 : -1;
+	if (!bptree->root) {
+		if (_create_root(bptree, bkey, rec) < 0) {
+			free(bkey);
+			free(rec);
+			return -1;
+		}
+
+		return 0;
+	}
 
 	/* Case: the tree already exists. Insert into the tree. */
 
-	return _insert(bptree, bkey, rec);
+	if (_insert(bptree, bkey, rec) < 0) {
+		free(bkey);
+		free(rec);
+		return -1;
+	}
+
+	return 0;
 }
 
 int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bool force)
@@ -1379,8 +1395,11 @@ void *bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size,
 		}
 	} else {
 		if (iter->key_start) {
-			if (!_find(iter->bptree, iter->key_start, LOOKUP_PREFIX, &iter->c, &iter->i, NULL))
+			if (!_find(iter->bptree, iter->key_start, LOOKUP_PREFIX, &iter->c, &iter->i, NULL)) {
+				if (key)
+					*key = NULL;
 				return NULL;
+			}
 		} else {
 			iter->c = _get_first_leaf_node(iter->bptree);
 			iter->i = 0;

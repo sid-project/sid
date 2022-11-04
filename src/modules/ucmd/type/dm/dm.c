@@ -81,6 +81,7 @@ static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_comm
 	if (!(dm_mod = mem_zalloc(sizeof(*dm_mod)))) {
 		log_error(DM_ID, "Failed to allocate memory module context structure.");
 		r = -ENOMEM;
+		goto fail;
 	}
 
 	struct module_registry_resource_params dm_submod_registry_res_mod_params = {

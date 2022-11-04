@@ -688,7 +688,7 @@ static int _sd_child_event_handler(sd_event_source *sd_es, const siginfo_t *si, 
 	} else
 		r = 0;
 
-	return 0;
+	return r;
 }
 
 int sid_resource_create_child_event_source(sid_resource_t                    *res,

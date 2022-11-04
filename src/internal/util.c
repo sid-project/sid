@@ -459,11 +459,11 @@ char *util_uuid_gen_str(util_mem_t *mem)
 
 char *util_uuid_get_boot_id(util_mem_t *mem, int *ret_code)
 {
-	char *str = NULL;
-	FILE *f   = NULL;
-	int   r;
+	char *buf;
+	FILE *f = NULL;
+	int   r = 0;
 
-	if (!(str = _get_uuid_mem(mem))) {
+	if (!(buf = _get_uuid_mem(mem))) {
 		r = -ENOMEM;
 		goto out;
 	}
@@ -473,7 +473,7 @@ char *util_uuid_get_boot_id(util_mem_t *mem, int *ret_code)
 		goto out;
 	}
 
-	if (!(str = fgets(str, UUID_STR_LEN, f))) {
+	if (!fgets(buf, UUID_STR_LEN, f)) {
 		r = -1;
 		goto out;
 	}
@@ -481,8 +481,14 @@ out:
 	if (f)
 		fclose(f);
 
+	if (r < 0) {
+		if (!_mem_avail(mem))
+			free(buf);
+		buf = NULL;
+	}
+
 	if (ret_code)
 		*ret_code = r;
 
-	return str;
+	return buf;
 }
