@@ -70,9 +70,9 @@ ssize_t sid_util_fd_read_all(int fd, void *buf, size_t len)
 		}
 		if (!n)
 			return total;
-		buf += n;
+		buf   += n;
 		total += n;
-		len -= n;
+		len   -= n;
 	}
 	return total;
 }

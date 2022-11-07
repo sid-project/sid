@@ -36,6 +36,7 @@ char *__wrap_getenv(const char *name)
 #define TEST_EXPORT_FD 9999
 
 int __real_close(int fd);
+
 int __wrap_close(int fd)
 {
 	if (fd != TEST_COMM_FD && fd != TEST_EXPORT_FD)
@@ -85,6 +86,7 @@ ssize_t __wrap_sid_buffer_read(struct sid_buffer *buf, int fd)
 }
 
 ssize_t __real_read(int fd, void *buf, size_t count);
+
 ssize_t __wrap_read(int fd, void *buf, size_t count)
 {
 	ssize_t                     val;
@@ -107,6 +109,7 @@ ssize_t __wrap_read(int fd, void *buf, size_t count)
 void *_test_mmap_return;
 
 void *__real_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+
 void *__wrap_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
 	SID_BUFFER_SIZE_PREFIX_TYPE buf_len;
@@ -136,6 +139,7 @@ void *__wrap_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t 
 }
 
 int __real_munmap(void *addr, size_t length);
+
 int __wrap_munmap(void *addr, size_t length)
 {
 	if (!addr || addr != _test_mmap_return)
@@ -262,8 +266,8 @@ static void test_sid_req_fail_missing(void **state)
 	struct sid_result          *res;
 	struct sid_unmodified_data *data = &req.data.unmodified;
 
-	data->mem  = NULL;
-	data->size = 1;
+	data->mem                        = NULL;
+	data->size                       = 1;
 	assert_int_equal(sid_req(&req, &res), -EINVAL);
 	assert_null(res);
 }

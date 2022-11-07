@@ -22,20 +22,20 @@
 
 #include "config.h"
 
-#define SYSTEM_DEV_PATH   "/dev"
-#define SYSTEM_SYSFS_PATH "/sys"
-#define SYSTEM_PROC_PATH  "/proc"
+#define SYSTEM_DEV_PATH              "/dev"
+#define SYSTEM_SYSFS_PATH            "/sys"
+#define SYSTEM_PROC_PATH             "/proc"
 
-#define SYSTEM_SYSFS_SLAVES "slaves"
+#define SYSTEM_SYSFS_SLAVES          "slaves"
 
-#define UDEV_KEY_ACTION     "ACTION"
-#define UDEV_KEY_DEVPATH    "DEVPATH"
-#define UDEV_KEY_DEVTYPE    "DEVTYPE"
-#define UDEV_KEY_MAJOR      "MAJOR"
-#define UDEV_KEY_MINOR      "MINOR"
-#define UDEV_KEY_SEQNUM     "SEQNUM"
-#define UDEV_KEY_DISKSEQ    "DISKSEQ"
-#define UDEV_KEY_SYNTH_UUID "SYNTH_UUID"
+#define UDEV_KEY_ACTION              "ACTION"
+#define UDEV_KEY_DEVPATH             "DEVPATH"
+#define UDEV_KEY_DEVTYPE             "DEVTYPE"
+#define UDEV_KEY_MAJOR               "MAJOR"
+#define UDEV_KEY_MINOR               "MINOR"
+#define UDEV_KEY_SEQNUM              "SEQNUM"
+#define UDEV_KEY_DISKSEQ             "DISKSEQ"
+#define UDEV_KEY_SYNTH_UUID          "SYNTH_UUID"
 
 #define UDEV_VALUE_DEVTYPE_UNKNOWN   "unknown"
 #define UDEV_VALUE_DEVTYPE_DISK      "disk"

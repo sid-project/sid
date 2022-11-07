@@ -323,9 +323,9 @@ static bptree_record_t *_make_record(bptree_t *bptree, void *data, size_t data_s
 	if (!(rec = malloc(sizeof(bptree_record_t))))
 		return NULL;
 
-	rec->data_size = data_size;
-	rec->data      = data;
-	rec->ref_count = 0;
+	rec->data_size    = data_size;
+	rec->data         = data;
+	rec->ref_count    = 0;
 
 	bptree->meta_size += sizeof(*rec);
 	bptree->data_size += data_size;
@@ -364,7 +364,7 @@ static bptree_key_t *_make_bkey(bptree_t *bptree, const char *key)
 		return NULL;
 	}
 
-	bkey->ref_count = 0;
+	bkey->ref_count   = 0;
 
 	bptree->meta_size += (sizeof(*bkey) + strlen(key) + 1);
 
@@ -425,7 +425,7 @@ static bptree_node_t *_make_node(bptree_t *bptree)
 	new_node->num_keys = 0;
 	new_node->parent   = NULL;
 
-	bptree->meta_size += (sizeof(*new_node) + pointers_size + bkeys_size);
+	bptree->meta_size  += (sizeof(*new_node) + pointers_size + bkeys_size);
 
 	return new_node;
 }
@@ -528,9 +528,9 @@ static bptree_node_t *
 	temp_bkeys[insertion_index]    = _ref_bkey(bkey);
 	temp_pointers[insertion_index] = _ref_record(pointer);
 
-	leaf->num_keys = 0;
+	leaf->num_keys                 = 0;
 
-	split = _cut(bptree->order - 1);
+	split                          = _cut(bptree->order - 1);
 
 	for (i = 0; i < split; i++) {
 		leaf->pointers[i] = temp_pointers[i];
@@ -637,9 +637,9 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t      *bptree,
 	 * Create the new node and copy half the keys
 	 * and pointers to the old and half to the new.
 	 */
-	split              = _cut(bptree->order);
-	new_node           = _make_node(bptree);
-	old_node->num_keys = 0;
+	split                         = _cut(bptree->order);
+	new_node                      = _make_node(bptree);
+	old_node->num_keys            = 0;
 
 	for (i = 0; i < split - 1; i++) {
 		old_node->pointers[i] = temp_pointers[i];
@@ -694,7 +694,7 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t      *bptree,
  */
 static bptree_node_t *_insert_into_new_root(bptree_t *bptree, bptree_node_t *left, bptree_key_t *bkey, bptree_node_t *right)
 {
-	bptree->root = _make_node(bptree);
+	bptree->root              = _make_node(bptree);
 
 	bptree->root->bkeys[0]    = _ref_bkey(bkey);
 	bptree->root->pointers[0] = left;
@@ -702,8 +702,8 @@ static bptree_node_t *_insert_into_new_root(bptree_t *bptree, bptree_node_t *lef
 	bptree->root->num_keys++;
 	bptree->root->parent = NULL;
 
-	left->parent  = bptree->root;
-	right->parent = bptree->root;
+	left->parent         = bptree->root;
+	right->parent        = bptree->root;
 
 	return bptree->root;
 }
@@ -787,9 +787,9 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	bptree_key_t    *bkey;
 
 	if ((rec = _find(bptree, key, LOOKUP_EXACT, NULL, NULL, NULL))) {
-		rec->data = data;
+		rec->data         = data;
 		bptree->data_size -= rec->data_size;
-		rec->data_size = data_size;
+		rec->data_size    = data_size;
 		bptree->data_size += rec->data_size;
 		return 0;
 	}
@@ -876,11 +876,11 @@ int bptree_update(bptree_t             *bptree,
 	switch (act) {
 		case BPTREE_UPDATE_WRITE:
 			if (rec) {
-				rec->data = data ? *data : NULL;
+				rec->data         = data ? *data : NULL;
 				bptree->data_size -= rec->data_size;
-				rec->data_size = data_size ? *data_size : 0;
+				rec->data_size    = data_size ? *data_size : 0;
 				bptree->data_size += rec->data_size;
-				r = 0;
+				r                 = 0;
 			} else
 				r = bptree_insert(bptree, key, data ? *data : NULL, data_size ? *data_size : 0);
 			break;
@@ -1225,7 +1225,7 @@ static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, bptree_k
 	bk_prime       = n->parent->bkeys[k_prime_index];
 	neighbor       = neighbor_index == -1 ? n->parent->pointers[1] : n->parent->pointers[neighbor_index];
 
-	capacity = n->is_leaf ? bptree->order : bptree->order - 1;
+	capacity       = n->is_leaf ? bptree->order : bptree->order - 1;
 
 	/* Coalescence. */
 
@@ -1247,7 +1247,7 @@ int bptree_remove(bptree_t *bptree, const char *key)
 	bptree_record_t *rec      = NULL;
 	bptree_key_t    *bkey     = NULL;
 
-	rec = _find(bptree, key, LOOKUP_EXACT, &key_leaf, NULL, &bkey);
+	rec                       = _find(bptree, key, LOOKUP_EXACT, &key_leaf, NULL, &bkey);
 
 	/* CHANGE */
 

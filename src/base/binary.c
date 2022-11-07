@@ -63,7 +63,7 @@ int sid_binary_encode(const unsigned char *src, size_t in_len, unsigned char *de
 		*pos++ = base64_table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
 		*pos++ = base64_table[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
 		*pos++ = base64_table[in[2] & 0x3f];
-		in += 3;
+		in     += 3;
 	}
 
 	if (end - in) {
@@ -103,7 +103,7 @@ unsigned char *sid_binary_decode(const unsigned char *src, size_t len, size_t *o
 		dtable[base64_table[i]] = (unsigned char) i;
 	dtable['='] = 0;
 
-	count = 0;
+	count       = 0;
 	for (i = 0; i < len; i++) {
 		if (dtable[src[i]] != 0x80)
 			count++;

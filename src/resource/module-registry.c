@@ -216,8 +216,8 @@ int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resou
 	if (sid_resource_search(module_subregistry_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL))
 		return -EINVAL;
 
-	module      = sid_resource_get_data(module_res);
-	subregistry = sid_resource_get_data(module_subregistry_res);
+	module         = sid_resource_get_data(module_res);
+	subregistry    = sid_resource_get_data(module_subregistry_res);
 
 	orig_base_name = subregistry->base_name;
 
@@ -262,7 +262,7 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 	int             count, i;
 	int             r = 0;
 
-	count = scandir(registry->directory, &dirent, NULL, versionsort);
+	count             = scandir(registry->directory, &dirent, NULL, versionsort);
 
 	if (count < 0) {
 		log_sys_error(ID(module_registry_res), "scandir", registry->directory);
@@ -387,12 +387,12 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 	/* function symbols are indirect symbols */
 	symbol_params.flags = MODULE_SYMBOL_INDIRECT;
 
-	symbol_params.name = MODULE_RESET_NAME;
+	symbol_params.name  = MODULE_RESET_NAME;
 	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &module->reset_fn) < 0)
 		goto fail;
 
 	symbol_params.flags |= MODULE_SYMBOL_FAIL_ON_MISSING;
-	symbol_params.name = MODULE_INIT_NAME;
+	symbol_params.name  = MODULE_INIT_NAME;
 	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &module->init_fn) < 0)
 		goto fail;
 
@@ -531,7 +531,7 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 	registry->flags  = params->flags;
 	registry->cb_arg = params->cb_arg;
 
-	*data = registry;
+	*data            = registry;
 
 	if (!(registry->module_iter = sid_resource_iter_create(module_registry_res))) {
 		log_error(ID(module_registry_res), "Failed to prepare iterator for modules in module registry.");

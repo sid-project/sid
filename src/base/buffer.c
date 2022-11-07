@@ -87,9 +87,9 @@ int sid_buffer_reset_init(struct sid_buffer *buf, struct sid_buffer_init *init)
 {
 	struct sid_buffer_stat orig_stat = buf->stat;
 
-	buf->stat.init = *init;
-	buf->mark.set  = false;
-	buf->mark.pos  = 0;
+	buf->stat.init                   = *init;
+	buf->mark.set                    = false;
+	buf->mark.pos                    = 0;
 
 	if (!_check_buf(buf)) {
 		buf->stat = orig_stat;

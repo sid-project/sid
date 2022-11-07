@@ -30,9 +30,9 @@
 #include <stdlib.h>
 #include <sys/sysmacros.h>
 
-#define LOG_PREFIX "usid"
+#define LOG_PREFIX                      "usid"
 
-#define KEY_ENV_SEQNUM "SEQNUM"
+#define KEY_ENV_SEQNUM                  "SEQNUM"
 
 #define KEY_USID_BRIDGE_STATUS          "USID_BRIDGE_STATUS"
 #define USID_BRIDGE_STATUS_ERROR        "error"
@@ -40,15 +40,15 @@
 #define USID_BRIDGE_STATUS_INACTIVE     "inactive"
 #define USID_BRIDGE_STATUS_INCOMPATIBLE "incompatible"
 
-#define KEY_SID_PROTOCOL "SID_PROTOCOL"
-#define KEY_SID_MAJOR    "SID_MAJOR"
-#define KEY_SID_MINOR    "SID_MINOR"
-#define KEY_SID_RELEASE  "SID_RELEASE"
+#define KEY_SID_PROTOCOL                "SID_PROTOCOL"
+#define KEY_SID_MAJOR                   "SID_MAJOR"
+#define KEY_SID_MINOR                   "SID_MINOR"
+#define KEY_SID_RELEASE                 "SID_RELEASE"
 
-#define KEY_SID_PROTOCOL "SID_PROTOCOL"
-#define KEY_SID_MAJOR    "SID_MAJOR"
-#define KEY_SID_MINOR    "SID_MINOR"
-#define KEY_SID_RELEASE  "SID_RELEASE"
+#define KEY_SID_PROTOCOL                "SID_PROTOCOL"
+#define KEY_SID_MAJOR                   "SID_MAJOR"
+#define KEY_SID_MINOR                   "SID_MINOR"
+#define KEY_SID_RELEASE                 "SID_RELEASE"
 
 struct args {
 	int    argc;
@@ -162,7 +162,7 @@ static int _usid_cmd_version(void)
 	struct sid_result *res;
 	struct sid_request req = {.cmd = SID_CMD_VERSION, .flags = SID_CMD_FLAGS_FMT_ENV};
 
-	req.seqnum = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
+	req.seqnum             = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	fprintf(stdout,
 	        KEY_SID_PROTOCOL "=%" PRIu8 "\n" KEY_SID_MAJOR "=%" PRIu16 "\n" KEY_SID_MINOR "=%" PRIu16 "\n" KEY_SID_RELEASE
@@ -213,6 +213,7 @@ static int _init_usid()
 fail:
 	return -1;
 }
+
 static void _help(FILE *f)
 {
 	fprintf(f,

@@ -31,13 +31,13 @@
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
-#define KEY_ENV_MAJOR "MAJOR"
-#define KEY_ENV_MINOR "MINOR"
+#define KEY_ENV_MAJOR    "MAJOR"
+#define KEY_ENV_MINOR    "MINOR"
 
 #define SYSTEM_MAX_MAJOR ((1U << 20) - 1)
 #define SYSTEM_MAX_MINOR ((1U << 12) - 1)
 
-static const char *const _cmd_names[] = {
+static const char * const _cmd_names[] = {
 	[SID_CMD_UNDEFINED]  = "undefined",
 	[SID_CMD_UNKNOWN]    = "unknown",
 	[SID_CMD_ACTIVE]     = "active",
@@ -157,7 +157,7 @@ static int _add_devt_env_to_buffer(struct sid_buffer *buf)
 	if ((r = sid_util_env_get_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0)
 		return r;
 
-	minor = val;
+	minor  = val;
 
 	devnum = makedev(major, minor);
 	return sid_buffer_add(buf, &devnum, sizeof(devnum), NULL, NULL);

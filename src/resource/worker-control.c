@@ -29,7 +29,7 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
-#define WORKER_EXT_NAME "ext-worker"
+#define WORKER_EXT_NAME                  "ext-worker"
 
 #define DEFAULT_WORKER_IDLE_TIMEOUT_USEC 5000000
 
@@ -107,7 +107,7 @@ static void _change_worker_proxy_state(sid_resource_t *worker_proxy_res, worker_
 {
 	struct worker_proxy *worker_proxy = sid_resource_get_data(worker_proxy_res);
 
-	worker_proxy->state = state;
+	worker_proxy->state               = state;
 	log_debug(ID(worker_proxy_res), "Worker state changed to %s.", worker_state_str[state]);
 }
 
@@ -630,7 +630,7 @@ static int _setup_channels(sid_resource_t        *owner,
 	bool     is_worker;
 	unsigned i = 0;
 
-	is_worker = owner ? worker_control_is_worker(owner) : true;
+	is_worker  = owner ? worker_control_is_worker(owner) : true;
 
 	while (i < chan_count) {
 		if (_setup_channel(owner, alt_id, is_worker, type, &chans[i]) < 0)
@@ -784,7 +784,7 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 	log_debug(ID(worker_control_res), "Created new worker process with PID %d.", pid);
 
 	_destroy_channels(worker_channels, worker_control->channel_spec_count);
-	worker_channels = NULL;
+	worker_channels         = NULL;
 
 	kickstart.type          = worker_control->worker_type;
 	kickstart.pid           = pid;
@@ -887,20 +887,20 @@ int _run_external_worker(sid_resource_t *worker_control_res)
 		snprintf(gen_id, sizeof(gen_id), "%s/%d", WORKER_EXT_NAME, getpid());
 		id = gen_id;
 	}
-	worker_control->worker_id = NULL;
+	worker_control->worker_id       = NULL;
 
 	channels                        = worker_control->worker_channels;
 	worker_control->worker_channels = NULL;
 	channel_count                   = worker_control->channel_spec_count;
 
-	channel_specs                 = worker_control->channel_specs;
-	worker_control->channel_specs = NULL;
+	channel_specs                   = worker_control->channel_specs;
+	worker_control->channel_specs   = NULL;
 
-	argv                     = worker_control->ext_argv;
-	worker_control->ext_argv = NULL;
+	argv                            = worker_control->ext_argv;
+	worker_control->ext_argv        = NULL;
 
-	envp                     = worker_control->ext_envp;
-	worker_control->ext_envp = NULL;
+	envp                            = worker_control->ext_envp;
+	worker_control->ext_envp        = NULL;
 
 	if ((r = _setup_channels(NULL, id, WORKER_TYPE_EXTERNAL, channels, channel_count)) < 0)
 		goto fail;
@@ -1351,7 +1351,7 @@ static int _init_worker_control(sid_resource_t *worker_control_res, const void *
 	worker_control->worker_type  = params->worker_type;
 	worker_control->init_cb_spec = params->init_cb_spec;
 
-	*data = worker_control;
+	*data                        = worker_control;
 	return 0;
 fail:
 	free(worker_control);

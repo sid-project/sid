@@ -31,8 +31,8 @@
 extern "C" {
 #endif
 
-#define SID_UCMD_BLOCK_MOD_DIR LIBDIR "/" PACKAGE "/modules/ucmd/block"
-#define SID_UCMD_TYPE_MOD_DIR  LIBDIR "/" PACKAGE "/modules/ucmd/type"
+#define SID_UCMD_BLOCK_MOD_DIR                 LIBDIR "/" PACKAGE "/modules/ucmd/block"
+#define SID_UCMD_TYPE_MOD_DIR                  LIBDIR "/" PACKAGE "/modules/ucmd/type"
 
 #define SID_UCMD_MOD_FN_NAME_IDENT             "sid_ucmd_ident"
 #define SID_UCMD_MOD_FN_NAME_SCAN_PRE          "sid_ucmd_scan_pre"
@@ -41,7 +41,7 @@ extern "C" {
 #define SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT "sid_ucmd_scan_post_current"
 #define SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT    "sid_ucmd_scan_post_next"
 
-#define SID_UCMD_MOD_FN_NAME_ERROR "sid_ucmd_error"
+#define SID_UCMD_MOD_FN_NAME_ERROR             "sid_ucmd_error"
 
 struct sid_ucmd_common_ctx;
 struct sid_ucmd_ctx;
@@ -59,20 +59,22 @@ typedef int           sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *
 
 #ifdef __GNUC__
 
-#define _SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn)                                                                                \
-	(__builtin_choose_expr(__builtin_types_compatible_p(typeof(fn), sid_ucmd_mod_fn_t), (module_cb_fn_t *) fn, (void) 0))
+	#define _SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn)                                                                        \
+		(__builtin_choose_expr(__builtin_types_compatible_p(typeof(fn), sid_ucmd_mod_fn_t),                                \
+		                       (module_cb_fn_t *) fn,                                                                      \
+		                       (void) 0))
 
-#define SID_UCMD_MOD_INIT(fn)  MODULE_INIT(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
-#define SID_UCMD_MOD_RESET(fn) MODULE_RESET(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
-#define SID_UCMD_MOD_EXIT(fn)  MODULE_EXIT(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
+	#define SID_UCMD_MOD_INIT(fn)  MODULE_INIT(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
+	#define SID_UCMD_MOD_RESET(fn) MODULE_RESET(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
+	#define SID_UCMD_MOD_EXIT(fn)  MODULE_EXIT(_SID_UCMD_MOD_FN_TO_MODULE_FN_SAFE_CAST(fn))
 
 #else /* __GNUC__ */
 
-#define SID_UCMD_MOD_FN(name, fn) sid_ucmd_mod_fn_t *sid_ucmd_mod_##name = fn;
+	#define SID_UCMD_MOD_FN(name, fn) sid_ucmd_mod_fn_t *sid_ucmd_mod_##name = fn;
 
-#define SID_UCMD_MOD_INIT(fn)  SID_UCMD_MOD_FN(init, fn) MODULE_INIT((module_cb_fn_t *) fn)
-#define SID_UCMD_MOD_RESET(fn) SID_UCMD_MOD_FN(reset, fn) MODULE_RESET((module_cb_fn_t *) fn)
-#define SID_UCMD_MOD_EXIT(fn)  SID_UCMD_MOD_FN(exit, fn) MODULE_EXIT((module_cb_fn_t *) fn)
+	#define SID_UCMD_MOD_INIT(fn)     SID_UCMD_MOD_FN(init, fn) MODULE_INIT((module_cb_fn_t *) fn)
+	#define SID_UCMD_MOD_RESET(fn)    SID_UCMD_MOD_FN(reset, fn) MODULE_RESET((module_cb_fn_t *) fn)
+	#define SID_UCMD_MOD_EXIT(fn)     SID_UCMD_MOD_FN(exit, fn) MODULE_EXIT((module_cb_fn_t *) fn)
 
 #endif /* __GNUC__ */
 
@@ -83,11 +85,12 @@ typedef int           sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *
 
 #ifdef __GNUC__
 
-#define _SID_UCMD_FN_CHECK_TYPE(fn) (__builtin_choose_expr(__builtin_types_compatible_p(typeof(fn), sid_ucmd_fn_t), fn, (void) 0))
+	#define _SID_UCMD_FN_CHECK_TYPE(fn)                                                                                        \
+		(__builtin_choose_expr(__builtin_types_compatible_p(typeof(fn), sid_ucmd_fn_t), fn, (void) 0))
 
 #else /* __GNUC__ */
 
-#define _SID_UCMD_FN_CHECK_TYPE(fn) fn
+	#define _SID_UCMD_FN_CHECK_TYPE(fn) fn
 
 #endif /* __GNUC__ */
 

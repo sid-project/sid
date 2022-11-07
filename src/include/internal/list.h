@@ -36,13 +36,13 @@ struct list {
 	struct list *p;
 };
 
-#define list_iterate(v, head) for (v = (head)->n; v != head; v = v->n)
+#define list_iterate(v, head)        for (v = (head)->n; v != head; v = v->n)
 
-#define list_iterate_back(v, head) for (v = (head)->p; v != head; v = v->p)
+#define list_iterate_back(v, head)   for (v = (head)->p; v != head; v = v->p)
 
 #define list_struct_base(v, t, head) ((t *) ((char *) (v) -offsetof(t, head)))
 
-#define list_item(v, t) list_struct_base((v), t, list)
+#define list_item(v, t)              list_struct_base((v), t, list)
 
 #define list_iterate_items_gen(v, head, field)                                                                                     \
 	for (v = list_struct_base((head)->n, __typeof__(*v), field); &v->field != (head);                                          \

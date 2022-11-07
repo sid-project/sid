@@ -253,7 +253,7 @@ static int _blkid_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx
 	int         i;
 	int         r = -1;
 
-	pr = blkid_new_probe();
+	pr            = blkid_new_probe();
 	if (!pr)
 		goto out;
 

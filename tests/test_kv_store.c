@@ -115,23 +115,23 @@ static void test_kvstore_iterate(void **state)
 	struct kv_update_arg   update_arg;
 	size_t                 meta_size = 0;
 
-	kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
-	                                   &sid_resource_type_kv_store,
-	                                   SID_RESOURCE_RESTRICT_WALK_UP,
-	                                   "testkvstore",
-	                                   &main_kv_store_res_params,
-	                                   SID_RESOURCE_PRIO_NORMAL,
-	                                   SID_RESOURCE_NO_SERVICE_LINKS);
+	kv_store_res                     = sid_resource_create(SID_RESOURCE_NO_PARENT,
+                                           &sid_resource_type_kv_store,
+                                           SID_RESOURCE_RESTRICT_WALK_UP,
+                                           "testkvstore",
+                                           &main_kv_store_res_params,
+                                           SID_RESOURCE_PRIO_NORMAL,
+                                           SID_RESOURCE_NO_SERVICE_LINKS);
 
 	VVALUE_HEADER_PREP(test_iov, seqnum, seqnum, ucmd_flags, (char *) TEST_OWNER);
 	test_iov[VVALUE_IDX_DATA].iov_base = "test";
 	test_iov[VVALUE_IDX_DATA].iov_len  = sizeof("test");
 
-	update_arg = (struct kv_update_arg) {.res      = kv_store_res,
-	                                     .gen_buf  = NULL,
-	                                     .owner    = TEST_OWNER,
-	                                     .custom   = NULL,
-	                                     .ret_code = -EREMOTEIO};
+	update_arg                         = (struct kv_update_arg) {.res      = kv_store_res,
+	                                                             .gen_buf  = NULL,
+	                                                             .owner    = TEST_OWNER,
+	                                                             .custom   = NULL,
+	                                                             .ret_code = -EREMOTEIO};
 
 	/* Add the whole vector with TEST_KEY as the key */
 	assert_ptr_not_equal(kv_store_set_value(kv_store_res,
@@ -181,7 +181,7 @@ static size_t add_sequential_test_data(char                     *key,
 		snprintf(str, strlen + 1, "%d", i);
 		test_iov[i].iov_base = str;
 		test_iov[i].iov_len  = strlen + 1;
-		size += strlen + 1;
+		size                 += strlen + 1;
 	}
 	assert_ptr_not_equal(kv_store_set_value(kv_store_res, MERGE_KEY, test_iov, MAX_TEST_ENTRIES, flags, op_flags, NULL, NULL),
 	                     NULL);
@@ -236,13 +236,13 @@ static void test_kvstore_merge_op(void **state)
 	kv_store_value_flags_t flags        = KV_STORE_VALUE_VECTOR;
 	sid_resource_t        *kv_store_res = NULL;
 
-	kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
-	                                   &sid_resource_type_kv_store,
-	                                   SID_RESOURCE_RESTRICT_WALK_UP,
-	                                   "testkvstore",
-	                                   &main_kv_store_res_params,
-	                                   SID_RESOURCE_PRIO_NORMAL,
-	                                   SID_RESOURCE_NO_SERVICE_LINKS);
+	kv_store_res                        = sid_resource_create(SID_RESOURCE_NO_PARENT,
+                                           &sid_resource_type_kv_store,
+                                           SID_RESOURCE_RESTRICT_WALK_UP,
+                                           "testkvstore",
+                                           &main_kv_store_res_params,
+                                           SID_RESOURCE_PRIO_NORMAL,
+                                           SID_RESOURCE_NO_SERVICE_LINKS);
 
 	add_sequential_test_data(MERGE_KEY, test_iov, kv_store_res, MAX_TEST_ENTRIES, flags, KV_STORE_VALUE_OP_MERGE);
 	assert_int_equal(kv_store_num_entries(kv_store_res), 1);

@@ -36,6 +36,7 @@ typedef enum {
 
 struct kv_store {
 	kv_store_backend_t backend;
+
 	union {
 		struct hash_table *ht;
 		struct bptree     *bpt;
@@ -57,10 +58,12 @@ struct kv_update_fn_relay {
 
 struct kv_store_iter {
 	struct kv_store *store;
+
 	union {
 		struct {
 			struct hash_node *current;
 		} ht;
+
 		struct {
 			bptree_iter_t *iter;
 		} bpt;
@@ -218,7 +221,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 					if (flags & KV_STORE_VALUE_AUTOFREE)
 						free(iov[i].iov_base);
 					iov[i].iov_base = p2;
-					p2 += iov[i].iov_len;
+					p2              += iov[i].iov_len;
 				}
 
 				value->int_flags = KV_STORE_VALUE_INT_ALLOC;
@@ -242,8 +245,8 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 					p1 += iov[i].iov_len;
 				}
 
-				value->size = data_size;
-				flags &= ~KV_STORE_VALUE_VECTOR;
+				value->size      = data_size;
+				flags            &= ~KV_STORE_VALUE_VECTOR;
 				value->int_flags = KV_STORE_VALUE_INT_ALLOC;
 			} else {
 				/* E */
@@ -259,7 +262,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 					memcpy(p1, iov[i].iov_base, iov[i].iov_len);
 					iov2[i].iov_base = p1;
 					iov2[i].iov_len  = iov[i].iov_len;
-					p1 += iov[i].iov_len;
+					p1               += iov[i].iov_len;
 				}
 
 				value->size      = iov_cnt;
@@ -330,9 +333,9 @@ static int _update_fn(const char                *key,
 		update_spec.new_data_size = orig_new_data_size = orig_new_value->size;
 		update_spec.new_flags = orig_new_flags = orig_new_value->ext_flags;
 
-		update_spec.arg = relay->kv_update_fn_arg;
+		update_spec.arg                        = relay->kv_update_fn_arg;
 
-		r = relay->kv_update_fn(&update_spec);
+		r                                      = relay->kv_update_fn(&update_spec);
 
 		/* Check if there has been any change... */
 		if ((r > 0) && ((update_spec.new_data != orig_new_data) || (update_spec.new_data_size != orig_new_data_size) ||
@@ -501,8 +504,8 @@ int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char
 {
 	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
 
-	key   = _canonicalize_key(key);
-	alias = _canonicalize_key(alias);
+	key                       = _canonicalize_key(key);
+	alias                     = _canonicalize_key(alias);
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_BPTREE:
@@ -553,7 +556,7 @@ static int _unset_fn(const char                *key,
 	int                         r;
 
 	if (relay->kv_update_fn) {
-		update_spec.key = key;
+		update_spec.key           = key;
 
 		update_spec.new_data      = NULL;
 		update_spec.new_data_size = 0;
@@ -571,7 +574,7 @@ static int _unset_fn(const char                *key,
 
 		update_spec.arg = relay->kv_update_fn_arg;
 
-		r = relay->kv_update_fn(&update_spec);
+		r               = relay->kv_update_fn(&update_spec);
 	} else
 		r = 1;
 
@@ -628,7 +631,7 @@ int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_updat
 	                                      .kv_update_fn_arg = kv_unset_fn_arg,
 	                                      .ret_code         = -EREMOTEIO};
 
-	key = _canonicalize_key(key);
+	key                                = _canonicalize_key(key);
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
@@ -724,7 +727,7 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
 		int           i;
 		struct iovec *iov;
 
-		iov = (value->ext_flags & KV_STORE_VALUE_REF) ? _get_ptr(value->data) : (struct iovec *) value->data;
+		iov      = (value->ext_flags & KV_STORE_VALUE_REF) ? _get_ptr(value->data) : (struct iovec *) value->data;
 
 		iov_size = value->size * sizeof(struct iovec);
 		for (i = 0, data_size = 0; i < value->size; i++)

@@ -32,17 +32,17 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define LOG_PREFIX "sidctl"
+#define LOG_PREFIX          "sidctl"
 
 #define KEY_SIDCTL_PROTOCOL "SIDCTL_PROTOCOL"
 #define KEY_SIDCTL_MAJOR    "SIDCTL_MAJOR"
 #define KEY_SIDCTL_MINOR    "SIDCTL_MINOR"
 #define KEY_SIDCTL_RELEASE  "SIDCTL_RELEASE"
 
-#define KEY_SID_PROTOCOL "SID_PROTOCOL"
-#define KEY_SID_MAJOR    "SID_MAJOR"
-#define KEY_SID_MINOR    "SID_MINOR"
-#define KEY_SID_RELEASE  "SID_RELEASE"
+#define KEY_SID_PROTOCOL    "SID_PROTOCOL"
+#define KEY_SID_MAJOR       "SID_MAJOR"
+#define KEY_SID_MINOR       "SID_MINOR"
+#define KEY_SID_RELEASE     "SID_RELEASE"
 
 static int _sid_cmd(sid_cmd_t cmd, uint16_t format)
 {

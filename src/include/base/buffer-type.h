@@ -28,6 +28,7 @@ struct sid_buffer {
 	struct sid_buffer_stat stat;
 	void                  *mem;
 	int                    fd;
+
 	struct {
 		bool   set;
 		size_t pos;

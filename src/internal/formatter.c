@@ -32,7 +32,7 @@
 #define PRINT_JSON_END_ARRAY   "]"
 #define PRINT_JSON_INDENT      "    "
 
-#define JOIN_STR(format) ((format == TABLE) ? ": " : "=")
+#define JOIN_STR(format)       ((format == TABLE) ? ": " : "=")
 
 static int _print_fmt(struct sid_buffer *buf, const char *fmt, ...)
 {

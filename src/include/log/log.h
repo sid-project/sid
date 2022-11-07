@@ -69,11 +69,11 @@ __attribute__((format(printf, 8, 9))) void log_output(int         level_id,
                                                       const char *format,
                                                       ...);
 
-#define LOG_CLASS_UNCLASSIFIED 0x0001
+#define LOG_CLASS_UNCLASSIFIED     0x0001
 
-#define LOG_PRINT LOG_LOCAL0
+#define LOG_PRINT                  LOG_LOCAL0
 
-#define LOG_LINE(l, p, c, e, ...) log_output(l, p, c, e, __FILE__, __LINE__, __func__, __VA_ARGS__)
+#define LOG_LINE(l, p, c, e, ...)  log_output(l, p, c, e, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
 #define log_debug(p, ...)          LOG_LINE(LOG_DEBUG, p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
 #define log_info(p, ...)           LOG_LINE(LOG_INFO, p, LOG_CLASS_UNCLASSIFIED, 0, __VA_ARGS__)
@@ -84,7 +84,7 @@ __attribute__((format(printf, 8, 9))) void log_output(int         level_id,
 #define log_error_errno(p, e, ...) LOG_LINE(LOG_ERR, p, LOG_CLASS_UNCLASSIFIED, e, __VA_ARGS__)
 #define log_sys_error(p, x, y)     log_error_errno(p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
 
-#define INTERNAL_ERROR "Internal error: "
+#define INTERNAL_ERROR             "Internal error: "
 
 #ifdef __cplusplus
 }

@@ -37,7 +37,7 @@
 #define SID_DEFAULT_UMASK 0077
 #define LOG_PREFIX        "main"
 
-#define KEY_VERBOSE "VERBOSE"
+#define KEY_VERBOSE       "VERBOSE"
 
 static void _help(FILE *f)
 {
@@ -121,12 +121,12 @@ int main(int argc, char *argv[])
 	sid_resource_t    *sid_res    = NULL;
 	int                r          = -1;
 
-	struct option longopts[] = {{"foreground", 0, NULL, 'f'},
-	                            {"journal", 0, NULL, 'j'},
-	                            {"help", 0, NULL, 'h'},
-	                            {"verbose", 0, NULL, 'v'},
-	                            {"version", 0, NULL, 'V'},
-	                            {NULL, 0, NULL, 0}};
+	struct option longopts[]      = {{"foreground", 0, NULL, 'f'},
+	                                 {"journal", 0, NULL, 'j'},
+	                                 {"help", 0, NULL, 'h'},
+	                                 {"verbose", 0, NULL, 'v'},
+	                                 {"version", 0, NULL, 'V'},
+	                                 {NULL, 0, NULL, 0}};
 
 	while ((opt = getopt_long(argc, argv, "fjhvV", longopts, NULL)) != -1) {
 		switch (opt) {

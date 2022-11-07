@@ -45,9 +45,9 @@ typedef enum {
 	_SID_CMD_END       = SID_CMD_RESOURCES,
 } sid_cmd_t;
 
-#define SID_CMD_STATUS_MASK_OVERALL UINT64_C(0x0000000000000001)
-#define SID_CMD_STATUS_SUCCESS      UINT64_C(0x0000000000000000)
-#define SID_CMD_STATUS_FAILURE      UINT64_C(0x0000000000000001)
+#define SID_CMD_STATUS_MASK_OVERALL   UINT64_C(0x0000000000000001)
+#define SID_CMD_STATUS_SUCCESS        UINT64_C(0x0000000000000000)
+#define SID_CMD_STATUS_FAILURE        UINT64_C(0x0000000000000001)
 
 #define SID_CMD_FLAGS_FMT_MASK        UINT16_C(0x0003)
 #define SID_CMD_FLAGS_FMT_TABLE       UINT16_C(0x0000)
@@ -70,6 +70,7 @@ struct sid_request {
 	sid_cmd_t cmd;
 	uint64_t  flags;
 	uint64_t  seqnum;
+
 	union {
 		struct sid_checkpoint_data checkpoint;
 		struct sid_unmodified_data unmodified;

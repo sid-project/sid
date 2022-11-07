@@ -36,10 +36,10 @@ typedef int     module_cb_fn_t(struct module *module, void *cb_arg);
 
 #define MODULE_FN(name, fn) module_cb_fn_t *module_##name = fn;
 
-#define MODULE_PRIO(val) module_prio_t module_prio = val;
-#define MODULE_INIT(fn)  MODULE_FN(init, fn)
-#define MODULE_EXIT(fn)  MODULE_FN(exit, fn)
-#define MODULE_RESET(fn) MODULE_FN(reset, fn)
+#define MODULE_PRIO(val)    module_prio_t module_prio = val;
+#define MODULE_INIT(fn)     MODULE_FN(init, fn)
+#define MODULE_EXIT(fn)     MODULE_FN(exit, fn)
+#define MODULE_RESET(fn)    MODULE_FN(reset, fn)
 
 const char *module_get_full_name(struct module *module);
 const char *module_get_name(struct module *module);

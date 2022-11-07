@@ -35,25 +35,25 @@ typedef enum {
 
 typedef enum {
 	/* no notification */
-	SERVICE_NOTIFICATION_NONE = UINT64_C(0x0000000000000000),
+	SERVICE_NOTIFICATION_NONE             = UINT64_C(0x0000000000000000),
 
 	/* discard any further service notifications; no arg */
-	SERVICE_NOTIFICATION_UNSET = UINT64_C(0x0000000000000001),
+	SERVICE_NOTIFICATION_UNSET            = UINT64_C(0x0000000000000001),
 
 	/* notify about service status; arg is STATUS=<message> */
-	SERVICE_NOTIFICATION_STATUS = UINT64_C(0x0000000000000002),
+	SERVICE_NOTIFICATION_STATUS           = UINT64_C(0x0000000000000002),
 
 	/* notify about service reaching an error with errno; arg is 'ERRNO=<errno>' or 'ERRNO=<errno_identifier>' */
-	SERVICE_NOTIFICATION_ERRNO = UINT64_C(0x0000000000000004),
+	SERVICE_NOTIFICATION_ERRNO            = UINT64_C(0x0000000000000004),
 
 	/* notify about service being ready; no arg */
-	SERVICE_NOTIFICATION_READY = UINT64_C(0x0000000000000008),
+	SERVICE_NOTIFICATION_READY            = UINT64_C(0x0000000000000008),
 
 	/* notify about service being reloaded; no arg */
-	SERVICE_NOTIFICATION_RELOADING = UINT64_C(0x0000000000000010),
+	SERVICE_NOTIFICATION_RELOADING        = UINT64_C(0x0000000000000010),
 
 	/* notify about service being stopped; no arg */
-	SERVICE_NOTIFICATION_STOPPING = UINT64_C(0x0000000000000020),
+	SERVICE_NOTIFICATION_STOPPING         = UINT64_C(0x0000000000000020),
 
 	/* notify about service being still alive; no arg */
 	SERVICE_NOTIFICATION_WATCHDOG_REFRESH = UINT64_C(0x0000000000000040),
@@ -65,19 +65,19 @@ typedef enum {
 struct service_link;
 struct service_link_group;
 
-#define SERVICE_KEY_STATUS "STATUS"
-#define SERVICE_KEY_ERRNO  "ERRNO"
+#define SERVICE_KEY_STATUS              "STATUS"
+#define SERVICE_KEY_ERRNO               "ERRNO"
 
-#define SERVICE_KEY_ACTIVATION_TYPE "SERVICE_ACTIVATION_TYPE"
-#define SERVICE_VALUE_ACTIVATION_FD "FD_PRELOAD"
+#define SERVICE_KEY_ACTIVATION_TYPE     "SERVICE_ACTIVATION_TYPE"
+#define SERVICE_VALUE_ACTIVATION_FD     "FD_PRELOAD"
 
 #define SERVICE_FD_ACTIVATION_FDS_START SD_LISTEN_FDS_START
 
 /* int sd_listen_fds(int unset_environment) */
-#define service_fd_activation_present sd_listen_fds
+#define service_fd_activation_present   sd_listen_fds
 
 /* int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) */
-#define service_fd_is_socket_unix sd_is_socket_unix
+#define service_fd_is_socket_unix       sd_is_socket_unix
 
 struct service_link *service_link_create(service_link_type_t type, const char *name);
 void                 service_link_destroy(struct service_link *sl);

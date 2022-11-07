@@ -195,7 +195,7 @@ static void _do_hash_remove(struct hash_table *t, struct hash_node **c)
 {
 	struct hash_node *old = *c;
 
-	*c = (*c)->next;
+	*c                    = (*c)->next;
 	free(old);
 	t->num_nodes--;
 }
@@ -239,7 +239,7 @@ int hash_insert_allow_multiple(struct hash_table *t, const char *key, uint32_t k
 	if (!n)
 		return -1;
 
-	h = _hash(key, key_len) & (t->num_slots - 1);
+	h     = _hash(key, key_len) & (t->num_slots - 1);
 
 	first = t->slots[h];
 
@@ -301,7 +301,7 @@ void *hash_lookup_with_count(struct hash_table *t, const char *key, uint32_t key
 
 	*count = 0;
 
-	h = _hash(key, len) & (t->num_slots - 1);
+	h      = _hash(key, len) & (t->num_slots - 1);
 
 	for (c = &t->slots[h]; *c; c = &((*c)->next)) {
 		if ((*c)->key_len != len)

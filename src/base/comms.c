@@ -109,10 +109,12 @@ static ssize_t _do_comms_unix_send(int socket_fd, struct iovec *iov, size_t iov_
 {
 	struct msghdr   msg = {0};
 	struct cmsghdr *cmsg;
+
 	union {
 		char           control[CMSG_SPACE(sizeof(int))];
 		struct cmsghdr alignment;
 	} u = {0};
+
 	ssize_t r;
 
 	msg.msg_iov    = iov;
@@ -150,10 +152,12 @@ static ssize_t _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_
 {
 	struct msghdr   msg = {0};
 	struct cmsghdr *cmsg;
+
 	union {
 		char           control[CMSG_SPACE(sizeof(int))];
 		struct cmsghdr alignment;
 	} u;
+
 	ssize_t r;
 
 	msg.msg_iov        = iov;
@@ -161,7 +165,7 @@ static ssize_t _do_comms_unix_recv(int socket_fd, struct iovec *iov, size_t iov_
 	msg.msg_control    = u.control;
 	msg.msg_controllen = sizeof(u.control);
 
-	*fd_received = -1;
+	*fd_received       = -1;
 
 	if ((r = recvmsg(socket_fd, &msg, 0)) < 0)
 		return -errno;

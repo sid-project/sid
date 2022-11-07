@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 /* For use in struct module_registry_resource_resource_module_params.flags field. */
-#define MODULE_REGISTRY_PRELOAD UINT64_C(0x0000000000000001)
+#define MODULE_REGISTRY_PRELOAD       UINT64_C(0x0000000000000001)
 
 /* For use in struct module_symbol_params.flags field. */
 #define MODULE_SYMBOL_WARN_ON_MISSING UINT64_C(0x0000000000000001)

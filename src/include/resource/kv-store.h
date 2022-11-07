@@ -58,6 +58,7 @@ struct kv_store_bptree_backend_params {
 
 struct sid_kv_store_resource_params {
 	kv_store_backend_t backend;
+
 	union {
 		struct kv_store_hash_backend_params   hash;
 		struct kv_store_bptree_backend_params bptree;

@@ -60,12 +60,15 @@ typedef enum {
 
 struct worker_wire_spec {
 	worker_wire_type_t type;
+
 	struct {
 		bool used;
+
 		union {
 			struct {
 				int fd_redir; /* FD to redirect into/from a pipe (depending on pipe direction) on worker side */
 			} pipe;
+
 			struct {
 				int fd_redir; /* FD to redirect into a socket on worker side */
 			} socket;
@@ -77,8 +80,10 @@ struct worker_wire_spec {
 struct worker_data_spec {
 	void  *data;
 	size_t data_size;
+
 	struct {
 		bool used;
+
 		union {
 			struct {
 				int fd_pass; /* FD to pass through a socket wire */
@@ -123,6 +128,7 @@ int worker_control_channel_send(sid_resource_t *res, const char *channel_id, str
 /* Worker creation/lookup. */
 struct worker_params {
 	const char *id;
+
 	union {
 		struct {
 			const char *exec_file;

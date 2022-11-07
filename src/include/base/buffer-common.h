@@ -52,6 +52,7 @@ struct sid_buffer_spec {
 	sid_buffer_backend_t backend;
 	sid_buffer_type_t    type;
 	sid_buffer_mode_t    mode;
+
 	union {
 		struct {
 			const char *path;

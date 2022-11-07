@@ -19,8 +19,8 @@
 
 #include "log/log.h"
 
-static log_target_t _current_target       = LOG_TARGET_NONE;
-static int          _current_verbose_mode = 0;
+static log_target_t _current_target                   = LOG_TARGET_NONE;
+static int          _current_verbose_mode             = 0;
 
 static const struct log_target *log_target_registry[] = {[LOG_TARGET_STANDARD] = &log_target_standard,
                                                          [LOG_TARGET_SYSLOG]   = &log_target_syslog,

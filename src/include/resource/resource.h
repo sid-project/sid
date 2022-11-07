@@ -45,8 +45,8 @@ typedef struct sid_resource_type {
 	const char *description;
 	int (*init)(sid_resource_t *res, const void *kickstart_data, void **data);
 	int (*destroy)(sid_resource_t *res);
-	unsigned int with_event_loop : 1;
-	unsigned int with_watchdog   : 1;
+	unsigned int with_event_loop:1;
+	unsigned int with_watchdog  :1;
 } sid_resource_type_t;
 
 #include "resource-type-regs.h"
@@ -62,11 +62,11 @@ typedef enum {
 	SID_RESOURCE_DISALLOW_ISOLATION = UINT64_C(0x0000000000000004),
 } sid_resource_flags_t;
 
-#define SID_RESOURCE_NO_PARENT        NULL
-#define SID_RESOURCE_NO_CUSTOM_ID     NULL
-#define SID_RESOURCE_NO_PARAMS        NULL
-#define SID_RESOURCE_NO_SERVICE_LINKS NULL
-#define SID_RESOURCE_PRIO_NORMAL      0
+#define SID_RESOURCE_NO_PARENT             NULL
+#define SID_RESOURCE_NO_CUSTOM_ID          NULL
+#define SID_RESOURCE_NO_PARAMS             NULL
+#define SID_RESOURCE_NO_SERVICE_LINKS      NULL
+#define SID_RESOURCE_PRIO_NORMAL           0
 
 #define SID_RESOURCE_UNLIMITED_EVENT_COUNT UINT64_MAX
 

@@ -48,7 +48,7 @@ typedef struct sid_resource {
 	sid_resource_flags_t flags;
 	int64_t              prio;
 	unsigned             ref_count;
-	bool                 initialized : 1;
+	bool                 initialized:1;
 
 	/* event handling */
 	struct {
@@ -69,7 +69,7 @@ typedef struct sid_resource_iter {
 	struct list    *prev; /* for safety */
 	struct list    *current;
 	struct list    *next; /* for safety */
-	bool            res_refd : 1;
+	bool            res_refd:1;
 } sid_resource_iter_t;
 
 typedef enum {
@@ -83,7 +83,7 @@ typedef enum {
 	EVENT_SOURCE_EXIT,
 } event_source_type_t;
 
-static const char *const _event_source_type_names[] = {
+static const char * const _event_source_type_names[] = {
 	[EVENT_SOURCE_GENERIC]  = "Generic",
 	[EVENT_SOURCE_IO]       = "IO",
 	[EVENT_SOURCE_SIGNAL]   = "Signal",

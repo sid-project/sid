@@ -368,7 +368,7 @@ static ssize_t _buffer_linear_read_with_size_prefix(struct sid_buffer *buf, int 
 	n = read(fd, buf->mem + buf->stat.usage.used, buf->stat.usage.allocated - buf->stat.usage.used);
 
 	if (n > 0) {
-		previous_used = buf->stat.usage.used;
+		previous_used        = buf->stat.usage.used;
 		buf->stat.usage.used += n;
 		if ((expected = EXPECTED(buf))) {
 			/* Message must start with a prefix that is SID_BUFFER_SIZE_PREFIX_LEN bytes! */
