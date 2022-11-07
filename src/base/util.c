@@ -34,8 +34,8 @@
 int sid_util_env_get_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val)
 {
 	unsigned long long ret;
-	char *             env_val;
-	char *             p;
+	char              *env_val;
+	char              *p;
 
 	if (!(env_val = getenv(key)))
 		return -ENOKEY;
@@ -119,7 +119,7 @@ bool sid_util_kernel_cmdline_get_arg(const char *arg, char **value, int *ret_cod
 {
 	int         r = 0;
 	static char buf[4097];
-	char *      ptr, *limit, *next, *val, *end;
+	char       *ptr, *limit, *next, *val, *end;
 
 	if (!arg) {
 		r = -EINVAL;

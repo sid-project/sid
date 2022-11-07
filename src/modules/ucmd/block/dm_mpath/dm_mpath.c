@@ -31,8 +31,7 @@
 
 SID_UCMD_MOD_PRIO(-1)
 
-enum
-{
+enum {
 	U_DEV_PATH      = 0,
 	_UDEV_KEY_START = U_DEV_PATH,
 	_UDEV_KEY_END   = U_DEV_PATH,
@@ -125,7 +124,7 @@ static int _is_parent_multipathed(struct module *mod, struct sid_ucmd_ctx *ucmd_
 {
 	int         r = MPATH_IS_ERROR;
 	const char *valid_str;
-	char *      p;
+	char       *p;
 
 	valid_str = sid_ucmd_part_get_disk_kv(mod, ucmd_ctx, keys[D_VALID], NULL, NULL);
 	if (!valid_str || !valid_str[0])
@@ -170,7 +169,7 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 
 	if (r == MPATH_IS_VALID) {
 		const char *old_valid_str;
-		char *      p;
+		char       *p;
 		int         old_valid;
 
 		old_valid_str = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_DEVICE, keys[D_VALID], NULL, NULL);

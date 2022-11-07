@@ -54,8 +54,7 @@ typedef struct sid_resource_type {
 /*
  * create/destroy functions and related types
  */
-typedef enum
-{
+typedef enum {
 	SID_RESOURCE_NO_FLAGS           = UINT64_C(0x0000000000000000),
 	SID_RESOURCE_RESTRICT_WALK_UP   = UINT64_C(0x0000000000000001), /* restrict walk from child to parent */
 	SID_RESOURCE_RESTRICT_WALK_DOWN = UINT64_C(0x0000000000000002), /* restrict walk from parent to child */
@@ -72,7 +71,7 @@ typedef enum
 #define SID_RESOURCE_UNLIMITED_EVENT_COUNT UINT64_MAX
 
 typedef struct sid_resource_service_link_def {
-	const char *                name;
+	const char                 *name;
 	service_link_type_t         type;
 	service_link_notification_t notification;
 } sid_resource_service_link_def_t;
@@ -81,11 +80,11 @@ typedef struct sid_resource_service_link_def {
 	((sid_resource_service_link_def_t) {.name = NULL, .type = SERVICE_TYPE_NONE, .notification = SERVICE_NOTIFICATION_NONE})
 
 /* Note: service_link_defs[] array must always be terminated by NULL_SERVICE_LINK */
-sid_resource_t *sid_resource_create(sid_resource_t *                parent_res,
-                                    const sid_resource_type_t *     type,
+sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
+                                    const sid_resource_type_t      *type,
                                     sid_resource_flags_t            flags,
-                                    const char *                    id,
-                                    const void *                    kickstart_data,
+                                    const char                     *id,
+                                    const void                     *kickstart_data,
                                     int64_t                         prio,
                                     sid_resource_service_link_def_t service_link_defs[]);
 
@@ -114,16 +113,15 @@ int64_t sid_resource_get_prio(sid_resource_t *res);
 typedef struct sid_resource_iter sid_resource_iter_t;
 
 sid_resource_iter_t *sid_resource_iter_create(sid_resource_t *res);
-sid_resource_t *     sid_resource_iter_current(sid_resource_iter_t *iter);
-sid_resource_t *     sid_resource_iter_next(sid_resource_iter_t *iter);
-sid_resource_t *     sid_resource_iter_previous(sid_resource_iter_t *iter);
+sid_resource_t      *sid_resource_iter_current(sid_resource_iter_t *iter);
+sid_resource_t      *sid_resource_iter_next(sid_resource_iter_t *iter);
+sid_resource_t      *sid_resource_iter_previous(sid_resource_iter_t *iter);
 void                 sid_resource_iter_reset(sid_resource_iter_t *iter);
 void                 sid_resource_iter_destroy(sid_resource_iter_t *iter);
 
 bool sid_resource_match(sid_resource_t *res, const sid_resource_type_t *type, const char *id);
 
-typedef enum
-{
+typedef enum {
 	/* Descendant search methods */
 
 	_SID_RESOURCE_SEARCH_DESC_START, /* internal use */
@@ -150,10 +148,10 @@ typedef enum
 
 } sid_resource_search_method_t;
 
-sid_resource_t *sid_resource_search(sid_resource_t *             root_res,
+sid_resource_t *sid_resource_search(sid_resource_t              *root_res,
                                     sid_resource_search_method_t method,
-                                    const sid_resource_type_t *  type,
-                                    const char *                 id);
+                                    const sid_resource_type_t   *type,
+                                    const char                  *id);
 
 /*
  * structure/tree modification functions
@@ -173,70 +171,69 @@ typedef int (*sid_resource_child_event_handler_t)(sid_resource_event_source_t *e
 typedef int (*sid_resource_time_event_handler_t)(sid_resource_event_source_t *es, uint64_t usec, void *data);
 typedef int (*sid_resource_generic_event_handler_t)(sid_resource_event_source_t *es, void *data);
 
-typedef enum
-{
+typedef enum {
 	SID_RESOURCE_POS_ABS,
 	SID_RESOURCE_POS_REL,
 } sid_resource_pos_t;
 
-int sid_resource_create_io_event_source(sid_resource_t *                res,
-                                        sid_resource_event_source_t **  es,
+int sid_resource_create_io_event_source(sid_resource_t                 *res,
+                                        sid_resource_event_source_t   **es,
                                         int                             fd,
                                         sid_resource_io_event_handler_t handler,
                                         int64_t                         prio,
-                                        const char *                    name,
-                                        void *                          data);
+                                        const char                     *name,
+                                        void                           *data);
 
-int sid_resource_create_signal_event_source(sid_resource_t *                    res,
-                                            sid_resource_event_source_t **      es,
+int sid_resource_create_signal_event_source(sid_resource_t                     *res,
+                                            sid_resource_event_source_t       **es,
                                             sigset_t                            mask,
                                             sid_resource_signal_event_handler_t handler,
                                             int64_t                             prio,
-                                            const char *                        name,
-                                            void *                              data);
+                                            const char                         *name,
+                                            void                               *data);
 
-int sid_resource_create_child_event_source(sid_resource_t *                   res,
-                                           sid_resource_event_source_t **     es,
+int sid_resource_create_child_event_source(sid_resource_t                    *res,
+                                           sid_resource_event_source_t      **es,
                                            pid_t                              pid,
                                            int                                options,
                                            sid_resource_child_event_handler_t handler,
                                            int64_t                            prio,
-                                           const char *                       name,
-                                           void *                             data);
+                                           const char                        *name,
+                                           void                              *data);
 
-int sid_resource_create_time_event_source(sid_resource_t *                  res,
-                                          sid_resource_event_source_t **    es,
+int sid_resource_create_time_event_source(sid_resource_t                   *res,
+                                          sid_resource_event_source_t     **es,
                                           clockid_t                         clock,
                                           sid_resource_pos_t                disposition,
                                           uint64_t                          usec,
                                           uint64_t                          accuracy,
                                           sid_resource_time_event_handler_t handler,
                                           int64_t                           prio,
-                                          const char *                      name,
-                                          void *                            data);
+                                          const char                       *name,
+                                          void                             *data);
 
 int sid_resource_rearm_time_event_source(sid_resource_event_source_t *es, sid_resource_pos_t disposition, uint64_t usec);
 
-int sid_resource_create_deferred_event_source(sid_resource_t *                     res,
-                                              sid_resource_event_source_t **       es,
+int sid_resource_create_deferred_event_source(sid_resource_t                      *res,
+                                              sid_resource_event_source_t        **es,
                                               sid_resource_generic_event_handler_t handler,
                                               int64_t                              prio,
-                                              const char *                         name,
-                                              void *                               data);
+                                              const char                          *name,
+                                              void                                *data);
 
-int sid_resource_create_post_event_source(sid_resource_t *                     res,
-                                          sid_resource_event_source_t **       es,
+int sid_resource_create_post_event_source(sid_resource_t                      *res,
+                                          sid_resource_event_source_t        **es,
                                           sid_resource_generic_event_handler_t handler,
                                           int64_t                              prio,
-                                          const char *                         name,
-                                          void *                               data);
+                                          const char                          *name,
+                                          void                                *data);
 
-int sid_resource_create_exit_event_source(sid_resource_t *                     res,
-                                          sid_resource_event_source_t **       es,
+int sid_resource_create_exit_event_source(sid_resource_t                      *res,
+                                          sid_resource_event_source_t        **es,
                                           sid_resource_generic_event_handler_t handler,
                                           int64_t                              prio,
-                                          const char *                         name,
-                                          void *                               data);
+                                          const char                          *name,
+                                          void                                *data);
 
 int sid_resource_set_event_source_counter(sid_resource_event_source_t *es, sid_resource_pos_t disposition, uint64_t events_max);
 int sid_resource_get_event_source_counter(sid_resource_event_source_t *es, uint64_t *events_fired, uint64_t *events_max);
@@ -249,7 +246,7 @@ int sid_resource_exit_event_loop(sid_resource_t *res);
 /*
  * miscellanous functions
  */
-int sid_resource_write_tree_recursively(sid_resource_t *   res,
+int sid_resource_write_tree_recursively(sid_resource_t    *res,
                                         output_format_t    format,
                                         bool               add_comma,
                                         struct sid_buffer *outbuf,

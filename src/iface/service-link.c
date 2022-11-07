@@ -35,8 +35,8 @@
 
 struct service_link {
 	struct list                 list;
-	struct service_link_group * group;
-	const char *                name;
+	struct service_link_group  *group;
+	const char                 *name;
 	service_link_type_t         type;
 	service_link_notification_t notification;
 };
@@ -163,14 +163,14 @@ out:
  * FIXME: For now, we have notification for systemd only, but to support more types,
  * 	  we need to separate this function into distinct functions per each type.
  */
-static int _do_service_link_notify(struct service_link *       sl,
-                                   struct service_link_group * slg,
+static int _do_service_link_notify(struct service_link        *sl,
+                                   struct service_link_group  *slg,
                                    service_link_notification_t notification,
-                                   const char *                fmt,
+                                   const char                 *fmt,
                                    va_list                     ap)
 {
 	struct sid_buffer *buf = NULL, *fmt_buf = NULL;
-	const char *       arg_str, *arg_value;
+	const char        *arg_str, *arg_value;
 	size_t             size;
 	int                unset = 0;
 	int                iter_r, r = 0;

@@ -47,7 +47,7 @@ size_t sid_binary_len_encode(size_t in_len)
  */
 int sid_binary_encode(const unsigned char *src, size_t in_len, unsigned char *dest, size_t out_len)
 {
-	unsigned char *      pos;
+	unsigned char       *pos;
 	const unsigned char *end, *in;
 	size_t               check_size;
 

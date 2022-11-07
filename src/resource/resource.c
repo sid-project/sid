@@ -41,7 +41,7 @@ typedef struct sid_resource {
 
 	/* identification */
 	const sid_resource_type_t *type;
-	char *                     id;
+	char                      *id;
 
 	/* properties */
 	pid_t                pid_created;
@@ -66,14 +66,13 @@ typedef struct sid_resource {
 
 typedef struct sid_resource_iter {
 	sid_resource_t *res;
-	struct list *   prev; /* for safety */
-	struct list *   current;
-	struct list *   next; /* for safety */
+	struct list    *prev; /* for safety */
+	struct list    *current;
+	struct list    *next; /* for safety */
 	bool            res_refd : 1;
 } sid_resource_iter_t;
 
-typedef enum
-{
+typedef enum {
 	EVENT_SOURCE_GENERIC,
 	EVENT_SOURCE_IO,
 	EVENT_SOURCE_SIGNAL,
@@ -97,22 +96,22 @@ static const char *const _event_source_type_names[] = {
 
 typedef struct sid_resource_event_source {
 	struct list         list;
-	sid_resource_t *    res;
+	sid_resource_t     *res;
 	event_source_type_t type;
-	sd_event_source *   sd_es;
-	const char *        name;
+	sd_event_source    *sd_es;
+	const char         *name;
 	uint64_t            events_fired;
 	uint64_t            events_max;
-	void *              handler;
-	void *              data;
+	void               *handler;
+	void               *data;
 } sid_resource_event_source_t;
 
-static int _create_event_source(sid_resource_t *              res,
+static int _create_event_source(sid_resource_t               *res,
                                 event_source_type_t           type,
-                                const char *                  name,
-                                sd_event_source *             sd_es,
-                                void *                        handler,
-                                void *                        data,
+                                const char                   *name,
+                                sd_event_source              *sd_es,
+                                void                         *handler,
+                                void                         *data,
                                 uint64_t                      events_max,
                                 sid_resource_event_source_t **es)
 {
@@ -179,8 +178,8 @@ static void _destroy_event_source(sid_resource_event_source_t *es)
 static int _create_service_link_group(sid_resource_t *res, sid_resource_service_link_def_t service_link_defs[])
 {
 	sid_resource_service_link_def_t *def;
-	struct service_link_group *      slg;
-	struct service_link *            sl;
+	struct service_link_group       *slg;
+	struct service_link             *sl;
 	int                              r = 0;
 
 	if (!service_link_defs)
@@ -213,7 +212,7 @@ out:
 static void _add_res_to_parent_res(sid_resource_t *res, sid_resource_t *parent_res)
 {
 	sid_resource_t *child_res;
-	struct list *   child_lh;
+	struct list    *child_lh;
 
 	if ((res->parent = parent_res)) {
 		list_iterate (child_lh, &parent_res->children) {
@@ -236,19 +235,19 @@ static void _remove_res_from_parent_res(sid_resource_t *res)
 	}
 }
 
-sid_resource_t *sid_resource_create(sid_resource_t *                parent_res,
-                                    const sid_resource_type_t *     type,
+sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
+                                    const sid_resource_type_t      *type,
                                     sid_resource_flags_t            flags,
-                                    const char *                    id_part,
-                                    const void *                    kickstart_data,
+                                    const char                     *id_part,
+                                    const void                     *kickstart_data,
                                     int64_t                         prio,
                                     sid_resource_service_link_def_t service_link_defs[])
 {
-	sid_resource_t *             res = NULL;
+	sid_resource_t              *res = NULL;
 	size_t                       id_size;
-	char *                       id;
+	char                        *id;
 	sid_resource_event_source_t *es, *tmp_es;
-	sid_resource_t *             child_res, *tmp_child_res;
+	sid_resource_t              *child_res, *tmp_child_res;
 
 	/* +1 for '/' if id is defined and +1 for '\0' at the end */
 	id_size = (type->short_name ? strlen(type->short_name) : 0) + (id_part ? strlen(id_part) + 1 : 0) + 1;
@@ -348,7 +347,7 @@ static int _do_sid_resource_unref(sid_resource_t *res, int nested)
 	static const char            msg_destroyed[]           = "Resource destroyed";
 	static const char            msg_pid_created_current[] = "PID created/current";
 	sid_resource_event_source_t *es, *tmp_es;
-	sid_resource_t *             child_res, *tmp_child_res;
+	sid_resource_t              *child_res, *tmp_child_res;
 	pid_t                        pid = getpid();
 	int                          do_destroy;
 
@@ -544,15 +543,15 @@ static int _sd_io_event_handler(sd_event_source *sd_es, int fd, uint32_t revents
 	return r;
 }
 
-int sid_resource_create_io_event_source(sid_resource_t *                res,
-                                        sid_resource_event_source_t **  es,
+int sid_resource_create_io_event_source(sid_resource_t                 *res,
+                                        sid_resource_event_source_t   **es,
                                         int                             fd,
                                         sid_resource_io_event_handler_t handler,
                                         int64_t                         prio,
-                                        const char *                    name,
-                                        void *                          data)
+                                        const char                     *name,
+                                        void                           *data)
 {
-	sid_resource_t * res_event_loop;
+	sid_resource_t  *res_event_loop;
 	sd_event_source *sd_es = NULL;
 	int              r;
 
@@ -608,15 +607,15 @@ static int _sd_signal_event_handler(sd_event_source *sd_es, int sfd, uint32_t re
 }
 
 /* This should not watch the SIGCHLD signal if sd_event_add_child() is also used */
-int sid_resource_create_signal_event_source(sid_resource_t *                    res,
-                                            sid_resource_event_source_t **      es,
+int sid_resource_create_signal_event_source(sid_resource_t                     *res,
+                                            sid_resource_event_source_t       **es,
                                             sigset_t                            mask,
                                             sid_resource_signal_event_handler_t handler,
                                             int64_t                             prio,
-                                            const char *                        name,
-                                            void *                              data)
+                                            const char                         *name,
+                                            void                               *data)
 {
-	sid_resource_t * res_event_loop;
+	sid_resource_t  *res_event_loop;
 	sd_event_source *sd_es = NULL;
 	sigset_t         original_sigmask;
 	int              r;
@@ -692,16 +691,16 @@ static int _sd_child_event_handler(sd_event_source *sd_es, const siginfo_t *si, 
 	return 0;
 }
 
-int sid_resource_create_child_event_source(sid_resource_t *                   res,
-                                           sid_resource_event_source_t **     es,
+int sid_resource_create_child_event_source(sid_resource_t                    *res,
+                                           sid_resource_event_source_t      **es,
                                            pid_t                              pid,
                                            int                                options,
                                            sid_resource_child_event_handler_t handler,
                                            int64_t                            prio,
-                                           const char *                       name,
-                                           void *                             data)
+                                           const char                        *name,
+                                           void                              *data)
 {
-	sid_resource_t * res_event_loop;
+	sid_resource_t  *res_event_loop;
 	sd_event_source *sd_es = NULL;
 	int              r;
 
@@ -753,18 +752,18 @@ static int _sd_time_event_handler(sd_event_source *sd_es, uint64_t usec, void *d
 	return r;
 }
 
-int sid_resource_create_time_event_source(sid_resource_t *                  res,
-                                          sid_resource_event_source_t **    es,
+int sid_resource_create_time_event_source(sid_resource_t                   *res,
+                                          sid_resource_event_source_t     **es,
                                           clockid_t                         clock,
                                           sid_resource_pos_t                disposition,
                                           uint64_t                          usec,
                                           uint64_t                          accuracy,
                                           sid_resource_time_event_handler_t handler,
                                           int64_t                           prio,
-                                          const char *                      name,
-                                          void *                            data)
+                                          const char                       *name,
+                                          void                             *data)
 {
-	sid_resource_t * res_event_loop;
+	sid_resource_t  *res_event_loop;
 	sd_event_source *sd_es = NULL;
 	uint64_t         usec_now;
 	int              r;
@@ -868,14 +867,14 @@ static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
 	return r;
 }
 
-int sid_resource_create_deferred_event_source(sid_resource_t *                     res,
-                                              sid_resource_event_source_t **       es,
+int sid_resource_create_deferred_event_source(sid_resource_t                      *res,
+                                              sid_resource_event_source_t        **es,
                                               sid_resource_generic_event_handler_t handler,
                                               int64_t                              prio,
-                                              const char *                         name,
-                                              void *                               data)
+                                              const char                          *name,
+                                              void                                *data)
 {
-	sid_resource_t * res_event_loop;
+	sid_resource_t  *res_event_loop;
 	sd_event_source *sd_es = NULL;
 	int              r;
 
@@ -900,14 +899,14 @@ fail:
 	return r;
 }
 
-int sid_resource_create_post_event_source(sid_resource_t *                     res,
-                                          sid_resource_event_source_t **       es,
+int sid_resource_create_post_event_source(sid_resource_t                      *res,
+                                          sid_resource_event_source_t        **es,
                                           sid_resource_generic_event_handler_t handler,
                                           int64_t                              prio,
-                                          const char *                         name,
-                                          void *                               data)
+                                          const char                          *name,
+                                          void                                *data)
 {
-	sid_resource_t * res_event_loop;
+	sid_resource_t  *res_event_loop;
 	sd_event_source *sd_es = NULL;
 	int              r;
 
@@ -933,14 +932,14 @@ fail:
 	return r;
 }
 
-int sid_resource_create_exit_event_source(sid_resource_t *                     res,
-                                          sid_resource_event_source_t **       es,
+int sid_resource_create_exit_event_source(sid_resource_t                      *res,
+                                          sid_resource_event_source_t        **es,
                                           sid_resource_generic_event_handler_t handler,
                                           int64_t                              prio,
-                                          const char *                         name,
-                                          void *                               data)
+                                          const char                          *name,
+                                          void                                *data)
 {
-	sid_resource_t * res_event_loop;
+	sid_resource_t  *res_event_loop;
 	sd_event_source *sd_es = NULL;
 	int              r;
 
@@ -1019,11 +1018,11 @@ bool sid_resource_match(sid_resource_t *res, const sid_resource_type_t *type, co
 	return (type ? res->type == type : true) && (id ? !strcmp(sid_resource_get_id(res), id) : true);
 }
 
-sid_resource_t *_search_down(sid_resource_t *             res,
+sid_resource_t *_search_down(sid_resource_t              *res,
                              sid_resource_search_method_t method,
-                             const sid_resource_type_t *  type,
-                             const char *                 id,
-                             sid_resource_t *             ign_res)
+                             const sid_resource_type_t   *type,
+                             const char                  *id,
+                             sid_resource_t              *ign_res)
 {
 	sid_resource_t *child_res, *found;
 
@@ -1050,11 +1049,11 @@ sid_resource_t *_search_down(sid_resource_t *             res,
 	return NULL;
 }
 
-sid_resource_t *_search_up(sid_resource_t *             res,
+sid_resource_t *_search_up(sid_resource_t              *res,
                            sid_resource_search_method_t method,
-                           const sid_resource_type_t *  type,
-                           const char *                 id,
-                           sid_resource_t *             ign_res)
+                           const sid_resource_type_t   *type,
+                           const char                  *id,
+                           sid_resource_t              *ign_res)
 {
 	if (method == SID_RESOURCE_SEARCH_IMM_ANC) {
 		if (res->parent && !(res->flags & SID_RESOURCE_RESTRICT_WALK_UP) && res->parent != ign_res &&
@@ -1099,10 +1098,10 @@ sid_resource_t *_search(sid_resource_t *res, sid_resource_search_method_t method
 	return NULL;
 }
 
-sid_resource_t *sid_resource_search(sid_resource_t *             res,
+sid_resource_t *sid_resource_search(sid_resource_t              *res,
                                     sid_resource_search_method_t method,
-                                    const sid_resource_type_t *  type,
-                                    const char *                 id)
+                                    const sid_resource_type_t   *type,
+                                    const char                  *id)
 {
 	if (method > _SID_RESOURCE_SEARCH_DESC_START && method < _SID_RESOURCE_SEARCH_DESC_END)
 		return _search_down(res, method, type, id, NULL);
@@ -1263,7 +1262,7 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 
 static void _write_event_source_elem_fields(sid_resource_event_source_t *es,
                                             output_format_t              format,
-                                            struct sid_buffer *          outbuf,
+                                            struct sid_buffer           *outbuf,
                                             bool                         add_comma,
                                             int                          level)
 {
@@ -1272,7 +1271,7 @@ static void _write_event_source_elem_fields(sid_resource_event_source_t *es,
 	print_uint64_field("events_fired", es->events_fired, format, outbuf, false, level);
 }
 
-static void _write_resource_elem_fields(sid_resource_t *   res,
+static void _write_resource_elem_fields(sid_resource_t    *res,
                                         output_format_t    format,
                                         struct sid_buffer *outbuf,
                                         bool               add_comma,
@@ -1301,7 +1300,7 @@ static void _write_resource_elem_fields(sid_resource_t *   res,
 	print_uint_field("ref-count", res->ref_count, format, outbuf, add_comma, level);
 }
 
-int sid_resource_write_tree_recursively(sid_resource_t *   res,
+int sid_resource_write_tree_recursively(sid_resource_t    *res,
                                         output_format_t    format,
                                         bool               add_comma,
                                         struct sid_buffer *outbuf,

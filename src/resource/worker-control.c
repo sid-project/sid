@@ -33,8 +33,7 @@
 
 #define DEFAULT_WORKER_IDLE_TIMEOUT_USEC 5000000
 
-typedef enum
-{
+typedef enum {
 	WORKER_CHANNEL_CMD_NOOP,
 	WORKER_CHANNEL_CMD_YIELD,
 	WORKER_CHANNEL_CMD_DATA,
@@ -66,17 +65,17 @@ struct worker_control {
 	unsigned                    channel_spec_count;
 	struct worker_channel_spec *channel_specs;
 	/* The following members are for initialzing the worker after fork() */
-	char *                 worker_id;
+	char                  *worker_id;
 	struct worker_channel *worker_channels;
-	char **                ext_argv;
-	char **                ext_envp;
+	char                 **ext_argv;
+	char                 **ext_envp;
 };
 
 struct worker_channel {
-	sid_resource_t *                  owner; /* either worker_proxy or worker instance */
+	sid_resource_t                   *owner; /* either worker_proxy or worker instance */
 	const struct worker_channel_spec *spec;
-	struct sid_buffer *               in_buf;
-	struct sid_buffer *               out_buf;
+	struct sid_buffer                *in_buf;
+	struct sid_buffer                *out_buf;
 	int                               fd;
 };
 
@@ -84,7 +83,7 @@ struct worker_kickstart {
 	worker_type_t               type;
 	pid_t                       pid;
 	struct worker_channel_spec *channel_specs;
-	struct worker_channel *     channels;
+	struct worker_channel      *channels;
 	unsigned                    channel_count;
 };
 
@@ -93,13 +92,13 @@ struct worker_proxy {
 	worker_type_t                type;            /* worker type */
 	worker_state_t               state;           /* current worker state */
 	sid_resource_event_source_t *idle_timeout_es; /* event source to catch idle timeout for worker */
-	struct worker_channel *      channels;        /* NULL-terminated array of worker_proxy --> worker channels */
+	struct worker_channel       *channels;        /* NULL-terminated array of worker_proxy --> worker channels */
 	unsigned                     channel_count;
 };
 
 struct worker {
 	struct worker_channel_spec *channel_specs;
-	struct worker_channel *     channels; /* NULL-terminated array of worker --> worker_proxy channels */
+	struct worker_channel      *channels; /* NULL-terminated array of worker --> worker_proxy channels */
 	unsigned                    channel_count;
 	unsigned                    parent_exited;
 };
@@ -112,10 +111,10 @@ static void _change_worker_proxy_state(sid_resource_t *worker_proxy_res, worker_
 	log_debug(ID(worker_proxy_res), "Worker state changed to %s.", worker_state_str[state]);
 }
 
-static int _create_channel(sid_resource_t *                  worker_control_res,
+static int _create_channel(sid_resource_t                   *worker_control_res,
                            const struct worker_channel_spec *spec,
-                           struct worker_channel *           proxy_chan,
-                           struct worker_channel *           chan)
+                           struct worker_channel            *proxy_chan,
+                           struct worker_channel            *chan)
 {
 	int comms_fds[2];
 
@@ -168,7 +167,7 @@ static int _create_channel(sid_resource_t *                  worker_control_res,
 	return 0;
 }
 
-static int _create_channels(sid_resource_t *        worker_control_res,
+static int _create_channels(sid_resource_t         *worker_control_res,
                             struct worker_channel **worker_proxy_channels,
                             struct worker_channel **worker_channels)
 {
@@ -226,13 +225,13 @@ fail:
  */
 static int _chan_buf_recv(const struct worker_channel *chan,
                           uint32_t                     revents,
-                          worker_channel_cmd_t *       chan_cmd,
-                          struct worker_data_spec *    data_spec)
+                          worker_channel_cmd_t        *chan_cmd,
+                          struct worker_data_spec     *data_spec)
 {
 	// TODO: Double check we're really interested in EPOLLRDHUP.
 	bool          hup = (revents & (EPOLLHUP | EPOLLRDHUP)) && !(revents & EPOLLIN);
 	ssize_t       n;
-	void *        buf_data;
+	void         *buf_data;
 	size_t        buf_data_size;
 	unsigned char byte;
 
@@ -338,7 +337,7 @@ static const char _custom_message_handling_failed_msg[] = "Custom message handli
 
 static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	struct worker_channel * chan = data;
+	struct worker_channel  *chan = data;
 	worker_channel_cmd_t    chan_cmd;
 	struct worker_data_spec data_spec = {0};
 	/*uint64_t timeout_usec;*/
@@ -394,7 +393,7 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 
 static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	struct worker_channel * chan = data;
+	struct worker_channel  *chan = data;
 	worker_channel_cmd_t    chan_cmd;
 	struct worker_data_spec data_spec = {0};
 	int                     r;
@@ -441,10 +440,10 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 static int
 	_setup_channel(sid_resource_t *owner, const char *alt_id, bool is_worker, worker_type_t type, struct worker_channel *chan)
 {
-	struct sid_buffer **   buf1, **buf2;
+	struct sid_buffer    **buf1, **buf2;
 	struct sid_buffer_spec buf_spec = {.backend = SID_BUFFER_BACKEND_MALLOC, .type = SID_BUFFER_TYPE_LINEAR, .mode = 0};
 	struct sid_buffer_init buf_init = {0};
-	const char *           id       = owner ? ID(owner) : alt_id;
+	const char            *id       = owner ? ID(owner) : alt_id;
 	int                    r;
 
 	if (chan->in_buf || chan->out_buf) {
@@ -622,8 +621,8 @@ fail:
 	return r;
 }
 
-static int _setup_channels(sid_resource_t *       owner,
-                           const char *           alt_id,
+static int _setup_channels(sid_resource_t        *owner,
+                           const char            *alt_id,
                            worker_type_t          type,
                            struct worker_channel *chans,
                            unsigned               chan_count)
@@ -693,15 +692,15 @@ void _destroy_channels(struct worker_channel *channels, unsigned channel_count)
 
 int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params, sid_resource_t **res_p)
 {
-	struct worker_control * worker_control        = sid_resource_get_data(worker_control_res);
-	struct worker_channel * worker_proxy_channels = NULL, *worker_channels = NULL;
+	struct worker_control  *worker_control        = sid_resource_get_data(worker_control_res);
+	struct worker_channel  *worker_proxy_channels = NULL, *worker_channels = NULL;
 	struct worker_kickstart kickstart;
 	sigset_t                original_sigmask, new_sigmask;
 	pid_t                   original_pid, curr_ppid;
-	sid_resource_t *        res             = NULL;
+	sid_resource_t         *res             = NULL;
 	int                     signals_blocked = 0;
 	pid_t                   pid             = -1;
-	const char *            id;
+	const char             *id;
 	char                    gen_id[32];
 
 	*res_p = NULL;
@@ -823,10 +822,10 @@ out:
 
 int _run_internal_worker(sid_resource_t *worker_control_res)
 {
-	struct worker_control * worker_control = sid_resource_get_data(worker_control_res);
+	struct worker_control  *worker_control = sid_resource_get_data(worker_control_res);
 	struct worker_kickstart kickstart;
-	sid_resource_t *        res;
-	const char *            id;
+	sid_resource_t         *res;
+	const char             *id;
 	char                    gen_id[32];
 	int                     r;
 
@@ -870,12 +869,12 @@ int _run_internal_worker(sid_resource_t *worker_control_res)
 
 int _run_external_worker(sid_resource_t *worker_control_res)
 {
-	struct worker_control *     worker_control = sid_resource_get_data(worker_control_res);
+	struct worker_control      *worker_control = sid_resource_get_data(worker_control_res);
 	struct worker_channel_spec *channel_specs;
-	struct worker_channel *     channels;
+	struct worker_channel      *channels;
 	unsigned                    channel_count;
-	char **                     argv, **envp;
-	char *                      id;
+	char                      **argv, **envp;
+	char                       *id;
 	char                        gen_id[32];
 	int                         r;
 
@@ -934,7 +933,7 @@ int worker_control_run_worker(sid_resource_t *worker_control_res)
 sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_res)
 {
 	sid_resource_iter_t *iter;
-	sid_resource_t *     res;
+	sid_resource_t      *res;
 
 	if (!(iter = sid_resource_iter_create(worker_control_res)))
 		return NULL;
@@ -1053,9 +1052,9 @@ static struct worker_channel *_get_channel(struct worker_channel *channels, unsi
 
 int worker_control_channel_send(sid_resource_t *current_res, const char *channel_id, struct worker_data_spec *data_spec)
 {
-	sid_resource_t *       res = current_res;
-	struct worker_proxy *  worker_proxy;
-	struct worker *        worker;
+	sid_resource_t        *res = current_res;
+	struct worker_proxy   *worker_proxy;
+	struct worker         *worker;
 	struct worker_channel *chan;
 
 	if (!channel_id || !*channel_id)
@@ -1097,8 +1096,8 @@ int worker_control_channel_send(sid_resource_t *current_res, const char *channel
 
 int worker_control_worker_yield(sid_resource_t *res)
 {
-	sid_resource_t *       worker_res;
-	struct worker *        worker;
+	sid_resource_t        *worker_res;
+	struct worker         *worker;
 	struct worker_channel *chan;
 	unsigned               i;
 
@@ -1172,7 +1171,7 @@ static int _on_worker_proxy_idle_timeout_event(sid_resource_event_source_t *es, 
 static int _on_worker_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *arg)
 {
 	sid_resource_t *res = arg;
-	struct worker * worker;
+	struct worker  *worker;
 
 	log_debug(ID(res), "Received signal %d from %d.", si->ssi_signo, si->ssi_pid);
 
@@ -1196,7 +1195,7 @@ static int _on_worker_signal_event(sid_resource_event_source_t *es, const struct
 static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kickstart_data, void **data)
 {
 	const struct worker_kickstart *kickstart    = kickstart_data;
-	struct worker_proxy *          worker_proxy = NULL;
+	struct worker_proxy           *worker_proxy = NULL;
 
 	if (!(worker_proxy = mem_zalloc(sizeof(*worker_proxy)))) {
 		log_error(ID(worker_proxy_res), "Failed to allocate worker_proxy structure.");
@@ -1244,7 +1243,7 @@ static int _destroy_worker_proxy(sid_resource_t *worker_proxy_res)
 static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, void **data)
 {
 	const struct worker_kickstart *kickstart = kickstart_data;
-	struct worker *                worker    = NULL;
+	struct worker                 *worker    = NULL;
 	sigset_t                       mask;
 
 	sigemptyset(&mask);
@@ -1299,7 +1298,7 @@ static int _set_channel_specs(struct worker_control *worker_control, const struc
 	const struct worker_channel_spec *spec;
 	unsigned                          spec_count;
 	size_t                            ids_size;
-	char *                            p;
+	char                             *p;
 	unsigned                          i;
 	int                               r;
 
@@ -1336,7 +1335,7 @@ fail:
 static int _init_worker_control(sid_resource_t *worker_control_res, const void *kickstart_data, void **data)
 {
 	const struct worker_control_resource_params *params = kickstart_data;
-	struct worker_control *                      worker_control;
+	struct worker_control                       *worker_control;
 	int                                          r;
 
 	if (!(worker_control = mem_zalloc(sizeof(*worker_control)))) {
@@ -1379,16 +1378,16 @@ const sid_resource_type_t sid_resource_type_worker_proxy = {
 	.description = "Resource under worker-control management providing worker representation "
 		       "on parent process side ('proxy') and containting communication endpoints "
 		       "for worker-proxy <--> worker channels.",
-	.init    = _init_worker_proxy,
-	.destroy = _destroy_worker_proxy,
+	.init        = _init_worker_proxy,
+	.destroy     = _destroy_worker_proxy,
 };
 
 const sid_resource_type_t sid_resource_type_worker = {
-	.name        = "worker",
-	.short_name  = "wrk",
-	.description = "Top-level resource in a worker process spawned by worker-control "
-		       "resource and containting worker communication endpoints for "
-		       "worker <--> worker-proxy channels.",
+	.name            = "worker",
+	.short_name      = "wrk",
+	.description     = "Top-level resource in a worker process spawned by worker-control "
+			   "resource and containting worker communication endpoints for "
+			   "worker <--> worker-proxy channels.",
 	.init            = _init_worker,
 	.destroy         = _destroy_worker,
 	.with_event_loop = 1,
@@ -1399,6 +1398,6 @@ const sid_resource_type_t sid_resource_type_worker_control = {
 	.short_name  = "wcl",
 	.description = "Resource providing capabilities to spawn worker processes "
 		       "and setting up communication channels with workers.",
-	.init    = _init_worker_control,
-	.destroy = _destroy_worker_control,
+	.init        = _init_worker_control,
+	.destroy     = _destroy_worker_control,
 };

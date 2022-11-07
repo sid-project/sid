@@ -28,7 +28,7 @@
 struct hash_node {
 	struct hash_node *next;
 	size_t            data_len;
-	void *            data;
+	void             *data;
 	unsigned          key_len;
 	char              key[];
 };
@@ -388,15 +388,15 @@ struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n)
 	return n->next ? n->next : _next_slot(t, h + 1);
 }
 
-int hash_update(struct hash_table * t,
-                const void *        key,
+int hash_update(struct hash_table  *t,
+                const void         *key,
                 uint32_t            key_len,
-                void **             data,
-                size_t *            data_len,
+                void              **data,
+                size_t             *data_len,
                 hash_update_cb_fn_t hash_update_fn,
-                void *              hash_update_fn_arg)
+                void               *hash_update_fn_arg)
 {
-	struct hash_node **  c;
+	struct hash_node   **c;
 	hash_update_action_t act;
 	int                  r;
 

@@ -32,21 +32,18 @@ extern "C" {
 #define SID_BUFFER_SIZE_PREFIX_TYPE uint32_t
 #define SID_BUFFER_SIZE_PREFIX_LEN  (sizeof(uint32_t))
 
-typedef enum
-{
+typedef enum {
 	SID_BUFFER_BACKEND_MALLOC,
 	SID_BUFFER_BACKEND_MEMFD,
 	SID_BUFFER_BACKEND_FILE,
 } sid_buffer_backend_t;
 
-typedef enum
-{
+typedef enum {
 	SID_BUFFER_TYPE_LINEAR,
 	SID_BUFFER_TYPE_VECTOR,
 } sid_buffer_type_t;
 
-typedef enum
-{
+typedef enum {
 	SID_BUFFER_MODE_PLAIN,       /* plain buffer */
 	SID_BUFFER_MODE_SIZE_PREFIX, /* has uint32_t size prefix */
 } sid_buffer_mode_t;

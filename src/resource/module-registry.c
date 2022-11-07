@@ -33,26 +33,26 @@
 const sid_resource_type_t sid_resource_type_module;
 
 struct module_registry {
-	const char *                 directory;
-	char *                       base_name;
-	const char *                 module_prefix;
-	const char *                 module_suffix;
+	const char                  *directory;
+	char                        *base_name;
+	const char                  *module_prefix;
+	const char                  *module_suffix;
 	uint64_t                     flags;
-	void *                       cb_arg;
+	void                        *cb_arg;
 	unsigned                     symbol_count;
 	struct module_symbol_params *symbol_params;
-	sid_resource_iter_t *        module_iter;
+	sid_resource_iter_t         *module_iter;
 };
 
 struct module {
 	module_cb_fn_t *init_fn;
 	module_cb_fn_t *exit_fn;
 	module_cb_fn_t *reset_fn;
-	char *          full_name;
-	char *          name;
-	void *          handle;
-	void **         symbols;
-	void *          data;
+	char           *full_name;
+	char           *name;
+	void           *handle;
+	void          **symbols;
+	void           *data;
 };
 
 static int _set_module_name(struct module_registry *registry, struct module *module, const char *name)
@@ -78,7 +78,7 @@ static int _set_module_name(struct module_registry *registry, struct module *mod
 static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const char *module_name)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
-	sid_resource_t *        res, *found = NULL;
+	sid_resource_t         *res, *found = NULL;
 
 	sid_resource_iter_reset(registry->module_iter);
 	while ((res = sid_resource_iter_next(registry->module_iter))) {
@@ -96,7 +96,7 @@ static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const c
 sid_resource_t *module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
-	sid_resource_t *        module_res;
+	sid_resource_t         *module_res;
 
 	if ((module_res = _find_module(module_registry_res, module_name))) {
 		log_debug(ID(module_registry_res),
@@ -150,8 +150,8 @@ static const char module_reset_failed_msg[] = "Module-specific reset failed.";
 int module_registry_reset_modules(sid_resource_t *module_registry_res)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
-	sid_resource_t *        res;
-	struct module *         module;
+	sid_resource_t         *res;
+	struct module          *module;
 
 	sid_resource_iter_reset(registry->module_iter);
 
@@ -205,9 +205,9 @@ void *module_get_data(struct module *module)
 
 int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resource_t *module_subregistry_res)
 {
-	struct module *         module;
+	struct module          *module;
 	struct module_registry *subregistry;
-	char *                  orig_base_name;
+	char                   *orig_base_name;
 
 	/*
 	 * Check subregistry does not have any existing parent,
@@ -258,7 +258,7 @@ static int _preload_modules(sid_resource_t *module_registry_res, struct module_r
 	util_mem_t      mem    = {.base = name_buf, .size = sizeof(name_buf)};
 	struct dirent **dirent = NULL;
 	size_t          prefix_len, suffix_len;
-	char *          name;
+	char           *name;
 	int             count, i;
 	int             r = 0;
 
@@ -307,10 +307,10 @@ out:
 
 typedef void (*generic_t)(void);
 
-static int _load_module_symbol(sid_resource_t *                   module_res,
-                               void *                             dl_handle,
+static int _load_module_symbol(sid_resource_t                    *module_res,
+                               void                              *dl_handle,
                                const struct module_symbol_params *params,
-                               void **                            symbol_store)
+                               void                             **symbol_store)
 {
 	void *symbol;
 
@@ -339,9 +339,9 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 	struct module_registry *registry =
 		sid_resource_get_data(sid_resource_search(module_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct module_symbol_params symbol_params = {0};
-	struct module *             module        = NULL;
+	struct module              *module        = NULL;
 	char                        path[PATH_MAX];
-	int64_t *                   p_prio;
+	int64_t                    *p_prio;
 	unsigned                    i;
 	int                         r;
 
@@ -467,7 +467,7 @@ static void _free_module_registry(struct module_registry *registry)
 static int _init_module_registry(sid_resource_t *module_registry_res, const void *kickstart_data, void **data)
 {
 	const struct module_registry_resource_params *params   = kickstart_data;
-	struct module_registry *                      registry = NULL;
+	struct module_registry                       *registry = NULL;
 	unsigned                                      i, symbol_count = 0;
 
 	if (!params) {

@@ -27,14 +27,12 @@ extern "C" {
 #endif
 
 /* Basic worker properties */
-typedef enum
-{
+typedef enum {
 	WORKER_TYPE_INTERNAL, /* fork only to execute internal code */
 	WORKER_TYPE_EXTERNAL, /* fork + exec to execute external code */
 } worker_type_t;
 
-typedef enum
-{
+typedef enum {
 	WORKER_STATE_NEW,      /* worker is newly created and it's not initialized yet */
 	WORKER_STATE_IDLE,     /* worker is already initialized and it's idle at the moment */
 	WORKER_STATE_ASSIGNED, /* first message sent to worker for it to start execution  */
@@ -47,14 +45,13 @@ typedef int worker_init_cb_fn_t(sid_resource_t *res, void *arg);
 
 struct worker_init_cb_spec {
 	worker_init_cb_fn_t *cb;
-	void *               arg;
+	void                *arg;
 };
 
 #define NULL_WORKER_INIT_CB_SPEC ((struct worker_init_cb_spec) {.cb = NULL, .arg = NULL})
 
 /* Wire specification */
-typedef enum
-{
+typedef enum {
 	WORKER_WIRE_NONE,
 	WORKER_WIRE_PIPE_TO_WORKER, /* pipe wire   "proxy   -->  worker" */
 	WORKER_WIRE_PIPE_TO_PROXY,  /* pipe wire   "proxy  <--  worker" */
@@ -78,7 +75,7 @@ struct worker_wire_spec {
 
 /* Transmit/receive data specification */
 struct worker_data_spec {
-	void * data;
+	void  *data;
 	size_t data_size;
 	struct {
 		bool used;
@@ -98,13 +95,13 @@ typedef int
 
 struct worker_channel_cb_spec {
 	worker_channel_cb_fn_t *cb;
-	void *                  arg;
+	void                   *arg;
 };
 
 #define NULL_WORKER_CHANNEL_CB_SPEC ((const struct worker_channel_cb_spec) {NULL})
 
 struct worker_channel_spec {
-	const char *                  id;           /* channel id */
+	const char                   *id;           /* channel id */
 	struct worker_wire_spec       wire;         /* channel wire specification */
 	struct worker_channel_cb_spec worker_tx_cb; /* transmit callback specification on worker side */
 	struct worker_channel_cb_spec worker_rx_cb; /* receive callback specification on worker side */

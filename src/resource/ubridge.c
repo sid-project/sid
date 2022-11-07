@@ -114,15 +114,15 @@ const sid_resource_type_t sid_resource_type_ubridge_connection;
 const sid_resource_type_t sid_resource_type_ubridge_command;
 
 struct sid_ucmd_common_ctx {
-	sid_resource_t *   res;          /* resource representing this common ctx */
-	sid_resource_t *   modules_res;  /* top-level resource for all ucmd module registries */
-	sid_resource_t *   kv_store_res; /* main KV store or KV store snapshot */
+	sid_resource_t    *res;          /* resource representing this common ctx */
+	sid_resource_t    *modules_res;  /* top-level resource for all ucmd module registries */
+	sid_resource_t    *kv_store_res; /* main KV store or KV store snapshot */
 	uint16_t           gennum;       /* current KV store generation number */
 	struct sid_buffer *gen_buf;      /* generic buffer */
 };
 
 struct umonitor {
-	struct udev *        udev;
+	struct udev         *udev;
 	struct udev_monitor *mon;
 };
 
@@ -132,8 +132,7 @@ struct ubridge {
 	struct umonitor umonitor;
 };
 
-typedef enum
-{
+typedef enum {
 	CMD_SCAN_PHASE_A_INIT = 0,          /* core initializes phase "A" */
 	CMD_SCAN_PHASE_A_IDENT,             /* module */
 	CMD_SCAN_PHASE_A_SCAN_PRE,          /* module */
@@ -155,13 +154,13 @@ typedef enum
 struct udevice {
 	udev_action_t  action;
 	udev_devtype_t type;
-	const char *   path;
-	const char *   name; /* just a pointer to devpath's last element */
+	const char    *path;
+	const char    *name; /* just a pointer to devpath's last element */
 	int            major;
 	int            minor;
 	uint64_t       seqnum;
 	uint64_t       diskseq;
-	const char *   synth_uuid;
+	const char    *synth_uuid;
 };
 
 struct connection {
@@ -169,15 +168,13 @@ struct connection {
 	struct sid_buffer *buf;
 };
 
-typedef enum
-{
+typedef enum {
 	MSG_CATEGORY_SYSTEM, /* system message */
 	MSG_CATEGORY_SELF,   /* self-induced message */
 	MSG_CATEGORY_CLIENT, /* message coming from a client */
 } msg_category_t;
 
-typedef enum
-{
+typedef enum {
 	CMD_INITIALIZING,         /* initializing context for cmd */
 	CMD_EXEC_SCHEDULED,       /* cmd handler execution scheduled */
 	CMD_EXECUTING,            /* executing cmd handler */
@@ -207,7 +204,7 @@ struct sid_ucmd_ctx {
 	/* request environment */
 	union {
 		struct {
-			char *         id;   /* device id */
+			char          *id;   /* device id */
 			struct udevice udev; /* udev context */
 		} dev;
 		const char *exp_path; /* export path */
@@ -223,7 +220,7 @@ struct sid_ucmd_ctx {
 		} scan;
 
 		struct {
-			void * main_res_mem;      /* mmap-ed memory with result from main process */
+			void  *main_res_mem;      /* mmap-ed memory with result from main process */
 			size_t main_res_mem_size; /* overall size of main_res_mem */
 		} resources;
 	};
@@ -233,8 +230,8 @@ struct sid_ucmd_ctx {
 
 	/* response */
 	struct sid_msg_header res_hdr; /* response header */
-	struct sid_buffer *   res_buf; /* response buffer */
-	struct sid_buffer *   exp_buf; /* export buffer */
+	struct sid_buffer    *res_buf; /* response buffer */
+	struct sid_buffer    *exp_buf; /* export buffer */
 };
 
 struct cmd_mod_fns {
@@ -250,11 +247,11 @@ struct cmd_mod_fns {
 } __attribute__((packed));
 
 struct cmd_exec_arg {
-	sid_resource_t *     cmd_res;
-	sid_resource_t *     type_mod_registry_res;
+	sid_resource_t      *cmd_res;
+	sid_resource_t      *type_mod_registry_res;
 	sid_resource_iter_t *block_mod_iter;       /* all block modules to execute */
-	sid_resource_t *     type_mod_res_current; /* one type module for current layer to execute */
-	sid_resource_t *     type_mod_res_next;    /* one type module for next layer to execute */
+	sid_resource_t      *type_mod_res_current; /* one type module for current layer to execute */
+	sid_resource_t      *type_mod_res_next;    /* one type module for next layer to execute */
 };
 
 struct cmd_reg {
@@ -270,8 +267,7 @@ struct kv_value {
 	char                data[]; /* contains both internal and external data */
 } __attribute__((packed));
 
-enum
-{
+enum {
 	VVALUE_IDX_GENNUM,
 	VVALUE_IDX_SEQNUM,
 	VVALUE_IDX_FLAGS,
@@ -305,23 +301,21 @@ enum
 #define VVALUE_DATA(vvalue)   (((struct iovec *) vvalue)[VVALUE_IDX_DATA].iov_base)
 
 struct kv_update_arg {
-	sid_resource_t *   res;
+	sid_resource_t    *res;
 	struct sid_buffer *gen_buf;
-	const char *       owner;    /* in */
-	void *             custom;   /* in/out */
+	const char        *owner;    /* in */
+	void              *custom;   /* in/out */
 	int                ret_code; /* out */
 };
 
-typedef enum
-{
+typedef enum {
 	KV_OP_ILLEGAL, /* illegal operation */
 	KV_OP_SET,     /* set value for kv */
 	KV_OP_PLUS,    /* add value to vector kv */
 	KV_OP_MINUS,   /* remove value fomr vector kv */
 } kv_op_t;
 
-typedef enum
-{
+typedef enum {
 	DELTA_NO_FLAGS  = 0x0,
 	DELTA_WITH_DIFF = 0x1, /* calculate difference between old and new value, update records */
 	DELTA_WITH_REL  = 0x2, /* as DELTA_WITH_DIFF, but also update referenced relatives */
@@ -335,8 +329,7 @@ struct kv_delta {
 	struct sid_buffer *final;
 };
 
-typedef enum
-{
+typedef enum {
 	__KEY_PART_START = 0x0,
 	KEY_PART_OP      = 0x0,
 	KEY_PART_DOM     = 0x1,
@@ -350,26 +343,26 @@ typedef enum
 
 struct kv_key_spec {
 	kv_op_t                 op;
-	const char *            dom;
+	const char             *dom;
 	sid_ucmd_kv_namespace_t ns;
-	const char *            ns_part;
-	const char *            id;
-	const char *            id_part;
-	const char *            core;
+	const char             *ns_part;
+	const char             *id;
+	const char             *id_part;
+	const char             *core;
 };
 
 struct kv_rel_spec {
-	struct kv_delta *   delta;
-	struct kv_delta *   abs_delta;
+	struct kv_delta    *delta;
+	struct kv_delta    *abs_delta;
 	struct kv_key_spec *cur_key_spec;
 	struct kv_key_spec *rel_key_spec;
 };
 
 struct cross_bitmap_calc_arg {
-	struct iovec * old_vvalue;
+	struct iovec  *old_vvalue;
 	size_t         old_vsize;
 	struct bitmap *old_bmp;
-	struct iovec * new_vvalue;
+	struct iovec  *new_vvalue;
 	size_t         new_vsize;
 	struct bitmap *new_bmp;
 };
@@ -384,8 +377,7 @@ struct sid_dbstats {
 	uint32_t nr_kv_pairs;
 };
 
-typedef enum
-{
+typedef enum {
 	_SELF_CMD_START    = 0,
 	SELF_CMD_UNDEFINED = _SELF_CMD_START,
 	SELF_CMD_UNKNOWN,
@@ -393,8 +385,7 @@ typedef enum
 	_SELF_CMD_END = SELF_CMD_DBDUMP,
 } self_cmd_t;
 
-typedef enum
-{
+typedef enum {
 	_SYSTEM_CMD_START    = 0,
 	SYSTEM_CMD_UNDEFINED = _SYSTEM_CMD_START,
 	SYSTEM_CMD_UNKNOWN,
@@ -454,7 +445,7 @@ static bool _cmd_root_only[] = {
 static struct cmd_reg      _cmd_scan_phase_regs[];
 static sid_ucmd_kv_flags_t value_flags_no_sync = (DEFAULT_VALUE_FLAGS_CORE) & ~KV_SYNC;
 static sid_ucmd_kv_flags_t value_flags_sync    = DEFAULT_VALUE_FLAGS_CORE;
-static char *              core_owner          = OWNER_CORE;
+static char               *core_owner          = OWNER_CORE;
 static uint64_t            null_int            = 0;
 
 static int        _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index);
@@ -729,9 +720,9 @@ fail:
 static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_store_res)
 {
 	kv_store_iter_t *iter;
-	const char *     key;
+	const char      *key;
 	size_t           size;
-	void *           value;
+	void            *value;
 	size_t           meta_size, int_size, int_data_size, ext_size, ext_data_size;
 
 	memset(stats, 0, sizeof(*stats));
@@ -801,8 +792,8 @@ static int _kv_cb_overwrite(struct kv_store_update_spec *spec)
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_vvalue_old[VVALUE_SINGLE_CNT];
 	struct iovec          tmp_vvalue_new[VVALUE_SINGLE_CNT];
-	struct iovec *        vvalue_old, *vvalue_new;
-	const char *          reason;
+	struct iovec         *vvalue_old, *vvalue_new;
+	const char           *reason;
 
 	vvalue_old = spec->old_data ? _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old) : NULL;
 	vvalue_new = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new);
@@ -919,20 +910,20 @@ static output_format_t flags_to_format(uint16_t flags)
 
 static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *cmd_reg)
 {
-	struct sid_ucmd_ctx *  ucmd_ctx = sid_resource_get_data(cmd_res);
+	struct sid_ucmd_ctx   *ucmd_ctx = sid_resource_get_data(cmd_res);
 	output_format_t        format;
 	struct sid_buffer_spec buf_spec;
-	struct kv_value *      svalue;
-	kv_store_iter_t *      iter;
-	const char *           key;
-	void *                 raw_value;
+	struct kv_value       *svalue;
+	kv_store_iter_t       *iter;
+	const char            *key;
+	void                  *raw_value;
 	bool                   vector;
 	size_t                 size, vvalue_size, key_size, data_offset;
 	kv_store_value_flags_t kv_store_value_flags;
-	struct iovec *         vvalue;
+	struct iovec          *vvalue;
 	unsigned               i, records = 0;
 	int                    r           = -1;
-	struct sid_buffer *    export_buf  = NULL;
+	struct sid_buffer     *export_buf  = NULL;
 	bool                   needs_comma = false;
 	struct iovec           tmp_vvalue[VVALUE_SINGLE_CNT];
 
@@ -1171,24 +1162,24 @@ fail:
 	return r;
 }
 
-static int _passes_global_reservation_check(struct sid_ucmd_ctx *   ucmd_ctx,
-                                            const char *            owner,
+static int _passes_global_reservation_check(struct sid_ucmd_ctx    *ucmd_ctx,
+                                            const char             *owner,
                                             sid_ucmd_kv_namespace_t ns,
-                                            const char *            key_core)
+                                            const char             *key_core)
 {
 	struct iovec           tmp_vvalue[VVALUE_SINGLE_CNT];
-	struct iovec *         vvalue;
-	const char *           key = NULL;
-	void *                 found;
+	struct iovec          *vvalue;
+	const char            *key = NULL;
+	void                  *found;
 	size_t                 value_size;
 	kv_store_value_flags_t kv_store_value_flags;
 	struct kv_key_spec     key_spec = {.op      = KV_OP_SET,
-                                       .dom     = ID_NULL,
-                                       .ns      = ns,
-                                       .ns_part = ID_NULL,
-                                       .id      = ID_NULL,
-                                       .id_part = ID_NULL,
-                                       .core    = key_core};
+	                                   .dom     = ID_NULL,
+	                                   .ns      = ns,
+	                                   .ns_part = ID_NULL,
+	                                   .id      = ID_NULL,
+	                                   .id_part = ID_NULL,
+	                                   .core    = key_core};
 	int                    r        = 1;
 
 	if ((ns != KV_NS_UDEV) && (ns != KV_NS_DEVICE))
@@ -1320,10 +1311,10 @@ static int
 static int _delta_step_calc(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
-	struct kv_delta *     delta      = ((struct kv_rel_spec *) update_arg->custom)->delta;
-	struct iovec *        old_vvalue = spec->old_data;
+	struct kv_delta      *delta      = ((struct kv_rel_spec *) update_arg->custom)->delta;
+	struct iovec         *old_vvalue = spec->old_data;
 	size_t                old_vsize  = spec->old_data_size;
-	struct iovec *        new_vvalue = spec->new_data;
+	struct iovec         *new_vvalue = spec->new_data;
 	size_t                new_vsize  = spec->new_data_size;
 	size_t                i_old, i_new;
 	int                   cmp_result;
@@ -1560,10 +1551,10 @@ static int _delta_abs_calc(struct iovec *vheader, struct kv_update_arg *update_a
 {
 	struct cross_bitmap_calc_arg cross1   = {0};
 	struct cross_bitmap_calc_arg cross2   = {0};
-	struct kv_rel_spec *         rel_spec = update_arg->custom;
+	struct kv_rel_spec          *rel_spec = update_arg->custom;
 	kv_op_t                      orig_op  = rel_spec->cur_key_spec->op;
-	const char *                 delta_key;
-	struct iovec *               abs_plus_v, *abs_minus_v;
+	const char                  *delta_key;
+	struct iovec                *abs_plus_v, *abs_minus_v;
 	size_t                       i, abs_plus_vsize, abs_minus_vsize;
 	int                          r = -1;
 
@@ -1742,11 +1733,11 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 {
 	struct kv_rel_spec *rel_spec = update_arg->custom;
 	kv_op_t             orig_op  = rel_spec->cur_key_spec->op;
-	struct kv_delta *   orig_delta, *orig_abs_delta;
-	struct iovec *      delta_vvalue, *abs_delta_vvalue;
+	struct kv_delta    *orig_delta, *orig_abs_delta;
+	struct iovec       *delta_vvalue, *abs_delta_vvalue;
 	size_t              delta_vsize, abs_delta_vsize, i;
-	const char *        key_prefix, *ns_part;
-	char *              key;
+	const char         *key_prefix, *ns_part;
+	char               *key;
 	struct iovec        rel_vvalue[VVALUE_SINGLE_CNT];
 	int                 r = -1;
 
@@ -1947,29 +1938,29 @@ out:
 	return r;
 }
 
-static void *_do_sid_ucmd_set_kv(struct module *         mod,
-                                 struct sid_ucmd_ctx *   ucmd_ctx,
-                                 const char *            dom,
+static void *_do_sid_ucmd_set_kv(struct module          *mod,
+                                 struct sid_ucmd_ctx    *ucmd_ctx,
+                                 const char             *dom,
                                  sid_ucmd_kv_namespace_t ns,
-                                 const char *            key_core,
+                                 const char             *key_core,
                                  sid_ucmd_kv_flags_t     flags,
-                                 const void *            value,
+                                 const void             *value,
                                  size_t                  value_size)
 {
-	const char *         owner = _get_mod_name(mod);
-	char *               key   = NULL;
+	const char          *owner = _get_mod_name(mod);
+	char                *key   = NULL;
 	struct iovec         vvalue[VVALUE_SINGLE_CNT];
-	struct kv_value *    svalue;
+	struct kv_value     *svalue;
 	struct kv_update_arg update_arg;
 	struct kv_key_spec   key_spec = {.op      = KV_OP_SET,
-                                       .dom     = dom ?: ID_NULL,
-                                       .ns      = ns,
-                                       .ns_part = _get_ns_part(mod, ucmd_ctx, ns),
-                                       .id      = ID_NULL,
-                                       .id_part = ID_NULL,
-                                       .core    = key_core};
+	                                 .dom     = dom ?: ID_NULL,
+	                                 .ns      = ns,
+	                                 .ns_part = _get_ns_part(mod, ucmd_ctx, ns),
+	                                 .id      = ID_NULL,
+	                                 .id_part = ID_NULL,
+	                                 .core    = key_core};
 	int                  r;
-	void *               ret = NULL;
+	void                *ret = NULL;
 
 	/*
 	 * First, we check if the KV is not reserved globally. This applies to reservations
@@ -2025,11 +2016,11 @@ out:
 	return ret;
 }
 
-void *sid_ucmd_set_kv(struct module *         mod,
-                      struct sid_ucmd_ctx *   ucmd_ctx,
+void *sid_ucmd_set_kv(struct module          *mod,
+                      struct sid_ucmd_ctx    *ucmd_ctx,
                       sid_ucmd_kv_namespace_t ns,
-                      const char *            key,
-                      const void *            value,
+                      const char             *key,
+                      const void             *value,
                       size_t                  value_size,
                       sid_ucmd_kv_flags_t     flags)
 {
@@ -2042,17 +2033,17 @@ void *sid_ucmd_set_kv(struct module *         mod,
 	return _do_sid_ucmd_set_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, flags, value, value_size);
 }
 
-static const void *_cmd_get_key_spec_value(struct module *      mod,
+static const void *_cmd_get_key_spec_value(struct module       *mod,
                                            struct sid_ucmd_ctx *ucmd_ctx,
-                                           struct kv_key_spec * key_spec,
-                                           size_t *             value_size,
+                                           struct kv_key_spec  *key_spec,
+                                           size_t              *value_size,
                                            sid_ucmd_kv_flags_t *flags)
 {
-	const char *     owner = _get_mod_name(mod);
-	const char *     key   = NULL;
+	const char      *owner = _get_mod_name(mod);
+	const char      *key   = NULL;
 	struct kv_value *svalue;
 	size_t           size, data_offset;
-	void *           ret = NULL;
+	void            *ret = NULL;
 
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, key_spec)))
 		goto out;
@@ -2081,13 +2072,13 @@ out:
 	return ret;
 }
 
-static const void *_do_sid_ucmd_get_kv(struct module *         mod,
-                                       struct sid_ucmd_ctx *   ucmd_ctx,
-                                       const char *            dom,
+static const void *_do_sid_ucmd_get_kv(struct module          *mod,
+                                       struct sid_ucmd_ctx    *ucmd_ctx,
+                                       const char             *dom,
                                        sid_ucmd_kv_namespace_t ns,
-                                       const char *            key,
-                                       size_t *                value_size,
-                                       sid_ucmd_kv_flags_t *   flags)
+                                       const char             *key,
+                                       size_t                 *value_size,
+                                       sid_ucmd_kv_flags_t    *flags)
 {
 	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
 	                               .dom     = dom ?: ID_NULL,
@@ -2099,12 +2090,12 @@ static const void *_do_sid_ucmd_get_kv(struct module *         mod,
 	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
 }
 
-const void *sid_ucmd_get_kv(struct module *         mod,
-                            struct sid_ucmd_ctx *   ucmd_ctx,
+const void *sid_ucmd_get_kv(struct module          *mod,
+                            struct sid_ucmd_ctx    *ucmd_ctx,
                             sid_ucmd_kv_namespace_t ns,
-                            const char *            key,
-                            size_t *                value_size,
-                            sid_ucmd_kv_flags_t *   flags)
+                            const char             *key,
+                            size_t                 *value_size,
+                            sid_ucmd_kv_flags_t    *flags)
 {
 	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
@@ -2117,7 +2108,7 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_vvalue_old[VVALUE_SINGLE_CNT];
 	struct iovec          tmp_vvalue_new[VVALUE_SINGLE_CNT];
-	struct iovec *        vvalue_old, *vvalue_new;
+	struct iovec         *vvalue_old, *vvalue_new;
 
 	if (!spec->old_data)
 		return 1;
@@ -2143,7 +2134,7 @@ static int _kv_cb_unreserve(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_vvalue_old[VVALUE_SINGLE_CNT];
-	struct iovec *        vvalue_old;
+	struct iovec         *vvalue_old;
 
 	if (!spec->old_data)
 		return 1;
@@ -2164,25 +2155,25 @@ static int _kv_cb_unreserve(struct kv_store_update_spec *spec)
 	return 1;
 }
 
-int _do_sid_ucmd_mod_reserve_kv(struct module *             mod,
+int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
                                 struct sid_ucmd_common_ctx *common,
                                 sid_ucmd_kv_namespace_t     ns,
-                                const char *                key_core,
+                                const char                 *key_core,
                                 int                         unset)
 {
-	const char *         owner = _get_mod_name(mod);
-	char *               key   = NULL;
+	const char          *owner = _get_mod_name(mod);
+	char                *key   = NULL;
 	struct iovec         vvalue[VVALUE_HEADER_CNT]; /* only header */
 	sid_ucmd_kv_flags_t  flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
 	struct kv_update_arg update_arg;
 	int                  is_worker;
 	struct kv_key_spec   key_spec = {.op      = KV_OP_SET,
-                                       .dom     = ID_NULL,
-                                       .ns      = ns,
-                                       .ns_part = ID_NULL,
-                                       .id      = ID_NULL,
-                                       .id_part = ID_NULL,
-                                       .core    = key_core};
+	                                 .dom     = ID_NULL,
+	                                 .ns      = ns,
+	                                 .ns_part = ID_NULL,
+	                                 .id      = ID_NULL,
+	                                 .id_part = ID_NULL,
+	                                 .core    = key_core};
 	int                  r        = -1;
 
 	if (!(key = _compose_key(common->gen_buf, &key_spec)))
@@ -2245,7 +2236,7 @@ int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *co
 int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subregistry)
 {
 	sid_resource_t *res;
-	char **         pathv, **name;
+	char          **pathv, **name;
 
 	if (!mod || !common || !mod_subregistry)
 		return -EINVAL;
@@ -2343,13 +2334,13 @@ static int _kv_cb_write_new_only(struct kv_store_update_spec *spec)
 	return 1;
 }
 
-int sid_ucmd_group_create(struct module *         mod,
-                          struct sid_ucmd_ctx *   ucmd_ctx,
+int sid_ucmd_group_create(struct module          *mod,
+                          struct sid_ucmd_ctx    *ucmd_ctx,
                           sid_ucmd_kv_namespace_t group_ns,
-                          const char *            group_id,
+                          const char             *group_id,
                           sid_ucmd_kv_flags_t     group_flags)
 {
-	char *       key = NULL;
+	char        *key = NULL;
 	struct iovec vvalue[VVALUE_HEADER_CNT];
 	int          r = -1;
 
@@ -2392,14 +2383,14 @@ out:
 	return r;
 }
 
-int _handle_current_dev_for_group(struct module *         mod,
-                                  struct sid_ucmd_ctx *   ucmd_ctx,
+int _handle_current_dev_for_group(struct module          *mod,
+                                  struct sid_ucmd_ctx    *ucmd_ctx,
                                   sid_ucmd_kv_namespace_t group_ns,
-                                  const char *            group_id,
+                                  const char             *group_id,
                                   kv_op_t                 op)
 {
-	char *       key            = NULL;
-	const char * rel_key_prefix = NULL;
+	char        *key            = NULL;
+	const char  *rel_key_prefix = NULL;
 	struct iovec vvalue[VVALUE_SINGLE_CNT];
 	int          r = -1;
 
@@ -2448,10 +2439,10 @@ out:
 	return r;
 }
 
-int sid_ucmd_group_add_current_dev(struct module *         mod,
-                                   struct sid_ucmd_ctx *   ucmd_ctx,
+int sid_ucmd_group_add_current_dev(struct module          *mod,
+                                   struct sid_ucmd_ctx    *ucmd_ctx,
                                    sid_ucmd_kv_namespace_t group_ns,
-                                   const char *            group_id)
+                                   const char             *group_id)
 {
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
@@ -2459,10 +2450,10 @@ int sid_ucmd_group_add_current_dev(struct module *         mod,
 	return _handle_current_dev_for_group(mod, ucmd_ctx, group_ns, group_id, KV_OP_PLUS);
 }
 
-int sid_ucmd_group_remove_current_dev(struct module *         mod,
-                                      struct sid_ucmd_ctx *   ucmd_ctx,
+int sid_ucmd_group_remove_current_dev(struct module          *mod,
+                                      struct sid_ucmd_ctx    *ucmd_ctx,
                                       sid_ucmd_kv_namespace_t group_ns,
-                                      const char *            group_id)
+                                      const char             *group_id)
 {
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
@@ -2470,14 +2461,14 @@ int sid_ucmd_group_remove_current_dev(struct module *         mod,
 	return _handle_current_dev_for_group(mod, ucmd_ctx, group_ns, group_id, KV_OP_MINUS);
 }
 
-int sid_ucmd_group_destroy(struct module *         mod,
-                           struct sid_ucmd_ctx *   ucmd_ctx,
+int sid_ucmd_group_destroy(struct module          *mod,
+                           struct sid_ucmd_ctx    *ucmd_ctx,
                            sid_ucmd_kv_namespace_t group_ns,
-                           const char *            group_id,
+                           const char             *group_id,
                            int                     force)
 {
 	static sid_ucmd_kv_flags_t kv_flags_sync_no_reserved = (DEFAULT_VALUE_FLAGS_CORE) & ~KV_MOD_RESERVED;
-	char *                     key                       = NULL;
+	char                      *key                       = NULL;
 	size_t                     size;
 	struct iovec               vvalue[VVALUE_HEADER_CNT];
 	int                        r = -1;
@@ -2637,11 +2628,11 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	char                 buf[PATH_MAX];
-	const char *         mod_name = NULL;
-	FILE *               f        = NULL;
+	const char          *mod_name = NULL;
+	FILE                *f        = NULL;
 	char                 line[80];
 	int                  in_block_section = 0;
-	char *               p, *end, *found = NULL;
+	char                *p, *end, *found = NULL;
 	int                  major;
 	size_t               len;
 
@@ -2761,8 +2752,8 @@ static void _change_cmd_state(sid_resource_t *cmd_res, cmd_state_t state)
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct sid_buffer *  buf      = ucmd_ctx->common->gen_buf;
-	char *               version_data;
+	struct sid_buffer   *buf      = ucmd_ctx->common->gen_buf;
+	char                *version_data;
 	size_t               size;
 	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
@@ -2782,11 +2773,11 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct sid_buffer *  buf      = ucmd_ctx->common->gen_buf;
+	struct sid_buffer   *buf      = ucmd_ctx->common->gen_buf;
 	output_format_t      format;
-	const char *         id;
+	const char          *id;
 	size_t               buf_pos0, buf_pos1, buf_pos2;
-	char *               data;
+	char                *data;
 	size_t               size;
 	int                  r = -1;
 
@@ -2898,9 +2889,9 @@ static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 {
 	int                  r;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct sid_buffer *  buf      = ucmd_ctx->common->gen_buf;
+	struct sid_buffer   *buf      = ucmd_ctx->common->gen_buf;
 	struct sid_dbstats   stats;
-	char *               stats_data;
+	char                *stats_data;
 	size_t               size;
 	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
@@ -2931,7 +2922,7 @@ static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 
 static int _get_sysfs_value(struct module *mod, const char *path, char *buf, size_t buf_size)
 {
-	FILE * fp;
+	FILE  *fp;
 	size_t len;
 	int    r = -1;
 
@@ -2988,10 +2979,10 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 	return 0;
 }
 
-const void *sid_ucmd_part_get_disk_kv(struct module *      mod,
+const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
                                       struct sid_ucmd_ctx *ucmd_ctx,
-                                      const char *         key_core,
-                                      size_t *             value_size,
+                                      const char          *key_core,
+                                      size_t              *value_size,
                                       sid_ucmd_kv_flags_t *flags)
 {
 	char               devno_buf[16];
@@ -3018,11 +3009,11 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	char *               s;
-	struct dirent **     dirent  = NULL;
-	struct sid_buffer *  vec_buf = NULL;
+	char                *s;
+	struct dirent      **dirent  = NULL;
+	struct sid_buffer   *vec_buf = NULL;
 	char                 devno_buf[16];
-	struct iovec *       vvalue;
+	struct iovec        *vvalue;
 	size_t               vsize = 0;
 	int                  count = 0, i;
 	int                  r     = -1;
@@ -3189,8 +3180,8 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct iovec         vvalue[VVALUE_SINGLE_CNT];
 	char                 devno_buf[16];
-	const char *         s;
-	char *               key;
+	const char          *s;
+	char                *key;
 	int                  r = -1;
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
@@ -3276,9 +3267,9 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_t phase)
 {
-	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	sid_resource_t *          block_mod_res;
-	struct module *           block_mod;
+	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	sid_resource_t           *block_mod_res;
+	struct module            *block_mod;
 	const struct cmd_mod_fns *block_mod_fns;
 	int                       r = -1;
 
@@ -3381,7 +3372,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	sid_resource_t *     block_mod_registry_res;
+	sid_resource_t      *block_mod_registry_res;
 
 	if (!(block_mod_registry_res = sid_resource_search(ucmd_ctx->common->modules_res,
 	                                                   SID_RESOURCE_SEARCH_IMM_DESC,
@@ -3421,9 +3412,9 @@ fail:
 
 static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
-	const char *              mod_name;
+	const char               *mod_name;
 
 	if ((mod_name = _lookup_module_name(exec_arg->cmd_res)) &&
 	    !(exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
@@ -3443,7 +3434,7 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
@@ -3460,7 +3451,7 @@ static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
@@ -3478,9 +3469,9 @@ static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
-	const char *              next_mod_name;
+	const char               *next_mod_name;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
 
@@ -3502,7 +3493,7 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_CURRENT);
@@ -3519,7 +3510,7 @@ static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_NEXT);
@@ -3561,7 +3552,7 @@ static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx *     ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 	int                       r = 0;
 
@@ -3641,9 +3632,9 @@ static struct cmd_reg _client_cmd_regs[] = {
 	[SID_CMD_CHECKPOINT] = {.name = "c-checkpoint", .flags = CMD_KV_IMPORT_UDEV, .exec = NULL},
 	[SID_CMD_REPLY]      = {.name = "c-reply", .flags = 0, .exec = NULL},
 	[SID_CMD_SCAN]       = {.name  = "c-scan",
-                          .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF |
-                                   CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_KV_EXPECT_EXPBUF_ACK | CMD_SESSION_ID,
-                          .exec = _cmd_exec_scan},
+                                .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF |
+                                         CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_KV_EXPECT_EXPBUF_ACK | CMD_SESSION_ID,
+                                .exec = _cmd_exec_scan},
 	[SID_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
 	[SID_CMD_DBDUMP]  = {.name = "c-dbdump", .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF, .exec = NULL},
 	[SID_CMD_DBSTATS] = {.name = "c-dbstats", .flags = 0, .exec = _cmd_exec_dbstats},
@@ -3690,14 +3681,14 @@ static const struct cmd_reg *_get_cmd_reg(struct sid_ucmd_ctx *ucmd_ctx)
 
 static int _send_out_cmd_expbuf(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(cmd_res);
+	struct sid_ucmd_ctx  *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
-	sid_resource_t *      conn_res = NULL;
-	struct connection *   conn     = NULL;
-	struct sid_buffer *   buf      = ucmd_ctx->common->gen_buf;
-	const char *          id;
+	sid_resource_t       *conn_res = NULL;
+	struct connection    *conn     = NULL;
+	struct sid_buffer    *buf      = ucmd_ctx->common->gen_buf;
+	const char           *id;
 	size_t                buf_pos;
-	char *                data;
+	char                 *data;
 	size_t                size;
 	int                   r = 0;
 
@@ -3768,8 +3759,8 @@ static int _send_out_cmd_expbuf(sid_resource_t *cmd_res)
 static int _send_out_cmd_resbuf(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	sid_resource_t *     conn_res = NULL;
-	struct connection *  conn     = NULL;
+	sid_resource_t      *conn_res = NULL;
+	struct connection   *conn     = NULL;
 	int                  r        = -1;
 
 	/* Send out response buffer. */
@@ -3800,8 +3791,8 @@ out:
 
 static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 {
-	sid_resource_t *      cmd_res  = data;
-	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(cmd_res);
+	sid_resource_t       *cmd_res  = data;
+	struct sid_ucmd_ctx  *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 	int                   r        = -1;
 
@@ -3863,7 +3854,7 @@ out:
 
 static int _reply_failure(sid_resource_t *conn_res)
 {
-	struct connection *   conn = sid_resource_get_data(conn_res);
+	struct connection    *conn = sid_resource_get_data(conn_res);
 	struct sid_msg        msg;
 	uint8_t               prot;
 	struct sid_msg_header response_header = {
@@ -3956,7 +3947,7 @@ static int _create_command_resource(sid_resource_t *parent_res, struct sid_msg *
 
 static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	sid_resource_t *   conn_res = data;
+	sid_resource_t    *conn_res = data;
 	struct connection *conn     = sid_resource_get_data(conn_res);
 	struct sid_msg     msg;
 	ssize_t            n;
@@ -4002,7 +3993,7 @@ fail:
 static int _init_connection(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct worker_data_spec *data_spec = kickstart_data;
-	struct connection *            conn;
+	struct connection             *conn;
 	int                            r;
 
 	if (!(conn = mem_zalloc(sizeof(*conn)))) {
@@ -4054,10 +4045,10 @@ static int _destroy_connection(sid_resource_t *res)
 static int _init_command(sid_resource_t *res, const void *kickstart_data, void **data)
 {
 	const struct sid_msg *msg      = kickstart_data;
-	struct sid_ucmd_ctx * ucmd_ctx = NULL;
+	struct sid_ucmd_ctx  *ucmd_ctx = NULL;
 	const struct cmd_reg *cmd_reg  = NULL;
-	const char *          worker_id;
-	sid_resource_t *      common_res;
+	const char           *worker_id;
+	sid_resource_t       *common_res;
 	int                   r;
 
 	if (!(ucmd_ctx = mem_zalloc(sizeof(*ucmd_ctx)))) {
@@ -4160,7 +4151,7 @@ fail:
 
 static int _destroy_command(sid_resource_t *res)
 {
-	struct sid_ucmd_ctx * ucmd_ctx = sid_resource_get_data(res);
+	struct sid_ucmd_ctx  *ucmd_ctx = sid_resource_get_data(res);
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 
 	sid_buffer_destroy(ucmd_ctx->res_buf);
@@ -4186,7 +4177,7 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_vvalue_old[VVALUE_SINGLE_CNT];
-	struct iovec *        vvalue_old;
+	struct iovec         *vvalue_old;
 
 	if (!spec->old_data)
 		return 1;
@@ -4213,7 +4204,7 @@ static int _kv_cb_main_set(struct kv_store_update_spec *spec)
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_old_vvalue[VVALUE_SINGLE_CNT];
 	struct iovec          tmp_new_vvalue[VVALUE_SINGLE_CNT];
-	struct iovec *        old_vvalue, *new_vvalue;
+	struct iovec         *old_vvalue, *new_vvalue;
 	int                   r;
 
 	old_vvalue = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_old_vvalue);
@@ -4244,11 +4235,11 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	kv_store_value_flags_t      kv_store_value_flags;
 	SID_BUFFER_SIZE_PREFIX_TYPE msg_size;
 	size_t                      key_size, value_size, data_offset, i;
-	char *                      key, *shm = MAP_FAILED, *p, *end;
-	struct kv_value *           svalue = NULL;
-	struct iovec *              vvalue = NULL;
-	const char *                vvalue_str;
-	void *                      value_to_store;
+	char                       *key, *shm = MAP_FAILED, *p, *end;
+	struct kv_value            *svalue = NULL;
+	struct iovec               *vvalue = NULL;
+	const char                 *vvalue_str;
+	void                       *value_to_store;
 	struct kv_rel_spec          rel_spec   = {.delta = &((struct kv_delta) {0}), .abs_delta = &((struct kv_delta) {0})};
 	struct kv_update_arg        update_arg = {.gen_buf = common_ctx->gen_buf, .custom = &rel_spec};
 	bool                        unset;
@@ -4423,12 +4414,12 @@ static int _worker_proxy_recv_system_cmd_sync(sid_resource_t *worker_proxy_res, 
 	return r;
 }
 
-static int _worker_proxy_recv_system_cmd_resources(sid_resource_t *         worker_proxy_res,
+static int _worker_proxy_recv_system_cmd_resources(sid_resource_t          *worker_proxy_res,
                                                    struct worker_data_spec *data_spec,
-                                                   void *                   arg __attribute__((unused)))
+                                                   void                    *arg __attribute__((unused)))
 {
 	struct internal_msg_header *int_msg = data_spec->data;
-	struct sid_buffer *         buf;
+	struct sid_buffer          *buf;
 	int                         r = -1;
 
 	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
@@ -4461,10 +4452,10 @@ out:
 	return r;
 }
 
-static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
-                                 struct worker_channel *  chan,
+static int _worker_proxy_recv_fn(sid_resource_t          *worker_proxy_res,
+                                 struct worker_channel   *chan,
                                  struct worker_data_spec *data_spec,
-                                 void *                   arg)
+                                 void                    *arg)
 {
 	struct internal_msg_header *int_msg = data_spec->data;
 
@@ -4489,9 +4480,9 @@ static int _worker_proxy_recv_fn(sid_resource_t *         worker_proxy_res,
 static int _worker_recv_system_cmd_resources(sid_resource_t *worker_res, struct worker_data_spec *data_spec)
 {
 	static const char           _msg_prologue[] = "Received result from resource cmd for main process, but";
-	const char *                cmd_id;
-	sid_resource_t *            cmd_res;
-	struct sid_ucmd_ctx *       ucmd_ctx;
+	const char                 *cmd_id;
+	sid_resource_t             *cmd_res;
+	struct sid_ucmd_ctx        *ucmd_ctx;
 	SID_BUFFER_SIZE_PREFIX_TYPE msg_size;
 	int                         r = -1;
 
@@ -4542,8 +4533,8 @@ out:
 
 static int _worker_recv_system_cmd_sync(sid_resource_t *worker_res, struct worker_data_spec *data_spec)
 {
-	const char *         cmd_id;
-	sid_resource_t *     cmd_res;
+	const char          *cmd_id;
+	sid_resource_t      *cmd_res;
 	struct sid_ucmd_ctx *ucmd_ctx;
 
 	cmd_id = data_spec->data + INTERNAL_MSG_HEADER_SIZE;
@@ -4564,10 +4555,10 @@ static int _worker_recv_system_cmd_sync(sid_resource_t *worker_res, struct worke
 	return 0;
 }
 
-static int _worker_recv_fn(sid_resource_t *         worker_res,
-                           struct worker_channel *  chan,
+static int _worker_recv_fn(sid_resource_t          *worker_res,
+                           struct worker_channel   *chan,
                            struct worker_data_spec *data_spec,
-                           void *                   arg __attribute__((unused)))
+                           void                    *arg __attribute__((unused)))
 {
 	struct internal_msg_header *int_msg = (struct internal_msg_header *) data_spec->data;
 
@@ -4631,7 +4622,7 @@ static int _worker_recv_fn(sid_resource_t *         worker_res,
 static int _worker_init_fn(sid_resource_t *worker_res, void *arg)
 {
 	struct sid_ucmd_common_ctx *common_ctx  = arg;
-	sid_resource_t *            old_top_res = sid_resource_search(common_ctx->res, SID_RESOURCE_SEARCH_TOP, NULL, NULL);
+	sid_resource_t             *old_top_res = sid_resource_search(common_ctx->res, SID_RESOURCE_SEARCH_TOP, NULL, NULL);
 
 	/* only take inherited common resource and attach it to the worker */
 	(void) sid_resource_isolate_with_children(common_ctx->res);
@@ -4679,9 +4670,9 @@ static int _get_worker(sid_resource_t *ubridge_res, sid_resource_t **res_p)
 
 static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	sid_resource_t *           ubridge_res = data;
-	struct ubridge *           ubridge     = sid_resource_get_data(ubridge_res);
-	sid_resource_t *           worker_proxy_res;
+	sid_resource_t            *ubridge_res = data;
+	struct ubridge            *ubridge     = sid_resource_get_data(ubridge_res);
+	sid_resource_t            *worker_proxy_res;
 	struct worker_data_spec    data_spec;
 	struct internal_msg_header int_msg;
 	int                        r;
@@ -4718,7 +4709,7 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 
 int ubridge_cmd_dbdump(sid_resource_t *ubridge_res, const char *file_path)
 {
-	sid_resource_t *            worker_proxy_res;
+	sid_resource_t             *worker_proxy_res;
 	struct internal_msg_header *int_msg;
 	struct worker_data_spec     data_spec;
 	size_t                      file_path_size;
@@ -4790,11 +4781,11 @@ static int _load_kv_store(sid_resource_t *ubridge_res, sid_ucmd_common_ctx *comm
 
 static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
-	sid_resource_t *    ubridge_res = data;
-	struct ubridge *    ubridge     = sid_resource_get_data(ubridge_res);
-	sid_resource_t *    worker_control_res;
+	sid_resource_t     *ubridge_res = data;
+	struct ubridge     *ubridge     = sid_resource_get_data(ubridge_res);
+	sid_resource_t     *worker_control_res;
 	struct udev_device *udev_dev;
-	const char *        worker_id;
+	const char         *worker_id;
 	int                 r = -1;
 
 	if (!(udev_dev = udev_monitor_receive_device(ubridge->umonitor.mon)))
@@ -4870,7 +4861,7 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 {
 	struct iovec     vvalue[VVALUE_IDX_DATA + 1];
-	const char *     key;
+	const char      *key;
 	struct kv_value *svalue;
 
 	if (!(key = _compose_key(ctx->gen_buf,
@@ -4911,9 +4902,9 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 {
 	char             boot_id[UTIL_UUID_STR_SIZE];
 	struct iovec     vvalue[VVALUE_IDX_DATA + 1];
-	const char *     key;
+	const char      *key;
 	struct kv_value *svalue;
-	char *           old_boot_id;
+	char            *old_boot_id;
 	int              r;
 
 	if (!(key = _compose_key(ctx->gen_buf,
@@ -5186,8 +5177,8 @@ static int _destroy_common(sid_resource_t *res)
 
 static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void **data)
 {
-	struct ubridge *            ubridge = NULL;
-	sid_resource_t *            common_res;
+	struct ubridge             *ubridge = NULL;
+	sid_resource_t             *common_res;
 	struct sid_ucmd_common_ctx *common_ctx = NULL;
 
 	if (!(ubridge = mem_zalloc(sizeof(struct ubridge)))) {

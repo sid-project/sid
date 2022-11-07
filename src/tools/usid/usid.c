@@ -59,7 +59,7 @@ static int _usid_cmd_active(void)
 {
 	unsigned long long val;
 	uint8_t            prot;
-	const char *       status;
+	const char        *status;
 	struct sid_result *res;
 	struct sid_request req = {.cmd = SID_CMD_VERSION, .flags = SID_CMD_FLAGS_FMT_ENV};
 	int                r;
@@ -157,7 +157,7 @@ static int _usid_cmd_checkpoint(int argc, char **argv)
 static int _usid_cmd_version(void)
 {
 	unsigned long long val;
-	const char *       data;
+	const char        *data;
 	int                r;
 	struct sid_result *res;
 	struct sid_request req = {.cmd = SID_CMD_VERSION, .flags = SID_CMD_FLAGS_FMT_ENV};

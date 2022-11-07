@@ -32,8 +32,7 @@ extern "C" {
 typedef struct bptree      bptree_t;
 typedef struct bptree_iter bptree_iter_t;
 
-typedef enum
-{
+typedef enum {
 	BPTREE_UPDATE_SKIP,   /* skip new value (keep old value) */
 	BPTREE_UPDATE_WRITE,  /* write new value (overwrite old value) */
 	BPTREE_UPDATE_REMOVE, /* remove old value */
@@ -46,12 +45,12 @@ typedef enum
  *      1 for bptree to update old_data with new_data (new_data may be modified and/or newly allocated by this function)
  */
 typedef bptree_update_action_t (*bptree_update_cb_fn_t)(const char *key,
-                                                        void *      old_data,
+                                                        void       *old_data,
                                                         size_t      old_data_size,
                                                         unsigned    old_data_ref_count,
-                                                        void **     new_data,
-                                                        size_t *    new_data_size,
-                                                        void *      arg);
+                                                        void      **new_data,
+                                                        size_t     *new_data_size,
+                                                        void       *arg);
 
 typedef void (
 	*bptree_iterate_fn_t)(const char *key, void *data, size_t data_size, unsigned data_ref_count, void *bptree_iterate_fn_arg);
@@ -59,14 +58,14 @@ typedef void (
 bptree_t *bptree_create(int order);
 int       bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_size);
 int       bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bool force);
-int       bptree_update(bptree_t *            bptree,
-                        const char *          key,
-                        void **               data,
-                        size_t *              data_size,
+int       bptree_update(bptree_t             *bptree,
+                        const char           *key,
+                        void                **data,
+                        size_t               *data_size,
                         bptree_update_cb_fn_t bptree_update_fn,
-                        void *                bptree_update_fn_arg);
+                        void                 *bptree_update_fn_arg);
 int       bptree_remove(bptree_t *bptree, const char *key);
-void *    bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size, unsigned *data_ref_count);
+void     *bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size, unsigned *data_ref_count);
 int       bptree_get_height(bptree_t *bptree);
 size_t    bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size);
 size_t    bptree_get_num_entries(bptree_t *bptree);
@@ -76,9 +75,9 @@ int       bptree_destroy_with_fn(bptree_t *bptree, bptree_iterate_fn_t fn, void 
 void bptree_iter(bptree_t *bptree, const char *key_start, const char *key_end, bptree_iterate_fn_t fn, void *fn_arg);
 
 bptree_iter_t *bptree_iter_create(bptree_t *bptree, const char *key_start, const char *key_end);
-void *         bptree_iter_current(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);
-const char *   bptree_iter_current_key(bptree_iter_t *iter);
-void *         bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);
+void          *bptree_iter_current(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);
+const char    *bptree_iter_current_key(bptree_iter_t *iter);
+void          *bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);
 void           bptree_iter_reset(bptree_iter_t *iter, const char *key_start, const char *key_end);
 void           bptree_iter_destroy(bptree_iter_t *iter);
 

@@ -44,7 +44,7 @@ typedef int     module_cb_fn_t(struct module *module, void *cb_arg);
 const char *module_get_full_name(struct module *module);
 const char *module_get_name(struct module *module);
 void        module_set_data(struct module *module, void *data);
-void *      module_get_data(struct module *module);
+void       *module_get_data(struct module *module);
 
 #ifdef __cplusplus
 }

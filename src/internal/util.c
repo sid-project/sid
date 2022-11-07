@@ -132,7 +132,7 @@ char *util_str_combstr(const char *haystack, const char *prefix, const char *nee
 {
 	size_t haystack_len, prefix_len, needle_len, suffix_len;
 	bool   prefix_match, suffix_match;
-	char * needle_in_haystack;
+	char  *needle_in_haystack;
 
 	haystack_len = strlen(haystack);
 	prefix_len   = prefix ? strlen(prefix) : 0;
@@ -163,11 +163,11 @@ char *util_str_combstr(const char *haystack, const char *prefix, const char *nee
 	return NULL;
 }
 
-int util_str_iterate_tokens(const char *        str,
-                            const char *        delims,
-                            const char *        quotes,
+int util_str_iterate_tokens(const char         *str,
+                            const char         *delims,
+                            const char         *quotes,
                             util_str_token_fn_t token_fn,
-                            void *              token_fn_data)
+                            void               *token_fn_data)
 {
 	const char *end_quote;
 	size_t      len;
@@ -220,7 +220,7 @@ char *util_str_comb_to_str(util_mem_t *mem, const char *prefix, const char *str,
 	size_t prefix_len = prefix ? strlen(prefix) : 0;
 	size_t str_len    = str ? strlen(str) : 0;
 	size_t suffix_len = suffix ? strlen(suffix) : 0;
-	char * p, *ret_str;
+	char  *p, *ret_str;
 
 	if (_mem_avail(mem)) {
 		if (prefix_len + str_len + suffix_len + 1 > mem->size)
@@ -272,7 +272,7 @@ static int _count_token(const char *token, size_t len, bool merge_back, void *da
 struct strv_iter {
 	char **strv;
 	size_t i;
-	char * s;
+	char  *s;
 };
 
 static int _copy_token_to_strv(const char *token, size_t len, bool merge_back, void *data)
@@ -354,10 +354,10 @@ fail:
 
 char **util_str_vec_copy(util_mem_t *mem, const char **strv)
 {
-	const char **        p;
+	const char         **p;
 	struct token_counter counter = {0};
 	struct strv_iter     copier  = {0};
-	char *               ret_strv;
+	char                *ret_strv;
 
 	for (p = strv; *p; p++) {
 		if (_count_token(*p, strlen(*p), false, &counter) < 0)
@@ -392,7 +392,7 @@ char **util_str_vec_copy(util_mem_t *mem, const char **strv)
 char *util_str_copy_substr(util_mem_t *mem, const char *str, size_t offset, size_t len)
 {
 	size_t str_len = strlen(str);
-	char * ret_str;
+	char  *ret_str;
 
 	if ((offset + len) > str_len)
 		return NULL;
@@ -446,7 +446,7 @@ static char *_get_uuid_mem(util_mem_t *mem)
 char *util_uuid_gen_str(util_mem_t *mem)
 {
 	uuid_t uu;
-	char * str;
+	char  *str;
 
 	if (!(str = _get_uuid_mem(mem)))
 		return NULL;

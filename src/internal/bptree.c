@@ -62,7 +62,7 @@
 
 typedef struct bptree_record {
 	size_t   data_size;
-	void *   data;
+	void    *data;
 	unsigned ref_count;
 } bptree_record_t;
 
@@ -98,17 +98,17 @@ typedef struct bptree_key {
  */
 
 typedef struct bptree_node {
-	void **             pointers;
-	bptree_key_t **     bkeys;
+	void              **pointers;
+	bptree_key_t      **bkeys;
 	struct bptree_node *parent;
 	bool                is_leaf;
 	int                 num_keys;
 } bptree_node_t;
 
 typedef struct bptree_iter {
-	bptree_t *     bptree;
-	const char *   key_start;
-	const char *   key_end;
+	bptree_t      *bptree;
+	const char    *key_start;
+	const char    *key_end;
 	bptree_node_t *c;
 	int            i;
 } bptree_iter_t;
@@ -131,8 +131,7 @@ typedef struct bptree {
 	size_t         num_entries;
 } bptree_t;
 
-typedef enum
-{
+typedef enum {
 	LOOKUP_EXACT,
 	LOOKUP_PREFIX,
 } bptree_lookup_method_t;
@@ -229,12 +228,12 @@ static bptree_node_t *_find_leaf(bptree_t *bptree, const char *key)
 /*
  * Looks up and returns the record to which a key refers.
  */
-bptree_record_t *_find(bptree_t *             bptree,
-                       const char *           key,
+bptree_record_t *_find(bptree_t              *bptree,
+                       const char            *key,
                        bptree_lookup_method_t method,
-                       bptree_node_t **       leaf_out,
-                       int *                  i_out,
-                       bptree_key_t **        bkey_out)
+                       bptree_node_t        **leaf_out,
+                       int                   *i_out,
+                       bptree_key_t         **bkey_out)
 {
 	int            i;
 	bptree_node_t *leaf;
@@ -500,8 +499,8 @@ static bptree_node_t *
 {
 	bptree_node_t *new_leaf;
 	bptree_key_t **temp_bkeys;
-	void **        temp_pointers;
-	bptree_key_t * new_bkey;
+	void         **temp_pointers;
+	bptree_key_t  *new_bkey;
 	int            insertion_index, split, i, j;
 
 	if (!(new_leaf = _make_leaf(bptree)))
@@ -588,18 +587,18 @@ static bptree_node_t *
  * Inserts a new key and pointer to a node* into a node, causing the
  * node's size to exceed the order, and causing the node to split into two.
  */
-static bptree_node_t *_insert_into_node_after_splitting(bptree_t *     bptree,
+static bptree_node_t *_insert_into_node_after_splitting(bptree_t      *bptree,
                                                         bptree_node_t *old_node,
                                                         int            left_index,
-                                                        bptree_key_t * bkey,
+                                                        bptree_key_t  *bkey,
                                                         bptree_node_t *right)
 {
 	int             i, j, split;
-	bptree_node_t * new_node, *child;
-	bptree_key_t *  bk_prime;
-	bptree_key_t ** temp_bkeys;
+	bptree_node_t  *new_node, *child;
+	bptree_key_t   *bk_prime;
+	bptree_key_t  **temp_bkeys;
 	bptree_node_t **temp_pointers;
-	bptree_node_t * n;
+	bptree_node_t  *n;
 
 	/*
 	 * First create a temporary set of keys and pointers to hold
@@ -785,7 +784,7 @@ static int _insert(bptree_t *bptree, bptree_key_t *bkey, bptree_record_t *rec)
 int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_size)
 {
 	bptree_record_t *rec;
-	bptree_key_t *   bkey;
+	bptree_key_t    *bkey;
 
 	if ((rec = _find(bptree, key, LOOKUP_EXACT, NULL, NULL, NULL))) {
 		rec->data = data;
@@ -817,9 +816,9 @@ int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bo
 {
 	bptree_record_t *rec;
 	bptree_record_t *rec_alias;
-	bptree_node_t *  leaf;
+	bptree_node_t   *leaf;
 	int              i;
-	bptree_key_t *   bkey;
+	bptree_key_t    *bkey;
 
 	if (!(rec = _find(bptree, key, LOOKUP_EXACT, NULL, NULL, NULL)))
 		return -1;
@@ -841,16 +840,16 @@ int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bo
 	return _insert(bptree, bkey, rec);
 }
 
-int bptree_update(bptree_t *            bptree,
-                  const char *          key,
-                  void **               data,
-                  size_t *              data_size,
+int bptree_update(bptree_t             *bptree,
+                  const char           *key,
+                  void                **data,
+                  size_t               *data_size,
                   bptree_update_cb_fn_t bptree_update_fn,
-                  void *                bptree_update_fn_arg)
+                  void                 *bptree_update_fn_arg)
 {
-	bptree_node_t *        key_leaf;
-	bptree_record_t *      rec;
-	bptree_key_t *         bkey;
+	bptree_node_t         *key_leaf;
+	bptree_record_t       *rec;
+	bptree_key_t          *bkey;
 	bptree_update_action_t act;
 	int                    r;
 
@@ -1090,12 +1089,12 @@ static bptree_node_t *
  * after deletion but its neighbor is too big to append the small node's
  * entries without exceeding the maximum
  */
-static bptree_node_t *_redistribute_nodes(bptree_t *     bptree,
+static bptree_node_t *_redistribute_nodes(bptree_t      *bptree,
                                           bptree_node_t *n,
                                           bptree_node_t *neighbor,
                                           int            neighbor_index,
                                           int            k_prime_index,
-                                          bptree_key_t * bk_prime)
+                                          bptree_key_t  *bk_prime)
 {
 	int i;
 
@@ -1179,7 +1178,7 @@ static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, bptree_k
 	bptree_node_t *neighbor;
 	int            neighbor_index;
 	int            k_prime_index;
-	bptree_key_t * bk_prime;
+	bptree_key_t  *bk_prime;
 	int            capacity;
 
 	/* Remove key and pointer from node. */
@@ -1244,9 +1243,9 @@ static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, bptree_k
  */
 int bptree_remove(bptree_t *bptree, const char *key)
 {
-	bptree_node_t *  key_leaf = NULL;
+	bptree_node_t   *key_leaf = NULL;
 	bptree_record_t *rec      = NULL;
-	bptree_key_t *   bkey     = NULL;
+	bptree_key_t    *bkey     = NULL;
 
 	rec = _find(bptree, key, LOOKUP_EXACT, &key_leaf, NULL, &bkey);
 
@@ -1402,8 +1401,8 @@ void bptree_iter_reset(bptree_iter_t *iter, const char *key_start, const char *k
 void bptree_iter(bptree_t *bptree, const char *key_start, const char *key_end, bptree_iterate_fn_t fn, void *fn_arg)
 {
 	bptree_iter_t iter = {.bptree = bptree, .key_start = key_start, .key_end = key_end, .c = NULL, .i = 0};
-	const char *  key;
-	void *        data;
+	const char   *key;
+	void         *data;
 	size_t        data_size;
 	unsigned      data_ref_count;
 

@@ -27,15 +27,13 @@
 extern "C" {
 #endif
 
-typedef enum
-{
+typedef enum {
 	SERVICE_TYPE_NONE,
 	SERVICE_TYPE_SYSTEMD,
 	_SERVICE_TYPE_COUNT
 } service_link_type_t;
 
-typedef enum
-{
+typedef enum {
 	/* no notification */
 	SERVICE_NOTIFICATION_NONE = UINT64_C(0x0000000000000000),
 

@@ -21,7 +21,7 @@ static void check_strv(char **output, char **goal)
 static void do_mem_test(const char *prefix, const char *str, const char *suffix, char *goal[])
 {
 	char            buffer[128] __attribute__((aligned(sizeof(char *))));
-	char **         output = (char **) buffer;
+	char          **output = (char **) buffer;
 	struct util_mem mem    = {.base = buffer, .size = sizeof(buffer)};
 
 	assert_ptr_equal(util_str_comb_to_strv(&mem, prefix, str, suffix, UTIL_STR_DEFAULT_DELIMS, UTIL_STR_DEFAULT_QUOTES),

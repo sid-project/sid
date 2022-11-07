@@ -36,8 +36,7 @@
 
 SID_UCMD_MOD_PRIO(0)
 
-enum
-{
+enum {
 	U_FS_TYPE = 0,
 	U_FS_USAGE,
 	U_FS_VERSION,

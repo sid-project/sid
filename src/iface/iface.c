@@ -52,7 +52,7 @@ static const char *const _cmd_names[] = {
 
 struct sid_result {
 	struct sid_buffer *buf;
-	const char *       shm;
+	const char        *shm;
 	size_t             shm_len;
 };
 
@@ -196,7 +196,7 @@ out:
 static int _add_scan_env_to_buf(struct sid_buffer *buf)
 {
 	extern char **environ;
-	char **       kv;
+	char        **kv;
 	int           r;
 
 	if ((r = _add_devt_env_to_buffer(buf)) < 0)

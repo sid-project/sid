@@ -193,8 +193,8 @@ int print_elem_name(bool needs_comma, const char *elem_name, output_format_t for
 	return r;
 }
 
-int print_str_field(const char *       field_name,
-                    const char *       value,
+int print_str_field(const char        *field_name,
+                    const char        *value,
                     output_format_t    format,
                     struct sid_buffer *buf,
                     bool               trailing_comma,
@@ -214,8 +214,8 @@ int print_str_field(const char *       field_name,
 	return r;
 }
 
-int print_binary_field(const char *       field_name,
-                       const char *       value,
+int print_binary_field(const char        *field_name,
+                       const char        *value,
                        size_t             len,
                        output_format_t    format,
                        struct sid_buffer *buf,
@@ -242,7 +242,7 @@ int print_binary_field(const char *       field_name,
 	return r;
 }
 
-int print_uint_field(const char *       field_name,
+int print_uint_field(const char        *field_name,
                      uint               value,
                      output_format_t    format,
                      struct sid_buffer *buf,
@@ -263,7 +263,7 @@ int print_uint_field(const char *       field_name,
 	return r;
 }
 
-int print_uint64_field(const char *       field_name,
+int print_uint64_field(const char        *field_name,
                        uint64_t           value,
                        output_format_t    format,
                        struct sid_buffer *buf,
@@ -284,7 +284,7 @@ int print_uint64_field(const char *       field_name,
 	return r;
 }
 
-int print_int64_field(const char *       field_name,
+int print_int64_field(const char        *field_name,
                       int64_t            value,
                       output_format_t    format,
                       struct sid_buffer *buf,
@@ -305,7 +305,7 @@ int print_int64_field(const char *       field_name,
 	return r;
 }
 
-int print_bool_array_elem(const char *       field_name,
+int print_bool_array_elem(const char        *field_name,
                           bool               value,
                           output_format_t    format,
                           struct sid_buffer *buf,
@@ -360,7 +360,7 @@ int print_str_array_elem(const char *value, output_format_t format, struct sid_b
 	return r;
 }
 
-int print_binary_array_elem(const char *       value,
+int print_binary_array_elem(const char        *value,
                             size_t             len,
                             output_format_t    format,
                             struct sid_buffer *buf,

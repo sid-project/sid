@@ -36,7 +36,7 @@ static void test_type_F(void **state)
 
 static void test_type_E(void **state)
 {
-	struct iovec *         return_iov, test_iov[] = {{"test", sizeof("test")}, {"value", sizeof("value")}};
+	struct iovec          *return_iov, test_iov[] = {{"test", sizeof("test")}, {"value", sizeof("value")}};
 	size_t                 size = sizeof(test_iov) / sizeof(test_iov[0]);
 	size_t                 value_size;
 	struct kv_store_value *value =
@@ -105,13 +105,13 @@ static void test_kvstore_iterate(void **state)
 {
 	struct iovec           test_iov[_VVALUE_IDX_COUNT];
 	size_t                 data_size, kv_size;
-	const char *           key;
-	struct iovec *         return_iov;
-	kv_store_iter_t *      iter;
+	const char            *key;
+	struct iovec          *return_iov;
+	kv_store_iter_t       *iter;
 	sid_ucmd_kv_flags_t    ucmd_flags = DEFAULT_VALUE_FLAGS_CORE;
 	kv_store_value_flags_t flags;
 	uint64_t               seqnum       = 0;
-	sid_resource_t *       kv_store_res = NULL;
+	sid_resource_t        *kv_store_res = NULL;
 	struct kv_update_arg   update_arg;
 	size_t                 meta_size = 0;
 
@@ -166,9 +166,9 @@ static void test_kvstore_iterate(void **state)
 	sid_resource_unref(kv_store_res);
 }
 
-static size_t add_sequential_test_data(char *                    key,
+static size_t add_sequential_test_data(char                     *key,
                                        struct iovec              test_iov[MAX_TEST_ENTRIES],
-                                       sid_resource_t *          kv_store_res,
+                                       sid_resource_t           *kv_store_res,
                                        int                       num_entries,
                                        kv_store_value_flags_t    flags,
                                        kv_store_value_op_flags_t op_flags)
@@ -230,11 +230,11 @@ static void test_kvstore_merge_op(void **state)
 {
 	struct iovec           test_iov[MAX_TEST_ENTRIES];
 	size_t                 data_size;
-	const char *           key;
-	void *                 data;
-	kv_store_iter_t *      iter;
+	const char            *key;
+	void                  *data;
+	kv_store_iter_t       *iter;
 	kv_store_value_flags_t flags        = KV_STORE_VALUE_VECTOR;
-	sid_resource_t *       kv_store_res = NULL;
+	sid_resource_t        *kv_store_res = NULL;
 
 	kv_store_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
 	                                   &sid_resource_type_kv_store,

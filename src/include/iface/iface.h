@@ -30,8 +30,7 @@ extern "C" {
 
 #define SID_PROTOCOL 2
 
-typedef enum
-{
+typedef enum {
 	_SID_CMD_START     = 0,
 	SID_CMD_UNDEFINED  = _SID_CMD_START, /* virtual cmd if cmd not defined at all */
 	SID_CMD_UNKNOWN    = 1,              /* virtual cmd if cmd defined, but not recognized */
@@ -57,13 +56,13 @@ typedef enum
 #define SID_CMD_FLAGS_UNMODIFIED_DATA UINT16_C(0x0004)
 
 struct sid_checkpoint_data {
-	char *       name;
-	char **      keys;
+	char        *name;
+	char       **keys;
 	unsigned int nr_keys;
 };
 
 struct sid_unmodified_data {
-	char * mem;
+	char  *mem;
 	size_t size;
 };
 

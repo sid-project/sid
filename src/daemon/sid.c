@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
 	int                verbose    = 0;
 	int                foreground = 0;
 	int                journal    = 0;
-	sid_resource_t *   sid_res    = NULL;
+	sid_resource_t    *sid_res    = NULL;
 	int                r          = -1;
 
 	struct option longopts[] = {{"foreground", 0, NULL, 'f'},

@@ -44,7 +44,7 @@ static size_t _buffer_vector_count(struct sid_buffer *buf)
 
 static int _buffer_vector_realloc(struct sid_buffer *buf, size_t needed, int force)
 {
-	void * p;
+	void  *p;
 	size_t align;
 	size_t alloc_step;
 
@@ -309,7 +309,7 @@ static int _buffer_vector_get_data(struct sid_buffer *buf, const void **data, si
 
 static void _update_size_prefix(struct sid_buffer *buf, size_t pos)
 {
-	struct iovec *              iov         = buf->mem;
+	struct iovec               *iov         = buf->mem;
 	SID_BUFFER_SIZE_PREFIX_TYPE size_prefix = 0;
 	size_t                      i;
 
@@ -362,7 +362,7 @@ static ssize_t _buffer_vector_write(struct sid_buffer *buf, int fd, size_t pos)
 {
 	struct iovec *iov = buf->mem;
 	unsigned      i, start_idx = 0;
-	void *        save_base = NULL;
+	void         *save_base = NULL;
 	size_t        save_len = 0, start_off = pos;
 	ssize_t       n;
 

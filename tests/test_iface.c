@@ -56,7 +56,7 @@ ssize_t __wrap_sid_comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, in
 
 int __wrap_sid_buffer_write_all(struct sid_buffer *buf, int fd)
 {
-	char * hdr;
+	char  *hdr;
 	size_t size;
 	int    ret;
 
@@ -72,7 +72,7 @@ int __wrap_sid_buffer_write_all(struct sid_buffer *buf, int fd)
 
 ssize_t __wrap_sid_buffer_read(struct sid_buffer *buf, int fd)
 {
-	void *  data;
+	void   *data;
 	ssize_t size = mock_type(ssize_t);
 
 	if (size <= 0)
@@ -149,9 +149,9 @@ int __wrap_munmap(void *addr, size_t length)
 static void _test_checkpoint(char *name, char *keys[], char *values[], int nr_keys, int ret_val)
 {
 	dev_t                      devnum = makedev(8, 0);
-	char *                     data, *p, *kv;
+	char                      *data, *p, *kv;
 	size_t                     size;
-	struct sid_buffer *        buf;
+	struct sid_buffer         *buf;
 	struct sid_checkpoint_data check_data = {.name = name, .keys = keys, .nr_keys = nr_keys};
 	unsigned int               i;
 
@@ -218,7 +218,7 @@ static void test_add_scan_env(void **state)
 {
 	struct sid_buffer *buf;
 	dev_t              devnum = makedev(8, 0);
-	char *             data, *p, **kv;
+	char              *data, *p, **kv;
 	size_t             size;
 
 	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
@@ -259,7 +259,7 @@ static void test_sid_req_fail_no_req(void **state)
 static void test_sid_req_fail_missing(void **state)
 {
 	struct sid_request          req = {.flags = SID_CMD_FLAGS_UNMODIFIED_DATA};
-	struct sid_result *         res;
+	struct sid_result          *res;
 	struct sid_unmodified_data *data = &req.data.unmodified;
 
 	data->mem  = NULL;
@@ -281,7 +281,7 @@ static void test_sid_req_fail_write(void **state)
 static void test_sid_req_fail_read1(void **state)
 {
 	struct sid_request    req = {.cmd = SID_CMD_VERSION};
-	struct sid_result *   res;
+	struct sid_result    *res;
 	struct sid_msg_header hdr = {.prot = SID_PROTOCOL, .cmd = SID_CMD_VERSION};
 
 	will_return(__wrap_sid_buffer_write_all, 0);
@@ -295,7 +295,7 @@ static void test_sid_req_fail_read1(void **state)
 static void test_sid_req_fail_read2(void **state)
 {
 	struct sid_request    req = {.cmd = SID_CMD_VERSION};
-	struct sid_result *   res;
+	struct sid_result    *res;
 	struct sid_msg_header hdr = {.prot = SID_PROTOCOL, .cmd = SID_CMD_VERSION};
 
 	will_return(__wrap_sid_buffer_write_all, 0);
@@ -309,15 +309,15 @@ static void test_sid_req_fail_read2(void **state)
 }
 
 static struct sid_result *__do_sid_req(struct sid_request *req,
-                                       void *              req_data,
+                                       void               *req_data,
                                        size_t              req_data_size,
                                        uint64_t            status,
-                                       void *              res_data,
+                                       void               *res_data,
                                        ssize_t             res_data_size,
                                        int                 ret)
 {
 	struct sid_msg_header *res_hdr, *req_hdr;
-	struct sid_result *    res;
+	struct sid_result     *res;
 
 	req_hdr = calloc(1, sizeof(*req_hdr) + req_data_size);
 	assert_non_null(req_hdr);
@@ -352,13 +352,13 @@ static struct sid_result *__do_sid_req(struct sid_request *req,
 }
 
 static void __check_sid_req(struct sid_request *req,
-                            void *              req_data,
+                            void               *req_data,
                             size_t              req_data_size,
                             uint64_t            status,
-                            void *              res_data,
+                            void               *res_data,
                             ssize_t             res_data_size)
 {
-	const char *       data;
+	const char        *data;
 	uint64_t           res_status;
 	uint8_t            res_prot;
 	size_t             size;
@@ -412,7 +412,7 @@ static void test_sid_req_scan(void **state)
 {
 	struct sid_request req = {.cmd = SID_CMD_SCAN};
 	struct sid_buffer *buf;
-	char *             data;
+	char              *data;
 	size_t             size;
 
 	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
@@ -434,8 +434,8 @@ static void test_sid_req_scan(void **state)
 static void test_sid_req_checkpoint(void **state)
 {
 	struct sid_request          req = {.cmd = SID_CMD_CHECKPOINT};
-	struct sid_buffer *         buf;
-	char *                      req_data;
+	struct sid_buffer          *buf;
+	char                       *req_data;
 	size_t                      size;
 	struct sid_checkpoint_data *data = &req.data.checkpoint;
 	int                         i;
@@ -444,8 +444,8 @@ static void test_sid_req_checkpoint(void **state)
 	data->keys    = check_keys;
 	data->nr_keys = NR_KEYS;
 	buf           = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
-                                                            .type    = SID_BUFFER_TYPE_LINEAR,
-                                                            .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
+	                                                              .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                              .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
                                 &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
                                 NULL);
 

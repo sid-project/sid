@@ -19,7 +19,7 @@ int test_fmt_add(int buf_size)
 {
 	int                r   = 0;
 	struct sid_buffer *buf = NULL;
-	char *             data;
+	char              *data;
 	size_t             data_size;
 	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
 	                                                    .type    = SID_BUFFER_TYPE_LINEAR,

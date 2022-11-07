@@ -30,8 +30,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-typedef enum
-{
+typedef enum {
 	KV_STORE_VALUE_INT_ALLOC = UINT32_C(0x00000001),
 } kv_store_value_int_flags_t;
 
@@ -39,7 +38,7 @@ struct kv_store {
 	kv_store_backend_t backend;
 	union {
 		struct hash_table *ht;
-		struct bptree *    bpt;
+		struct bptree     *bpt;
 	};
 };
 
@@ -52,7 +51,7 @@ struct kv_store_value {
 
 struct kv_update_fn_relay {
 	kv_store_update_cb_fn_t kv_update_fn;
-	void *                  kv_update_fn_arg;
+	void                   *kv_update_fn_arg;
 	int                     ret_code;
 };
 
@@ -137,17 +136,17 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 
 static void _hash_destroy_kv_store_value(const void *key __attribute__((unused)),
                                          uint32_t    key_len __attribute__((unused)),
-                                         void *      value,
+                                         void       *value,
                                          size_t      value_size __attribute__((unused)))
 {
 	_destroy_kv_store_value(value);
 }
 
 static void _bptree_destroy_kv_store_value(const char *key __attribute__((unused)),
-                                           void *      value,
+                                           void       *value,
                                            size_t      value_size __attribute__((unused)),
                                            unsigned    ref_count,
-                                           void *      arg __attribute__((unused)))
+                                           void       *arg __attribute__((unused)))
 {
 	if (ref_count == 1)
 		_destroy_kv_store_value(value);
@@ -186,17 +185,17 @@ static void _bptree_destroy_kv_store_value(const char *key __attribute__((unused
  * For vectors, this also means that both the struct iovec and values reference by iovec.iov_base have
  * been allocated by "malloc" too.
  */
-static struct kv_store_value *_create_kv_store_value(struct iovec *            iov,
+static struct kv_store_value *_create_kv_store_value(struct iovec             *iov,
                                                      int                       iov_cnt,
                                                      kv_store_value_flags_t    flags,
                                                      kv_store_value_op_flags_t op_flags,
-                                                     size_t *                  size)
+                                                     size_t                   *size)
 {
 	struct kv_store_value *value;
 	size_t                 value_size;
 	size_t                 data_size;
-	char *                 p1, *p2;
-	struct iovec *         iov2;
+	char                  *p1, *p2;
+	struct iovec          *iov2;
 	int                    i;
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
@@ -296,11 +295,11 @@ static struct kv_store_value *_create_kv_store_value(struct iovec *            i
 	return value;
 }
 
-static int _update_fn(const char *               key,
-                      struct kv_store_value *    old_value,
+static int _update_fn(const char                *key,
+                      struct kv_store_value     *old_value,
                       size_t                     old_value_len __attribute__((unused)),
-                      struct kv_store_value **   new_value,
-                      size_t *                   new_value_len,
+                      struct kv_store_value    **new_value,
+                      size_t                    *new_value_len,
                       struct kv_update_fn_relay *relay)
 {
 	/*
@@ -308,14 +307,14 @@ static int _update_fn(const char *               key,
 	 *   '*new_value' is always non-NULL here
 	 *   'old_value' can be NULL if there wasn't any previous record
 	 */
-	struct kv_store_value *     orig_new_value = *new_value;
-	struct kv_store_value *     edited_new_value;
-	void *                      orig_new_data      = NULL;
+	struct kv_store_value      *orig_new_value = *new_value;
+	struct kv_store_value      *edited_new_value;
+	void                       *orig_new_data      = NULL;
 	size_t                      orig_new_data_size = 0;
 	kv_store_value_flags_t      orig_new_flags     = 0;
 	struct kv_store_update_spec update_spec        = {.key = key};
 	struct iovec                tmp_iov[1];
-	struct iovec *              iov;
+	struct iovec               *iov;
 	size_t                      iov_cnt;
 	size_t                      kv_store_value_size;
 	int                         r = 1;
@@ -390,11 +389,11 @@ static int _update_fn(const char *               key,
 
 static hash_update_action_t _hash_update_fn(const void *key,
                                             uint32_t    key_len __attribute__((unused)),
-                                            void *      old_value,
+                                            void       *old_value,
                                             size_t      old_value_len,
-                                            void **     new_value,
-                                            size_t *    new_value_len,
-                                            void *      arg)
+                                            void      **new_value,
+                                            size_t     *new_value_len,
+                                            void       *arg)
 {
 	if (_update_fn((const char *) key,
 	               (struct kv_store_value *) old_value,
@@ -408,12 +407,12 @@ static hash_update_action_t _hash_update_fn(const void *key,
 }
 
 static bptree_update_action_t _bptree_update_fn(const char *key,
-                                                void *      old_value,
+                                                void       *old_value,
                                                 size_t      old_value_len,
                                                 unsigned    old_value_ref_count,
-                                                void **     new_value,
-                                                size_t *    new_value_len,
-                                                void *      arg)
+                                                void      **new_value,
+                                                size_t     *new_value_len,
+                                                void       *arg)
 {
 	if (_update_fn(key,
 	               (struct kv_store_value *) old_value,
@@ -437,24 +436,24 @@ static const char *_canonicalize_key(const char *key)
 	return key;
 }
 
-void *kv_store_set_value(sid_resource_t *          kv_store_res,
-                         const char *              key,
-                         void *                    value,
+void *kv_store_set_value(sid_resource_t           *kv_store_res,
+                         const char               *key,
+                         void                     *value,
                          size_t                    value_size,
                          kv_store_value_flags_t    flags,
                          kv_store_value_op_flags_t op_flags,
                          kv_store_update_cb_fn_t   kv_update_fn,
-                         void *                    kv_update_fn_arg)
+                         void                     *kv_update_fn_arg)
 {
 	struct kv_update_fn_relay relay        = {.kv_update_fn     = kv_update_fn,
-                                           .kv_update_fn_arg = kv_update_fn_arg,
-                                           .ret_code         = -EREMOTEIO};
-	struct kv_store *         kv_store     = sid_resource_get_data(kv_store_res);
+	                                          .kv_update_fn_arg = kv_update_fn_arg,
+	                                          .ret_code         = -EREMOTEIO};
+	struct kv_store          *kv_store     = sid_resource_get_data(kv_store_res);
 	struct iovec              iov_internal = {.iov_base = value, .iov_len = value_size};
-	struct iovec *            iov;
+	struct iovec             *iov;
 	int                       iov_cnt;
 	size_t                    kv_store_value_size;
-	struct kv_store_value *   kv_store_value;
+	struct kv_store_value    *kv_store_value;
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		iov     = value;
@@ -516,7 +515,7 @@ int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char
 
 void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *value_size, kv_store_value_flags_t *flags)
 {
-	struct kv_store *      kv_store = sid_resource_get_data(kv_store_res);
+	struct kv_store       *kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_store_value *found;
 
 	key = _canonicalize_key(key);
@@ -542,12 +541,12 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *
 	return _get_data(found);
 }
 
-static int _unset_fn(const char *               key,
-                     struct kv_store_value *    old_value,
+static int _unset_fn(const char                *key,
+                     struct kv_store_value     *old_value,
                      size_t                     old_value_len __attribute__((unused)),
                      unsigned                   old_value_ref_count,
-                     struct kv_store_value **   new_value,
-                     size_t *                   new_value_len,
+                     struct kv_store_value    **new_value,
+                     size_t                    *new_value_len,
                      struct kv_update_fn_relay *relay)
 {
 	struct kv_store_update_spec update_spec;
@@ -584,11 +583,11 @@ static int _unset_fn(const char *               key,
 
 static hash_update_action_t _hash_unset_fn(const void *key,
                                            uint32_t    key_len __attribute__((unused)),
-                                           void *      old_value,
+                                           void       *old_value,
                                            size_t      old_value_len,
-                                           void **     new_value,
-                                           size_t *    new_value_len,
-                                           void *      arg)
+                                           void      **new_value,
+                                           size_t     *new_value_len,
+                                           void       *arg)
 {
 	if (_unset_fn(key,
 	              (struct kv_store_value *) old_value,
@@ -603,12 +602,12 @@ static hash_update_action_t _hash_unset_fn(const void *key,
 }
 
 static bptree_update_action_t _bptree_unset_fn(const char *key,
-                                               void *      old_value,
+                                               void       *old_value,
                                                size_t      old_value_len,
                                                unsigned    old_value_ref_count,
-                                               void **     new_value,
-                                               size_t *    new_value_len,
-                                               void *      arg)
+                                               void      **new_value,
+                                               size_t     *new_value_len,
+                                               void       *arg)
 {
 	if (_unset_fn(key,
 	              (struct kv_store_value *) old_value,
@@ -624,10 +623,10 @@ static bptree_update_action_t _bptree_unset_fn(const char *key,
 
 int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg)
 {
-	struct kv_store *         kv_store = sid_resource_get_data(kv_store_res);
+	struct kv_store          *kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_update_fn_relay relay    = {.kv_update_fn     = kv_unset_fn,
-                                           .kv_update_fn_arg = kv_unset_fn_arg,
-                                           .ret_code         = -EREMOTEIO};
+	                                      .kv_update_fn_arg = kv_unset_fn_arg,
+	                                      .ret_code         = -EREMOTEIO};
 
 	key = _canonicalize_key(key);
 
@@ -698,10 +697,10 @@ void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_
 }
 
 int kv_store_iter_current_size(kv_store_iter_t *iter,
-                               size_t *         int_size,
-                               size_t *         int_data_size,
-                               size_t *         ext_size,
-                               size_t *         ext_data_size)
+                               size_t          *int_size,
+                               size_t          *int_data_size,
+                               size_t          *ext_size,
+                               size_t          *ext_data_size)
 {
 	size_t                 iov_size, data_size;
 	struct kv_store_value *value;
@@ -849,7 +848,7 @@ size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t
 static int _init_kv_store(sid_resource_t *kv_store_res, const void *kickstart_data, void **data)
 {
 	const struct sid_kv_store_resource_params *params = kickstart_data;
-	struct kv_store *                          kv_store;
+	struct kv_store                           *kv_store;
 
 	if (!(kv_store = mem_zalloc(sizeof(*kv_store)))) {
 		log_error(ID(kv_store_res), "Failed to allocate key-value store structure.");

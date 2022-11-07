@@ -29,8 +29,7 @@
 extern "C" {
 #endif
 
-typedef enum
-{
+typedef enum {
 	LOG_TARGET_NONE,
 	LOG_TARGET_STANDARD,
 	LOG_TARGET_SYSLOG,

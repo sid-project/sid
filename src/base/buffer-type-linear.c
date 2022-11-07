@@ -44,7 +44,7 @@ static size_t _buffer_linear_count(struct sid_buffer *buf)
 
 static int _buffer_linear_realloc(struct sid_buffer *buf, size_t needed, int force)
 {
-	char * p;
+	char  *p;
 	size_t align;
 	size_t alloc_step;
 
@@ -163,7 +163,7 @@ static int _buffer_linear_reset(struct sid_buffer *buf)
 static int _buffer_linear_add(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos)
 {
 	size_t used  = buf->stat.usage.used;
-	void * start = NULL;
+	void  *start = NULL;
 	size_t start_pos;
 	int    r;
 

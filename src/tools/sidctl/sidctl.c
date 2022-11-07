@@ -47,7 +47,7 @@
 static int _sid_cmd(sid_cmd_t cmd, uint16_t format)
 {
 	struct sid_result *res = NULL;
-	const char *       data;
+	const char        *data;
 	size_t             size;
 	int                r;
 	struct sid_request req = {.cmd = cmd, .flags = format};

@@ -41,8 +41,7 @@
 #define UDEV_VALUE_DEVTYPE_DISK      "disk"
 #define UDEV_VALUE_DEVTYPE_PARTITION "partition"
 
-typedef enum
-{
+typedef enum {
 	UDEV_ACTION_UNKNOWN,
 	UDEV_ACTION_ADD,
 	UDEV_ACTION_CHANGE,
@@ -54,8 +53,7 @@ typedef enum
 	UDEV_ACTION_UNBIND
 } udev_action_t;
 
-typedef enum
-{
+typedef enum {
 	UDEV_DEVTYPE_UNKNOWN,
 	UDEV_DEVTYPE_DISK,
 	UDEV_DEVTYPE_PARTITION,

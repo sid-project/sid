@@ -30,13 +30,12 @@ extern "C" {
 
 struct sid_buffer;
 
-typedef enum
-{
+typedef enum {
 	SID_BUFFER_POS_ABS,
 	SID_BUFFER_POS_REL,
 } sid_buffer_pos_t;
 
-struct sid_buffer *    sid_buffer_create(struct sid_buffer_spec *spec, struct sid_buffer_init *init, int *ret_code);
+struct sid_buffer     *sid_buffer_create(struct sid_buffer_spec *spec, struct sid_buffer_init *init, int *ret_code);
 void                   sid_buffer_destroy(struct sid_buffer *buf);
 int                    sid_buffer_reset(struct sid_buffer *buf);
 int                    sid_buffer_reset_init(struct sid_buffer *buf, struct sid_buffer_init *init);
