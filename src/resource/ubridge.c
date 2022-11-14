@@ -2957,9 +2957,6 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 	const char *s;
 	int         r;
 
-	if (!ucmd_ctx || !mod || !devno_buf || !devno_buf_size)
-		return -EINVAL;
-
 	if ((r = sid_buffer_fmt_add(ucmd_ctx->common->gen_buf,
 	                            (const void **) &s,
 	                            NULL,
@@ -2993,7 +2990,7 @@ const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
 	                               .id_part = ID_NULL,
 	                               .core    = key_core};
 
-	if (!ucmd_ctx || !key_core || !*key_core || (key_core[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod || !ucmd_ctx || !key_core || !*key_core || (key_core[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	if (_part_get_whole_disk(mod, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
