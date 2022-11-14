@@ -2610,7 +2610,7 @@ static void _canonicalize_module_name(char *name)
 	}
 }
 
-static void _canonicalize_kv_key(char *id)
+static char *_canonicalize_kv_key(char *id)
 {
 	char *p = id;
 
@@ -2619,6 +2619,8 @@ static void _canonicalize_kv_key(char *id)
 			*p = '_';
 		p++;
 	}
+
+	return id;
 }
 
 /*
@@ -2950,12 +2952,12 @@ out:
 	return r;
 }
 
-int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char *devno, size_t size)
+int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char *devno_buf, size_t devno_buf_size)
 {
 	const char *s;
 	int         r;
 
-	if (!ucmd_ctx || !mod || !devno || !size)
+	if (!ucmd_ctx || !mod || !devno_buf || !devno_buf_size)
 		return -EINVAL;
 
 	if ((r = sid_buffer_fmt_add(ucmd_ctx->common->gen_buf,
@@ -2970,13 +2972,10 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 		                CMD_DEV_ID(ucmd_ctx));
 		return r;
 	}
-	r = _get_sysfs_value(mod, s, devno, size);
+	r = _get_sysfs_value(mod, s, devno_buf, devno_buf_size);
 	sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
-	if (r < 0)
-		return r;
 
-	_canonicalize_kv_key(devno);
-	return 0;
+	return r;
 }
 
 const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
@@ -3000,7 +2999,7 @@ const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
 	if (_part_get_whole_disk(mod, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 		return NULL;
 
-	key_spec.ns_part = devno_buf;
+	key_spec.ns_part = _canonicalize_kv_key(devno_buf);
 
 	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
 }
@@ -3214,7 +3213,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 		goto out;
 
-	rel_spec.rel_key_spec->ns_part = devno_buf;
+	rel_spec.rel_key_spec->ns_part = _canonicalize_kv_key(devno_buf);
 
 	if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 		goto out;
