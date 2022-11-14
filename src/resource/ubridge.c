@@ -102,6 +102,11 @@
 #define KV_KEY_GEN_GROUP_IN                         KV_PREFIX_KEY_SYS_C "GIN"
 
 #define MOD_NAME_CORE                               "#core"
+#define MOD_NAME_BLKEXT                             "blkext"
+#define MOD_NAME_NVME                               "nvme"
+
+#define DEV_NAME_PREFIX_NVME                        "nvme"
+
 #define OWNER_CORE                                  MOD_NAME_CORE
 #define DEFAULT_VALUE_FLAGS_CORE                    KV_SYNC | KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
 
@@ -2626,20 +2631,16 @@ static char *_canonicalize_kv_key(char *id)
 /*
  *  Module name is equal to the name as exposed in SYSTEM_PROC_DEVICES_PATH.
  */
-static const char *_lookup_module_name(sid_resource_t *cmd_res)
+static const char *
+	_lookup_module_name(sid_resource_t *cmd_res, const int dev_major, const char *dev_name, char *buf, size_t buf_size)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	char                 buf[PATH_MAX];
-	const char          *mod_name = NULL;
-	FILE                *f        = NULL;
-	char                 line[80];
-	int                  in_block_section = 0;
-	char                *p, *end, *found = NULL;
-	int                  major;
-	size_t               len;
-
-	if ((mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL)))
-		goto out;
+	const char *mod_name = NULL;
+	FILE       *f        = NULL;
+	char        line[80];
+	int         in_block_section = 0;
+	char       *p, *end, *found = NULL;
+	int         major;
+	size_t      len;
 
 	if (!(f = fopen(SYSTEM_PROC_DEVICES_PATH, "r"))) {
 		log_sys_error(ID(cmd_res), "fopen", SYSTEM_PROC_DEVICES_PATH);
@@ -2677,7 +2678,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 			continue;
 
 		/* is it the major we're looking for? */
-		if (major == ucmd_ctx->req_env.dev.udev.major) {
+		if (major == dev_major) {
 			found = end + 1;
 			break;
 		}
@@ -2686,8 +2687,8 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	if (!found) {
 		log_error(ID(cmd_res),
 		          "Unable to find major number %d for device %s in %s.",
-		          ucmd_ctx->req_env.dev.udev.major,
-		          ucmd_ctx->req_env.dev.udev.name,
+		          dev_major,
+		          dev_name,
 		          SYSTEM_PROC_DEVICES_PATH);
 		goto out;
 	}
@@ -2699,7 +2700,7 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 
 	len  = p - found;
 
-	if (len >= sizeof(buf)) {
+	if (len >= buf_size) {
 		log_error(ID(cmd_res),
 		          "Insufficient result buffer for device lookup in %s, "
 		          "found string \"%s\", buffer size is only %zu.",
@@ -2712,19 +2713,11 @@ static const char *_lookup_module_name(sid_resource_t *cmd_res)
 	memcpy(buf, found, len);
 	buf[len] = '\0';
 	_canonicalize_module_name(buf);
-
-	if (!(mod_name = _do_sid_ucmd_set_kv(NULL,
-	                                     ucmd_ctx,
-	                                     NULL,
-	                                     KV_NS_DEVICE,
-	                                     KV_KEY_DEV_MOD,
-	                                     DEFAULT_VALUE_FLAGS_CORE,
-	                                     buf,
-	                                     strlen(buf) + 1)))
-		log_error_errno(ID(cmd_res), errno, "Failed to store device " CMD_DEV_ID_FMT " module name", CMD_DEV_ID(ucmd_ctx));
+	mod_name = buf;
 out:
 	if (f)
 		fclose(f);
+
 	return mod_name;
 }
 
@@ -2973,6 +2966,56 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 	sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
 
 	return r;
+}
+
+static int _dev_is_nvme(struct sid_ucmd_ctx *ucmd_ctx)
+{
+	/*
+	 * FIXME: Is there any better and quick way of detecting we have
+	 * 	  an NVMe device than just looking at its kernel name?
+	 */
+	return !strncmp(sid_ucmd_dev_get_name(ucmd_ctx), DEV_NAME_PREFIX_NVME, sizeof(DEV_NAME_PREFIX_NVME) - 1);
+}
+
+static const char *_get_mod_name_from_blkext(sid_resource_t *cmd_res, char *buf, size_t buf_size)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	char                 devno_buf[16];
+	int                  dev_major;
+	char                *p;
+
+	switch (sid_ucmd_dev_get_type(ucmd_ctx)) {
+		case UDEV_DEVTYPE_PARTITION:
+			/*
+			 * First, check if this is a partition on top of an NVMe device.
+			 * If this is the case, then we directly return MOD_NAME_NVME
+			 * because whole device for an NVMe blkext partition is a device
+			 * of blkext type again so _lookup_module_name wouldn't work here.
+			 */
+			if (_dev_is_nvme(ucmd_ctx))
+				return MOD_NAME_NVME;
+
+			/* Otherwise, get whole disk device and then lookup its module name. */
+			if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
+				return NULL;
+
+			if (!(p = index(devno_buf, ':')))
+				return NULL;
+
+			*p = '\0';
+			if (!(dev_major = atoi(devno_buf)))
+				return NULL;
+			*p = ':';
+
+			return _lookup_module_name(cmd_res, dev_major, devno_buf, buf, buf_size);
+
+		case UDEV_DEVTYPE_DISK:
+			/* NVMe whole disk is of blkext type. */
+			return _dev_is_nvme(ucmd_ctx) ? MOD_NAME_NVME : NULL;
+
+		case UDEV_DEVTYPE_UNKNOWN:
+			return NULL;
+	}
 }
 
 const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
@@ -3408,12 +3451,44 @@ fail:
 
 static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 {
+	char                      buf[80];
 	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct cmd_mod_fns *mod_fns;
 	const char               *mod_name;
 
-	if ((mod_name = _lookup_module_name(exec_arg->cmd_res)) &&
-	    !(exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
+	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL))) {
+		if (!(mod_name = _lookup_module_name(exec_arg->cmd_res,
+		                                     ucmd_ctx->req_env.dev.udev.major,
+		                                     ucmd_ctx->req_env.dev.udev.name,
+		                                     buf,
+		                                     sizeof(buf)))) {
+			log_error(ID(exec_arg->cmd_res), "Module name lookup failed.");
+			return -1;
+		}
+
+		if (!strncmp(mod_name, MOD_NAME_BLKEXT, sizeof(MOD_NAME_BLKEXT))) {
+			if (!(mod_name = _get_mod_name_from_blkext(exec_arg->cmd_res, buf, sizeof(buf)))) {
+				log_error(ID(exec_arg->cmd_res), "Failed to get module name for blkext device.");
+				return -1;
+			}
+		}
+
+		if (!_do_sid_ucmd_set_kv(NULL,
+		                         ucmd_ctx,
+		                         NULL,
+		                         KV_NS_DEVICE,
+		                         KV_KEY_DEV_MOD,
+		                         DEFAULT_VALUE_FLAGS_CORE,
+		                         mod_name,
+		                         strlen(mod_name + 1))) {
+			log_error(ID(exec_arg->cmd_res),
+			          "Failed to store device " CMD_DEV_ID_FMT " module name",
+			          CMD_DEV_ID(ucmd_ctx));
+			return -1;
+		}
+	}
+
+	if (!(exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
 		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
