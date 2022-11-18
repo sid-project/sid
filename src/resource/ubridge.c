@@ -3546,7 +3546,13 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
 
-	if ((next_mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, SID_UCMD_KEY_DEVICE_NEXT_MOD, NULL, NULL))) {
+	if ((next_mod_name = _do_sid_ucmd_get_kv(NULL,
+	                                         ucmd_ctx,
+	                                         KV_KEY_DOM_USER,
+	                                         KV_NS_DEVICE,
+	                                         SID_UCMD_KEY_DEVICE_NEXT_MOD,
+	                                         NULL,
+	                                         NULL))) {
 		if (!(exec_arg->type_mod_res_next = module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name)))
 			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
 	} else
