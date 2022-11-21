@@ -168,3 +168,34 @@ out:
 		*ret_code = (r < 0) ? r : 0;
 	return (r > 0);
 }
+
+/*
+ * sysfs-related utilities
+ */
+
+int sid_util_sysfs_get_value(const char *path, char *buf, size_t buf_size)
+{
+	FILE  *fp;
+	size_t len;
+	int    r = -1;
+
+	if (!(fp = fopen(path, "r"))) {
+		r = -errno;
+		goto out;
+	}
+
+	if (!(fgets(buf, buf_size, fp))) {
+		r = -EIO;
+		goto out;
+	}
+
+	if ((len = strlen(buf)) && buf[len - 1] == '\n')
+		buf[--len] = '\0';
+
+	r = 0;
+out:
+	if (fp)
+		fclose(fp);
+
+	return r;
+}

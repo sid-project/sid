@@ -21,6 +21,7 @@
 #define _SID_BASE_UTIL_H
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -43,6 +44,12 @@ ssize_t sid_util_fd_read_all(int fd, void *buf, size_t len);
 
 /* Note: sid_util_kernel_cmdline_get_arg reads kernel config line only once, then it is stored in internal static variable. */
 bool sid_util_kernel_cmdline_get_arg(const char *arg, char **value, int *ret_code);
+
+/*
+ * sysfs-related utilities.
+ */
+
+int sid_util_sysfs_get_value(const char *path, char *buf, size_t buf_size);
 
 #ifdef __cplusplus
 }
