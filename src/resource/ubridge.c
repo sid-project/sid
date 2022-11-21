@@ -472,6 +472,11 @@ int sid_ucmd_dev_get_minor(struct sid_ucmd_ctx *ucmd_ctx)
 	return ucmd_ctx->req_env.dev.udev.minor;
 }
 
+const char *sid_ucmd_dev_get_path(struct sid_ucmd_ctx *ucmd_ctx)
+{
+	return ucmd_ctx->req_env.dev.udev.path;
+}
+
 const char *sid_ucmd_dev_get_name(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.name;
