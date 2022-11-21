@@ -51,6 +51,18 @@ typedef module_prio_t sid_ucmd_mod_prio_t;
 typedef int           sid_ucmd_mod_fn_t(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx);
 typedef int           sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *ucmd_ctx);
 
+struct sid_ucmd_mod_fns {
+	sid_ucmd_fn_t *ident;
+	sid_ucmd_fn_t *scan_pre;
+	sid_ucmd_fn_t *scan_current;
+	sid_ucmd_fn_t *scan_next;
+	sid_ucmd_fn_t *scan_post_current;
+	sid_ucmd_fn_t *scan_post_next;
+	sid_ucmd_fn_t *trigger_action_current;
+	sid_ucmd_fn_t *trigger_action_next;
+	sid_ucmd_fn_t *error;
+} __attribute__((packed));
+
 /*
  * Macros to register module's management functions.
  */

@@ -245,18 +245,6 @@ struct sid_ucmd_ctx {
 	struct sid_buffer    *exp_buf; /* export buffer */
 };
 
-struct cmd_mod_fns {
-	sid_ucmd_fn_t *ident;
-	sid_ucmd_fn_t *scan_pre;
-	sid_ucmd_fn_t *scan_current;
-	sid_ucmd_fn_t *scan_next;
-	sid_ucmd_fn_t *scan_post_current;
-	sid_ucmd_fn_t *scan_post_next;
-	sid_ucmd_fn_t *trigger_action_current;
-	sid_ucmd_fn_t *trigger_action_next;
-	sid_ucmd_fn_t *error;
-} __attribute__((packed));
-
 struct cmd_exec_arg {
 	sid_resource_t      *cmd_res;
 	sid_resource_t      *type_mod_registry_res;
@@ -3543,11 +3531,11 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_t phase)
 {
-	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	sid_resource_t           *block_mod_res;
-	struct module            *block_mod;
-	const struct cmd_mod_fns *block_mod_fns;
-	int                       r = -1;
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	sid_resource_t                *block_mod_res;
+	struct module                 *block_mod;
+	const struct sid_ucmd_mod_fns *block_mod_fns;
+	int                            r = -1;
 
 	sid_resource_iter_reset(exec_arg->block_mod_iter);
 
@@ -3742,10 +3730,10 @@ fail:
 
 static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 {
-	char                      buf[80];
-	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
-	const char               *mod_name;
+	char                           buf[80];
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	const struct sid_ucmd_mod_fns *mod_fns;
+	const char                    *mod_name;
 
 	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL))) {
 		if (!(mod_name = _lookup_mod_name(exec_arg->cmd_res,
@@ -3789,8 +3777,8 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	const struct sid_ucmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
 
@@ -3806,8 +3794,8 @@ static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	const struct sid_ucmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
 
@@ -3824,9 +3812,9 @@ static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
-	const char               *next_mod_name;
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	const struct sid_ucmd_mod_fns *mod_fns;
+	const char                    *next_mod_name;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
 
@@ -3854,8 +3842,8 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	const struct sid_ucmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_CURRENT);
 
@@ -3871,8 +3859,8 @@ static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	const struct sid_ucmd_mod_fns *mod_fns;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_NEXT);
 
@@ -3913,9 +3901,9 @@ static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 {
-	struct sid_ucmd_ctx      *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	const struct cmd_mod_fns *mod_fns;
-	int                       r = 0;
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	const struct sid_ucmd_mod_fns *mod_fns;
+	int                            r = 0;
 
 	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_ERROR);
 
