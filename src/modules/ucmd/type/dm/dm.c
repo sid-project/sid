@@ -75,13 +75,11 @@ struct dm_mod_ctx {
 static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	struct dm_mod_ctx *dm_mod = NULL;
-	int                r;
 
 	log_debug(DM_ID, "init");
 
 	if (!(dm_mod = mem_zalloc(sizeof(*dm_mod)))) {
 		log_error(DM_ID, "Failed to allocate memory module context structure.");
-		r = -ENOMEM;
 		goto fail;
 	}
 
@@ -102,11 +100,10 @@ static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_comm
 	                                                    SID_RESOURCE_PRIO_NORMAL,
 	                                                    SID_RESOURCE_NO_SERVICE_LINKS))) {
 		log_error(DM_ID, "Failed to create submodule registry.");
-		r = -1;
 		goto fail;
 	}
 
-	if ((r = sid_ucmd_mod_add_mod_subregistry(module, ucmd_common_ctx, dm_mod->submod_registry)) < 0) {
+	if (sid_ucmd_mod_add_mod_subregistry(module, ucmd_common_ctx, dm_mod->submod_registry) < 0) {
 		sid_resource_unref(dm_mod->submod_registry);
 		log_error(DM_ID, "Failed to attach submodule registry.");
 		goto fail;
@@ -116,7 +113,7 @@ static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_comm
 	return 0;
 fail:
 	free(dm_mod);
-	return r;
+	return -1;
 }
 SID_UCMD_MOD_INIT(_dm_init)
 
