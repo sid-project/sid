@@ -2915,36 +2915,6 @@ static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 	return r;
 }
 
-static int _get_sysfs_value(struct module *mod, const char *path, char *buf, size_t buf_size)
-{
-	FILE  *fp;
-	size_t len;
-	int    r = -1;
-
-	if (!(fp = fopen(path, "r"))) {
-		log_sys_error(_get_mod_name(mod), "fopen", path);
-		goto out;
-	}
-
-	if (!(fgets(buf, buf_size, fp))) {
-		log_sys_error(_get_mod_name(mod), "fgets", path);
-		goto out;
-	}
-
-	if ((len = strlen(buf)) && buf[len - 1] == '\n')
-		buf[--len] = '\0';
-
-	if (!len)
-		log_error(_get_mod_name(mod), "No value found in %s.", path);
-	else
-		r = 0;
-out:
-	if (fp)
-		fclose(fp);
-
-	return r;
-}
-
 int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char *devno_buf, size_t devno_buf_size)
 {
 	const char *s;
@@ -2962,9 +2932,11 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 		                CMD_DEV_ID(ucmd_ctx));
 		return r;
 	}
-	r = _get_sysfs_value(mod, s, devno_buf, devno_buf_size);
-	sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
 
+	if ((r = sid_util_sysfs_get_value(s, devno_buf, devno_buf_size)) < 0 || !*devno_buf)
+		log_error_errno(_get_mod_name(mod), r, "Failed to read whole disk device number from sysfs file %s.", s);
+
+	sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
 	return r;
 }
 
@@ -3164,7 +3136,11 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 					dirent[i]->d_name,
 					CMD_DEV_ID(ucmd_ctx));
 			} else {
-				if (_get_sysfs_value(NULL, s, devno_buf, sizeof(devno_buf)) < 0) {
+				if ((r = sid_util_sysfs_get_value(s, devno_buf, sizeof(devno_buf))) < 0 || !*devno_buf) {
+					log_error_errno(ID(cmd_res),
+					                r,
+					                "Failed to read related disk device number from sysfs file %s.",
+					                s);
 					sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
 					continue;
 				}
