@@ -17,11 +17,15 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "base/util.h"
 #include "internal/mem.h"
 #include "log/log.h"
 #include "resource/module-registry.h"
 #include "resource/ucmd-module.h"
 
+#include <limits.h>
+#include <linux/dm-ioctl.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #define DM_ID            "dm"
@@ -139,42 +143,149 @@ SID_UCMD_MOD_RESET(_dm_reset)
 
 static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	char                     path[PATH_MAX];
+	char                     name[DM_NAME_LEN];
+	char                     uuid[DM_UUID_LEN];
+	struct dm_mod_ctx       *dm_mod;
+	const char              *submod_name = NULL;
+	struct sid_ucmd_mod_fns *mod_fns;
+
 	log_debug(DM_ID, "ident");
+
+	dm_mod = module_get_data(module);
+
+	// TODO: call out dm submodule identification hooks here
+
+	if (!submod_name)
+		return 0;
+
+	if (!(dm_mod->submod_res_current = module_registry_get_module(dm_mod->submod_registry, submod_name))) {
+		log_debug(DM_ID, "Module %s not loaded.", submod_name);
+		return 0;
+	}
+
+	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->ident)
+		(void) mod_fns->ident(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+
 	return 0;
 }
 SID_UCMD_IDENT(_dm_ident)
 
 static int _dm_scan_pre(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	struct dm_mod_ctx       *dm_mod;
+	struct sid_ucmd_mod_fns *mod_fns;
+
 	log_debug(DM_ID, "scan-pre");
+
+	dm_mod = module_get_data(module);
+
+	if (!dm_mod->submod_res_current)
+		return 0;
+
+	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_pre)
+		(void) mod_fns->scan_pre(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+
 	return 0;
 }
 SID_UCMD_SCAN_PRE(_dm_scan_pre)
 
 static int _dm_scan_current(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	struct dm_mod_ctx       *dm_mod;
+	struct sid_ucmd_mod_fns *mod_fns;
+
 	log_debug(DM_ID, "scan-current");
+
+	dm_mod = module_get_data(module);
+
+	if (!dm_mod->submod_res_current)
+		return 0;
+
+	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_current)
+		(void) mod_fns->scan_current(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+
 	return 0;
 }
 SID_UCMD_SCAN_CURRENT(_dm_scan_current)
 
 static int _dm_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	struct dm_mod_ctx       *dm_mod;
+	const char              *val;
+	const char              *submod_name = NULL;
+	struct sid_ucmd_mod_fns *mod_fns;
+
 	log_debug(DM_ID, "scan-next");
+
+	if ((val = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_UDEV, "ID_FS_TYPE", NULL, NULL))) {
+		if (!strcmp(val, "LVM2_member") || !strcmp(val, "LVM1_member"))
+			submod_name = "lvm";
+		else if (!strcmp(val, "DM_snapshot_cow"))
+			submod_name = "snap";
+		else if (!strcmp(val, "DM_verity_hash") || !strcmp(val, "DM_integrity"))
+			submod_name = "verity";
+		else if (!strcmp(val, "crypto_LUKS"))
+			submod_name = "luks";
+	}
+
+	if (!submod_name)
+		return 0;
+
+	dm_mod = module_get_data(module);
+
+	if (!(dm_mod->submod_res_next = module_registry_get_module(dm_mod->submod_registry, submod_name))) {
+		log_debug(DM_ID, "Module %s not loaded.", submod_name);
+		return 0;
+	}
+
+	module_registry_get_module_symbols(dm_mod->submod_res_next, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_next)
+		(void) mod_fns->scan_next(sid_resource_get_data(dm_mod->submod_res_next), ucmd_ctx);
+
 	return 0;
 }
 SID_UCMD_SCAN_NEXT(_dm_scan_next)
 
 static int _dm_scan_post_current(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	struct dm_mod_ctx       *dm_mod;
+	struct sid_ucmd_mod_fns *mod_fns;
+
 	log_debug(DM_ID, "scan-post-current");
+
+	dm_mod = module_get_data(module);
+
+	if (!dm_mod->submod_res_current)
+		return 0;
+
+	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_post_current)
+		(void) mod_fns->scan_post_current(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+
 	return 0;
 }
 SID_UCMD_SCAN_POST_CURRENT(_dm_scan_post_current)
 
 static int _dm_scan_post_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	struct dm_mod_ctx             *dm_mod;
+	const struct sid_ucmd_mod_fns *mod_fns;
+
 	log_debug(DM_ID, "scan-post-next");
+
+	dm_mod = module_get_data(module);
+
+	if (!(dm_mod->submod_res_next))
+		return 0;
+
+	module_registry_get_module_symbols(dm_mod->submod_res_next, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_post_next)
+		(void) mod_fns->scan_post_next(sid_resource_get_data(dm_mod->submod_res_next), ucmd_ctx);
+
 	return 0;
 }
 SID_UCMD_SCAN_POST_NEXT(_dm_scan_post_next)
