@@ -28,6 +28,7 @@
 #define DM_SUBMODULES_ID DM_ID "_sub"
 
 SID_UCMD_MOD_PRIO(0)
+SID_UCMD_MOD_ALIASES("device_mapper")
 
 static struct module_symbol_params dm_submod_symbol_params[] = {
 	{
