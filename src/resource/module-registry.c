@@ -92,7 +92,7 @@ static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const c
 			if (!strcmp(module->name, module_name))
 				found = res;
 			else if (module->aliases) {
-				for (alias = module->aliases; (len = strlen(alias)); alias += len + 1) {
+				for (alias = module->aliases; (len = strlen(alias)); alias += len) {
 					if (!strcmp(alias, module_name)) {
 						found = res;
 						break;
