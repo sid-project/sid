@@ -50,6 +50,7 @@ struct module {
 	module_cb_fn_t *reset_fn;
 	char           *full_name;
 	char           *name;
+	char           *aliases;
 	void           *handle;
 	void          **symbols;
 	void           *data;
@@ -79,14 +80,28 @@ static sid_resource_t *_find_module(sid_resource_t *module_registry_res, const c
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
 	sid_resource_t         *res, *found = NULL;
+	struct module          *module;
+	char                   *alias;
+	size_t                  len;
 
 	sid_resource_iter_reset(registry->module_iter);
 	while ((res = sid_resource_iter_next(registry->module_iter))) {
 		if (sid_resource_match(res, &sid_resource_type_module, NULL)) {
-			if (!strcmp(((struct module *) sid_resource_get_data(res))->name, module_name)) {
+			module = sid_resource_get_data(res);
+
+			if (!strcmp(module->name, module_name))
 				found = res;
-				break;
+			else if (module->aliases) {
+				for (alias = module->aliases; (len = strlen(alias)); alias += len + 1) {
+					if (!strcmp(alias, module_name)) {
+						found = res;
+						break;
+					}
+				}
 			}
+
+			if (found)
+				break;
 		}
 	}
 
@@ -313,26 +328,30 @@ static int _load_module_symbol(sid_resource_t                    *module_res,
                                void                             **symbol_store)
 {
 	void *symbol;
+	int   r = -1;
 
 	if (!(symbol = dlsym(dl_handle, params->name))) {
 		if (params->flags & MODULE_SYMBOL_FAIL_ON_MISSING) {
 			log_error(ID(module_res), "Failed to load symbol %s: %s.", params->name, dlerror());
-			return -1;
+			goto out;
 		} else if (params->flags & MODULE_SYMBOL_WARN_ON_MISSING)
 			log_warning(ID(module_res), "Symbol %s not loaded.", params->name);
 	}
 
+	r = 0;
+out:
 	if (params->flags & MODULE_SYMBOL_INDIRECT)
 		symbol = symbol ? *((generic_t **) symbol) : NULL;
 
 	*symbol_store = symbol;
-	return 0;
+	return r;
 }
 
-#define MODULE_PRIO_NAME  "module_prio"
-#define MODULE_INIT_NAME  "module_init"
-#define MODULE_EXIT_NAME  "module_exit"
-#define MODULE_RESET_NAME "module_reset"
+#define MODULE_PRIO_NAME    "module_prio"
+#define MODULE_ALIASES_NAME "module_aliases"
+#define MODULE_INIT_NAME    "module_init"
+#define MODULE_EXIT_NAME    "module_exit"
+#define MODULE_RESET_NAME   "module_reset"
 
 static int _init_module(sid_resource_t *module_res, const void *kickstart_data, void **data)
 {
@@ -342,6 +361,7 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 	struct module              *module        = NULL;
 	char                        path[PATH_MAX];
 	int64_t                    *p_prio;
+	char                      **p_aliases;
 	unsigned                    i;
 	int                         r;
 
@@ -383,6 +403,16 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 
 	if (p_prio && (sid_resource_set_prio(module_res, *p_prio) < 0))
 		goto fail;
+
+	/* module aliases value is direct symbol */
+	symbol_params.name = MODULE_ALIASES_NAME;
+	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &p_aliases) < 0)
+		goto fail;
+
+	// FIXME: Add check that no other module uses any of the aliases or name.
+
+	if (p_aliases)
+		module->aliases = *p_aliases;
 
 	/* function symbols are indirect symbols */
 	symbol_params.flags = MODULE_SYMBOL_INDIRECT;

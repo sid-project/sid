@@ -55,7 +55,14 @@ typedef int           sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *
  * Macros to register module's management functions.
  */
 
-#define SID_UCMD_MOD_PRIO(val) MODULE_PRIO(val)
+#define SID_UCMD_MOD_PRIO(val)    MODULE_PRIO(val)
+
+/*
+ * Aliases are encoded as a single string where each alias is delimited by '\0'.
+ * For example, "abc\0def\0ijk" defines three aliases - "abc", "def" and "ijk".
+ */
+
+#define SID_UCMD_MOD_ALIASES(val) MODULE_ALIASES(val)
 
 #ifdef __GNUC__
 
