@@ -152,6 +152,14 @@ static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 
 	log_debug(DM_ID, "ident");
 
+	snprintf(path, sizeof(path), "%s%s/dm/uuid", SYSTEM_SYSFS_PATH, sid_ucmd_dev_get_path(ucmd_ctx));
+	sid_util_sysfs_get_value(path, uuid, sizeof(uuid));
+	sid_ucmd_dev_add_alias(module, ucmd_ctx, "uuid", uuid);
+
+	snprintf(path, sizeof(path), "%s%s/dm/name", SYSTEM_SYSFS_PATH, sid_ucmd_dev_get_path(ucmd_ctx));
+	sid_util_sysfs_get_value(path, name, sizeof(name));
+	sid_ucmd_dev_add_alias(module, ucmd_ctx, "name", name);
+
 	dm_mod = module_get_data(module);
 
 	// TODO: call out dm submodule identification hooks here
