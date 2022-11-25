@@ -3478,7 +3478,7 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 		                         KV_KEY_DEV_MOD,
 		                         DEFAULT_VALUE_FLAGS_CORE,
 		                         mod_name,
-		                         strlen(mod_name + 1))) {
+		                         strlen(mod_name) + 1)) {
 			log_error(ID(exec_arg->cmd_res),
 			          "Failed to store device " CMD_DEV_ID_FMT " module name",
 			          CMD_DEV_ID(ucmd_ctx));
