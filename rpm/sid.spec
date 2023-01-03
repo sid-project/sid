@@ -17,7 +17,7 @@ Version: 0.0.5
 Release: 1%{?scmsnap:.%{scmsnap}}%{?dist}
 Summary: Storage Instantiation Daemon (SID)
 
-License: GPLv2+
+License: GPL-2.0-or-later
 URL: http://sid-project.github.io
 %if %{defined commit}
 Source0: https://github.com/sid-project/%{name}/archive/%{commit}/%{name}-%{shortcommit}.tar.gz
@@ -103,7 +103,7 @@ rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/*.{a,la}
 
 %package base-libs
 Summary: Libraries for Storage Instantiation Daemon (SID) base
-License: GPLv2+
+License: GPL-2.0-or-later AND BSD-3-Clause
 %description base-libs
 This package contains shared libraries with low-level functionality needed for
 Storage Instantiation Daemon (SID), its modules and related tools. Currently,
@@ -122,7 +122,7 @@ functions.
 
 %package base-libs-devel
 Summary: Development files for Storage Instantiation Daemon (SID) base
-License: GPLv2+
+License: GPL-2.0-or-later AND BSD-3-Clause
 Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description base-libs-devel
 This package contains development files for Storage Instantiation Daemon (SID)
@@ -148,7 +148,7 @@ base libraries.
 
 %package internal-libs
 Summary: Development files for Storage Instantiation Daemon (SID) internal
-License: GPLv2+
+License: GPL-2.0-or-later AND BSD-3-Clause
 Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description internal-libs
 This package contains shared libraries with low-level functionality needed for
@@ -167,7 +167,7 @@ functions.
 
 %package log-libs
 Summary: Libraries for Storage Instantiation Daemon (SID) logging
-License: GPLv2+
+License: GPL-2.0-or-later
 %description log-libs
 This package contains shared libraries with logging support needed for Storage
 Instantiation daemon (SID), its modules and related tools.
@@ -184,7 +184,7 @@ Instantiation daemon (SID), its modules and related tools.
 
 %package log-libs-devel
 Summary: Development files for Storage Instantiation Daemon (SID) logging
-License: GPLv2+
+License: GPL-2.0-or-later
 Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description log-libs-devel
 This package contains development files for Storage Instantiation Daemon (SID)
@@ -205,7 +205,7 @@ logging libraries.
 
 %package iface-libs
 Summary: Libraries for Storage Instantiation Daemon (SID) interfaces
-License: GPLv2+
+License: GPL-2.0-or-later
 Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description iface-libs
 This package contains shared libraries to support interfaces used in Storage
@@ -224,7 +224,7 @@ Instantiation Daemon (SID), its modules and related tools.
 
 %package iface-libs-devel
 Summary: Development files for Storage Instantiation Daemon (SID) interfaces
-License: GPLv2+
+License: GPL-2.0-or-later
 Requires: %{name}-iface-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description iface-libs-devel
 This package contains development files for Storage Instantiation Daemon (SID)
@@ -247,7 +247,7 @@ interface libraries.
 
 %package resource-libs
 Summary: Libraries for Storage Instantiation Daemon (SID) resources
-License: GPLv2+
+License: GPL-2.0-or-later
 Requires: %{name}-internal-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-iface-libs%{?_isa} = %{?epoch}:%{version}-%{release}
@@ -272,7 +272,7 @@ control, bridging SID core and udev and creating an instance of SID as a whole.
 
 %package resource-libs-devel
 Summary: Development files for Storage Instantiation Daemon (SID) resources
-License: GPLv2+
+License: GPL-2.0-or-later
 Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description resource-libs-devel
 This package contains development files for Storage Instantiation Daemon (SID)
