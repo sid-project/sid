@@ -48,6 +48,7 @@ static const char * const _cmd_names[] = {
 	[SID_CMD_DBDUMP]     = "dbdump",
 	[SID_CMD_DBSTATS]    = "dbstats",
 	[SID_CMD_RESOURCES]  = "resources",
+	[SID_CMD_DEVICES]    = "devices",
 };
 
 struct sid_result {
