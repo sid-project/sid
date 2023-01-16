@@ -2358,7 +2358,7 @@ int _do_sid_ucmd_group_create(struct module          *mod,
 	int          r                  = -1;
 
 	struct kv_key_spec key_spec     = {.op      = KV_OP_SET,
-	                                   .dom     = dom ? dom : ID_NULL,
+	                                   .dom     = dom ?: ID_NULL,
 	                                   .ns      = group_ns,
 	                                   .ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
 	                                   .id      = group_id,
@@ -2422,7 +2422,7 @@ int _handle_current_dev_for_group(struct module          *mod,
 	                                   .abs_delta    = &((struct kv_delta) {0}),
 
 	                                   .cur_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
-	                                                                           .dom     = dom,
+	                                                                           .dom     = dom ?: ID_NULL,
 	                                                                           .ns      = group_ns,
 	                                                                           .ns_part = _get_ns_part(mod, ucmd_ctx, group_ns),
 	                                                                           .id      = group_id,
