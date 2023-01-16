@@ -54,3 +54,6 @@ libtool
 *.swp
 
 .vscode/
+.cache/
+
+/compile_commands.json
