@@ -1174,6 +1174,7 @@ fail:
 
 static int _passes_global_reservation_check(struct sid_ucmd_ctx    *ucmd_ctx,
                                             const char             *owner,
+                                            const char             *dom,
                                             sid_ucmd_kv_namespace_t ns,
                                             const char             *key_core)
 {
@@ -1184,7 +1185,7 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx    *ucmd_ctx,
 	size_t                 value_size;
 	kv_store_value_flags_t kv_store_value_flags;
 	struct kv_key_spec     key_spec = {.op      = KV_OP_SET,
-	                                   .dom     = ID_NULL,
+	                                   .dom     = dom ?: ID_NULL,
 	                                   .ns      = ns,
 	                                   .ns_part = ID_NULL,
 	                                   .id      = ID_NULL,
@@ -1990,7 +1991,7 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	 *        scheme so there's only one lookup?
 	 */
 	if (!((ns == KV_NS_UDEV) && !strcmp(owner, OWNER_CORE))) {
-		r = _passes_global_reservation_check(ucmd_ctx, owner, ns, key_core);
+		r = _passes_global_reservation_check(ucmd_ctx, owner, dom, ns, key_core);
 		if (r <= 0)
 			goto out;
 	}
@@ -2167,6 +2168,7 @@ static int _kv_cb_unreserve(struct kv_store_update_spec *spec)
 
 int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
                                 struct sid_ucmd_common_ctx *common,
+                                const char                 *dom,
                                 sid_ucmd_kv_namespace_t     ns,
                                 const char                 *key_core,
                                 int                         unset)
@@ -2178,7 +2180,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 	struct kv_update_arg update_arg;
 	int                  is_worker;
 	struct kv_key_spec   key_spec = {.op      = KV_OP_SET,
-	                                 .dom     = ID_NULL,
+	                                 .dom     = dom ?: ID_NULL,
 	                                 .ns      = ns,
 	                                 .ns_part = ID_NULL,
 	                                 .id      = ID_NULL,
@@ -2232,7 +2234,7 @@ int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_common_ctx *comm
 	if (!mod || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, common, ns, key, 0);
+	return _do_sid_ucmd_mod_reserve_kv(mod, common, KV_KEY_DOM_USER, ns, key, 0);
 }
 
 int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
@@ -2240,7 +2242,7 @@ int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *co
 	if (!mod || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, common, ns, key, 1);
+	return _do_sid_ucmd_mod_reserve_kv(mod, common, KV_KEY_DOM_USER, ns, key, 1);
 }
 
 int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subregistry)
