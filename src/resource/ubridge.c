@@ -95,7 +95,6 @@
 #define KV_KEY_DEV_RESERVED                         KV_PREFIX_KEY_SYS_C "RES"
 #define KV_KEY_DEV_MOD                              KV_PREFIX_KEY_SYS_C "MOD"
 
-#define KV_KEY_DOM_LAYER                            "LYR"
 #define KV_KEY_DOM_USER                             "USR"
 
 #define KV_KEY_GEN_GROUP_MEMBERS                    KV_PREFIX_KEY_SYS_C "GMB"
@@ -3087,7 +3086,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 
 	                               .cur_key_spec =
 	                                       &((struct kv_key_spec) {.op      = KV_OP_SET,
-	                                                               .dom     = KV_KEY_DOM_LAYER,
+	                                                               .dom     = ID_NULL,
 	                                                               .ns      = KV_NS_DEVICE,
 	                                                               .ns_part = _get_ns_part(NULL, ucmd_ctx, KV_NS_DEVICE),
 	                                                               .id      = ID_NULL,
@@ -3095,7 +3094,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	                                                               .core    = KV_KEY_GEN_GROUP_MEMBERS}),
 
 	                               .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
-	                                                                       .dom     = KV_KEY_DOM_LAYER,
+	                                                                       .dom     = ID_NULL,
 	                                                                       .ns      = KV_NS_DEVICE,
 	                                                                       .ns_part = ID_NULL, /* will be calculated later */
 	                                                                       .id      = ID_NULL,
@@ -3257,7 +3256,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 
 	                               .cur_key_spec =
 	                                       &((struct kv_key_spec) {.op      = KV_OP_SET,
-	                                                               .dom     = KV_KEY_DOM_LAYER,
+	                                                               .dom     = ID_NULL,
 	                                                               .ns      = KV_NS_DEVICE,
 	                                                               .ns_part = _get_ns_part(NULL, ucmd_ctx, KV_NS_DEVICE),
 	                                                               .id      = ID_NULL,
@@ -3265,7 +3264,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	                                                               .core    = KV_KEY_GEN_GROUP_MEMBERS}),
 
 	                               .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
-	                                                                       .dom     = KV_KEY_DOM_LAYER,
+	                                                                       .dom     = ID_NULL,
 	                                                                       .ns      = KV_NS_DEVICE,
 	                                                                       .ns_part = ID_NULL, /* will be calculated later */
 	                                                                       .id      = ID_NULL,
