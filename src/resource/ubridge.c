@@ -2344,39 +2344,41 @@ dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx
 	return result;
 }
 
-int _handle_current_dev_for_alias(struct module       *mod,
-                                  struct sid_ucmd_ctx *ucmd_ctx,
-                                  const char          *dom,
-                                  const char          *alias_cat,
-                                  const char          *alias_id,
-                                  kv_op_t              op)
+static int _handle_dev_for_alias(struct module       *mod,
+                                 struct sid_ucmd_ctx *ucmd_ctx,
+                                 const char          *dev_id,
+                                 const char          *dom,
+                                 const char          *alias_cat,
+                                 const char          *alias_id,
+                                 kv_op_t              op)
 {
 	char        *key            = NULL;
 	const char  *rel_key_prefix = NULL;
 	struct iovec vvalue[VVALUE_SINGLE_CNT];
-	int          r                  = -1;
+	int          r              = -1;
 
 	// TODO: this is the same as _handler_current_dev_for_group, just different keys - share the code
 
-	struct kv_rel_spec rel_spec     = {.delta        = &((struct kv_delta) {.op = op, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
+	struct kv_rel_spec rel_spec = {
+		.delta        = &((struct kv_delta) {.op = op, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
 
-	                                   .abs_delta    = &((struct kv_delta) {0}),
+		.abs_delta    = &((struct kv_delta) {0}),
 
-	                                   .cur_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
-	                                                                           .dom     = dom ?: ID_NULL,
-	                                                                           .ns      = KV_NS_MODULE,
-	                                                                           .ns_part = _get_ns_part(mod, ucmd_ctx, KV_NS_MODULE),
-	                                                                           .id_cat  = alias_cat,
-	                                                                           .id      = alias_id,
-	                                                                           .core    = KV_KEY_GEN_GROUP_MEMBERS}),
+		.cur_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                .dom     = dom ?: ID_NULL,
+	                                                .ns      = KV_NS_MODULE,
+	                                                .ns_part = _get_ns_part(mod, ucmd_ctx, KV_NS_MODULE),
+	                                                .id_cat  = alias_cat,
+	                                                .id      = alias_id,
+	                                                .core    = KV_KEY_GEN_GROUP_MEMBERS}),
 
-	                                   .rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
-	                                                                           .dom     = ID_NULL,
-	                                                                           .ns      = KV_NS_DEVICE,
-	                                                                           .ns_part = _get_ns_part(mod, ucmd_ctx, KV_NS_DEVICE),
-	                                                                           .id_cat  = ID_NULL,
-	                                                                           .id      = ID_NULL,
-	                                                                           .core    = KV_KEY_GEN_GROUP_IN})};
+		.rel_key_spec = &((struct kv_key_spec) {.op      = KV_OP_SET,
+	                                                .dom     = ID_NULL,
+	                                                .ns      = KV_NS_DEVICE,
+	                                                .ns_part = dev_id ?: _get_ns_part(mod, ucmd_ctx, KV_NS_DEVICE),
+	                                                .id_cat  = ID_NULL,
+	                                                .id      = ID_NULL,
+	                                                .core    = KV_KEY_GEN_GROUP_IN})};
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
 	                                   .owner   = OWNER_CORE,
@@ -2410,7 +2412,7 @@ int sid_ucmd_dev_add_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, co
 	if (!mod || !ucmd_ctx || !alias_cat || !*alias_cat || !alias_id || !*alias_id)
 		return -EINVAL;
 
-	return _handle_current_dev_for_alias(mod, ucmd_ctx, KV_KEY_DOM_ALIAS, alias_cat, alias_id, KV_OP_PLUS);
+	return _handle_dev_for_alias(mod, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, alias_cat, alias_id, KV_OP_PLUS);
 }
 
 int sid_ucmd_dev_remove_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
@@ -2418,7 +2420,7 @@ int sid_ucmd_dev_remove_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
 	if (!mod || !ucmd_ctx || !alias_cat || !*alias_cat || !alias_id || !*alias_id)
 		return -EINVAL;
 
-	return _handle_current_dev_for_alias(mod, ucmd_ctx, KV_KEY_DOM_ALIAS, alias_cat, alias_id, KV_OP_MINUS);
+	return _handle_dev_for_alias(mod, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, alias_cat, alias_id, KV_OP_MINUS);
 }
 
 static int _kv_cb_write_new_only(struct kv_store_update_spec *spec)
@@ -3563,9 +3565,9 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 		return -1;
 	}
 
-	if (_handle_current_dev_for_alias(NULL, ucmd_ctx, KV_KEY_DOM_ALIAS, "dseq", buf, KV_OP_PLUS) < 0 ||
-	    _handle_current_dev_for_alias(NULL, ucmd_ctx, KV_KEY_DOM_ALIAS, "devno", ucmd_ctx->req_env.dev.num_s, KV_OP_PLUS) < 0 ||
-	    _handle_current_dev_for_alias(NULL, ucmd_ctx, KV_KEY_DOM_ALIAS, "name", ucmd_ctx->req_env.dev.udev.name, KV_OP_PLUS) <
+	if (_handle_dev_for_alias(NULL, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, "dseq", buf, KV_OP_PLUS) < 0 ||
+	    _handle_dev_for_alias(NULL, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, "devno", ucmd_ctx->req_env.dev.num_s, KV_OP_PLUS) < 0 ||
+	    _handle_dev_for_alias(NULL, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, "name", ucmd_ctx->req_env.dev.udev.name, KV_OP_PLUS) <
 	            0) {
 		log_error(ID(cmd_res), "Failed to add dseq/devno/name device alias.");
 		return -1;
