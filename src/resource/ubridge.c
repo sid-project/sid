@@ -3163,6 +3163,40 @@ const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
 	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
 }
 
+static const char *_devno_to_devid(struct sid_ucmd_ctx *ucmd_ctx, const char *devno, char *devid_buf, size_t devid_buf_size)
+{
+	const char        *devid = NULL;
+	const char        *key;
+	struct iovec      *vvalue;
+	size_t             value_size;
+	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
+	                               .dom     = KV_KEY_DOM_ALIAS,
+	                               .ns      = KV_NS_MODULE,
+	                               .ns_part = _get_ns_part(NULL, ucmd_ctx, KV_NS_MODULE),
+	                               .id_cat  = "devno",
+	                               .id      = devno,
+	                               .core    = KV_KEY_GEN_GROUP_MEMBERS};
+
+	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
+		goto out;
+
+	if (!(vvalue = kv_store_get_value(ucmd_ctx->common->kv_store_res, key, &value_size, NULL)))
+		goto out;
+
+	/* It must be a single value! */
+	if (value_size != VVALUE_SINGLE_CNT)
+		goto out;
+
+	/* It must be current generation record! */
+	if (VVALUE_GENNUM(vvalue) != ucmd_ctx->common->gennum)
+		goto out;
+
+	devid = _copy_ns_part_from_key(VVALUE_DATA(vvalue), devid_buf, devid_buf_size);
+out:
+	_destroy_key(ucmd_ctx->common->gen_buf, key);
+	return devid;
+}
+
 static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 {
 	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
