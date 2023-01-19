@@ -3207,9 +3207,11 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	struct dirent      **dirent  = NULL;
 	struct sid_buffer   *vec_buf = NULL;
 	char                 devno_buf[16];
+	char                 devid_buf[UTIL_UUID_STR_SIZE];
 	struct iovec        *vvalue;
-	size_t               vsize  = 0;
-	int                  count  = 0, i;
+	size_t               vsize = 0;
+	int                  count = 0, i;
+	util_mem_t           mem;
 	int                  r      = -1;
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
@@ -3330,9 +3332,32 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
 
 				_canonicalize_kv_key(devno_buf);
-				rel_spec.rel_key_spec->ns_part = devno_buf;
+				if (!(rel_spec.rel_key_spec->ns_part =
+				              _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
+					mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
+					if (!util_uuid_gen_str(&mem)) {
+						log_error(ID(cmd_res),
+						          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
+						          CMD_DEV_NAME_NUM(ucmd_ctx));
+						continue;
+					}
+					rel_spec.rel_key_spec->ns_part = mem.base;
 
-				s                              = _compose_key_prefix(NULL, rel_spec.rel_key_spec);
+					if (_handle_dev_for_alias(NULL,
+					                          ucmd_ctx,
+					                          mem.base,
+					                          KV_KEY_DOM_ALIAS,
+					                          "devno",
+					                          devno_buf,
+					                          KV_OP_PLUS) < 0) {
+						log_error(ID(cmd_res),
+						          "Failed to add devno alias for device " CMD_DEV_NAME_NUM_FMT,
+						          CMD_DEV_NAME_NUM(ucmd_ctx));
+						continue;
+					}
+				}
+
+				s = _compose_key_prefix(NULL, rel_spec.rel_key_spec);
 				if (!s || ((r = sid_buffer_add(vec_buf, (void *) s, strlen(s) + 1, NULL, NULL)) < 0))
 					goto out;
 			}
@@ -3378,8 +3403,10 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct iovec         vvalue[VVALUE_SINGLE_CNT];
 	char                 devno_buf[16];
+	char                 devid_buf[UTIL_UUID_STR_SIZE];
 	const char          *s;
 	char                *key;
+	util_mem_t           mem;
 	int                  r      = -1;
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
@@ -3412,7 +3439,20 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 		goto out;
 
-	rel_spec.rel_key_spec->ns_part = _canonicalize_kv_key(devno_buf);
+	_canonicalize_kv_key(devno_buf);
+
+	if (!(rel_spec.rel_key_spec->ns_part = _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
+		mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
+		if (!util_uuid_gen_str(&mem)) {
+			log_error(ID(cmd_res),
+			          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
+			          CMD_DEV_NAME_NUM(ucmd_ctx));
+			goto out;
+		}
+		rel_spec.rel_key_spec->ns_part = mem.base;
+
+		_handle_dev_for_alias(NULL, ucmd_ctx, mem.base, KV_KEY_DOM_ALIAS, "devno", devno_buf, KV_OP_PLUS);
+	}
 
 	if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 		goto out;
@@ -3543,22 +3583,34 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	dev_ready_t          ready;
 	dev_reserved_t       reserved;
 
+	/* try to get current device's UUID from udev first */
 	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL))) {
-		if (!util_uuid_gen_str(&mem)) {
-			log_error(ID(cmd_res),
-			          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
-			          CMD_DEV_NAME_NUM(ucmd_ctx));
-			return -1;
+		/* if not in udev, check if we have set UUID for this device already */
+		if (!(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
+			/* if we haven't set the UUID for this device yet, do it now */
+			if (!util_uuid_gen_str(&mem)) {
+				log_error(ID(cmd_res),
+				          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
+				          CMD_DEV_NAME_NUM(ucmd_ctx));
+				return -1;
+			}
+			uuid_p = mem.base;
 		}
 
-		ucmd_ctx->req_env.dev.uid_s = strdup(mem.base);
-
-		if (!_do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, KV_SYNC, mem.base, mem.size)) {
+		if (!_do_sid_ucmd_set_kv(NULL,
+		                         ucmd_ctx,
+		                         NULL,
+		                         KV_NS_UDEV,
+		                         KV_KEY_UDEV_SID_DEV_ID,
+		                         KV_SYNC,
+		                         uuid_p,
+		                         strlen(uuid_p) + 1)) {
 			log_error(ID(cmd_res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_DEV_ID);
 			return -1;
 		}
-	} else
-		ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
+	}
+
+	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
 
 	if (snprintf(buf, sizeof(buf), "%" PRIu64, ucmd_ctx->req_env.dev.udev.diskseq) < 0) {
 		log_error(ID(cmd_res), "Failed to convert DISKSEQ to string.");
@@ -3595,9 +3647,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 		                    sizeof(reserved));
 	}
 
-	_refresh_device_hierarchy_from_sysfs(cmd_res);
-
-	return 0;
+	return _refresh_device_hierarchy_from_sysfs(cmd_res);
 }
 
 static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
