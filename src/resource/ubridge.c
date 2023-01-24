@@ -660,7 +660,7 @@ static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
 		return KV_NS_UNDEFINED;
 }
 
-static const char *_copy_ns_part_from_key(struct sid_buffer *buf, const char *key)
+static const char *_copy_ns_part_from_key(const char *key, char *buf, size_t buf_size)
 {
 	const char *str, *ns;
 	size_t      len;
@@ -672,11 +672,14 @@ static const char *_copy_ns_part_from_key(struct sid_buffer *buf, const char *ke
 	if (!(str = _get_key_part(key, KEY_PART_NS_PART, &len)))
 		return NULL;
 
+	// FIXME: check '(int) len' cast is safe
+
 	if (buf) {
-		if (sid_buffer_fmt_add(buf, (const void **) &ns, NULL, "%.*s", len, str) < 0)
+		if (snprintf(buf, buf_size, "%.*s", (int) len, str) < 0)
 			ns = NULL;
+		else
+			ns = buf;
 	} else {
-		// FIXME: check '(int) len' cast is safe
 		if (asprintf((char **) &ns, "%.*s", (int) len, str) < 0)
 			ns = NULL;
 	}
@@ -1829,7 +1832,7 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 		rel_vvalue[VVALUE_IDX_DATA] = (struct iovec) {.iov_base = (void *) key_prefix, .iov_len = strlen(key_prefix) + 1};
 
 		for (i = VVALUE_IDX_DATA; i < delta_vsize; i++) {
-			if (!(ns_part = _copy_ns_part_from_key(NULL, delta_vvalue[i].iov_base)))
+			if (!(ns_part = _copy_ns_part_from_key(delta_vvalue[i].iov_base, NULL, 0)))
 				goto out;
 
 			rel_spec->cur_key_spec->ns_part = ns_part;
