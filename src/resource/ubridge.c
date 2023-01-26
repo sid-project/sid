@@ -2135,58 +2135,6 @@ const void *sid_ucmd_get_kv(struct module          *mod,
 	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, value_size, flags);
 }
 
-static int _kv_cb_reserve(struct kv_store_update_spec *spec)
-{
-	struct kv_update_arg *update_arg = spec->arg;
-	struct iovec          tmp_vvalue_old[VVALUE_SINGLE_CNT];
-	struct iovec          tmp_vvalue_new[VVALUE_SINGLE_CNT];
-	struct iovec         *vvalue_old, *vvalue_new;
-
-	if (!spec->old_data)
-		return 1;
-
-	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old);
-	vvalue_new = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new);
-
-	if (strcmp(VVALUE_OWNER(vvalue_old), VVALUE_OWNER(vvalue_new))) {
-		log_debug(ID(update_arg->res),
-		          "Module %s can't reserve key %s which is already reserved by %s module.",
-		          VVALUE_OWNER(vvalue_new),
-		          spec->key,
-		          VVALUE_OWNER(vvalue_old));
-		update_arg->ret_code = -EBUSY;
-		return 0;
-	}
-
-	update_arg->ret_code = _check_kv_index_needed(vvalue_old, vvalue_new);
-	return 1;
-}
-
-static int _kv_cb_unreserve(struct kv_store_update_spec *spec)
-{
-	struct kv_update_arg *update_arg = spec->arg;
-	struct iovec          tmp_vvalue_old[VVALUE_SINGLE_CNT];
-	struct iovec         *vvalue_old;
-
-	if (!spec->old_data)
-		return 1;
-
-	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old);
-
-	if (strcmp(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
-		log_debug(ID(update_arg->res),
-		          "Module %s can't unreserve key %s which is reserved by %s module.",
-		          update_arg->owner,
-		          spec->key,
-		          VVALUE_OWNER(vvalue_old));
-		update_arg->ret_code = -EBUSY;
-		return 0;
-	}
-
-	update_arg->ret_code = _check_kv_index_needed(vvalue_old, NULL);
-	return 1;
-}
-
 int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
                                 struct sid_ucmd_common_ctx *common,
                                 const char                 *dom,
@@ -2227,7 +2175,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 		flags |= (KV_SYNC | KV_PERSISTENT);
 
 	if (unset && !is_worker) {
-		if (kv_store_unset(common->kv_store_res, key, _kv_cb_unreserve, &update_arg) < 0)
+		if (kv_store_unset(common->kv_store_res, key, _kv_cb_write, &update_arg) < 0)
 			goto out;
 	} else {
 		VVALUE_HEADER_PREP(vvalue, common->gennum, null_int, flags, (char *) owner);
@@ -2237,7 +2185,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 		                        VVALUE_HEADER_CNT,
 		                        KV_STORE_VALUE_VECTOR,
 		                        KV_STORE_VALUE_OP_MERGE,
-		                        _kv_cb_reserve,
+		                        _kv_cb_write,
 		                        &update_arg))
 			goto out;
 
