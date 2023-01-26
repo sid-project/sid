@@ -805,49 +805,66 @@ static int _manage_kv_index(struct kv_update_arg *update_arg, char *key)
 	return r;
 }
 
+static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, struct iovec *vvalue_old, struct iovec *vvalue_new)
+{
+	sid_ucmd_kv_flags_t old_flags;
+	const char         *old_owner;
+	const char         *new_owner;
+	const char         *reason;
+	int                 r = 0;
+
+	if (!vvalue_old)
+		return 0;
+
+	old_flags = VVALUE_FLAGS(vvalue_old);
+	old_owner = VVALUE_OWNER(vvalue_old);
+	new_owner = vvalue_new ? VVALUE_OWNER(vvalue_new) : update_arg->owner;
+
+	if (old_flags & KV_MOD_PRIVATE) {
+		if (strcmp(old_owner, new_owner)) {
+			reason = "private";
+			r      = -EACCES;
+		}
+	} else if (old_flags & KV_MOD_PROTECTED) {
+		if (strcmp(old_owner, new_owner)) {
+			reason = "protected";
+			r      = -EPERM;
+		}
+	} else if (old_flags & KV_MOD_RESERVED) {
+		if (strcmp(old_owner, new_owner)) {
+			reason = "reserved";
+			r      = -EBUSY;
+		}
+	}
+
+	if (r < 0) {
+		log_debug(ID(update_arg->res),
+		          "Module %s can't write value with key %s which is %s and already attached to module %s.",
+		          new_owner,
+		          key,
+		          reason,
+		          old_owner);
+		return 0;
+	}
+
+	return r;
+}
+
 static int _kv_cb_overwrite(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_vvalue_old[VVALUE_SINGLE_CNT];
 	struct iovec          tmp_vvalue_new[VVALUE_SINGLE_CNT];
 	struct iovec         *vvalue_old, *vvalue_new;
-	const char           *reason;
 
 	vvalue_old = spec->old_data ? _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old) : NULL;
 	vvalue_new = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new);
 
-	if (spec->old_data) {
-		if (VVALUE_FLAGS(vvalue_old) & KV_MOD_PRIVATE) {
-			if (strcmp(VVALUE_OWNER(vvalue_old), VVALUE_OWNER(vvalue_new))) {
-				reason               = "private";
-				update_arg->ret_code = -EACCES;
-				goto keep_old;
-			}
-		} else if (VVALUE_FLAGS(vvalue_old) & KV_MOD_PROTECTED) {
-			if (strcmp(VVALUE_OWNER(vvalue_old), VVALUE_OWNER(vvalue_new))) {
-				reason               = "protected";
-				update_arg->ret_code = -EPERM;
-				goto keep_old;
-			}
-		} else if (VVALUE_FLAGS(vvalue_old) & KV_MOD_RESERVED) {
-			if (strcmp(VVALUE_OWNER(vvalue_old), VVALUE_OWNER(vvalue_new))) {
-				reason               = "reserved";
-				update_arg->ret_code = -EBUSY;
-				goto keep_old;
-			}
-		}
-	}
+	if ((update_arg->ret_code = _check_kv_perms(update_arg, spec->key, vvalue_old, vvalue_new)) < 0)
+		return 0;
 
 	update_arg->ret_code = _check_kv_index_needed(vvalue_old, vvalue_new);
 	return 1;
-keep_old:
-	log_debug(ID(update_arg->res),
-	          "Module %s can't overwrite value with key %s which is %s and attached to %s module.",
-	          VVALUE_OWNER(vvalue_new),
-	          spec->key,
-	          reason,
-	          VVALUE_OWNER(vvalue_old));
-	return 0;
 }
 
 static int _flags_indicate_mod_owned(sid_ucmd_kv_flags_t flags)
