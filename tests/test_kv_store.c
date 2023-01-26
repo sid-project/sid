@@ -140,7 +140,7 @@ static void test_kvstore_iterate(void **state)
 	                                        VVALUE_IDX_DATA + 1,
 	                                        KV_STORE_VALUE_VECTOR,
 	                                        KV_STORE_VALUE_NO_OP,
-	                                        _kv_cb_overwrite,
+	                                        _kv_cb_write,
 	                                        &update_arg),
 	                     NULL);
 

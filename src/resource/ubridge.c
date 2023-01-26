@@ -850,7 +850,7 @@ static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, st
 	return r;
 }
 
-static int _kv_cb_overwrite(struct kv_store_update_spec *spec)
+static int _kv_cb_write(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct iovec          tmp_vvalue_old[VVALUE_SINGLE_CNT];
@@ -1809,7 +1809,7 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 	                   abs_delta_vsize,
 	                   KV_STORE_VALUE_VECTOR,
 	                   KV_STORE_VALUE_NO_OP,
-	                   _kv_cb_overwrite,
+	                   _kv_cb_write,
 	                   update_arg);
 
 	if (index)
@@ -2040,7 +2040,7 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	                                  VVALUE_SINGLE_CNT,
 	                                  KV_STORE_VALUE_VECTOR,
 	                                  KV_STORE_VALUE_OP_MERGE,
-	                                  _kv_cb_overwrite,
+	                                  _kv_cb_write,
 	                                  &update_arg)) ||
 	    !value_size)
 		goto out;
@@ -4548,7 +4548,7 @@ static int _kv_cb_main_set(struct kv_store_update_spec *spec)
 	new_vvalue = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_new_vvalue);
 
 	/* overwrite whole value */
-	r          = (!old_vvalue || ((VVALUE_SEQNUM(new_vvalue) >= VVALUE_SEQNUM(old_vvalue)) && _kv_cb_overwrite(spec)));
+	r          = (!old_vvalue || ((VVALUE_SEQNUM(new_vvalue) >= VVALUE_SEQNUM(old_vvalue)) && _kv_cb_write(spec)));
 
 	if (r)
 		log_debug(ID(update_arg->res),
