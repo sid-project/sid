@@ -2385,13 +2385,10 @@ int sid_ucmd_dev_remove_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx,
 
 static int _kv_cb_write_new_only(struct kv_store_update_spec *spec)
 {
-	struct kv_update_arg *update_arg = spec->arg;
-
 	if (spec->old_data)
 		return 0;
 
-	update_arg->ret_code = _check_kv_index_needed(spec->old_data, spec->new_data);
-	return 1;
+	return _kv_cb_write(spec);
 }
 
 static int _do_sid_ucmd_group_create(struct module          *mod,
