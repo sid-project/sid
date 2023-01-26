@@ -867,11 +867,6 @@ static int _kv_cb_write(struct kv_store_update_spec *spec)
 	return 1;
 }
 
-static int _flags_indicate_mod_owned(sid_ucmd_kv_flags_t flags)
-{
-	return flags & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED);
-}
-
 static const char *_get_mod_name(struct module *mod)
 {
 	return mod ? module_get_full_name(mod) : MOD_NAME_CORE;
@@ -4521,7 +4516,8 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 
 	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old);
 
-	if (_flags_indicate_mod_owned(VVALUE_FLAGS(vvalue_old)) && strcmp(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
+	if ((VVALUE_FLAGS(vvalue_old) & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED)) &&
+	    strcmp(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
 		log_debug(ID(update_arg->res),
 		          "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
 		          "which belongs to module %s.",
