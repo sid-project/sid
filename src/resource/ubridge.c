@@ -1875,7 +1875,11 @@ out:
 
 static int _kv_cb_delta_step(struct kv_store_update_spec *spec)
 {
-	struct kv_rel_spec *rel_spec = ((struct kv_update_arg *) spec->arg)->custom;
+	struct kv_update_arg *update_arg = spec->arg;
+	struct kv_rel_spec   *rel_spec   = update_arg->custom;
+
+	if ((update_arg->ret_code = _check_kv_perms(update_arg, spec->key, spec->old_data, spec->new_data)) < 0)
+		return 0;
 
 	if (_delta_step_calc(spec) < 0)
 		return 0;
