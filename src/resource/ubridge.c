@@ -837,15 +837,13 @@ static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, st
 		}
 	}
 
-	if (r < 0) {
+	if (r < 0)
 		log_debug(ID(update_arg->res),
 		          "Module %s can't write value with key %s which is %s and already attached to module %s.",
 		          new_owner,
 		          key,
 		          reason,
 		          old_owner);
-		return 0;
-	}
 
 	return r;
 }
