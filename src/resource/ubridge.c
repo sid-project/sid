@@ -1920,7 +1920,8 @@ static int _kv_delta_set(char *key, struct iovec *vvalue, size_t vsize, struct k
 	                        KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 	                        KV_STORE_VALUE_NO_OP,
 	                        _kv_cb_delta_step,
-	                        update_arg))
+	                        update_arg) ||
+	    update_arg->ret_code < 0)
 		goto out;
 
 	if (index)
