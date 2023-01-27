@@ -2426,7 +2426,7 @@ static int _do_sid_ucmd_group_create(struct module          *mod,
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
 		goto out;
 
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_sync, (char *) owner);
+	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, group_flags, (char *) owner);
 
 	if (!kv_store_set_value(ucmd_ctx->common->kv_store_res,
 	                        key,
