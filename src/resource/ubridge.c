@@ -455,6 +455,7 @@ static bool _cmd_root_only[] = {
 	[SID_CMD_DBDUMP]     = true,
 	[SID_CMD_DBSTATS]    = true,
 	[SID_CMD_RESOURCES]  = true,
+	[SID_CMD_DEVICES]    = true,
 };
 
 static struct cmd_reg      _cmd_scan_phase_regs[];
@@ -3063,6 +3064,73 @@ out:
 	return r;
 }
 
+static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
+{
+	char                   uuid_buf1[UTIL_UUID_STR_SIZE];
+	char                   uuid_buf2[UTIL_UUID_STR_SIZE];
+	struct sid_ucmd_ctx   *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	output_format_t        format   = flags_to_format(ucmd_ctx->req_hdr.flags);
+	struct sid_buffer     *buf      = ucmd_ctx->common->gen_buf;
+	kv_vector_t            tmp_vvalue[VVALUE_SINGLE_CNT];
+	kv_store_iter_t       *iter;
+	void                  *data;
+	size_t                 size;
+	kv_store_value_flags_t kv_store_value_flags;
+	const char            *key, *key_core;
+	char                  *prev_uuid, *uuid;
+	bool                   vector;
+	kv_vector_t           *vvalue;
+	bool                   with_comma = false;
+	int                    r          = 0;
+
+	uuid_buf1[0]                      = 0;
+	prev_uuid                         = uuid_buf1;
+	uuid                              = uuid_buf2;
+
+	if (!(iter = kv_store_iter_create(ucmd_ctx->common->kv_store_res, "::D:", "::E:")))
+		goto out;
+
+	print_start_document(format, buf, 0);
+	print_start_array(format, buf, 1, "siddevices", false);
+
+	while ((data = kv_store_iter_next(iter, &size, &key, &kv_store_value_flags))) {
+		_copy_ns_part_from_key(key, uuid, sizeof(uuid_buf1));
+		key_core = _get_key_part(key, KEY_PART_CORE, NULL);
+
+		if (strcmp(prev_uuid, uuid)) {
+			if (prev_uuid[0] != 0)
+				print_end_elem(format, buf, 2);
+			print_start_elem(format, buf, 2, with_comma);
+			print_str_field(format, buf, 3, "DEVID", uuid, false);
+		}
+
+		vector = kv_store_value_flags & KV_STORE_VALUE_VECTOR;
+		vvalue = _get_vvalue(kv_store_value_flags, data, size, tmp_vvalue);
+
+		if (!strcmp(key_core, KV_KEY_GEN_GROUP_IN) || !strcmp(key_core, KV_KEY_GEN_GROUP_MEMBERS) ||
+		    !strcmp(key_core, KV_KEY_DEV_READY) || !strcmp(key_core, KV_KEY_DEV_RESERVED))
+			_print_vvalue(vvalue, vector, size, key_core, format, buf, 3);
+
+		UTIL_SWAP(uuid, prev_uuid);
+		with_comma = true;
+	}
+
+	if (prev_uuid[0] != 0)
+		print_end_elem(format, buf, 2);
+
+	print_end_array(format, buf, 1);
+	print_end_document(format, buf, 0);
+	print_null_byte(buf);
+
+	sid_buffer_get_data(buf, (const void **) &data, &size);
+	r = sid_buffer_add(ucmd_ctx->res_buf, data, size, NULL, NULL);
+out:
+	if (iter)
+		kv_store_iter_destroy(iter);
+
+	return r;
+}
+
 static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 {
 	int                  r;
@@ -3903,6 +3971,7 @@ static struct cmd_reg _client_cmd_regs[] = {
 	[SID_CMD_DBDUMP]  = {.name = "c-dbdump", .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF, .exec = NULL},
 	[SID_CMD_DBSTATS] = {.name = "c-dbstats", .flags = 0, .exec = _cmd_exec_dbstats},
 	[SID_CMD_RESOURCES] = {.name = "c-resource", .flags = 0, .exec = _cmd_exec_resources},
+	[SID_CMD_DEVICES]   = {.name = "c-devices", .flags = 0, .exec = _cmd_exec_devices},
 };
 
 static struct cmd_reg _self_cmd_regs[] = {
