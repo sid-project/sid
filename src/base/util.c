@@ -81,7 +81,7 @@ ssize_t sid_util_fd_read_all(int fd, void *buf, size_t len)
  * Kernel cmdline-related utilities.
  */
 
-int _get_proc_cmdline(char *buf, off_t size)
+static int _get_proc_cmdline(char *buf, off_t size)
 {
 	int     fd, r = 0;
 	off_t   len = 0;
