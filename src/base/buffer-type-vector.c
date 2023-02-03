@@ -130,9 +130,10 @@ static int _buffer_vector_create(struct sid_buffer *buf)
 		return r;
 	}
 
-	// TODO: also count with SID_BUFFER_BACKEND_MEMFD/FILE where we don't want to use malloc.
 	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) {
 		if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(SID_BUFFER_SIZE_PREFIX_LEN))) {
+			if (buf->fd > -1)
+				(void) close(buf->fd);
 			free(buf->mem);
 			return -ENOMEM;
 		}
