@@ -181,18 +181,8 @@ static int _buffer_vector_reset(struct sid_buffer *buf)
 
 	needed               = buf->stat.init.size;
 
-	if (!needed) {
-		switch (buf->stat.spec.mode) {
-			case SID_BUFFER_MODE_PLAIN:
-				/* keep needed = 0 */
-				break;
-			case SID_BUFFER_MODE_SIZE_PREFIX:
-				needed = 1;
-				break;
-			default:
-				return -ENOTSUP;
-		}
-	}
+	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+		needed += 1;
 
 	return _buffer_vector_realloc(buf, needed, 1);
 }
