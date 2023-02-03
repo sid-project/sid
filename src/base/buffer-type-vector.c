@@ -150,13 +150,12 @@ static int _buffer_vector_destroy(struct sid_buffer *buf)
 	struct iovec *iov;
 	int           r;
 
+	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) {
+		iov = buf->mem;
+		free(iov[0].iov_base);
+	}
 	switch (buf->stat.spec.backend) {
 		case SID_BUFFER_BACKEND_MALLOC:
-			if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) {
-				iov = buf->mem;
-				free(iov[0].iov_base);
-			}
-
 			free(buf->mem);
 			r = 0;
 			break;
