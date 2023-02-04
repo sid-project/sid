@@ -85,9 +85,14 @@ static void test_vector_rewind_mem(void **state)
 	sid_buffer_destroy(buf);
 }
 
-static void do_test_zero_add(struct sid_buffer *buf)
+static void do_test_zero_add(sid_buffer_mode_t mode, sid_buffer_type_t type, sid_buffer_backend_t backend)
 {
-	const void *rewind_mem, *tmp_mem_start;
+	struct sid_buffer *buf;
+	const void        *rewind_mem, *tmp_mem_start;
+
+	buf        = sid_buffer_create(&((struct sid_buffer_spec) {.backend = backend, .type = type, .mode = mode}),
+                                &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+                                NULL);
 
 	rewind_mem = do_rewind_test(buf);
 	assert_int_equal(sid_buffer_add(buf, "", 0, &tmp_mem_start, NULL), 0);
@@ -97,30 +102,44 @@ static void do_test_zero_add(struct sid_buffer *buf)
 	sid_buffer_destroy(buf);
 }
 
-static void test_linear_zero_add(void **state)
+static void test_linear_malloc_plain_zero_add(void **state)
 {
-	struct sid_buffer *buf;
-
-	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
-	                                                    .type    = SID_BUFFER_TYPE_LINEAR,
-	                                                    .mode    = SID_BUFFER_MODE_PLAIN}),
-	                        &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                        NULL);
-
-	do_test_zero_add(buf);
+	do_test_zero_add(SID_BUFFER_BACKEND_MALLOC, SID_BUFFER_TYPE_LINEAR, SID_BUFFER_MODE_PLAIN);
 }
 
-static void test_vector_zero_add(void **state)
+static void test_vector_malloc_plain_zero_add(void **state)
 {
-	struct sid_buffer *buf;
+	do_test_zero_add(SID_BUFFER_BACKEND_MALLOC, SID_BUFFER_TYPE_VECTOR, SID_BUFFER_MODE_PLAIN);
+}
 
-	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
-	                                                    .type    = SID_BUFFER_TYPE_VECTOR,
-	                                                    .mode    = SID_BUFFER_MODE_PLAIN}),
-	                        &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                        NULL);
+static void test_linear_memfd_plain_zero_add(void **state)
+{
+	do_test_zero_add(SID_BUFFER_BACKEND_MEMFD, SID_BUFFER_TYPE_LINEAR, SID_BUFFER_MODE_PLAIN);
+}
 
-	do_test_zero_add(buf);
+static void test_vector_memfd_plain_zero_add(void **state)
+{
+	do_test_zero_add(SID_BUFFER_BACKEND_MEMFD, SID_BUFFER_TYPE_VECTOR, SID_BUFFER_MODE_PLAIN);
+}
+
+static void test_linear_malloc_prefix_zero_add(void **state)
+{
+	do_test_zero_add(SID_BUFFER_BACKEND_MALLOC, SID_BUFFER_TYPE_LINEAR, SID_BUFFER_MODE_SIZE_PREFIX);
+}
+
+static void test_vector_malloc_prefix_zero_add(void **state)
+{
+	do_test_zero_add(SID_BUFFER_BACKEND_MALLOC, SID_BUFFER_TYPE_VECTOR, SID_BUFFER_MODE_SIZE_PREFIX);
+}
+
+static void test_linear_memfd_prefix_zero_add(void **state)
+{
+	do_test_zero_add(SID_BUFFER_BACKEND_MEMFD, SID_BUFFER_TYPE_LINEAR, SID_BUFFER_MODE_SIZE_PREFIX);
+}
+
+static void test_vector_memfd_prefix_zero_add(void **state)
+{
+	do_test_zero_add(SID_BUFFER_BACKEND_MEMFD, SID_BUFFER_TYPE_VECTOR, SID_BUFFER_MODE_SIZE_PREFIX);
 }
 
 int main(void)
@@ -130,8 +149,14 @@ int main(void)
 		cmocka_unit_test(test_no_realloc_fmt_add),
 		cmocka_unit_test(test_linear_rewind_mem),
 		cmocka_unit_test(test_vector_rewind_mem),
-		cmocka_unit_test(test_linear_zero_add),
-		cmocka_unit_test(test_vector_zero_add),
+		cmocka_unit_test(test_linear_malloc_plain_zero_add),
+		cmocka_unit_test(test_vector_malloc_plain_zero_add),
+		cmocka_unit_test(test_linear_memfd_plain_zero_add),
+		cmocka_unit_test(test_vector_memfd_plain_zero_add),
+		cmocka_unit_test(test_linear_malloc_prefix_zero_add),
+		cmocka_unit_test(test_vector_malloc_prefix_zero_add),
+		cmocka_unit_test(test_linear_memfd_prefix_zero_add),
+		cmocka_unit_test(test_vector_memfd_prefix_zero_add),
 	};
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
