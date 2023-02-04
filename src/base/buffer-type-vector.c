@@ -194,7 +194,7 @@ static int _buffer_vector_add(struct sid_buffer *buf, void *data, size_t len, co
 	size_t        start_pos;
 	int           r;
 
-	if (buf == NULL || buf->mem == NULL || data == NULL)
+	if (data == NULL)
 		return -EINVAL;
 
 	if (!used && buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
