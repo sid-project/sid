@@ -246,6 +246,9 @@ static int _buffer_vector_release_mem(struct sid_buffer *buf, const void *mem, b
 {
 	size_t pos = (struct iovec *) mem - (struct iovec *) buf->mem;
 
+	if (pos > buf->stat.usage.used)
+		return -ERANGE;
+
 	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
 		pos -= 1;
 
