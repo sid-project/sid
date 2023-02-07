@@ -1383,11 +1383,12 @@ const char *bptree_iter_current_key(bptree_iter_t *iter)
 void *bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count)
 {
 	if (iter->c) {
-		if (iter->i == (iter->c->num_keys - 1)) {
+		if (iter->i < (iter->c->num_keys - 1))
+			iter->i++;
+		else {
 			iter->c = iter->c->pointers[iter->bptree->order - 1];
 			iter->i = 0;
-		} else
-			iter->i++;
+		}
 	} else {
 		if (iter->key_start)
 			(void) _find(iter->bptree, iter->key_start, LOOKUP_PREFIX, &iter->c, &iter->i, NULL);
