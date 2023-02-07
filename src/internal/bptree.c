@@ -1388,22 +1388,18 @@ void *bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size,
 			iter->i = 0;
 		} else
 			iter->i++;
-
-		if (iter->key_end && iter->c && strcmp(iter->c->bkeys[iter->i]->key, iter->key_end) > 0) {
-			iter->c = NULL;
-			iter->i = 0;
-		}
 	} else {
-		if (iter->key_start) {
-			if (!_find(iter->bptree, iter->key_start, LOOKUP_PREFIX, &iter->c, &iter->i, NULL)) {
-				if (key)
-					*key = NULL;
-				return NULL;
-			}
-		} else {
+		if (iter->key_start)
+			(void) _find(iter->bptree, iter->key_start, LOOKUP_PREFIX, &iter->c, &iter->i, NULL);
+		else {
 			iter->c = _get_first_leaf_node(iter->bptree);
 			iter->i = 0;
 		}
+	}
+
+	if (iter->key_end && iter->c && strcmp(iter->c->bkeys[iter->i]->key, iter->key_end) > 0) {
+		iter->c = NULL;
+		iter->i = 0;
 	}
 
 	return bptree_iter_current(iter, key, data_size, data_ref_count);
