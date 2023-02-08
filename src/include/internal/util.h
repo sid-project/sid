@@ -33,6 +33,13 @@
 extern "C" {
 #endif
 
+#define UTIL_SWAP(a, b)                                                                                                            \
+	do {                                                                                                                       \
+		typeof(a) tmp = (a);                                                                                               \
+		(a)           = (b);                                                                                               \
+		(b)           = tmp;                                                                                               \
+	} while (0)
+
 /*
  *   All functions that need to use allocated memory and they provide a
  *   possibility to use preallocated memory contain 'util_mem_t *mem'
