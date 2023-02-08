@@ -270,12 +270,12 @@ struct cmd_reg {
 	int (*exec)(struct cmd_exec_arg *exec_arg);
 };
 
-struct kv_value {
+typedef struct {
 	uint16_t            gennum;
 	uint64_t            seqnum;
 	sid_ucmd_kv_flags_t flags;
 	char                data[]; /* contains both internal and external data */
-} __attribute__((packed));
+} __attribute__((packed)) kv_scalar_t;
 
 enum {
 	VVALUE_IDX_GENNUM,
@@ -694,8 +694,8 @@ static const char *_copy_ns_part_from_key(const char *key, char *buf, size_t buf
 
 static kv_vector_t *_get_vvalue(kv_store_value_flags_t kv_store_value_flags, void *value, size_t value_size, kv_vector_t *vvalue)
 {
-	size_t           owner_size;
-	struct kv_value *svalue;
+	size_t       owner_size;
+	kv_scalar_t *svalue;
 
 	if (!value)
 		return NULL;
@@ -875,7 +875,7 @@ static const char *_get_mod_name(struct module *mod)
 	return mod ? module_get_full_name(mod) : MOD_NAME_CORE;
 }
 
-static size_t _svalue_ext_data_offset(struct kv_value *svalue)
+static size_t _svalue_ext_data_offset(kv_scalar_t *svalue)
 {
 	return strlen(svalue->data) + 1;
 }
@@ -946,7 +946,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	struct sid_ucmd_ctx   *ucmd_ctx = sid_resource_get_data(cmd_res);
 	output_format_t        format;
 	struct sid_buffer_spec buf_spec;
-	struct kv_value       *svalue;
+	kv_scalar_t           *svalue;
 	kv_store_iter_t       *iter;
 	const char            *key;
 	void                  *raw_value;
@@ -1980,7 +1980,7 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	const char          *owner = _get_mod_name(mod);
 	char                *key   = NULL;
 	kv_vector_t          vvalue[VVALUE_SINGLE_CNT];
-	struct kv_value     *svalue;
+	kv_scalar_t         *svalue;
 	struct kv_update_arg update_arg;
 	struct kv_key_spec   key_spec = {.op      = KV_OP_SET,
 	                                 .dom     = dom ?: ID_NULL,
@@ -2069,11 +2069,11 @@ static const void *_cmd_get_key_spec_value(struct module       *mod,
                                            size_t              *value_size,
                                            sid_ucmd_kv_flags_t *flags)
 {
-	const char      *owner = _get_mod_name(mod);
-	const char      *key   = NULL;
-	struct kv_value *svalue;
-	size_t           size, data_offset;
-	void            *ret = NULL;
+	const char  *owner = _get_mod_name(mod);
+	const char  *key   = NULL;
+	kv_scalar_t *svalue;
+	size_t       size, data_offset;
+	void        *ret = NULL;
 
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, key_spec)))
 		goto out;
@@ -4510,7 +4510,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	SID_BUFFER_SIZE_PREFIX_TYPE msg_size;
 	size_t                      key_size, value_size, data_offset, i;
 	char                       *key, *shm = MAP_FAILED, *p, *end;
-	struct kv_value            *svalue = NULL;
+	kv_scalar_t                *svalue = NULL;
 	kv_vector_t                *vvalue = NULL;
 	const char                 *vvalue_str;
 	void                       *value_to_store;
@@ -4613,7 +4613,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 				goto out;
 			}
 
-			svalue           = (struct kv_value *) p;
+			svalue           = (kv_scalar_t *) p;
 			p                += value_size;
 
 			data_offset      = _svalue_ext_data_offset(svalue);
@@ -5134,9 +5134,9 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 
 static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 {
-	kv_vector_t      vvalue[VVALUE_IDX_DATA + 1];
-	const char      *key;
-	struct kv_value *svalue;
+	kv_vector_t  vvalue[VVALUE_IDX_DATA + 1];
+	const char  *key;
+	kv_scalar_t *svalue;
 
 	if (!(key = _compose_key(ctx->gen_buf,
 	                         &((struct kv_key_spec) {.op      = KV_OP_SET,
@@ -5174,12 +5174,12 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 
 static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 {
-	char             boot_id[UTIL_UUID_STR_SIZE];
-	kv_vector_t      vvalue[VVALUE_IDX_DATA + 1];
-	const char      *key;
-	struct kv_value *svalue;
-	char            *old_boot_id;
-	int              r;
+	char         boot_id[UTIL_UUID_STR_SIZE];
+	kv_vector_t  vvalue[VVALUE_IDX_DATA + 1];
+	const char  *key;
+	kv_scalar_t *svalue;
+	char        *old_boot_id;
+	int          r;
 
 	if (!(key = _compose_key(ctx->gen_buf,
 	                         &((struct kv_key_spec) {.op      = KV_OP_SET,
