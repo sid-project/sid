@@ -1750,15 +1750,6 @@ static void _value_vector_mark_sync(struct iovec *vvalue, int sync)
 		vvalue[VVALUE_IDX_FLAGS] = (struct iovec) {&value_flags_no_sync, sizeof(value_flags_no_sync)};
 }
 
-static void _flip_key_specs(struct kv_rel_spec *rel_spec)
-{
-	struct kv_key_spec *tmp_key_spec;
-
-	tmp_key_spec           = rel_spec->cur_key_spec;
-	rel_spec->cur_key_spec = rel_spec->rel_key_spec;
-	rel_spec->rel_key_spec = tmp_key_spec;
-}
-
 static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg *update_arg, bool index)
 {
 	struct kv_rel_spec *rel_spec = update_arg->custom;
@@ -1829,7 +1820,7 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 		 */
 		rel_spec->delta->flags = DELTA_WITH_DIFF;
 
-		_flip_key_specs(rel_spec);
+		UTIL_SWAP(rel_spec->cur_key_spec, rel_spec->rel_key_spec);
 
 		if (!(key_prefix = _compose_key_prefix(NULL, rel_spec->rel_key_spec)))
 			goto out;
@@ -1864,7 +1855,7 @@ out:
 		_destroy_key(NULL, key_prefix);
 		rel_spec->abs_delta = orig_abs_delta;
 		rel_spec->delta     = orig_delta;
-		_flip_key_specs(rel_spec);
+		UTIL_SWAP(rel_spec->rel_key_spec, rel_spec->cur_key_spec);
 	}
 
 	rel_spec->cur_key_spec->op = orig_op;
