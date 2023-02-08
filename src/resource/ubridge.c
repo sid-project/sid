@@ -304,6 +304,9 @@ enum {
 	 ((r = sid_buffer_add(buf, &(flags), sizeof(flags), NULL, NULL)) == 0) &&                                                  \
 	 ((r = sid_buffer_add(buf, (owner), strlen(owner) + 1, NULL, NULL)) == 0))
 
+#define VVALUE_DATA_PREP(vvalue, idx, data, size)                                                                                  \
+	vvalue[VVALUE_IDX_DATA + idx] = (struct iovec) {.iov_base = (void *) (data), .iov_len = (size)};
+
 #define VVALUE_GENNUM(vvalue) (*((uint16_t *) ((struct iovec *) vvalue)[VVALUE_IDX_GENNUM].iov_base))
 #define VVALUE_SEQNUM(vvalue) (*((uint64_t *) ((struct iovec *) vvalue)[VVALUE_IDX_SEQNUM].iov_base))
 #define VVALUE_FLAGS(vvalue)  (*((sid_ucmd_kv_flags_t *) ((struct iovec *) vvalue)[VVALUE_IDX_FLAGS].iov_base))
@@ -702,7 +705,7 @@ static struct iovec *_get_vvalue(kv_store_value_flags_t kv_store_value_flags, vo
 	owner_size = strlen(svalue->data) + 1;
 
 	VVALUE_HEADER_PREP(vvalue, svalue->gennum, svalue->seqnum, svalue->flags, svalue->data);
-	vvalue[VVALUE_IDX_DATA] = (struct iovec) {svalue->data + owner_size, value_size - sizeof(*svalue) - owner_size};
+	VVALUE_DATA_PREP(vvalue, 0, svalue->data + owner_size, value_size - sizeof(*svalue) - owner_size);
 
 	return vvalue;
 }
@@ -1830,7 +1833,7 @@ static int _delta_update(struct iovec *vheader, kv_op_t op, struct kv_update_arg
 		                   VVALUE_SEQNUM(vheader),
 		                   value_flags_no_sync,
 		                   (char *) update_arg->owner);
-		rel_vvalue[VVALUE_IDX_DATA] = (struct iovec) {.iov_base = (void *) key_prefix, .iov_len = strlen(key_prefix) + 1};
+		VVALUE_DATA_PREP(rel_vvalue, 0, key_prefix, strlen(key_prefix) + 1);
 
 		for (i = VVALUE_IDX_DATA; i < delta_vsize; i++) {
 			if (!(ns_part = _copy_ns_part_from_key(delta_vvalue[i].iov_base, NULL, 0)))
@@ -2015,13 +2018,13 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 		goto out;
 
 	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, flags, (char *) owner);
-	vvalue[VVALUE_IDX_DATA] = (struct iovec) {(void *) value, value ? value_size : 0};
+	VVALUE_DATA_PREP(vvalue, 0, value, value ? value_size : 0);
 
-	update_arg              = (struct kv_update_arg) {.res      = ucmd_ctx->common->kv_store_res,
-	                                                  .owner    = owner,
-	                                                  .gen_buf  = ucmd_ctx->common->gen_buf,
-	                                                  .custom   = NULL,
-	                                                  .ret_code = -EREMOTEIO};
+	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->common->kv_store_res,
+	                                     .owner    = owner,
+	                                     .gen_buf  = ucmd_ctx->common->gen_buf,
+	                                     .custom   = NULL,
+	                                     .ret_code = -EREMOTEIO};
 
 	if (!(svalue = kv_store_set_value(ucmd_ctx->common->kv_store_res,
 	                                  key,
@@ -2348,8 +2351,7 @@ static int _handle_dev_for_alias(struct module       *mod,
 		goto out;
 
 	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_no_sync, core_owner);
-
-	vvalue[VVALUE_IDX_DATA] = (struct iovec) {(void *) rel_key_prefix, strlen(rel_key_prefix) + 1};
+	VVALUE_DATA_PREP(vvalue, 0, rel_key_prefix, strlen(rel_key_prefix) + 1);
 
 	if (_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg, true) < 0)
 		goto out;
@@ -2495,8 +2497,7 @@ int _handle_current_dev_for_group(struct module          *mod,
 		goto out;
 
 	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_no_sync, core_owner);
-
-	vvalue[VVALUE_IDX_DATA] = (struct iovec) {(void *) rel_key_prefix, strlen(rel_key_prefix) + 1};
+	VVALUE_DATA_PREP(vvalue, 0, rel_key_prefix, strlen(rel_key_prefix) + 1);
 
 	if (_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg, true) < 0)
 		goto out;
@@ -3408,7 +3409,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 		goto out;
 
-	vvalue[VVALUE_IDX_DATA]        = (struct iovec) {(void *) s, strlen(s) + 1};
+	VVALUE_DATA_PREP(vvalue, 0, s, strlen(s) + 1);
 	rel_spec.rel_key_spec->ns_part = ID_NULL;
 
 	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec))) {
@@ -5155,7 +5156,7 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 	log_debug(ID(ctx->res), "Current generation number: %" PRIu16, ctx->gennum);
 
 	VVALUE_HEADER_PREP(vvalue, ctx->gennum, null_int, value_flags_no_sync, core_owner);
-	vvalue[VVALUE_IDX_DATA] = (struct iovec) {.iov_base = &ctx->gennum, .iov_len = sizeof(ctx->gennum)};
+	VVALUE_DATA_PREP(vvalue, 0, &ctx->gennum, sizeof(ctx->gennum));
 
 	kv_store_set_value(ctx->kv_store_res,
 	                   key,
@@ -5203,7 +5204,7 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 	log_debug(ID(ctx->res), "Current system boot id: %s.", boot_id);
 
 	VVALUE_HEADER_PREP(vvalue, ctx->gennum, null_int, value_flags_no_sync, core_owner);
-	vvalue[VVALUE_IDX_DATA] = (struct iovec) {.iov_base = boot_id, .iov_len = sizeof(boot_id)};
+	VVALUE_DATA_PREP(vvalue, 0, boot_id, sizeof(boot_id));
 
 	kv_store_set_value(ctx->kv_store_res,
 	                   key,
