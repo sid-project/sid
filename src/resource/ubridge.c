@@ -5032,33 +5032,33 @@ static int _on_ubridge_time_event(sid_resource_event_source_t *es, uint64_t usec
         sid_resource_rearm_time_event_source(es, SID_EVENT_TIME_RELATIVE, 10000000);
         return 0;
 }
-
-static int _load_kv_store(sid_resource_t *ubridge_res, sid_ucmd_common_ctx *common_ctx)
-{
-        int fd;
-        int r;
-
-        if (common_ctx->gennum != 0) {
-                log_error(ID(ubridge_res),
-                          INTERNAL_ERROR "%s: unexpected KV generation number, KV store already loaded.",
-                          __func__);
-                return -1;
-        }
-
-        if (access(MAIN_KV_STORE_FILE_PATH, R_OK) < 0)
-                return 0;
-
-        if ((fd = open(MAIN_KV_STORE_FILE_PATH, O_RDONLY)) < 0) {
-                log_error_errno(ID(ubridge_res), fd, "Failed to open db file");
-                return -1;
-        }
-
-        r = _sync_main_kv_store(ubridge_res, common_ctx, fd);
-
-        close(fd);
-        return r;
-}
 */
+
+static int _load_kv_store(sid_resource_t *ubridge_res, struct sid_ucmd_common_ctx *common_ctx)
+{
+	int fd;
+	int r;
+
+	if (common_ctx->gennum != 0) {
+		log_error(ID(ubridge_res),
+		          INTERNAL_ERROR "%s: unexpected KV generation number, KV store already loaded.",
+		          __func__);
+		return -1;
+	}
+
+	if (access(MAIN_KV_STORE_FILE_PATH, R_OK) < 0)
+		return 0;
+
+	if ((fd = open(MAIN_KV_STORE_FILE_PATH, O_RDONLY)) < 0) {
+		log_error_errno(ID(ubridge_res), fd, "Failed to open db file");
+		return -1;
+	}
+
+	r = _sync_main_kv_store(ubridge_res, common_ctx, fd);
+
+	close(fd);
+	return r;
+}
 
 static int _on_ubridge_udev_monitor_event(sid_resource_event_source_t *es, int fd, uint32_t revents, void *data)
 {
@@ -5383,7 +5383,7 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 		goto fail;
 	}
 
-	/* _load_kv_store(res, ubridge); */
+	_load_kv_store(res, common_ctx);
 	if (_set_up_kv_store_generation(common_ctx) < 0 || _set_up_boot_id(common_ctx) < 0)
 		goto fail;
 
