@@ -47,7 +47,6 @@ udev/00-sid.rules
 libtool
 
 .gdbinit
-.clang-check
 
 .mk.log
 
