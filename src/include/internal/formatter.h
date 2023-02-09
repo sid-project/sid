@@ -38,59 +38,71 @@ typedef enum {
 	ENV,
 } output_format_t;
 
-int print_indent(int level, struct sid_buffer *buf);
 int print_start_document(output_format_t format, struct sid_buffer *buf, int level);
 int print_end_document(output_format_t format, struct sid_buffer *buf, int level);
-int print_start_array(const char *array_name, output_format_t format, struct sid_buffer *buf, int level);
-int print_end_array(bool needs_comma, output_format_t format, struct sid_buffer *buf, int level);
-int print_start_elem(bool needs_comma, output_format_t format, struct sid_buffer *buf, int level);
+
+int print_start_array(output_format_t format, struct sid_buffer *buf, int level, const char *array_name, bool with_comma);
+int print_end_array(output_format_t format, struct sid_buffer *buf, int level);
+
+int print_start_elem(output_format_t format, struct sid_buffer *buf, int level, bool with_comma);
 int print_end_elem(output_format_t format, struct sid_buffer *buf, int level);
-int print_elem_name(bool needs_comma, const char *elem_name, output_format_t format, struct sid_buffer *buf, int level);
-int print_str_field(const char        *field_name,
-                    const char        *value,
-                    output_format_t    format,
+
+int print_elem_name(output_format_t format, struct sid_buffer *buf, int level, const char *elem_name, bool with_comma);
+
+int print_str_field(output_format_t    format,
                     struct sid_buffer *buf,
-                    bool               trailing_comma,
-                    int                level);
-int print_binary_field(const char        *field_name,
+                    int                level,
+                    const char        *field_name,
+                    const char        *value,
+                    bool               with_comma);
+
+int print_binary_field(output_format_t    format,
+                       struct sid_buffer *buf,
+                       int                level,
+                       const char        *field_name,
                        const char        *value,
                        size_t             len,
-                       output_format_t    format,
-                       struct sid_buffer *buf,
-                       bool               trailing_comma,
-                       int                level);
-int print_uint_field(const char        *field_name,
-                     uint               value,
-                     output_format_t    format,
+                       bool               with_comma);
+
+int print_uint_field(output_format_t    format,
                      struct sid_buffer *buf,
-                     bool               trailing_comma,
-                     int                level);
-int print_uint64_field(const char        *field_name,
-                       uint64_t           value,
-                       output_format_t    format,
+                     int                level,
+                     const char        *field_name,
+                     uint               value,
+                     bool               with_comma);
+
+int print_uint64_field(output_format_t    format,
                        struct sid_buffer *buf,
-                       bool               trailing_comma,
-                       int                level);
-int print_int64_field(const char        *field_name,
-                      int64_t            value,
-                      output_format_t    format,
+                       int                level,
+                       const char        *field_name,
+                       uint64_t           value,
+                       bool               with_comma);
+
+int print_int64_field(output_format_t    format,
                       struct sid_buffer *buf,
-                      bool               trailing_comma,
-                      int                level);
-int print_bool_array_elem(const char        *field_name,
-                          bool               value,
-                          output_format_t    format,
+                      int                level,
+                      const char        *field_name,
+                      int64_t            value,
+                      bool               with_comma);
+
+int print_bool_array_elem(output_format_t    format,
                           struct sid_buffer *buf,
-                          bool               trailing_comma,
-                          int                level);
-int print_uint_array_elem(uint value, output_format_t format, struct sid_buffer *buf, bool trailing_comma, int level);
-int print_str_array_elem(const char *value, output_format_t format, struct sid_buffer *buf, bool trailing_comma, int level);
-int print_binary_array_elem(const char        *value,
-                            size_t             len,
-                            output_format_t    format,
+                          int                level,
+                          const char        *field_name,
+                          bool               value,
+                          bool               with_comma);
+
+int print_uint_array_elem(output_format_t format, struct sid_buffer *buf, int level, uint value, bool with_comma);
+
+int print_str_array_elem(output_format_t format, struct sid_buffer *buf, int level, const char *value, bool with_comma);
+
+int print_binary_array_elem(output_format_t    format,
                             struct sid_buffer *buf,
-                            bool               trailing_comma,
-                            int                level);
+                            int                level,
+                            const char        *value,
+                            size_t             len,
+                            bool               with_comma);
+
 int print_null_byte(struct sid_buffer *buf);
 
 #ifdef __cplusplus
