@@ -85,7 +85,7 @@ static void test_vector_rewind_mem(void **state)
 	sid_buffer_destroy(buf);
 }
 
-static void do_test_zero_add(sid_buffer_mode_t mode, sid_buffer_type_t type, sid_buffer_backend_t backend)
+static void do_test_zero_add(sid_buffer_backend_t backend, sid_buffer_type_t type, sid_buffer_mode_t mode)
 {
 	struct sid_buffer *buf;
 	const void        *rewind_mem, *tmp_mem_start;
