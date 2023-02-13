@@ -392,28 +392,20 @@ char **util_str_vec_copy(util_mem_t *mem, const char **strv)
 char *util_str_copy_substr(util_mem_t *mem, const char *str, size_t offset, size_t len)
 {
 	size_t str_len = strlen(str);
-	char  *ret_str;
 
 	if ((offset + len) > str_len)
 		return NULL;
 
-	if (mem && mem->base) {
-		if (len + 1 > mem->size)
-			return NULL;
+	if (!_mem_avail(mem))
+		return strndup(str + offset, len);
 
-		ret_str = mem->base;
-	} else {
-		if (offset == 0 && len == str_len)
-			return strdup(str);
+	if (len + 1 > mem->size)
+		return NULL;
 
-		if (!(ret_str = malloc(len + 1)))
-			return NULL;
-	}
+	memcpy(mem->base, str + offset, len);
+	((char *) mem->base)[len] = '\0';
 
-	memcpy(ret_str, str + offset, len);
-	ret_str[len] = '\0';
-
-	return ret_str;
+	return mem->base;
 }
 
 /*
