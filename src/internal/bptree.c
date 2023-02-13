@@ -162,13 +162,16 @@ bptree_t *bptree_create(int order)
 }
 
 /*
- * Utility function to give the height of the tree, which length
- * in number of edges of the path from the root to any leaf.
+ * Utility function to give the height of the tree, which is the
+ * number of edges of the path from the root to any leaf.
  */
 int bptree_get_height(bptree_t *bptree)
 {
 	int            h = 0;
 	bptree_node_t *c = bptree->root;
+
+	if (!c)
+		return 0;
 
 	while (!c->is_leaf) {
 		c = c->pointers[0];
