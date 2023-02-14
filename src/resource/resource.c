@@ -1263,63 +1263,58 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 static void _write_event_source_elem_fields(sid_resource_event_source_t *es,
                                             output_format_t              format,
                                             struct sid_buffer           *outbuf,
-                                            bool                         add_comma,
                                             int                          level)
 {
-	print_str_field("name", (char *) es->name, format, outbuf, true, level);
-	print_uint64_field("events_max", es->events_max, format, outbuf, true, level);
-	print_uint64_field("events_fired", es->events_fired, format, outbuf, false, level);
+	print_str_field(format, outbuf, level, "name", (char *) es->name, false);
+	print_uint64_field(format, outbuf, level, "events_max", es->events_max, true);
+	print_uint64_field(format, outbuf, level, "events_fired", es->events_fired, true);
 }
 
-static void _write_resource_elem_fields(sid_resource_t    *res,
-                                        output_format_t    format,
-                                        struct sid_buffer *outbuf,
-                                        bool               add_comma,
-                                        int                level)
+static void _write_resource_elem_fields(sid_resource_t *res, output_format_t format, struct sid_buffer *outbuf, int level)
 {
 	sid_resource_event_source_t *es, *tmp_es;
 	int                          es_count, item = 0;
 
-	print_str_field("ID", res->id, format, outbuf, true, level);
+	print_str_field(format, outbuf, level, "ID", res->id, false);
 	if (res->type != NULL && res->type->name != NULL)
-		print_str_field("type", (char *) res->type->name, format, outbuf, true, level);
+		print_str_field(format, outbuf, level, "type", (char *) res->type->name, true);
 	es_count = list_size(&res->event_sources);
 	if (es_count != 0) {
-		print_start_array("event-sources", format, outbuf, level);
+		print_start_array(format, outbuf, level, "event-sources", true);
 		list_iterate_items_safe_back (es, tmp_es, &res->event_sources) {
 			item++;
-			print_start_elem(item != 1, format, outbuf, level + 1);
-			_write_event_source_elem_fields(es, format, outbuf, item != es_count, level + 2);
+			print_start_elem(format, outbuf, level + 1, item > 1);
+			_write_event_source_elem_fields(es, format, outbuf, level + 2);
 			print_end_elem(format, outbuf, level + 1);
 		}
-		print_end_array(true, format, outbuf, level);
+		print_end_array(format, outbuf, level);
 	}
-	print_uint_field("pid-created", res->pid_created, format, outbuf, true, level);
-	print_uint_field("flags", res->flags, format, outbuf, true, level);
-	print_int64_field("prio", res->prio, format, outbuf, true, level);
-	print_uint_field("ref-count", res->ref_count, format, outbuf, add_comma, level);
+	print_uint_field(format, outbuf, level, "pid-created", res->pid_created, true);
+	print_uint_field(format, outbuf, level, "flags", res->flags, true);
+	print_int64_field(format, outbuf, level, "prio", res->prio, true);
+	print_uint_field(format, outbuf, level, "ref-count", res->ref_count, true);
 }
 
 int sid_resource_write_tree_recursively(sid_resource_t    *res,
                                         output_format_t    format,
-                                        bool               add_comma,
                                         struct sid_buffer *outbuf,
-                                        int                level)
+                                        int                level,
+                                        bool               with_comma)
 {
 	sid_resource_t *child_res;
 	int             count, item = 0;
 
 	count = list_size(&res->children);
 
-	print_start_elem(add_comma, format, outbuf, level);
-	_write_resource_elem_fields(res, format, outbuf, count > 0, level + 1);
+	print_start_elem(format, outbuf, level, with_comma);
+	_write_resource_elem_fields(res, format, outbuf, level + 1);
 	if (count > 0) {
-		print_start_array("children", format, outbuf, level + 1);
+		print_start_array(format, outbuf, level + 1, "children", true);
 		list_iterate_items (child_res, &res->children) {
-			sid_resource_write_tree_recursively(child_res, format, item > 0, outbuf, level + 2);
+			sid_resource_write_tree_recursively(child_res, format, outbuf, level + 2, item > 0);
 			item++;
 		}
-		print_end_array(false, format, outbuf, level + 1);
+		print_end_array(format, outbuf, level + 1);
 	}
 	print_end_elem(format, outbuf, level);
 

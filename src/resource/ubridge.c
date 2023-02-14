@@ -892,40 +892,40 @@ bool _is_string_data(char *ptr, size_t len)
 	return true;
 }
 
-static void _print_vvalue(kv_vector_t *vvalue, size_t size, output_format_t format, struct sid_buffer *buf, bool vector, int level)
+static void _print_vvalue(kv_vector_t *vvalue, bool vector, size_t size, output_format_t format, struct sid_buffer *buf, int level)
 {
 	int i;
 
 	if (vector) {
-		print_start_array("values", format, buf, level);
+		print_start_array(format, buf, level, "values", true);
 		for (i = VVALUE_IDX_DATA; i < size; i++) {
 			if (vvalue[i].iov_len) {
 				if (_is_string_data(vvalue[i].iov_base, vvalue[i].iov_len))
-					print_str_array_elem(vvalue[i].iov_base, format, buf, i + 1 < size, level + 1);
+					print_str_array_elem(format, buf, level + 1, vvalue[i].iov_base, i > VVALUE_IDX_DATA);
 				else
-					print_binary_array_elem(vvalue[i].iov_base,
-					                        vvalue[i].iov_len,
-					                        format,
+					print_binary_array_elem(format,
 					                        buf,
-					                        i + 1 < size,
-					                        level + 1);
+					                        level + 1,
+					                        vvalue[i].iov_base,
+					                        vvalue[i].iov_len,
+					                        i + VVALUE_IDX_DATA);
 			} else
-				print_str_array_elem("", format, buf, i + 1 < size, level + 1);
+				print_str_array_elem(format, buf, level + 1, "", false);
 		}
-		print_end_array(false, format, buf, 3);
+		print_end_array(format, buf, level);
 	} else if (vvalue[VVALUE_IDX_DATA].iov_len) {
 		if (_is_string_data(vvalue[VVALUE_IDX_DATA].iov_base, vvalue[VVALUE_IDX_DATA].iov_len))
-			print_str_field("value", vvalue[VVALUE_IDX_DATA].iov_base, format, buf, false, level);
+			print_str_field(format, buf, level, "value", vvalue[VVALUE_IDX_DATA].iov_base, true);
 		else
-			print_binary_field("value",
+			print_binary_field(format,
+			                   buf,
+			                   level,
+			                   "value",
 			                   vvalue[VVALUE_IDX_DATA].iov_base,
 			                   vvalue[VVALUE_IDX_DATA].iov_len,
-			                   format,
-			                   buf,
-			                   false,
-			                   level);
+			                   true);
 	} else
-		print_str_field("value", "", format, buf, false, level);
+		print_str_field(format, buf, level, "value", "", true);
 }
 
 static output_format_t flags_to_format(uint16_t flags)
@@ -1014,7 +1014,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 
 	if (format != NO_FORMAT) {
 		print_start_document(format, export_buf, 0);
-		print_start_array("siddb", format, export_buf, 1);
+		print_start_array(format, export_buf, 1, "siddb", false);
 	}
 
 	while ((raw_value = kv_store_iter_next(iter, &size, &key, &kv_store_value_flags))) {
@@ -1145,31 +1145,31 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 				goto fail;
 			}
 		} else {
-			print_start_elem(needs_comma, format, export_buf, 2);
-			print_uint_field("RECORD", records, format, export_buf, true, 3);
-			print_str_field("key", key, format, export_buf, true, 3);
+			print_start_elem(format, export_buf, 2, needs_comma);
+			print_uint_field(format, export_buf, 3, "RECORD", records, false);
+			print_str_field(format, export_buf, 3, "key", key, true);
 			vvalue = _get_vvalue(kv_store_value_flags, raw_value, size, tmp_vvalue);
-			print_uint_field("gennum", VVALUE_GENNUM(vvalue), format, export_buf, true, 3);
-			print_uint64_field("seqnum", VVALUE_SEQNUM(vvalue), format, export_buf, true, 3);
-			print_start_array("flags", format, export_buf, 3);
-			print_bool_array_elem("KV_SYNC", VVALUE_FLAGS(vvalue) & KV_SYNC, format, export_buf, true, 4);
-			print_bool_array_elem("KV_PERSISTENT", VVALUE_FLAGS(vvalue) & KV_PERSISTENT, format, export_buf, true, 4);
-			print_bool_array_elem("KV_MOD_PROTECTED",
+			print_uint_field(format, export_buf, 3, "gennum", VVALUE_GENNUM(vvalue), true);
+			print_uint64_field(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
+			print_start_array(format, export_buf, 3, "flags", true);
+			print_bool_array_elem(format, export_buf, 4, "KV_SYNC", VVALUE_FLAGS(vvalue) & KV_SYNC, false);
+			print_bool_array_elem(format, export_buf, 4, "KV_PERSISTENT", VVALUE_FLAGS(vvalue) & KV_PERSISTENT, true);
+			print_bool_array_elem(format,
+			                      export_buf,
+			                      4,
+			                      "KV_MOD_PROTECTED",
 			                      VVALUE_FLAGS(vvalue) & KV_MOD_PROTECTED,
-			                      format,
+			                      true);
+			print_bool_array_elem(format, export_buf, 4, "KV_MOD_PRIVATE", VVALUE_FLAGS(vvalue) & KV_MOD_PRIVATE, true);
+			print_bool_array_elem(format,
 			                      export_buf,
-			                      true,
-			                      4);
-			print_bool_array_elem("KV_MOD_PRIVATE", VVALUE_FLAGS(vvalue) & KV_MOD_PRIVATE, format, export_buf, true, 4);
-			print_bool_array_elem("KV_MOD_RESERVED",
+			                      4,
+			                      "KV_MOD_RESERVED",
 			                      VVALUE_FLAGS(vvalue) & KV_MOD_RESERVED,
-			                      format,
-			                      export_buf,
-			                      false,
-			                      4);
-			print_end_array(true, format, export_buf, 3);
-			print_str_field("owner", VVALUE_OWNER(vvalue), format, export_buf, true, 3);
-			_print_vvalue(vvalue, size, format, export_buf, vector, 3);
+			                      true);
+			print_end_array(format, export_buf, 3);
+			print_str_field(format, export_buf, 3, "owner", VVALUE_OWNER(vvalue), true);
+			_print_vvalue(vvalue, vector, size, format, export_buf, 3);
 			print_end_elem(format, export_buf, 2);
 			needs_comma = true;
 		}
@@ -1177,7 +1177,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	}
 
 	if (format != NO_FORMAT) {
-		print_end_array(false, format, export_buf, 1);
+		print_end_array(format, export_buf, 1);
 		print_end_document(format, export_buf, 0);
 		print_null_byte(export_buf);
 	}
@@ -2930,10 +2930,10 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	print_start_document(format, buf, 0);
-	print_uint_field("SID_PROTOCOL", SID_PROTOCOL, format, buf, true, 1);
-	print_uint_field("SID_MAJOR", SID_VERSION_MAJOR, format, buf, true, 1);
-	print_uint_field("SID_MINOR", SID_VERSION_MINOR, format, buf, true, 1);
-	print_uint_field("SID_RELEASE", SID_VERSION_RELEASE, format, buf, false, 1);
+	print_uint_field(format, buf, 1, "SID_PROTOCOL", SID_PROTOCOL, false);
+	print_uint_field(format, buf, 1, "SID_MAJOR", SID_VERSION_MAJOR, true);
+	print_uint_field(format, buf, 1, "SID_MINOR", SID_VERSION_MINOR, true);
+	print_uint_field(format, buf, 1, "SID_RELEASE", SID_VERSION_RELEASE, true);
 	print_end_document(format, buf, 0);
 	print_null_byte(buf);
 
@@ -3024,17 +3024,17 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 	format   = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	buf_pos0 = sid_buffer_count(buf);
-	print_start_elem(false, format, buf, 0);
-	print_start_array("sidresources", format, buf, 1);
+	print_start_elem(format, buf, 0, false);
+	print_start_array(format, buf, 1, "sidresources", false);
 	buf_pos1 = sid_buffer_count(buf);
 
 	sid_resource_write_tree_recursively(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
 	                                    format,
-	                                    true,
 	                                    buf,
-	                                    2);
+	                                    2,
+	                                    true);
 
-	print_end_array(false, format, buf, 1);
+	print_end_array(format, buf, 1);
 	print_end_elem(format, buf, 0);
 	print_null_byte(buf);
 	buf_pos2 = sid_buffer_count(buf);
@@ -3070,18 +3070,13 @@ static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->common->kv_store_res)) == 0) {
 		print_start_document(format, buf, 0);
 
-		print_uint64_field("KEYS_SIZE", stats.key_size, format, buf, true, 1);
-		print_uint64_field("VALUES_INTERNAL_SIZE", stats.value_int_size, format, buf, true, 1);
-		print_uint64_field("VALUES_INTERNAL_DATA_SIZE", stats.value_int_data_size, format, buf, true, 1);
-		print_uint64_field("VALUES_EXTERNAL_SIZE", stats.value_ext_size, format, buf, true, 1);
-		print_uint64_field("VALUES_EXTERNAL_DATA_SIZE",
-		                   stats.value_ext_data_size,
-		                   format,
-		                   ucmd_ctx->common->gen_buf,
-		                   true,
-		                   1);
-		print_uint64_field("METADATA_SIZE", stats.meta_size, format, buf, true, 1);
-		print_uint_field("NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, format, buf, true, 1);
+		print_uint64_field(format, buf, 1, "KEYS_SIZE", stats.key_size, false);
+		print_uint64_field(format, buf, 1, "VALUES_INTERNAL_SIZE", stats.value_int_size, true);
+		print_uint64_field(format, buf, 1, "VALUES_INTERNAL_DATA_SIZE", stats.value_int_data_size, true);
+		print_uint64_field(format, buf, 1, "VALUES_EXTERNAL_SIZE", stats.value_ext_size, true);
+		print_uint64_field(format, buf, 1, "VALUES_EXTERNAL_DATA_SIZE", stats.value_ext_data_size, true);
+		print_uint64_field(format, buf, 1, "METADATA_SIZE", stats.meta_size, true);
+		print_uint_field(format, buf, 1, "NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, true);
 
 		print_end_document(format, buf, 0);
 		print_null_byte(buf);
@@ -4707,9 +4702,9 @@ static int _worker_proxy_recv_system_cmd_resources(sid_resource_t          *work
 
 	if (sid_resource_write_tree_recursively(sid_resource_search(worker_proxy_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
 	                                        flags_to_format(int_msg->header.flags),
-	                                        false,
 	                                        buf,
-	                                        2)) {
+	                                        2,
+	                                        false)) {
 		log_error(ID(worker_proxy_res), "Failed to write resource tree.");
 		goto out;
 	}

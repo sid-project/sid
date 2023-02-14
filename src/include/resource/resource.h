@@ -248,9 +248,9 @@ int sid_resource_exit_event_loop(sid_resource_t *res);
  */
 int sid_resource_write_tree_recursively(sid_resource_t    *res,
                                         output_format_t    format,
-                                        bool               add_comma,
                                         struct sid_buffer *outbuf,
-                                        int                level);
+                                        int                level,
+                                        bool               add_comma);
 
 #ifdef __cplusplus
 }

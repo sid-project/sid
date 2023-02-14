@@ -84,14 +84,14 @@ static int _sid_cmd_version(uint16_t format)
 
 	print_start_document(format, outbuf, 0);
 
-	print_elem_name(false, "SIDCTL_VERSION", format, outbuf, 0);
-	print_start_elem(false, format, outbuf, 0);
-	print_uint_field(KEY_SIDCTL_PROTOCOL, SID_PROTOCOL, format, outbuf, true, 1);
-	print_uint_field(KEY_SIDCTL_MAJOR, SID_VERSION_MAJOR, format, outbuf, true, 1);
-	print_uint_field(KEY_SIDCTL_MINOR, SID_VERSION_MINOR, format, outbuf, true, 1);
-	print_uint_field(KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, format, outbuf, 0, 1);
+	print_elem_name(format, outbuf, 0, "SIDCTL_VERSION", false);
+	print_start_elem(format, outbuf, 0, false);
+	print_uint_field(format, outbuf, 1, KEY_SIDCTL_PROTOCOL, SID_PROTOCOL, false);
+	print_uint_field(format, outbuf, 1, KEY_SIDCTL_MAJOR, SID_VERSION_MAJOR, true);
+	print_uint_field(format, outbuf, 1, KEY_SIDCTL_MINOR, SID_VERSION_MINOR, true);
+	print_uint_field(format, outbuf, 1, KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, true);
 	print_end_elem(format, outbuf, 0);
-	print_elem_name(true, "SID_VERSION", format, outbuf, 0);
+	print_elem_name(format, outbuf, 0, "SID_VERSION", true);
 	if ((r = sid_buffer_write_all(outbuf, fileno(stdout))) < 0)
 		log_error_errno(LOG_PREFIX, r, "failed to write version information");
 	sid_buffer_reset(outbuf);
