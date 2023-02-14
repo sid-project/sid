@@ -892,12 +892,18 @@ bool _is_string_data(char *ptr, size_t len)
 	return true;
 }
 
-static void _print_vvalue(kv_vector_t *vvalue, bool vector, size_t size, output_format_t format, struct sid_buffer *buf, int level)
+static void _print_vvalue(kv_vector_t       *vvalue,
+                          bool               vector,
+                          size_t             size,
+                          const char        *name,
+                          output_format_t    format,
+                          struct sid_buffer *buf,
+                          int                level)
 {
 	int i;
 
 	if (vector) {
-		print_start_array(format, buf, level, "values", true);
+		print_start_array(format, buf, level, name, true);
 		for (i = VVALUE_IDX_DATA; i < size; i++) {
 			if (vvalue[i].iov_len) {
 				if (_is_string_data(vvalue[i].iov_base, vvalue[i].iov_len))
@@ -915,17 +921,17 @@ static void _print_vvalue(kv_vector_t *vvalue, bool vector, size_t size, output_
 		print_end_array(format, buf, level);
 	} else if (vvalue[VVALUE_IDX_DATA].iov_len) {
 		if (_is_string_data(vvalue[VVALUE_IDX_DATA].iov_base, vvalue[VVALUE_IDX_DATA].iov_len))
-			print_str_field(format, buf, level, "value", vvalue[VVALUE_IDX_DATA].iov_base, true);
+			print_str_field(format, buf, level, name, vvalue[VVALUE_IDX_DATA].iov_base, true);
 		else
 			print_binary_field(format,
 			                   buf,
 			                   level,
-			                   "value",
+			                   name,
 			                   vvalue[VVALUE_IDX_DATA].iov_base,
 			                   vvalue[VVALUE_IDX_DATA].iov_len,
 			                   true);
 	} else
-		print_str_field(format, buf, level, "value", "", true);
+		print_str_field(format, buf, level, name, "", true);
 }
 
 static output_format_t flags_to_format(uint16_t flags)
@@ -1169,7 +1175,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			                      true);
 			print_end_array(format, export_buf, 3);
 			print_str_field(format, export_buf, 3, "owner", VVALUE_OWNER(vvalue), true);
-			_print_vvalue(vvalue, vector, size, format, export_buf, 3);
+			_print_vvalue(vvalue, vector, size, vector ? "values" : "value", format, export_buf, 3);
 			print_end_elem(format, export_buf, 2);
 			needs_comma = true;
 		}
