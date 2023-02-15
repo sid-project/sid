@@ -2932,20 +2932,20 @@ static void _change_cmd_state(sid_resource_t *cmd_res, cmd_state_t state)
 static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct sid_buffer   *buf      = ucmd_ctx->common->gen_buf;
+	struct sid_buffer   *prn_buf  = ucmd_ctx->prn_buf;
 	char                *version_data;
 	size_t               size;
 	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
-	print_start_document(format, buf, 0);
-	print_uint_field(format, buf, 1, "SID_PROTOCOL", SID_PROTOCOL, false);
-	print_uint_field(format, buf, 1, "SID_MAJOR", SID_VERSION_MAJOR, true);
-	print_uint_field(format, buf, 1, "SID_MINOR", SID_VERSION_MINOR, true);
-	print_uint_field(format, buf, 1, "SID_RELEASE", SID_VERSION_RELEASE, true);
-	print_end_document(format, buf, 0);
-	print_null_byte(buf);
+	print_start_document(format, prn_buf, 0);
+	print_uint_field(format, prn_buf, 1, "SID_PROTOCOL", SID_PROTOCOL, false);
+	print_uint_field(format, prn_buf, 1, "SID_MAJOR", SID_VERSION_MAJOR, true);
+	print_uint_field(format, prn_buf, 1, "SID_MINOR", SID_VERSION_MINOR, true);
+	print_uint_field(format, prn_buf, 1, "SID_RELEASE", SID_VERSION_RELEASE, true);
+	print_end_document(format, prn_buf, 0);
+	print_null_byte(prn_buf);
 
-	sid_buffer_get_data(buf, (const void **) &version_data, &size);
+	sid_buffer_get_data(prn_buf, (const void **) &version_data, &size);
 
 	return sid_buffer_add(ucmd_ctx->res_buf, version_data, size, NULL, NULL);
 }
@@ -2953,7 +2953,8 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct sid_buffer   *buf      = ucmd_ctx->common->gen_buf;
+	struct sid_buffer   *gen_buf  = ucmd_ctx->common->gen_buf;
+	struct sid_buffer   *prn_buf  = ucmd_ctx->prn_buf;
 	output_format_t      format;
 	const char          *id;
 	size_t               buf_pos0, buf_pos1, buf_pos2;
@@ -2983,7 +2984,7 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 		 */
 		id = sid_resource_get_id(exec_arg->cmd_res);
 
-		sid_buffer_add(buf,
+		sid_buffer_add(gen_buf,
 		               &(struct internal_msg_header) {.cat = MSG_CATEGORY_SYSTEM,
 		                                              .header =
 		                                                      (struct sid_msg_header) {
@@ -2995,8 +2996,8 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 		               INTERNAL_MSG_HEADER_SIZE,
 		               NULL,
 		               &buf_pos0);
-		sid_buffer_add(buf, (void *) id, strlen(id) + 1, NULL, NULL);
-		sid_buffer_get_data(buf, (const void **) &data, &size);
+		sid_buffer_add(gen_buf, (void *) id, strlen(id) + 1, NULL, NULL);
+		sid_buffer_get_data(gen_buf, (const void **) &data, &size);
 
 		if ((r = worker_control_channel_send(exec_arg->cmd_res,
 		                                     MAIN_WORKER_CHANNEL_ID,
@@ -3012,7 +3013,7 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 		} else
 			_change_cmd_state(exec_arg->cmd_res, CMD_EXPECTING_DATA);
 
-		sid_buffer_rewind(buf, buf_pos0, SID_BUFFER_POS_ABS);
+		sid_buffer_rewind(gen_buf, buf_pos0, SID_BUFFER_POS_ABS);
 		return r;
 	}
 
@@ -3025,29 +3026,29 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 	 * main process as well as this process' resource tree to result buffer.
 	 *
 	 * The resulting output is composed of 3 parts:
-	 *   - start element + start array                                             (in genbuf)
+	 *   - start element + start array                                             (in prn_buf)
 	 *   - the resource tree from main process                                     (in mmap'd memfd sent from main process)
-	 *   - the resource tree from current worker process + array end + end element (in genbuf)
+	 *   - the resource tree from current worker process + array end + end element (in prn_buf)
 	 */
 	format   = flags_to_format(ucmd_ctx->req_hdr.flags);
 
-	buf_pos0 = sid_buffer_count(buf);
-	print_start_elem(format, buf, 0, false);
-	print_start_array(format, buf, 1, "sidresources", false);
-	buf_pos1 = sid_buffer_count(buf);
+	buf_pos0 = sid_buffer_count(prn_buf);
+	print_start_elem(format, prn_buf, 0, false);
+	print_start_array(format, prn_buf, 1, "sidresources", false);
+	buf_pos1 = sid_buffer_count(prn_buf);
 
 	sid_resource_write_tree_recursively(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
 	                                    format,
-	                                    buf,
+	                                    prn_buf,
 	                                    2,
 	                                    true);
 
-	print_end_array(format, buf, 1);
-	print_end_elem(format, buf, 0);
-	print_null_byte(buf);
-	buf_pos2 = sid_buffer_count(buf);
+	print_end_array(format, prn_buf, 1);
+	print_end_elem(format, prn_buf, 0);
+	print_null_byte(prn_buf);
+	buf_pos2 = sid_buffer_count(prn_buf);
 
-	sid_buffer_get_data(buf, (const void **) &data, &size);
+	sid_buffer_get_data(prn_buf, (const void **) &data, &size);
 
 	sid_buffer_add(ucmd_ctx->res_buf, data + buf_pos0, buf_pos1 - buf_pos0, NULL, NULL);
 	sid_buffer_add(ucmd_ctx->res_buf,
@@ -3071,7 +3072,7 @@ static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 	char                   uuid_buf2[UTIL_UUID_STR_SIZE];
 	struct sid_ucmd_ctx   *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	output_format_t        format   = flags_to_format(ucmd_ctx->req_hdr.flags);
-	struct sid_buffer     *buf      = ucmd_ctx->common->gen_buf;
+	struct sid_buffer     *prn_buf  = ucmd_ctx->prn_buf;
 	kv_vector_t            tmp_vvalue[VVALUE_SINGLE_CNT];
 	kv_store_iter_t       *iter;
 	void                  *data;
@@ -3091,8 +3092,8 @@ static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 	if (!(iter = kv_store_iter_create(ucmd_ctx->common->kv_store_res, "::D:", "::E:")))
 		goto out;
 
-	print_start_document(format, buf, 0);
-	print_start_array(format, buf, 1, "siddevices", false);
+	print_start_document(format, prn_buf, 0);
+	print_start_array(format, prn_buf, 1, "siddevices", false);
 
 	while ((data = kv_store_iter_next(iter, &size, &key, &kv_store_value_flags))) {
 		_copy_ns_part_from_key(key, uuid, sizeof(uuid_buf1));
@@ -3100,9 +3101,9 @@ static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 
 		if (strcmp(prev_uuid, uuid)) {
 			if (prev_uuid[0] != 0)
-				print_end_elem(format, buf, 2);
-			print_start_elem(format, buf, 2, with_comma);
-			print_str_field(format, buf, 3, "DEVID", uuid, false);
+				print_end_elem(format, prn_buf, 2);
+			print_start_elem(format, prn_buf, 2, with_comma);
+			print_str_field(format, prn_buf, 3, "DEVID", uuid, false);
 		}
 
 		vector = kv_store_value_flags & KV_STORE_VALUE_VECTOR;
@@ -3110,20 +3111,20 @@ static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 
 		if (!strcmp(key_core, KV_KEY_GEN_GROUP_IN) || !strcmp(key_core, KV_KEY_GEN_GROUP_MEMBERS) ||
 		    !strcmp(key_core, KV_KEY_DEV_READY) || !strcmp(key_core, KV_KEY_DEV_RESERVED))
-			_print_vvalue(vvalue, vector, size, key_core, format, buf, 3);
+			_print_vvalue(vvalue, vector, size, key_core, format, prn_buf, 3);
 
 		UTIL_SWAP(uuid, prev_uuid);
 		with_comma = true;
 	}
 
 	if (prev_uuid[0] != 0)
-		print_end_elem(format, buf, 2);
+		print_end_elem(format, prn_buf, 2);
 
-	print_end_array(format, buf, 1);
-	print_end_document(format, buf, 0);
-	print_null_byte(buf);
+	print_end_array(format, prn_buf, 1);
+	print_end_document(format, prn_buf, 0);
+	print_null_byte(prn_buf);
 
-	sid_buffer_get_data(buf, (const void **) &data, &size);
+	sid_buffer_get_data(prn_buf, (const void **) &data, &size);
 	r = sid_buffer_add(ucmd_ctx->res_buf, data, size, NULL, NULL);
 out:
 	if (iter)
@@ -3136,27 +3137,27 @@ static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
 {
 	int                  r;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	struct sid_buffer   *buf      = ucmd_ctx->common->gen_buf;
+	struct sid_buffer   *prn_buf  = ucmd_ctx->prn_buf;
 	struct sid_dbstats   stats;
 	char                *stats_data;
 	size_t               size;
 	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->common->kv_store_res)) == 0) {
-		print_start_document(format, buf, 0);
+		print_start_document(format, prn_buf, 0);
 
-		print_uint64_field(format, buf, 1, "KEYS_SIZE", stats.key_size, false);
-		print_uint64_field(format, buf, 1, "VALUES_INTERNAL_SIZE", stats.value_int_size, true);
-		print_uint64_field(format, buf, 1, "VALUES_INTERNAL_DATA_SIZE", stats.value_int_data_size, true);
-		print_uint64_field(format, buf, 1, "VALUES_EXTERNAL_SIZE", stats.value_ext_size, true);
-		print_uint64_field(format, buf, 1, "VALUES_EXTERNAL_DATA_SIZE", stats.value_ext_data_size, true);
-		print_uint64_field(format, buf, 1, "METADATA_SIZE", stats.meta_size, true);
-		print_uint_field(format, buf, 1, "NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, true);
+		print_uint64_field(format, prn_buf, 1, "KEYS_SIZE", stats.key_size, false);
+		print_uint64_field(format, prn_buf, 1, "VALUES_INTERNAL_SIZE", stats.value_int_size, true);
+		print_uint64_field(format, prn_buf, 1, "VALUES_INTERNAL_DATA_SIZE", stats.value_int_data_size, true);
+		print_uint64_field(format, prn_buf, 1, "VALUES_EXTERNAL_SIZE", stats.value_ext_size, true);
+		print_uint64_field(format, prn_buf, 1, "VALUES_EXTERNAL_DATA_SIZE", stats.value_ext_data_size, true);
+		print_uint64_field(format, prn_buf, 1, "METADATA_SIZE", stats.meta_size, true);
+		print_uint_field(format, prn_buf, 1, "NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, true);
 
-		print_end_document(format, buf, 0);
-		print_null_byte(buf);
+		print_end_document(format, prn_buf, 0);
+		print_null_byte(prn_buf);
 
-		sid_buffer_get_data(buf, (const void **) &stats_data, &size);
+		sid_buffer_get_data(prn_buf, (const void **) &stats_data, &size);
 		r = sid_buffer_add(ucmd_ctx->res_buf, stats_data, size, NULL, NULL);
 	}
 	return r;
