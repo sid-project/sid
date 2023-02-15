@@ -240,6 +240,7 @@ struct sid_ucmd_ctx {
 
 	/* response */
 	struct sid_msg_header res_hdr; /* response header */
+	struct sid_buffer    *prn_buf; /* print buffer */
 	struct sid_buffer    *res_buf; /* response buffer */
 	struct sid_buffer    *exp_buf; /* export buffer */
 };
@@ -4406,6 +4407,16 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 	}
 
+	/* FIXME: Not all commands require print buffer - add command flag to control creation of this buffer. */
+	if (!(ucmd_ctx->prn_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                                        .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                                        .mode    = SID_BUFFER_MODE_PLAIN}),
+	                                            &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
+	                                            &r))) {
+		log_error_errno(ID(res), r, "Failed to create print buffer");
+		goto fail;
+	}
+
 	if (!(ucmd_ctx->res_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
 	                                                                        .type    = SID_BUFFER_TYPE_VECTOR,
 	                                                                        .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
@@ -4476,6 +4487,9 @@ fail:
 		if (cmd_reg && cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE && ucmd_ctx->req_env.exp_path)
 			free((void *) ucmd_ctx->req_env.exp_path);
 
+		if (ucmd_ctx->prn_buf)
+			sid_buffer_destroy(ucmd_ctx->prn_buf);
+
 		if (ucmd_ctx->res_buf)
 			sid_buffer_destroy(ucmd_ctx->res_buf);
 
@@ -4496,6 +4510,9 @@ static int _destroy_command(sid_resource_t *res)
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 
 	sid_buffer_destroy(ucmd_ctx->res_buf);
+
+	if (ucmd_ctx->prn_buf)
+		sid_buffer_destroy(ucmd_ctx->prn_buf);
 
 	if (ucmd_ctx->exp_buf)
 		sid_buffer_destroy(ucmd_ctx->exp_buf);
