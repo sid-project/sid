@@ -139,6 +139,11 @@ static void _help(FILE *f)
 	        "      Input:  None.\n"
 	        "      Output: Database statistics.\n"
 	        "\n"
+	        "    devices\n"
+	        "      List devices with basic set of properties.\n"
+	        "      Input:  None.\n"
+	        "      Output: Listing of all known devices and their basic properties.\n"
+	        "\n"
 	        "    resources\n"
 	        "      Show current SID resource tree.\n"
 	        "      Input:  None.\n"
@@ -219,6 +224,7 @@ int main(int argc, char *argv[])
 		case SID_CMD_DBDUMP:
 		case SID_CMD_DBSTATS:
 		case SID_CMD_RESOURCES:
+		case SID_CMD_DEVICES:
 			r = _sid_cmd(cmd, format);
 			break;
 		default:
