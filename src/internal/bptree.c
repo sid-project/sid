@@ -312,10 +312,7 @@ void *bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size, unsign
  */
 static int _cut(int length)
 {
-	if (length % 2 == 0)
-		return length / 2;
-	else
-		return length / 2 + 1;
+	return (length + 1) / 2;
 }
 
 static bptree_record_t *_make_record(bptree_t *bptree, void *data, size_t data_size)
