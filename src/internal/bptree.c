@@ -792,7 +792,7 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	/* Case: the tree does not exist yet. Start a new tree. */
 
 	if (!bptree->root) {
-		if (_create_root(bptree, bkey, rec) < 0) {
+		if (!_create_root(bptree, bkey, rec)) {
 			free(bkey);
 			free(rec);
 			return -1;
