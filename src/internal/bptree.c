@@ -497,56 +497,40 @@ static bptree_node_t *
 	_insert_into_leaf_after_splitting(bptree_t *bptree, bptree_node_t *leaf, bptree_key_t *bkey, bptree_record_t *pointer)
 {
 	bptree_node_t *new_leaf;
-	bptree_key_t **temp_bkeys;
-	void         **temp_pointers;
 	bptree_key_t  *new_bkey;
 	int            insertion_index, split, i, j;
 
 	if (!(new_leaf = _make_leaf(bptree)))
 		return NULL;
 
-	// FIXME: try to optimize to avoid allocating temporary key and pointer arrays
-	if (!(temp_bkeys = malloc(bptree->order * sizeof(bptree_key_t *))))
-		return NULL;
-
-	if (!(temp_pointers = malloc(bptree->order * sizeof(void *)))) {
-		free(temp_bkeys);
-		return NULL;
-	}
-
 	insertion_index = 0;
 	while (insertion_index < bptree->order - 1 && strcmp(leaf->bkeys[insertion_index]->key, bkey->key) <= 0)
 		insertion_index++;
 
-	for (i = 0, j = 0; i < leaf->num_keys; i++, j++) {
-		if (j == insertion_index)
-			j++;
+	split              = _cut(bptree->order - 1);
+	leaf->num_keys     = split;
+	new_leaf->num_keys = bptree->order - split;
 
-		temp_bkeys[j]    = leaf->bkeys[i];
-		temp_pointers[j] = leaf->pointers[i];
+	i                  = insertion_index < split ? split - 1 : split;
+	for (j = 0; j < new_leaf->num_keys; j++) {
+		if (split + j == insertion_index) {
+			new_leaf->pointers[j] = _ref_record(pointer);
+			new_leaf->bkeys[j]    = _ref_bkey(bkey);
+			continue;
+		}
+		new_leaf->pointers[j] = leaf->pointers[i];
+		new_leaf->bkeys[j]    = leaf->bkeys[i];
+		i++;
 	}
 
-	temp_bkeys[insertion_index]    = _ref_bkey(bkey);
-	temp_pointers[insertion_index] = _ref_record(pointer);
-
-	leaf->num_keys                 = 0;
-
-	split                          = _cut(bptree->order - 1);
-
-	for (i = 0; i < split; i++) {
-		leaf->pointers[i] = temp_pointers[i];
-		leaf->bkeys[i]    = temp_bkeys[i];
-		leaf->num_keys++;
+	if (insertion_index < split) {
+		for (i = split - 1; i > insertion_index; i--) {
+			leaf->pointers[i] = leaf->pointers[i - 1];
+			leaf->bkeys[i]    = leaf->bkeys[i - 1];
+		}
+		leaf->pointers[insertion_index] = _ref_record(pointer);
+		leaf->bkeys[insertion_index]    = _ref_bkey(bkey);
 	}
-
-	for (i = split, j = 0; i < bptree->order; i++, j++) {
-		new_leaf->pointers[j] = temp_pointers[i];
-		new_leaf->bkeys[j]    = temp_bkeys[i];
-		new_leaf->num_keys++;
-	}
-
-	free(temp_pointers);
-	free(temp_bkeys);
 
 	new_leaf->pointers[bptree->order - 1] = leaf->pointers[bptree->order - 1];
 	leaf->pointers[bptree->order - 1]     = new_leaf;
