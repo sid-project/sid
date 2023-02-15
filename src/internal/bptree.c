@@ -230,12 +230,12 @@ static bptree_node_t *_find_leaf(bptree_t *bptree, const char *key)
 /*
  * Looks up and returns the record to which a key refers.
  */
-bptree_record_t *_find(bptree_t              *bptree,
-                       const char            *key,
-                       bptree_lookup_method_t method,
-                       bptree_node_t        **leaf_out,
-                       int                   *i_out,
-                       bptree_key_t         **bkey_out)
+static bptree_record_t *_find(bptree_t              *bptree,
+                              const char            *key,
+                              bptree_lookup_method_t method,
+                              bptree_node_t        **leaf_out,
+                              int                   *i_out,
+                              bptree_key_t         **bkey_out)
 {
 	int            i;
 	bptree_node_t *leaf;
@@ -749,7 +749,7 @@ static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left,
 /*
  * First insertion: start a new tree.
  */
-bptree_node_t *_create_root(bptree_t *bptree, bptree_key_t *bkey, bptree_record_t *pointer)
+static bptree_node_t *_create_root(bptree_t *bptree, bptree_key_t *bkey, bptree_record_t *pointer)
 {
 	bptree_node_t *leaf;
 
