@@ -57,6 +57,7 @@
 
 #include "internal/bptree.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -136,7 +137,11 @@ typedef enum {
 	LOOKUP_PREFIX,
 } bptree_lookup_method_t;
 
-static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left, bptree_key_t *bkey, bptree_node_t *right);
+static bptree_node_t *_insert_into_parent(bptree_t       *bptree,
+                                          bptree_node_t **node_list,
+                                          bptree_node_t  *left,
+                                          bptree_key_t   *bkey,
+                                          bptree_node_t  *right);
 static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, bptree_key_t *bkey, void *pointer);
 
 /*
@@ -443,6 +448,51 @@ static void _destroy_node(bptree_t *bptree, bptree_node_t *n)
 	free(n);
 }
 
+static bptree_node_t *_make_node_list(bptree_t *bptree, size_t count)
+{
+	bptree_node_t *old_node;
+	bptree_node_t *new_node = NULL;
+
+	while (count--) {
+		old_node = new_node;
+		if (!(new_node = _make_node(bptree)))
+			goto fail;
+		new_node->pointers[0] = old_node;
+	}
+	return new_node;
+
+fail:
+	while (old_node) {
+		new_node = old_node;
+		old_node = old_node->pointers[0];
+		_destroy_node(bptree, new_node);
+	}
+	return NULL;
+}
+
+static bptree_node_t *_get_node_from_list(bptree_node_t **node_list)
+{
+	bptree_node_t *node = *node_list;
+
+	assert(node);
+	*node_list        = node->pointers[0];
+	node->pointers[0] = NULL;
+	return node;
+}
+
+static size_t _number_of_nodes_needed(bptree_t *bptree, bptree_node_t *node)
+{
+	size_t count = 0;
+
+	while (node && node->num_keys == bptree->order - 1) {
+		count++;
+		node = node->parent;
+	}
+	if (!node)
+		count++;
+	return count;
+}
+
 /*
  * Helper function used in insert_into_parent to find the index of the
  * parent's pointer to the node to the left of the key to be inserted.
@@ -485,15 +535,17 @@ static bptree_node_t *_insert_into_leaf(bptree_node_t *leaf, bptree_key_t *bkey,
  * Inserts a new key and pointer to a new record into a leaf so as to
  * exceed the tree's order, causing the leaf to be split in half.
  */
-static bptree_node_t *
-	_insert_into_leaf_after_splitting(bptree_t *bptree, bptree_node_t *leaf, bptree_key_t *bkey, bptree_record_t *pointer)
+static bptree_node_t *_insert_into_leaf_after_splitting(bptree_t        *bptree,
+                                                        bptree_node_t  **node_list,
+                                                        bptree_node_t   *leaf,
+                                                        bptree_key_t    *bkey,
+                                                        bptree_record_t *pointer)
 {
 	bptree_node_t *new_leaf;
 	bptree_key_t  *new_bkey;
 	int            insertion_index, split, i, j;
 
-	if (!(new_leaf = _make_node(bptree)))
-		return NULL;
+	new_leaf          = _get_node_from_list(node_list);
 	new_leaf->is_leaf = true;
 
 	insertion_index   = 0;
@@ -537,7 +589,7 @@ static bptree_node_t *
 	new_leaf->parent = leaf->parent;
 	new_bkey         = leaf->bkeys[leaf->num_keys - 1];
 
-	return _insert_into_parent(bptree, leaf, new_bkey, new_leaf);
+	return _insert_into_parent(bptree, node_list, leaf, new_bkey, new_leaf);
 }
 
 /*
@@ -565,11 +617,12 @@ static bptree_node_t *
  * Inserts a new key and pointer to a node* into a node, causing the
  * node's size to exceed the order, and causing the node to split into two.
  */
-static bptree_node_t *_insert_into_node_after_splitting(bptree_t      *bptree,
-                                                        bptree_node_t *old_node,
-                                                        int            left_index,
-                                                        bptree_key_t  *bkey,
-                                                        bptree_node_t *right)
+static bptree_node_t *_insert_into_node_after_splitting(bptree_t       *bptree,
+                                                        bptree_node_t **node_list,
+                                                        bptree_node_t  *old_node,
+                                                        int             left_index,
+                                                        bptree_key_t   *bkey,
+                                                        bptree_node_t  *right)
 {
 	int            i, j, k, split;
 	bptree_node_t *new_node, *child;
@@ -581,7 +634,7 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t      *bptree,
 	 * and pointers to it.
 	 */
 	split              = _cut(bptree->order);
-	new_node           = _make_node(bptree);
+	new_node           = _get_node_from_list(node_list);
 	old_node->num_keys = split - 1;
 	new_node->num_keys = bptree->order - split;
 
@@ -639,7 +692,7 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t      *bptree,
 	 * to the right.
 	 */
 
-	n = _insert_into_parent(bptree, old_node, bk_prime, new_node);
+	n = _insert_into_parent(bptree, node_list, old_node, bk_prime, new_node);
 	_unref_bkey(bptree, bk_prime);
 
 	return n;
@@ -649,9 +702,13 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t      *bptree,
  * Creates a new root for two subtrees and inserts
  * the appropriate key into the new root.
  */
-static bptree_node_t *_insert_into_new_root(bptree_t *bptree, bptree_node_t *left, bptree_key_t *bkey, bptree_node_t *right)
+static bptree_node_t *_insert_into_new_root(bptree_t       *bptree,
+                                            bptree_node_t **node_list,
+                                            bptree_node_t  *left,
+                                            bptree_key_t   *bkey,
+                                            bptree_node_t  *right)
 {
-	bptree->root              = _make_node(bptree);
+	bptree->root              = _get_node_from_list(node_list);
 
 	bptree->root->bkeys[0]    = _ref_bkey(bkey);
 	bptree->root->pointers[0] = left;
@@ -669,7 +726,11 @@ static bptree_node_t *_insert_into_new_root(bptree_t *bptree, bptree_node_t *lef
  * Inserts a new node (leaf or internal node) into the B+ tree.
  * Returns the root of the tree after insertion.
  */
-static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left, bptree_key_t *bkey, bptree_node_t *right)
+static bptree_node_t *_insert_into_parent(bptree_t       *bptree,
+                                          bptree_node_t **node_list,
+                                          bptree_node_t  *left,
+                                          bptree_key_t   *bkey,
+                                          bptree_node_t  *right)
 {
 	int            left_index;
 	bptree_node_t *parent;
@@ -679,7 +740,7 @@ static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left,
 	/* Case: new root. */
 
 	if (!parent)
-		return _insert_into_new_root(bptree, left, bkey, right);
+		return _insert_into_new_root(bptree, node_list, left, bkey, right);
 
 	/* Case: leaf or node. (Remainder of function body.) */
 
@@ -694,7 +755,7 @@ static bptree_node_t *_insert_into_parent(bptree_t *bptree, bptree_node_t *left,
 
 	/* Harder case: split a node in order to preserve the B+ tree properties. */
 
-	return _insert_into_node_after_splitting(bptree, parent, left_index, bkey, right);
+	return _insert_into_node_after_splitting(bptree, node_list, parent, left_index, bkey, right);
 }
 
 /*
@@ -720,18 +781,27 @@ static bptree_node_t *_create_root(bptree_t *bptree, bptree_key_t *bkey, bptree_
 
 static int _insert(bptree_t *bptree, bptree_key_t *bkey, bptree_record_t *rec)
 {
-	bptree_node_t *leaf;
+	bptree_node_t *leaf, *node_list;
+	size_t         count;
 
-	leaf = _find_leaf(bptree, bkey->key);
+	leaf  = _find_leaf(bptree, bkey->key);
+	count = _number_of_nodes_needed(bptree, leaf);
 
 	/* Case: leaf has room for key and record pointer. */
 
-	if (leaf->num_keys < bptree->order - 1)
-		return _insert_into_leaf(leaf, bkey, rec) ? 0 : -1;
+	if (count == 0) {
+		_insert_into_leaf(leaf, bkey, rec);
+		return 0;
+	}
 
 	/* Case: leaf must be split. */
+	if (!(node_list = _make_node_list(bptree, count)))
+		return -1;
 
-	return _insert_into_leaf_after_splitting(bptree, leaf, bkey, rec) ? 0 : -1;
+	_insert_into_leaf_after_splitting(bptree, &node_list, leaf, bkey, rec);
+	assert(!node_list);
+
+	return 0;
 }
 
 /*
@@ -808,7 +878,12 @@ int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bo
 	if (!(bkey = _make_bkey(bptree, alias)))
 		return -1;
 
-	return _insert(bptree, bkey, rec);
+	if (_insert(bptree, bkey, rec) < 0) {
+		_destroy_bkey(bptree, bkey);
+		return -1;
+	}
+
+	return 0;
 }
 
 int bptree_update(bptree_t             *bptree,
