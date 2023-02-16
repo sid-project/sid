@@ -3080,7 +3080,6 @@ static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 	kv_store_value_flags_t kv_store_value_flags;
 	const char            *key, *key_core;
 	char                  *prev_uuid, *uuid;
-	bool                   vector;
 	kv_vector_t           *vvalue;
 	bool                   with_comma = false;
 	int                    r          = 0;
@@ -3106,12 +3105,11 @@ static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 			print_str_field(format, prn_buf, 3, "DEVID", uuid, false);
 		}
 
-		vector = kv_store_value_flags & KV_STORE_VALUE_VECTOR;
-		vvalue = _get_vvalue(kv_store_value_flags, data, size, tmp_vvalue);
-
 		if (!strcmp(key_core, KV_KEY_GEN_GROUP_IN) || !strcmp(key_core, KV_KEY_GEN_GROUP_MEMBERS) ||
-		    !strcmp(key_core, KV_KEY_DEV_READY) || !strcmp(key_core, KV_KEY_DEV_RESERVED))
-			_print_vvalue(vvalue, vector, size, key_core, format, prn_buf, 3);
+		    !strcmp(key_core, KV_KEY_DEV_READY) || !strcmp(key_core, KV_KEY_DEV_RESERVED)) {
+			vvalue = _get_vvalue(kv_store_value_flags, data, size, tmp_vvalue);
+			_print_vvalue(vvalue, kv_store_value_flags & KV_STORE_VALUE_VECTOR, size, key_core, format, prn_buf, 3);
+		}
 
 		UTIL_SWAP(uuid, prev_uuid);
 		with_comma = true;
