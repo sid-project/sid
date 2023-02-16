@@ -333,6 +333,15 @@ static bptree_record_t *_make_record(bptree_t *bptree, void *data, size_t data_s
 	return rec;
 }
 
+static void _destroy_record(bptree_t *bptree, bptree_record_t *rec)
+{
+	bptree->meta_size -= sizeof(*rec);
+	bptree->data_size -= rec->data_size;
+	bptree->num_entries--;
+
+	free(rec);
+}
+
 static bptree_record_t *_ref_record(bptree_record_t *rec)
 {
 	rec->ref_count++;
@@ -344,11 +353,7 @@ static void _unref_record(bptree_t *bptree, bptree_record_t *rec)
 	if (--rec->ref_count > 0)
 		return;
 
-	bptree->meta_size -= sizeof(*rec);
-	bptree->data_size -= rec->data_size;
-	bptree->num_entries--;
-
-	free(rec);
+	_destroy_record(bptree, rec);
 }
 
 static bptree_key_t *_make_bkey(bptree_t *bptree, const char *key)
@@ -771,7 +776,7 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	if (!bptree->root) {
 		if (!_create_root(bptree, bkey, rec)) {
 			_destroy_bkey(bptree, bkey);
-			free(rec);
+			_destroy_record(bptree, rec);
 			return -1;
 		}
 
@@ -782,7 +787,7 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 
 	if (_insert(bptree, bkey, rec) < 0) {
 		_destroy_bkey(bptree, bkey);
-		free(rec);
+		_destroy_record(bptree, rec);
 		return -1;
 	}
 
