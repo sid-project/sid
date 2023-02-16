@@ -578,64 +578,52 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t      *bptree,
                                                         bptree_key_t  *bkey,
                                                         bptree_node_t *right)
 {
-	int             i, j, split;
-	bptree_node_t  *new_node, *child;
-	bptree_key_t   *bk_prime;
-	bptree_key_t  **temp_bkeys;
-	bptree_node_t **temp_pointers;
-	bptree_node_t  *n;
-
-	/*
-	 * First create a temporary set of keys and pointers to hold
-	 * everything in order, including the new key and pointer,
-	 * inserted in their correct places.
-	 *
-	 * Then create a new node and copy half of the keys and
-	 * pointers to the old node and the other half to the new.
-	 */
-
-	// FIXME: try to optimize to avoid allocating temporary key and pointer arrays
-	if (!(temp_pointers = malloc((bptree->order + 1) * sizeof(bptree_node_t *))))
-		return NULL;
-
-	if (!(temp_bkeys = malloc(bptree->order * sizeof(bptree_key_t *)))) {
-		free(temp_pointers);
-		return NULL;
-	}
-
-	for (i = 0, j = 0; i < old_node->num_keys + 1; i++, j++) {
-		if (j == left_index + 1)
-			j++;
-
-		temp_pointers[j] = old_node->pointers[i];
-	}
-
-	for (i = 0, j = 0; i < old_node->num_keys; i++, j++) {
-		if (j == left_index)
-			j++;
-
-		temp_bkeys[j] = old_node->bkeys[i];
-	}
-
-	temp_pointers[left_index + 1] = right;
-	temp_bkeys[left_index]        = _ref_bkey(bkey);
+	int            i, j, k, split;
+	bptree_node_t *new_node, *child;
+	bptree_key_t  *bk_prime;
+	bptree_node_t *n;
 
 	/*
 	 * Create the new node and copy half the keys
-	 * and pointers to the old and half to the new.
+	 * and pointers to it.
 	 */
-	split                         = _cut(bptree->order);
-	new_node                      = _make_node(bptree);
-	old_node->num_keys            = 0;
+	split              = _cut(bptree->order);
+	new_node           = _make_node(bptree);
+	old_node->num_keys = split - 1;
+	new_node->num_keys = bptree->order - split;
 
-	for (i = 0; i < split - 1; i++) {
-		old_node->pointers[i] = temp_pointers[i];
-		old_node->bkeys[i]    = temp_bkeys[i];
-		old_node->num_keys++;
+	j                  = left_index + 1 < split ? split - 1 : split;
+	k                  = left_index < split ? split - 1 : split;
+	for (i = 0; i < new_node->num_keys; i++) {
+		if (split + i == left_index) {
+			new_node->pointers[i] = old_node->pointers[j];
+			new_node->bkeys[i]    = _ref_bkey(bkey);
+			j++;
+		} else if (split + i == left_index + 1) {
+			new_node->pointers[i] = right;
+			new_node->bkeys[i]    = old_node->bkeys[k];
+			k++;
+		} else {
+			new_node->pointers[i] = old_node->pointers[j];
+			new_node->bkeys[i]    = old_node->bkeys[k];
+			j++;
+			k++;
+		}
 	}
+	if (split + i == left_index + 1)
+		new_node->pointers[i] = right;
+	else
+		new_node->pointers[i] = old_node->pointers[j];
 
-	old_node->pointers[i] = temp_pointers[i];
-	bk_prime              = temp_bkeys[split - 1];
+	// adjust the keys and pointers on the old node
+	if (left_index < split) {
+		for (i = split - 1; i > left_index; i--) {
+			old_node->pointers[i] = i > left_index + 1 ? old_node->pointers[i - 1] : right;
+			old_node->bkeys[i]    = old_node->bkeys[i - 1];
+		}
+		old_node->bkeys[left_index] = _ref_bkey(bkey);
+	}
+	bk_prime         = old_node->bkeys[old_node->num_keys];
 
 	/*
 	 * The bk_prime will be moved up one level in the tree and removed
@@ -644,17 +632,6 @@ static bptree_node_t *_insert_into_node_after_splitting(bptree_t      *bptree,
 	 * first, we will insert it into parent and then unref it at the end
 	 * of this function.
 	 */
-
-	for (++i, j = 0; i < bptree->order; i++, j++) {
-		new_node->pointers[j] = temp_pointers[i];
-		new_node->bkeys[j]    = temp_bkeys[i];
-		new_node->num_keys++;
-	}
-
-	new_node->pointers[j] = temp_pointers[i];
-
-	free(temp_pointers);
-	free(temp_bkeys);
 
 	new_node->parent = old_node->parent;
 
