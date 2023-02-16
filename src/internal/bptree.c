@@ -444,19 +444,6 @@ static void _destroy_node(bptree_t *bptree, bptree_node_t *n)
 }
 
 /*
- * Creates a new leaf by creating a node and then adapting it appropriately.
- */
-static bptree_node_t *_make_leaf(bptree_t *bptree)
-{
-	bptree_node_t *leaf;
-
-	if ((leaf = _make_node(bptree)))
-		leaf->is_leaf = true;
-
-	return leaf;
-}
-
-/*
  * Helper function used in insert_into_parent to find the index of the
  * parent's pointer to the node to the left of the key to be inserted.
  */
@@ -505,10 +492,11 @@ static bptree_node_t *
 	bptree_key_t  *new_bkey;
 	int            insertion_index, split, i, j;
 
-	if (!(new_leaf = _make_leaf(bptree)))
+	if (!(new_leaf = _make_node(bptree)))
 		return NULL;
+	new_leaf->is_leaf = true;
 
-	insertion_index = 0;
+	insertion_index   = 0;
 	while (insertion_index < bptree->order - 1 && strcmp(leaf->bkeys[insertion_index]->key, bkey->key) <= 0)
 		insertion_index++;
 
@@ -716,8 +704,9 @@ static bptree_node_t *_create_root(bptree_t *bptree, bptree_key_t *bkey, bptree_
 {
 	bptree_node_t *leaf;
 
-	if (!(leaf = _make_leaf(bptree)))
+	if (!(leaf = _make_node(bptree)))
 		return NULL;
+	leaf->is_leaf                             = true;
 
 	bptree->root                              = leaf;
 	bptree->root->bkeys[0]                    = _ref_bkey(bkey);
