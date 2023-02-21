@@ -972,12 +972,17 @@ static int _get_neighbor_index(bptree_node_t *n)
 
 static bptree_node_t *_remove_entry_from_node(bptree_t *bptree, bptree_node_t *n, bptree_key_t *bkey, bptree_node_t *pointer)
 {
-	int i, num_pointers;
+	int           i            = 0, num_pointers;
+	bptree_key_t *swapped_bkey = NULL;
 
 	/* Remove the key and shift other keys accordingly. */
-	i = 0;
 	while (n->bkeys[i] != bkey)
 		i++;
+
+	/* if the last key in a leaf is deleted, swap it out for the previous
+	 * key, in the internal nodes */
+	if (n->is_leaf && i == n->num_keys - 1)
+		swapped_bkey = n->bkeys[i - 1];
 
 	_unref_bkey(bptree, bkey);
 
@@ -1011,6 +1016,20 @@ static bptree_node_t *_remove_entry_from_node(bptree_t *bptree, bptree_node_t *n
 		for (i = n->num_keys + 1; i < bptree->order; i++)
 			n->pointers[i] = NULL;
 
+	if (swapped_bkey) {
+		bptree_node_t *p;
+
+		for (p = n->parent; p; p = p->parent) {
+			for (i = 0; i < p->num_keys; i++) {
+				if (p->bkeys[i] == bkey) {
+					_unref_bkey(bptree, bkey);
+					p->bkeys[i] = _ref_bkey(swapped_bkey);
+					goto out;
+				}
+			}
+		}
+	}
+out:
 	return n;
 }
 
