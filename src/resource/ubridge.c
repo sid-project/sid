@@ -110,7 +110,7 @@
 #define DEV_NAME_PREFIX_NVME                        "nvme"
 
 #define OWNER_CORE                                  MOD_NAME_CORE
-#define DEFAULT_VALUE_FLAGS_CORE                    KV_SYNC | KV_PERSISTENT | KV_MOD_RESERVED | KV_MOD_PRIVATE
+#define DEFAULT_VALUE_FLAGS_CORE                    KV_SYNC | KV_PERSISTENT | KV_MOD_RESERVED
 
 #define CMD_DEV_NAME_NUM_FMT                        "%s (%d:%d)"
 #define CMD_DEV_NAME_NUM(ucmd_ctx)                                                                                                 \
@@ -323,6 +323,12 @@ struct kv_update_arg {
 	void              *custom;   /* in/out */
 	int                ret_code; /* out */
 };
+
+typedef enum {
+	MOD_NO_MATCH,  /* modules do not match */
+	MOD_MATCH,     /* modules do match (1:1) */
+	MOD_SUB_MATCH, /* modules do match (submod of a mod) */
+} mod_match_t;
 
 typedef enum {
 	KV_OP_ILLEGAL, /* illegal operation */
@@ -812,6 +818,30 @@ static int _manage_kv_index(struct kv_update_arg *update_arg, char *key)
 	return r;
 }
 
+static mod_match_t _mod_match(const char *mod1, const char *mod2)
+{
+	size_t i = 0;
+
+	while ((mod1[i] && mod2[i]) && (mod1[i] == mod2[i]))
+		i++;
+
+	if (!mod1[i] && !mod2[i])
+		/* match - same mod */
+		return MOD_MATCH;
+
+	if (i && mod2[i]) {
+		if (!strncmp(mod2 + i, MODULE_NAME_DELIM, sizeof(MODULE_NAME_DELIM) - 1))
+			/* match - mod2 is submnod of mod1 */
+			return MOD_SUB_MATCH;
+		else
+			/* no match */
+			return MOD_NO_MATCH;
+	}
+
+	/* no match */
+	return MOD_NO_MATCH;
+}
+
 static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, kv_vector_t *vvalue_old, kv_vector_t *vvalue_new)
 {
 	sid_ucmd_kv_flags_t old_flags;
@@ -827,21 +857,42 @@ static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, kv
 	old_owner = VVALUE_OWNER(vvalue_old);
 	new_owner = vvalue_new ? VVALUE_OWNER(vvalue_new) : update_arg->owner;
 
-	if (old_flags & KV_MOD_PRIVATE) {
-		if (strcmp(old_owner, new_owner)) {
-			reason = "private";
-			r      = -EACCES;
-		}
-	} else if (old_flags & KV_MOD_PROTECTED) {
-		if (strcmp(old_owner, new_owner)) {
-			reason = "protected";
-			r      = -EPERM;
-		}
-	} else if (old_flags & KV_MOD_RESERVED) {
-		if (strcmp(old_owner, new_owner)) {
-			reason = "reserved";
-			r      = -EBUSY;
-		}
+	switch (_mod_match(old_owner, new_owner)) {
+		case MOD_NO_MATCH:
+			if (old_flags & KV_MOD_WR)
+				r = 1;
+			else {
+				if (old_flags & KV_MOD_RESERVED) {
+					reason = "reserved";
+					r      = -EBUSY;
+				} else if (old_flags & KV_MOD_RD) {
+					reason = "read-only";
+					r      = -EPERM;
+				} else {
+					reason = "private";
+					r      = -EACCES;
+				}
+			}
+			break;
+		case MOD_MATCH:
+			r = 1;
+			break;
+		case MOD_SUB_MATCH:
+			if (old_flags & KV_SUBMOD_WR)
+				r = 1;
+			else {
+				if (old_flags & KV_SUBMOD_RESERVED) {
+					reason = "reserved";
+					r      = -EBUSY;
+				} else if (old_flags & KV_SUBMOD_RD) {
+					reason = "read-only";
+					r      = -EPERM;
+				} else {
+					reason = "private";
+					r      = -EACCES;
+				}
+			}
+			break;
 	}
 
 	if (r < 0)
@@ -1165,16 +1216,19 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			print_bool_array_elem(format,
 			                      export_buf,
 			                      4,
-			                      "KV_MOD_PROTECTED",
-			                      VVALUE_FLAGS(vvalue) & KV_MOD_PROTECTED,
-			                      true);
-			print_bool_array_elem(format, export_buf, 4, "KV_MOD_PRIVATE", VVALUE_FLAGS(vvalue) & KV_MOD_PRIVATE, true);
-			print_bool_array_elem(format,
-			                      export_buf,
-			                      4,
 			                      "KV_MOD_RESERVED",
 			                      VVALUE_FLAGS(vvalue) & KV_MOD_RESERVED,
 			                      true);
+			print_bool_array_elem(format,
+			                      export_buf,
+			                      4,
+			                      "KV_SUBMOD_RESERVED",
+			                      VVALUE_FLAGS(vvalue) & KV_SUBMOD_RESERVED,
+			                      true);
+			print_bool_array_elem(format, export_buf, 4, "KV_MOD_RD", VVALUE_FLAGS(vvalue) & KV_MOD_RD, true);
+			print_bool_array_elem(format, export_buf, 4, "KV_SUBMOD_RD", VVALUE_FLAGS(vvalue) & KV_SUBMOD_RD, true);
+			print_bool_array_elem(format, export_buf, 4, "KV_MOD_WR", VVALUE_FLAGS(vvalue) & KV_MOD_WR, true);
+			print_bool_array_elem(format, export_buf, 4, "KV_SUBMOD_WR", VVALUE_FLAGS(vvalue) & KV_SUBMOD_WR, true);
 			print_end_array(format, export_buf, 3);
 			print_str_field(format, export_buf, 3, "owner", VVALUE_OWNER(vvalue), true);
 			_print_vvalue(vvalue, vector, size, vector ? "values" : "value", format, export_buf, 3);
@@ -1237,16 +1291,24 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx    *ucmd_ctx,
 
 	vvalue = _get_vvalue(kv_store_value_flags, found, value_size, tmp_vvalue);
 
-	if ((VVALUE_FLAGS(vvalue) & KV_MOD_RESERVED) && (!strcmp(VVALUE_OWNER(vvalue), owner)))
-		goto out;
+	switch (_mod_match(VVALUE_OWNER(vvalue), owner)) {
+		case MOD_NO_MATCH:
+			r = !(VVALUE_FLAGS(vvalue) & KV_RESERVED);
+			break;
+		case MOD_MATCH:
+			r = 1;
+			break;
+		case MOD_SUB_MATCH:
+			r = !(VVALUE_FLAGS(vvalue) & KV_SUBMOD_RESERVED);
+			break;
+	}
 
-	log_debug(ID(ucmd_ctx->common->kv_store_res),
-	          "Module %s can't overwrite value with key %s which is reserved and attached to %s module.",
-	          owner,
-	          key,
-	          VVALUE_OWNER(vvalue));
-
-	r = 0;
+	if (!r)
+		log_debug(ID(ucmd_ctx->common->kv_store_res),
+		          "Module %s can't overwrite value with key %s which is reserved and attached to %s module.",
+		          owner,
+		          key,
+		          VVALUE_OWNER(vvalue));
 out:
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 	return r;
@@ -2089,9 +2151,18 @@ static const void *_cmd_get_key_spec_value(struct module       *mod,
 	if (!(svalue = kv_store_get_value(ucmd_ctx->common->kv_store_res, key, &size, NULL)))
 		goto out;
 
-	if (svalue->flags & KV_MOD_PRIVATE) {
-		if (strcmp(svalue->data, owner))
-			goto out;
+	switch (_mod_match(svalue->data, owner)) {
+		case MOD_NO_MATCH:
+			if (!(svalue->flags & KV_MOD_RD))
+				goto out;
+			break;
+		case MOD_MATCH:
+			/* nothing to do here */
+			break;
+		case MOD_SUB_MATCH:
+			if (!(svalue->flags & KV_SUBMOD_RD))
+				goto out;
+			break;
 	}
 
 	if (flags)
@@ -4495,14 +4566,26 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 	struct kv_update_arg *update_arg = spec->arg;
 	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_CNT];
 	kv_vector_t          *vvalue_old;
+	int                   r;
 
 	if (!spec->old_data)
 		return 1;
 
 	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old);
 
-	if ((VVALUE_FLAGS(vvalue_old) & (KV_MOD_PROTECTED | KV_MOD_PRIVATE | KV_MOD_RESERVED)) &&
-	    strcmp(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
+	switch (_mod_match(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
+		case MOD_NO_MATCH:
+			r = !(VVALUE_FLAGS(vvalue_old) & KV_MOD_RESERVED) && (VVALUE_FLAGS(vvalue_old) & KV_MOD_WR);
+			break;
+		case MOD_MATCH:
+			r = 1;
+			break;
+		case MOD_SUB_MATCH:
+			r = !(VVALUE_FLAGS(vvalue_old) & KV_SUBMOD_RESERVED) && (VVALUE_FLAGS(vvalue_old) & KV_SUBMOD_WR);
+			break;
+	}
+
+	if (!r) {
 		log_debug(ID(update_arg->res),
 		          "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
 		          "which belongs to module %s.",
@@ -4511,10 +4594,9 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 		          VVALUE_SEQNUM(vvalue_old),
 		          VVALUE_OWNER(vvalue_old));
 		update_arg->ret_code = EBUSY;
-		return 0;
 	}
 
-	return 1;
+	return r;
 }
 
 static int _kv_cb_main_set(struct kv_store_update_spec *spec)
