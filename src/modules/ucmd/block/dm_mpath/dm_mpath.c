@@ -137,7 +137,7 @@ static int _is_parent_multipathed(struct module *mod, struct sid_ucmd_ctx *ucmd_
 	}
 	if (r == MPATH_IS_VALID) {
 		log_debug(MID, "%s whole disk is a multipath path", sid_ucmd_dev_get_name(ucmd_ctx));
-		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, keys[U_DEV_PATH], "1", 2, KV_MOD_PROTECTED);
+		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, keys[U_DEV_PATH], "1", 2, KV_RD);
 	} else
 		log_debug(MID, "%s whole disk is not a multipath path", sid_ucmd_dev_get_name(ucmd_ctx));
 	return 0;
@@ -187,9 +187,9 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 		r = MPATH_IS_VALID;
 
 	if (r == MPATH_IS_VALID)
-		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, keys[U_DEV_PATH], "1", 2, KV_MOD_PROTECTED);
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, keys[U_DEV_PATH], "1", 2, KV_RD);
 	else if (r != MPATH_IS_ERROR)
-		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, keys[U_DEV_PATH], "0", 2, KV_MOD_PROTECTED);
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, keys[U_DEV_PATH], "0", 2, KV_RD);
 
 	if (r != MPATH_IS_ERROR && snprintf(valid_str, sizeof(valid_str), "%d", r) < sizeof(valid_str) && valid_str[0])
 		sid_ucmd_set_kv(module,
@@ -198,7 +198,7 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 		                keys[D_VALID],
 		                valid_str,
 		                sizeof(valid_str),
-		                KV_MOD_PROTECTED | KV_SYNC | KV_PERSISTENT);
+		                KV_RD | KV_SYNC | KV_PERSISTENT);
 	if (wwid) {
 		sid_ucmd_set_kv(module,
 		                ucmd_ctx,
@@ -206,7 +206,7 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 		                keys[D_WWID],
 		                wwid,
 		                strlen(wwid) + 1,
-		                KV_MOD_PROTECTED | KV_SYNC | KV_PERSISTENT);
+		                KV_RD | KV_SYNC | KV_PERSISTENT);
 		free(wwid);
 	}
 	return (r != MPATH_IS_ERROR) ? 0 : -1;
