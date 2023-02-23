@@ -17,6 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "dm.h"
+
 #include "base/util.h"
 #include "internal/mem.h"
 #include "log/log.h"
@@ -28,13 +30,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define DM_ID            "dm"
-#define DM_SUBMODULES_ID DM_ID "_sub"
+#define DM_ID                "dm"
+#define DM_SUBMODULES_ID     DM_ID "_sub"
+#define DM_SUBMODULE_ID_NONE "none"
 
 SID_UCMD_MOD_PRIO(0)
 SID_UCMD_MOD_ALIASES("device_mapper")
 
 static struct module_symbol_params dm_submod_symbol_params[] = {
+	{
+		SID_UCMD_DM_MOD_FN_NAME_SUBSYS_MATCH,
+		MODULE_SYMBOL_FAIL_ON_MISSING | MODULE_SYMBOL_INDIRECT,
+	},
 	{
 		SID_UCMD_MOD_FN_NAME_IDENT,
 		MODULE_SYMBOL_FAIL_ON_MISSING | MODULE_SYMBOL_INDIRECT,
@@ -62,6 +69,7 @@ static struct module_symbol_params dm_submod_symbol_params[] = {
 };
 
 struct dm_submod_fns {
+	sid_ucmd_fn_t *subsys_match;
 	sid_ucmd_fn_t *ident;
 	sid_ucmd_fn_t *scan_pre;
 	sid_ucmd_fn_t *scan_current;
@@ -143,12 +151,14 @@ SID_UCMD_MOD_RESET(_dm_reset)
 
 static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	char                     path[PATH_MAX];
-	char                     name[DM_NAME_LEN];
-	char                     uuid[DM_UUID_LEN];
-	struct dm_mod_ctx       *dm_mod;
-	const char              *submod_name = NULL;
-	struct sid_ucmd_mod_fns *mod_fns;
+	char                  path[PATH_MAX];
+	char                  name[DM_NAME_LEN];
+	char                  uuid[DM_UUID_LEN];
+	struct dm_mod_ctx    *dm_mod;
+	sid_resource_iter_t  *iter;
+	sid_resource_t       *submod_res;
+	const char           *submod_name = NULL;
+	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "ident");
 
@@ -160,21 +170,53 @@ static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 	sid_util_sysfs_get_value(path, name, sizeof(name));
 	sid_ucmd_dev_add_alias(module, ucmd_ctx, "name", name);
 
-	dm_mod = module_get_data(module);
+	dm_mod      = module_get_data(module);
+	submod_name = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_DEVICE, DM_SUBMODULES_ID, NULL, NULL);
 
-	// TODO: call out dm submodule identification hooks here
+	if (submod_name) {
+		if (strcmp(submod_name, DM_SUBMODULE_ID_NONE) != 0) {
+			if (!(dm_mod->submod_res_current = module_registry_get_module(dm_mod->submod_registry, submod_name))) {
+				log_debug(DM_ID, "Module %s not loaded.", submod_name);
+				return 0;
+			}
+		}
+	} else {
+		if (!(iter = sid_resource_iter_create(dm_mod->submod_registry))) {
+			log_error(DM_ID, "Failed to create submodule iterator.");
+			return -1;
+		}
 
-	if (!submod_name)
-		return 0;
+		while ((submod_res = sid_resource_iter_next(iter))) {
+			if (module_registry_get_module_symbols(submod_res, (const void ***) &submod_fns) < 0) {
+				log_error(DM_ID, "Failed to retrieve submodule symbols from submodule %s.", ID(submod_res));
+				continue;
+			}
 
-	if (!(dm_mod->submod_res_current = module_registry_get_module(dm_mod->submod_registry, submod_name))) {
-		log_debug(DM_ID, "Module %s not loaded.", submod_name);
-		return 0;
+			if (submod_fns->subsys_match) {
+				if (submod_fns->subsys_match(sid_resource_get_data(submod_res), ucmd_ctx)) {
+					dm_mod->submod_res_current = submod_res;
+					submod_name                = sid_resource_get_id(submod_res);
+					sid_ucmd_set_kv(module,
+					                ucmd_ctx,
+					                KV_NS_DEVICE,
+					                DM_SUBMODULES_ID,
+					                submod_name,
+					                strlen(submod_name) + 1,
+					                KV_MOD_RD);
+					break;
+				}
+			}
+		}
+
+		sid_resource_iter_destroy(iter);
 	}
 
-	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->ident)
-		(void) mod_fns->ident(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+	if (!dm_mod->submod_res_current)
+		return 0;
+
+	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &submod_fns);
+	if (submod_fns && submod_fns->ident)
+		(void) submod_fns->ident(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
 
 	return 0;
 }
