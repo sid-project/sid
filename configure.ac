@@ -62,6 +62,7 @@ AC_CONFIG_FILES([Makefile
 		 src/modules/ucmd/block/Makefile
 		 src/modules/ucmd/type/dummy_type/Makefile
 		 src/modules/ucmd/type/dm/Makefile
+		 src/modules/ucmd/type/dm/lvm/Makefile
 		 src/modules/ucmd/block/dummy_block/Makefile
 		 src/modules/ucmd/block/blkid/Makefile
 		 src/modules/ucmd/block/dm_mpath/Makefile

@@ -1,7 +1,7 @@
 ##############################################################################
 # This file is part of SID.
 #
-# Copyright (C) 2020 Red Hat, Inc. All rights reserved.
+# Copyright (C) 2023 Red Hat, Inc. All rights reserved.
 #
 # SID is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,21 +17,13 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = . lvm
+lvmdir = $(pkglibdir)/modules/ucmd/type/dm
 
-dmdir = $(pkglibdir)/modules/ucmd/type
+lvm_LTLIBRARIES = lvm.la
 
-dm_LTLIBRARIES = dm.la
+lvm_la_SOURCES = lvm.c
 
-dm_la_SOURCES = dm.c
+lvm_la_LDFLAGS = -module -avoid-version
 
-dm_la_LDFLAGS = -module -avoid-version
-
-dm_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
-	       $(top_builddir)/src/log/libsidlog.la
-
-install-data-local:
-	${MKDIR_P} ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm
-
-uninstall-local:
-	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm
+lvm_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
+		$(top_builddir)/src/log/libsidlog.la
