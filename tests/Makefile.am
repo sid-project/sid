@@ -9,7 +9,8 @@ check_PROGRAMS = \
 	test_kv_store \
 	test_bitmap \
 	test_iface \
-	test_internal
+	test_internal \
+	test_bptree
 
 TESTS = $(check_PROGRAMS)
 test_buffer_SOURCES = test_buffer.c
@@ -39,5 +40,8 @@ test_iface_LDADD = $(top_builddir)/src/base/libsidbase.la -lcmocka
 test_internal_SOURCES = test_internal.c
 test_internal_LDADD = $(top_builddir)/src/internal/libsidinternal.la \
 		      $(top_builddir)/src/base/libsidbase.la -lcmocka
+test_bptree_SOURCES = test_bptree.c
+test_bptree_LDADD = $(top_builddir)/src/internal/libsidinternal.la \
+		    $(top_builddir)/src/base/libsidbase.la -lcmocka
 
 endif # HAVE_CMOCKA
