@@ -86,6 +86,7 @@
 #define KV_PREFIX_NS_UDEV_C                         "U"
 #define KV_PREFIX_NS_DEVICE_C                       "D"
 #define KV_PREFIX_NS_MODULE_C                       "M"
+#define KV_PREFIX_NS_DEVMOD_C                       "X"
 #define KV_PREFIX_NS_GLOBAL_C                       "G"
 
 #define KV_PREFIX_KEY_SYS_C                         "#"
@@ -530,6 +531,7 @@ static char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spe
 	                                             [KV_NS_UDEV]      = KV_PREFIX_NS_UDEV_C,
 	                                             [KV_NS_DEVICE]    = KV_PREFIX_NS_DEVICE_C,
 	                                             [KV_NS_MODULE]    = KV_PREFIX_NS_MODULE_C,
+	                                             [KV_NS_DEVMOD]    = KV_PREFIX_NS_DEVMOD_C,
 	                                             [KV_NS_GLOBAL]    = KV_PREFIX_NS_GLOBAL_C};
 
 	/* <op>:<dom>:<ns>:<ns_part>:<id_cat>:<id>[:<core>] */
@@ -655,6 +657,8 @@ static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
 		return KV_NS_DEVICE;
 	else if (str[0] == KV_PREFIX_NS_MODULE_C[0])
 		return KV_NS_MODULE;
+	else if (str[0] == KV_PREFIX_NS_DEVMOD_C[0])
+		return KV_NS_DEVMOD;
 	else if (str[0] == KV_PREFIX_NS_GLOBAL_C[0])
 		return KV_NS_GLOBAL;
 	else
@@ -1308,6 +1312,7 @@ static const char *_get_ns_part(struct module *mod, struct sid_ucmd_ctx *ucmd_ct
 		case KV_NS_UDEV:
 			return ucmd_ctx->req_env.dev.num_s ?: ID_NULL;
 		case KV_NS_DEVICE:
+		case KV_NS_DEVMOD:
 			return ucmd_ctx->req_env.dev.uid_s ?: ID_NULL;
 		case KV_NS_MODULE:
 			return _get_mod_name(mod);
@@ -2044,8 +2049,8 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	                                 .dom     = dom ?: ID_NULL,
 	                                 .ns      = ns,
 	                                 .ns_part = _get_ns_part(mod, ucmd_ctx, ns),
-	                                 .id_cat  = ID_NULL,
-	                                 .id      = ID_NULL,
+	                                 .id_cat  = ns == KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
+	                                 .id      = ns == KV_NS_DEVMOD ? _get_ns_part(mod, ucmd_ctx, KV_NS_MODULE) : ID_NULL,
 	                                 .core    = key_core};
 	int                  r;
 	void                *ret = NULL;
@@ -2181,8 +2186,8 @@ static const void *_do_sid_ucmd_get_kv(struct module          *mod,
 	                               .dom     = dom ?: ID_NULL,
 	                               .ns      = ns,
 	                               .ns_part = _get_ns_part(mod, ucmd_ctx, ns),
-	                               .id_cat  = ID_NULL,
-	                               .id      = ID_NULL,
+	                               .id_cat  = ns == KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
+	                               .id      = ns == KV_NS_DEVMOD ? _get_ns_part(mod, ucmd_ctx, KV_NS_MODULE) : ID_NULL,
 	                               .core    = key};
 	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
 }
