@@ -198,6 +198,9 @@ static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 				if (submod_fns->subsys_match(sid_resource_get_data(submod_res), ucmd_ctx)) {
 					dm_mod->submod_res_current = submod_res;
 					submod_name                = sid_resource_get_id(submod_res);
+
+					log_debug(DM_ID, "%s submodule claimed this DM device.", submod_name);
+
 					sid_ucmd_set_kv(module,
 					                ucmd_ctx,
 					                KV_NS_DEVICE,
