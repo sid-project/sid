@@ -25,7 +25,8 @@
 
 #include <stdlib.h>
 
-#define LVM_ID "lvm"
+#define LVM_ID             "lvm"
+#define LVM_DM_UUID_PREFIX "LVM-"
 
 SID_UCMD_MOD_PRIO(0)
 
@@ -52,7 +53,12 @@ SID_UCMD_MOD_RESET(_lvm_reset)
 
 static int _lvm_subsys_match(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	return 0;
+	const char *uuid;
+
+	if (!(uuid = sid_ucmd_get_foreign_mod_kv(module, ucmd_ctx, "type/dm", KV_NS_DEVMOD, "uuid", NULL, NULL)))
+		return 0;
+
+	return !strncmp(uuid, LVM_DM_UUID_PREFIX, sizeof(LVM_DM_UUID_PREFIX) - 1);
 }
 SID_UCMD_MOD_DM_SUBSYS_MATCH(_lvm_subsys_match)
 
