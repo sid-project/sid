@@ -653,6 +653,9 @@ int sid_resource_create_signal_event_source(sid_resource_t                     *
 		goto fail;
 	}
 
+	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
+		goto fail;
+
 	if ((r = _create_event_source(res,
 	                              EVENT_SOURCE_SIGNAL,
 	                              name,
@@ -661,9 +664,6 @@ int sid_resource_create_signal_event_source(sid_resource_t                     *
 	                              data,
 	                              SID_RESOURCE_UNLIMITED_EVENT_COUNT,
 	                              es)) < 0)
-		goto fail;
-
-	if (prio && (r = sd_event_source_set_priority(sd_es, prio)) < 0)
 		goto fail;
 
 	return 0;
