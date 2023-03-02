@@ -1324,6 +1324,28 @@ static const char *_get_ns_part(struct module *mod, struct sid_ucmd_ctx *ucmd_ct
 	return ID_NULL;
 }
 
+static const char *_get_foreign_ns_part(struct module          *mod,
+                                        struct sid_ucmd_ctx    *ucmd_ctx,
+                                        const char             *foreign_mod_name,
+                                        const char             *foreign_dev_id,
+                                        sid_ucmd_kv_namespace_t ns)
+{
+	switch (ns) {
+		case KV_NS_UDEV:
+			return ucmd_ctx->req_env.dev.num_s ?: ID_NULL;
+		case KV_NS_DEVICE:
+		case KV_NS_DEVMOD:
+			return foreign_dev_id ?: ucmd_ctx->req_env.dev.uid_s ?: ID_NULL;
+		case KV_NS_MODULE:
+			return foreign_mod_name ?: _get_mod_name(mod);
+		case KV_NS_GLOBAL:
+		case KV_NS_UNDEFINED:
+			break;
+	}
+
+	return ID_NULL;
+}
+
 static void _destroy_delta_buffers(struct kv_delta *delta)
 {
 	if (delta->plus) {
@@ -2203,6 +2225,81 @@ const void *sid_ucmd_get_kv(struct module          *mod,
 		return NULL;
 
 	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, value_size, flags);
+}
+
+static const void *_do_sid_ucmd_get_foreign_kv(struct module          *mod,
+                                               struct sid_ucmd_ctx    *ucmd_ctx,
+                                               const char             *foreign_mod_name,
+                                               const char             *foreign_dev_id,
+                                               const char             *dom,
+                                               sid_ucmd_kv_namespace_t ns,
+                                               const char             *key,
+                                               size_t                 *value_size,
+                                               sid_ucmd_kv_flags_t    *flags)
+{
+	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
+	                               .dom     = dom ?: ID_NULL,
+	                               .ns      = ns,
+	                               .ns_part = _get_foreign_ns_part(mod, ucmd_ctx, foreign_mod_name, foreign_dev_id, ns),
+	                               .id_cat  = ns == KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
+	                               .id      = ns == KV_NS_DEVMOD ? foreign_mod_name : ID_NULL,
+	                               .core    = key};
+
+	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
+}
+
+const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
+                                        struct sid_ucmd_ctx    *ucmd_ctx,
+                                        const char             *foreign_mod_name,
+                                        sid_ucmd_kv_namespace_t ns,
+                                        const char             *key,
+                                        size_t                 *value_size,
+                                        sid_ucmd_kv_flags_t    *flags)
+{
+	if (!mod || !ucmd_ctx || !foreign_mod_name || !*foreign_mod_name || (ns == KV_NS_UNDEFINED) || !key || !*key ||
+	    (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+		return NULL;
+
+	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, foreign_mod_name, NULL, KV_KEY_DOM_USER, ns, key, value_size, flags);
+}
+
+const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
+                                        struct sid_ucmd_ctx    *ucmd_ctx,
+                                        const char             *foreign_dev_id,
+                                        sid_ucmd_kv_namespace_t ns,
+                                        const char             *key,
+                                        size_t                 *value_size,
+                                        sid_ucmd_kv_flags_t    *flags)
+{
+	if (!mod || !ucmd_ctx || !foreign_dev_id || !*foreign_dev_id || (ns == KV_NS_UNDEFINED) || !key || !*key ||
+	    (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+		return NULL;
+
+	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, NULL, foreign_dev_id, KV_KEY_DOM_USER, ns, key, value_size, flags);
+}
+
+const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
+                                            struct sid_ucmd_ctx    *ucmd_ctx,
+                                            const char             *foreign_dev_id,
+                                            const char             *foreign_mod_name,
+                                            sid_ucmd_kv_namespace_t ns,
+                                            const char             *key,
+                                            size_t                 *value_size,
+                                            sid_ucmd_kv_flags_t    *flags)
+{
+	if (!mod || !ucmd_ctx || !foreign_dev_id || !*foreign_dev_id || !foreign_mod_name || !*foreign_mod_name ||
+	    (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+		return NULL;
+
+	return _do_sid_ucmd_get_foreign_kv(mod,
+	                                   ucmd_ctx,
+	                                   foreign_mod_name,
+	                                   foreign_dev_id,
+	                                   KV_KEY_DOM_USER,
+	                                   ns,
+	                                   key,
+	                                   value_size,
+	                                   flags);
 }
 
 int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,

@@ -181,6 +181,32 @@ const void *sid_ucmd_get_kv(struct module          *mod,
                             const char             *key,
                             size_t                 *value_size,
                             sid_ucmd_kv_flags_t    *flags);
+
+const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
+                                        struct sid_ucmd_ctx    *ucmd_ctx,
+                                        const char             *foreign_mod_name,
+                                        sid_ucmd_kv_namespace_t ns,
+                                        const char             *key,
+                                        size_t                 *value_size,
+                                        sid_ucmd_kv_flags_t    *flags);
+
+const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
+                                        struct sid_ucmd_ctx    *ucmd_ctx,
+                                        const char             *foreign_dev_id,
+                                        sid_ucmd_kv_namespace_t ns,
+                                        const char             *key,
+                                        size_t                 *value_size,
+                                        sid_ucmd_kv_flags_t    *flags);
+
+const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
+                                            struct sid_ucmd_ctx    *ucmd_ctx,
+                                            const char             *foreign_dev_id,
+                                            const char             *foreign_mod_name,
+                                            sid_ucmd_kv_namespace_t ns,
+                                            const char             *key,
+                                            size_t                 *value_size,
+                                            sid_ucmd_kv_flags_t    *flags);
+
 const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
                                       struct sid_ucmd_ctx *ucmd_ctx,
                                       const char          *key,
