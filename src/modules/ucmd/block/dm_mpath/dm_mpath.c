@@ -31,27 +31,12 @@
 
 SID_UCMD_MOD_PRIO(-1)
 
-enum {
-	U_DEV_PATH      = 0,
-	_UDEV_KEY_START = U_DEV_PATH,
-	_UDEV_KEY_END   = U_DEV_PATH,
-	D_VALID,
-	D_WWID,
-	_DEVICE_KEY_START = D_VALID,
-	_DEVICE_KEY_END   = D_WWID,
-	_NUM_KEYS
-};
-
-static const char *keys[_NUM_KEYS] = {
-	[U_DEV_PATH] = "DM_MULTIPATH_DEVICE_PATH",
-	[D_VALID]    = "SID_DM_MULTIPATH_VALID",
-	[D_WWID]     = "SID_DM_MULTIPATH_WWID",
-};
+#define U_DEV_PATH "DM_MULTIPATH_DEVICE_PATH"
+#define X_VALID    "VALID"
+#define X_WWID     "WWID"
 
 static int _dm_mpath_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	unsigned i;
-
 	log_debug(MID, "init");
 
 	/* TODO - set up dm/udev logging */
@@ -60,18 +45,9 @@ static int _dm_mpath_init(struct module *module, struct sid_ucmd_common_ctx *ucm
 		return -1;
 	}
 
-	for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
-		if (sid_ucmd_mod_reserve_kv(module, ucmd_common_ctx, KV_NS_UDEV, keys[i]) < 0) {
-			log_error(MID, "Failed to reserve multipath udev key %s.", keys[i]);
-			goto fail;
-		}
-	}
-
-	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
-		if (sid_ucmd_mod_reserve_kv(module, ucmd_common_ctx, KV_NS_DEVICE, keys[i]) < 0) {
-			log_error(MID, "Failed to reserve multipath device key %s.", keys[i]);
-			goto fail;
-		}
+	if (sid_ucmd_mod_reserve_kv(module, ucmd_common_ctx, KV_NS_UDEV, U_DEV_PATH) < 0) {
+		log_error(MID, "Failed to reserve multipath udev key %s.", U_DEV_PATH);
+		goto fail;
 	}
 
 	return 0;
@@ -83,19 +59,10 @@ SID_UCMD_MOD_INIT(_dm_mpath_init)
 
 static int _dm_mpath_exit(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	unsigned i;
-
 	log_debug(MID, "exit");
 
-	for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
-		if (sid_ucmd_mod_unreserve_kv(module, ucmd_common_ctx, KV_NS_UDEV, keys[i]) < 0)
-			log_error(MID, "Failed to unreserve multipath udev key %s.", keys[i]);
-	}
-
-	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
-		if (sid_ucmd_mod_unreserve_kv(module, ucmd_common_ctx, KV_NS_DEVICE, keys[i]) < 0)
-			log_error(MID, "Failed to unreserve multipath device key %s.", keys[i]);
-	}
+	if (sid_ucmd_mod_unreserve_kv(module, ucmd_common_ctx, KV_NS_UDEV, U_DEV_PATH) < 0)
+		log_error(MID, "Failed to unreserve multipath udev key %s.", U_DEV_PATH);
 
 	mpathvalid_exit();
 	return 0;
@@ -126,7 +93,7 @@ static int _is_parent_multipathed(struct module *mod, struct sid_ucmd_ctx *ucmd_
 	const char *valid_str;
 	char       *p;
 
-	valid_str = sid_ucmd_part_get_disk_kv(mod, ucmd_ctx, keys[D_VALID], NULL, NULL);
+	valid_str = sid_ucmd_part_get_disk_kv(mod, ucmd_ctx, X_VALID, NULL, NULL);
 	if (!valid_str || !valid_str[0])
 		return 0;
 	else {
@@ -137,7 +104,7 @@ static int _is_parent_multipathed(struct module *mod, struct sid_ucmd_ctx *ucmd_
 	}
 	if (r == MPATH_IS_VALID) {
 		log_debug(MID, "%s whole disk is a multipath path", sid_ucmd_dev_get_name(ucmd_ctx));
-		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, keys[U_DEV_PATH], "1", 2, KV_RD);
+		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, U_DEV_PATH, "1", 2, KV_RD);
 	} else
 		log_debug(MID, "%s whole disk is not a multipath path", sid_ucmd_dev_get_name(ucmd_ctx));
 	return 0;
@@ -172,7 +139,7 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 		char       *p;
 		int         old_valid;
 
-		old_valid_str = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_DEVICE, keys[D_VALID], NULL, NULL);
+		old_valid_str = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_DEVMOD, X_VALID, NULL, NULL);
 		if (old_valid_str && old_valid_str[0]) {
 			errno     = 0;
 			old_valid = strtol(old_valid_str, &p, 10);
@@ -187,26 +154,20 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 		r = MPATH_IS_VALID;
 
 	if (r == MPATH_IS_VALID)
-		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, keys[U_DEV_PATH], "1", 2, KV_RD);
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, U_DEV_PATH, "1", 2, KV_RD);
 	else if (r != MPATH_IS_ERROR)
-		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, keys[U_DEV_PATH], "0", 2, KV_RD);
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, U_DEV_PATH, "0", 2, KV_RD);
 
 	if (r != MPATH_IS_ERROR && snprintf(valid_str, sizeof(valid_str), "%d", r) < sizeof(valid_str) && valid_str[0])
 		sid_ucmd_set_kv(module,
 		                ucmd_ctx,
-		                KV_NS_DEVICE,
-		                keys[D_VALID],
+		                KV_NS_DEVMOD,
+		                X_VALID,
 		                valid_str,
 		                sizeof(valid_str),
 		                KV_RD | KV_SYNC | KV_PERSISTENT);
 	if (wwid) {
-		sid_ucmd_set_kv(module,
-		                ucmd_ctx,
-		                KV_NS_DEVICE,
-		                keys[D_WWID],
-		                wwid,
-		                strlen(wwid) + 1,
-		                KV_RD | KV_SYNC | KV_PERSISTENT);
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVMOD, X_WWID, wwid, strlen(wwid) + 1, KV_RD | KV_SYNC | KV_PERSISTENT);
 		free(wwid);
 	}
 	return (r != MPATH_IS_ERROR) ? 0 : -1;
