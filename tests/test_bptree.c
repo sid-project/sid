@@ -459,15 +459,15 @@ static void test_bptree_multi_split()
 static void test_remove_last_root()
 {
 	int ins_ids[] = {0, 1, 2};
-	int rm_ids[] = {2};
+	int rm_ids[]  = {2};
 
 	do_test_bptree_actions(ins_ids, 3, rm_ids, 1, false, 0);
-} 
+}
 
 static void test_remove_last_leaf1()
 {
 	int ins_ids[] = {1, 2, 4, 5, 0, 3};
-	int rm_ids[] = {2};
+	int rm_ids[]  = {2};
 
 	do_test_bptree_actions(ins_ids, 6, rm_ids, 1, false, 1);
 }
@@ -475,7 +475,7 @@ static void test_remove_last_leaf1()
 static void test_remove_last_leaf2()
 {
 	int ins_ids[] = {0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 2};
-	int rm_ids[] = {4};
+	int rm_ids[]  = {4};
 
 	do_test_bptree_actions(ins_ids, 11, rm_ids, 1, false, 2);
 }
@@ -483,7 +483,7 @@ static void test_remove_last_leaf2()
 static void test_remove_last_leaf3()
 {
 	int ins_ids[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-	int rm_ids[] = {10};
+	int rm_ids[]  = {10};
 
 	do_test_bptree_actions(ins_ids, 11, rm_ids, 1, false, 2);
 }
@@ -491,7 +491,7 @@ static void test_remove_last_leaf3()
 static void test_redistribute_left1()
 {
 	int ins_ids[] = {0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 6};
-	int rm_ids[] = {9};
+	int rm_ids[]  = {9};
 
 	do_test_bptree_actions(ins_ids, 11, rm_ids, 1, false, 2);
 }
@@ -499,7 +499,7 @@ static void test_redistribute_left1()
 static void test_redistribute_left2()
 {
 	int ins_ids[] = {1, 2, 3, 4, 5, 6, 7, 0};
-	int rm_ids[] = {4};
+	int rm_ids[]  = {4};
 
 	do_test_bptree_actions(ins_ids, 8, rm_ids, 1, false, 1);
 }
@@ -507,7 +507,7 @@ static void test_redistribute_left2()
 static void test_redistribute_right1()
 {
 	int ins_ids[] = {0, 1, 3, 4, 5, 6, 2};
-	int rm_ids[] = {1};
+	int rm_ids[]  = {1};
 
 	do_test_bptree_actions(ins_ids, 7, rm_ids, 1, false, 1);
 }
@@ -515,7 +515,7 @@ static void test_redistribute_right1()
 static void test_redistribute_right2()
 {
 	int ins_ids[] = {0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 2};
-	int rm_ids[] = {0};
+	int rm_ids[]  = {0};
 
 	do_test_bptree_actions(ins_ids, 11, rm_ids, 1, false, 2);
 }
@@ -523,7 +523,7 @@ static void test_redistribute_right2()
 static void test_coalesce_left()
 {
 	int ins_ids[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-	int rm_ids[] = {8};
+	int rm_ids[]  = {8};
 
 	do_test_bptree_actions(ins_ids, 10, rm_ids, 1, false, 2);
 }
@@ -531,7 +531,7 @@ static void test_coalesce_left()
 static void test_coalesce_right()
 {
 	int ins_ids[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-	int rm_ids[] = {5};
+	int rm_ids[]  = {5};
 
 	do_test_bptree_actions(ins_ids, 10, rm_ids, 1, false, 2);
 }
@@ -539,7 +539,7 @@ static void test_coalesce_right()
 static void test_coalesce_redistribute_right()
 {
 	int ins_ids[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-	int rm_ids[] = {3};
+	int rm_ids[]  = {3};
 
 	do_test_bptree_actions(ins_ids, 12, rm_ids, 1, false, 2);
 }
@@ -547,7 +547,7 @@ static void test_coalesce_redistribute_right()
 static void test_coalesce_redistribute_left()
 {
 	int ins_ids[] = {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 0, 1, 2, 3};
-	int rm_ids[] = {8};
+	int rm_ids[]  = {8};
 
 	do_test_bptree_actions(ins_ids, 18, rm_ids, 1, false, 2);
 }
@@ -555,7 +555,7 @@ static void test_coalesce_redistribute_left()
 static void test_coalesce_coalesce_left()
 {
 	int ins_ids[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
-	int rm_ids[] = {7};
+	int rm_ids[]  = {7};
 
 	do_test_bptree_actions(ins_ids, 14, rm_ids, 1, false, 2);
 }
@@ -563,7 +563,7 @@ static void test_coalesce_coalesce_left()
 static void test_coalesce_coalesce_right()
 {
 	int ins_ids[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
-	int rm_ids[] = {0};
+	int rm_ids[]  = {0};
 
 	do_test_bptree_actions(ins_ids, 14, rm_ids, 1, false, 2);
 }
@@ -571,7 +571,7 @@ static void test_coalesce_coalesce_right()
 static void test_coalesce_till_root()
 {
 	int ins_ids[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
-	int rm_ids[] = {2};
+	int rm_ids[]  = {2};
 
 	do_test_bptree_actions(ins_ids, 22, rm_ids, 1, false, 2);
 }
