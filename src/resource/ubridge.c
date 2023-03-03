@@ -2741,8 +2741,10 @@ static char *_get_mod_name_from_blkext(sid_resource_t *cmd_res, char *buf, size_
 			return _dev_is_nvme(ucmd_ctx) ? MOD_NAME_NVME : NULL;
 
 		case UDEV_DEVTYPE_UNKNOWN:
-			return NULL;
+			break;
 	}
+
+	return NULL;
 }
 
 /*
