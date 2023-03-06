@@ -168,13 +168,14 @@ typedef enum {
 
 #define SID_UCMD_KEY_DEVICE_NEXT_MOD "SID_NEXT_MOD"
 
-void       *sid_ucmd_set_kv(struct module          *mod,
-                            struct sid_ucmd_ctx    *ucmd_ctx,
-                            sid_ucmd_kv_namespace_t ns,
-                            const char             *key,
-                            const void             *value,
-                            size_t                  value_size,
-                            sid_ucmd_kv_flags_t     flags);
+void *sid_ucmd_set_kv(struct module          *mod,
+                      struct sid_ucmd_ctx    *ucmd_ctx,
+                      sid_ucmd_kv_namespace_t ns,
+                      const char             *key,
+                      const void             *value,
+                      size_t                  value_size,
+                      sid_ucmd_kv_flags_t     flags);
+
 const void *sid_ucmd_get_kv(struct module          *mod,
                             struct sid_ucmd_ctx    *ucmd_ctx,
                             sid_ucmd_kv_namespace_t ns,
@@ -217,6 +218,7 @@ int sid_ucmd_mod_reserve_kv(struct module              *mod,
                             struct sid_ucmd_common_ctx *ucmd_common_ctx,
                             sid_ucmd_kv_namespace_t     ns,
                             const char                 *key);
+
 int sid_ucmd_mod_unreserve_kv(struct module              *mod,
                               struct sid_ucmd_common_ctx *ucmd_common_ctx,
                               sid_ucmd_kv_namespace_t     ns,
