@@ -103,10 +103,10 @@ static int _is_parent_multipathed(struct module *mod, struct sid_ucmd_ctx *ucmd_
 			return 0;
 	}
 	if (r == MPATH_IS_VALID) {
-		log_debug(MID, "%s whole disk is a multipath path", sid_ucmd_dev_get_name(ucmd_ctx));
+		log_debug(MID, "%s whole disk is a multipath path", sid_ucmd_event_get_dev_name(ucmd_ctx));
 		sid_ucmd_set_kv(mod, ucmd_ctx, KV_NS_UDEV, U_DEV_PATH, "1", 2, KV_RD);
 	} else
-		log_debug(MID, "%s whole disk is not a multipath path", sid_ucmd_dev_get_name(ucmd_ctx));
+		log_debug(MID, "%s whole disk is not a multipath path", sid_ucmd_event_get_dev_name(ucmd_ctx));
 	return 0;
 }
 
@@ -120,19 +120,22 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 	if (!_kernel_cmdline_allow()) // treat failure as allowed
 		return 0;
 
-	if (sid_ucmd_dev_get_type(ucmd_ctx) == UDEV_DEVTYPE_UNKNOWN)
-		return 0;
-
-	if (sid_ucmd_dev_get_type(ucmd_ctx) == UDEV_DEVTYPE_PARTITION)
-		return _is_parent_multipathed(module, ucmd_ctx);
+	switch (sid_ucmd_event_get_dev_type(ucmd_ctx)) {
+		case UDEV_DEVTYPE_DISK:
+			break;
+		case UDEV_DEVTYPE_PARTITION:
+			return _is_parent_multipathed(module, ucmd_ctx);
+		case UDEV_DEVTYPE_UNKNOWN:
+			return 0;
+	}
 
 	if (mpathvalid_reload_config() < 0) {
 		log_error(MID, "failed to reinitialize mpathvalid");
 		return -1;
 	}
 	// currently treats MPATH_SMART like MPATH_STRICT
-	r = mpathvalid_is_path(sid_ucmd_dev_get_name(ucmd_ctx), MPATH_DEFAULT, &wwid, NULL, 0);
-	log_debug(MID, "%s mpathvalid_is_path returned %d", sid_ucmd_dev_get_name(ucmd_ctx), r);
+	r = mpathvalid_is_path(sid_ucmd_event_get_dev_name(ucmd_ctx), MPATH_DEFAULT, &wwid, NULL, 0);
+	log_debug(MID, "%s mpathvalid_is_path returned %d", sid_ucmd_event_get_dev_name(ucmd_ctx), r);
 
 	if (r == MPATH_IS_VALID) {
 		const char *old_valid_str;
@@ -146,7 +149,7 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 			// If old_valid is garbage assume the device
 			// wasn't claimed before
 			if (errno || !p || *p || old_valid != MPATH_IS_VALID) {
-				log_debug(MID, "previously released %s. not claiming", sid_ucmd_dev_get_name(ucmd_ctx));
+				log_debug(MID, "previously released %s. not claiming", sid_ucmd_event_get_dev_name(ucmd_ctx));
 				r = MPATH_IS_NOT_VALID;
 			}
 		}

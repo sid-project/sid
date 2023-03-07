@@ -162,12 +162,12 @@ static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 
 	log_debug(DM_ID, "ident");
 
-	snprintf(path, sizeof(path), "%s%s/dm/uuid", SYSTEM_SYSFS_PATH, sid_ucmd_dev_get_path(ucmd_ctx));
+	snprintf(path, sizeof(path), "%s%s/dm/uuid", SYSTEM_SYSFS_PATH, sid_ucmd_event_get_dev_path(ucmd_ctx));
 	sid_util_sysfs_get_value(path, uuid, sizeof(uuid));
 	sid_ucmd_dev_add_alias(module, ucmd_ctx, "uuid", uuid);
 	sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVMOD, "uuid", uuid, strlen(uuid) + 1, KV_SYNC | KV_SUBMOD_RD);
 
-	snprintf(path, sizeof(path), "%s%s/dm/name", SYSTEM_SYSFS_PATH, sid_ucmd_dev_get_path(ucmd_ctx));
+	snprintf(path, sizeof(path), "%s%s/dm/name", SYSTEM_SYSFS_PATH, sid_ucmd_event_get_dev_path(ucmd_ctx));
 	sid_util_sysfs_get_value(path, name, sizeof(name));
 	sid_ucmd_dev_add_alias(module, ucmd_ctx, "name", name);
 	sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVMOD, "name", name, strlen(name) + 1, KV_SYNC | KV_SUBMOD_RD);

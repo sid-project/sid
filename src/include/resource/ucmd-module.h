@@ -126,15 +126,15 @@ struct sid_ucmd_mod_fns {
 /*
  * Functions to retrieve device properties associated with given command ctx.
  */
-udev_action_t  sid_ucmd_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx);
-udev_devtype_t sid_ucmd_dev_get_type(struct sid_ucmd_ctx *ucmd_ctx);
-int            sid_ucmd_dev_get_major(struct sid_ucmd_ctx *ucmd_ctx);
-int            sid_ucmd_dev_get_minor(struct sid_ucmd_ctx *ucmd_ctx);
-const char    *sid_ucmd_dev_get_path(struct sid_ucmd_ctx *ucmd_ctx);
-const char    *sid_ucmd_dev_get_name(struct sid_ucmd_ctx *ucmd_ctx);
-uint64_t       sid_ucmd_dev_get_seqnum(struct sid_ucmd_ctx *ucmd_ctx);
-uint64_t       sid_ucmd_dev_get_diskseq(struct sid_ucmd_ctx *ucmd_ctx);
-const char    *sid_ucmd_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx);
+udev_action_t  sid_ucmd_event_get_dev_action(struct sid_ucmd_ctx *ucmd_ctx);
+udev_devtype_t sid_ucmd_event_get_dev_type(struct sid_ucmd_ctx *ucmd_ctx);
+int            sid_ucmd_event_get_dev_major(struct sid_ucmd_ctx *ucmd_ctx);
+int            sid_ucmd_event_get_dev_minor(struct sid_ucmd_ctx *ucmd_ctx);
+const char    *sid_ucmd_event_get_dev_path(struct sid_ucmd_ctx *ucmd_ctx);
+const char    *sid_ucmd_event_get_dev_name(struct sid_ucmd_ctx *ucmd_ctx);
+uint64_t       sid_ucmd_event_get_dev_seqnum(struct sid_ucmd_ctx *ucmd_ctx);
+uint64_t       sid_ucmd_event_get_dev_diskseq(struct sid_ucmd_ctx *ucmd_ctx);
+const char    *sid_ucmd_event_get_dev_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx);
 
 typedef enum {
 	KV_NS_UNDEFINED, /* namespace not defined */

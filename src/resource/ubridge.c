@@ -464,47 +464,47 @@ static int        _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, st
 static const char _key_prefix_err_msg[] =
 	"Failed to get key prefix to store hierarchy records for device " CMD_DEV_NAME_NUM_FMT ".";
 
-udev_action_t sid_ucmd_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
+udev_action_t sid_ucmd_event_get_dev_action(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.action;
 }
 
-int sid_ucmd_dev_get_major(struct sid_ucmd_ctx *ucmd_ctx)
+int sid_ucmd_event_get_dev_major(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.major;
 }
 
-int sid_ucmd_dev_get_minor(struct sid_ucmd_ctx *ucmd_ctx)
+int sid_ucmd_event_get_dev_minor(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.minor;
 }
 
-const char *sid_ucmd_dev_get_path(struct sid_ucmd_ctx *ucmd_ctx)
+const char *sid_ucmd_event_get_dev_path(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.path;
 }
 
-const char *sid_ucmd_dev_get_name(struct sid_ucmd_ctx *ucmd_ctx)
+const char *sid_ucmd_event_get_dev_name(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.name;
 }
 
-udev_devtype_t sid_ucmd_dev_get_type(struct sid_ucmd_ctx *ucmd_ctx)
+udev_devtype_t sid_ucmd_event_get_dev_type(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.type;
 }
 
-uint64_t sid_ucmd_dev_get_seqnum(struct sid_ucmd_ctx *ucmd_ctx)
+uint64_t sid_ucmd_event_get_dev_seqnum(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.seqnum;
 }
 
-uint64_t sid_ucmd_dev_get_diskseq(struct sid_ucmd_ctx *ucmd_ctx)
+uint64_t sid_ucmd_event_get_dev_diskseq(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.diskseq;
 }
 
-const char *sid_ucmd_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
+const char *sid_ucmd_event_get_dev_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.synth_uuid;
 }
@@ -2848,7 +2848,7 @@ static int _dev_is_nvme(struct sid_ucmd_ctx *ucmd_ctx)
 	 * FIXME: Is there any better and quick way of detecting we have
 	 * 	  an NVMe device than just looking at its kernel name?
 	 */
-	return !strncmp(sid_ucmd_dev_get_name(ucmd_ctx), DEV_NAME_PREFIX_NVME, sizeof(DEV_NAME_PREFIX_NVME) - 1);
+	return !strncmp(sid_ucmd_event_get_dev_name(ucmd_ctx), DEV_NAME_PREFIX_NVME, sizeof(DEV_NAME_PREFIX_NVME) - 1);
 }
 
 static char *_lookup_mod_name(sid_resource_t *cmd_res, const int dev_major, const char *dev_name, char *buf, size_t buf_size);
@@ -2861,7 +2861,7 @@ static char *_get_mod_name_from_blkext(sid_resource_t *cmd_res, char *buf, size_
 	char                *p;
 	char                *mod_name;
 
-	switch (sid_ucmd_dev_get_type(ucmd_ctx)) {
+	switch (sid_ucmd_event_get_dev_type(ucmd_ctx)) {
 		case UDEV_DEVTYPE_PARTITION:
 			/*
 			 * First, check if this is a partition on top of an NVMe device.
