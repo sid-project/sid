@@ -101,7 +101,7 @@ static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_comm
 		.module_suffix = ".so",
 		.flags         = MODULE_REGISTRY_PRELOAD,
 		.symbol_params = dm_submod_symbol_params,
-		.cb_arg        = NULL,
+		.cb_arg        = ucmd_common_ctx,
 	};
 
 	if (!(dm_mod->submod_registry = sid_resource_create(SID_RESOURCE_NO_PARENT,
