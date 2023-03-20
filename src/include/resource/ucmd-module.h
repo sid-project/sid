@@ -228,6 +228,8 @@ int sid_ucmd_mod_add_mod_subregistry(struct module              *mod,
                                      struct sid_ucmd_common_ctx *ucmd_common_ctx,
                                      sid_resource_t             *mod_subregistry);
 
+int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx *ucmd_common_ctx, sid_resource_t *mod_subresource);
+
 typedef enum {
 	DEV_NOT_RDY_UNDEFINED,    /* undefined or invalid */
 	DEV_NOT_RDY_UNPROCESSED,  /* not ready and not yet processed by SID */

@@ -2420,6 +2420,20 @@ int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_common_
 	return module_registry_add_module_subregistry(res, mod_subregistry);
 }
 
+int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subresource)
+{
+	sid_resource_t *res;
+	int             r;
+
+	if (!mod || !common || !mod_subresource)
+		return -EINVAL;
+
+	if (!(res = _get_mod_res_from_mod(mod, common->modules_res, &r)))
+		return r;
+
+	return sid_resource_add_child(res, mod_subresource, SID_RESOURCE_RESTRICT_WALK_UP);
+}
+
 int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
 	if (!mod || !ucmd_ctx || (ready == DEV_NOT_RDY_UNDEFINED))
