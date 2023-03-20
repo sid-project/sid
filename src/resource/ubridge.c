@@ -2381,25 +2381,42 @@ int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *co
 	return _do_sid_ucmd_mod_reserve_kv(mod, common, KV_KEY_DOM_USER, ns, key, 1);
 }
 
+static sid_resource_t *_get_mod_res_from_mod(struct module *mod, sid_resource_t *modules_res, int *ret_code)
+{
+	sid_resource_t *res   = NULL;
+	char          **pathv = NULL, **name;
+	int             r;
+
+	if (!(pathv = util_str_comb_to_strv(NULL, NULL, module_get_full_name(mod), NULL, MODULE_NAME_DELIM, NULL))) {
+		r = -ENOMEM;
+		goto out;
+	}
+
+	for (res = modules_res, name = pathv; *name; name++) {
+		if (!(res = sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_DESC, NULL, *name))) {
+			r = -ENOLINK;
+			goto out;
+		}
+	}
+out:
+	free(pathv);
+
+	if (ret_code)
+		*ret_code = r;
+	return res;
+}
+
 int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subregistry)
 {
 	sid_resource_t *res;
-	char          **pathv, **name;
+	int             r;
 
 	if (!mod || !common || !mod_subregistry)
 		return -EINVAL;
 
-	if (!(pathv = util_str_comb_to_strv(NULL, NULL, module_get_full_name(mod), NULL, MODULE_NAME_DELIM, NULL)))
-		return -ENOMEM;
+	if (!(res = _get_mod_res_from_mod(mod, common->modules_res, &r)))
+		return r;
 
-	for (res = common->modules_res, name = pathv; *name; name++) {
-		if (!(res = sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_DESC, NULL, *name))) {
-			free(pathv);
-			return -ENOLINK;
-		}
-	}
-
-	free(pathv);
 	return module_registry_add_module_subregistry(res, mod_subregistry);
 }
 
