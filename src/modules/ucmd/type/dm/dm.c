@@ -99,7 +99,7 @@ static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_comm
 		.directory     = SID_UCMD_TYPE_MOD_DIR "/" DM_ID,
 		.module_prefix = NULL,
 		.module_suffix = ".so",
-		.flags         = MODULE_REGISTRY_PRELOAD,
+		.flags         = 0,
 		.symbol_params = dm_submod_symbol_params,
 		.cb_arg        = ucmd_common_ctx,
 	};
@@ -116,14 +116,20 @@ static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_comm
 	}
 
 	if (sid_ucmd_mod_add_mod_subregistry(module, ucmd_common_ctx, dm_mod->submod_registry) < 0) {
-		sid_resource_unref(dm_mod->submod_registry);
 		log_error(DM_ID, "Failed to attach submodule registry.");
+		goto fail;
+	}
+
+	if (module_registry_load_modules(dm_mod->submod_registry) < 0) {
+		log_error(DM_ID, "Failed to load submodules.");
 		goto fail;
 	}
 
 	module_set_data(module, dm_mod);
 	return 0;
 fail:
+	if (dm_mod->submod_registry)
+		sid_resource_unref(dm_mod->submod_registry);
 	free(dm_mod);
 	return -1;
 }
