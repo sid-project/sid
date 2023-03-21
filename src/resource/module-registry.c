@@ -267,7 +267,7 @@ int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resou
 	return 0;
 }
 
-static int _preload_modules(sid_resource_t *module_registry_res)
+static int _load_modules(sid_resource_t *module_registry_res)
 {
 	struct module_registry *registry = sid_resource_get_data(module_registry_res);
 	char                    name_buf[MODULE_NAME_MAX_LEN + 1];
@@ -309,7 +309,7 @@ static int _preload_modules(sid_resource_t *module_registry_res)
 			                         SID_RESOURCE_PRIO_NORMAL,
 			                         SID_RESOURCE_NO_SERVICE_LINKS))
 				log_error(ID(module_registry_res),
-				          "Failed to preload module %s/%s.",
+				          "Failed to load module %s/%s.",
 				          registry->directory,
 				          dirent[i]->d_name);
 		}
@@ -319,6 +319,18 @@ static int _preload_modules(sid_resource_t *module_registry_res)
 out:
 	free(dirent);
 	return r;
+}
+
+int module_registry_load_modules(sid_resource_t *module_registry_res)
+{
+	if (_load_modules(module_registry_res) < 0) {
+		log_error(ID(module_registry_res),
+		          "Failed to load modules from directory %s.",
+		          ((struct module_registry *) sid_resource_get_data(module_registry_res))->directory);
+		return -1;
+	}
+
+	return 0;
 }
 
 typedef void (*generic_t)(void);
@@ -569,7 +581,7 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	if ((registry->flags & MODULE_REGISTRY_PRELOAD) && _preload_modules(module_registry_res) < 0) {
+	if ((registry->flags & MODULE_REGISTRY_PRELOAD) && _load_modules(module_registry_res) < 0) {
 		log_error(ID(module_registry_res), "Failed to preload modules from directory %s.", registry->directory);
 		goto fail;
 	}

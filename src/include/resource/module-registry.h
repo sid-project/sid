@@ -51,6 +51,7 @@ struct module_registry_resource_params {
 	const struct module_symbol_params *symbol_params; /* NULL-terminated list of symbol params */
 };
 
+int             module_registry_load_modules(sid_resource_t *module_registry_res);
 sid_resource_t *module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name);
 sid_resource_t *module_registry_get_module(sid_resource_t *module_registry_res, const char *module_name);
 int             module_registry_unload_module(sid_resource_t *module_res);
