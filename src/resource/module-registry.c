@@ -267,17 +267,18 @@ int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resou
 	return 0;
 }
 
-static int _preload_modules(sid_resource_t *module_registry_res, struct module_registry *registry)
+static int _preload_modules(sid_resource_t *module_registry_res)
 {
-	char            name_buf[MODULE_NAME_MAX_LEN + 1];
-	util_mem_t      mem    = {.base = name_buf, .size = sizeof(name_buf)};
-	struct dirent **dirent = NULL;
-	size_t          prefix_len, suffix_len;
-	char           *name;
-	int             count, i;
-	int             r = 0;
+	struct module_registry *registry = sid_resource_get_data(module_registry_res);
+	char                    name_buf[MODULE_NAME_MAX_LEN + 1];
+	util_mem_t              mem    = {.base = name_buf, .size = sizeof(name_buf)};
+	struct dirent         **dirent = NULL;
+	size_t                  prefix_len, suffix_len;
+	char                   *name;
+	int                     count, i;
+	int                     r = 0;
 
-	count             = scandir(registry->directory, &dirent, NULL, versionsort);
+	count                     = scandir(registry->directory, &dirent, NULL, versionsort);
 
 	if (count < 0) {
 		log_sys_error(ID(module_registry_res), "scandir", registry->directory);
@@ -568,7 +569,7 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	if ((registry->flags & MODULE_REGISTRY_PRELOAD) && _preload_modules(module_registry_res, registry) < 0) {
+	if ((registry->flags & MODULE_REGISTRY_PRELOAD) && _preload_modules(module_registry_res) < 0) {
 		log_error(ID(module_registry_res), "Failed to preload modules from directory %s.", registry->directory);
 		goto fail;
 	}
