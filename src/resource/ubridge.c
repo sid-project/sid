@@ -4859,13 +4859,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			update_arg.res   = common_ctx->kv_store_res;
 			update_arg.ret_code = -EREMOTEIO;
 
-			log_debug(ID(res),
-			          syncing_msg,
-			          key,
-			          unset         ? "NULL"
-			          : data_offset ? svalue->data + data_offset
-			                        : svalue->data,
-			          svalue->seqnum);
+			log_debug(ID(res), syncing_msg, key, unset ? "NULL" : svalue->data + data_offset, svalue->seqnum);
 
 			rel_spec.delta->op = KV_OP_SET;
 
