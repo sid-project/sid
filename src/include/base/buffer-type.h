@@ -44,7 +44,7 @@ struct sid_buffer_type {
 	int (*release)(struct sid_buffer *buf, size_t pos, bool rewind);
 	int (*release_mem)(struct sid_buffer *buf, const void *mem, bool rewind);
 	bool (*is_complete)(struct sid_buffer *buf, int *ret_code);
-	int (*get_data)(struct sid_buffer *buf, const void **data, size_t *data_size);
+	int (*get_data)(struct sid_buffer *buf, size_t pos, const void **data, size_t *data_size);
 	int (*get_fd)(struct sid_buffer *buf);
 	size_t (*count)(struct sid_buffer *buf);
 	ssize_t (*read)(struct sid_buffer *buf, int fd);

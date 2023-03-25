@@ -278,20 +278,20 @@ static bool _buffer_vector_is_complete(struct sid_buffer *buf, int *ret_code)
 	return true;
 }
 
-static int _buffer_vector_get_data(struct sid_buffer *buf, const void **data, size_t *data_size)
+static int _buffer_vector_get_data(struct sid_buffer *buf, size_t pos, const void **data, size_t *data_size)
 {
 	switch (buf->stat.spec.mode) {
 		case SID_BUFFER_MODE_PLAIN:
 			if (data)
-				*data = buf->mem;
+				*data = buf->mem - (pos * VECTOR_ITEM_SIZE);
 			if (data_size)
-				*data_size = buf->stat.usage.used;
+				*data_size = buf->stat.usage.used - pos;
 			break;
 		case SID_BUFFER_MODE_SIZE_PREFIX:
 			if (data)
-				*data = buf->mem + VECTOR_ITEM_SIZE;
+				*data = buf->mem + (pos + 1) * VECTOR_ITEM_SIZE;
 			if (data_size)
-				*data_size = (buf->stat.usage.used) ? buf->stat.usage.used - 1 : 0;
+				*data_size = (buf->stat.usage.used) ? buf->stat.usage.used - pos - 1 : 0;
 			break;
 		default:
 			return -ENOTSUP;

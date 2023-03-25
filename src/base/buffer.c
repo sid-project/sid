@@ -227,12 +227,22 @@ bool sid_buffer_is_complete(struct sid_buffer *buf, int *ret_code)
 	return _buffer_type_registry[buf->stat.spec.type]->is_complete(buf, ret_code);
 }
 
+int sid_buffer_get_data_from(struct sid_buffer *buf, size_t pos, const void **data, size_t *data_size)
+{
+	if (pos > sid_buffer_count(buf))
+		return -ERANGE;
+
+	if (!buf->mark.set || pos < buf->mark.set) {
+		buf->mark.set = true;
+		buf->mark.pos = pos;
+	}
+
+	return _buffer_type_registry[buf->stat.spec.type]->get_data(buf, pos, data, data_size);
+}
+
 int sid_buffer_get_data(struct sid_buffer *buf, const void **data, size_t *data_size)
 {
-	buf->mark.set = true;
-	buf->mark.pos = 0;
-
-	return _buffer_type_registry[buf->stat.spec.type]->get_data(buf, data, data_size);
+	return sid_buffer_get_data_from(buf, 0, data, data_size);
 }
 
 int sid_buffer_get_fd(struct sid_buffer *buf)
