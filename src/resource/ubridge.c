@@ -733,9 +733,9 @@ static const char *_buffer_get_vvalue_str(struct sid_buffer *buf, bool unset, kv
 
 	if (sid_buffer_add(buf, "\0", 1, NULL, NULL) < 0)
 		goto fail;
-	sid_buffer_get_data(buf, (const void **) &str, NULL);
+	sid_buffer_get_data_from(buf, buf_offset, (const void **) &str, NULL);
 
-	return str + buf_offset;
+	return str;
 fail:
 	sid_buffer_rewind(buf, buf_offset, SID_BUFFER_POS_ABS);
 	return NULL;
@@ -3122,13 +3122,13 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 		               NULL,
 		               &buf_pos0);
 		sid_buffer_add(gen_buf, (void *) id, strlen(id) + 1, NULL, NULL);
-		sid_buffer_get_data(gen_buf, (const void **) &data, &size);
+		sid_buffer_get_data_from(gen_buf, buf_pos0, (const void **) &data, &size);
 
 		if ((r = worker_control_channel_send(exec_arg->cmd_res,
 		                                     MAIN_WORKER_CHANNEL_ID,
 		                                     &(struct worker_data_spec) {
-							     .data      = data + buf_pos0,
-							     .data_size = size - buf_pos0,
+							     .data      = data,
+							     .data_size = size,
 							     .ext.used  = false,
 						     })) < 0) {
 			log_error_errno(ID(exec_arg->cmd_res),
@@ -4184,12 +4184,12 @@ static int _send_out_cmd_expbuf(sid_resource_t *cmd_res)
 			               NULL,
 			               &buf_pos);
 			sid_buffer_add(buf, (void *) id, strlen(id) + 1, NULL, NULL);
-			sid_buffer_get_data(buf, (const void **) &data, &size);
+			sid_buffer_get_data_from(buf, buf_pos, (const void **) &data, &size);
 
 			if ((r = worker_control_channel_send(cmd_res,
 			                                     MAIN_WORKER_CHANNEL_ID,
-			                                     &(struct worker_data_spec) {.data               = data + buf_pos,
-			                                                                 .data_size          = size - buf_pos,
+			                                     &(struct worker_data_spec) {.data               = data,
+			                                                                 .data_size          = size,
 			                                                                 .ext.used           = true,
 			                                                                 .ext.socket.fd_pass = sid_buffer_get_fd(
 												 ucmd_ctx->exp_buf)})) < 0) {
