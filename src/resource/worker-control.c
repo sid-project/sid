@@ -65,6 +65,7 @@ struct worker_control {
 	unsigned                    channel_spec_count;
 	struct worker_channel_spec *channel_specs;
 	/* The following members are for initialzing the worker after fork() */
+	bool                   worker_prepared;
 	char                  *worker_id;
 	struct worker_channel *worker_channels;
 	char                 **ext_argv;
@@ -774,6 +775,9 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 				exit(1);
 			}
 		}
+
+		worker_control->worker_prepared = true;
+
 		/* worker processes return with *res_p == NULL, to differentiate them from the proxy process*/
 		return 0;
 	}
@@ -924,6 +928,11 @@ fail:
 int worker_control_run_worker(sid_resource_t *worker_control_res)
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
+
+	if (!worker_control->worker_prepared)
+		return -ESRCH;
+
+	worker_control->worker_prepared = false;
 
 	if (worker_control->worker_type == WORKER_TYPE_INTERNAL)
 		return _run_internal_worker(worker_control_res);
