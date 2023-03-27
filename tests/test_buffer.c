@@ -142,6 +142,58 @@ static void test_vector_memfd_prefix_zero_add(void **state)
 	do_test_zero_add(SID_BUFFER_BACKEND_MEMFD, SID_BUFFER_TYPE_VECTOR, SID_BUFFER_MODE_SIZE_PREFIX);
 }
 
+static void do_test_get_data_from(sid_buffer_type_t type, sid_buffer_mode_t mode)
+{
+	struct sid_buffer *buf;
+	void              *data;
+	size_t             pos, size, old_size;
+
+	buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC, .type = type, .mode = mode}),
+	                        &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                        NULL);
+
+	assert_int_equal(sid_buffer_add(buf, TEST_STR, TEST_SIZE, NULL, NULL), 0);
+	old_size = sid_buffer_count(buf);
+	assert_int_equal(sid_buffer_add(buf, TEST_STR2, TEST_SIZE2, NULL, &pos), 0);
+	assert_int_equal(sid_buffer_get_data_from(buf, sid_buffer_count(buf) + 1, (const void **) &data, &size), -ERANGE);
+	assert_int_equal(sid_buffer_get_data_from(buf, sid_buffer_count(buf), (const void **) &data, &size), 0);
+	assert_int_equal(size, 0);
+	assert_int_equal(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), -EBUSY);
+	assert_int_equal(sid_buffer_unbind(buf, sid_buffer_count(buf), SID_BUFFER_POS_ABS), 0);
+	assert_int_equal(sid_buffer_add(buf, "", 0, NULL, NULL), 0);
+	assert_int_equal(sid_buffer_get_data(buf, (const void **) &data, &size), 0);
+	assert_int_equal(size, sid_buffer_count(buf));
+	assert_int_equal(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), -EBUSY);
+	assert_int_equal(sid_buffer_get_data_from(buf, pos, (const void **) &data, &size), 0);
+	assert_int_equal(size, sid_buffer_count(buf) - old_size);
+	assert_int_equal(sid_buffer_rewind(buf, pos, SID_BUFFER_POS_ABS), 0);
+	assert_int_equal(sid_buffer_count(buf), old_size);
+	assert_int_equal(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), -EBUSY);
+	assert_int_equal(sid_buffer_unbind(buf, 0, SID_BUFFER_POS_ABS), 0);
+	assert_int_equal(sid_buffer_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), 0);
+	sid_buffer_destroy(buf);
+}
+
+static void test_linear_plain_get_data_from(void **state)
+{
+	do_test_get_data_from(SID_BUFFER_TYPE_LINEAR, SID_BUFFER_MODE_PLAIN);
+}
+
+static void test_linear_prefix_get_data_from(void **state)
+{
+	do_test_get_data_from(SID_BUFFER_TYPE_LINEAR, SID_BUFFER_MODE_SIZE_PREFIX);
+}
+
+static void test_vector_plain_get_data_from(void **state)
+{
+	do_test_get_data_from(SID_BUFFER_TYPE_VECTOR, SID_BUFFER_MODE_PLAIN);
+}
+
+static void test_vector_prefix_get_data_from(void **state)
+{
+	do_test_get_data_from(SID_BUFFER_TYPE_VECTOR, SID_BUFFER_MODE_SIZE_PREFIX);
+}
+
 int main(void)
 {
 	const struct CMUnitTest tests[] = {
@@ -157,6 +209,10 @@ int main(void)
 		cmocka_unit_test(test_vector_malloc_prefix_zero_add),
 		cmocka_unit_test(test_linear_memfd_prefix_zero_add),
 		cmocka_unit_test(test_vector_memfd_prefix_zero_add),
+		cmocka_unit_test(test_linear_plain_get_data_from),
+		cmocka_unit_test(test_linear_prefix_get_data_from),
+		cmocka_unit_test(test_vector_plain_get_data_from),
+		cmocka_unit_test(test_vector_prefix_get_data_from),
 	};
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
