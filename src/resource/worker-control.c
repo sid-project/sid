@@ -827,7 +827,7 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 			                                                       UTIL_STR_DEFAULT_QUOTES))) {
 				log_error(worker_control->worker_id ?: WORKER_EXT_NAME,
 				          "Failed to convert argument and environment strings to vectors.");
-				exit(1);
+				exit(EXIT_FAILURE);
 			}
 		}
 
