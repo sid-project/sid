@@ -26,6 +26,8 @@
 #include "log/log.h"
 #include "resource/resource.h"
 
+#include <dirent.h>
+#include <limits.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 
@@ -691,6 +693,55 @@ void _destroy_channels(struct worker_channel *channels, unsigned channel_count)
 	free(channels);
 }
 
+int _close_non_channel_fds(sid_resource_t *res, struct worker_channel *channels, unsigned channel_count)
+{
+	static const char *proc_self_fd_dir = SYSTEM_PROC_PATH "/self/fd";
+	DIR               *d;
+	struct dirent     *dirent;
+	char              *p;
+	int                fd, i, r = -1;
+
+	if (!(d = opendir(proc_self_fd_dir))) {
+		log_sys_error(ID(res), "opendir", proc_self_fd_dir);
+		goto out;
+	}
+
+	while ((dirent = readdir(d))) {
+		errno = 0;
+		fd    = strtol(dirent->d_name, &p, 10);
+		if (errno || !p || *p || fd >= INT_MAX)
+			continue;
+
+		if (fd == dirfd(d))
+			continue;
+
+		for (i = 0; i < channel_count; i++) {
+			if (channels[i].fd == fd)
+				break;
+		}
+
+		if (i < channel_count)
+			continue;
+
+		if (close(fd) < 0) {
+			log_sys_error(ID(res), "close non-channel fd", dirent->d_name);
+			goto out;
+		}
+
+		log_debug(ID(res), "Closed non-channel fd %d.", fd);
+	}
+
+	r = 0;
+out:
+	if (d) {
+		if (closedir(d) < 0) {
+			log_sys_error(ID(res), "closedir", proc_self_fd_dir);
+			r = -1;
+		}
+	}
+	return r;
+}
+
 int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params, sid_resource_t **res_p)
 {
 	struct worker_control  *worker_control        = sid_resource_get_data(worker_control_res);
@@ -746,6 +797,7 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 		}
 
 		_destroy_channels(worker_proxy_channels, worker_control->channel_spec_count);
+
 		worker_proxy_channels           = NULL;
 		worker_control->worker_channels = worker_channels;
 
@@ -755,6 +807,9 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 			/*
 			 * WORKER_TYPE_EXTERNAL
 			 */
+			if (_close_non_channel_fds(worker_control_res, worker_channels, worker_control->channel_spec_count) < 0)
+				exit(EXIT_FAILURE);
+
 			if (!params->id || asprintf(&worker_control->worker_id, "%s/%s", WORKER_EXT_NAME, params->id) < 0)
 				worker_control->worker_id = NULL;
 
