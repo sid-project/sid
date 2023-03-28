@@ -2431,6 +2431,9 @@ int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx 
 	if (!(res = _get_mod_res_from_mod(mod, common->modules_res, &r)))
 		return r;
 
+	if (sid_resource_match(mod_subresource, &sid_resource_type_module_registry, NULL))
+		return module_registry_add_module_subregistry(res, mod_subresource);
+
 	return sid_resource_add_child(res, mod_subresource, SID_RESOURCE_RESTRICT_WALK_UP);
 }
 
