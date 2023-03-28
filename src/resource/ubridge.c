@@ -2406,20 +2406,6 @@ out:
 	return res;
 }
 
-int sid_ucmd_mod_add_mod_subregistry(struct module *mod, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subregistry)
-{
-	sid_resource_t *res;
-	int             r;
-
-	if (!mod || !common || !mod_subregistry)
-		return -EINVAL;
-
-	if (!(res = _get_mod_res_from_mod(mod, common->modules_res, &r)))
-		return r;
-
-	return module_registry_add_module_subregistry(res, mod_subregistry);
-}
-
 int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subresource)
 {
 	sid_resource_t *res;
