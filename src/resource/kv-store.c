@@ -36,6 +36,8 @@ typedef enum {
 
 struct kv_store {
 	kv_store_backend_t backend;
+	struct sid_buffer *trans_unset_buf;
+	struct sid_buffer *trans_rollback_buf;
 
 	union {
 		struct hash_table *ht;
@@ -53,6 +55,8 @@ struct kv_store_value {
 struct kv_update_fn_relay {
 	kv_store_update_cb_fn_t kv_update_fn;
 	void                   *kv_update_fn_arg;
+	struct sid_buffer      *unset_buf;
+	struct sid_buffer      *rollback_buf;
 	int                     ret_code;
 };
 
@@ -69,6 +73,12 @@ struct kv_store_iter {
 		} bpt;
 	};
 };
+
+struct kv_rollback_arg {
+	const char            *key;
+	struct kv_store_value *kv_store_value;
+	size_t                 kv_store_value_size;
+} __attribute__((packed));
 
 static void _set_ptr(void *dest, const void *p)
 {
@@ -300,7 +310,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 
 static int _update_fn(const char                *key,
                       struct kv_store_value     *old_value,
-                      size_t                     old_value_len __attribute__((unused)),
+                      size_t                     old_value_len,
                       struct kv_store_value    **new_value,
                       size_t                    *new_value_len,
                       struct kv_update_fn_relay *relay)
@@ -379,14 +389,22 @@ static int _update_fn(const char                *key,
 	}
 
 	if (r) {
-		if (old_value)
+		if (relay->rollback_buf) {
+			struct kv_rollback_arg rollback_arg = {.key                 = key,
+			                                       .kv_store_value      = old_value,
+			                                       .kv_store_value_size = old_value_len};
+			relay->ret_code = sid_buffer_add(relay->rollback_buf, &rollback_arg, sizeof(rollback_arg), NULL, NULL);
+			if (relay->ret_code < 0)
+				r = 0;
+		} else if (old_value) {
 			_destroy_kv_store_value(old_value);
-	} else {
+		}
+	}
+	if (!r) {
 		_destroy_kv_store_value(*new_value);
 		*new_value = NULL;
 	}
 
-	relay->ret_code = r;
 	return r;
 }
 
@@ -448,10 +466,10 @@ void *kv_store_set_value(sid_resource_t           *kv_store_res,
                          kv_store_update_cb_fn_t   kv_update_fn,
                          void                     *kv_update_fn_arg)
 {
+	struct kv_store          *kv_store     = sid_resource_get_data(kv_store_res);
 	struct kv_update_fn_relay relay        = {.kv_update_fn     = kv_update_fn,
 	                                          .kv_update_fn_arg = kv_update_fn_arg,
-	                                          .ret_code         = -EREMOTEIO};
-	struct kv_store          *kv_store     = sid_resource_get_data(kv_store_res);
+	                                          .rollback_buf     = kv_store->trans_rollback_buf};
 	struct iovec              iov_internal = {.iov_base = value, .iov_len = value_size};
 	struct iovec             *iov;
 	int                       iov_cnt;
@@ -578,8 +596,14 @@ static int _unset_fn(const char                *key,
 	} else
 		r = 1;
 
-	if (r == 1 && old_value_ref_count == 1)
-		_destroy_kv_store_value(old_value);
+	if (r == 1) {
+		if (relay->unset_buf) {
+			relay->ret_code = sid_buffer_add(relay->unset_buf, (void *) &key, sizeof(char *), NULL, NULL);
+			r               = 0;
+		} else if (old_value_ref_count == 1) {
+			_destroy_kv_store_value(old_value);
+		}
+	}
 
 	return r;
 }
@@ -624,10 +648,16 @@ static bptree_update_action_t _bptree_unset_fn(const char *key,
 	return BPTREE_UPDATE_SKIP;
 }
 
-int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg)
+int _kv_store_unset(sid_resource_t         *kv_store_res,
+                    const char             *key,
+                    struct sid_buffer      *unset_buf,
+                    kv_store_update_cb_fn_t kv_unset_fn,
+                    void                   *kv_unset_fn_arg)
 {
 	struct kv_store          *kv_store = sid_resource_get_data(kv_store_res);
-	struct kv_update_fn_relay relay    = {.kv_update_fn = kv_unset_fn, .kv_update_fn_arg = kv_unset_fn_arg};
+	struct kv_update_fn_relay relay    = {.kv_update_fn     = kv_unset_fn,
+	                                      .kv_update_fn_arg = kv_unset_fn_arg,
+	                                      .unset_buf        = unset_buf};
 
 	key                                = _canonicalize_key(key);
 
@@ -642,6 +672,178 @@ int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_updat
 	}
 
 	return relay.ret_code;
+}
+
+int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg)
+{
+	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+
+	return _kv_store_unset(kv_store_res, key, kv_store->trans_unset_buf, kv_unset_fn, kv_unset_fn_arg);
+}
+
+static hash_update_action_t _hash_rollback_fn(const void *key,
+                                              uint32_t    key_len __attribute__((unused)),
+                                              void       *curr_value,
+                                              size_t      curr_value_len __attribute__((unused)),
+                                              void      **rollback_value,
+                                              size_t     *rollback_value_len __attribute__((unused)),
+                                              void       *arg)
+{
+	sid_resource_t *res = (sid_resource_t *) arg;
+
+	if ((!rollback_value && !curr_value) || (rollback_value && curr_value == *rollback_value))
+		return HASH_UPDATE_SKIP;
+	if (!curr_value) {
+		/*
+		 * This is paranoia. The only way curr_value can be NULL is if we failed adding a new value. In
+		 * that case, rollback_value should always be NULL. But destroy it if it exists, just to be safe.
+		 * Otherwise, we would leak memory if it existed.
+		 */
+		_destroy_kv_store_value(*rollback_value);
+		return HASH_UPDATE_SKIP;
+	}
+	_destroy_kv_store_value(curr_value);
+	log_debug(ID(res), "Rolling back value for key %s", (char *) key);
+	if (rollback_value)
+		return HASH_UPDATE_WRITE;
+	return HASH_UPDATE_REMOVE;
+}
+
+static bptree_update_action_t _bptree_rollback_fn(const char *key,
+                                                  void       *curr_value,
+                                                  size_t      curr_value_len __attribute__((unused)),
+                                                  unsigned    curr_value_ref_count __attribute__((unused)),
+                                                  void      **rollback_value,
+                                                  size_t     *rollback_value_len __attribute__((unused)),
+                                                  void       *arg)
+{
+	sid_resource_t *res = (sid_resource_t *) arg;
+
+	if ((!rollback_value && !curr_value) || (rollback_value && curr_value == *rollback_value))
+		return BPTREE_UPDATE_SKIP;
+	if (!curr_value) {
+		/*
+		 * This is paranoia. The only way curr_value can be NULL is if we failed adding a new value. In
+		 * that case, rollback_value should always be NULL. But destroy it if it exists, just to be safe.
+		 * Otherwise, we would leak memory if it existed.
+		 */
+		_destroy_kv_store_value(*rollback_value);
+		return BPTREE_UPDATE_SKIP;
+	}
+	_destroy_kv_store_value(curr_value);
+	log_debug(ID(res), "Rolling back value for key %s", key);
+	if (rollback_value)
+		return BPTREE_UPDATE_WRITE;
+	return BPTREE_UPDATE_REMOVE;
+}
+
+static void _kv_store_rollback_value(sid_resource_t        *kv_store_res,
+                                     const char            *key,
+                                     struct kv_store_value *kv_store_value,
+                                     size_t                 kv_store_value_size)
+{
+	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			hash_update(kv_store->ht,
+			            key,
+			            strlen(key) + 1,
+			            kv_store_value ? (void **) &kv_store_value : NULL,
+			            &kv_store_value_size,
+			            _hash_rollback_fn,
+			            kv_store_res);
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			if (bptree_update(kv_store->bpt,
+			                  key,
+			                  kv_store_value ? (void **) &kv_store_value : NULL,
+			                  &kv_store_value_size,
+			                  _bptree_rollback_fn,
+			                  kv_store_res))
+				break;
+	}
+}
+
+bool kv_store_in_transaction(sid_resource_t *kv_store_res)
+{
+	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+	return (kv_store->trans_rollback_buf != NULL);
+}
+
+int kv_store_transaction_begin(sid_resource_t *kv_store_res)
+{
+	struct kv_store   *kv_store     = sid_resource_get_data(kv_store_res);
+	struct sid_buffer *unset_buf    = NULL;
+	struct sid_buffer *rollback_buf = NULL;
+	int                r            = -1;
+
+	if (kv_store_in_transaction(kv_store_res))
+		return -EBUSY;
+
+	if (!(rollback_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                                   .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                                   .mode    = SID_BUFFER_MODE_PLAIN}),
+	                                       &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                                       &r))) {
+		log_error_errno(ID(kv_store_res), r, "Failed to create transaction rollback tracker buffer");
+		goto fail;
+	}
+	if (!(unset_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
+	                                                                .type    = SID_BUFFER_TYPE_LINEAR,
+	                                                                .mode    = SID_BUFFER_MODE_PLAIN}),
+	                                    &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                                    &r))) {
+		log_error_errno(ID(kv_store_res), r, "Failed to create transaction unset tracker buffer");
+		goto fail;
+	}
+
+	kv_store->trans_rollback_buf = rollback_buf;
+	kv_store->trans_unset_buf    = unset_buf;
+	return 0;
+
+fail:
+	if (rollback_buf)
+		sid_buffer_destroy(rollback_buf);
+	if (unset_buf)
+		sid_buffer_destroy(unset_buf);
+	return r;
+}
+
+void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback)
+{
+	struct kv_store        *kv_store = sid_resource_get_data(kv_store_res);
+	struct kv_rollback_arg *rollback_args;
+	char                  **unset_args;
+	size_t                  i, nr_args;
+
+	if (!kv_store_in_transaction(kv_store_res)) {
+		log_warning(ID(kv_store_res), "Ending a transaction that hasn't been started");
+		return;
+	}
+
+	sid_buffer_get_data(kv_store->trans_unset_buf, (const void **) &unset_args, &nr_args);
+	nr_args = nr_args / sizeof(char *);
+	if (!rollback)
+		for (i = 0; i < nr_args; i++)
+			_kv_store_unset(kv_store_res, unset_args[i], NULL, NULL, NULL);
+	sid_buffer_destroy(kv_store->trans_unset_buf);
+	kv_store->trans_unset_buf = NULL;
+
+	sid_buffer_get_data(kv_store->trans_rollback_buf, (const void **) &rollback_args, &nr_args);
+	nr_args = nr_args / sizeof(struct kv_rollback_arg);
+	for (i = 0; i < nr_args; i++) {
+		if (rollback)
+			_kv_store_rollback_value(kv_store_res,
+			                         rollback_args[i].key,
+			                         rollback_args[i].kv_store_value,
+			                         rollback_args[i].kv_store_value_size);
+		else
+			_destroy_kv_store_value(rollback_args[i].kv_store_value);
+	}
+	sid_buffer_destroy(kv_store->trans_rollback_buf);
+	kv_store->trans_rollback_buf = NULL;
 }
 
 kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res, const char *key_start, const char *key_end)
