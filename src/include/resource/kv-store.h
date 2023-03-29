@@ -167,6 +167,10 @@ int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_updat
 
 size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t *data_size);
 
+int  kv_store_transaction_begin(sid_resource_t *kv_store_res);
+void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback);
+bool kv_store_in_transaction(sid_resource_t *kv_store_res);
+
 typedef struct kv_store_iter kv_store_iter_t;
 
 kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res, const char *key_start, const char *key_end);
