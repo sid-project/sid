@@ -1959,7 +1959,7 @@ static int _kv_cb_delta_step(struct kv_store_update_spec *spec)
 	if ((update_arg->ret_code = _check_kv_perms(update_arg, spec->key, spec->old_data, spec->new_data)) < 0)
 		return 0;
 
-	if (_delta_step_calc(spec) < 0)
+	if ((update_arg->ret_code = _delta_step_calc(spec)) < 0)
 		return 0;
 
 	if (rel_spec->delta->final) {
