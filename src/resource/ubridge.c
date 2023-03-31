@@ -4869,17 +4869,29 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 		if (unset)
 			(void) kv_store_unset(common_ctx->kv_store_res, key, _kv_cb_main_unset, &update_arg);
 		else {
-			if (rel_spec.delta->op == KV_OP_SET)
-				(void) kv_store_set_value(common_ctx->kv_store_res,
-				                          key,
-				                          value_to_store,
-				                          value_size,
-				                          kv_store_value_flags,
-				                          KV_STORE_VALUE_NO_OP,
-				                          _kv_cb_main_set,
-				                          &update_arg);
-			else
-				(void) _kv_delta_set(key, value_to_store, value_size, &update_arg, false);
+			if (rel_spec.delta->op == KV_OP_SET) {
+				if (!kv_store_set_value(common_ctx->kv_store_res,
+				                        key,
+				                        value_to_store,
+				                        value_size,
+				                        kv_store_value_flags,
+				                        KV_STORE_VALUE_NO_OP,
+				                        _kv_cb_main_set,
+				                        &update_arg))
+					goto out;
+			} else {
+				value_to_store = kv_store_set_value(common_ctx->kv_store_res,
+				                                    key,
+				                                    value_to_store,
+				                                    value_size,
+				                                    KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
+				                                    KV_STORE_VALUE_NO_OP,
+				                                    _kv_cb_delta_step,
+				                                    &update_arg);
+				_destroy_delta_buffers(rel_spec.delta);
+				if (!value_to_store || update_arg.ret_code < 0)
+					goto out;
+			}
 		}
 
 		vvalue = mem_freen(vvalue);
