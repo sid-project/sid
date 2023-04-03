@@ -231,8 +231,8 @@ SID_UCMD_IDENT(_dm_ident)
 
 static int _dm_scan_pre(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	struct dm_mod_ctx       *dm_mod;
-	struct sid_ucmd_mod_fns *mod_fns;
+	struct dm_mod_ctx    *dm_mod;
+	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "scan-pre");
 
@@ -241,9 +241,9 @@ static int _dm_scan_pre(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 	if (!dm_mod->submod_res_current)
 		return 0;
 
-	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_pre)
-		(void) mod_fns->scan_pre(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &submod_fns);
+	if (submod_fns && submod_fns->scan_pre)
+		(void) submod_fns->scan_pre(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
 
 	return 0;
 }
@@ -251,8 +251,8 @@ SID_UCMD_SCAN_PRE(_dm_scan_pre)
 
 static int _dm_scan_current(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	struct dm_mod_ctx       *dm_mod;
-	struct sid_ucmd_mod_fns *mod_fns;
+	struct dm_mod_ctx    *dm_mod;
+	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "scan-current");
 
@@ -261,9 +261,9 @@ static int _dm_scan_current(struct module *module, struct sid_ucmd_ctx *ucmd_ctx
 	if (!dm_mod->submod_res_current)
 		return 0;
 
-	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_current)
-		(void) mod_fns->scan_current(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &submod_fns);
+	if (submod_fns && submod_fns->scan_current)
+		(void) submod_fns->scan_current(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
 
 	return 0;
 }
@@ -271,10 +271,10 @@ SID_UCMD_SCAN_CURRENT(_dm_scan_current)
 
 static int _dm_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	struct dm_mod_ctx       *dm_mod;
-	const char              *val;
-	const char              *submod_name = NULL;
-	struct sid_ucmd_mod_fns *mod_fns;
+	struct dm_mod_ctx    *dm_mod;
+	const char           *val;
+	const char           *submod_name = NULL;
+	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "scan-next");
 
@@ -299,9 +299,9 @@ static int _dm_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 		return 0;
 	}
 
-	module_registry_get_module_symbols(dm_mod->submod_res_next, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_next)
-		(void) mod_fns->scan_next(sid_resource_get_data(dm_mod->submod_res_next), ucmd_ctx);
+	module_registry_get_module_symbols(dm_mod->submod_res_next, (const void ***) &submod_fns);
+	if (submod_fns && submod_fns->scan_next)
+		(void) submod_fns->scan_next(sid_resource_get_data(dm_mod->submod_res_next), ucmd_ctx);
 
 	return 0;
 }
@@ -309,8 +309,8 @@ SID_UCMD_SCAN_NEXT(_dm_scan_next)
 
 static int _dm_scan_post_current(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	struct dm_mod_ctx       *dm_mod;
-	struct sid_ucmd_mod_fns *mod_fns;
+	struct dm_mod_ctx    *dm_mod;
+	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "scan-post-current");
 
@@ -319,9 +319,9 @@ static int _dm_scan_post_current(struct module *module, struct sid_ucmd_ctx *ucm
 	if (!dm_mod->submod_res_current)
 		return 0;
 
-	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_post_current)
-		(void) mod_fns->scan_post_current(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &submod_fns);
+	if (submod_fns && submod_fns->scan_post_current)
+		(void) submod_fns->scan_post_current(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
 
 	return 0;
 }
@@ -329,8 +329,8 @@ SID_UCMD_SCAN_POST_CURRENT(_dm_scan_post_current)
 
 static int _dm_scan_post_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	struct dm_mod_ctx             *dm_mod;
-	const struct sid_ucmd_mod_fns *mod_fns;
+	struct dm_mod_ctx    *dm_mod;
+	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "scan-post-next");
 
@@ -339,9 +339,9 @@ static int _dm_scan_post_next(struct module *module, struct sid_ucmd_ctx *ucmd_c
 	if (!(dm_mod->submod_res_next))
 		return 0;
 
-	module_registry_get_module_symbols(dm_mod->submod_res_next, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_post_next)
-		(void) mod_fns->scan_post_next(sid_resource_get_data(dm_mod->submod_res_next), ucmd_ctx);
+	module_registry_get_module_symbols(dm_mod->submod_res_next, (const void ***) &submod_fns);
+	if (submod_fns && submod_fns->scan_post_next)
+		(void) submod_fns->scan_post_next(sid_resource_get_data(dm_mod->submod_res_next), ucmd_ctx);
 
 	return 0;
 }
