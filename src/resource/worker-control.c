@@ -59,6 +59,7 @@ static const char *worker_state_str[] = {[WORKER_STATE_NEW]      = "WORKER_NEW",
                                          [WORKER_STATE_EXITED]   = "WORKER_EXITED"};
 
 const sid_resource_type_t sid_resource_type_worker_proxy;
+const sid_resource_type_t sid_resource_type_worker_proxy_with_ev_loop;
 const sid_resource_type_t sid_resource_type_worker;
 
 struct worker_control {
@@ -742,7 +743,10 @@ out:
 	return r;
 }
 
-int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params, sid_resource_t **res_p)
+static int _do_worker_control_get_new_worker(sid_resource_t       *worker_control_res,
+                                             struct worker_params *params,
+                                             sid_resource_t      **res_p,
+                                             bool                  with_event_loop)
 {
 	struct worker_control  *worker_control        = sid_resource_get_data(worker_control_res);
 	struct worker_channel  *worker_proxy_channels = NULL, *worker_channels = NULL;
@@ -856,7 +860,7 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 	}
 
 	res = sid_resource_create(worker_control_res,
-	                          &sid_resource_type_worker_proxy,
+	                          with_event_loop ? &sid_resource_type_worker_proxy_with_ev_loop : &sid_resource_type_worker_proxy,
 	                          SID_RESOURCE_DISALLOW_ISOLATION,
 	                          id,
 	                          &kickstart,
@@ -877,6 +881,11 @@ out:
 	/* return worker proxy resource */
 	*res_p = res;
 	return res ? 0 : -1;
+}
+
+int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params, sid_resource_t **res_p)
+{
+	return _do_worker_control_get_new_worker(worker_control_res, params, res_p, false);
 }
 
 int _run_internal_worker(sid_resource_t *worker_control_res)
@@ -989,6 +998,37 @@ int worker_control_run_worker(sid_resource_t *worker_control_res)
 	if (worker_control->worker_type == WORKER_TYPE_INTERNAL)
 		return _run_internal_worker(worker_control_res);
 	return _run_external_worker(worker_control_res);
+}
+
+/*
+ * FIXME:
+ * 	- Add optional timeout parameter after which we automatically
+ * 	  terminate the worker and exit the internal event loop.
+ * 	- Cleanup resources before running the worker or do something
+ * 	  to make valgrind happy, otherwise it will report memleaks.
+ */
+int worker_control_run_new_worker(sid_resource_t *worker_control_res, struct worker_params *params)
+{
+	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
+	sid_resource_t        *proxy_res;
+	int                    r;
+
+	if (worker_control->worker_type != WORKER_TYPE_EXTERNAL)
+		return -ENOTSUP;
+
+	if ((r = _do_worker_control_get_new_worker(worker_control_res, params, &proxy_res, true)) < 0)
+		return r;
+
+	if (proxy_res)
+		/*
+		 * WORKER PROXY HERE
+		 */
+		return sid_resource_run_event_loop(proxy_res);
+	else
+		/*
+		 * WORKER HERE
+		 */
+		return worker_control_run_worker(worker_control_res);
 }
 
 sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_res)
@@ -1215,6 +1255,10 @@ static int _on_worker_proxy_child_event(sid_resource_event_source_t *es, const s
 	 * If this appears as an issue in the future, setting the state and destroying the
 	 * worker proxy needs to be separated.
 	 */
+
+	if (sid_resource_match(worker_proxy_res, &sid_resource_type_worker_proxy_with_ev_loop, NULL))
+		sid_resource_exit_event_loop(worker_proxy_res);
+
 	(void) sid_resource_unref(worker_proxy_res);
 	return 0;
 }
@@ -1433,14 +1477,28 @@ static int _destroy_worker_control(sid_resource_t *worker_control_res)
 	return 0;
 }
 
+#define WORKER_PROXY_NAME       "worker-proxy"
+#define WORKER_PROXY_SHORT_NAME "wrp"
+#define WORKER_PROXY_DESCRIPTION                                                                                                   \
+	"Resource under worker-control management providing worker representation "                                                \
+	"on parent process side ('proxy') and containting communication endpoints "                                                \
+	"for worker-proxy <--> worker channels."
+
 const sid_resource_type_t sid_resource_type_worker_proxy = {
-	.name        = "worker-proxy",
-	.short_name  = "wrp",
-	.description = "Resource under worker-control management providing worker representation "
-		       "on parent process side ('proxy') and containting communication endpoints "
-		       "for worker-proxy <--> worker channels.",
+	.name        = WORKER_PROXY_NAME,
+	.short_name  = WORKER_PROXY_SHORT_NAME,
+	.description = WORKER_PROXY_DESCRIPTION,
 	.init        = _init_worker_proxy,
 	.destroy     = _destroy_worker_proxy,
+};
+
+const sid_resource_type_t sid_resource_type_worker_proxy_with_ev_loop = {
+	.name            = WORKER_PROXY_NAME,
+	.short_name      = WORKER_PROXY_SHORT_NAME,
+	.description     = WORKER_PROXY_DESCRIPTION,
+	.init            = _init_worker_proxy,
+	.destroy         = _destroy_worker_proxy,
+	.with_event_loop = 1,
 };
 
 const sid_resource_type_t sid_resource_type_worker = {
