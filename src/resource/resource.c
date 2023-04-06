@@ -1234,6 +1234,7 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 	if (!res->event_loop.sd_event_loop)
 		return -ENOMEDIUM;
 
+	sid_resource_ref(res);
 	log_debug(res->id, "Entering event loop.");
 
 	(void) service_link_group_notify(res->slg, SERVICE_NOTIFICATION_READY, NULL);
@@ -1243,11 +1244,13 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 			log_debug(res->id, "Exitting event loop in child");
 		else
 			log_error_errno(res->id, r, "Event loop failed");
-		return r;
+		goto out;
 	}
 
 	log_debug(res->id, "Exiting event loop.");
-	return 0;
+out:
+	sid_resource_unref(res);
+	return r;
 }
 
 int sid_resource_exit_event_loop(sid_resource_t *res)
