@@ -1016,6 +1016,9 @@ int worker_control_run_new_worker(sid_resource_t *worker_control_res, struct wor
 	if (worker_control->worker_type != WORKER_TYPE_EXTERNAL)
 		return -ENOTSUP;
 
+	if (worker_control->worker_prepared)
+		return -EBUSY;
+
 	if ((r = _do_worker_control_get_new_worker(worker_control_res, params, &proxy_res, true)) < 0)
 		return r;
 
