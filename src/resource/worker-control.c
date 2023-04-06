@@ -886,7 +886,6 @@ int _run_internal_worker(sid_resource_t *worker_control_res)
 	sid_resource_t         *res;
 	const char             *id;
 	char                    gen_id[32];
-	int                     r;
 
 	kickstart.type          = WORKER_TYPE_INTERNAL;
 	kickstart.pid           = getpid();
@@ -921,9 +920,7 @@ int _run_internal_worker(sid_resource_t *worker_control_res)
 	if (worker_control->init_cb_spec.cb)
 		(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
 
-	r = sid_resource_run_event_loop(res);
-	sid_resource_unref(res);
-	return r;
+	return sid_resource_run_event_loop(res);
 }
 
 int _run_external_worker(sid_resource_t *worker_control_res)
