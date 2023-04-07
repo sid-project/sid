@@ -10,7 +10,8 @@ check_PROGRAMS = \
 	test_bitmap \
 	test_iface \
 	test_internal \
-	test_bptree
+	test_bptree \
+	test_db_sync
 
 TESTS = $(check_PROGRAMS)
 test_buffer_SOURCES = test_buffer.c
@@ -43,5 +44,10 @@ test_internal_LDADD = $(top_builddir)/src/internal/libsidinternal.la \
 test_bptree_SOURCES = test_bptree.c
 test_bptree_LDADD = $(top_builddir)/src/internal/libsidinternal.la \
 		    $(top_builddir)/src/base/libsidbase.la -lcmocka
+test_db_sync_SOURCES = test_db_sync.c
+test_db_sync_CFLAGS = -I$(top_builddir)/src/include/resource
+test_db_sync_LDADD = \
+	$(top_builddir)/src/base/libsidbase.la \
+	$(top_builddir)/src/resource/libsidresource.la -lcmocka
 
 endif # HAVE_CMOCKA
