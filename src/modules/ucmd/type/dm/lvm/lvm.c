@@ -30,21 +30,21 @@
 
 SID_UCMD_MOD_PRIO(0)
 
-static int _lvm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_mod_ctx)
+static int _lvm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	log_debug(LVM_ID, "init");
 	return 0;
 }
 SID_UCMD_MOD_INIT(_lvm_init)
 
-static int _lvm_exit(struct module *module, struct sid_ucmd_common_ctx *ucmd_mod_ctx)
+static int _lvm_exit(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	log_debug(LVM_ID, "exit");
 	return 0;
 }
 SID_UCMD_MOD_EXIT(_lvm_exit)
 
-static int _lvm_reset(struct module *module, struct sid_ucmd_common_ctx *ucmd_mod_ctx)
+static int _lvm_reset(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	log_debug(LVM_ID, "reset");
 	return 0;
