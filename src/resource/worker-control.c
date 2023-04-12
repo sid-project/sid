@@ -1082,7 +1082,8 @@ const char *worker_control_get_worker_id(sid_resource_t *res)
 {
 	do {
 		if (sid_resource_match(res, &sid_resource_type_worker, NULL) ||
-		    sid_resource_match(res, &sid_resource_type_worker_proxy, NULL))
+		    sid_resource_match(res, &sid_resource_type_worker_proxy, NULL) ||
+		    sid_resource_match(res, &sid_resource_type_worker_proxy_with_ev_loop, NULL))
 			return sid_resource_get_id(res);
 	} while ((res = sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL)));
 
