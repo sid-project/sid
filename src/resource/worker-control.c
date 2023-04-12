@@ -73,6 +73,7 @@ struct worker_control {
 	struct worker_channel *worker_channels;
 	char                 **ext_argv;
 	char                 **ext_envp;
+	void                  *arg;
 };
 
 struct worker_channel {
@@ -89,6 +90,7 @@ struct worker_kickstart {
 	struct worker_channel_spec *channel_specs;
 	struct worker_channel      *channels;
 	unsigned                    channel_count;
+	void                       *arg;
 };
 
 struct worker_proxy {
@@ -98,6 +100,7 @@ struct worker_proxy {
 	sid_resource_event_source_t *idle_timeout_es; /* event source to catch idle timeout for worker */
 	struct worker_channel       *channels;        /* NULL-terminated array of worker_proxy --> worker channels */
 	unsigned                     channel_count;
+	void                        *arg;
 };
 
 struct worker {
@@ -105,6 +108,7 @@ struct worker {
 	struct worker_channel      *channels; /* NULL-terminated array of worker --> worker_proxy channels */
 	unsigned                    channel_count;
 	unsigned                    parent_exited;
+	void                       *arg;
 };
 
 static void _change_worker_proxy_state(sid_resource_t *worker_proxy_res, worker_state_t state)
@@ -835,6 +839,7 @@ static int _do_worker_control_get_new_worker(sid_resource_t       *worker_contro
 			}
 		}
 
+		worker_control->arg             = params->worker_arg;
 		worker_control->worker_prepared = true;
 
 		/* worker processes return with *res_p == NULL, to differentiate them from the proxy process*/
@@ -853,6 +858,7 @@ static int _do_worker_control_get_new_worker(sid_resource_t       *worker_contro
 	kickstart.pid           = pid;
 	kickstart.channels      = worker_proxy_channels;
 	kickstart.channel_count = worker_control->channel_spec_count;
+	kickstart.arg           = params->worker_proxy_arg;
 
 	if (!(id = params->id)) {
 		(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
@@ -901,6 +907,7 @@ int _run_internal_worker(sid_resource_t *worker_control_res)
 	kickstart.channels      = worker_control->worker_channels;
 	kickstart.channel_count = worker_control->channel_spec_count;
 	kickstart.channel_specs = worker_control->channel_specs;
+	kickstart.arg           = worker_control->arg;
 
 	if (!(id = worker_control->worker_id)) {
 		(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
@@ -925,6 +932,7 @@ int _run_internal_worker(sid_resource_t *worker_control_res)
 	 */
 	worker_control->worker_channels = NULL;
 	worker_control->channel_specs   = NULL;
+	worker_control->arg             = NULL;
 
 	if (worker_control->init_cb_spec.cb)
 		(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
@@ -997,6 +1005,7 @@ int worker_control_run_worker(sid_resource_t *worker_control_res)
 
 	if (worker_control->worker_type == WORKER_TYPE_INTERNAL)
 		return _run_internal_worker(worker_control_res);
+
 	return _run_external_worker(worker_control_res);
 }
 
@@ -1315,6 +1324,7 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	worker_proxy->state         = WORKER_STATE_NEW;
 	worker_proxy->channels      = kickstart->channels;
 	worker_proxy->channel_count = kickstart->channel_count;
+	worker_proxy->arg           = kickstart->arg;
 
 	if (sid_resource_create_child_event_source(worker_proxy_res,
 	                                           NULL,
@@ -1368,6 +1378,7 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 	worker->channels      = kickstart->channels;
 	worker->channel_count = kickstart->channel_count;
 	worker->parent_exited = 0;
+	worker->arg           = kickstart->arg;
 
 	if (sid_resource_create_signal_event_source(worker_res,
 	                                            NULL,

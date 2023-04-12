@@ -136,6 +136,9 @@ struct worker_params {
 			const char *env;
 		} external;
 	};
+
+	void *worker_arg;
+	void *worker_proxy_arg;
 };
 
 int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params, sid_resource_t **res_p);
