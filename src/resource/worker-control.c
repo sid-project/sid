@@ -62,18 +62,21 @@ const sid_resource_type_t sid_resource_type_worker_proxy;
 const sid_resource_type_t sid_resource_type_worker_proxy_with_ev_loop;
 const sid_resource_type_t sid_resource_type_worker;
 
+struct worker_init {
+	bool                   prepared;
+	char                  *id;
+	struct worker_channel *channels;
+	char                 **ext_argv;
+	char                 **ext_envp;
+	void                  *arg;
+};
+
 struct worker_control {
 	worker_type_t               worker_type;
 	struct worker_init_cb_spec  init_cb_spec;
 	unsigned                    channel_spec_count;
 	struct worker_channel_spec *channel_specs;
-	/* The following members are for initialzing the worker after fork() */
-	bool                   worker_prepared;
-	char                  *worker_id;
-	struct worker_channel *worker_channels;
-	char                 **ext_argv;
-	char                 **ext_envp;
-	void                  *arg;
+	struct worker_init          worker_init;
 };
 
 struct worker_channel {
@@ -806,11 +809,11 @@ static int _do_worker_control_get_new_worker(sid_resource_t       *worker_contro
 
 		_destroy_channels(worker_proxy_channels, worker_control->channel_spec_count);
 
-		worker_proxy_channels           = NULL;
-		worker_control->worker_channels = worker_channels;
+		worker_proxy_channels                = NULL;
+		worker_control->worker_init.channels = worker_channels;
 
 		if (worker_control->worker_type == WORKER_TYPE_INTERNAL)
-			worker_control->worker_id = params->id ? strdup(params->id) : NULL;
+			worker_control->worker_init.id = params->id ? strdup(params->id) : NULL;
 		else {
 			/*
 			 * WORKER_TYPE_EXTERNAL
@@ -818,29 +821,29 @@ static int _do_worker_control_get_new_worker(sid_resource_t       *worker_contro
 			if (_close_non_channel_fds(worker_control_res, worker_channels, worker_control->channel_spec_count) < 0)
 				exit(EXIT_FAILURE);
 
-			if (!params->id || asprintf(&worker_control->worker_id, "%s/%s", WORKER_EXT_NAME, params->id) < 0)
-				worker_control->worker_id = NULL;
+			if (!params->id || asprintf(&worker_control->worker_init.id, "%s/%s", WORKER_EXT_NAME, params->id) < 0)
+				worker_control->worker_init.id = NULL;
 
-			if (!(worker_control->ext_argv = util_str_comb_to_strv(NULL,
-			                                                       params->external.exec_file,
-			                                                       params->external.args,
-			                                                       NULL,
-			                                                       UTIL_STR_DEFAULT_DELIMS,
-			                                                       UTIL_STR_DEFAULT_QUOTES)) ||
-			    !(worker_control->ext_envp = util_str_comb_to_strv(NULL,
-			                                                       NULL,
-			                                                       params->external.env,
-			                                                       NULL,
-			                                                       UTIL_STR_DEFAULT_DELIMS,
-			                                                       UTIL_STR_DEFAULT_QUOTES))) {
-				log_error(worker_control->worker_id ?: WORKER_EXT_NAME,
+			if (!(worker_control->worker_init.ext_argv = util_str_comb_to_strv(NULL,
+			                                                                   params->external.exec_file,
+			                                                                   params->external.args,
+			                                                                   NULL,
+			                                                                   UTIL_STR_DEFAULT_DELIMS,
+			                                                                   UTIL_STR_DEFAULT_QUOTES)) ||
+			    !(worker_control->worker_init.ext_envp = util_str_comb_to_strv(NULL,
+			                                                                   NULL,
+			                                                                   params->external.env,
+			                                                                   NULL,
+			                                                                   UTIL_STR_DEFAULT_DELIMS,
+			                                                                   UTIL_STR_DEFAULT_QUOTES))) {
+				log_error(worker_control->worker_init.id ?: WORKER_EXT_NAME,
 				          "Failed to convert argument and environment strings to vectors.");
 				exit(EXIT_FAILURE);
 			}
 		}
 
-		worker_control->arg             = params->worker_arg;
-		worker_control->worker_prepared = true;
+		worker_control->worker_init.arg      = params->worker_arg;
+		worker_control->worker_init.prepared = true;
 
 		/* worker processes return with *res_p == NULL, to differentiate them from the proxy process*/
 		return 0;
@@ -904,12 +907,12 @@ int _run_internal_worker(sid_resource_t *worker_control_res)
 
 	kickstart.type          = WORKER_TYPE_INTERNAL;
 	kickstart.pid           = getpid();
-	kickstart.channels      = worker_control->worker_channels;
+	kickstart.channels      = worker_control->worker_init.channels;
 	kickstart.channel_count = worker_control->channel_spec_count;
 	kickstart.channel_specs = worker_control->channel_specs;
-	kickstart.arg           = worker_control->arg;
+	kickstart.arg           = worker_control->worker_init.arg;
 
-	if (!(id = worker_control->worker_id)) {
+	if (!(id = worker_control->worker_init.id)) {
 		(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
 		id = gen_id;
 	}
@@ -927,12 +930,11 @@ int _run_internal_worker(sid_resource_t *worker_control_res)
 	}
 	/*
 	 * We are going to destroy the worker_control and the worker already
-	 * has a reference to the channels and the channel_specs, .Set them
+	 * has a reference to the channels and the channel_specs. Set them
 	 * to NULL, so they aren't freed when the worker_control is destroyed
 	 */
-	worker_control->worker_channels = NULL;
-	worker_control->channel_specs   = NULL;
-	worker_control->arg             = NULL;
+	worker_control->worker_init.channels = NULL;
+	worker_control->channel_specs        = NULL;
 
 	if (worker_control->init_cb_spec.cb)
 		(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
@@ -956,24 +958,24 @@ int _run_external_worker(sid_resource_t *worker_control_res)
 	 * need to keep, and set them to NULL, so they aren't freed if the
 	 * worker_control is destroyed
 	 */
-	if (!(id = worker_control->worker_id)) {
+	if (!(id = worker_control->worker_init.id)) {
 		snprintf(gen_id, sizeof(gen_id), "%s/%d", WORKER_EXT_NAME, getpid());
 		id = gen_id;
 	}
-	worker_control->worker_id       = NULL;
+	worker_control->worker_init.id       = NULL;
 
-	channels                        = worker_control->worker_channels;
-	worker_control->worker_channels = NULL;
-	channel_count                   = worker_control->channel_spec_count;
+	channels                             = worker_control->worker_init.channels;
+	worker_control->worker_init.channels = NULL;
+	channel_count                        = worker_control->channel_spec_count;
 
-	channel_specs                   = worker_control->channel_specs;
-	worker_control->channel_specs   = NULL;
+	channel_specs                        = worker_control->channel_specs;
+	worker_control->channel_specs        = NULL;
 
-	argv                            = worker_control->ext_argv;
-	worker_control->ext_argv        = NULL;
+	argv                                 = worker_control->worker_init.ext_argv;
+	worker_control->worker_init.ext_argv = NULL;
 
-	envp                            = worker_control->ext_envp;
-	worker_control->ext_envp        = NULL;
+	envp                                 = worker_control->worker_init.ext_envp;
+	worker_control->worker_init.ext_envp = NULL;
 
 	if ((r = _setup_channels(NULL, id, WORKER_TYPE_EXTERNAL, channels, channel_count)) < 0)
 		goto fail;
@@ -998,10 +1000,10 @@ int worker_control_run_worker(sid_resource_t *worker_control_res)
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
 
-	if (!worker_control->worker_prepared)
+	if (!worker_control->worker_init.prepared)
 		return -ESRCH;
 
-	worker_control->worker_prepared = false;
+	worker_control->worker_init.prepared = false;
 
 	if (worker_control->worker_type == WORKER_TYPE_INTERNAL)
 		return _run_internal_worker(worker_control_res);
@@ -1025,7 +1027,7 @@ int worker_control_run_new_worker(sid_resource_t *worker_control_res, struct wor
 	if (worker_control->worker_type != WORKER_TYPE_EXTERNAL)
 		return -ENOTSUP;
 
-	if (worker_control->worker_prepared)
+	if (worker_control->worker_init.prepared)
 		return -EBUSY;
 
 	if ((r = _do_worker_control_get_new_worker(worker_control_res, params, &proxy_res, true)) < 0)
@@ -1494,11 +1496,11 @@ static int _destroy_worker_control(sid_resource_t *worker_control_res)
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
 
-	if (worker_control->worker_channels)
-		_destroy_channels(worker_control->worker_channels, worker_control->channel_spec_count);
-	free(worker_control->worker_id);
-	free(worker_control->ext_argv);
-	free(worker_control->ext_envp);
+	if (worker_control->worker_init.channels)
+		_destroy_channels(worker_control->worker_init.channels, worker_control->channel_spec_count);
+	free(worker_control->worker_init.id);
+	free(worker_control->worker_init.ext_argv);
+	free(worker_control->worker_init.ext_envp);
 	free(worker_control->channel_specs);
 	free(worker_control);
 	return 0;
