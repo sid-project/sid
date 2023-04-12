@@ -150,6 +150,7 @@ sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, c
 /* Worker utility functions. */
 bool        worker_control_is_worker(sid_resource_t *res);
 const char *worker_control_get_worker_id(sid_resource_t *res);
+void       *worker_control_get_worker_arg(sid_resource_t *res);
 
 /* Yield current worker and make it available for others to use. */
 int worker_control_worker_yield(sid_resource_t *res);

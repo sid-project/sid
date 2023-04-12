@@ -1087,6 +1087,19 @@ const char *worker_control_get_worker_id(sid_resource_t *res)
 	return NULL;
 }
 
+void *worker_control_get_worker_arg(sid_resource_t *res)
+{
+	do {
+		if (sid_resource_match(res, &sid_resource_type_worker, NULL))
+			return (((struct worker *) sid_resource_get_data(res))->arg);
+		else if (sid_resource_match(res, &sid_resource_type_worker_proxy, NULL) ||
+		         sid_resource_match(res, &sid_resource_type_worker_proxy_with_ev_loop, NULL))
+			return (((struct worker_proxy *) sid_resource_get_data(res))->arg);
+	} while ((res = sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL)));
+
+	return NULL;
+}
+
 /* FIXME: Consider making this a part of event loop. */
 static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_t chan_cmd, struct worker_data_spec *data_spec)
 {
