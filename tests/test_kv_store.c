@@ -158,7 +158,9 @@ static void test_kvstore_iterate(void **state)
 
 	assert_int_equal(kv_store_num_entries(kv_store_res), 1);
 	/* TODO: if update_arg is NULL in the following call it causes SEGV */
+	update_arg.ret_code = 0;
 	assert_int_equal(kv_store_unset(kv_store_res, TEST_KEY, _kv_cb_main_unset, &update_arg), 0);
+	assert_int_equal(update_arg.ret_code, 0);
 	assert_int_equal(kv_store_num_entries(kv_store_res), 0);
 	kv_store_get_size(kv_store_res, &meta_size, &data_size);
 	assert_int_equal(data_size, 0);
