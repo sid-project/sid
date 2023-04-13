@@ -2342,7 +2342,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 		flags |= (KV_SYNC | KV_PERSISTENT);
 
 	if (unset && !is_worker) {
-		if (kv_store_unset(common->kv_store_res, key, _kv_cb_write, &update_arg) < 0)
+		if (kv_store_unset(common->kv_store_res, key, _kv_cb_write, &update_arg) < 0 || update_arg.ret_code < 0)
 			goto out;
 	} else {
 		VVALUE_HEADER_PREP(vvalue, common->gennum, null_int, flags, (char *) owner);

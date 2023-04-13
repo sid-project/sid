@@ -627,25 +627,21 @@ static bptree_update_action_t _bptree_unset_fn(const char *key,
 int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg)
 {
 	struct kv_store          *kv_store = sid_resource_get_data(kv_store_res);
-	struct kv_update_fn_relay relay    = {.kv_update_fn     = kv_unset_fn,
-	                                      .kv_update_fn_arg = kv_unset_fn_arg,
-	                                      .ret_code         = -EREMOTEIO};
+	struct kv_update_fn_relay relay    = {.kv_update_fn = kv_unset_fn, .kv_update_fn_arg = kv_unset_fn_arg};
 
 	key                                = _canonicalize_key(key);
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
-			if (hash_update(kv_store->ht, key, strlen(key) + 1, NULL, 0, _hash_unset_fn, &relay))
-				return -1;
+			hash_update(kv_store->ht, key, strlen(key) + 1, NULL, 0, _hash_unset_fn, &relay);
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			if (bptree_update(kv_store->bpt, key, NULL, 0, _bptree_unset_fn, &relay))
-				return -1;
+			bptree_update(kv_store->bpt, key, NULL, 0, _bptree_unset_fn, &relay);
 			break;
 	}
 
-	return 0;
+	return relay.ret_code;
 }
 
 kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res, const char *key_start, const char *key_end)
