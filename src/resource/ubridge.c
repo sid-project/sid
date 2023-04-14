@@ -1951,13 +1951,16 @@ out:
 	return r;
 }
 
-static int _kv_cb_delta_step(struct kv_store_update_spec *spec)
+static int _do_kv_cb_delta_step(struct kv_store_update_spec *spec, bool is_sync)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct kv_rel_spec   *rel_spec   = update_arg->custom;
+	int                   r;
 
-	if ((update_arg->ret_code = _check_kv_perms(update_arg, spec->key, spec->old_data, spec->new_data)) < 0)
+	if ((r = _check_kv_perms(update_arg, spec->key, spec->old_data, spec->new_data)) < 0) {
+		update_arg->ret_code = is_sync ? 0 : r;
 		return 0;
+	}
 
 	if ((update_arg->ret_code = _delta_step_calc(spec)) < 0)
 		return 0;
@@ -1969,6 +1972,16 @@ static int _kv_cb_delta_step(struct kv_store_update_spec *spec)
 	}
 
 	return 0;
+}
+
+static int _kv_cb_delta_step(struct kv_store_update_spec *spec)
+{
+	return _do_kv_cb_delta_step(spec, false);
+}
+
+static int _kv_cb_main_delta_step(struct kv_store_update_spec *spec)
+{
+	return _do_kv_cb_delta_step(spec, true);
 }
 
 static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index)
@@ -4773,6 +4786,11 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	end = p + msg_size;
 	p   += sizeof(msg_size);
 
+	if (kv_store_transaction_begin(common_ctx->kv_store_res) < 0) {
+		log_error(ID(res), "Failed to start key-value store transaction");
+		goto out;
+	}
+
 	while (p < end) {
 		kv_store_value_flags = *((kv_store_value_flags_t *) p);
 		p                    += sizeof(kv_store_value_flags);
@@ -4816,7 +4834,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 
 			update_arg.owner    = VVALUE_OWNER(vvalue);
 			update_arg.res      = common_ctx->kv_store_res;
-			update_arg.ret_code = -EREMOTEIO;
+			update_arg.ret_code = 0;
 
 			vvalue_str          = _buffer_get_vvalue_str(common_ctx->gen_buf, unset, vvalue, value_size);
 			log_debug(ID(res), syncing_msg, key, vvalue_str, VVALUE_SEQNUM(vvalue));
@@ -4857,7 +4875,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 
 			update_arg.owner = svalue->data;
 			update_arg.res   = common_ctx->kv_store_res;
-			update_arg.ret_code = -EREMOTEIO;
+			update_arg.ret_code = 0;
 
 			log_debug(ID(res), syncing_msg, key, unset ? "NULL" : svalue->data + data_offset, svalue->seqnum);
 
@@ -4886,7 +4904,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 				                                    value_size,
 				                                    KV_STORE_VALUE_VECTOR | KV_STORE_VALUE_REF,
 				                                    KV_STORE_VALUE_NO_OP,
-				                                    _kv_cb_delta_step,
+				                                    _kv_cb_main_delta_step,
 				                                    &update_arg);
 				_destroy_delta_buffers(rel_spec.delta);
 				if (!value_to_store || update_arg.ret_code < 0)
@@ -4899,6 +4917,8 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 
 	r = 0;
 out:
+	if (kv_store_in_transaction(common_ctx->kv_store_res))
+		kv_store_transaction_end(common_ctx->kv_store_res, (r < 0));
 	free(vvalue);
 
 	if (shm != MAP_FAILED && munmap(shm, msg_size) < 0) {
