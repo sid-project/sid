@@ -78,7 +78,7 @@ struct kv_rollback_arg {
 	const char            *key;
 	struct kv_store_value *kv_store_value;
 	size_t                 kv_store_value_size;
-} __attribute__((packed));
+};
 
 static void _set_ptr(void *dest, const void *p)
 {
