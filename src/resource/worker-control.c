@@ -795,9 +795,19 @@ static int _do_worker_control_get_new_worker(sid_resource_t       *worker_contro
 		 *  WORKER HERE
 		 */
 
-		/* request a SIGUSR1 signal if parent dies */
-		if (prctl(PR_SET_PDEATHSIG, SIGUSR1) < 0)
-			log_sys_error(ID(worker_control_res), "prctl() failed", "");
+		if (worker_control->worker_type == WORKER_TYPE_INTERNAL) {
+			/* WORKER_TYPE_INTERNAL - request a SIGUSR1 signal if parent dies */
+			if (prctl(PR_SET_PDEATHSIG, SIGUSR1) < 0)
+				log_sys_error(ID(worker_control_res),
+				              "prctl",
+				              "failed to set parent-death signal for internal worker");
+		} else {
+			/* WORKER_TYPE_EXTERNAL - request a SIGTERM signal if parent dies */
+			if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
+				log_sys_error(ID(worker_control_res),
+				              "prctl",
+				              "failed to set parent-death signal for external worker");
+		}
 
 		/* Check to make sure the parent didn't die right after the fork() */
 		curr_ppid = getppid();
