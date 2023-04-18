@@ -33,11 +33,12 @@ typedef enum {
 } worker_type_t;
 
 typedef enum {
-	WORKER_STATE_NEW,      /* worker is newly created and it's not initialized yet */
-	WORKER_STATE_IDLE,     /* worker is already initialized and it's idle at the moment */
-	WORKER_STATE_ASSIGNED, /* first message sent to worker for it to start execution  */
-	WORKER_STATE_EXITING,  /* exit request sent to worker, waiting for worker to exit */
-	WORKER_STATE_EXITED,   /* worker has exited */
+	WORKER_STATE_NEW,       /* worker is newly created and it's not initialized yet */
+	WORKER_STATE_IDLE,      /* worker is already initialized and it's idle at the moment */
+	WORKER_STATE_ASSIGNED,  /* first message sent to worker for it to start execution  */
+	WORKER_STATE_EXITING,   /* worker yielded itself, exit signal sent back to worker, waiting for worker to exit */
+	WORKER_STATE_TIMED_OUT, /* worker has timed out, exit signal sent back to worker, waiting for worker to exit */
+	WORKER_STATE_EXITED,    /* worker has exited */
 } worker_state_t;
 
 /* Worker initialization specification */
@@ -116,11 +117,18 @@ struct worker_channel_spec {
 
 #define NULL_WORKER_CHANNEL_SPEC ((const struct worker_channel_spec) {NULL})
 
+/* Timeout specification */
+struct worker_timeout_spec {
+	uint64_t usec;
+	int      signum;
+};
+
 /* Worker-control resource parameters */
 struct worker_control_resource_params {
 	worker_type_t                     worker_type;   /* type of workers this controller creates */
 	struct worker_init_cb_spec        init_cb_spec;  /* worker initialization callback specification */
 	const struct worker_channel_spec *channel_specs; /* NULL-terminated list of proxy <-> worker channel specs */
+	const struct worker_timeout_spec  timeout_spec;  /* timeout specification */
 };
 
 int worker_control_channel_send(sid_resource_t *res, const char *channel_id, struct worker_data_spec *data_spec);
@@ -139,6 +147,8 @@ struct worker_params {
 
 	void *worker_arg;
 	void *worker_proxy_arg;
+
+	struct worker_timeout_spec timeout_spec;
 };
 
 int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params, sid_resource_t **res_p);

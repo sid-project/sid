@@ -52,11 +52,12 @@ static const char *worker_channel_cmd_str[] = {
 	[WORKER_CHANNEL_CMD_DATA_EXT] = "DATA+EXT",
 };
 
-static const char *worker_state_str[] = {[WORKER_STATE_NEW]      = "WORKER_NEW",
-                                         [WORKER_STATE_IDLE]     = "WORKER_IDLE",
-                                         [WORKER_STATE_ASSIGNED] = "WORKER_ASSIGNED",
-                                         [WORKER_STATE_EXITING]  = "WORKER_EXITING",
-                                         [WORKER_STATE_EXITED]   = "WORKER_EXITED"};
+static const char *worker_state_str[] = {[WORKER_STATE_NEW]       = "WORKER_NEW",
+                                         [WORKER_STATE_IDLE]      = "WORKER_IDLE",
+                                         [WORKER_STATE_ASSIGNED]  = "WORKER_ASSIGNED",
+                                         [WORKER_STATE_EXITING]   = "WORKER_EXITING",
+                                         [WORKER_STATE_TIMED_OUT] = "WORKER_TIMED_OUT",
+                                         [WORKER_STATE_EXITED]    = "WORKER_EXITED"};
 
 const sid_resource_type_t sid_resource_type_worker_proxy;
 const sid_resource_type_t sid_resource_type_worker_proxy_with_ev_loop;
@@ -77,6 +78,7 @@ struct worker_control {
 	unsigned                    channel_spec_count;
 	struct worker_channel_spec *channel_specs;
 	struct worker_init          worker_init;
+	struct worker_timeout_spec  timeout_spec;
 };
 
 struct worker_channel {
@@ -93,6 +95,7 @@ struct worker_kickstart {
 	struct worker_channel_spec *channel_specs;
 	struct worker_channel      *channels;
 	unsigned                    channel_count;
+	struct worker_timeout_spec  timeout_spec;
 	void                       *arg;
 };
 
@@ -101,8 +104,10 @@ struct worker_proxy {
 	worker_type_t                type;            /* worker type */
 	worker_state_t               state;           /* current worker state */
 	sid_resource_event_source_t *idle_timeout_es; /* event source to catch idle timeout for worker */
+	sid_resource_event_source_t *exec_timeout_es; /* event source to catch execution timeout for worker */
 	struct worker_channel       *channels;        /* NULL-terminated array of worker_proxy --> worker channels */
 	unsigned                     channel_count;
+	struct worker_timeout_spec   timeout_spec;
 	void                        *arg;
 };
 
@@ -873,6 +878,13 @@ static int _do_worker_control_get_new_worker(sid_resource_t       *worker_contro
 	kickstart.channel_count = worker_control->channel_spec_count;
 	kickstart.arg           = params->worker_proxy_arg;
 
+	if (params->timeout_spec.usec)
+		/* override default timeout for this single worker */
+		kickstart.timeout_spec = params->timeout_spec;
+	else
+		/* use default timeout */
+		kickstart.timeout_spec = worker_control->timeout_spec;
+
 	if (!(id = params->id)) {
 		(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
 		id = gen_id;
@@ -892,6 +904,8 @@ out:
 
 		if (worker_channels)
 			_destroy_channels(worker_channels, worker_control->channel_spec_count);
+
+		// FIXME: also terminate worker if worker_proxy creation fails
 	}
 
 	if (signals_blocked && sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
@@ -1022,11 +1036,8 @@ int worker_control_run_worker(sid_resource_t *worker_control_res)
 }
 
 /*
- * FIXME:
- * 	- Add optional timeout parameter after which we automatically
- * 	  terminate the worker and exit the internal event loop.
- * 	- Cleanup resources before running the worker or do something
- * 	  to make valgrind happy, otherwise it will report memleaks.
+ * FIXME: Cleanup resources before running the external worker or do
+ *        something to make valgrind happy, otherwise it will report memleaks.
  */
 int worker_control_run_new_worker(sid_resource_t *worker_control_res, struct worker_params *params)
 {
@@ -1335,6 +1346,29 @@ static int _on_worker_signal_event(sid_resource_event_source_t *es, const struct
 	return 0;
 }
 
+static int _on_worker_proxy_timeout_event(sid_resource_event_source_t *es, uint64_t usec, void *data)
+{
+	sid_resource_t      *worker_proxy_res = data;
+	struct worker_proxy *worker_proxy     = sid_resource_get_data(worker_proxy_res);
+	int                  signum;
+	int                  r = 0;
+
+	_change_worker_proxy_state(worker_proxy_res, WORKER_STATE_TIMED_OUT);
+
+	if ((signum = worker_proxy->timeout_spec.signum)) {
+		log_debug(ID(worker_proxy_res), "Sending signal %d (SIG%s)) to worker process.", signum, sigabbrev_np(signum));
+
+		if ((r = kill(worker_proxy->pid, signum)) < 0)
+			log_error_errno(ID(worker_proxy_res),
+			                errno,
+			                "Failed to send signal %d (SIG%s) to worker process.",
+			                signum,
+			                sigabbrev_np(signum));
+	}
+
+	return r;
+}
+
 static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kickstart_data, void **data)
 {
 	const struct worker_kickstart *kickstart    = kickstart_data;
@@ -1350,6 +1384,7 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	worker_proxy->state         = WORKER_STATE_NEW;
 	worker_proxy->channels      = kickstart->channels;
 	worker_proxy->channel_count = kickstart->channel_count;
+	worker_proxy->timeout_spec  = kickstart->timeout_spec;
 	worker_proxy->arg           = kickstart->arg;
 
 	if (sid_resource_create_child_event_source(worker_proxy_res,
@@ -1366,6 +1401,20 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 
 	if (_setup_channels(worker_proxy_res, NULL, kickstart->type, kickstart->channels, kickstart->channel_count) < 0)
 		goto fail;
+
+	if (kickstart->timeout_spec.usec && sid_resource_create_time_event_source(worker_proxy_res,
+	                                                                          &worker_proxy->exec_timeout_es,
+	                                                                          CLOCK_MONOTONIC,
+	                                                                          SID_RESOURCE_POS_REL,
+	                                                                          kickstart->timeout_spec.usec,
+	                                                                          0,
+	                                                                          _on_worker_proxy_timeout_event,
+	                                                                          0,
+	                                                                          "timeout",
+	                                                                          worker_proxy_res) < 0) {
+		log_error(ID(worker_proxy_res), "Failed to create timeout event.");
+		goto fail;
+	}
 
 	*data = worker_proxy;
 	return 0;
@@ -1495,6 +1544,7 @@ static int _init_worker_control(sid_resource_t *worker_control_res, const void *
 
 	worker_control->worker_type  = params->worker_type;
 	worker_control->init_cb_spec = params->init_cb_spec;
+	worker_control->timeout_spec = params->timeout_spec;
 
 	*data                        = worker_control;
 	return 0;
