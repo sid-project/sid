@@ -332,7 +332,6 @@ static void test_unset_missing(void **state)
 {
 	struct test_state *ts = *state;
 	int                fd;
-	char              *data[] = {"value"};
 
 	_set_kv(ts->work_ctx, "key", NULL, 0, KV_OP_SET, false);
 	fd = _do_build_buffers(ts->work_res);
