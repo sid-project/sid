@@ -33,6 +33,7 @@ typedef enum {
 } worker_type_t;
 
 typedef enum {
+	WORKER_STATE_UNKNOWN,   /* worker state is not known/not applicable */
 	WORKER_STATE_NEW,       /* worker is newly created and it's not initialized yet */
 	WORKER_STATE_IDLE,      /* worker is already initialized and it's idle at the moment */
 	WORKER_STATE_ASSIGNED,  /* first message sent to worker for it to start execution  */
@@ -158,9 +159,10 @@ sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_re
 sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, const char *id);
 
 /* Worker utility functions. */
-bool        worker_control_is_worker(sid_resource_t *res);
-const char *worker_control_get_worker_id(sid_resource_t *res);
-void       *worker_control_get_worker_arg(sid_resource_t *res);
+bool           worker_control_is_worker(sid_resource_t *res);
+worker_state_t worker_control_get_worker_state(sid_resource_t *res);
+const char    *worker_control_get_worker_id(sid_resource_t *res);
+void          *worker_control_get_worker_arg(sid_resource_t *res);
 
 /* Yield current worker and make it available for others to use. */
 int worker_control_worker_yield(sid_resource_t *res);

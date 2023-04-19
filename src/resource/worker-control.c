@@ -1099,6 +1099,21 @@ bool worker_control_is_worker(sid_resource_t *res)
 		return sid_resource_search(res, SID_RESOURCE_SEARCH_ANC, &sid_resource_type_worker, NULL) != NULL;
 }
 
+worker_state_t worker_control_get_worker_state(sid_resource_t *res)
+{
+	struct worker_proxy *worker_proxy;
+
+	do {
+		if (sid_resource_match(res, &sid_resource_type_worker_proxy, NULL) ||
+		    sid_resource_match(res, &sid_resource_type_worker_proxy_with_ev_loop, NULL)) {
+			worker_proxy = sid_resource_get_data(res);
+			return worker_proxy->state;
+		}
+	} while ((res = sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL)));
+
+	return WORKER_STATE_UNKNOWN;
+}
+
 const char *worker_control_get_worker_id(sid_resource_t *res)
 {
 	do {
