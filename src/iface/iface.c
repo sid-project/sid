@@ -76,31 +76,36 @@ void sid_result_free(struct sid_result *res)
 int sid_result_status(struct sid_result *res, uint64_t *status)
 {
 	size_t                       size;
-	const struct sid_msg_header *hdr;
+	const struct sid_msg_header *hdr_p;
+	struct sid_msg_header        hdr;
 
 	if (!res || !status)
 		return -EINVAL;
-	sid_buffer_get_data(res->buf, (const void **) &hdr, &size);
-	*status = hdr->status;
+	sid_buffer_get_data(res->buf, (const void **) &hdr_p, &size);
+	memcpy(&hdr, hdr_p, sizeof(struct sid_msg_header));
+	*status = hdr.status;
 	return 0;
 }
 
 int sid_result_protocol(struct sid_result *res, uint8_t *prot)
 {
 	size_t                       size;
-	const struct sid_msg_header *hdr;
+	const struct sid_msg_header *hdr_p;
+	struct sid_msg_header        hdr;
 
 	if (!res || !prot)
 		return -EINVAL;
-	sid_buffer_get_data(res->buf, (const void **) &hdr, &size);
-	*prot = hdr->prot;
+	sid_buffer_get_data(res->buf, (const void **) &hdr_p, &size);
+	memcpy(&hdr, hdr_p, sizeof(struct sid_msg_header));
+	*prot = hdr.prot;
 	return 0;
 }
 
 const char *sid_result_data(struct sid_result *res, size_t *size_p)
 {
 	size_t                       size;
-	const struct sid_msg_header *hdr;
+	const struct sid_msg_header *hdr_p;
+	struct sid_msg_header        hdr;
 
 	if (size_p)
 		*size_p = 0;
@@ -108,8 +113,9 @@ const char *sid_result_data(struct sid_result *res, size_t *size_p)
 	if (!res)
 		return NULL;
 
-	sid_buffer_get_data(res->buf, (const void **) &hdr, &size);
-	if (hdr->status & SID_CMD_STATUS_FAILURE)
+	sid_buffer_get_data(res->buf, (const void **) &hdr_p, &size);
+	memcpy(&hdr, hdr_p, sizeof(struct sid_msg_header));
+	if (hdr.status & SID_CMD_STATUS_FAILURE)
 		return NULL;
 	else if (res->shm != MAP_FAILED) {
 		if (size_p)
@@ -118,7 +124,7 @@ const char *sid_result_data(struct sid_result *res, size_t *size_p)
 	} else if (size > SID_MSG_HEADER_SIZE) {
 		if (size_p)
 			*size_p = size - SID_MSG_HEADER_SIZE;
-		return (const char *) hdr + SID_MSG_HEADER_SIZE;
+		return (const char *) hdr_p + SID_MSG_HEADER_SIZE;
 	}
 	return NULL;
 }
