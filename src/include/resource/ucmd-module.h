@@ -166,6 +166,7 @@ typedef enum {
 	KV_WR              = UINT64_C(0x00000000000000C0),
 } sid_ucmd_kv_flags_t;
 
+#define SID_UCMD_KV_UNSET            ((void *) -1)
 #define SID_UCMD_KEY_DEVICE_NEXT_MOD "SID_NEXT_MOD"
 
 void *sid_ucmd_set_kv(struct module          *mod,

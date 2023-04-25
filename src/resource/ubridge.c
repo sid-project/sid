@@ -2116,8 +2116,14 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
 		goto out;
 
+	if (value == SID_UCMD_KV_UNSET)
+		value = NULL;
+
+	if (!value)
+		value_size = 0;
+
 	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, flags, (char *) owner);
-	VVALUE_DATA_PREP(vvalue, 0, value, value ? value_size : 0);
+	VVALUE_DATA_PREP(vvalue, 0, value, value_size);
 
 	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->common->kv_store_res,
 	                                     .owner    = owner,
@@ -2132,11 +2138,13 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	                                  KV_STORE_VALUE_VECTOR,
 	                                  KV_STORE_VALUE_OP_MERGE,
 	                                  _kv_cb_write,
-	                                  &update_arg)) ||
-	    !value_size)
+	                                  &update_arg)))
 		goto out;
 
-	ret = svalue->data + _svalue_ext_data_offset(svalue);
+	if (value)
+		ret = svalue->data + _svalue_ext_data_offset(svalue);
+	else
+		ret = SID_UCMD_KV_UNSET;
 out:
 	(void) _manage_kv_index(&update_arg, key);
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
