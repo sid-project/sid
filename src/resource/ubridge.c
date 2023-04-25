@@ -2152,13 +2152,18 @@ void *sid_ucmd_set_kv(struct module          *mod,
                       size_t                  value_size,
                       sid_ucmd_kv_flags_t     flags)
 {
+	const char *dom;
+
 	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	if (ns == KV_NS_UDEV)
+	if (ns == KV_NS_UDEV) {
+		dom   = NULL;
 		flags |= (KV_SYNC | KV_PERSISTENT);
+	} else
+		dom = KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_set_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, flags, value, value_size);
+	return _do_sid_ucmd_set_kv(mod, ucmd_ctx, dom, ns, key, flags, value, value_size);
 }
 
 static const void *_cmd_get_key_spec_value(struct module       *mod,
@@ -2234,10 +2239,17 @@ const void *sid_ucmd_get_kv(struct module          *mod,
                             size_t                 *value_size,
                             sid_ucmd_kv_flags_t    *flags)
 {
+	const char *dom;
+
 	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, KV_KEY_DOM_USER, ns, key, value_size, flags);
+	if (ns == KV_NS_UDEV)
+		dom = NULL;
+	else
+		dom = KV_KEY_DOM_USER;
+
+	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, dom, ns, key, value_size, flags);
 }
 
 static const void *_do_sid_ucmd_get_foreign_kv(struct module          *mod,
