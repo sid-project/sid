@@ -2136,10 +2136,9 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	    !value_size)
 		goto out;
 
-	(void) _manage_kv_index(&update_arg, key);
-
 	ret = svalue->data + _svalue_ext_data_offset(svalue);
 out:
+	(void) _manage_kv_index(&update_arg, key);
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 	return ret;
 }
