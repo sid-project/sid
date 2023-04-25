@@ -2786,7 +2786,7 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 	if (asprintf((char **) &key, "%.*s", (int) (value - start - 1), start) < 0)
 		return -1;
 
-	if (!(value = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, key, 0, value, strlen(value) + 1)))
+	if (!(value = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, key, KV_RD | KV_WR, value, strlen(value) + 1)))
 		return -1;
 
 	log_debug(ID(ucmd_ctx->common->kv_store_res), "Imported udev property %s=%s", key, value);
