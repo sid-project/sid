@@ -66,6 +66,7 @@ static struct module_symbol_params dm_submod_symbol_params[] = {
 		SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
 		MODULE_SYMBOL_INDIRECT,
 	},
+	NULL_MODULE_SYMBOL_PARAMS,
 };
 
 struct dm_submod_fns {
