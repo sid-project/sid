@@ -49,7 +49,7 @@ struct kv_store_value {
 	size_t                     size;
 	kv_store_value_int_flags_t int_flags;
 	kv_store_value_flags_t     ext_flags;
-	char                       data[];
+	char                       data[] __attribute__((aligned));
 };
 
 struct kv_update_fn_relay {
