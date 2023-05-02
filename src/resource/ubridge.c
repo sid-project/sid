@@ -2288,11 +2288,15 @@ const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
                                         size_t                 *value_size,
                                         sid_ucmd_kv_flags_t    *flags)
 {
+	const char *dom;
+
 	if (!mod || !ucmd_ctx || !foreign_mod_name || !*foreign_mod_name || (ns == KV_NS_UNDEFINED) || !key || !*key ||
 	    (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, foreign_mod_name, NULL, KV_KEY_DOM_USER, ns, key, value_size, flags);
+	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
+
+	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, foreign_mod_name, NULL, dom, ns, key, value_size, flags);
 }
 
 const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
@@ -2303,11 +2307,15 @@ const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
                                         size_t                 *value_size,
                                         sid_ucmd_kv_flags_t    *flags)
 {
+	const char *dom;
+
 	if (!mod || !ucmd_ctx || !foreign_dev_id || !*foreign_dev_id || (ns == KV_NS_UNDEFINED) || !key || !*key ||
 	    (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, NULL, foreign_dev_id, KV_KEY_DOM_USER, ns, key, value_size, flags);
+	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
+
+	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, NULL, foreign_dev_id, dom, ns, key, value_size, flags);
 }
 
 const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
@@ -2319,19 +2327,15 @@ const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
                                             size_t                 *value_size,
                                             sid_ucmd_kv_flags_t    *flags)
 {
+	const char *dom;
+
 	if (!mod || !ucmd_ctx || !foreign_dev_id || !*foreign_dev_id || !foreign_mod_name || !*foreign_mod_name ||
 	    (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	return _do_sid_ucmd_get_foreign_kv(mod,
-	                                   ucmd_ctx,
-	                                   foreign_mod_name,
-	                                   foreign_dev_id,
-	                                   KV_KEY_DOM_USER,
-	                                   ns,
-	                                   key,
-	                                   value_size,
-	                                   flags);
+	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
+
+	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, foreign_mod_name, foreign_dev_id, dom, ns, key, value_size, flags);
 }
 
 int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
