@@ -2399,18 +2399,26 @@ out:
 
 int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
 {
+	const char *dom;
+
 	if (!mod || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, common, KV_KEY_DOM_USER, ns, key, 0);
+	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
+
+	return _do_sid_ucmd_mod_reserve_kv(mod, common, dom, ns, key, 0);
 }
 
 int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
 {
+	const char *dom;
+
 	if (!mod || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, common, KV_KEY_DOM_USER, ns, key, 1);
+	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
+
+	return _do_sid_ucmd_mod_reserve_kv(mod, common, dom, ns, key, 1);
 }
 
 static sid_resource_t *_get_mod_res_from_mod(struct module *mod, sid_resource_t *modules_res, int *ret_code)
