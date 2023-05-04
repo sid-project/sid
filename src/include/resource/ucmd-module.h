@@ -161,9 +161,11 @@ typedef enum {
 	KV_SUBMOD_RD       = UINT64_C(0x0000000000000020),
 	KV_RD              = UINT64_C(0x0000000000000030),
 
-	KV_MOD_WR          = UINT64_C(0x00000000000000040),
+	KV_MOD_WR          = UINT64_C(0x0000000000000040),
 	KV_SUBMOD_WR       = UINT64_C(0x0000000000000080),
 	KV_WR              = UINT64_C(0x00000000000000C0),
+
+	_KV_ENUM_SIZE      = UINT64_C(0x7fffffffffffffff), /* used to force the enum to 64 bits */
 } sid_ucmd_kv_flags_t;
 
 #define SID_UCMD_KV_UNSET            ((void *) -1)
