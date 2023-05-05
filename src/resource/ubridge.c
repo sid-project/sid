@@ -4788,8 +4788,8 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	kv_store_value_flags_t      kv_store_value_flags;
 	SID_BUFFER_SIZE_PREFIX_TYPE msg_size;
 	size_t                      key_size, value_size, data_offset, i;
-	char                       *key, *shm = MAP_FAILED, *p, *end;
-	kv_scalar_t                *svalue = NULL;
+	char                       *key, *shm           = MAP_FAILED, *p, *end;
+	kv_scalar_t                 tmp_svalue, *svalue = NULL;
 	kv_vector_t                *vvalue = NULL;
 	const char                 *vvalue_str;
 	void                       *value_to_store;
@@ -4822,17 +4822,17 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	}
 
 	while (p < end) {
-		kv_store_value_flags = *((kv_store_value_flags_t *) p);
-		p                    += sizeof(kv_store_value_flags);
+		memcpy(&kv_store_value_flags, p, sizeof(kv_store_value_flags));
+		p += sizeof(kv_store_value_flags);
 
-		key_size             = *((size_t *) p);
-		p                    += sizeof(key_size);
+		memcpy(&key_size, p, sizeof(key_size));
+		p += sizeof(key_size);
 
-		value_size           = *((size_t *) p);
-		p                    += sizeof(value_size);
+		memcpy(&value_size, p, sizeof(value_size));
+		p   += sizeof(value_size);
 
-		key                  = p;
-		p                    += key_size;
+		key = p;
+		p   += key_size;
 
 		/*
 		 * Note: if we're reserving a value, then we keep it even if it's NULL.
@@ -4854,11 +4854,18 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			}
 
 			for (i = 0; i < value_size; i++) {
-				vvalue[i].iov_len  = *((size_t *) p);
+				memcpy(&vvalue[i].iov_len, p, sizeof(size_t));
 				p                  += sizeof(size_t);
 				vvalue[i].iov_base = p;
 				p                  += vvalue[i].iov_len;
 			}
+			/* Copy values to aligned memory */
+			memcpy(&tmp_svalue.seqnum, vvalue[VVALUE_IDX_SEQNUM].iov_base, sizeof(tmp_svalue.seqnum));
+			vvalue[VVALUE_IDX_SEQNUM].iov_base = &tmp_svalue.seqnum;
+			memcpy(&tmp_svalue.flags, vvalue[VVALUE_IDX_FLAGS].iov_base, sizeof(tmp_svalue.flags));
+			vvalue[VVALUE_IDX_FLAGS].iov_base = &tmp_svalue.flags;
+			memcpy(&tmp_svalue.gennum, vvalue[VVALUE_IDX_GENNUM].iov_base, sizeof(tmp_svalue.gennum));
+			vvalue[VVALUE_IDX_GENNUM].iov_base = &tmp_svalue.gennum;
 
 			unset               = !(VVALUE_FLAGS(vvalue) & KV_MOD_RESERVED) && (value_size == VVALUE_HEADER_CNT);
 
@@ -4897,7 +4904,12 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 				goto out;
 			}
 
-			svalue           = (kv_scalar_t *) p;
+			if (!(svalue = malloc(value_size))) {
+				log_error(ID(res), "Failed to allocate svalue to sync main key-value store.");
+				goto out;
+			}
+
+			memcpy(svalue, p, value_size);
 			p                += value_size;
 
 			data_offset      = _svalue_ext_data_offset(svalue);
@@ -4942,6 +4954,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			}
 		}
 
+		svalue = mem_freen(svalue);
 		vvalue = mem_freen(vvalue);
 	}
 
@@ -4950,6 +4963,7 @@ out:
 	if (kv_store_in_transaction(common_ctx->kv_store_res))
 		kv_store_transaction_end(common_ctx->kv_store_res, (r < 0));
 	free(vvalue);
+	free(svalue);
 
 	if (shm != MAP_FAILED && munmap(shm, msg_size) < 0) {
 		log_error_errno(ID(res), errno, "Failed to unmap memory with key-value store");
