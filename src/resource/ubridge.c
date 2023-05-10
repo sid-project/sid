@@ -4403,6 +4403,10 @@ static bool _socket_client_is_capable(int fd, sid_cmd_t cmd)
 
 static int _check_msg(sid_resource_t *res, struct sid_msg *msg)
 {
+	struct sid_msg_header header;
+
+	memcpy(&header, msg->header, sizeof(header));
+
 	if (msg->size < sizeof(struct sid_msg_header)) {
 		log_error(ID(res), "Incorrect message header size.");
 		return -1;
@@ -4414,25 +4418,25 @@ static int _check_msg(sid_resource_t *res, struct sid_msg *msg)
 			break;
 
 		case MSG_CATEGORY_SELF:
-			if (msg->header->cmd < _SELF_CMD_START || msg->header->cmd > _SELF_CMD_END)
-				msg->header->cmd = SELF_CMD_UNKNOWN;
+			if (header.cmd < _SELF_CMD_START || header.cmd > _SELF_CMD_END)
+				header.cmd = SELF_CMD_UNKNOWN;
 			break;
 
 		case MSG_CATEGORY_CLIENT:
-			if (msg->header->cmd < _SID_CMD_START || msg->header->cmd > _SID_CMD_END)
-				msg->header->cmd = SID_CMD_UNKNOWN;
+			if (header.cmd < _SID_CMD_START || header.cmd > _SID_CMD_END)
+				header.cmd = SID_CMD_UNKNOWN;
 
 			if (!sid_resource_match(res, &sid_resource_type_ubridge_connection, NULL)) {
 				log_error(ID(res),
 				          INTERNAL_ERROR "Connection resource missing for client command %s.",
-				          sid_cmd_type_to_name(msg->header->cmd));
+				          sid_cmd_type_to_name(header.cmd));
 				return -1;
 			}
 
-			if (!_socket_client_is_capable(((struct connection *) sid_resource_get_data(res))->fd, msg->header->cmd)) {
+			if (!_socket_client_is_capable(((struct connection *) sid_resource_get_data(res))->fd, header.cmd)) {
 				log_error(ID(res),
 				          "Client does not have permission to run command %s.",
-				          sid_cmd_type_to_name(msg->header->cmd));
+				          sid_cmd_type_to_name(header.cmd));
 				return -1;
 			}
 			break;
@@ -4443,13 +4447,17 @@ static int _check_msg(sid_resource_t *res, struct sid_msg *msg)
 
 static int _create_command_resource(sid_resource_t *parent_res, struct sid_msg *msg)
 {
+	struct sid_msg_header header;
+
+	memcpy(&header, msg->header, sizeof(header));
+
 	if (_check_msg(parent_res, msg) < 0)
 		return -1;
 
 	if (!sid_resource_create(parent_res,
 	                         &sid_resource_type_ubridge_command,
 	                         SID_RESOURCE_NO_FLAGS,
-	                         _get_cmd_reg(&((struct sid_ucmd_ctx) {.req_cat = msg->cat, .req_hdr = *msg->header}))->name,
+	                         _get_cmd_reg(&((struct sid_ucmd_ctx) {.req_cat = msg->cat, .req_hdr = header}))->name,
 	                         msg,
 	                         SID_RESOURCE_PRIO_NORMAL,
 	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
@@ -4565,6 +4573,9 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	const char           *worker_id;
 	sid_resource_t       *common_res;
 	int                   r;
+	struct sid_msg_header header;
+
+	memcpy(&header, msg->header, sizeof(header));
 
 	if (!(ucmd_ctx = mem_zalloc(sizeof(*ucmd_ctx)))) {
 		log_error(ID(res), "Failed to allocate new command structure.");
@@ -4575,7 +4586,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	_change_cmd_state(res, CMD_INITIALIZING);
 
 	ucmd_ctx->req_cat = msg->cat;
-	ucmd_ctx->req_hdr = *msg->header;
+	ucmd_ctx->req_hdr = header;
 
 	/* Require exact protocol version. We can add possible backward/forward compatibility in future stable versions. */
 	if (ucmd_ctx->req_hdr.prot != SID_PROTOCOL) {
@@ -4998,9 +5009,11 @@ static int _worker_proxy_recv_system_cmd_resources(sid_resource_t          *work
                                                    struct worker_data_spec *data_spec,
                                                    void                    *arg __attribute__((unused)))
 {
-	struct internal_msg_header *int_msg = data_spec->data;
-	struct sid_buffer          *buf;
-	int                         r = -1;
+	struct internal_msg_header int_msg;
+	struct sid_buffer         *buf;
+	int                        r = -1;
+
+	memcpy(&int_msg, data_spec->data, sizeof(int_msg));
 
 	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
 	                                                          .type    = SID_BUFFER_TYPE_LINEAR,
@@ -5012,7 +5025,7 @@ static int _worker_proxy_recv_system_cmd_resources(sid_resource_t          *work
 	}
 
 	if (sid_resource_write_tree_recursively(sid_resource_search(worker_proxy_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
-	                                        flags_to_format(int_msg->header.flags),
+	                                        flags_to_format(int_msg.header.flags),
 	                                        buf,
 	                                        2,
 	                                        false)) {
@@ -5037,14 +5050,16 @@ static int _worker_proxy_recv_fn(sid_resource_t          *worker_proxy_res,
                                  struct worker_data_spec *data_spec,
                                  void                    *arg)
 {
-	struct internal_msg_header *int_msg = data_spec->data;
+	struct internal_msg_header int_msg;
 
-	if (int_msg->cat != MSG_CATEGORY_SYSTEM) {
+	memcpy(&int_msg, data_spec->data, sizeof(int_msg));
+
+	if (int_msg.cat != MSG_CATEGORY_SYSTEM) {
 		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Received unexpected message category.");
 		return -1;
 	}
 
-	switch (int_msg->header.cmd) {
+	switch (int_msg.header.cmd) {
 		case SYSTEM_CMD_SYNC:
 			return _worker_proxy_recv_system_cmd_sync(worker_proxy_res, data_spec, arg);
 
@@ -5140,11 +5155,13 @@ static int _worker_recv_fn(sid_resource_t          *worker_res,
                            struct worker_data_spec *data_spec,
                            void                    *arg __attribute__((unused)))
 {
-	struct internal_msg_header *int_msg = (struct internal_msg_header *) data_spec->data;
+	struct internal_msg_header int_msg;
 
-	switch (int_msg->cat) {
+	memcpy(&int_msg, data_spec->data, sizeof(int_msg));
+
+	switch (int_msg.cat) {
 		case MSG_CATEGORY_SYSTEM:
-			switch (int_msg->header.cmd) {
+			switch (int_msg.header.cmd) {
 				case SYSTEM_CMD_SYNC:
 					if (_worker_recv_system_cmd_sync(worker_res, data_spec) < 0)
 						return -1;
@@ -5188,10 +5205,12 @@ static int _worker_recv_fn(sid_resource_t          *worker_res,
 			 * Command requested internally.
 			 * Generate sid_msg out of int_msg as if it was sent through a connection.
 			 */
-			if (_create_command_resource(worker_res,
-			                             &((struct sid_msg) {.cat    = MSG_CATEGORY_SELF,
-			                                                 .size   = data_spec->data_size - sizeof(int_msg->cat),
-			                                                 .header = &int_msg->header})) < 0)
+			if (_create_command_resource(
+				    worker_res,
+				    &((struct sid_msg) {
+					    .cat    = MSG_CATEGORY_SELF,
+					    .size   = data_spec->data_size - sizeof(int_msg.cat),
+					    .header = (struct sid_msg_header *) (data_spec->data + sizeof(int_msg.cat))})) < 0)
 				return -1;
 			break;
 	}
