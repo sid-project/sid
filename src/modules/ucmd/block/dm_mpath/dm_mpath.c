@@ -162,15 +162,9 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_UDEV, U_DEV_PATH, "0", 2, KV_RD);
 
 	if (r != MPATH_IS_ERROR && snprintf(valid_str, sizeof(valid_str), "%d", r) < sizeof(valid_str) && valid_str[0])
-		sid_ucmd_set_kv(module,
-		                ucmd_ctx,
-		                KV_NS_DEVMOD,
-		                X_VALID,
-		                valid_str,
-		                sizeof(valid_str),
-		                KV_RD | KV_SYNC | KV_PERSISTENT);
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVMOD, X_VALID, valid_str, sizeof(valid_str), KV_RD | KV_SYNC_P);
 	if (wwid) {
-		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVMOD, X_WWID, wwid, strlen(wwid) + 1, KV_RD | KV_SYNC | KV_PERSISTENT);
+		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVMOD, X_WWID, wwid, strlen(wwid) + 1, KV_RD | KV_SYNC_P);
 		free(wwid);
 	}
 	return (r != MPATH_IS_ERROR) ? 0 : -1;

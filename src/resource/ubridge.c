@@ -111,7 +111,7 @@
 #define DEV_NAME_PREFIX_NVME                        "nvme"
 
 #define OWNER_CORE                                  MOD_NAME_CORE
-#define DEFAULT_VALUE_FLAGS_CORE                    KV_SYNC | KV_PERSISTENT | KV_MOD_RESERVED
+#define DEFAULT_VALUE_FLAGS_CORE                    KV_SYNC_P | KV_MOD_RESERVED
 
 #define CMD_DEV_NAME_NUM_FMT                        "%s (%d:%d)"
 #define CMD_DEV_NAME_NUM(ucmd_ctx)                                                                                                 \
@@ -1018,7 +1018,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 
 	/*
 	 * Note that, right now, for commands with CMD_KV_EXPORT_PERSISTENT,
-	 * we iterate through all records and match the ones with KV_PERSISTENT
+	 * we iterate through all records and match the ones with KV_SYNC_P
 	 * flag set. This is because we don't expect this kind of dump to be
 	 * used frequently. If this matters in the future, we can create an index
 	 * just like we do for KV_SYNC records. Right now, it would not be worth
@@ -1077,7 +1077,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			svalue               = NULL;
 			VVALUE_FLAGS(vvalue) &= ~KV_SYNC;
 			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
-				if (!(VVALUE_FLAGS(vvalue) & KV_PERSISTENT))
+				if (!(VVALUE_FLAGS(vvalue) & KV_SYNC_P))
 					continue;
 			}
 		} else {
@@ -1086,7 +1086,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			svalue        = raw_value;
 			svalue->flags &= ~KV_SYNC;
 			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
-				if (!(svalue->flags & KV_PERSISTENT))
+				if (!(svalue->flags & KV_SYNC_P))
 					continue;
 			}
 		}
@@ -1203,8 +1203,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			print_uint_field(format, export_buf, 3, "gennum", VVALUE_GENNUM(vvalue), true);
 			print_uint64_field(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
 			print_start_array(format, export_buf, 3, "flags", true);
-			print_bool_array_elem(format, export_buf, 4, "KV_SYNC", VVALUE_FLAGS(vvalue) & KV_SYNC, false);
-			print_bool_array_elem(format, export_buf, 4, "KV_PERSISTENT", VVALUE_FLAGS(vvalue) & KV_PERSISTENT, true);
+			print_bool_array_elem(format, export_buf, 4, "KV_SYNC_P", VVALUE_FLAGS(vvalue) & KV_SYNC_P, false);
 			print_bool_array_elem(format,
 			                      export_buf,
 			                      4,
@@ -2166,7 +2165,7 @@ void *sid_ucmd_set_kv(struct module          *mod,
 
 	if (ns == KV_NS_UDEV) {
 		dom   = NULL;
-		flags |= (KV_SYNC | KV_PERSISTENT);
+		flags |= KV_SYNC_P;
 	} else
 		dom = KV_KEY_DOM_USER;
 
@@ -2375,7 +2374,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 	is_worker  = worker_control_is_worker(common->kv_store_res);
 
 	if (is_worker)
-		flags |= (KV_SYNC | KV_PERSISTENT);
+		flags |= KV_SYNC_P;
 
 	if (unset && !is_worker) {
 		if (kv_store_unset(common->kv_store_res, key, _kv_cb_write, &update_arg) < 0 || update_arg.ret_code < 0)
@@ -4647,7 +4646,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		                         NULL,
 		                         KV_NS_UDEV,
 		                         KV_KEY_UDEV_SID_SESSION_ID,
-		                         KV_SYNC | KV_PERSISTENT,
+		                         KV_SYNC_P,
 		                         worker_id,
 		                         strlen(worker_id) + 1)) {
 			log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
