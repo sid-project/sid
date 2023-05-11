@@ -4370,15 +4370,17 @@ out:
 static int _reply_failure(sid_resource_t *conn_res)
 {
 	struct connection    *conn = sid_resource_get_data(conn_res);
-	struct sid_msg        msg;
+	void                 *data;
+	struct sid_msg_header header;
 	uint8_t               prot;
 	struct sid_msg_header response_header = {
 		.status = SID_CMD_STATUS_FAILURE,
 	};
 	int r = -1;
 
-	(void) sid_buffer_get_data(conn->buf, (const void **) &msg.header, &msg.size);
-	prot = msg.header->prot;
+	(void) sid_buffer_get_data(conn->buf, (const void **) &data, NULL);
+	memcpy(&header, data, sizeof(header));
+	prot = header.prot;
 	(void) sid_buffer_rewind(conn->buf, 0, SID_BUFFER_POS_ABS);
 	if (prot <= SID_PROTOCOL) {
 		response_header.prot = prot;
