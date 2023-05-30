@@ -44,3 +44,10 @@ jobs:
 
       - name: Run tests
         run: podman exec -it ${{ env.CI_CONTAINER }} bash -c "./autogen.sh && ./configure && make check"
+
+      - name: Upload the test suite logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test_logs
+          path: tests/test-suite.log
