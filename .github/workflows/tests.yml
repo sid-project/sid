@@ -1,0 +1,46 @@
+name: Unit tests
+
+on:
+  pull_request:
+    branches:
+     - main
+  push:
+    branches:
+     - main
+
+jobs:
+  build:
+
+    runs-on: ubuntu-22.04
+
+    env:
+      CI_IMAGE: fedora:latest
+      CI_CONTAINER: sid-fedora-latest
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Install podman
+        run: |
+          sudo apt -qq update
+          sudo apt -y -qq install podman
+
+      - name: Start the container
+        run: |
+          podman run -d -t --name ${{ env.CI_CONTAINER }} --privileged --volume "$(pwd):/app" --workdir "/app" ${{ env.CI_IMAGE }}
+
+      - name: Install SID build dependencies in the container
+        run: |
+          podman exec -it ${{ env.CI_CONTAINER }} bash -c "dnf -y install dnf-plugins-core && dnf -y builddep rpm/sid.spec"
+
+      - name: Install SID test dependencies in the container
+        run: |
+          podman exec -it ${{ env.CI_CONTAINER }} bash -c "dnf -y install libcmocka-devel libcmocka"
+
+      - name: Build SID in the container
+        run: |
+          podman exec -it ${{ env.CI_CONTAINER }} bash -c "./autogen.sh && ./configure && make -j"
+
+      - name: Run tests
+        run: podman exec -it ${{ env.CI_CONTAINER }} bash -c "./autogen.sh && ./configure && make check"
