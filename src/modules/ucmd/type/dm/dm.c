@@ -180,7 +180,7 @@ static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 	sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVMOD, "name", name, strlen(name) + 1, KV_SYNC | KV_SUBMOD_RD);
 
 	dm_mod      = module_get_data(module);
-	submod_name = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_DEVICE, DM_SUBMODULES_ID, NULL, NULL);
+	submod_name = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_DEVICE, DM_SUBMODULES_ID, NULL, NULL, 0);
 
 	if (submod_name) {
 		if (strcmp(submod_name, DM_SUBMODULE_ID_NONE) != 0) {
@@ -279,7 +279,7 @@ static int _dm_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 
 	log_debug(DM_ID, "scan-next");
 
-	if ((val = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_UDEV, "ID_FS_TYPE", NULL, NULL))) {
+	if ((val = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_UDEV, "ID_FS_TYPE", NULL, NULL, 0))) {
 		if (!strcmp(val, "LVM2_member") || !strcmp(val, "LVM1_member"))
 			submod_name = "lvm";
 		else if (!strcmp(val, "DM_snapshot_cow"))
