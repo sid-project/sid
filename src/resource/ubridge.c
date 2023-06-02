@@ -78,6 +78,7 @@
 #define KV_PREFIX_OP_SYNC_C                         ">"
 #define KV_PREFIX_OP_SYNC_END_C                     "?" /* right after '>' */
 #define KV_PREFIX_OP_ARCHIVE_C                      "~"
+#define KV_PREFIX_OP_BLANK_C                        " "
 #define KV_PREFIX_OP_ILLEGAL_C                      "X"
 #define KV_PREFIX_OP_SET_C                          ""
 #define KV_PREFIX_OP_PLUS_C                         "+"
@@ -354,6 +355,7 @@ typedef enum {
 } key_part_t;
 
 struct kv_key_spec {
+	const char             *extra_op;
 	kv_op_t                 op;
 	const char             *dom;
 	sid_ucmd_kv_namespace_t ns;
@@ -542,7 +544,7 @@ static char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spe
 		                       (const void **) &key,
 		                       NULL,
 		                       fmt,
-		                       prefix_only ? KV_KEY_NULL : " ",
+		                       prefix_only ? KV_KEY_NULL : key_spec->extra_op ?: KV_PREFIX_OP_BLANK_C,
 		                       op_to_key_prefix_map[key_spec->op],
 		                       key_spec->dom,
 		                       ns_to_key_prefix_map[key_spec->ns],
@@ -555,7 +557,7 @@ static char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spe
 	} else {
 		if (asprintf((char **) &key,
 		             fmt,
-		             prefix_only ? KV_KEY_NULL : "  ",
+		             prefix_only ? KV_KEY_NULL : key_spec->extra_op ?: KV_PREFIX_OP_BLANK_C,
 		             op_to_key_prefix_map[key_spec->op],
 		             key_spec->dom,
 		             ns_to_key_prefix_map[key_spec->ns],
@@ -2242,15 +2244,17 @@ static const void *_do_sid_ucmd_get_kv(struct module          *mod,
                                        sid_ucmd_kv_namespace_t ns,
                                        const char             *key,
                                        size_t                 *value_size,
-                                       sid_ucmd_kv_flags_t    *flags)
+                                       sid_ucmd_kv_flags_t    *flags,
+                                       unsigned int            archive)
 {
-	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
-	                               .dom     = dom ?: ID_NULL,
-	                               .ns      = ns,
-	                               .ns_part = _get_ns_part(mod, ucmd_ctx, ns),
-	                               .id_cat  = ns == KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
-	                               .id      = ns == KV_NS_DEVMOD ? _get_ns_part(mod, ucmd_ctx, KV_NS_MODULE) : ID_NULL,
-	                               .core    = key};
+	struct kv_key_spec key_spec = {.extra_op = archive == 1 ? KV_PREFIX_OP_ARCHIVE_C : KV_PREFIX_OP_BLANK_C,
+	                               .op       = KV_OP_SET,
+	                               .dom      = dom ?: ID_NULL,
+	                               .ns       = ns,
+	                               .ns_part  = _get_ns_part(mod, ucmd_ctx, ns),
+	                               .id_cat   = ns == KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
+	                               .id       = ns == KV_NS_DEVMOD ? _get_ns_part(mod, ucmd_ctx, KV_NS_MODULE) : ID_NULL,
+	                               .core     = key};
 	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
 }
 
@@ -2259,7 +2263,8 @@ const void *sid_ucmd_get_kv(struct module          *mod,
                             sid_ucmd_kv_namespace_t ns,
                             const char             *key,
                             size_t                 *value_size,
-                            sid_ucmd_kv_flags_t    *flags)
+                            sid_ucmd_kv_flags_t    *flags,
+                            unsigned int            archive)
 {
 	const char *dom;
 
@@ -2271,7 +2276,7 @@ const void *sid_ucmd_get_kv(struct module          *mod,
 	else
 		dom = KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, dom, ns, key, value_size, flags);
+	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, dom, ns, key, value_size, flags, archive);
 }
 
 static const void *_do_sid_ucmd_get_foreign_kv(struct module          *mod,
@@ -2282,15 +2287,17 @@ static const void *_do_sid_ucmd_get_foreign_kv(struct module          *mod,
                                                sid_ucmd_kv_namespace_t ns,
                                                const char             *key,
                                                size_t                 *value_size,
-                                               sid_ucmd_kv_flags_t    *flags)
+                                               sid_ucmd_kv_flags_t    *flags,
+                                               unsigned int            archive)
 {
-	struct kv_key_spec key_spec = {.op      = KV_OP_SET,
-	                               .dom     = dom ?: ID_NULL,
-	                               .ns      = ns,
-	                               .ns_part = _get_foreign_ns_part(mod, ucmd_ctx, foreign_mod_name, foreign_dev_id, ns),
-	                               .id_cat  = ns == KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
-	                               .id      = ns == KV_NS_DEVMOD ? foreign_mod_name : ID_NULL,
-	                               .core    = key};
+	struct kv_key_spec key_spec = {.extra_op = archive ? KV_PREFIX_OP_ARCHIVE_C : KV_PREFIX_OP_BLANK_C,
+	                               .op       = KV_OP_SET,
+	                               .dom      = dom ?: ID_NULL,
+	                               .ns       = ns,
+	                               .ns_part  = _get_foreign_ns_part(mod, ucmd_ctx, foreign_mod_name, foreign_dev_id, ns),
+	                               .id_cat   = ns == KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
+	                               .id       = ns == KV_NS_DEVMOD ? foreign_mod_name : ID_NULL,
+	                               .core     = key};
 
 	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
 }
@@ -2301,7 +2308,8 @@ const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
                                         sid_ucmd_kv_namespace_t ns,
                                         const char             *key,
                                         size_t                 *value_size,
-                                        sid_ucmd_kv_flags_t    *flags)
+                                        sid_ucmd_kv_flags_t    *flags,
+                                        unsigned int            archive)
 {
 	const char *dom;
 
@@ -2311,7 +2319,7 @@ const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, foreign_mod_name, NULL, dom, ns, key, value_size, flags);
+	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, foreign_mod_name, NULL, dom, ns, key, value_size, flags, archive);
 }
 
 const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
@@ -2320,7 +2328,8 @@ const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
                                         sid_ucmd_kv_namespace_t ns,
                                         const char             *key,
                                         size_t                 *value_size,
-                                        sid_ucmd_kv_flags_t    *flags)
+                                        sid_ucmd_kv_flags_t    *flags,
+                                        unsigned int            archive)
 {
 	const char *dom;
 
@@ -2330,7 +2339,7 @@ const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, NULL, foreign_dev_id, dom, ns, key, value_size, flags);
+	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, NULL, foreign_dev_id, dom, ns, key, value_size, flags, archive);
 }
 
 const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
@@ -2340,7 +2349,8 @@ const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
                                             sid_ucmd_kv_namespace_t ns,
                                             const char             *key,
                                             size_t                 *value_size,
-                                            sid_ucmd_kv_flags_t    *flags)
+                                            sid_ucmd_kv_flags_t    *flags,
+                                            unsigned int            archive)
 {
 	const char *dom;
 
@@ -2350,7 +2360,16 @@ const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, foreign_mod_name, foreign_dev_id, dom, ns, key, value_size, flags);
+	return _do_sid_ucmd_get_foreign_kv(mod,
+	                                   ucmd_ctx,
+	                                   foreign_mod_name,
+	                                   foreign_dev_id,
+	                                   dom,
+	                                   ns,
+	                                   key,
+	                                   value_size,
+	                                   flags,
+	                                   archive);
 }
 
 int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
@@ -2506,7 +2525,7 @@ dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd
 	if (!mod || !ucmd_ctx)
 		return DEV_NOT_RDY_UNDEFINED;
 
-	if (!(p_ready = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)))
+	if (!(p_ready = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, 0)))
 		result = DEV_NOT_RDY_UNPROCESSED;
 	else
 		result = *p_ready;
@@ -2542,7 +2561,7 @@ dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx
 	if (!mod || !ucmd_ctx)
 		return DEV_RES_UNDEFINED;
 
-	if (!(p_reserved = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL)))
+	if (!(p_reserved = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL, 0)))
 		result = DEV_RES_UNPROCESSED;
 	else
 		result = *p_reserved;
@@ -3791,7 +3810,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	dev_reserved_t       reserved;
 
 	/* try to get current device's UUID from udev first */
-	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL))) {
+	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL, 0))) {
 		/* if not in udev, check if we have set UUID for this device already */
 		if (!(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
 			/* if we haven't set the UUID for this device yet, do it now */
@@ -3845,7 +3864,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 		return -1;
 	}
 
-	if (!_do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL)) {
+	if (!_do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, 0)) {
 		ready    = DEV_NOT_RDY_UNPROCESSED;
 		reserved = DEV_RES_UNPROCESSED;
 
@@ -3916,7 +3935,7 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 	const struct sid_ucmd_mod_fns *mod_fns;
 	const char                    *mod_name;
 
-	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL))) {
+	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL, 0))) {
 		if (!(mod_name = _lookup_mod_name(exec_arg->cmd_res,
 		                                  ucmd_ctx->req_env.dev.udev.major,
 		                                  ucmd_ctx->req_env.dev.udev.name,
@@ -4005,7 +4024,8 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 	                                         KV_NS_DEVICE,
 	                                         SID_UCMD_KEY_DEVICE_NEXT_MOD,
 	                                         NULL,
-	                                         NULL))) {
+	                                         NULL,
+	                                         0))) {
 		if (!(exec_arg->type_mod_res_next = module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name)))
 			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
 	} else
