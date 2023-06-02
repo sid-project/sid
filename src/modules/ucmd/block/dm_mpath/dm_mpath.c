@@ -142,7 +142,7 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 		char       *p;
 		int         old_valid;
 
-		old_valid_str = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_DEVMOD, X_VALID, NULL, NULL);
+		old_valid_str = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_DEVMOD, X_VALID, NULL, NULL, 0);
 		if (old_valid_str && old_valid_str[0]) {
 			errno     = 0;
 			old_valid = strtol(old_valid_str, &p, 10);
