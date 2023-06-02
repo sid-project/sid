@@ -186,7 +186,8 @@ const void *sid_ucmd_get_kv(struct module          *mod,
                             sid_ucmd_kv_namespace_t ns,
                             const char             *key,
                             size_t                 *value_size,
-                            sid_ucmd_kv_flags_t    *flags);
+                            sid_ucmd_kv_flags_t    *flags,
+                            unsigned int            archive);
 
 const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
@@ -194,7 +195,8 @@ const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
                                         sid_ucmd_kv_namespace_t ns,
                                         const char             *key,
                                         size_t                 *value_size,
-                                        sid_ucmd_kv_flags_t    *flags);
+                                        sid_ucmd_kv_flags_t    *flags,
+                                        unsigned int            archive);
 
 const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
@@ -202,7 +204,8 @@ const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
                                         sid_ucmd_kv_namespace_t ns,
                                         const char             *key,
                                         size_t                 *value_size,
-                                        sid_ucmd_kv_flags_t    *flags);
+                                        sid_ucmd_kv_flags_t    *flags,
+                                        unsigned int            archive);
 
 const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
                                             struct sid_ucmd_ctx    *ucmd_ctx,
@@ -211,7 +214,8 @@ const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
                                             sid_ucmd_kv_namespace_t ns,
                                             const char             *key,
                                             size_t                 *value_size,
-                                            sid_ucmd_kv_flags_t    *flags);
+                                            sid_ucmd_kv_flags_t    *flags,
+                                            unsigned int            archive);
 
 const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
                                       struct sid_ucmd_ctx *ucmd_ctx,
