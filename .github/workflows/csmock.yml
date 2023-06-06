@@ -1,0 +1,66 @@
+name: csmock static analysis
+
+on:
+  pull_request:
+    branches:
+     - main
+  push:
+    branches:
+     - main
+
+jobs:
+  build:
+
+    runs-on: ubuntu-22.04
+
+    env:
+      CI_IMAGE: fedora:latest
+      CI_CONTAINER: sid-fedora-latest
+
+      CSMOCK_CHROOTS: "default"
+      CSMOCK_TOOLS: "clang,cppcheck,gcc"
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Install podman
+        run: |
+          sudo apt -qq update
+          sudo apt -y -qq install podman
+
+      - name: Start the container
+        run: |
+          podman run -d -t --name ${{ env.CI_CONTAINER }} --privileged --volume "$(pwd):/app" --workdir "/app" ${{ env.CI_IMAGE }}
+
+      - name: Enable Copr with latest csmock
+        run: |
+          podman exec -it ${{ env.CI_CONTAINER }} bash -c "dnf -y install dnf-plugins-core && dnf -y copr enable @codescan/csutils"
+
+      - name: Install rpmbuild and csmock
+        run: |
+          podman exec -it ${{ env.CI_CONTAINER }} bash -c "dnf -y install rpm-build csmock"
+
+      - name: Install SID build dependencies in the container
+        run: |
+          podman exec -it ${{ env.CI_CONTAINER }} bash -c "dnf -y install dnf-plugins-core && dnf -y builddep rpm/sid.spec"
+
+      - name: Build SID in the container and create tarball
+        run: |
+          podman exec -it ${{ env.CI_CONTAINER }} bash -c "./autogen.sh && ./configure && make -j && make dist"
+
+      - name: Build the SRPM
+        run: podman exec -it ${{ env.CI_CONTAINER }} bash -c "rpmbuild -bs --define '_sourcedir .' rpm/sid.spec"
+
+      - name: Run csmock
+        run: podman exec -it ${{ env.CI_CONTAINER }} bash -c "csmock -o sid-csmock-results.tar.xz -r ${{ env.CSMOCK_CHROOTS }} --tools ${{ env.CSMOCK_TOOLS }} ~/rpmbuild/SRPMS/sid*.src.rpm"
+
+      - name: Check csmock results
+        run: podman exec -it ${{ env.CI_CONTAINER }} bash -c "tar -xf sid-csmock-results.tar.xz && test -s sid-csmock-results/scan-results-summary.txt && exit 1 || exit 0"
+
+      - name: Upload the test csmock logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: csmock_logs
+          path: sid-csmock-results/*
