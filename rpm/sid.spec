@@ -67,7 +67,7 @@ of devices and their layers in the stack.
 %endif
 
 %build
-./autogen.sh
+autoreconf -ivf
 %configure %{?configure_dm_mpath}
 %make_build
 
