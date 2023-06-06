@@ -137,6 +137,16 @@ void *kv_store_set_value(sid_resource_t           *kv_store_res,
                          kv_store_update_cb_fn_t   kv_update_fn,
                          void                     *kv_update_fn_arg);
 
+void *kv_store_set_value_with_archive(sid_resource_t           *kv_store_res,
+                                      const char               *key,
+                                      void                     *value,
+                                      size_t                    value_size,
+                                      kv_store_value_flags_t    flags,
+                                      kv_store_value_op_flags_t op_flags,
+                                      kv_store_update_cb_fn_t   kv_update_fn,
+                                      void                     *kv_update_fn_arg,
+                                      const char               *archive_key);
+
 /*
  * Add alias for given key.
  *   - if the alias is already used and is pointing to a different record

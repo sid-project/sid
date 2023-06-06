@@ -31,7 +31,8 @@
 #include <stdio.h>
 
 typedef enum {
-	KV_STORE_VALUE_INT_ALLOC = UINT32_C(0x00000001),
+	KV_STORE_VALUE_INT_ALLOC   = UINT32_C(0x00000001),
+	KV_STORE_VALUE_INT_ARCHIVE = UINT32_C(0x00000002),
 } kv_store_value_int_flags_t;
 
 struct kv_store {
@@ -52,9 +53,16 @@ struct kv_store_value {
 	char                       data[] __attribute__((aligned));
 };
 
+struct kv_rollback_arg {
+	const char            *key;
+	struct kv_store_value *kv_store_value;
+	size_t                 kv_store_value_size;
+};
+
 struct kv_update_fn_relay {
 	kv_store_update_cb_fn_t kv_update_fn;
 	void                   *kv_update_fn_arg;
+	struct kv_rollback_arg  archive_arg;
 	struct sid_buffer      *unset_buf;
 	struct sid_buffer      *rollback_buf;
 	int                     ret_code;
@@ -72,12 +80,6 @@ struct kv_store_iter {
 			bptree_iter_t *iter;
 		} bpt;
 	};
-};
-
-struct kv_rollback_arg {
-	const char            *key;
-	struct kv_store_value *kv_store_value;
-	size_t                 kv_store_value_size;
 };
 
 static void _set_ptr(void *dest, const void *p)
@@ -396,8 +398,16 @@ static int _update_fn(const char                *key,
 			relay->ret_code = sid_buffer_add(relay->rollback_buf, &rollback_arg, sizeof(rollback_arg), NULL, NULL);
 			if (relay->ret_code < 0)
 				r = 0;
-		} else if (old_value) {
+		} else if (old_value && !relay->archive_arg.key) {
 			_destroy_kv_store_value(old_value);
+		}
+
+		if (relay->archive_arg.key) {
+			if (old_value)
+				old_value->int_flags |= KV_STORE_VALUE_INT_ARCHIVE;
+
+			relay->archive_arg.kv_store_value      = old_value;
+			relay->archive_arg.kv_store_value_size = old_value_len;
 		}
 	}
 	if (!r) {
@@ -457,24 +467,37 @@ static const char *_canonicalize_key(const char *key)
 	return key;
 }
 
-void *kv_store_set_value(sid_resource_t           *kv_store_res,
-                         const char               *key,
-                         void                     *value,
-                         size_t                    value_size,
-                         kv_store_value_flags_t    flags,
-                         kv_store_value_op_flags_t op_flags,
-                         kv_store_update_cb_fn_t   kv_update_fn,
-                         void                     *kv_update_fn_arg)
+void *_do_kv_store_set_value(sid_resource_t           *kv_store_res,
+                             const char               *key,
+                             void                     *value,
+                             size_t                    value_size,
+                             kv_store_value_flags_t    flags,
+                             kv_store_value_op_flags_t op_flags,
+                             kv_store_update_cb_fn_t   kv_update_fn,
+                             void                     *kv_update_fn_arg,
+                             const char               *archive_key)
 {
 	struct kv_store          *kv_store     = sid_resource_get_data(kv_store_res);
-	struct kv_update_fn_relay relay        = {.kv_update_fn     = kv_update_fn,
-	                                          .kv_update_fn_arg = kv_update_fn_arg,
-	                                          .rollback_buf     = kv_store->trans_rollback_buf};
 	struct iovec              iov_internal = {.iov_base = value, .iov_len = value_size};
 	struct iovec             *iov;
 	int                       iov_cnt;
+	struct kv_update_fn_relay relay;
 	size_t                    kv_store_value_size;
 	struct kv_store_value    *kv_store_value;
+
+	/*
+	 * Update the record with new data under the 'key' first. If we fail to do so
+	 * (e.g. the allocation fails underneath {hash,bptree}_update), return NULL immediately.
+	 *
+	 * If we're also creating an archive, also update the record under the 'archive_key'.
+	 * If we fail to do so, put the archive back under the 'key' and then return NULL to indicate
+	 * overall failed operation. Putting the archive back doesn't fail, because we already have
+	 * the hash/bptree record underneath and we only replace the content back to the archive
+	 * (there's no further allocation) - that's also the reason we ignore the return value there
+	 * (we're using (void) {hash,bptree}_update).
+	 *
+	 * This way, we always update records for both key and archive_key together.
+	 */
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		iov     = value;
@@ -487,7 +510,13 @@ void *kv_store_set_value(sid_resource_t           *kv_store_res,
 	if (!(kv_store_value = _create_kv_store_value(iov, iov_cnt, flags, op_flags, &kv_store_value_size)))
 		return NULL;
 
-	key = _canonicalize_key(key);
+	key         = _canonicalize_key(key);
+	archive_key = _canonicalize_key(archive_key);
+
+	relay       = (struct kv_update_fn_relay) {.kv_update_fn     = kv_update_fn,
+	                                           .kv_update_fn_arg = kv_update_fn_arg,
+	                                           .archive_arg.key  = archive_key,
+	                                           .rollback_buf     = kv_store->trans_rollback_buf};
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
@@ -512,10 +541,87 @@ void *kv_store_set_value(sid_resource_t           *kv_store_res,
 			break;
 	}
 
+	if (relay.archive_arg.key && relay.archive_arg.kv_store_value) {
+		relay.archive_arg.key  = NULL;
+		relay.kv_update_fn     = NULL;
+		relay.kv_update_fn_arg = NULL;
+
+		switch (kv_store->backend) {
+			case KV_STORE_BACKEND_HASH:
+				if (hash_update(kv_store->ht,
+				                archive_key,
+				                strlen(archive_key) + 1,
+				                (void **) &relay.archive_arg.kv_store_value,
+				                &relay.archive_arg.kv_store_value_size,
+				                _hash_update_fn,
+				                &relay)) {
+					(void) hash_update(kv_store->ht,
+					                   key,
+					                   strlen(key) + 1,
+					                   (void **) &relay.archive_arg.kv_store_value,
+					                   &relay.archive_arg.kv_store_value_size,
+					                   NULL,
+					                   NULL);
+					return NULL;
+				}
+				break;
+
+			case KV_STORE_BACKEND_BPTREE:
+				if (bptree_update(kv_store->bpt,
+				                  archive_key,
+				                  (void **) &relay.archive_arg.kv_store_value,
+				                  &relay.archive_arg.kv_store_value_size,
+				                  _bptree_update_fn,
+				                  &relay)) {
+					(void) bptree_update(kv_store->bpt,
+					                     key,
+					                     (void **) &relay.archive_arg.kv_store_value,
+					                     &relay.archive_arg.kv_store_value_size,
+					                     NULL,
+					                     NULL);
+					return NULL;
+				}
+				break;
+		}
+	}
+
 	if (relay.ret_code < 0)
 		return NULL;
 
 	return _get_data(kv_store_value);
+}
+
+void *kv_store_set_value(sid_resource_t           *kv_store_res,
+                         const char               *key,
+                         void                     *value,
+                         size_t                    value_size,
+                         kv_store_value_flags_t    flags,
+                         kv_store_value_op_flags_t op_flags,
+                         kv_store_update_cb_fn_t   kv_update_fn,
+                         void                     *kv_update_fn_arg)
+{
+	return _do_kv_store_set_value(kv_store_res, key, value, value_size, flags, op_flags, kv_update_fn, kv_update_fn_arg, NULL);
+}
+
+void *kv_store_set_value_with_archive(sid_resource_t           *kv_store_res,
+                                      const char               *key,
+                                      void                     *value,
+                                      size_t                    value_size,
+                                      kv_store_value_flags_t    flags,
+                                      kv_store_value_op_flags_t op_flags,
+                                      kv_store_update_cb_fn_t   kv_update_fn,
+                                      void                     *kv_update_fn_arg,
+                                      const char               *archive_key)
+{
+	return _do_kv_store_set_value(kv_store_res,
+	                              key,
+	                              value,
+	                              value_size,
+	                              flags,
+	                              op_flags,
+	                              kv_update_fn,
+	                              kv_update_fn_arg,
+	                              archive_key);
 }
 
 int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char *alias, bool force)
@@ -839,8 +945,11 @@ void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback)
 			                         rollback_args[i].key,
 			                         rollback_args[i].kv_store_value,
 			                         rollback_args[i].kv_store_value_size);
-		else
-			_destroy_kv_store_value(rollback_args[i].kv_store_value);
+		else {
+			if (!rollback_args[i].kv_store_value ||
+			    !(rollback_args[i].kv_store_value->int_flags & KV_STORE_VALUE_INT_ARCHIVE))
+				_destroy_kv_store_value(rollback_args[i].kv_store_value);
+		}
 	}
 	sid_buffer_destroy(kv_store->trans_rollback_buf);
 	kv_store->trans_rollback_buf = NULL;
