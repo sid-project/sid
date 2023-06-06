@@ -1,4 +1,4 @@
-.TH SID 8 "Storage Instantiation Daemon version (VERSION)" "Red Hat, Inc."
+.TH SID 8 "Storage Instantiation Daemon version @VERSION@" "Red Hat, Inc."
 .
 .SH NAME
 .
