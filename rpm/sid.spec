@@ -136,8 +136,8 @@ base libraries.
 %dir %{_includedir}/sid/base
 %{_includedir}/sid/base/binary.h
 %{_includedir}/sid/base/buffer-common.h
+%{_includedir}/sid/base/buffer-type.h
 %{_includedir}/sid/base/buffer.h
-%{_includedir}/sid/base/common.h
 %{_includedir}/sid/base/comms.h
 %{_includedir}/sid/base/util.h
 %doc README.md
@@ -238,6 +238,7 @@ interface libraries.
 %dir %{_includedir}/sid/iface
 %{_includedir}/sid/iface/service-link.h
 %{_includedir}/sid/iface/iface.h
+%{_includedir}/sid/iface/iface_internal.h
 %doc README.md
 
 

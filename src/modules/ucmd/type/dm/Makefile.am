@@ -23,7 +23,7 @@ dmdir = $(pkglibdir)/modules/ucmd/type
 
 dm_LTLIBRARIES = dm.la
 
-dm_la_SOURCES = dm.c
+dm_la_SOURCES = dm.c dm.h
 
 dm_la_LDFLAGS = -module -avoid-version
 
