@@ -104,13 +104,14 @@ int _do_build_buffers(sid_resource_t *cmd_res)
 	return fd;
 }
 
-struct kv_key_spec base_spec = {.op      = KV_OP_SET,
-                                .dom     = KV_KEY_DOM_USER,
-                                .ns      = KV_NS_GLOBAL,
-                                .ns_part = ID_NULL,
-                                .id_cat  = ID_NULL,
-                                .id      = ID_NULL,
-                                .core    = ID_NULL};
+struct kv_key_spec base_spec = {.extra_op = NULL,
+                                .op       = KV_OP_SET,
+                                .dom      = KV_KEY_DOM_USER,
+                                .ns       = KV_NS_GLOBAL,
+                                .ns_part  = ID_NULL,
+                                .id_cat   = ID_NULL,
+                                .id       = ID_NULL,
+                                .core     = ID_NULL};
 
 static void _check_missing_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 {
