@@ -33,3 +33,7 @@ $(dist_sysconfig_DATA):%:%.in
 distclean-local:
 	$(RM) $(dist_systemdsystemunit_DATA) \
 		$(dist_sysconfig_DATA)
+
+EXTRA_DIST = sid.socket.in \
+	     sid.service.in \
+	     sid.sysconfig.in

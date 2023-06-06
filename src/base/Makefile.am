@@ -19,8 +19,7 @@
 
 pkglib_LTLIBRARIES = libsidbase.la
 
-libsidbase_la_SOURCES = buffer-type.h \
-			buffer-type-linear.c \
+libsidbase_la_SOURCES = buffer-type-linear.c \
 			buffer-type-vector.c \
 			buffer.c \
 			comms.c \
@@ -30,6 +29,7 @@ libsidbase_la_SOURCES = buffer-type.h \
 basedir = $(pkgincludedir)/base
 
 base_HEADERS = $(top_builddir)/src/include/base/buffer-common.h \
+	       $(top_builddir)/src/include/base/buffer-type.h \
 	       $(top_builddir)/src/include/base/buffer.h \
 	       $(top_builddir)/src/include/base/comms.h \
 	       $(top_builddir)/src/include/base/util.h \

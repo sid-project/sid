@@ -19,3 +19,5 @@
 
 ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = src udev systemd man . tests
+
+EXTRA_DIST = BSD_LICENSE
