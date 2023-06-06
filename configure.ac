@@ -72,6 +72,7 @@ AC_CONFIG_FILES([Makefile
 		 udev/Makefile
 		 systemd/Makefile
 		 man/Makefile
+		 man/sid.8
 		 tests/Makefile])
 
 AC_CONFIG_HEADERS([src/include/config.h])

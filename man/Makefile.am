@@ -19,8 +19,5 @@
 
 dist_man8_MANS = sid.8
 
-$(dist_man8_MANS):%:%.in
-	$(SED) -e "s|(VERSION)|$(VERSION)|" $< >$@
-
 distclean-local:
 	$(RM) $(dist_man8_MANS)
