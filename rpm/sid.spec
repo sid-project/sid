@@ -163,6 +163,28 @@ functions.
 %doc README.md
 
 ##############################################################################
+# SID-INTERNAL-LIBS-DEVEL
+##############################################################################
+%package internal-libs-devel
+Summary: Development files for Storage Instantiation Daemon (SID) internal
+License: GPL-2.0-or-later AND BSD-3-Clause
+%description internal-libs-devel
+This package contains development files for Storage Instantiation Daemon (SID)
+internal libraries.
+
+%files internal-libs-devel
+%dir %{_includedir}/sid/internal
+%{_includedir}/sid/internal/bitmap.h
+%{_includedir}/sid/internal/bptree.h
+%{_includedir}/sid/internal/common.h
+%{_includedir}/sid/internal/formatter.h
+%{_includedir}/sid/internal/hash.h
+%{_includedir}/sid/internal/list.h
+%{_includedir}/sid/internal/mem.h
+%{_includedir}/sid/internal/util.h
+%{_libdir}/sid/libsidinternal.so
+
+##############################################################################
 # SID-LOG-LIBS
 ##############################################################################
 
