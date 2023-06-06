@@ -76,6 +76,7 @@ make DESTDIR=%{buildroot} install
 rm -f %{buildroot}/%{_libdir}/sid/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/block/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/*.{a,la}
+rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/dm/*.{a,la}
 %multilib_fix_c_header --file %{_includedir}/sid/config.h
 
 %files
@@ -403,6 +404,23 @@ Daemon (SID).
 %dir %{_libdir}/sid/modules/ucmd/type
 %dir %{_libdir}/sid/modules/ucmd/type/dm
 %{_libdir}/sid/modules/ucmd/type/dm.so
+%doc README.md
+
+##############################################################################
+# SID-MOD-TYPE-DM-LVM
+##############################################################################
+
+%package mod-type-dm-lvm
+Summary: LVM type module for Storage Instantiation Daemon (SID)
+Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-mod-type-dm%{?_isa} = %{?epoch}:%{version}-%{release}
+%description mod-type-dm-lvm
+This package contains LVM type module for Storage Instantiation
+Daemon (SID).
+
+%files mod-type-dm-lvm
+%{_libdir}/sid/modules/ucmd/type/dm/lvm.so
 %doc README.md
 
 
