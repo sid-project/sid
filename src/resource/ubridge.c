@@ -77,6 +77,7 @@
 
 #define KV_PREFIX_OP_SYNC_C                         ">"
 #define KV_PREFIX_OP_SYNC_END_C                     "?" /* right after '>' */
+#define KV_PREFIX_OP_ARCHIVE_C                      "~"
 #define KV_PREFIX_OP_ILLEGAL_C                      "X"
 #define KV_PREFIX_OP_SET_C                          ""
 #define KV_PREFIX_OP_PLUS_C                         "+"
@@ -554,7 +555,7 @@ static char *_do_compose_key(struct sid_buffer *buf, struct kv_key_spec *key_spe
 	} else {
 		if (asprintf((char **) &key,
 		             fmt,
-		             prefix_only ? KV_KEY_NULL : " ",
+		             prefix_only ? KV_KEY_NULL : "  ",
 		             op_to_key_prefix_map[key_spec->op],
 		             key_spec->dom,
 		             ns_to_key_prefix_map[key_spec->ns],
@@ -1204,6 +1205,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			print_uint64_field(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
 			print_start_array(format, export_buf, 3, "flags", true);
 			print_bool_array_elem(format, export_buf, 4, "KV_SYNC_P", VVALUE_FLAGS(vvalue) & KV_SYNC_P, false);
+			print_bool_array_elem(format, export_buf, 4, "KV_ARCHIVE", VVALUE_FLAGS(vvalue) & KV_ARCHIVE, true);
 			print_bool_array_elem(format,
 			                      export_buf,
 			                      4,
@@ -2130,15 +2132,29 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	                                     .custom   = NULL,
 	                                     .ret_code = -EREMOTEIO};
 
-	if (!(svalue = kv_store_set_value(ucmd_ctx->common->kv_store_res,
-	                                  key,
-	                                  vvalue,
-	                                  VVALUE_SINGLE_CNT,
-	                                  KV_STORE_VALUE_VECTOR,
-	                                  KV_STORE_VALUE_OP_MERGE,
-	                                  _kv_cb_write,
-	                                  &update_arg)))
-		goto out;
+	if (flags & KV_ARCHIVE) {
+		key[0] = KV_PREFIX_OP_ARCHIVE_C[0];
+		if (!(svalue = kv_store_set_value_with_archive(ucmd_ctx->common->kv_store_res,
+		                                               key + 1,
+		                                               vvalue,
+		                                               VVALUE_SINGLE_CNT,
+		                                               KV_STORE_VALUE_VECTOR,
+		                                               KV_STORE_VALUE_OP_MERGE,
+		                                               _kv_cb_write,
+		                                               &update_arg,
+		                                               key)))
+			goto out;
+	} else {
+		if (!(svalue = kv_store_set_value(ucmd_ctx->common->kv_store_res,
+		                                  key,
+		                                  vvalue,
+		                                  VVALUE_SINGLE_CNT,
+		                                  KV_STORE_VALUE_VECTOR,
+		                                  KV_STORE_VALUE_OP_MERGE,
+		                                  _kv_cb_write,
+		                                  &update_arg)))
+			goto out;
+	}
 
 	if (value)
 		ret = svalue->data + _svalue_ext_data_offset(svalue);
@@ -4801,14 +4817,14 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	kv_store_value_flags_t      kv_store_value_flags;
 	SID_BUFFER_SIZE_PREFIX_TYPE msg_size;
 	size_t                      key_size, value_size, data_offset, i;
-	char                       *key, *shm           = MAP_FAILED, *p, *end;
+	char                       *key, *archive_key = NULL, *shm = MAP_FAILED, *p, *end;
 	kv_scalar_t                 tmp_svalue, *svalue = NULL;
 	kv_vector_t                *vvalue = NULL;
 	const char                 *vvalue_str;
 	void                       *value_to_store;
 	struct kv_rel_spec          rel_spec   = {.delta = &((struct kv_delta) {0}), .abs_delta = &((struct kv_delta) {0})};
 	struct kv_update_arg        update_arg = {.gen_buf = common_ctx->gen_buf, .custom = &rel_spec};
-	bool                        unset;
+	bool                        unset, archive;
 	int                         r = -1;
 
 	if (read(fd, &msg_size, SID_BUFFER_SIZE_PREFIX_LEN) != SID_BUFFER_SIZE_PREFIX_LEN) {
@@ -4908,6 +4924,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 					goto out;
 			}
 
+			archive        = VVALUE_FLAGS(vvalue) & KV_ARCHIVE;
 			value_to_store = vvalue;
 		} else {
 			if (value_size <= sizeof(*svalue)) {
@@ -4936,22 +4953,47 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 
 			rel_spec.delta->op = KV_OP_SET;
 
+			archive            = svalue->flags & KV_ARCHIVE;
 			value_to_store     = svalue;
 		}
 
-		if (unset)
+		if (archive) {
+			if (!(archive_key = malloc(key_size + 1))) {
+				log_error(ID(res), "Failed to create archive key for key %s.", key);
+				goto out;
+			}
+			memcpy(archive_key + 1, key, key_size);
+			archive_key[0] = KV_PREFIX_OP_ARCHIVE_C[0];
+		}
+
+		if (unset) {
+			if (archive)
+				(void) kv_store_unset(common_ctx->kv_store_res, archive_key, NULL, NULL);
 			(void) kv_store_unset(common_ctx->kv_store_res, key, _kv_cb_main_unset, &update_arg);
-		else {
+		} else {
 			if (rel_spec.delta->op == KV_OP_SET) {
-				if (!kv_store_set_value(common_ctx->kv_store_res,
-				                        key,
-				                        value_to_store,
-				                        value_size,
-				                        kv_store_value_flags,
-				                        KV_STORE_VALUE_NO_OP,
-				                        _kv_cb_main_set,
-				                        &update_arg))
-					goto out;
+				if (archive) {
+					if (!kv_store_set_value_with_archive(common_ctx->kv_store_res,
+					                                     key,
+					                                     value_to_store,
+					                                     value_size,
+					                                     kv_store_value_flags,
+					                                     KV_STORE_VALUE_NO_OP,
+					                                     _kv_cb_main_set,
+					                                     &update_arg,
+					                                     archive_key))
+						goto out;
+				} else {
+					if (!kv_store_set_value(common_ctx->kv_store_res,
+					                        key,
+					                        value_to_store,
+					                        value_size,
+					                        kv_store_value_flags,
+					                        KV_STORE_VALUE_NO_OP,
+					                        _kv_cb_main_set,
+					                        &update_arg))
+						goto out;
+				}
 			} else {
 				value_to_store = kv_store_set_value(common_ctx->kv_store_res,
 				                                    key,
@@ -4967,8 +5009,9 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			}
 		}
 
-		svalue = mem_freen(svalue);
-		vvalue = mem_freen(vvalue);
+		svalue      = mem_freen(svalue);
+		vvalue      = mem_freen(vvalue);
+		archive_key = mem_freen(archive_key);
 	}
 
 	r = 0;
