@@ -209,7 +209,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 	struct kv_store_value *value;
 	size_t                 value_size;
 	size_t                 data_size;
-	char                  *p1, *p2;
+	char                  *p;
 	struct iovec          *iov2;
 	int                    i;
 
@@ -225,15 +225,27 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 				for (i = 0, data_size = 0; i < iov_cnt; i++)
 					data_size += iov[i].iov_len;
 
-				if (!(p1 = malloc(data_size)))
+				if (!(p = malloc(data_size)))
 					return mem_freen(value);
 
-				for (i = 0, p2 = p1; i < iov_cnt; i++) {
-					memcpy(p2, iov[i].iov_base, iov[i].iov_len);
+				/*
+				 * FIXME:
+				 * The assignment of 'p' to value->data here is completely artificial and it makes
+				 * no sense for us. It's just for static analyzers so they don't complain we're leaking
+				 * the 'p'. We're not - the 'p' is assigned in iov[i].iov_base = p in the loop that
+				 * follows and we can free the memory by simply calling free(iov[0].iov_base) as this
+				 * very first item contains a pointer to the beginning of the whole allocated area.
+				 *
+				 * We overwrite value->data with proper data at the end of this code block.
+				 */
+				_set_ptr(value->data, p);
+
+				for (i = 0; i < iov_cnt; i++) {
+					memcpy(p, iov[i].iov_base, iov[i].iov_len);
 					if (flags & KV_STORE_VALUE_AUTOFREE)
 						free(iov[i].iov_base);
-					iov[i].iov_base = p2;
-					p2              += iov[i].iov_len;
+					iov[i].iov_base = p;
+					p               += iov[i].iov_len;
 				}
 
 				value->int_flags = KV_STORE_VALUE_INT_ALLOC;
@@ -252,9 +264,9 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 				if (!(value = mem_zalloc(value_size)))
 					return NULL;
 
-				for (i = 0, p1 = value->data; i < iov_cnt; i++) {
-					memcpy(p1, iov[i].iov_base, iov[i].iov_len);
-					p1 += iov[i].iov_len;
+				for (i = 0, p = value->data; i < iov_cnt; i++) {
+					memcpy(p, iov[i].iov_base, iov[i].iov_len);
+					p += iov[i].iov_len;
 				}
 
 				value->size      = data_size;
@@ -268,13 +280,13 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 					return NULL;
 
 				iov2 = (struct iovec *) value->data;
-				p1   = value->data + iov_cnt * sizeof(struct iovec);
+				p    = value->data + iov_cnt * sizeof(struct iovec);
 
 				for (i = 0; i < iov_cnt; i++) {
-					memcpy(p1, iov[i].iov_base, iov[i].iov_len);
-					iov2[i].iov_base = p1;
+					memcpy(p, iov[i].iov_base, iov[i].iov_len);
+					iov2[i].iov_base = p;
 					iov2[i].iov_len  = iov[i].iov_len;
-					p1               += iov[i].iov_len;
+					p                += iov[i].iov_len;
 				}
 
 				value->size      = iov_cnt;
@@ -643,21 +655,22 @@ int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char
 void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *value_size, kv_store_value_flags_t *flags)
 {
 	struct kv_store       *kv_store = sid_resource_get_data(kv_store_res);
-	struct kv_store_value *found;
+	struct kv_store_value *found    = NULL;
 
-	key = _canonicalize_key(key);
+	key                             = _canonicalize_key(key);
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
-			if (!(found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL)))
-				return NULL;
+			found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL);
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			if (!(found = bptree_lookup(kv_store->bpt, key, NULL, NULL)))
-				return NULL;
+			found = bptree_lookup(kv_store->bpt, key, NULL, NULL);
 			break;
 	}
+
+	if (!found)
+		return NULL;
 
 	if (value_size)
 		*value_size = found->size;
@@ -983,19 +996,20 @@ kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res, const char *
 
 void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags)
 {
-	struct kv_store_value *value;
+	struct kv_store_value *value = NULL;
 
 	switch (iter->store->backend) {
 		case KV_STORE_BACKEND_HASH:
-			if (!(value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL))
-				return NULL;
+			value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL;
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			if (!(value = bptree_iter_current(iter->bpt.iter, NULL, NULL, NULL)))
-				return NULL;
+			value = bptree_iter_current(iter->bpt.iter, NULL, NULL, NULL);
 			break;
 	}
+
+	if (!value)
+		return NULL;
 
 	if (size)
 		*size = value->size;
@@ -1013,22 +1027,23 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
                                size_t          *ext_data_size)
 {
 	size_t                 iov_size, data_size;
-	struct kv_store_value *value;
+	struct kv_store_value *value = NULL;
 
 	if (!iter || !int_size || !int_data_size || !ext_size || !ext_data_size)
 		return -1;
 
 	switch (iter->store->backend) {
 		case KV_STORE_BACKEND_HASH:
-			if (!(value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL))
-				return -1;
+			value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL;
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
-			if (!(value = bptree_iter_current(iter->bpt.iter, NULL, NULL, NULL)))
-				return -1;
+			value = bptree_iter_current(iter->bpt.iter, NULL, NULL, NULL);
 			break;
 	}
+
+	if (!value)
+		return -1;
 
 	if (value->ext_flags & KV_STORE_VALUE_VECTOR) {
 		int           i;

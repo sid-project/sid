@@ -167,9 +167,9 @@ static int _buffer_linear_reset(struct sid_buffer *buf)
 
 static int _buffer_linear_add(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos)
 {
-	size_t used  = buf->stat.usage.used;
-	void  *start = NULL;
-	size_t start_pos;
+	size_t used      = buf->stat.usage.used;
+	void  *start     = NULL;
+	size_t start_pos = 0;
 	int    r;
 
 	if (!used && buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
@@ -181,11 +181,15 @@ static int _buffer_linear_add(struct sid_buffer *buf, void *data, size_t len, co
 	if ((r = _buffer_linear_realloc(buf, used + len, 0)) < 0)
 		goto out;
 
-	start = buf->mem + used;
-	if (data)
-		memcpy(start, data, len);
-	else
-		memset(start, 0, len);
+	if (buf->mem) {
+		start = buf->mem + used;
+		if (len) {
+			if (data)
+				memcpy(start, data, len);
+			else
+				memset(start, 0, len);
+		}
+	}
 	buf->stat.usage.used = used + len;
 out:
 	if (r == 0) {
@@ -203,8 +207,8 @@ static int _buffer_linear_fmt_add(struct sid_buffer *buf, const void **mem, size
 	size_t      used = buf->stat.usage.used;
 	size_t      available;
 	int         printed;
-	const void *start = NULL;
-	size_t      start_pos;
+	const void *start     = NULL;
+	size_t      start_pos = 0;
 	int         r;
 
 	va_copy(ap_copy, ap);

@@ -191,12 +191,12 @@ static int _create_channels(sid_resource_t         *worker_control_res,
 	struct worker_channel *proxy_chans = NULL, *chans = NULL;
 	unsigned               i = 0;
 
-	if (!(proxy_chans = malloc((worker_control->channel_spec_count) * sizeof(struct worker_channel)))) {
+	if (!(proxy_chans = mem_zalloc((worker_control->channel_spec_count) * sizeof(struct worker_channel)))) {
 		log_error(ID(worker_control_res), "Failed to allocate worker proxy channel array.");
 		goto fail;
 	}
 
-	if (!(chans = malloc((worker_control->channel_spec_count) * sizeof(struct worker_channel)))) {
+	if (!(chans = mem_zalloc((worker_control->channel_spec_count) * sizeof(struct worker_channel)))) {
 		log_error(ID(worker_control_res), "Failed to allocate worker channel array.");
 		goto fail;
 	}

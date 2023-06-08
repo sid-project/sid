@@ -254,10 +254,9 @@ static bptree_record_t *_find(bptree_t              *bptree,
 		return NULL;
 	}
 
-	leaf = _find_leaf(bptree, key);
+	leaf    = _find_leaf(bptree, key);
 
-	if (method == LOOKUP_PREFIX)
-		key_len = strlen(key);
+	key_len = (method == LOOKUP_PREFIX) ? strlen(key) : 0;
 
 	/*
 	 * If root != NULL, leaf must have a value,
@@ -897,9 +896,9 @@ int bptree_update(bptree_t             *bptree,
 	bptree_record_t       *rec;
 	bptree_key_t          *bkey;
 	bptree_update_action_t act;
-	int                    r;
+	int                    r = 0;
 
-	rec = _find(bptree, key, LOOKUP_EXACT, &key_leaf, NULL, &bkey);
+	rec                      = _find(bptree, key, LOOKUP_EXACT, &key_leaf, NULL, &bkey);
 
 	if (bptree_update_fn) {
 		if (rec)
@@ -926,7 +925,6 @@ int bptree_update(bptree_t             *bptree,
 				bptree->data_size -= rec->data_size;
 				rec->data_size    = data_size ? *data_size : 0;
 				bptree->data_size += rec->data_size;
-				r                 = 0;
 			} else
 				r = bptree_insert(bptree, key, data ? *data : NULL, data_size ? *data_size : 0);
 			break;
@@ -936,11 +934,9 @@ int bptree_update(bptree_t             *bptree,
 				(void) _delete_entry(bptree, key_leaf, bkey, rec);
 				_unref_record(bptree, rec);
 			}
-			r = 0;
 			break;
 
 		case BPTREE_UPDATE_SKIP:
-			r = 0;
 			break;
 	}
 
