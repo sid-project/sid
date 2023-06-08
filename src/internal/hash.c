@@ -398,9 +398,9 @@ int hash_update(struct hash_table  *t,
 {
 	struct hash_node   **c;
 	hash_update_action_t act;
-	int                  r;
+	int                  r = 0;
 
-	c = _find(t, key, key_len);
+	c                      = _find(t, key, key_len);
 
 	if (hash_update_fn) {
 		if (*c)
@@ -419,7 +419,6 @@ int hash_update(struct hash_table  *t,
 			if (*c) {
 				(*c)->data     = data ? *data : NULL;
 				(*c)->data_len = data_len ? *data_len : 0;
-				r              = 0;
 			} else
 				r = _do_hash_insert(t, c, key, key_len, data ? *data : NULL, data_len ? *data_len : 0);
 			break;
@@ -427,11 +426,9 @@ int hash_update(struct hash_table  *t,
 		case HASH_UPDATE_REMOVE:
 			if (*c)
 				_do_hash_remove(t, c);
-			r = 0;
 			break;
 
 		case HASH_UPDATE_SKIP:
-			r = 0;
 			break;
 	}
 

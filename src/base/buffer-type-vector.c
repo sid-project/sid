@@ -136,14 +136,17 @@ static int _buffer_vector_create(struct sid_buffer *buf)
 	}
 
 	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) {
-		if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(SID_BUFFER_SIZE_PREFIX_LEN))) {
-			if (buf->fd > -1)
-				(void) close(buf->fd);
-			free(buf->mem);
-			return -ENOMEM;
-		}
+		/* check for buf->mem is superfluous here - this is only for static analyzers to pass */
+		if (buf->mem) {
+			if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(SID_BUFFER_SIZE_PREFIX_LEN))) {
+				if (buf->fd > -1)
+					(void) close(buf->fd);
+				free(buf->mem);
+				return -ENOMEM;
+			}
 
-		((struct iovec *) buf->mem)[0].iov_len = SID_BUFFER_SIZE_PREFIX_LEN;
+			((struct iovec *) buf->mem)[0].iov_len = SID_BUFFER_SIZE_PREFIX_LEN;
+		}
 	}
 
 	buf->stat.usage.allocated = needed;
@@ -196,7 +199,7 @@ static int _buffer_vector_add(struct sid_buffer *buf, void *data, size_t len, co
 {
 	size_t        used = buf->stat.usage.used;
 	struct iovec *iov;
-	size_t        start_pos;
+	size_t        start_pos = 0;
 	int           r;
 
 	if (data == NULL)
@@ -211,14 +214,20 @@ static int _buffer_vector_add(struct sid_buffer *buf, void *data, size_t len, co
 	if ((r = _buffer_vector_realloc(buf, used + 1, 0)) < 0)
 		goto out;
 
-	iov                  = buf->mem;
-	iov[used].iov_base   = data;
-	iov[used].iov_len    = len;
-	buf->stat.usage.used = used + 1;
+	/* check for buf->mem is superfluous here - this is only for static analyzers to pass */
+	if (buf->mem) {
+		iov                  = buf->mem;
+		iov[used].iov_base   = data;
+		iov[used].iov_len    = len;
+		buf->stat.usage.used = used + 1;
+	}
 out:
 	if (r == 0) {
-		if (mem)
-			*mem = &iov[buf->stat.usage.used - 1];
+		if (mem) {
+			/* check for buf->mem is superfluous here - this is only for static analyzers to pass */
+			if (buf->mem)
+				*mem = &iov[buf->stat.usage.used - 1];
+		}
 		if (pos)
 			*pos = start_pos;
 	}

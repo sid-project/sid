@@ -2115,11 +2115,11 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	if (!((ns == KV_NS_UDEV) && !strcmp(owner, OWNER_CORE))) {
 		r = _passes_global_reservation_check(ucmd_ctx, owner, dom, ns, key_core);
 		if (r <= 0)
-			goto out;
+			return NULL;
 	}
 
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
-		goto out;
+		return NULL;
 
 	if (value == SID_UCMD_KV_UNSET)
 		value = NULL;
@@ -2466,7 +2466,7 @@ static sid_resource_t *_get_mod_res_from_mod(struct module *mod, sid_resource_t 
 {
 	sid_resource_t *res   = NULL;
 	char          **pathv = NULL, **name;
-	int             r;
+	int             r     = 0;
 
 	if (!(pathv = util_str_comb_to_strv(NULL, NULL, module_get_full_name(mod), NULL, MODULE_NAME_DELIM, NULL))) {
 		r = -ENOMEM;
@@ -3295,7 +3295,6 @@ static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 	bool                   with_comma = false;
 	int                    r          = 0;
 
-	uuid_buf1[0]                      = 0;
 	prev_uuid                         = uuid_buf1;
 	uuid                              = uuid_buf2;
 
@@ -3305,9 +3304,14 @@ static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 	print_start_document(format, prn_buf, 0);
 	print_start_array(format, prn_buf, 1, "siddevices", false);
 
+	prev_uuid[0] = 0;
+
 	while ((data = kv_store_iter_next(iter, &size, &key, &kv_store_value_flags))) {
-		_copy_ns_part_from_key(key, uuid, sizeof(uuid_buf1));
-		key_core = _get_key_part(key, KEY_PART_CORE, NULL);
+		if (!_copy_ns_part_from_key(key, uuid, sizeof(uuid_buf1)))
+			continue;
+
+		if (!(key_core = _get_key_part(key, KEY_PART_CORE, NULL)))
+			continue;
 
 		if (strcmp(prev_uuid, uuid)) {
 			if (prev_uuid[0] != 0)
@@ -4782,7 +4786,7 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 	struct kv_update_arg *update_arg = spec->arg;
 	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_CNT];
 	kv_vector_t          *vvalue_old;
-	int                   r;
+	int                   r = 0;
 
 	if (!spec->old_data)
 		return 1;
@@ -4937,7 +4941,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			update_arg.ret_code = 0;
 
 			vvalue_str          = _buffer_get_vvalue_str(common_ctx->gen_buf, unset, vvalue, value_size);
-			log_debug(ID(res), syncing_msg, key, vvalue_str, VVALUE_SEQNUM(vvalue));
+			log_debug(ID(res), syncing_msg, key, vvalue_str ?: "NULL", VVALUE_SEQNUM(vvalue));
 			if (vvalue_str)
 				sid_buffer_rewind_mem(common_ctx->gen_buf, vvalue_str);
 
