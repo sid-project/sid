@@ -65,8 +65,13 @@ static int _buffer_linear_realloc(struct sid_buffer *buf, size_t needed, int for
 
 	switch (buf->stat.spec.backend) {
 		case SID_BUFFER_BACKEND_MALLOC:
-			if (!(p = realloc(buf->mem, needed)))
-				return -errno;
+			if (needed > 0) {
+				if (!(p = realloc(buf->mem, needed)))
+					return -errno;
+			} else {
+				free(buf->mem);
+				p = NULL;
+			}
 			break;
 
 		case SID_BUFFER_BACKEND_MEMFD:
