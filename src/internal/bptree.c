@@ -821,6 +821,13 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 		return 0;
 	}
 
+#ifndef __clang_analyzer__
+	/* FIXME: clang analyzer incorrectly thinks there's a memory leak
+	 * with 'bkey' and 'rec' even though we're destroying them on each
+	 * possible error path before completing the '_insert' call.
+	 * Otherwise, when calling '_insert', the 'bkey' and 'rec' are
+	 * used in the tree, so there's no memory leak.
+	 */
 	if (!(bkey = _make_bkey(bptree, key)))
 		return -1;
 
@@ -848,6 +855,7 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 		_destroy_record(bptree, rec);
 		return -1;
 	}
+#endif /* __clang_analyzer */
 
 	return 0;
 }
@@ -874,6 +882,13 @@ int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bo
 		return 0;
 	}
 
+#ifndef __clang_analyzer__
+	/* FIXME: clang analyzer incorrectly thinks there's a memory leak
+	 * with 'bkey' even though we're destroying it on each possible
+	 * error path before completing the '_insert' call.
+	 * Otherwise, when calling '_insert', the 'bkey' is used in the
+	 * tree, so there's no memory leak.
+	 */
 	if (!(bkey = _make_bkey(bptree, alias)))
 		return -1;
 
@@ -881,6 +896,7 @@ int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bo
 		_destroy_bkey(bptree, bkey);
 		return -1;
 	}
+#endif /* __clang_analyzer */
 
 	return 0;
 }
@@ -1018,7 +1034,17 @@ static bptree_node_t *_remove_entry_from_node(bptree_t *bptree, bptree_node_t *n
 		for (p = n->parent; p; p = p->parent) {
 			for (i = 0; i < p->num_keys; i++) {
 				if (p->bkeys[i] == bkey) {
+#ifndef __clang_analyzer__
+					/* FIXME: clang analyzer things there's the
+					 * 'bkey' used after free. However, the 'bkey'
+					 * is reference-counted and if it's used more
+					 * than once in the tree (in internal nodes),
+					 * we can call `_unref_bkey` more than once
+					 * if we're traversing the tree from leaf up
+					 * to the root node.
+					 */
 					_unref_bkey(bptree, bkey);
+#endif /* __clang_analyzer__ */
 					p->bkeys[i] = _ref_bkey(swapped_bkey);
 					goto out;
 				}
