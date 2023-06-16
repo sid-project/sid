@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#define SID_UCMD_DM_MOD_FN_NAME_SUBSYS_MATCH "sid_ucmd_dm_subsys_match"
+#define SID_UCMD_MOD_DM_FN_NAME_SUBSYS_MATCH "sid_ucmd_dm_subsys_match"
 #define SID_UCMD_MOD_DM_SUBSYS_MATCH(fn)     SID_UCMD_FN(dm_subsys_match, _SID_UCMD_FN_CHECK_TYPE(fn))
 
 #ifdef __cplusplus
