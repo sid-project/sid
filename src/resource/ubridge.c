@@ -5199,7 +5199,6 @@ static int _worker_recv_system_cmd_resources(sid_resource_t *worker_res, struct 
 	ucmd_ctx->resources.main_res_mem =
 		mmap(NULL, ucmd_ctx->resources.main_res_mem_size, PROT_READ, MAP_SHARED, data_spec->ext.socket.fd_pass, 0);
 
-	close(data_spec->ext.socket.fd_pass);
 	sid_resource_set_event_source_counter(ucmd_ctx->cmd_handler_es, SID_RESOURCE_POS_REL, 1);
 	_change_cmd_state(cmd_res, CMD_EXEC_SCHEDULED);
 
