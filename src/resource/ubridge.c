@@ -5096,7 +5096,7 @@ static int _worker_proxy_recv_system_cmd_resources(sid_resource_t          *work
 	struct sid_buffer         *buf;
 	int                        r = -1;
 
-	memcpy(&int_msg, data_spec->data, sizeof(int_msg));
+	memcpy(&int_msg, data_spec->data, INTERNAL_MSG_HEADER_SIZE);
 
 	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MEMFD,
 	                                                          .type    = SID_BUFFER_TYPE_LINEAR,
@@ -5140,7 +5140,7 @@ static int _worker_proxy_recv_fn(sid_resource_t          *worker_proxy_res,
 		return -1;
 	}
 
-	memcpy(&int_msg, data_spec->data, sizeof(int_msg));
+	memcpy(&int_msg, data_spec->data, INTERNAL_MSG_HEADER_SIZE);
 
 	if (int_msg.cat != MSG_CATEGORY_SYSTEM) {
 		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Received unexpected message category.");
@@ -5256,7 +5256,7 @@ static int _worker_recv_fn(sid_resource_t          *worker_res,
 		return -1;
 	}
 
-	memcpy(&int_msg, data_spec->data, sizeof(int_msg));
+	memcpy(&int_msg, data_spec->data, INTERNAL_MSG_HEADER_SIZE);
 
 	switch (int_msg.cat) {
 		case MSG_CATEGORY_SYSTEM:
