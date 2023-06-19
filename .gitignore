@@ -56,3 +56,4 @@ libtool
 .cache/
 
 /compile_commands.json
+/cov-int
