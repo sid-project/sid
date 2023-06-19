@@ -893,10 +893,9 @@ bool kv_store_in_transaction(sid_resource_t *kv_store_res)
 
 int kv_store_transaction_begin(sid_resource_t *kv_store_res)
 {
-	struct kv_store   *kv_store     = sid_resource_get_data(kv_store_res);
-	struct sid_buffer *unset_buf    = NULL;
-	struct sid_buffer *rollback_buf = NULL;
-	int                r            = -1;
+	struct kv_store   *kv_store = sid_resource_get_data(kv_store_res);
+	struct sid_buffer *rollback_buf, *unset_buf;
+	int                r = -1;
 
 	if (kv_store_in_transaction(kv_store_res))
 		return -EBUSY;
@@ -907,7 +906,7 @@ int kv_store_transaction_begin(sid_resource_t *kv_store_res)
 	                                       &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
 	                                       &r))) {
 		log_error_errno(ID(kv_store_res), r, "Failed to create transaction rollback tracker buffer");
-		goto fail;
+		return r;
 	}
 	if (!(unset_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
 	                                                                .type    = SID_BUFFER_TYPE_LINEAR,
@@ -915,19 +914,13 @@ int kv_store_transaction_begin(sid_resource_t *kv_store_res)
 	                                    &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
 	                                    &r))) {
 		log_error_errno(ID(kv_store_res), r, "Failed to create transaction unset tracker buffer");
-		goto fail;
+		sid_buffer_destroy(rollback_buf);
+		return r;
 	}
 
 	kv_store->trans_rollback_buf = rollback_buf;
 	kv_store->trans_unset_buf    = unset_buf;
 	return 0;
-
-fail:
-	if (rollback_buf)
-		sid_buffer_destroy(rollback_buf);
-	if (unset_buf)
-		sid_buffer_destroy(unset_buf);
-	return r;
 }
 
 void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback)
