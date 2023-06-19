@@ -5135,6 +5135,11 @@ static int _worker_proxy_recv_fn(sid_resource_t          *worker_proxy_res,
 {
 	struct internal_msg_header int_msg;
 
+	if (data_spec->data_size < INTERNAL_MSG_HEADER_SIZE) {
+		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Incorrect internal message header size.");
+		return -1;
+	}
+
 	memcpy(&int_msg, data_spec->data, sizeof(int_msg));
 
 	if (int_msg.cat != MSG_CATEGORY_SYSTEM) {
@@ -5238,6 +5243,11 @@ static int _worker_recv_fn(sid_resource_t          *worker_res,
                            void                    *arg __attribute__((unused)))
 {
 	struct internal_msg_header int_msg;
+
+	if (data_spec->data_size < INTERNAL_MSG_HEADER_SIZE) {
+		log_error(ID(worker_res), INTERNAL_ERROR "Incorrect internal message header size.");
+		return -1;
+	}
 
 	memcpy(&int_msg, data_spec->data, sizeof(int_msg));
 
