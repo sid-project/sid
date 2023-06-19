@@ -5186,8 +5186,9 @@ static int _worker_recv_system_cmd_resources(sid_resource_t *worker_res, struct 
 		goto out;
 	}
 
-	if (data_spec->data_size <= INTERNAL_MSG_HEADER_SIZE) {
-		log_error(ID(worker_res), "%s command identifier missing.", _msg_prologue);
+	/* cmd id needs at least 1 character with '0' at the end - so 2 characters at least! */
+	if ((data_spec->data_size - INTERNAL_MSG_HEADER_SIZE) < 2) {
+		log_error(ID(worker_res), "%s missing command id to match.", _msg_prologue);
 		goto out;
 	}
 
@@ -5215,16 +5216,22 @@ out:
 
 static int _worker_recv_system_cmd_sync(sid_resource_t *worker_res, struct worker_data_spec *data_spec)
 {
+	static const char    _msg_prologue[] = "Received sync ack from main process, but";
 	const char          *cmd_id;
 	sid_resource_t      *cmd_res;
 	struct sid_ucmd_ctx *ucmd_ctx;
 
+	/* cmd_id needs at least 1 character with '\0' at the end - so 2 characters at least! */
+	if ((data_spec->data_size - INTERNAL_MSG_HEADER_SIZE) < 2) {
+		log_error(ID(worker_res), "%s missing command id to match.", _msg_prologue);
+		_change_cmd_state(worker_res, CMD_ERROR);
+		return -1;
+	}
+
 	cmd_id = data_spec->data + INTERNAL_MSG_HEADER_SIZE;
 
 	if (!(cmd_res = sid_resource_search(worker_res, SID_RESOURCE_SEARCH_DFS, &sid_resource_type_ubridge_command, cmd_id))) {
-		log_error(ID(worker_res),
-		          "Received ack from main process, but failed to find command resource with id %s.",
-		          cmd_id);
+		log_error(ID(worker_res), "%s failed to find command resource with id %s.", _msg_prologue, cmd_id);
 		_change_cmd_state(worker_res, CMD_ERROR);
 		return -1;
 	}
