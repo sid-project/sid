@@ -122,9 +122,6 @@ static int _buffer_vector_create(struct sid_buffer *buf)
 	size_t needed = buf->stat.init.size;
 	int    r;
 
-	if (buf == NULL)
-		return EINVAL;
-
 	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
 		needed += 1;
 
