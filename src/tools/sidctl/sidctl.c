@@ -52,21 +52,23 @@ static int _sid_cmd(sid_cmd_t cmd, uint16_t format)
 	int                r;
 	struct sid_request req = {.cmd = cmd, .flags = format};
 
-	if ((r = sid_req(&req, &res)) == 0) {
-		if ((data = sid_result_data(res, &size)) != NULL)
-			printf("%s", data);
-		else {
-			uint64_t status;
-			if (sid_result_status(res, &status) != 0 || status & SID_CMD_STATUS_FAILURE) {
-				log_error(LOG_PREFIX, "Command failed");
-				r = -1;
-			}
-		}
-		sid_result_free(res);
-		return r;
+	if ((r = sid_req(&req, &res)) < 0) {
+		log_error_errno(LOG_PREFIX, r, "Command request failed");
+		return -1;
 	}
-	log_error_errno(LOG_PREFIX, r, "Command request failed");
-	return -1;
+
+	if ((data = sid_result_data(res, &size)) != NULL)
+		printf("%s", data);
+	else {
+		uint64_t status;
+		if (sid_result_status(res, &status) != 0 || status & SID_CMD_STATUS_FAILURE) {
+			log_error(LOG_PREFIX, "Command failed");
+			r = -1;
+		}
+	}
+
+	sid_result_free(res);
+	return r;
 }
 
 static int _sid_cmd_version(uint16_t format)

@@ -66,14 +66,7 @@ static int _usid_cmd_active(void)
 
 	req.seqnum = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
-	if ((r = sid_req(&req, &res)) == 0) {
-		if (sid_result_data(res, NULL) && sid_result_protocol(res, &prot) == 0 && prot == SID_PROTOCOL)
-			status = USID_BRIDGE_STATUS_ACTIVE;
-		else
-			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
-
-		sid_result_free(res);
-	} else {
+	if ((r = sid_req(&req, &res)) < 0) {
 		if (r == -ECONNREFUSED) {
 			status = USID_BRIDGE_STATUS_INACTIVE;
 			r      = 0;
@@ -81,10 +74,15 @@ static int _usid_cmd_active(void)
 			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
 		else
 			status = USID_BRIDGE_STATUS_ERROR;
+	} else {
+		if (sid_result_data(res, NULL) && sid_result_protocol(res, &prot) == 0 && prot == SID_PROTOCOL)
+			status = USID_BRIDGE_STATUS_ACTIVE;
+		else
+			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
+		sid_result_free(res);
 	}
 
 	fprintf(stdout, KEY_USID_BRIDGE_STATUS "=%s\n", status);
-
 	return r;
 }
 
@@ -120,11 +118,12 @@ static int _usid_cmd_print_env(struct sid_request *req)
 	}
 	req->seqnum = val;
 
-	if ((r = sid_req(req, &res)) == 0) {
+	if ((r = sid_req(req, &res)) < 0)
+		log_error_errno(LOG_PREFIX, r, "Command request failed");
+	else {
 		r = _print_env_from_res(res);
 		sid_result_free(res);
-	} else
-		log_error_errno(LOG_PREFIX, r, "Command request failed");
+	}
 
 	return r;
 }
@@ -172,21 +171,24 @@ static int _usid_cmd_version(void)
 	        SID_VERSION_MINOR,
 	        SID_VERSION_RELEASE);
 
-	if ((r = sid_req(&req, &res)) == 0) {
-		if ((data = sid_result_data(res, NULL)) != NULL)
-			fprintf(stdout, "%s", data);
-		else {
-			uint64_t status;
-			if (sid_result_status(res, &status) == 0 && (status & SID_CMD_STATUS_FAILURE) == 0)
-				log_error(LOG_PREFIX, "Missing reply data");
-			else
-				log_error(LOG_PREFIX, "Command failed");
-			r = -1;
-		}
-		sid_result_free(res);
-	} else
+	if ((r = sid_req(&req, &res)) < 0) {
 		log_error_errno(LOG_PREFIX, r, "Command request failed");
+		return r;
+	}
 
+	if ((data = sid_result_data(res, NULL)) != NULL) {
+		fprintf(stdout, "%s", data);
+		r = 0;
+	} else {
+		uint64_t status;
+		if (sid_result_status(res, &status) == 0 && (status & SID_CMD_STATUS_FAILURE) == 0)
+			log_error(LOG_PREFIX, "Missing reply data");
+		else
+			log_error(LOG_PREFIX, "Command failed");
+		r = -1;
+	}
+
+	sid_result_free(res);
 	return r;
 }
 
