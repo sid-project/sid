@@ -419,29 +419,30 @@ struct internal_msg_header {
 	struct sid_msg_header header; /* reusing sid_msg_header here to avoid defining a new struct with subset of fields we need */
 } __attribute__((packed));
 
-#define INTERNAL_MSG_HEADER_SIZE     sizeof(struct internal_msg_header)
+#define INTERNAL_MSG_HEADER_SIZE      sizeof(struct internal_msg_header)
+#define INTERNAL_MSG_MAX_FD_DATA_SIZE 0x4000000 /* FIXME: make this configurable or use heuristics based on current state */
 
 /*
  * Generic flags for all commands.
  */
-#define CMD_KV_IMPORT_UDEV           UINT32_C(0x00000001) /* import udev environment as KV_NS_UDEV records */
-#define CMD_KV_EXPORT_UDEV_TO_RESBUF UINT32_C(0x00000002) /* export KV_NS_UDEV records to response buffer  */
-#define CMD_KV_EXPORT_UDEV_TO_EXPBUF UINT32_C(0x00000004) /* export KV_NS_UDEV records to export buffer */
-#define CMD_KV_EXPORT_SID_TO_RESBUF  UINT32_C(0x00000008) /* export KV_NS_<!UDEV> records to response buffer */
-#define CMD_KV_EXPORT_SID_TO_EXPBUF  UINT32_C(0x00000010) /* export KV_NS_<!UDEV> records to export buffer */
-#define CMD_KV_EXPORT_SYNC           UINT32_C(0x00000020) /* export only KV records marked with sync flag */
-#define CMD_KV_EXPORT_PERSISTENT     UINT32_C(0x00000040) /* export only KV records marked with persistent flag */
-#define CMD_KV_EXPBUF_TO_FILE        UINT32_C(0x00000080) /* export KV records from export buffer to a file */
-#define CMD_KV_EXPBUF_TO_MAIN        UINT32_C(0x00000100) /* export KV records from export buffer to main process */
-#define CMD_KV_EXPECT_EXPBUF_ACK     UINT32_C(0x00000200) /* expect acknowledgment of expbuf reception */
-#define CMD_SESSION_ID               UINT32_C(0x00000400) /* generate session ID */
+#define CMD_KV_IMPORT_UDEV            UINT32_C(0x00000001) /* import udev environment as KV_NS_UDEV records */
+#define CMD_KV_EXPORT_UDEV_TO_RESBUF  UINT32_C(0x00000002) /* export KV_NS_UDEV records to response buffer  */
+#define CMD_KV_EXPORT_UDEV_TO_EXPBUF  UINT32_C(0x00000004) /* export KV_NS_UDEV records to export buffer */
+#define CMD_KV_EXPORT_SID_TO_RESBUF   UINT32_C(0x00000008) /* export KV_NS_<!UDEV> records to response buffer */
+#define CMD_KV_EXPORT_SID_TO_EXPBUF   UINT32_C(0x00000010) /* export KV_NS_<!UDEV> records to export buffer */
+#define CMD_KV_EXPORT_SYNC            UINT32_C(0x00000020) /* export only KV records marked with sync flag */
+#define CMD_KV_EXPORT_PERSISTENT      UINT32_C(0x00000040) /* export only KV records marked with persistent flag */
+#define CMD_KV_EXPBUF_TO_FILE         UINT32_C(0x00000080) /* export KV records from export buffer to a file */
+#define CMD_KV_EXPBUF_TO_MAIN         UINT32_C(0x00000100) /* export KV records from export buffer to main process */
+#define CMD_KV_EXPECT_EXPBUF_ACK      UINT32_C(0x00000200) /* expect acknowledgment of expbuf reception */
+#define CMD_SESSION_ID                UINT32_C(0x00000400) /* generate session ID */
 
 /*
  * Capability flags for 'scan' command phases (phases are represented as subcommands).
  */
-#define CMD_SCAN_CAP_RDY             UINT32_C(0x00000001) /* can set ready state */
-#define CMD_SCAN_CAP_RES             UINT32_C(0x00000002) /* can set reserved state */
-#define CMD_SCAN_CAP_ALL             UINT32_C(0xFFFFFFFF) /* can set anything */
+#define CMD_SCAN_CAP_RDY              UINT32_C(0x00000001) /* can set ready state */
+#define CMD_SCAN_CAP_RES              UINT32_C(0x00000002) /* can set reserved state */
+#define CMD_SCAN_CAP_ALL              UINT32_C(0xFFFFFFFF) /* can set anything */
 
 static bool _cmd_root_only[] = {
 	[SID_CMD_UNDEFINED]  = false,
@@ -4873,6 +4874,9 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	if (msg_size <= SID_BUFFER_SIZE_PREFIX_LEN) { /* nothing to sync */
 		r = 0;
 		goto out;
+	} else if (msg_size > INTERNAL_MSG_MAX_FD_DATA_SIZE) {
+		log_error(ID(res), "Maximum internal messages size exceeded.");
+		goto out;
 	}
 
 	if ((p = shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
@@ -5183,6 +5187,9 @@ static int _worker_recv_system_cmd_resources(sid_resource_t *worker_res, struct 
 
 	if (msg_size <= SID_BUFFER_SIZE_PREFIX_LEN) {
 		log_error(ID(worker_res), "%s no data received.", _msg_prologue);
+		goto out;
+	} else if (msg_size > INTERNAL_MSG_MAX_FD_DATA_SIZE) {
+		log_error(ID(worker_res), "Maximum internal messages size exceeded.");
 		goto out;
 	}
 
