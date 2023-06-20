@@ -32,14 +32,6 @@
 #define SYSTEM_PROC_BOOT_ID_PATH SYSTEM_PROC_PATH "/sys/kernel/random/boot_id"
 
 /*
- * Common code.
- */
-static bool _mem_avail(util_mem_t *mem)
-{
-	return mem && mem->base;
-}
-
-/*
  * Process-related utilities.
  */
 
@@ -222,7 +214,7 @@ char *util_str_comb_to_str(util_mem_t *mem, const char *prefix, const char *str,
 	size_t suffix_len = suffix ? strlen(suffix) : 0;
 	char  *p, *ret_str;
 
-	if (_mem_avail(mem)) {
+	if (mem) {
 		if (prefix_len + str_len + suffix_len + 1 > mem->size)
 			return NULL;
 
@@ -326,7 +318,7 @@ char **util_str_comb_to_strv(util_mem_t *mem,
 	    util_str_iterate_tokens(suffix, delims, quotes, _count_token, &counter) < 0)
 		goto fail;
 
-	if (_mem_avail(mem)) {
+	if (mem) {
 		if (_get_strv_full_mem_size(&counter) > mem->size)
 			goto fail;
 
@@ -346,7 +338,7 @@ char **util_str_comb_to_strv(util_mem_t *mem,
 	copier.strv[counter.tokens] = NULL;
 	return copier.strv;
 fail:
-	if (_mem_avail(mem))
+	if (mem)
 		return NULL;
 	else
 		return mem_freen(copier.strv);
@@ -364,7 +356,7 @@ char **util_str_vec_copy(util_mem_t *mem, const char **strv)
 			return NULL;
 	}
 
-	if (_mem_avail(mem)) {
+	if (mem) {
 		if (_get_strv_full_mem_size(&counter) > mem->size)
 			return NULL;
 
@@ -379,7 +371,7 @@ char **util_str_vec_copy(util_mem_t *mem, const char **strv)
 
 	for (p = strv; *p; p++) {
 		if (_copy_token_to_strv(*p, strlen(*p), false, &copier) < 0) {
-			if (_mem_avail(mem))
+			if (mem)
 				return NULL;
 			else
 				return mem_freen(copier.strv);
@@ -396,7 +388,7 @@ char *util_str_copy_substr(util_mem_t *mem, const char *str, size_t offset, size
 	if ((offset + len) > str_len)
 		return NULL;
 
-	if (!_mem_avail(mem))
+	if (!mem)
 		return strndup(str + offset, len);
 
 	if (len + 1 > mem->size)
@@ -426,7 +418,7 @@ uint64_t util_time_get_now_usec(clockid_t clock_id)
 
 static char *_get_uuid_mem(util_mem_t *mem)
 {
-	if (_mem_avail(mem)) {
+	if (mem) {
 		if (mem->size < UUID_STR_LEN)
 			return NULL;
 
@@ -474,7 +466,7 @@ out:
 		fclose(f);
 
 	if (r < 0) {
-		if (!_mem_avail(mem))
+		if (!mem)
 			free(buf);
 		buf = NULL;
 	}
