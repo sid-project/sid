@@ -5181,7 +5181,7 @@ static int _worker_recv_system_cmd_resources(sid_resource_t *worker_res, struct 
 		goto out;
 	}
 
-	if (!msg_size) {
+	if (msg_size <= SID_BUFFER_SIZE_PREFIX_LEN) {
 		log_error(ID(worker_res), "%s no data received.", _msg_prologue);
 		goto out;
 	}
