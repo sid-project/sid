@@ -620,15 +620,12 @@ int sid_resource_create_signal_event_source(sid_resource_t                     *
 	sigset_t         original_sigmask;
 	int              r;
 
-	if (!(res_event_loop = _get_resource_with_event_loop(res, 1))) {
-		r = -ENOMEDIUM;
-		goto fail;
-	}
+	if (!(res_event_loop = _get_resource_with_event_loop(res, 1)))
+		return -ENOMEDIUM;
 
 	if (sigprocmask(SIG_BLOCK, &mask, &original_sigmask) < 0) {
 		log_error(ID(res), "Failed to set sigprocmask().");
-		r = -errno;
-		goto fail;
+		return -errno;
 	}
 
 	if (res_event_loop->event_loop.signalfd == -1) {
