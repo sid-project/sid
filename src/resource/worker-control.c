@@ -909,7 +909,7 @@ out:
 	}
 
 	if (signals_blocked && sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
-		log_sys_error(ID(res), "sigprocmask", "after forking process");
+		log_sys_error(ID(worker_control_res), "sigprocmask", "after forking process");
 
 	/* return worker proxy resource */
 	*res_p = res;
