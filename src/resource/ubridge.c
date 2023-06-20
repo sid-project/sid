@@ -4474,12 +4474,12 @@ static int _check_msg(sid_resource_t *res, struct sid_msg *msg)
 			break;
 
 		case MSG_CATEGORY_SELF:
-			if (header.cmd < _SELF_CMD_START || header.cmd > _SELF_CMD_END)
+			if (header.cmd > _SELF_CMD_END)
 				header.cmd = SELF_CMD_UNKNOWN;
 			break;
 
 		case MSG_CATEGORY_CLIENT:
-			if (header.cmd < _SID_CMD_START || header.cmd > _SID_CMD_END)
+			if (header.cmd > _SID_CMD_END)
 				header.cmd = SID_CMD_UNKNOWN;
 
 			if (!sid_resource_match(res, &sid_resource_type_ubridge_connection, NULL)) {
