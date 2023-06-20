@@ -53,13 +53,13 @@ static int _print_fmt(struct sid_buffer *buf, const char *fmt, ...)
 static int _print_binary(const unsigned char *value, size_t len, struct sid_buffer *buf)
 {
 	int         r;
-	size_t      enc_len = sid_binary_len_encode(len);
+	size_t      enc_len;
 	const char *ptr;
 
-	if ((len & !value) || !buf)
+	if (!value || !buf)
 		return -EINVAL;
 
-	if (enc_len == 0)
+	if ((enc_len = sid_binary_len_encode(len)) == 0)
 		return -ERANGE;
 
 	r = sid_buffer_add(buf, NULL, enc_len, (const void **) &ptr, NULL);
