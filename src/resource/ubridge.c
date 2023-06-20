@@ -3088,7 +3088,7 @@ static char *_lookup_mod_name(sid_resource_t *cmd_res, const int dev_major, cons
 	p[0] = '\0';
 
 	if (!strncmp(found, MOD_NAME_BLKEXT, sizeof(MOD_NAME_BLKEXT))) {
-		if (!(found = _get_mod_name_from_blkext(cmd_res, buf, sizeof(buf)))) {
+		if (!(found = _get_mod_name_from_blkext(cmd_res, buf, buf_size))) {
 			log_error(ID(cmd_res), "Failed to get module name for blkext device.");
 			goto out;
 		}
