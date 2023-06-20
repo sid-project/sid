@@ -263,9 +263,6 @@ static int _blkid_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx
 
 	// TODO: Also decide when to use offset (including exact value) and noraid options.
 
-	if (noraid)
-		blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
-
 	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ucmd_event_get_dev_name(ucmd_ctx));
 
 	if ((fd = open(dev_path, O_RDONLY | O_CLOEXEC)) < 0) {
