@@ -5470,10 +5470,10 @@ static int _load_kv_store(sid_resource_t *ubridge_res, struct sid_ucmd_common_ct
 		return -1;
 	}
 
-	if (access(MAIN_KV_STORE_FILE_PATH, R_OK) < 0)
-		return 0;
-
 	if ((fd = open(MAIN_KV_STORE_FILE_PATH, O_RDONLY)) < 0) {
+		if (errno == ENOENT)
+			return 0;
+
 		log_error_errno(ID(ubridge_res), fd, "Failed to open db file");
 		return -1;
 	}
