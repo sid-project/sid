@@ -90,8 +90,11 @@ static void _become_daemon()
 
 	if ((dup2(fd, STDIN_FILENO) < 0) || (dup2(fd, STDOUT_FILENO) < 0) || (dup2(fd, STDERR_FILENO) < 0)) {
 		log_error_errno(LOG_PREFIX, errno, "Failed to duplicate standard IO streams");
+		(void) close(fd);
 		exit(EXIT_FAILURE);
 	}
+
+	(void) close(fd);
 
 	for (fd = sysconf(_SC_OPEN_MAX) - 1; fd > STDERR_FILENO; fd--) {
 		if (close(fd)) {
