@@ -1123,7 +1123,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 				data_offset = _svalue_ext_data_offset(svalue);
 
 				/* only export if there's a value assigned and the value is not an empty string */
-				if ((size > (sizeof(*svalue) + data_offset + 1)) && ((svalue->data + data_offset)[0] != '0')) {
+				if ((size > (sizeof(*svalue) + data_offset + 1)) && ((svalue->data + data_offset)[0] != '\0')) {
 					key = _get_key_part(key, KEY_PART_CORE, NULL);
 
 					if (((r = sid_buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), NULL, NULL)) < 0) ||
