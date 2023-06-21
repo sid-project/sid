@@ -1120,22 +1120,27 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			}
 
 			if (cmd_reg->flags & CMD_KV_EXPORT_UDEV_TO_RESBUF) {
-				key = _get_key_part(key, KEY_PART_CORE, NULL);
-				if (((r = sid_buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), NULL, NULL)) < 0) ||
-				    (r = sid_buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, NULL, NULL) < 0))
-					goto fail;
 				data_offset = _svalue_ext_data_offset(svalue);
-				if (((r = sid_buffer_add(ucmd_ctx->res_buf,
-				                         svalue->data + data_offset,
-				                         strlen(svalue->data + data_offset),
-				                         NULL,
-				                         NULL)) < 0) ||
-				    ((r = sid_buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, NULL, NULL)) < 0))
-					goto fail;
-				log_debug(ID(ucmd_ctx->common->kv_store_res),
-				          "Exported udev property %s=%s",
-				          key,
-				          svalue->data + data_offset);
+
+				/* only export if there's a value assigned */
+				if (size > (sizeof(*svalue) + data_offset)) {
+					key = _get_key_part(key, KEY_PART_CORE, NULL);
+
+					if (((r = sid_buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), NULL, NULL)) < 0) ||
+					    ((r = sid_buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, NULL, NULL)) < 0) ||
+					    ((r = sid_buffer_add(ucmd_ctx->res_buf,
+					                         svalue->data + data_offset,
+					                         strlen(svalue->data + data_offset),
+					                         NULL,
+					                         NULL)) < 0) ||
+					    ((r = sid_buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, NULL, NULL)) < 0))
+						goto fail;
+
+					log_debug(ID(ucmd_ctx->common->kv_store_res),
+					          "Exported udev property %s=%s",
+					          key,
+					          svalue->data + data_offset);
+				}
 			}
 
 			if (!(cmd_reg->flags & CMD_KV_EXPORT_UDEV_TO_EXPBUF))
