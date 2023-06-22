@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.com/sid-project/sid.svg?branch=main)](https://travis-ci.com/sid-project/sid)
-
 
 # Storage Instantiation Daemon
 
