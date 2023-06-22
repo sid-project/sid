@@ -1,0 +1,66 @@
+name: Coverity scan
+
+on:
+  schedule:
+    # Run once a week on Sunday midnight
+      - cron: '0 0 * * 0'
+    workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    env:
+      COV_PROJECT_NAME: sid-project/sid
+      COV_TOKEN: ${{ secrets.COV_TOKEN }}
+      COV_EMAIL: ${{ secrets.COV_EMAIL }}
+      COV_TOOLS_URL: https://scan.coverity.com/download/linux64
+      COV_TOOLS_TGZ: cov-tools.tar.gz
+      COV_TOOLS_DIR: cov-tools
+      COV_RESULTS_DIR: cov-int
+      COV_SUBMIT_URL: https://scan.coverity.com/builds
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Install build dependencies
+        run: |
+          sudo apt -qq update
+          sudo apt -y -qq install build-essential autoconf-archive gperf libxen-dev libsystemd-dev libudev-dev libblkid-dev libcmocka-dev
+
+      - name: Configure
+        run: |
+          ./autogen.sh && ./configure --disable-mod-dm_mpath
+
+      - name: Download Coverity
+        run: |
+          wget -nv -O "$COV_TOOLS_TGZ" --post-data "project=$COV_PROJECT_NAME&token=$COV_TOKEN" "$COV_TOOLS_URL"
+          mkdir "$COV_TOOLS_DIR"
+          tar xzf "$COV_TOOLS_TGZ" --strip 1 -C "$COV_TOOLS_DIR"
+
+      - name: Build
+        run: |
+          export PATH="$(pwd)/$COV_TOOLS_DIR/bin:$PATH"
+          cov-build --dir "$COV_RESULTS_DIR" make -j
+          sed -i '/COV_TOKEN=/d' "$COV_RESULTS_DIR/build-log.txt"
+          sed -i '/COV_EMAIL=/d' "$COV_RESULTS_DIR/build-log.txt"
+
+      - name: Upload the build log
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-log
+          path: "$COV_RESULTS_DIR/build-log.txt"
+
+      - name: Submit results
+        run: |
+          tar -czf sid.tgz "$COV_RESULTS_DIR"
+          curl --fail --output curl.log \
+            --form project="$COV_PROJECT_NAME" \
+            --form token="$COV_TOKEN" \
+            --form email="$COV_EMAIL" \
+            --form file=@sid.tgz \
+            --form version="$GIT_HASH"
+            --form description="Daily Build" \
+            "$COV_SUBMIT_URL"
