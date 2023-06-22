@@ -2,9 +2,8 @@ name: Coverity scan
 
 on:
   schedule:
-    # Run once a week on Sunday midnight
-      - cron: '0 0 * * 0'
-    workflow_dispatch:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -51,16 +50,18 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: build-log
-          path: "$COV_RESULTS_DIR/build-log.txt"
+          path: cov-int/build-log.txt
 
       - name: Submit results
         run: |
           tar -czf sid.tgz "$COV_RESULTS_DIR"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          GIT_HEAD_HASH="$(git rev-parse HEAD)"
           curl --fail --output curl.log \
             --form project="$COV_PROJECT_NAME" \
             --form token="$COV_TOKEN" \
             --form email="$COV_EMAIL" \
             --form file=@sid.tgz \
-            --form version="$GIT_HASH"
-            --form description="Daily Build" \
+            --form version="$GIT_HEAD_HASH" \
+            --form description="Github Coverity Scan Workflow" \
             "$COV_SUBMIT_URL"
