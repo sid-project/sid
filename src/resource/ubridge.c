@@ -292,7 +292,7 @@ typedef struct iovec kv_vector_t;
 		owner, strlen(owner) + 1                                                                                           \
 	}
 
-#define VVALUE_HEADER_PREP_BUF(buf, gennum, seqnum, flags, owner, r)                                                               \
+#define VVALUE_HEADER_PREP_BUF(buf, seqnum, flags, gennum, owner, r)                                                               \
 	(((r = sid_buffer_add(buf, &(seqnum), sizeof(seqnum), NULL, NULL)) == 0) &&                                                \
 	 ((r = sid_buffer_add(buf, &(flags), sizeof(flags), NULL, NULL)) == 0) &&                                                  \
 	 ((r = sid_buffer_add(buf, &(gennum), sizeof(gennum), NULL, NULL)) == 0) &&                                                \
