@@ -17,7 +17,7 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = . lvm
+SUBDIRS = lvm
 
 dmdir = $(pkglibdir)/modules/ucmd/type
 
