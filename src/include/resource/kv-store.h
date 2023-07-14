@@ -175,6 +175,12 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *
  */
 int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg);
 
+int kv_store_unset_with_archive(sid_resource_t         *kv_store_res,
+                                const char             *key,
+                                kv_store_update_cb_fn_t kv_unset_fn,
+                                void                   *kv_unset_fn_arg,
+                                const char             *archive_key);
+
 size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t *data_size);
 
 int  kv_store_transaction_begin(sid_resource_t *kv_store_res);
