@@ -410,9 +410,8 @@ static int _update_fn(const char                *key,
 			relay->ret_code = sid_buffer_add(relay->rollback_buf, &rollback_arg, sizeof(rollback_arg), NULL, NULL);
 			if (relay->ret_code < 0)
 				r = 0;
-		} else if (old_value && !relay->archive_arg.key) {
+		} else if (!relay->archive_arg.key)
 			_destroy_kv_store_value(old_value);
-		}
 
 		if (relay->archive_arg.key) {
 			if (old_value)
