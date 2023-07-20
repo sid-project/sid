@@ -484,6 +484,46 @@ static const char *_canonicalize_key(const char *key)
 	return key;
 }
 
+static int _set_value(struct kv_store           *kv_store,
+                      const char                *key,
+                      struct kv_store_value    **kv_store_value,
+                      size_t                    *kv_store_value_size,
+                      struct kv_update_fn_relay *relay)
+{
+	int r = 0;
+
+	switch (kv_store->backend) {
+		case KV_STORE_BACKEND_HASH:
+			r = hash_update(kv_store->ht,
+			                key,
+			                strlen(key) + 1,
+			                (void **) kv_store_value,
+			                kv_store_value_size,
+			                _hash_update_fn,
+			                relay);
+			break;
+
+		case KV_STORE_BACKEND_BPTREE:
+			r = bptree_update(kv_store->bpt,
+			                  key,
+			                  (void **) kv_store_value,
+			                  kv_store_value_size,
+			                  _bptree_update_fn,
+			                  relay);
+			break;
+	}
+
+	if (r < 0 || relay->ret_code < 0)
+		return -1;
+
+	return 0;
+}
+
+static void _kv_store_rollback_value(sid_resource_t        *kv_store_res,
+                                     const char            *key,
+                                     struct kv_store_value *kv_store_value,
+                                     size_t                 kv_store_value_size);
+
 void *_do_kv_store_set_value(sid_resource_t           *kv_store_res,
                              const char               *key,
                              void                     *value,
@@ -506,14 +546,10 @@ void *_do_kv_store_set_value(sid_resource_t           *kv_store_res,
 	 * Update the record with new data under the 'key' first. If we fail to do so
 	 * (e.g. the allocation fails underneath {hash,bptree}_update), return NULL immediately.
 	 *
-	 * If we're also creating an archive, also update the record under the 'archive_key'.
-	 * If we fail to do so, put the archive back under the 'key' and then return NULL to indicate
-	 * overall failed operation. Putting the archive back doesn't fail, because we already have
-	 * the hash/bptree record underneath and we only replace the content back to the archive
-	 * (there's no further allocation) - that's also the reason we ignore the return value there
-	 * (we're using (void) {hash,bptree}_update).
+	 * If we are creating an archive, also update the record under the 'archive_key'.
+	 * If we fail to do so, rollback the record under the 'key' (or just rely on
+	 * kv_store_transaction_end to do that for us in case we are under a transaction).
 	 *
-	 * This way, we always update records for both key and archive_key together.
 	 */
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
@@ -535,75 +571,28 @@ void *_do_kv_store_set_value(sid_resource_t           *kv_store_res,
 	                                           .archive_arg.key  = archive_key,
 	                                           .rollback_buf     = kv_store->trans_rollback_buf};
 
-	switch (kv_store->backend) {
-		case KV_STORE_BACKEND_HASH:
-			if (hash_update(kv_store->ht,
-			                key,
-			                strlen(key) + 1,
-			                (void **) &kv_store_value,
-			                &kv_store_value_size,
-			                _hash_update_fn,
-			                &relay))
-				return NULL;
-			break;
-
-		case KV_STORE_BACKEND_BPTREE:
-			if (bptree_update(kv_store->bpt,
-			                  key,
-			                  (void **) &kv_store_value,
-			                  &kv_store_value_size,
-			                  _bptree_update_fn,
-			                  &relay))
-				return NULL;
-			break;
-	}
+	if (_set_value(kv_store, key, &kv_store_value, &kv_store_value_size, &relay) < 0)
+		return NULL;
 
 	if (relay.archive_arg.key && relay.archive_arg.kv_store_value) {
 		relay.archive_arg.key  = NULL;
 		relay.kv_update_fn     = NULL;
 		relay.kv_update_fn_arg = NULL;
 
-		switch (kv_store->backend) {
-			case KV_STORE_BACKEND_HASH:
-				if (hash_update(kv_store->ht,
-				                archive_key,
-				                strlen(archive_key) + 1,
-				                (void **) &relay.archive_arg.kv_store_value,
-				                &relay.archive_arg.kv_store_value_size,
-				                _hash_update_fn,
-				                &relay)) {
-					(void) hash_update(kv_store->ht,
-					                   key,
-					                   strlen(key) + 1,
-					                   (void **) &relay.archive_arg.kv_store_value,
-					                   &relay.archive_arg.kv_store_value_size,
-					                   NULL,
-					                   NULL);
-					return NULL;
-				}
-				break;
-
-			case KV_STORE_BACKEND_BPTREE:
-				if (bptree_update(kv_store->bpt,
-				                  archive_key,
-				                  (void **) &relay.archive_arg.kv_store_value,
-				                  &relay.archive_arg.kv_store_value_size,
-				                  _bptree_update_fn,
-				                  &relay)) {
-					(void) bptree_update(kv_store->bpt,
-					                     key,
-					                     (void **) &relay.archive_arg.kv_store_value,
-					                     &relay.archive_arg.kv_store_value_size,
-					                     NULL,
-					                     NULL);
-					return NULL;
-				}
-				break;
+		if (_set_value(kv_store,
+		               archive_key,
+		               &relay.archive_arg.kv_store_value,
+		               &relay.archive_arg.kv_store_value_size,
+		               &relay) < 0) {
+			if (!kv_store_in_transaction(kv_store_res)) {
+				_kv_store_rollback_value(kv_store_res,
+				                         key,
+				                         relay.archive_arg.kv_store_value,
+				                         relay.archive_arg.kv_store_value_size);
+			}
+			return NULL;
 		}
 	}
-
-	if (relay.ret_code < 0)
-		return NULL;
 
 	return _get_data(kv_store_value);
 }
