@@ -806,6 +806,7 @@ static hash_update_action_t _hash_rollback_fn(const void *key,
 
 	if ((!rollback_value && !curr_value) || (rollback_value && curr_value == *rollback_value))
 		return HASH_UPDATE_SKIP;
+
 	if (!curr_value) {
 		/*
 		 * This is paranoia. The only way curr_value can be NULL is if we failed adding a new value. In
@@ -815,10 +816,14 @@ static hash_update_action_t _hash_rollback_fn(const void *key,
 		_destroy_kv_store_value(*rollback_value);
 		return HASH_UPDATE_SKIP;
 	}
-	_destroy_kv_store_value(curr_value);
+
+	if (!(((struct kv_store_value *) curr_value)->int_flags & KV_STORE_VALUE_INT_ARCHIVE))
+		_destroy_kv_store_value(curr_value);
 	log_debug(ID(res), "Rolling back value for key %s", (char *) key);
+
 	if (rollback_value)
 		return HASH_UPDATE_WRITE;
+
 	return HASH_UPDATE_REMOVE;
 }
 
@@ -834,6 +839,7 @@ static bptree_update_action_t _bptree_rollback_fn(const char *key,
 
 	if ((!rollback_value && !curr_value) || (rollback_value && curr_value == *rollback_value))
 		return BPTREE_UPDATE_SKIP;
+
 	if (!curr_value) {
 		/*
 		 * This is paranoia. The only way curr_value can be NULL is if we failed adding a new value. In
@@ -843,10 +849,15 @@ static bptree_update_action_t _bptree_rollback_fn(const char *key,
 		_destroy_kv_store_value(*rollback_value);
 		return BPTREE_UPDATE_SKIP;
 	}
-	_destroy_kv_store_value(curr_value);
+
+	if (!(((struct kv_store_value *) curr_value)->int_flags & KV_STORE_VALUE_INT_ARCHIVE))
+		_destroy_kv_store_value(curr_value);
+
 	log_debug(ID(res), "Rolling back value for key %s", key);
+
 	if (rollback_value)
 		return BPTREE_UPDATE_WRITE;
+
 	return BPTREE_UPDATE_REMOVE;
 }
 
@@ -923,6 +934,7 @@ void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback)
 	struct kv_rollback_arg *rollback_args;
 	char                  **unset_args;
 	size_t                  i, nr_args;
+	bool                    is_archive;
 
 	if (!kv_store_in_transaction(kv_store_res)) {
 		log_warning(ID(kv_store_res), "Ending a transaction that hasn't been started");
@@ -940,16 +952,21 @@ void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback)
 	sid_buffer_get_data(kv_store->trans_rollback_buf, (const void **) &rollback_args, &nr_args);
 	nr_args = nr_args / sizeof(struct kv_rollback_arg);
 	for (i = 0; i < nr_args; i++) {
+		is_archive = rollback_args[i].kv_store_value &&
+		             (rollback_args[i].kv_store_value->int_flags & KV_STORE_VALUE_INT_ARCHIVE);
+
 		if (rollback)
 			_kv_store_rollback_value(kv_store_res,
 			                         rollback_args[i].key,
 			                         rollback_args[i].kv_store_value,
 			                         rollback_args[i].kv_store_value_size);
 		else {
-			if (!rollback_args[i].kv_store_value ||
-			    !(rollback_args[i].kv_store_value->int_flags & KV_STORE_VALUE_INT_ARCHIVE))
+			if (!is_archive)
 				_destroy_kv_store_value(rollback_args[i].kv_store_value);
 		}
+
+		if (is_archive)
+			rollback_args[i].kv_store_value->int_flags &= !KV_STORE_VALUE_INT_ARCHIVE;
 	}
 	sid_buffer_destroy(kv_store->trans_rollback_buf);
 	kv_store->trans_rollback_buf = NULL;
