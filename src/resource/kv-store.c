@@ -403,23 +403,29 @@ static int _update_fn(const char                *key,
 	}
 
 	if (r) {
-		if (relay->rollback_buf) {
-			struct kv_rollback_arg rollback_arg = {.key                 = key,
-			                                       .kv_store_value      = old_value,
-			                                       .kv_store_value_size = old_value_len};
-			relay->ret_code = sid_buffer_add(relay->rollback_buf, &rollback_arg, sizeof(rollback_arg), NULL, NULL);
-			if (relay->ret_code < 0)
-				r = 0;
-		} else if (!relay->archive_arg.key)
+		if (relay->rollback_buf || relay->archive_arg.key) {
+			if (relay->rollback_buf) {
+				struct kv_rollback_arg rollback_arg = {.key                 = key,
+				                                       .kv_store_value      = old_value,
+				                                       .kv_store_value_size = old_value_len};
+
+				relay->ret_code =
+					sid_buffer_add(relay->rollback_buf, &rollback_arg, sizeof(rollback_arg), NULL, NULL);
+
+				if (relay->ret_code < 0)
+					r = 0;
+				else {
+					if (relay->archive_arg.key && old_value)
+						old_value->int_flags |= KV_STORE_VALUE_INT_ARCHIVE;
+				}
+			}
+
+			if (relay->archive_arg.key) {
+				relay->archive_arg.kv_store_value      = old_value;
+				relay->archive_arg.kv_store_value_size = old_value_len;
+			}
+		} else
 			_destroy_kv_store_value(old_value);
-
-		if (relay->archive_arg.key) {
-			if (old_value)
-				old_value->int_flags |= KV_STORE_VALUE_INT_ARCHIVE;
-
-			relay->archive_arg.kv_store_value      = old_value;
-			relay->archive_arg.kv_store_value_size = old_value_len;
-		}
 	}
 	if (!r) {
 		_destroy_kv_store_value(*new_value);
