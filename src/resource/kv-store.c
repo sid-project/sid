@@ -794,18 +794,13 @@ int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_updat
 	return _kv_store_unset(kv_store_res, key, kv_store->trans_unset_buf, kv_unset_fn, kv_unset_fn_arg);
 }
 
-static hash_update_action_t _hash_rollback_fn(const void *key,
-                                              uint32_t    key_len __attribute__((unused)),
-                                              void       *curr_value,
-                                              size_t      curr_value_len __attribute__((unused)),
-                                              void      **rollback_value,
-                                              size_t     *rollback_value_len __attribute__((unused)),
-                                              void       *arg)
+static int _rollback_fn(const char             *key,
+                        struct kv_store_value  *curr_value,
+                        struct kv_store_value **rollback_value,
+                        sid_resource_t         *res)
 {
-	sid_resource_t *res = (sid_resource_t *) arg;
-
 	if ((!rollback_value && !curr_value) || (rollback_value && curr_value == *rollback_value))
-		return HASH_UPDATE_SKIP;
+		return 0;
 
 	if (!curr_value) {
 		/*
@@ -814,17 +809,41 @@ static hash_update_action_t _hash_rollback_fn(const void *key,
 		 * Otherwise, we would leak memory if it existed.
 		 */
 		_destroy_kv_store_value(*rollback_value);
-		return HASH_UPDATE_SKIP;
+		return 0;
 	}
 
 	if (!(((struct kv_store_value *) curr_value)->int_flags & KV_STORE_VALUE_INT_ARCHIVE))
 		_destroy_kv_store_value(curr_value);
-	log_debug(ID(res), "Rolling back value for key %s", (char *) key);
+
+	log_debug(ID(res), "Rolling back value for key %s", key);
 
 	if (rollback_value)
-		return HASH_UPDATE_WRITE;
+		return 1;
 
-	return HASH_UPDATE_REMOVE;
+	return 2;
+}
+
+static hash_update_action_t _hash_rollback_fn(const void *key,
+                                              uint32_t    key_len __attribute__((unused)),
+                                              void       *curr_value,
+                                              size_t      curr_value_len __attribute__((unused)),
+                                              void      **rollback_value,
+                                              size_t     *rollback_value_len __attribute__((unused)),
+                                              void       *arg)
+{
+	int r;
+
+	r = _rollback_fn((const char *) key,
+	                 (struct kv_store_value *) curr_value,
+	                 (struct kv_store_value **) rollback_value,
+	                 (sid_resource_t *) arg);
+
+	if (r == 1)
+		return HASH_UPDATE_WRITE;
+	else if (r == 2)
+		return HASH_UPDATE_REMOVE;
+
+	return HASH_UPDATE_SKIP;
 }
 
 static bptree_update_action_t _bptree_rollback_fn(const char *key,
@@ -835,30 +854,19 @@ static bptree_update_action_t _bptree_rollback_fn(const char *key,
                                                   size_t     *rollback_value_len __attribute__((unused)),
                                                   void       *arg)
 {
-	sid_resource_t *res = (sid_resource_t *) arg;
+	int r;
 
-	if ((!rollback_value && !curr_value) || (rollback_value && curr_value == *rollback_value))
-		return BPTREE_UPDATE_SKIP;
+	r = _rollback_fn((const char *) key,
+	                 (struct kv_store_value *) curr_value,
+	                 (struct kv_store_value **) rollback_value,
+	                 (sid_resource_t *) arg);
 
-	if (!curr_value) {
-		/*
-		 * This is paranoia. The only way curr_value can be NULL is if we failed adding a new value. In
-		 * that case, rollback_value should always be NULL. But destroy it if it exists, just to be safe.
-		 * Otherwise, we would leak memory if it existed.
-		 */
-		_destroy_kv_store_value(*rollback_value);
-		return BPTREE_UPDATE_SKIP;
-	}
-
-	if (!(((struct kv_store_value *) curr_value)->int_flags & KV_STORE_VALUE_INT_ARCHIVE))
-		_destroy_kv_store_value(curr_value);
-
-	log_debug(ID(res), "Rolling back value for key %s", key);
-
-	if (rollback_value)
+	if (r == 1)
 		return BPTREE_UPDATE_WRITE;
+	else if (r == 2)
+		return BPTREE_UPDATE_REMOVE;
 
-	return BPTREE_UPDATE_REMOVE;
+	return BPTREE_UPDATE_SKIP;
 }
 
 static void _kv_store_rollback_value(sid_resource_t        *kv_store_res,
