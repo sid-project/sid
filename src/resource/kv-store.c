@@ -1020,7 +1020,7 @@ void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback)
 		}
 
 		if (is_archive)
-			rollback_args[i].kv_store_value->int_flags &= !KV_STORE_VALUE_INT_ARCHIVE;
+			rollback_args[i].kv_store_value->int_flags &= ~KV_STORE_VALUE_INT_ARCHIVE;
 	}
 	sid_buffer_destroy(kv_store->trans_rollback_buf);
 	kv_store->trans_rollback_buf = NULL;
