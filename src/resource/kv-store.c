@@ -815,8 +815,16 @@ int _do_kv_store_unset(sid_resource_t         *kv_store_res,
 		               archive_key,
 		               &relay.archive_arg.kv_store_value,
 		               &relay.archive_arg.kv_store_value_size,
-		               &relay) < 0)
+		               &relay) < 0) {
+			if (!kv_store_in_transaction(kv_store_res)) {
+				_kv_store_rollback_value(kv_store_res,
+				                         key,
+				                         relay.archive_arg.kv_store_value,
+				                         relay.archive_arg.kv_store_value_size);
+			}
+
 			return -1;
+		}
 	}
 
 	return 0;
