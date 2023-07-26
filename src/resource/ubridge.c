@@ -5004,19 +5004,28 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			value_to_store     = svalue;
 		}
 
-		if (archive) {
-			if (!(archive_key = malloc(key_size + 1))) {
-				log_error(ID(res), "Failed to create archive key for key %s.", key);
-				goto out;
-			}
-			memcpy(archive_key + 1, key, key_size);
-			archive_key[0] = KV_PREFIX_OP_ARCHIVE_C[0];
+		if (!(archive_key = malloc(key_size + 1))) {
+			log_error(ID(res), "Failed to create archive key for key %s.", key);
+			goto out;
 		}
+		memcpy(archive_key + 1, key, key_size);
+		archive_key[0] = KV_PREFIX_OP_ARCHIVE_C[0];
 
 		if (unset) {
-			if (archive)
-				(void) kv_store_unset(common_ctx->kv_store_res, archive_key, NULL, NULL);
-			(void) kv_store_unset(common_ctx->kv_store_res, key, _kv_cb_main_unset, &update_arg);
+			if (archive) {
+				if (kv_store_unset_with_archive(common_ctx->kv_store_res,
+				                                key,
+				                                _kv_cb_main_unset,
+				                                &update_arg,
+				                                archive_key) < 0)
+					goto out;
+			} else {
+				if (kv_store_unset(common_ctx->kv_store_res, key, _kv_cb_main_unset, &update_arg) < 0)
+					goto out;
+
+				if (kv_store_unset(common_ctx->kv_store_res, archive_key, _kv_cb_main_unset, &update_arg) < 0)
+					goto out;
+			}
 		} else {
 			if (rel_spec.delta->op == KV_OP_SET) {
 				if (archive) {
@@ -5039,6 +5048,10 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 					                        KV_STORE_VALUE_NO_OP,
 					                        _kv_cb_main_set,
 					                        &update_arg))
+						goto out;
+
+					if (kv_store_unset(common_ctx->kv_store_res, archive_key, _kv_cb_main_unset, &update_arg) <
+					    0)
 						goto out;
 				}
 			} else {
