@@ -344,6 +344,7 @@ static int _update_fn(const char                *key,
 	struct iovec               *iov;
 	size_t                      iov_cnt;
 	size_t                      kv_store_value_size;
+	const char                 *key_dup;
 	int                         r = 1;
 
 	if (relay->kv_update_fn) {
@@ -405,18 +406,26 @@ static int _update_fn(const char                *key,
 	if (r) {
 		if (relay->rollback_buf || relay->archive_arg.key) {
 			if (relay->rollback_buf) {
-				struct kv_rollback_arg rollback_arg = {.key                 = key,
-				                                       .kv_store_value      = old_value,
-				                                       .kv_store_value_size = old_value_len};
+				if ((key_dup = strdup(key))) {
+					struct kv_rollback_arg rollback_arg = {.key                 = key_dup,
+					                                       .kv_store_value      = old_value,
+					                                       .kv_store_value_size = old_value_len};
 
-				relay->ret_code =
-					sid_buffer_add(relay->rollback_buf, &rollback_arg, sizeof(rollback_arg), NULL, NULL);
+					relay->ret_code                     = sid_buffer_add(relay->rollback_buf,
+                                                                         &rollback_arg,
+                                                                         sizeof(rollback_arg),
+                                                                         NULL,
+                                                                         NULL);
 
-				if (relay->ret_code < 0)
-					r = 0;
-				else {
-					if (relay->archive_arg.key && old_value)
-						old_value->int_flags |= KV_STORE_VALUE_INT_ARCHIVE;
+					if (relay->ret_code < 0)
+						r = 0;
+					else {
+						if (relay->archive_arg.key && old_value)
+							old_value->int_flags |= KV_STORE_VALUE_INT_ARCHIVE;
+					}
+				} else {
+					relay->ret_code = -ENOMEM;
+					r               = 0;
 				}
 			}
 
@@ -684,6 +693,7 @@ static int _unset_fn(const char                *key,
                      struct kv_update_fn_relay *relay)
 {
 	struct kv_store_update_spec update_spec;
+	const char                 *key_dup;
 	int                         r;
 
 	if (relay->kv_update_fn) {
@@ -711,8 +721,12 @@ static int _unset_fn(const char                *key,
 
 	if (r == 1) {
 		if (relay->unset_buf) {
-			relay->ret_code = sid_buffer_add(relay->unset_buf, (void *) &key, sizeof(char *), NULL, NULL);
-			r               = 0;
+			if ((key_dup = strdup(key)))
+				relay->ret_code = sid_buffer_add(relay->unset_buf, (void *) &key_dup, sizeof(char *), NULL, NULL);
+			else
+				relay->ret_code = -ENOMEM;
+
+			r = 0;
 		} else if (old_value_ref_count == 1 && !relay->archive_arg.key)
 			_destroy_kv_store_value(old_value);
 
@@ -1005,9 +1019,11 @@ void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback)
 
 	sid_buffer_get_data(kv_store->trans_unset_buf, (const void **) &unset_args, &nr_args);
 	nr_args = nr_args / sizeof(char *);
-	if (!rollback)
-		for (i = 0; i < nr_args; i++)
+	for (i = 0; i < nr_args; i++) {
+		if (!rollback)
 			_do_kv_store_unset(kv_store_res, unset_args[i], NULL, NULL, NULL, NULL);
+		free((void *) unset_args[i]);
+	}
 	sid_buffer_destroy(kv_store->trans_unset_buf);
 	kv_store->trans_unset_buf = NULL;
 
@@ -1029,6 +1045,8 @@ void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback)
 
 		if (is_archive)
 			rollback_args[i].kv_store_value->int_flags &= ~KV_STORE_VALUE_INT_ARCHIVE;
+
+		free((void *) rollback_args[i].key);
 	}
 	sid_buffer_destroy(kv_store->trans_rollback_buf);
 	kv_store->trans_rollback_buf = NULL;
