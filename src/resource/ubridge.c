@@ -4855,6 +4855,21 @@ static int _kv_cb_main_set(struct kv_store_update_spec *spec)
 	return r;
 }
 
+static char *_compose_archive_key(sid_resource_t *res, const char *key, size_t key_size)
+{
+	char *archive_key;
+
+	if (!(archive_key = malloc(key_size + 1))) {
+		log_error(ID(res), "Failed to create archive key for key %s.", key);
+		return NULL;
+	}
+
+	memcpy(archive_key + 1, key, key_size);
+	archive_key[0] = KV_PREFIX_OP_ARCHIVE_C[0];
+
+	return archive_key;
+}
+
 static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *common_ctx, int fd)
 {
 	static const char           syncing_msg[] = "Syncing main key-value store:  %s = %s (seqnum %" PRIu64 ")";
@@ -5004,14 +5019,10 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			value_to_store     = svalue;
 		}
 
-		if (!(archive_key = malloc(key_size + 1))) {
-			log_error(ID(res), "Failed to create archive key for key %s.", key);
-			goto out;
-		}
-		memcpy(archive_key + 1, key, key_size);
-		archive_key[0] = KV_PREFIX_OP_ARCHIVE_C[0];
-
 		if (unset) {
+			if (!(archive_key = _compose_archive_key(res, key, key_size)))
+				goto out;
+
 			if (archive) {
 				if (kv_store_unset_with_archive(common_ctx->kv_store_res,
 				                                key,
@@ -5028,6 +5039,9 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			}
 		} else {
 			if (rel_spec.delta->op == KV_OP_SET) {
+				if (!(archive_key = _compose_archive_key(res, key, key_size)))
+					goto out;
+
 				if (archive) {
 					if (!kv_store_set_value_with_archive(common_ctx->kv_store_res,
 					                                     key,
@@ -5078,8 +5092,10 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 out:
 	if (kv_store_in_transaction(common_ctx->kv_store_res))
 		kv_store_transaction_end(common_ctx->kv_store_res, (r < 0));
+
 	free(vvalue);
 	free(svalue);
+	free(archive_key);
 
 	if (shm != MAP_FAILED && munmap(shm, msg_size) < 0) {
 		log_error_errno(ID(res), errno, "Failed to unmap memory with key-value store");
