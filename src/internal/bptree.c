@@ -991,9 +991,10 @@ static bptree_node_t *_remove_entry_from_node(bptree_t *bptree, bptree_node_t *n
 	while (n->bkeys[i] != bkey)
 		i++;
 
-	/* if the last key in a leaf is deleted, swap it out for the previous
-	 * key, in the internal nodes */
-	if (n->is_leaf && i == n->num_keys - 1)
+	/* If the last key in a leaf is deleted, swap it out for the previous
+	 * key, in the internal nodes. This does not apply in case we have
+	 * only the root node left (that is, the leaf node has no parent). */
+	if (n->parent && n->is_leaf && i == n->num_keys - 1)
 		swapped_bkey = n->bkeys[i - 1];
 
 	_unref_bkey(bptree, bkey);
