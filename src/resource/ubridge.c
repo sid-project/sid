@@ -230,6 +230,7 @@ struct sid_ucmd_ctx {
 	union {
 		struct {
 			cmd_scan_phase_t phase; /* current scan phase */
+			dev_ready_t      dev_ready;
 		} scan;
 
 		struct {
@@ -2577,34 +2578,78 @@ int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx 
 
 int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
-	if (!mod || !ucmd_ctx || (ready == DEV_NOT_RDY_UNDEFINED))
+	dev_ready_t old_ready = ucmd_ctx->scan.dev_ready;
+
+	if (!ucmd_ctx)
 		return -EINVAL;
 
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RDY))
 		return -EPERM;
 
-	if (ready == DEV_NOT_RDY_UNPROCESSED)
-		return -EINVAL;
+	switch (ready) {
+		case DEV_RDY_UNDEFINED:
+			return -EBADRQC;
 
-	_do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, DEFAULT_VALUE_FLAGS_CORE, &ready, sizeof(ready));
+		case DEV_RDY_UNPROCESSED:
+			if (old_ready != DEV_RDY_UNDEFINED)
+				return -EBADRQC;
+			break;
 
+		case DEV_RDY_UNCONFIGURED:
+			if (old_ready != DEV_RDY_UNPROCESSED)
+				return -EBADRQC;
+			break;
+
+		case DEV_RDY_UNINITIALIZED:
+			if (old_ready != DEV_RDY_UNPROCESSED && old_ready != DEV_RDY_UNCONFIGURED)
+				return -EBADRQC;
+			break;
+
+		case DEV_RDY_UNAVAILABLE:
+			if (old_ready != DEV_RDY_PUBLIC && old_ready != DEV_RDY_PRIVATE)
+				return -EBADRQC;
+			break;
+
+		case DEV_RDY_PRIVATE:
+		case DEV_RDY_PUBLIC:
+			if (old_ready != DEV_RDY_UNPROCESSED && old_ready != DEV_RDY_UNCONFIGURED &&
+			    old_ready != DEV_RDY_UNINITIALIZED && old_ready != DEV_RDY_UNAVAILABLE)
+				return -EBADRQC;
+			break;
+	}
+
+	if (!_do_sid_ucmd_set_kv(mod,
+	                         ucmd_ctx,
+	                         NULL,
+	                         KV_NS_DEVICE,
+	                         KV_KEY_DEV_READY,
+	                         KV_SYNC | KV_RD | KV_SUB_WR | KV_SUP_WR,
+	                         &ready,
+	                         sizeof(ready)))
+		return -1;
+
+	ucmd_ctx->scan.dev_ready = ready;
 	return 0;
 }
 
 dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	const dev_ready_t *p_ready;
-	dev_ready_t        result;
+	const void *val;
+	dev_ready_t ready;
 
-	if (!mod || !ucmd_ctx)
-		return DEV_NOT_RDY_UNDEFINED;
+	if (!ucmd_ctx)
+		return DEV_RDY_UNDEFINED;
 
-	if (!(p_ready = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, 0)))
-		result = DEV_NOT_RDY_UNPROCESSED;
-	else
-		result = *p_ready;
+	if (ucmd_ctx->scan.dev_ready != DEV_RDY_UNDEFINED)
+		ready = ucmd_ctx->scan.dev_ready;
+	else {
+		if ((val = _do_sid_ucmd_get_kv(mod, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, 0)))
+			memcpy(&ready, val, sizeof(dev_ready_t));
+		else
+			ready = DEV_RDY_UNDEFINED;
+	}
 
-	return result;
+	return ready;
 }
 
 int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved)
@@ -3895,8 +3940,6 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	const char          *uuid_p;
 	char                 buf[UTIL_UUID_STR_SIZE]; /* used for both uuid and diskseq */
 	util_mem_t           mem = {.base = buf, .size = sizeof(buf)};
-	dev_ready_t          ready;
-	dev_reserved_t       reserved;
 
 	/* try to get current device's UUID from udev first */
 	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL, 0))) {
@@ -3953,27 +3996,8 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 		return -1;
 	}
 
-	if (!_do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, 0)) {
-		ready    = DEV_NOT_RDY_UNPROCESSED;
-		reserved = DEV_RES_UNPROCESSED;
-
-		_do_sid_ucmd_set_kv(NULL,
-		                    ucmd_ctx,
-		                    NULL,
-		                    KV_NS_DEVICE,
-		                    KV_KEY_DEV_READY,
-		                    DEFAULT_VALUE_FLAGS_CORE,
-		                    &ready,
-		                    sizeof(ready));
-		_do_sid_ucmd_set_kv(NULL,
-		                    ucmd_ctx,
-		                    NULL,
-		                    KV_NS_DEVICE,
-		                    KV_KEY_DEV_RESERVED,
-		                    DEFAULT_VALUE_FLAGS_CORE,
-		                    &reserved,
-		                    sizeof(reserved));
-	}
+	if (sid_ucmd_dev_get_ready(NULL, ucmd_ctx) == DEV_RDY_UNDEFINED)
+		sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_UNPROCESSED);
 
 	return _refresh_device_hierarchy_from_sysfs(cmd_res);
 }
@@ -4171,6 +4195,11 @@ static int _cmd_exec_scan_wait(struct cmd_exec_arg *exec_arg)
 
 static int _cmd_exec_scan_exit(struct cmd_exec_arg *exec_arg)
 {
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+
+	if (sid_ucmd_dev_get_ready(NULL, ucmd_ctx) == DEV_RDY_UNPROCESSED)
+		sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_PUBLIC);
+
 	if (exec_arg->block_mod_iter) {
 		sid_resource_iter_destroy(exec_arg->block_mod_iter);
 		exec_arg->block_mod_iter = NULL;

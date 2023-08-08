@@ -237,13 +237,13 @@ int sid_ucmd_mod_unreserve_kv(struct module              *mod,
 int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx *ucmd_common_ctx, sid_resource_t *mod_subresource);
 
 typedef enum {
-	DEV_NOT_RDY_UNDEFINED,    /* undefined or invalid */
-	DEV_NOT_RDY_UNPROCESSED,  /* not ready and not yet processed by SID */
-	DEV_NOT_RDY_INACCESSIBLE, /* not ready and not able to perform IO */
-	DEV_NOT_RDY_ACCESSIBLE,   /* not ready and able to perform IO */
-	DEV_RDY_PRIVATE,          /* ready and for private use of the module/subsystem */
-	DEV_RDY_PUBLIC,           /* ready and publicly available for use */
-	DEV_RDY_UNAVAILABLE,      /* ready but temporarily unavailable at the moment, e.g. suspended device */
+	DEV_RDY_UNDEFINED,     /* undefined or invalid */
+	DEV_RDY_UNPROCESSED,   /* not ready - not yet processed by SID */
+	DEV_RDY_UNCONFIGURED,  /* not ready - not able to perform IO */
+	DEV_RDY_UNINITIALIZED, /* not ready - able to perform IO, but not yet initialized */
+	DEV_RDY_UNAVAILABLE,   /* ready     - temporarily unavailable at the moment, e.g. suspended device */
+	DEV_RDY_PRIVATE,       /* ready     - for private use of the module/subsystem */
+	DEV_RDY_PUBLIC,        /* ready     - publicly available for use */
 } dev_ready_t;
 
 typedef enum {
@@ -253,8 +253,9 @@ typedef enum {
 	DEV_RES_RESERVED,    /* reserved by a layer above */
 } dev_reserved_t;
 
-int            sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready);
-dev_ready_t    sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx);
+int         sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready);
+dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx);
+
 int            sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved);
 dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx);
 
