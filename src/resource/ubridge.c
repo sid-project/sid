@@ -855,13 +855,13 @@ static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, kv
 
 	switch (_mod_match(old_owner, new_owner)) {
 		case MOD_NO_MATCH:
-			if (old_flags & KV_MOD_WR)
+			if (old_flags & KV_FRG_WR)
 				r = 1;
 			else {
 				if (old_flags & KV_MOD_RESERVED) {
 					reason = "reserved";
 					r      = -EBUSY;
-				} else if (old_flags & KV_MOD_RD) {
+				} else if (old_flags & KV_FRG_RD) {
 					reason = "read-only";
 					r      = -EPERM;
 				} else {
@@ -874,13 +874,13 @@ static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, kv
 			r = 1;
 			break;
 		case MOD_SUB_MATCH:
-			if (old_flags & KV_SUBMOD_WR)
+			if (old_flags & KV_SUB_WR)
 				r = 1;
 			else {
 				if (old_flags & KV_SUBMOD_RESERVED) {
 					reason = "reserved";
 					r      = -EBUSY;
-				} else if (old_flags & KV_SUBMOD_RD) {
+				} else if (old_flags & KV_SUB_RD) {
 					reason = "read-only";
 					r      = -EPERM;
 				} else {
@@ -1213,7 +1213,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			print_uint64_field(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
 			print_start_array(format, export_buf, 3, "flags", true);
 			print_bool_array_elem(format, export_buf, 4, "KV_SYNC_P", VVALUE_FLAGS(vvalue) & KV_SYNC_P, false);
-			print_bool_array_elem(format, export_buf, 4, "KV_ARCHIVE", VVALUE_FLAGS(vvalue) & KV_ARCHIVE, true);
+			print_bool_array_elem(format, export_buf, 4, "KV_AR", VVALUE_FLAGS(vvalue) & KV_AR, true);
 			print_bool_array_elem(format,
 			                      export_buf,
 			                      4,
@@ -1226,10 +1226,10 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			                      "KV_SUBMOD_RESERVED",
 			                      VVALUE_FLAGS(vvalue) & KV_SUBMOD_RESERVED,
 			                      true);
-			print_bool_array_elem(format, export_buf, 4, "KV_MOD_RD", VVALUE_FLAGS(vvalue) & KV_MOD_RD, true);
-			print_bool_array_elem(format, export_buf, 4, "KV_SUBMOD_RD", VVALUE_FLAGS(vvalue) & KV_SUBMOD_RD, true);
-			print_bool_array_elem(format, export_buf, 4, "KV_MOD_WR", VVALUE_FLAGS(vvalue) & KV_MOD_WR, true);
-			print_bool_array_elem(format, export_buf, 4, "KV_SUBMOD_WR", VVALUE_FLAGS(vvalue) & KV_SUBMOD_WR, true);
+			print_bool_array_elem(format, export_buf, 4, "KV_FRG_RD", VVALUE_FLAGS(vvalue) & KV_FRG_RD, true);
+			print_bool_array_elem(format, export_buf, 4, "KV_SUB_RD", VVALUE_FLAGS(vvalue) & KV_SUB_RD, true);
+			print_bool_array_elem(format, export_buf, 4, "KV_FRG_WR", VVALUE_FLAGS(vvalue) & KV_FRG_WR, true);
+			print_bool_array_elem(format, export_buf, 4, "KV_SUB_WR", VVALUE_FLAGS(vvalue) & KV_SUB_WR, true);
 			print_end_array(format, export_buf, 3);
 			print_str_field(format, export_buf, 3, "owner", VVALUE_OWNER(vvalue), true);
 			_print_vvalue(vvalue, vector, size, vector ? "values" : "value", format, export_buf, 3);
@@ -2142,7 +2142,7 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	                                     .custom   = NULL,
 	                                     .ret_code = -EREMOTEIO};
 
-	if (flags & KV_ARCHIVE) {
+	if (flags & KV_AR) {
 		key[0] = KV_PREFIX_OP_ARCHIVE_C[0];
 		if (!(svalue = kv_store_set_value_with_archive(ucmd_ctx->common->kv_store_res,
 		                                               key + 1,
@@ -2218,14 +2218,14 @@ static const void *_cmd_get_key_spec_value(struct module       *mod,
 
 	switch (_mod_match(svalue->data, owner)) {
 		case MOD_NO_MATCH:
-			if (!(svalue->flags & KV_MOD_RD))
+			if (!(svalue->flags & KV_FRG_RD))
 				goto out;
 			break;
 		case MOD_MATCH:
 			/* nothing to do here */
 			break;
 		case MOD_SUB_MATCH:
-			if (!(svalue->flags & KV_SUBMOD_RD))
+			if (!(svalue->flags & KV_SUB_RD))
 				goto out;
 			break;
 	}
@@ -4801,13 +4801,13 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 
 	switch (_mod_match(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
 		case MOD_NO_MATCH:
-			r = !(VVALUE_FLAGS(vvalue_old) & KV_MOD_RESERVED) && (VVALUE_FLAGS(vvalue_old) & KV_MOD_WR);
+			r = !(VVALUE_FLAGS(vvalue_old) & KV_MOD_RESERVED) && (VVALUE_FLAGS(vvalue_old) & KV_FRG_WR);
 			break;
 		case MOD_MATCH:
 			r = 1;
 			break;
 		case MOD_SUB_MATCH:
-			r = !(VVALUE_FLAGS(vvalue_old) & KV_SUBMOD_RESERVED) && (VVALUE_FLAGS(vvalue_old) & KV_SUBMOD_WR);
+			r = !(VVALUE_FLAGS(vvalue_old) & KV_SUBMOD_RESERVED) && (VVALUE_FLAGS(vvalue_old) & KV_SUB_WR);
 			break;
 	}
 
@@ -4986,7 +4986,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 					goto out;
 			}
 
-			archive        = VVALUE_FLAGS(vvalue) & KV_ARCHIVE;
+			archive        = VVALUE_FLAGS(vvalue) & KV_AR;
 			value_to_store = vvalue;
 		} else {
 			if (value_size <= sizeof(*svalue)) {
@@ -5015,7 +5015,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 
 			rel_spec.delta->op = KV_OP_SET;
 
-			archive            = svalue->flags & KV_ARCHIVE;
+			archive            = svalue->flags & KV_AR;
 			value_to_store     = svalue;
 		}
 
