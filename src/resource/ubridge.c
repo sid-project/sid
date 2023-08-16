@@ -840,6 +840,9 @@ static mod_match_t _mod_match(const char *mod1, const char *mod2)
 
 static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, kv_vector_t *vvalue_old, kv_vector_t *vvalue_new)
 {
+	static const char   reason_reserved[] = "reserved";
+	static const char   reason_readonly[] = "read-only";
+	static const char   reason_private[]  = "private";
 	sid_ucmd_kv_flags_t old_flags;
 	const char         *old_owner;
 	const char         *new_owner;
@@ -859,13 +862,13 @@ static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, kv
 				r = 1;
 			else {
 				if (old_flags & KV_RS) {
-					reason = "reserved";
+					reason = reason_reserved;
 					r      = -EBUSY;
 				} else if (old_flags & KV_FRG_RD) {
-					reason = "read-only";
+					reason = reason_readonly;
 					r      = -EPERM;
 				} else {
-					reason = "private";
+					reason = reason_private;
 					r      = -EACCES;
 				}
 			}
@@ -878,13 +881,13 @@ static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, kv
 				r = 1;
 			else {
 				if (old_flags & KV_RS) {
-					reason = "reserved";
+					reason = reason_reserved;
 					r      = -EBUSY;
 				} else if (old_flags & KV_SUB_RD) {
-					reason = "read-only";
+					reason = reason_readonly;
 					r      = -EPERM;
 				} else {
-					reason = "private";
+					reason = reason_private;
 					r      = -EACCES;
 				}
 			}
