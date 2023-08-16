@@ -2380,12 +2380,12 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
                                 const char                 *dom,
                                 sid_ucmd_kv_namespace_t     ns,
                                 const char                 *key_core,
+                                sid_ucmd_kv_flags_t         flags,
                                 int                         unset)
 {
 	const char          *owner = _get_mod_name(mod);
 	char                *key   = NULL;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT]; /* only header */
-	sid_ucmd_kv_flags_t  flags = unset ? KV_FLAGS_UNSET : KV_RS;
 	struct kv_update_arg update_arg;
 	int                  is_worker;
 	struct kv_key_spec   key_spec = {.extra_op = NULL,
@@ -2418,8 +2418,8 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 	 */
 	is_worker  = worker_control_is_worker(common->kv_store_res);
 
-	if (is_worker)
-		flags |= KV_SYNC_P;
+	if (!unset)
+		flags |= KV_RS | KV_SYNC_P;
 
 	if (unset && !is_worker) {
 		if (kv_store_unset(common->kv_store_res, key, _kv_cb_write, &update_arg) < 0 || update_arg.ret_code < 0)
@@ -2445,7 +2445,11 @@ out:
 	return r;
 }
 
-int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
+int sid_ucmd_mod_reserve_kv(struct module              *mod,
+                            struct sid_ucmd_common_ctx *common,
+                            sid_ucmd_kv_namespace_t     ns,
+                            const char                 *key,
+                            sid_ucmd_kv_flags_t         flags)
 {
 	const char *dom;
 
@@ -2454,7 +2458,7 @@ int sid_ucmd_mod_reserve_kv(struct module *mod, struct sid_ucmd_common_ctx *comm
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, common, dom, ns, key, 0);
+	return _do_sid_ucmd_mod_reserve_kv(mod, common, dom, ns, key, flags, 0);
 }
 
 int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
@@ -2466,7 +2470,7 @@ int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *co
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, common, dom, ns, key, 1);
+	return _do_sid_ucmd_mod_reserve_kv(mod, common, dom, ns, key, KV_FLAGS_UNSET, 1);
 }
 
 static sid_resource_t *_get_mod_res_from_mod(struct module *mod, sid_resource_t *modules_res, int *ret_code)

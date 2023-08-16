@@ -224,7 +224,8 @@ const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
 int sid_ucmd_mod_reserve_kv(struct module              *mod,
                             struct sid_ucmd_common_ctx *ucmd_common_ctx,
                             sid_ucmd_kv_namespace_t     ns,
-                            const char                 *key);
+                            const char                 *key,
+                            sid_ucmd_kv_flags_t         flags);
 
 int sid_ucmd_mod_unreserve_kv(struct module              *mod,
                               struct sid_ucmd_common_ctx *ucmd_common_ctx,
