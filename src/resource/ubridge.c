@@ -838,7 +838,7 @@ static mod_match_t _mod_match(const char *mod1, const char *mod2)
 	return MOD_NO_MATCH;
 }
 
-static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, kv_vector_t *vvalue_old, kv_vector_t *vvalue_new)
+static int _check_kv_wr_allowed(struct kv_update_arg *update_arg, const char *key, kv_vector_t *vvalue_old, kv_vector_t *vvalue_new)
 {
 	static const char   reason_reserved[] = "reserved";
 	static const char   reason_readonly[] = "read-only";
@@ -915,7 +915,7 @@ static int _kv_cb_write(struct kv_store_update_spec *spec)
 	vvalue_old = spec->old_data ? _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old) : NULL;
 	vvalue_new = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new);
 
-	if ((update_arg->ret_code = _check_kv_perms(update_arg, spec->key, vvalue_old, vvalue_new)) < 0)
+	if ((update_arg->ret_code = _check_kv_wr_allowed(update_arg, spec->key, vvalue_old, vvalue_new)) < 0)
 		return 0;
 
 	update_arg->ret_code = _check_kv_index_needed(vvalue_old, vvalue_new);
@@ -1962,7 +1962,7 @@ static int _do_kv_cb_delta_step(struct kv_store_update_spec *spec, bool is_sync)
 	struct kv_rel_spec   *rel_spec   = update_arg->custom;
 	int                   r;
 
-	if ((r = _check_kv_perms(update_arg, spec->key, spec->old_data, spec->new_data)) < 0) {
+	if ((r = _check_kv_wr_allowed(update_arg, spec->key, spec->old_data, spec->new_data)) < 0) {
 		update_arg->ret_code = is_sync ? 0 : r;
 		return 0;
 	}
