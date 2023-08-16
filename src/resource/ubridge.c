@@ -113,7 +113,7 @@
 #define DEV_NAME_PREFIX_NVME                        "nvme"
 
 #define OWNER_CORE                                  MOD_NAME_CORE
-#define DEFAULT_VALUE_FLAGS_CORE                    KV_SYNC_P | KV_MOD_RESERVED
+#define DEFAULT_VALUE_FLAGS_CORE                    KV_SYNC_P | KV_RS
 
 #define CMD_DEV_NAME_NUM_FMT                        "%s (%d:%d)"
 #define CMD_DEV_NAME_NUM(ucmd_ctx)                                                                                                 \
@@ -858,7 +858,7 @@ static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, kv
 			if (old_flags & KV_FRG_WR)
 				r = 1;
 			else {
-				if (old_flags & KV_MOD_RESERVED) {
+				if (old_flags & KV_RS) {
 					reason = "reserved";
 					r      = -EBUSY;
 				} else if (old_flags & KV_FRG_RD) {
@@ -877,7 +877,7 @@ static int _check_kv_perms(struct kv_update_arg *update_arg, const char *key, kv
 			if (old_flags & KV_SUB_WR)
 				r = 1;
 			else {
-				if (old_flags & KV_SUBMOD_RESERVED) {
+				if (old_flags & KV_RS) {
 					reason = "reserved";
 					r      = -EBUSY;
 				} else if (old_flags & KV_SUB_RD) {
@@ -1214,18 +1214,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			print_start_array(format, export_buf, 3, "flags", true);
 			print_bool_array_elem(format, export_buf, 4, "KV_SYNC_P", VVALUE_FLAGS(vvalue) & KV_SYNC_P, false);
 			print_bool_array_elem(format, export_buf, 4, "KV_AR", VVALUE_FLAGS(vvalue) & KV_AR, true);
-			print_bool_array_elem(format,
-			                      export_buf,
-			                      4,
-			                      "KV_MOD_RESERVED",
-			                      VVALUE_FLAGS(vvalue) & KV_MOD_RESERVED,
-			                      true);
-			print_bool_array_elem(format,
-			                      export_buf,
-			                      4,
-			                      "KV_SUBMOD_RESERVED",
-			                      VVALUE_FLAGS(vvalue) & KV_SUBMOD_RESERVED,
-			                      true);
+			print_bool_array_elem(format, export_buf, 4, "KV_RS", VVALUE_FLAGS(vvalue) & KV_RS, true);
 			print_bool_array_elem(format, export_buf, 4, "KV_FRG_RD", VVALUE_FLAGS(vvalue) & KV_FRG_RD, true);
 			print_bool_array_elem(format, export_buf, 4, "KV_SUB_RD", VVALUE_FLAGS(vvalue) & KV_SUB_RD, true);
 			print_bool_array_elem(format, export_buf, 4, "KV_FRG_WR", VVALUE_FLAGS(vvalue) & KV_FRG_WR, true);
@@ -1258,11 +1247,11 @@ fail:
 	return r;
 }
 
-static int _passes_global_reservation_check(struct sid_ucmd_ctx    *ucmd_ctx,
-                                            const char             *owner,
-                                            const char             *dom,
-                                            sid_ucmd_kv_namespace_t ns,
-                                            const char             *key_core)
+static int _check_global_kv_rs_for_wr(struct sid_ucmd_ctx    *ucmd_ctx,
+                                      const char             *owner,
+                                      const char             *dom,
+                                      sid_ucmd_kv_namespace_t ns,
+                                      const char             *key_core)
 {
 	kv_vector_t            tmp_vvalue[VVALUE_SINGLE_CNT];
 	kv_vector_t           *vvalue;
@@ -1293,15 +1282,18 @@ static int _passes_global_reservation_check(struct sid_ucmd_ctx    *ucmd_ctx,
 
 	vvalue = _get_vvalue(kv_store_value_flags, found, value_size, tmp_vvalue);
 
+	if (!(VVALUE_FLAGS(vvalue) & KV_RS))
+		goto out;
+
 	switch (_mod_match(VVALUE_OWNER(vvalue), owner)) {
 		case MOD_NO_MATCH:
-			r = !(VVALUE_FLAGS(vvalue) & KV_RESERVED);
+			r = VVALUE_FLAGS(vvalue) & KV_FRG_WR;
 			break;
 		case MOD_MATCH:
 			r = 1;
 			break;
 		case MOD_SUB_MATCH:
-			r = !(VVALUE_FLAGS(vvalue) & KV_SUBMOD_RESERVED);
+			r = VVALUE_FLAGS(vvalue) & KV_SUB_WR;
 			break;
 	}
 
@@ -2119,7 +2111,7 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	 *        scheme so there's only one lookup?
 	 */
 	if (!((ns == KV_NS_UDEV) && !strcmp(owner, OWNER_CORE))) {
-		r = _passes_global_reservation_check(ucmd_ctx, owner, dom, ns, key_core);
+		r = _check_global_kv_rs_for_wr(ucmd_ctx, owner, dom, ns, key_core);
 		if (r <= 0)
 			return NULL;
 	}
@@ -2390,7 +2382,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 	const char          *owner = _get_mod_name(mod);
 	char                *key   = NULL;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT]; /* only header */
-	sid_ucmd_kv_flags_t  flags = unset ? KV_FLAGS_UNSET : KV_MOD_RESERVED;
+	sid_ucmd_kv_flags_t  flags = unset ? KV_FLAGS_UNSET : KV_RS;
 	struct kv_update_arg update_arg;
 	int                  is_worker;
 	struct kv_key_spec   key_spec = {.extra_op = NULL,
@@ -2415,6 +2407,12 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 	                                     .custom   = NULL,
 	                                     .ret_code = -EREMOTEIO};
 
+	/*
+	 * FIXME: If possible, try to find out a way without calling worker_control_is_worker here.
+	 *        Otherwise, this code assumes that we always have main process with main KV store
+	 *        and worker processes with snapshots to sync. This doesn't necessarily need to
+	 *        be true in all cases in the future!
+	 */
 	is_worker  = worker_control_is_worker(common->kv_store_res);
 
 	if (is_worker)
@@ -2761,7 +2759,7 @@ static int _do_sid_ucmd_group_destroy(struct module          *mod,
                                       const char             *group_id,
                                       int                     force)
 {
-	static sid_ucmd_kv_flags_t kv_flags_sync_no_reserved = (DEFAULT_VALUE_FLAGS_CORE) & ~KV_MOD_RESERVED;
+	static sid_ucmd_kv_flags_t kv_flags_sync_no_reserved = (DEFAULT_VALUE_FLAGS_CORE) & ~KV_RS;
 	char                      *key                       = NULL;
 	size_t                     size;
 	kv_vector_t                vvalue[VVALUE_HEADER_CNT];
@@ -4801,13 +4799,13 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 
 	switch (_mod_match(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
 		case MOD_NO_MATCH:
-			r = !(VVALUE_FLAGS(vvalue_old) & KV_MOD_RESERVED) && (VVALUE_FLAGS(vvalue_old) & KV_FRG_WR);
+			r = !(VVALUE_FLAGS(vvalue_old) & KV_RS) && (VVALUE_FLAGS(vvalue_old) & KV_FRG_WR);
 			break;
 		case MOD_MATCH:
 			r = 1;
 			break;
 		case MOD_SUB_MATCH:
-			r = !(VVALUE_FLAGS(vvalue_old) & KV_SUBMOD_RESERVED) && (VVALUE_FLAGS(vvalue_old) & KV_SUB_WR);
+			r = VVALUE_FLAGS(vvalue_old) & KV_SUB_WR;
 			break;
 	}
 
@@ -4958,13 +4956,13 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			memcpy(&tmp_svalue.gennum, vvalue[VVALUE_IDX_GENNUM].iov_base, sizeof(tmp_svalue.gennum));
 			vvalue[VVALUE_IDX_GENNUM].iov_base = &tmp_svalue.gennum;
 
-			unset               = !(VVALUE_FLAGS(vvalue) & KV_MOD_RESERVED) && (value_size == VVALUE_HEADER_CNT);
+			unset                              = !(VVALUE_FLAGS(vvalue) & KV_RS) && (value_size == VVALUE_HEADER_CNT);
 
-			update_arg.owner    = VVALUE_OWNER(vvalue);
-			update_arg.res      = common_ctx->kv_store_res;
-			update_arg.ret_code = 0;
+			update_arg.owner                   = VVALUE_OWNER(vvalue);
+			update_arg.res                     = common_ctx->kv_store_res;
+			update_arg.ret_code                = 0;
 
-			vvalue_str          = _buffer_get_vvalue_str(common_ctx->gen_buf, unset, vvalue, value_size);
+			vvalue_str                         = _buffer_get_vvalue_str(common_ctx->gen_buf, unset, vvalue, value_size);
 			log_debug(ID(res), syncing_msg, key, vvalue_str ?: "NULL", VVALUE_SEQNUM(vvalue));
 			if (vvalue_str)
 				sid_buffer_rewind_mem(common_ctx->gen_buf, vvalue_str);
@@ -5002,13 +5000,13 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			}
 
 			memcpy(svalue, p, value_size);
-			p                += value_size;
+			p                   += value_size;
 
-			data_offset      = _svalue_ext_data_offset(svalue);
-			unset            = ((svalue->flags != KV_MOD_RESERVED) && (value_size == (sizeof(*svalue) + data_offset)));
+			data_offset         = _svalue_ext_data_offset(svalue);
+			unset               = ((svalue->flags != KV_RS) && (value_size == (sizeof(*svalue) + data_offset)));
 
-			update_arg.owner = svalue->data;
-			update_arg.res   = common_ctx->kv_store_res;
+			update_arg.owner    = svalue->data;
+			update_arg.res      = common_ctx->kv_store_res;
 			update_arg.ret_code = 0;
 
 			log_debug(ID(res), syncing_msg, key, unset ? "NULL" : svalue->data + data_offset, svalue->seqnum);
