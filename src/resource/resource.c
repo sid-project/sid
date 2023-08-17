@@ -194,11 +194,8 @@ static int _create_service_link_group(sid_resource_t *res, sid_resource_service_
 			goto out;
 		}
 
-		if ((r = service_link_add_notification(sl, def->notification)) < 0)
-			goto out;
-
-		if ((r = service_link_group_add_member(slg, sl)) < 0)
-			goto out;
+		service_link_add_notification(sl, def->notification);
+		service_link_group_add_member(slg, sl);
 	}
 
 	res->slg = slg;
