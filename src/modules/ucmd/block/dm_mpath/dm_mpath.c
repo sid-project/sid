@@ -45,7 +45,7 @@ static int _dm_mpath_init(struct module *module, struct sid_ucmd_common_ctx *ucm
 		return -1;
 	}
 
-	if (sid_ucmd_mod_reserve_kv(module, ucmd_common_ctx, KV_NS_UDEV, U_DEV_PATH) < 0) {
+	if (sid_ucmd_mod_reserve_kv(module, ucmd_common_ctx, KV_NS_UDEV, U_DEV_PATH, KV_FRG_RD) < 0) {
 		log_error(MID, "Failed to reserve multipath udev key %s.", U_DEV_PATH);
 		goto fail;
 	}
