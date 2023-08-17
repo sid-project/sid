@@ -70,16 +70,14 @@ void service_link_destroy(struct service_link *sl)
 	free(sl);
 }
 
-int service_link_add_notification(struct service_link *sl, service_link_notification_t notification)
+void service_link_add_notification(struct service_link *sl, service_link_notification_t notification)
 {
 	sl->notification |= notification;
-	return 0;
 }
 
-int service_link_remove_notification(struct service_link *sl, service_link_notification_t notification)
+void service_link_remove_notification(struct service_link *sl, service_link_notification_t notification)
 {
 	sl->notification &= ~notification;
-	return 0;
 }
 
 struct service_link_group *service_link_group_create(const char *name)
@@ -115,12 +113,10 @@ void service_link_group_destroy_with_members(struct service_link_group *slg)
 	free(slg);
 }
 
-int service_link_group_add_member(struct service_link_group *slg, struct service_link *sl)
+void service_link_group_add_member(struct service_link_group *slg, struct service_link *sl)
 {
 	list_add(&slg->members, &sl->list);
 	sl->group = slg;
-
-	return 0;
 }
 
 int service_link_group_remove_member(struct service_link_group *slg, struct service_link *sl)
@@ -150,7 +146,7 @@ static const char *_get_arg_value(const char *str, const char *key_eq, size_t *s
 		if (!strncmp(key_eq, str, strlen(key_eq))) {
 			/* get the value and its size */
 			str   += strlen(key_eq);
-			*size = line_end - str;
+			*size  = line_end - str;
 			return str;
 		}
 	}

@@ -82,15 +82,15 @@ struct service_link_group;
 struct service_link *service_link_create(service_link_type_t type, const char *name);
 void                 service_link_destroy(struct service_link *sl);
 
-int service_link_add_notification(struct service_link *sl, service_link_notification_t notification);
-int service_link_remove_notification(struct service_link *sl, service_link_notification_t notification);
+void service_link_add_notification(struct service_link *sl, service_link_notification_t notification);
+void service_link_remove_notification(struct service_link *sl, service_link_notification_t notification);
 
 struct service_link_group *service_link_group_create(const char *name);
 void                       service_link_group_destroy(struct service_link_group *slg);
 void                       service_link_group_destroy_with_members(struct service_link_group *slg);
 
-int service_link_group_add_member(struct service_link_group *slg, struct service_link *sl);
-int service_link_group_remove_member(struct service_link_group *slg, struct service_link *sl);
+void service_link_group_add_member(struct service_link_group *slg, struct service_link *sl);
+int  service_link_group_remove_member(struct service_link_group *slg, struct service_link *sl);
 
 /*
  * Send service notification.
