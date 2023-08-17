@@ -264,6 +264,8 @@ sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
 		goto fail;
 
 	res->id = id;
+	list_init(&res->children);
+	list_init(&res->event_sources);
 
 	/*
 	 * Take temporary reference!
@@ -280,8 +282,7 @@ sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
 	if (_create_service_link_group(res, service_link_defs) < 0)
 		goto fail;
 
-	res->flags = flags;
-	list_init(&res->children);
+	res->flags                    = flags;
 	res->type                     = type;
 	res->prio                     = prio;
 	res->event_loop.sd_event_loop = NULL;
@@ -290,8 +291,6 @@ sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
 
 	if (type->with_event_loop && sd_event_new(&res->event_loop.sd_event_loop) < 0)
 		goto fail;
-
-	list_init(&res->event_sources);
 
 	_add_res_to_parent_res(res, parent_res);
 
