@@ -319,6 +319,7 @@ typedef enum {
 	MOD_NO_MATCH,  /* modules do not match */
 	MOD_MATCH,     /* modules do match (1:1) */
 	MOD_SUB_MATCH, /* modules do match (submod of a mod) */
+	MOD_SUP_MATCH, /* modules do match (supmod of a mod) */
 } mod_match_t;
 
 typedef enum {
@@ -832,6 +833,10 @@ static mod_match_t _mod_match(const char *mod1, const char *mod2)
 		else
 			/* no match */
 			return MOD_NO_MATCH;
+	} else if (i && mod1[i]) {
+		if (!strncmp(mod1 + i, MODULE_NAME_DELIM, sizeof(MODULE_NAME_DELIM) - 1))
+			/* match - mod2 is supermod of mod1 */
+			return MOD_SUP_MATCH;
 	}
 
 	/* no match */
@@ -884,6 +889,22 @@ static int _check_kv_wr_allowed(struct kv_update_arg *update_arg, const char *ke
 					reason = reason_reserved;
 					r      = -EBUSY;
 				} else if (old_flags & KV_SUB_RD) {
+					reason = reason_readonly;
+					r      = -EPERM;
+				} else {
+					reason = reason_private;
+					r      = -EACCES;
+				}
+			}
+			break;
+		case MOD_SUP_MATCH:
+			if (old_flags & KV_SUP_WR)
+				r = 1;
+			else {
+				if (old_flags & KV_RS) {
+					reason = reason_reserved;
+					r      = -EBUSY;
+				} else if (old_flags & KV_SUP_RD) {
 					reason = reason_readonly;
 					r      = -EPERM;
 				} else {
@@ -1297,6 +1318,9 @@ static int _check_global_kv_rs_for_wr(struct sid_ucmd_ctx    *ucmd_ctx,
 			break;
 		case MOD_SUB_MATCH:
 			r = VVALUE_FLAGS(vvalue) & KV_SUB_WR;
+			break;
+		case MOD_SUP_MATCH:
+			r = VVALUE_FLAGS(vvalue) & KV_SUP_WR;
 			break;
 	}
 
@@ -2221,6 +2245,10 @@ static const void *_cmd_get_key_spec_value(struct module       *mod,
 			break;
 		case MOD_SUB_MATCH:
 			if (!(svalue->flags & KV_SUB_RD))
+				goto out;
+			break;
+		case MOD_SUP_MATCH:
+			if (!(svalue->flags & KV_SUP_RD))
 				goto out;
 			break;
 	}
@@ -4813,6 +4841,9 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 			break;
 		case MOD_SUB_MATCH:
 			r = VVALUE_FLAGS(vvalue_old) & KV_SUB_WR;
+			break;
+		case MOD_SUP_MATCH:
+			r = VVALUE_FLAGS(vvalue_old) & KV_SUP_WR;
 			break;
 	}
 
