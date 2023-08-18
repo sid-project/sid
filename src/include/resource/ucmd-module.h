@@ -150,20 +150,20 @@ typedef enum {
 typedef enum {
 	KV_FLAGS_UNSET = UINT64_C(0x0000000000000000),
 
-	KV_SYNC        = UINT64_C(0x0000000000000001),
-	KV_SYNC_P      = UINT64_C(0x0000000000000003),
+	KV_SYNC        = UINT64_C(0x0000000000000001), /* synchronize with main KV store */
+	KV_SYNC_P      = UINT64_C(0x0000000000000003), /* synchronize with main KV store and make persistent */
 
-	KV_AR          = UINT64_C(0x0000000000000004),
+	KV_AR          = UINT64_C(0x0000000000000004), /* create an archive of current value */
 
-	KV_RS          = UINT64_C(0x0000000000000008),
+	KV_RS          = UINT64_C(0x0000000000000008), /* reserve key */
 
-	KV_FRG_RD      = UINT64_C(0x0000000000000010),
-	KV_SUB_RD      = UINT64_C(0x0000000000000020),
-	KV_RD          = UINT64_C(0x0000000000000030),
+	KV_FRG_RD      = UINT64_C(0x0000000000000010), /* foreign modules can read */
+	KV_SUB_RD      = UINT64_C(0x0000000000000020), /* subordinate modules can read */
+	KV_RD          = UINT64_C(0x0000000000000030), /* all modules can read */
 
-	KV_FRG_WR      = UINT64_C(0x0000000000000040),
-	KV_SUB_WR      = UINT64_C(0x0000000000000080),
-	KV_WR          = UINT64_C(0x00000000000000C0),
+	KV_FRG_WR      = UINT64_C(0x0000000000000040), /* foreign modules can write */
+	KV_SUB_WR      = UINT64_C(0x0000000000000080), /* subordinate modules can write */
+	KV_WR          = UINT64_C(0x00000000000000C0), /* all modules can write */
 
 	_KV_ENUM_SIZE  = UINT64_C(0x7fffffffffffffff), /* used to force the enum to 64 bits */
 } sid_ucmd_kv_flags_t;
