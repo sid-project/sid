@@ -943,6 +943,38 @@ static int _kv_cb_write(struct kv_store_update_spec *spec)
 	return 1;
 }
 
+static int _kv_cb_reserve(struct kv_store_update_spec *spec)
+{
+	struct kv_update_arg *update_arg = spec->arg;
+	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_CNT];
+	kv_vector_t           tmp_vvalue_new[VVALUE_SINGLE_CNT];
+	kv_vector_t          *vvalue_old, *vvalue_new;
+
+	if ((vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old))) {
+		/* only allow the same module that reserved before to re-reserve/unreserve */
+		switch (_mod_match(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
+			case MOD_MATCH:
+				break;
+
+			case MOD_NO_MATCH:
+			case MOD_SUB_MATCH:
+			case MOD_SUP_MATCH:
+				log_debug(ID(update_arg->res),
+				          "Module %s can't reserve key %s which is already reserved by module %s.",
+				          update_arg->owner,
+				          spec->key,
+				          VVALUE_OWNER(vvalue_old));
+				update_arg->ret_code = -EPERM;
+				return 0;
+		}
+	}
+
+	vvalue_new           = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new);
+
+	update_arg->ret_code = _check_kv_index_needed(vvalue_old, vvalue_new);
+	return 1;
+}
+
 static const char *_get_mod_name(struct module *mod)
 {
 	return mod ? module_get_full_name(mod) : MOD_NAME_CORE;
@@ -2450,7 +2482,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 		flags |= KV_RS | KV_SYNC_P;
 
 	if (unset && !is_worker) {
-		if (kv_store_unset(common->kv_store_res, key, _kv_cb_write, &update_arg) < 0 || update_arg.ret_code < 0)
+		if (kv_store_unset(common->kv_store_res, key, _kv_cb_reserve, &update_arg) < 0 || update_arg.ret_code < 0)
 			goto out;
 	} else {
 		VVALUE_HEADER_PREP(vvalue, null_int, flags, common->gennum, (char *) owner);
@@ -2460,7 +2492,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 		                        VVALUE_HEADER_CNT,
 		                        KV_STORE_VALUE_VECTOR,
 		                        KV_STORE_VALUE_OP_MERGE,
-		                        _kv_cb_write,
+		                        _kv_cb_reserve,
 		                        &update_arg))
 			goto out;
 
