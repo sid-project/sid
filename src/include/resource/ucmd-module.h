@@ -159,11 +159,13 @@ typedef enum {
 
 	KV_FRG_RD      = UINT64_C(0x0000000000000010), /* foreign modules can read */
 	KV_SUB_RD      = UINT64_C(0x0000000000000020), /* subordinate modules can read */
-	KV_RD          = UINT64_C(0x0000000000000030), /* all modules can read */
+	KV_SUP_RD      = UINT64_C(0x0000000000000040), /* superior modules can read */
+	KV_RD          = UINT64_C(0x0000000000000070), /* all modules can read */
 
-	KV_FRG_WR      = UINT64_C(0x0000000000000040), /* foreign modules can write */
-	KV_SUB_WR      = UINT64_C(0x0000000000000080), /* subordinate modules can write */
-	KV_WR          = UINT64_C(0x00000000000000C0), /* all modules can write */
+	KV_FRG_WR      = UINT64_C(0x0000000000000080), /* foreign modules can write */
+	KV_SUB_WR      = UINT64_C(0x0000000000000100), /* subordinate modules can write */
+	KV_SUP_WR      = UINT64_C(0x0000000000000200), /* superior modules can write */
+	KV_WR          = UINT64_C(0x0000000000000380), /* all modules can write */
 
 	_KV_ENUM_SIZE  = UINT64_C(0x7fffffffffffffff), /* used to force the enum to 64 bits */
 } sid_ucmd_kv_flags_t;
