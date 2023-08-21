@@ -4737,6 +4737,7 @@ fail:
 			sid_buffer_destroy(conn->buf);
 		free(conn);
 	}
+	close(data_spec->ext.socket.fd_pass);
 	return -1;
 }
 
