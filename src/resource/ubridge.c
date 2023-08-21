@@ -4594,12 +4594,12 @@ static int _check_msg(sid_resource_t *res, struct sid_msg *msg)
 {
 	struct sid_msg_header header;
 
-	memcpy(&header, msg->header, sizeof(header));
-
 	if (msg->size < sizeof(struct sid_msg_header)) {
 		log_error(ID(res), "Incorrect message header size.");
 		return -1;
 	}
+
+	memcpy(&header, msg->header, sizeof(header));
 
 	/* Sanitize command number - map all out of range command numbers to CMD_UNKNOWN. */
 	switch (msg->cat) {
@@ -4638,10 +4638,10 @@ static int _create_command_resource(sid_resource_t *parent_res, struct sid_msg *
 {
 	struct sid_msg_header header;
 
-	memcpy(&header, msg->header, sizeof(header));
-
 	if (_check_msg(parent_res, msg) < 0)
 		return -1;
+
+	memcpy(&header, msg->header, sizeof(header));
 
 	if (!sid_resource_create(parent_res,
 	                         &sid_resource_type_ubridge_command,
