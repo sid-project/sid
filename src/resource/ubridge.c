@@ -3692,10 +3692,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	/* Read relatives from sysfs into vec_buf. */
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
 		for (i = 0; i < count; i++) {
-			if (dirent[i]->d_name[0] == '.') {
-				free(dirent[i]);
-				continue;
-			}
+			if (dirent[i]->d_name[0] == '.')
+				goto next;
 
 			if (sid_buffer_fmt_add(ucmd_ctx->common->gen_buf,
 			                       (const void **) &s,
@@ -3718,7 +3716,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 					                "Failed to read related disk device number from sysfs file %s.",
 					                s);
 					sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
-					continue;
+					goto next;
 				}
 				sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
 
@@ -3730,7 +3728,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 						log_error(ID(cmd_res),
 						          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
 						          CMD_DEV_NAME_NUM(ucmd_ctx));
-						continue;
+						goto next;
 					}
 					rel_spec.rel_key_spec->ns_part = mem.base;
 
@@ -3745,7 +3743,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 						log_error(ID(cmd_res),
 						          "Failed to add devno alias for device " CMD_DEV_NAME_NUM_FMT,
 						          CMD_DEV_NAME_NUM(ucmd_ctx));
-						continue;
+						goto next;
 					}
 				}
 
@@ -3753,10 +3751,11 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				if (!s || ((r = sid_buffer_add(vec_buf, (void *) s, strlen(s) + 1, NULL, NULL)) < 0))
 					goto out;
 			}
-
+next:
 			free(dirent[i]);
 		}
 		free(dirent);
+		dirent                         = NULL;
 		rel_spec.rel_key_spec->ns_part = ID_NULL;
 	}
 
@@ -3778,6 +3777,11 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	_destroy_key(NULL, s);
 	r = 0;
 out:
+	if (dirent) {
+		for (; i < count; i++)
+			free(dirent[i]);
+		free(dirent);
+	}
 	if (vec_buf) {
 		if (!vsize)
 			sid_buffer_get_data(vec_buf, (const void **) (&vvalue), &vsize);
