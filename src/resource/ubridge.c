@@ -3802,8 +3802,8 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	kv_vector_t          vvalue[VVALUE_SINGLE_CNT];
 	char                 devno_buf[16];
 	char                 devid_buf[UTIL_UUID_STR_SIZE];
-	const char          *s;
-	char                *key;
+	const char          *s   = NULL;
+	char                *key = NULL;
 	util_mem_t           mem;
 	int                  r      = -1;
 
@@ -3876,10 +3876,10 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	 */
 	_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg, true);
 
-	_destroy_key(NULL, key);
-	_destroy_key(NULL, s);
 	r = 0;
 out:
+	_destroy_key(NULL, key);
+	_destroy_key(NULL, s);
 	return r;
 }
 
