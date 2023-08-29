@@ -3748,8 +3748,10 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				}
 
 				s = _compose_key_prefix(NULL, rel_spec.rel_key_spec);
-				if (!s || ((r = sid_buffer_add(vec_buf, (void *) s, strlen(s) + 1, NULL, NULL)) < 0))
+				if (!s || ((r = sid_buffer_add(vec_buf, (void *) s, strlen(s) + 1, NULL, NULL)) < 0)) {
+					_destroy_key(NULL, s);
 					goto out;
+				}
 			}
 next:
 			free(dirent[i]);
