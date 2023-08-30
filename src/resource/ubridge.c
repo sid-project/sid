@@ -106,7 +106,7 @@
 #define KV_KEY_GEN_GROUP_MEMBERS                    KV_PREFIX_KEY_SYS_C "GMB"
 #define KV_KEY_GEN_GROUP_IN                         KV_PREFIX_KEY_SYS_C "GIN"
 
-#define MOD_NAME_CORE                               "#core"
+#define MOD_NAME_CORE                               MODULE_NAME_DELIM
 #define MOD_NAME_BLKEXT                             "blkext"
 #define MOD_NAME_NVME                               "nvme"
 
@@ -827,14 +827,14 @@ static mod_match_t _mod_match(const char *mod1, const char *mod2)
 		return MOD_MATCH;
 
 	if (i && mod2[i]) {
-		if (!strncmp(mod2 + i, MODULE_NAME_DELIM, sizeof(MODULE_NAME_DELIM) - 1))
+		if (i == MODULE_NAME_DELIM_LEN || !strncmp(mod2 + i, MODULE_NAME_DELIM, MODULE_NAME_DELIM_LEN))
 			/* match - mod2 is submnod of mod1 */
 			return MOD_SUB_MATCH;
 		else
 			/* no match */
 			return MOD_NO_MATCH;
 	} else if (i && mod1[i]) {
-		if (!strncmp(mod1 + i, MODULE_NAME_DELIM, sizeof(MODULE_NAME_DELIM) - 1))
+		if (i == MODULE_NAME_DELIM_LEN || !strncmp(mod1 + i, MODULE_NAME_DELIM, MODULE_NAME_DELIM_LEN))
 			/* match - mod2 is supermod of mod1 */
 			return MOD_SUP_MATCH;
 	}
