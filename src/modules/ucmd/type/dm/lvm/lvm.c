@@ -55,7 +55,7 @@ static int _lvm_subsys_match(struct module *module, struct sid_ucmd_ctx *ucmd_ct
 {
 	const char *uuid;
 
-	if (!(uuid = sid_ucmd_get_foreign_mod_kv(module, ucmd_ctx, "type/dm", KV_NS_DEVMOD, "uuid", NULL, NULL, 0)))
+	if (!(uuid = sid_ucmd_get_foreign_mod_kv(module, ucmd_ctx, "/type/dm", KV_NS_DEVMOD, "uuid", NULL, NULL, 0)))
 		return 0;
 
 	return !strncmp(uuid, LVM_DM_UUID_PREFIX, sizeof(LVM_DM_UUID_PREFIX) - 1);
