@@ -242,7 +242,7 @@ int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resou
 	 *
 	 * If setting the new base name fails, revert to the original base name.
 	 */
-	if (!(subregistry->base_name = util_str_comb_to_str(NULL, module->full_name, MODULE_NAME_DELIM, subregistry->base_name))) {
+	if (!(subregistry->base_name = util_str_comb_to_str(NULL, NULL, module->full_name, subregistry->base_name))) {
 		subregistry->base_name = orig_base_name;
 		return -ENOMEM;
 	}
@@ -536,7 +536,8 @@ static int _init_module_registry(sid_resource_t *module_registry_res, const void
 		goto fail;
 	}
 
-	if (!(registry->base_name = strdup(sid_resource_get_id(module_registry_res)))) {
+	if (!(registry->base_name =
+	              util_str_comb_to_str(NULL, MODULE_NAME_DELIM, sid_resource_get_id(module_registry_res), NULL))) {
 		log_error(ID(module_registry_res), "Failed to set base name.");
 		goto fail;
 	}
