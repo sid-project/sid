@@ -2578,13 +2578,15 @@ int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx 
 
 int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
-	dev_ready_t old_ready = ucmd_ctx->scan.dev_ready;
+	dev_ready_t old_ready;
 
 	if (!ucmd_ctx)
 		return -EINVAL;
 
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RDY))
 		return -EPERM;
+
+	old_ready = ucmd_ctx->scan.dev_ready;
 
 	switch (ready) {
 		case DEV_RDY_UNDEFINED:
