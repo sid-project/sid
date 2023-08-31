@@ -217,6 +217,19 @@ const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
                                             sid_ucmd_kv_flags_t    *flags,
                                             unsigned int            archive);
 
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// TODO: The sid_ucmd_part_get_disk_kv doesn't work right now.
+//
+// 	 Instead, we should be using sid_ucmd_get_foreign_dev_mod_kv with the
+// 	 dev ID of the parent disk and then remove this function.
+//
+// 	 We will be adding ucmd-module.h API to get the layer/list of devices
+// 	 underneath given device and also the layer/list of devices above
+// 	 (thinking in the form of an iterator). This still needs some thinking
+// 	 of a good way how to represent it as we'll be using this for both
+// 	 partitions and other devices which are not partitions, but layered
+// 	 devices in general.
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
                                       struct sid_ucmd_ctx *ucmd_ctx,
                                       const char          *key,
