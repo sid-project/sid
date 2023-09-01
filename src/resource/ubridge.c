@@ -2601,7 +2601,8 @@ int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, de
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RDY))
 		return -EPERM;
 
-	old_ready = ucmd_ctx->scan.dev_ready;
+	if ((old_ready = ucmd_ctx->scan.dev_ready) == ready)
+		return 0;
 
 	switch (ready) {
 		case DEV_RDY_UNDEFINED:
@@ -2652,21 +2653,16 @@ int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, de
 dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	const void *val;
-	dev_ready_t ready;
 
 	if (!ucmd_ctx)
 		return DEV_RDY_UNDEFINED;
 
-	if (ucmd_ctx->scan.dev_ready != DEV_RDY_UNDEFINED)
-		ready = ucmd_ctx->scan.dev_ready;
-	else {
+	if (ucmd_ctx->scan.dev_ready == DEV_RDY_UNDEFINED) {
 		if ((val = _do_sid_ucmd_get_kv(mod, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, 0)))
-			memcpy(&ready, val, sizeof(dev_ready_t));
-		else
-			ready = DEV_RDY_UNDEFINED;
+			memcpy(&ucmd_ctx->scan.dev_ready, val, sizeof(dev_ready_t));
 	}
 
-	return ready;
+	return ucmd_ctx->scan.dev_ready;
 }
 
 int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved)
