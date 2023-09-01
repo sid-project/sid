@@ -2641,7 +2641,7 @@ int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, de
 	                         NULL,
 	                         KV_NS_DEVICE,
 	                         KV_KEY_DEV_READY,
-	                         KV_SYNC | KV_RD | KV_SUB_WR | KV_SUP_WR,
+	                         KV_SYNC | KV_AR | KV_RD | KV_SUB_WR | KV_SUP_WR,
 	                         &ready,
 	                         sizeof(ready)))
 		return -1;
