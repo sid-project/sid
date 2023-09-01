@@ -2650,12 +2650,22 @@ int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, de
 	return 0;
 }
 
-dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx)
+dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
 	const void *val;
+	dev_ready_t ready_arch;
 
 	if (!ucmd_ctx)
 		return DEV_RDY_UNDEFINED;
+
+	if (archive) {
+		if ((val = _do_sid_ucmd_get_kv(mod, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, archive)))
+			memcpy(&ready_arch, val, sizeof(dev_ready_t));
+		else
+			ready_arch = DEV_RDY_UNDEFINED;
+
+		return ready_arch;
+	}
 
 	if (ucmd_ctx->scan.dev_ready == DEV_RDY_UNDEFINED) {
 		if ((val = _do_sid_ucmd_get_kv(mod, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, 0)))
