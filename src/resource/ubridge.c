@@ -197,15 +197,25 @@ typedef enum {
 	CMD_ERROR,                /* cmd error */
 } cmd_state_t;
 
-static const char *cmd_state_str[] = {[CMD_INITIALIZING]         = "CMD_INITIALIZING",
-                                      [CMD_EXEC_SCHEDULED]       = "CMD_EXEC_SCHEDULED",
-                                      [CMD_EXECUTING]            = "CMD_EXECUTING",
-                                      [CMD_EXPECTING_DATA]       = "CMD_EXPECTING_DATA",
-                                      [CMD_EXEC_FINISHED]        = "CMD_EXEC_FINISHED",
-                                      [CMD_EXPECTING_EXPBUF_ACK] = "CMD_EXPECTING_EXPBUF_ACK",
-                                      [CMD_EXPBUF_ACKED]         = "CMD_EXPBUF_ACKED",
-                                      [CMD_OK]                   = "CMD_OK",
-                                      [CMD_ERROR]                = "CMD_ERROR"};
+static const char *cmd_state_str[]        = {[CMD_INITIALIZING]         = "CMD_INITIALIZING",
+                                             [CMD_EXEC_SCHEDULED]       = "CMD_EXEC_SCHEDULED",
+                                             [CMD_EXECUTING]            = "CMD_EXECUTING",
+                                             [CMD_EXPECTING_DATA]       = "CMD_EXPECTING_DATA",
+                                             [CMD_EXEC_FINISHED]        = "CMD_EXEC_FINISHED",
+                                             [CMD_EXPECTING_EXPBUF_ACK] = "CMD_EXPECTING_EXPBUF_ACK",
+                                             [CMD_EXPBUF_ACKED]         = "CMD_EXPBUF_ACKED",
+                                             [CMD_OK]                   = "CMD_OK",
+                                             [CMD_ERROR]                = "CMD_ERROR"};
+
+static const char * const dev_ready_str[] = {
+	[DEV_RDY_UNDEFINED]     = "undefined",
+	[DEV_RDY_UNPROCESSED]   = "unprocessed",
+	[DEV_RDY_UNCONFIGURED]  = "unconfigured",
+	[DEV_RDY_UNINITIALIZED] = "uninitialized",
+	[DEV_RDY_UNAVAILABLE]   = "unavailable",
+	[DEV_RDY_PRIVATE]       = "private",
+	[DEV_RDY_PUBLIC]        = "public",
+};
 
 struct sid_ucmd_ctx {
 	/* request */
@@ -2576,6 +2586,11 @@ int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx 
 	return sid_resource_add_child(res, mod_subresource, SID_RESOURCE_RESTRICT_WALK_UP);
 }
 
+const char *sid_ucmd_dev_ready_to_str(dev_ready_t ready)
+{
+	return dev_ready_str[ready];
+}
+
 int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
 	dev_ready_t old_ready;
@@ -3395,6 +3410,14 @@ out:
 	return r;
 }
 
+static const char *_sval_to_dev_ready_str(kv_scalar_t *val)
+{
+	dev_ready_t ready;
+
+	memcpy(&ready, val->data + _svalue_ext_data_offset(val), sizeof(ready));
+	return dev_ready_str[ready];
+}
+
 static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 {
 	char                   uuid_buf1[UTIL_UUID_STR_SIZE];
@@ -3439,9 +3462,11 @@ static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 		}
 
 		if (!strcmp(key_core, KV_KEY_GEN_GROUP_IN) || !strcmp(key_core, KV_KEY_GEN_GROUP_MEMBERS) ||
-		    !strcmp(key_core, KV_KEY_DEV_READY) || !strcmp(key_core, KV_KEY_DEV_RESERVED)) {
+		    !strcmp(key_core, KV_KEY_DEV_RESERVED)) {
 			vvalue = _get_vvalue(kv_store_value_flags, data, size, tmp_vvalue);
 			_print_vvalue(vvalue, kv_store_value_flags & KV_STORE_VALUE_VECTOR, size, key_core, format, prn_buf, 3);
+		} else if (!strcmp(key_core, KV_KEY_DEV_READY)) {
+			print_str_field(format, prn_buf, 3, KV_KEY_DEV_READY, _sval_to_dev_ready_str(data), with_comma);
 		}
 
 		UTIL_SWAP(uuid, prev_uuid);
