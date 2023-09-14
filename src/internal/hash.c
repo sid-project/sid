@@ -18,6 +18,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "internal/comp-attrs.h"
+
 #include "internal/hash.h"
 
 #include "internal/mem.h"
@@ -349,7 +351,7 @@ void hash_wipe(struct hash_table *t)
 	t->num_nodes = 0u;
 }
 
-char *hash_get_key(struct hash_table *t __attribute__((unused)), struct hash_node *n, uint32_t *key_len)
+char *hash_get_key(struct hash_table *t __unused, struct hash_node *n, uint32_t *key_len)
 {
 	if (key_len)
 		*key_len = n->key_len;
@@ -357,7 +359,7 @@ char *hash_get_key(struct hash_table *t __attribute__((unused)), struct hash_nod
 	return n->key;
 }
 
-void *hash_get_data(struct hash_table *t __attribute__((unused)), struct hash_node *n, size_t *data_len)
+void *hash_get_data(struct hash_table *t __unused, struct hash_node *n, size_t *data_len)
 {
 	if (data_len)
 		*data_len = n->data_len;

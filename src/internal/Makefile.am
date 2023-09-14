@@ -30,6 +30,7 @@ libsidinternal_la_SOURCES = mem.c \
 internaldir = $(pkgincludedir)/internal
 
 internal_HEADERS = $(top_builddir)/src/include/internal/common.h \
+		   $(top_builddir)/src/include/internal/comp-attrs.h \
 		   $(top_builddir)/src/include/internal/mem.h \
 		   $(top_builddir)/src/include/internal/bitmap.h \
 		   $(top_builddir)/src/include/internal/list.h \

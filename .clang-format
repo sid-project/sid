@@ -74,15 +74,17 @@ ForEachMacros:
   - list_iterate_items_safe_back
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex: '^"internal/common.h'
-    Priority: 0
-  - Regex: '^"config.h'
-    Priority: 0
-  - Regex: '^"'
+  - Regex: '^"config.h"'
+    Priority: -3
+  - Regex: '^"internal/comp-attrs.h"'
+    Priority: -2
+  - Regex: '^"internal/common.h"'
+    Priority: -1
+  - Regex: '^".*"'
     Priority: 1
   - Regex: '^<cmocka.h>'
     Priority: 3
-  - Regex: '.*'
+  - Regex: '^<.*>'
     Priority: 2
 IndentAccessModifiers: false
 IndentCaseBlocks: false

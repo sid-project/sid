@@ -20,6 +20,8 @@
 #ifndef _SID_LOG_H
 #define _SID_LOG_H
 
+#include "internal/comp-attrs.h"
+
 #include <errno.h>
 #include <stdarg.h>
 #include <string.h>
@@ -59,15 +61,15 @@ extern const struct log_target log_target_journal;
 void log_init(log_target_t target, int verbose_mode);
 void log_change_target(log_target_t new_target);
 
-__attribute__((format(printf, 8, 9))) void log_output(int         level_id,
-                                                      const char *prefix,
-                                                      int         class_id,
-                                                      int         errno_id,
-                                                      const char *file_name,
-                                                      int         line_number,
-                                                      const char *function_name,
-                                                      const char *format,
-                                                      ...);
+__format_printf(8, 9) void log_output(int         level_id,
+                                      const char *prefix,
+                                      int         class_id,
+                                      int         errno_id,
+                                      const char *file_name,
+                                      int         line_number,
+                                      const char *function_name,
+                                      const char *format,
+                                      ...);
 
 #define LOG_CLASS_UNCLASSIFIED     0x0001
 

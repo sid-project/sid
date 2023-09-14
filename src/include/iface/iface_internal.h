@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+#include "internal/comp-attrs.h"
+
 #include "iface/iface.h"
 
 struct sid_msg_header {
@@ -31,7 +33,7 @@ struct sid_msg_header {
 	uint8_t  prot;
 	uint8_t  cmd;
 	uint16_t flags;
-} __attribute__((packed));
+} __packed;
 
 #define SID_MSG_HEADER_SIZE sizeof(struct sid_msg_header)
 

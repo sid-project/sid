@@ -20,6 +20,8 @@
 #ifndef _SID_UCMD_MODULE_H
 #define _SID_UCMD_MODULE_H
 
+#include "internal/comp-attrs.h"
+
 #include "internal/common.h"
 
 #include "resource/module.h"
@@ -61,7 +63,7 @@ struct sid_ucmd_mod_fns {
 	sid_ucmd_fn_t *trigger_action_current;
 	sid_ucmd_fn_t *trigger_action_next;
 	sid_ucmd_fn_t *error;
-} __attribute__((packed));
+} __packed;
 
 /*
  * Macros to register module's management functions.

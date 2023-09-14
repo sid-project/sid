@@ -17,7 +17,11 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "internal/comp-attrs.h"
+
 #include "internal/common.h"
+
+#include "resource/ubridge.h"
 
 #include "base/buffer.h"
 #include "base/comms.h"
@@ -31,7 +35,6 @@
 #include "resource/kv-store.h"
 #include "resource/module-registry.h"
 #include "resource/resource.h"
-#include "resource/ubridge.h"
 #include "resource/ucmd-module.h"
 #include "resource/worker-control.h"
 
@@ -431,7 +434,7 @@ struct sid_msg {
 struct internal_msg_header {
 	msg_category_t        cat;    /* keep this first so we can decide how to read the rest */
 	struct sid_msg_header header; /* reusing sid_msg_header here to avoid defining a new struct with subset of fields we need */
-} __attribute__((packed));
+} __packed;
 
 #define INTERNAL_MSG_HEADER_SIZE      sizeof(struct internal_msg_header)
 #define INTERNAL_MSG_MAX_FD_DATA_SIZE 0x4000000 /* FIXME: make this configurable or use heuristics based on current state */
@@ -5269,7 +5272,7 @@ static int _worker_proxy_recv_system_cmd_sync(sid_resource_t *worker_proxy_res, 
 
 static int _worker_proxy_recv_system_cmd_resources(sid_resource_t          *worker_proxy_res,
                                                    struct worker_data_spec *data_spec,
-                                                   void                    *arg __attribute__((unused)))
+                                                   void *arg                __unused)
 {
 	struct internal_msg_header int_msg;
 	struct sid_buffer         *buf;
@@ -5429,7 +5432,7 @@ static int _worker_recv_system_cmd_sync(sid_resource_t *worker_res, struct worke
 static int _worker_recv_fn(sid_resource_t          *worker_res,
                            struct worker_channel   *chan,
                            struct worker_data_spec *data_spec,
-                           void                    *arg __attribute__((unused)))
+                           void *arg                __unused)
 {
 	struct internal_msg_header int_msg;
 

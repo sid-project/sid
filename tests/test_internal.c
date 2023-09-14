@@ -1,3 +1,5 @@
+#include "internal/comp-attrs.h"
+
 #include "internal/util.h"
 
 #include <setjmp.h>
@@ -20,7 +22,7 @@ static void check_strv(char **output, char **goal)
 
 static void do_mem_test(const char *prefix, const char *str, const char *suffix, char *goal[])
 {
-	char            buffer[128] __attribute__((aligned(sizeof(char *))));
+	char            buffer[128] __aligned_to(sizeof(char *));
 	char          **output = (char **) buffer;
 	struct util_mem mem    = {.base = buffer, .size = sizeof(buffer)};
 
@@ -31,7 +33,7 @@ static void do_mem_test(const char *prefix, const char *str, const char *suffix,
 
 static void fail_mem_test(const char *prefix, const char *str, const char *suffix)
 {
-	char            buffer[128] __attribute__((aligned(sizeof(char *))));
+	char            buffer[128] __aligned_to(sizeof(char *));
 	struct util_mem mem = {.base = buffer, .size = sizeof(buffer)};
 
 	assert_null(util_str_comb_to_strv(&mem, prefix, str, suffix, UTIL_STR_DEFAULT_DELIMS, UTIL_STR_DEFAULT_QUOTES));
@@ -165,7 +167,7 @@ static void bad_mem_test_missing6(void **state)
 
 static void bad_mem_test_small(void **state)
 {
-	char            buffer[16] __attribute__((aligned(sizeof(char *))));
+	char            buffer[16] __aligned_to(sizeof(char *));
 	struct util_mem mem = {.base = buffer, .size = sizeof(buffer)};
 
 	assert_null(util_str_comb_to_strv(&mem, "too", "many", "strings", UTIL_STR_DEFAULT_DELIMS, UTIL_STR_DEFAULT_QUOTES));

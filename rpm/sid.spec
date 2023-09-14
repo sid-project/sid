@@ -77,7 +77,7 @@ rm -f %{buildroot}/%{_libdir}/sid/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/block/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/dm/*.{a,la}
-%multilib_fix_c_header --file %{_includedir}/sid/config.h
+%%multilib_fix_c_header --file %{_includedir}/sid/config.h
 
 %files
 %license COPYING BSD_LICENSE
@@ -177,6 +177,7 @@ internal libraries.
 %{_includedir}/sid/internal/bitmap.h
 %{_includedir}/sid/internal/bptree.h
 %{_includedir}/sid/internal/common.h
+%{_includedir}/sid/internal/comp-attrs.h
 %{_includedir}/sid/internal/formatter.h
 %{_includedir}/sid/internal/hash.h
 %{_includedir}/sid/internal/list.h

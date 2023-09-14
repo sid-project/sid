@@ -19,10 +19,11 @@
 
 #include "internal/common.h"
 
+#include "resource/module-registry.h"
+
 #include "internal/mem.h"
 #include "internal/util.h"
 #include "log/log.h"
-#include "resource/module-registry.h"
 #include "resource/resource.h"
 
 #include <dirent.h>

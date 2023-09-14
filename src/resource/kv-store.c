@@ -17,6 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "internal/comp-attrs.h"
+
 #include "resource/kv-store.h"
 
 #include "internal/bptree.h"
@@ -50,7 +52,7 @@ struct kv_store_value {
 	size_t                     size;
 	kv_store_value_int_flags_t int_flags;
 	kv_store_value_flags_t     ext_flags;
-	char                       data[] __attribute__((aligned));
+	char                       data[] __aligned;
 };
 
 struct kv_rollback_arg {
@@ -169,19 +171,17 @@ static void _destroy_kv_store_value(struct kv_store_value *value)
 	free(value);
 }
 
-static void _hash_destroy_kv_store_value(const void *key __attribute__((unused)),
-                                         uint32_t    key_len __attribute__((unused)),
-                                         void       *value,
-                                         size_t      value_size __attribute__((unused)))
+static void
+	_hash_destroy_kv_store_value(const void *key __unused, uint32_t key_len __unused, void *value, size_t value_size __unused)
 {
 	_destroy_kv_store_value(value);
 }
 
-static void _bptree_destroy_kv_store_value(const char *key __attribute__((unused)),
-                                           void       *value,
-                                           size_t      value_size __attribute__((unused)),
-                                           unsigned    ref_count,
-                                           void       *arg __attribute__((unused)))
+static void _bptree_destroy_kv_store_value(const char *key   __unused,
+                                           void             *value,
+                                           size_t value_size __unused,
+                                           unsigned          ref_count,
+                                           void *arg         __unused)
 {
 	if (ref_count == 1)
 		_destroy_kv_store_value(value);
@@ -461,13 +461,13 @@ static int _update_fn(const char                *key,
 	return r;
 }
 
-static hash_update_action_t _hash_update_fn(const void *key,
-                                            uint32_t    key_len __attribute__((unused)),
-                                            void       *old_value,
-                                            size_t      old_value_len,
-                                            void      **new_value,
-                                            size_t     *new_value_len,
-                                            void       *arg)
+static hash_update_action_t _hash_update_fn(const void      *key,
+                                            uint32_t key_len __unused,
+                                            void            *old_value,
+                                            size_t           old_value_len,
+                                            void           **new_value,
+                                            size_t          *new_value_len,
+                                            void            *arg)
 {
 	if (_update_fn((const char *) key,
 	               (struct kv_store_value *) old_value,
@@ -763,13 +763,13 @@ static int _unset_fn(const char                *key,
 	return r;
 }
 
-static hash_update_action_t _hash_unset_fn(const void *key,
-                                           uint32_t    key_len __attribute__((unused)),
-                                           void       *old_value,
-                                           size_t      old_value_len,
-                                           void      **new_value,
-                                           size_t     *new_value_len,
-                                           void       *arg)
+static hash_update_action_t _hash_unset_fn(const void      *key,
+                                           uint32_t key_len __unused,
+                                           void            *old_value,
+                                           size_t           old_value_len,
+                                           void           **new_value,
+                                           size_t          *new_value_len,
+                                           void            *arg)
 {
 	if (_unset_fn(key,
 	              (struct kv_store_value *) old_value,
@@ -920,13 +920,13 @@ static int _rollback_fn(const char             *key,
 	return 2;
 }
 
-static hash_update_action_t _hash_rollback_fn(const void *key,
-                                              uint32_t    key_len __attribute__((unused)),
-                                              void       *curr_value,
-                                              size_t      curr_value_len __attribute__((unused)),
-                                              void      **rollback_value,
-                                              size_t     *rollback_value_len __attribute__((unused)),
-                                              void       *arg)
+static hash_update_action_t _hash_rollback_fn(const void                *key,
+                                              uint32_t key_len           __unused,
+                                              void                      *curr_value,
+                                              size_t curr_value_len      __unused,
+                                              void                     **rollback_value,
+                                              size_t *rollback_value_len __unused,
+                                              void                      *arg)
 {
 	int r;
 
@@ -943,13 +943,13 @@ static hash_update_action_t _hash_rollback_fn(const void *key,
 	return HASH_UPDATE_SKIP;
 }
 
-static bptree_update_action_t _bptree_rollback_fn(const char *key,
-                                                  void       *curr_value,
-                                                  size_t      curr_value_len __attribute__((unused)),
-                                                  unsigned    curr_value_ref_count __attribute__((unused)),
-                                                  void      **rollback_value,
-                                                  size_t     *rollback_value_len __attribute__((unused)),
-                                                  void       *arg)
+static bptree_update_action_t _bptree_rollback_fn(const char                   *key,
+                                                  void                         *curr_value,
+                                                  size_t curr_value_len         __unused,
+                                                  unsigned curr_value_ref_count __unused,
+                                                  void                        **rollback_value,
+                                                  size_t *rollback_value_len    __unused,
+                                                  void                         *arg)
 {
 	int r;
 

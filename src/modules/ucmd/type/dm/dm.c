@@ -17,6 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "internal/comp-attrs.h"
+
 #include "dm.h"
 
 #include "base/util.h"
@@ -77,7 +79,7 @@ struct dm_submod_fns {
 	sid_ucmd_fn_t *scan_next;
 	sid_ucmd_fn_t *scan_post_current;
 	sid_ucmd_fn_t *scan_post_next;
-} __attribute__((packed));
+} __packed;
 
 struct dm_mod_ctx {
 	sid_resource_t *submod_registry;

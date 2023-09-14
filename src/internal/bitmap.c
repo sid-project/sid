@@ -17,6 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "internal/comp-attrs.h"
+
 #include "internal/bitmap.h"
 
 #include <errno.h>
@@ -28,7 +30,7 @@ struct bitmap {
 	size_t   bit_count;
 	size_t   bit_set_count;
 	unsigned mem[];
-} __attribute__((packed));
+} __packed;
 
 #define BLOCK_SIZE     sizeof(unsigned)
 #define BITS_PER_BLOCK (BLOCK_SIZE * CHAR_BIT)
@@ -39,7 +41,7 @@ static unsigned _log2n_recursive(unsigned n)
 	return n > 1 ? _log2n_recursive(n / 2) + 1 : 0;
 }
 
-__attribute__((constructor)) static void _init_bitmap()
+__constructor static void _init_bitmap()
 {
 	BLOCK_SHIFT = _log2n_recursive(BITS_PER_BLOCK);
 }

@@ -19,8 +19,9 @@
 
 #include "internal/common.h"
 
-#include "internal/mem.h"
 #include "internal/util.h"
+
+#include "internal/mem.h"
 
 #include <errno.h>
 #include <fcntl.h>
