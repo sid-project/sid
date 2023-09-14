@@ -308,12 +308,6 @@ typedef struct iovec kv_vector_t;
 		owner, strlen(owner) + 1                                                                                           \
 	}
 
-#define VVALUE_HEADER_PREP_BUF(buf, seqnum, flags, gennum, owner, r)                                                               \
-	(((r = sid_buffer_add(buf, &(seqnum), sizeof(seqnum), NULL, NULL)) == 0) &&                                                \
-	 ((r = sid_buffer_add(buf, &(flags), sizeof(flags), NULL, NULL)) == 0) &&                                                  \
-	 ((r = sid_buffer_add(buf, &(gennum), sizeof(gennum), NULL, NULL)) == 0) &&                                                \
-	 ((r = sid_buffer_add(buf, (owner), strlen(owner) + 1, NULL, NULL)) == 0))
-
 #define VVALUE_DATA_PREP(vvalue, idx, data, size)                                                                                  \
 	vvalue[VVALUE_IDX_DATA + idx] = (kv_vector_t) {.iov_base = (void *) (data), .iov_len = (size)};
 
@@ -3687,13 +3681,11 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		goto out;
 	}
 
-	if (!VVALUE_HEADER_PREP_BUF(vec_buf,
-	                            ucmd_ctx->req_env.dev.udev.seqnum,
-	                            value_flags_no_sync,
-	                            ucmd_ctx->common->gennum,
-	                            core_owner,
-	                            r))
+	if (sid_buffer_add(vec_buf, NULL, VVALUE_HEADER_CNT, (const void **) &vvalue, NULL) < 0)
 		goto out;
+
+	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_no_sync, ucmd_ctx->common->gennum, core_owner);
+	sid_buffer_unbind_mem(vec_buf, vvalue);
 
 	/* Read relatives from sysfs into vec_buf. */
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
