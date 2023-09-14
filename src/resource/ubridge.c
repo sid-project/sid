@@ -278,7 +278,7 @@ typedef struct {
 	sid_ucmd_kv_flags_t flags;
 	uint16_t            gennum;
 	char                data[]; /* contains both internal and external data */
-} __attribute__((packed)) kv_scalar_t;
+} kv_scalar_t;
 
 enum {
 	VVALUE_IDX_SEQNUM,
@@ -289,8 +289,10 @@ enum {
 	_VVALUE_IDX_COUNT,
 };
 
-#define VVALUE_HEADER_CNT VVALUE_IDX_DATA
-#define VVALUE_SINGLE_CNT VVALUE_IDX_DATA + 1
+#define SVALUE_HEADER_SIZE (offsetof(kv_scalar_t, data))
+
+#define VVALUE_HEADER_CNT  VVALUE_IDX_DATA
+#define VVALUE_SINGLE_CNT  VVALUE_IDX_DATA + 1
 
 typedef struct iovec kv_vector_t;
 
@@ -723,7 +725,7 @@ static kv_vector_t *_get_vvalue(kv_store_value_flags_t kv_store_value_flags, voi
 	owner_size = strlen(svalue->data) + 1;
 
 	VVALUE_HEADER_PREP(vvalue, svalue->seqnum, svalue->flags, svalue->gennum, svalue->data);
-	VVALUE_DATA_PREP(vvalue, 0, svalue->data + owner_size, value_size - sizeof(*svalue) - owner_size);
+	VVALUE_DATA_PREP(vvalue, 0, svalue->data + owner_size, value_size - SVALUE_HEADER_SIZE - owner_size);
 
 	return vvalue;
 }
@@ -1073,7 +1075,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	const char            *key;
 	void                  *raw_value;
 	bool                   vector;
-	size_t                 size, vvalue_size, key_size, data_offset;
+	size_t                 size, vvalue_size, key_size, ext_data_offset;
 	kv_store_value_flags_t kv_store_value_flags;
 	kv_vector_t           *vvalue;
 	unsigned               i, records = 0;
@@ -1187,17 +1189,18 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			}
 
 			if (cmd_reg->flags & CMD_KV_EXPORT_UDEV_TO_RESBUF) {
-				data_offset = _svalue_ext_data_offset(svalue);
+				ext_data_offset = _svalue_ext_data_offset(svalue);
 
 				/* only export if there's a value assigned and the value is not an empty string */
-				if ((size > (sizeof(*svalue) + data_offset + 1)) && ((svalue->data + data_offset)[0] != '\0')) {
+				if ((size > (SVALUE_HEADER_SIZE + ext_data_offset + 1)) &&
+				    ((svalue->data + ext_data_offset)[0] != '\0')) {
 					key = _get_key_part(key, KEY_PART_CORE, NULL);
 
 					if (((r = sid_buffer_add(ucmd_ctx->res_buf, (void *) key, strlen(key), NULL, NULL)) < 0) ||
 					    ((r = sid_buffer_add(ucmd_ctx->res_buf, KV_PAIR_C, 1, NULL, NULL)) < 0) ||
 					    ((r = sid_buffer_add(ucmd_ctx->res_buf,
-					                         svalue->data + data_offset,
-					                         strlen(svalue->data + data_offset),
+					                         svalue->data + ext_data_offset,
+					                         strlen(svalue->data + ext_data_offset),
 					                         NULL,
 					                         NULL)) < 0) ||
 					    ((r = sid_buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, NULL, NULL)) < 0))
@@ -1206,7 +1209,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 					log_debug(ID(ucmd_ctx->common->kv_store_res),
 					          "Exported udev property %s=%s",
 					          key,
-					          svalue->data + data_offset);
+					          svalue->data + ext_data_offset);
 				}
 			}
 
@@ -2269,7 +2272,7 @@ static const void *_cmd_get_key_spec_value(struct module       *mod,
 	const char  *owner = _get_mod_name(mod);
 	const char  *key   = NULL;
 	kv_scalar_t *svalue;
-	size_t       size, data_offset;
+	size_t       size, ext_data_offset;
 	void        *ret = NULL;
 
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, key_spec)))
@@ -2299,14 +2302,14 @@ static const void *_cmd_get_key_spec_value(struct module       *mod,
 	if (flags)
 		*flags = svalue->flags;
 
-	data_offset = _svalue_ext_data_offset(svalue);
-	size        -= (sizeof(*svalue) + data_offset);
+	ext_data_offset = _svalue_ext_data_offset(svalue);
+	size            -= (SVALUE_HEADER_SIZE + ext_data_offset);
 
 	if (value_size)
 		*value_size = size;
 
 	if (size)
-		ret = svalue->data + data_offset;
+		ret = svalue->data + ext_data_offset;
 out:
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 	return ret;
@@ -5013,7 +5016,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	static const char           syncing_msg[] = "Syncing main key-value store:  %s = %s (seqnum %" PRIu64 ")";
 	kv_store_value_flags_t      kv_store_value_flags;
 	SID_BUFFER_SIZE_PREFIX_TYPE msg_size;
-	size_t                      key_size, value_size, data_offset, i;
+	size_t                      key_size, value_size, ext_data_offset, i;
 	char                       *key, *archive_key = NULL, *shm = MAP_FAILED, *p, *end;
 	kv_scalar_t                 tmp_svalue, *svalue = NULL;
 	kv_vector_t                *vvalue = NULL;
@@ -5127,7 +5130,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			archive        = VVALUE_FLAGS(vvalue) & KV_AR;
 			value_to_store = vvalue;
 		} else {
-			if (value_size <= sizeof(*svalue)) {
+			if (value_size <= SVALUE_HEADER_SIZE) {
 				log_error(ID(res),
 				          "Received incorrect value of size %zu to sync with main key-value store.",
 				          value_size);
@@ -5142,14 +5145,14 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			memcpy(svalue, p, value_size);
 			p                   += value_size;
 
-			data_offset         = _svalue_ext_data_offset(svalue);
-			unset               = ((svalue->flags != KV_RS) && (value_size == (sizeof(*svalue) + data_offset)));
+			ext_data_offset     = _svalue_ext_data_offset(svalue);
+			unset               = ((svalue->flags != KV_RS) && (value_size == SVALUE_HEADER_SIZE + ext_data_offset));
 
 			update_arg.owner    = svalue->data;
 			update_arg.res      = common_ctx->kv_store_res;
 			update_arg.ret_code = 0;
 
-			log_debug(ID(res), syncing_msg, key, unset ? "NULL" : svalue->data + data_offset, svalue->seqnum);
+			log_debug(ID(res), syncing_msg, key, unset ? "NULL" : svalue->data + ext_data_offset, svalue->seqnum);
 
 			rel_spec.delta->op = KV_OP_SET;
 
