@@ -31,7 +31,8 @@
 #include <stdio.h>
 
 typedef enum {
-	KV_STORE_VALUE_INT_ALLOC = UINT32_C(0x00000001),
+	KV_STORE_VALUE_INT_ALLOC            = UINT32_C(0x00000001),
+	_KV_STORE_VALUE_INT_FLAGS_ENUM_SIZE = UINT32_C(0xFFFFFFFF),
 } kv_store_value_int_flags_t;
 
 struct kv_store {
