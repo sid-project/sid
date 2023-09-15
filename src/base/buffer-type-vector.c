@@ -197,10 +197,8 @@ static int _buffer_vector_add(struct sid_buffer *buf, void *data, size_t len, co
 	size_t        used = buf->stat.usage.used;
 	struct iovec *iov;
 	size_t        start_pos = 0;
+	size_t        count     = data ? 1 : len;
 	int           r;
-
-	if (data == NULL)
-		return -EINVAL;
 
 	if (!used && buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
 		used = 1;
@@ -208,22 +206,32 @@ static int _buffer_vector_add(struct sid_buffer *buf, void *data, size_t len, co
 	if (pos)
 		start_pos = _buffer_vector_count(buf);
 
-	if ((r = _buffer_vector_realloc(buf, used + 1, 0)) < 0)
+	if ((r = _buffer_vector_realloc(buf, used + count, 0)) < 0)
 		goto out;
 
 	/* check for buf->mem is superfluous here - this is only for static analyzers to pass */
 	if (buf->mem) {
-		iov                  = buf->mem;
-		iov[used].iov_base   = data;
-		iov[used].iov_len    = len;
-		buf->stat.usage.used = used + 1;
+		iov = buf->mem;
+
+		if (data) {
+			iov[used].iov_base = data;
+			iov[used].iov_len  = len;
+		} else {
+			while (len) {
+				len--;
+				iov[len].iov_base = NULL;
+				iov[len].iov_len  = 0;
+			}
+		}
+
+		buf->stat.usage.used = used + count;
 	}
 out:
 	if (r == 0) {
 		if (mem) {
 			/* check for buf->mem is superfluous here - this is only for static analyzers to pass */
 			if (buf->mem)
-				*mem = &iov[buf->stat.usage.used - 1];
+				*mem = &iov[buf->stat.usage.used - count];
 		}
 		if (pos)
 			*pos = start_pos;
