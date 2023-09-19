@@ -217,7 +217,7 @@ static void assert_checker_finished(checker_t *checker)
 
 static checker_t *init_checker(int num)
 {
-	intptr_t   i;
+	uintptr_t  i;
 	checker_t *checker;
 	char      *key_buf;
 

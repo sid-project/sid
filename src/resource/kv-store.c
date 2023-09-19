@@ -106,12 +106,12 @@ struct kv_store_iter {
 
 static void _set_ptr(void *dest, const void *p)
 {
-	memcpy(dest, (void *) &p, sizeof(intptr_t));
+	memcpy(dest, (void *) &p, sizeof(uintptr_t));
 }
 
 static void *_get_ptr(const void *src)
 {
-	intptr_t ptr;
+	uintptr_t ptr;
 
 	memcpy(&ptr, src, sizeof(ptr));
 	return (void *) ptr;
@@ -235,7 +235,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		if (flags & KV_STORE_VALUE_REF) {
-			value_size = sizeof(*value) + sizeof(intptr_t);
+			value_size = sizeof(*value) + sizeof(uintptr_t);
 
 			if (!(value = mem_zalloc(value_size)))
 				return NULL;
@@ -316,7 +316,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 	} else {
 		if (flags & KV_STORE_VALUE_REF) {
 			/* C,D */
-			value_size = sizeof(*value) + sizeof(intptr_t);
+			value_size = sizeof(*value) + sizeof(uintptr_t);
 
 			if (!(value = mem_zalloc(value_size)))
 				return NULL;
@@ -1189,7 +1189,7 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
 		*ext_size = *ext_data_size = data_size;
 	}
 	if (value->ext_flags & KV_STORE_VALUE_REF) {
-		*int_size += sizeof(*value) + sizeof(intptr_t);
+		*int_size += sizeof(*value) + sizeof(uintptr_t);
 		*ext_size += iov_size;
 	} else
 		*int_size += sizeof(*value) + iov_size;
