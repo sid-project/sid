@@ -280,7 +280,7 @@ typedef struct {
 	uint64_t            seqnum;
 	sid_ucmd_kv_flags_t flags;
 	uint16_t            gennum;
-	char                data[]; /* contains both internal and external data */
+	char                data[]; /* contains both internal (owner + padding) and external data (user value) */
 } kv_scalar_t;
 
 enum {
