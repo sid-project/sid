@@ -289,20 +289,29 @@ enum {
 	VVALUE_IDX_GENNUM,
 	VVALUE_IDX_OWNER,
 	VVALUE_IDX_PADDING,
-	VVALUE_IDX_DATA,
-	_VVALUE_IDX_COUNT,
+	VVALUE_IDX_DATA = VVALUE_IDX_PADDING,
+	VVALUE_IDX_DATA_ALIGNED,
 };
 
 #define SVALUE_DATA_ALIGNMENT sizeof(void *)
 
 static char padding[SVALUE_DATA_ALIGNMENT] = {0}; /* used for referencing in vvalue[VVALUE_IDX_PADDING] */
 
-#define SVALUE_HEADER_SIZE (offsetof(kv_scalar_t, data))
+#define SVALUE_HEADER_SIZE        (offsetof(kv_scalar_t, data))
 
-#define VVALUE_HEADER_CNT  VVALUE_IDX_DATA
-#define VVALUE_SINGLE_CNT  VVALUE_IDX_DATA + 1
+#define VVALUE_HEADER_CNT         VVALUE_IDX_DATA
+#define VVALUE_SINGLE_CNT         VVALUE_IDX_DATA + 1
+
+#define VVALUE_HEADER_ALIGNED_CNT VVALUE_IDX_DATA_ALIGNED
+#define VVALUE_SINGLE_ALIGNED_CNT VVALUE_IDX_DATA_ALIGNED + 1
 
 typedef struct iovec kv_vector_t;
+
+#define VVALUE_SEQNUM(vvalue) (*((uint64_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_SEQNUM].iov_base))
+#define VVALUE_FLAGS(vvalue)  (*((sid_ucmd_kv_flags_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_FLAGS].iov_base))
+#define VVALUE_GENNUM(vvalue) (*((uint16_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_GENNUM].iov_base))
+#define VVALUE_OWNER(vvalue)  ((char *) ((kv_vector_t *) vvalue)[VVALUE_IDX_OWNER].iov_base)
+#define VVALUE_DATA(vvalue)   (((kv_vector_t *) vvalue)[VVALUE_IDX_DATA].iov_base)
 
 #define VVALUE_HEADER_PREP(vvalue, seqnum, flags, gennum, owner)                                                                   \
 	vvalue[VVALUE_IDX_SEQNUM] = (kv_vector_t) {&(seqnum), sizeof(seqnum)};                                                     \
@@ -311,30 +320,33 @@ typedef struct iovec kv_vector_t;
 	do {                                                                                                                       \
 		size_t __owner_size      = strlen(owner) + 1;                                                                      \
 		vvalue[VVALUE_IDX_OWNER] = (kv_vector_t) {owner, __owner_size};                                                    \
-		vvalue[VVALUE_IDX_PADDING] =                                                                                       \
-			(kv_vector_t) {padding, MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + __owner_size, SVALUE_DATA_ALIGNMENT)};       \
+		if ((flags) &KV_ALIGN) {                                                                                           \
+			vvalue[VVALUE_IDX_PADDING] =                                                                               \
+				(kv_vector_t) {padding,                                                                            \
+			                       MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + __owner_size, SVALUE_DATA_ALIGNMENT)};        \
+		}                                                                                                                  \
 	} while (0)
 
 #define VVALUE_DATA_PREP(vvalue, idx, data, size)                                                                                  \
-	vvalue[VVALUE_IDX_DATA + idx] = (kv_vector_t) {.iov_base = (void *) (data), .iov_len = (size)};
-
-#define VVALUE_SEQNUM(vvalue) (*((uint64_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_SEQNUM].iov_base))
-#define VVALUE_FLAGS(vvalue)  (*((sid_ucmd_kv_flags_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_FLAGS].iov_base))
-#define VVALUE_GENNUM(vvalue) (*((uint16_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_GENNUM].iov_base))
-#define VVALUE_OWNER(vvalue)  ((char *) ((kv_vector_t *) vvalue)[VVALUE_IDX_OWNER].iov_base)
-#define VVALUE_DATA(vvalue)   (((kv_vector_t *) vvalue)[VVALUE_IDX_DATA].iov_base)
+	vvalue[(VVALUE_FLAGS(vvalue) & KV_ALIGN ? VVALUE_IDX_DATA_ALIGNED : VVALUE_IDX_DATA) + idx] =                              \
+		(kv_vector_t) {.iov_base = (void *) (data), .iov_len = (size)};
 
 #define SVALUE_TO_VVALUE(svalue, svalue_size, vvalue)                                                                              \
 	vvalue[VVALUE_IDX_SEQNUM] = (kv_vector_t) {&(svalue)->seqnum, sizeof((svalue)->seqnum)};                                   \
 	vvalue[VVALUE_IDX_FLAGS]  = (kv_vector_t) {&(svalue)->flags, sizeof((svalue)->flags)};                                     \
 	vvalue[VVALUE_IDX_GENNUM] = (kv_vector_t) {&(svalue)->gennum, sizeof((svalue)->gennum)};                                   \
 	do {                                                                                                                       \
-		size_t __owner_size        = strlen((svalue)->data) + 1;                                                           \
-		size_t __padding_size      = MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + __owner_size, SVALUE_DATA_ALIGNMENT);           \
-		vvalue[VVALUE_IDX_OWNER]   = (kv_vector_t) {(svalue)->data, __owner_size};                                         \
-		vvalue[VVALUE_IDX_PADDING] = (kv_vector_t) {(svalue)->data + __owner_size, __padding_size};                        \
-		vvalue[VVALUE_IDX_DATA]    = (kv_vector_t) {(svalue)->data + __owner_size + __padding_size,                        \
-		                                            (svalue_size) -SVALUE_HEADER_SIZE - __owner_size - __padding_size};    \
+		size_t __owner_size      = strlen((svalue)->data) + 1;                                                             \
+		vvalue[VVALUE_IDX_OWNER] = (kv_vector_t) {(svalue)->data, __owner_size};                                           \
+		if ((svalue)->flags & KV_ALIGN) {                                                                                  \
+			size_t __padding_size      = MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + __owner_size, SVALUE_DATA_ALIGNMENT);   \
+			vvalue[VVALUE_IDX_PADDING] = (kv_vector_t) {(svalue)->data + __owner_size, __padding_size};                \
+			vvalue[VVALUE_IDX_DATA_ALIGNED] =                                                                          \
+				(kv_vector_t) {(svalue)->data + __owner_size + __padding_size,                                     \
+			                       (svalue_size) -SVALUE_HEADER_SIZE - __owner_size - __padding_size};                 \
+		} else                                                                                                             \
+			vvalue[VVALUE_IDX_DATA] =                                                                                  \
+				(kv_vector_t) {(svalue)->data + __owner_size, (svalue_size) -SVALUE_HEADER_SIZE - __owner_size};   \
 	} while (0)
 
 struct kv_update_arg {
@@ -742,7 +754,7 @@ static kv_vector_t *_get_vvalue(kv_store_value_flags_t kv_store_value_flags, voi
 
 static const char *_buffer_get_vvalue_str(struct sid_buffer *buf, bool unset, kv_vector_t *vvalue, size_t vvalue_size)
 {
-	size_t      buf_offset, i;
+	size_t      buf_offset, start_idx, i;
 	const char *str;
 
 	if (unset) {
@@ -752,8 +764,9 @@ static const char *_buffer_get_vvalue_str(struct sid_buffer *buf, bool unset, kv
 	}
 
 	buf_offset = sid_buffer_count(buf);
+	start_idx  = VVALUE_FLAGS(vvalue) & KV_ALIGN ? VVALUE_IDX_DATA_ALIGNED : VVALUE_IDX_DATA;
 
-	for (i = VVALUE_IDX_DATA; i < vvalue_size; i++) {
+	for (i = start_idx; i < vvalue_size; i++) {
 		if ((sid_buffer_add(buf, vvalue[i].iov_base, vvalue[i].iov_len - 1, NULL, NULL) < 0) ||
 		    (sid_buffer_add(buf, " ", 1, NULL, NULL) < 0))
 			goto fail;
@@ -1006,7 +1019,11 @@ static const char *_get_mod_name(struct module *mod)
 static size_t _svalue_ext_data_offset(kv_scalar_t *svalue)
 {
 	size_t owner_size = strlen(svalue->data) + 1;
-	return owner_size + MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + owner_size, SVALUE_DATA_ALIGNMENT);
+
+	if (svalue->flags & KV_ALIGN)
+		return owner_size + MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + owner_size, SVALUE_DATA_ALIGNMENT);
+
+	return owner_size;
 }
 
 bool _is_string_data(char *ptr, size_t len)
@@ -1029,36 +1046,31 @@ static void _print_vvalue(kv_vector_t       *vvalue,
                           struct sid_buffer *buf,
                           int                level)
 {
-	int i;
+	size_t start_idx = VVALUE_FLAGS(vvalue) & KV_ALIGN ? VVALUE_IDX_DATA_ALIGNED : VVALUE_IDX_DATA;
+	int    i;
 
 	if (vector) {
 		print_start_array(format, buf, level, name, true);
-		for (i = VVALUE_IDX_DATA; i < size; i++) {
+		for (i = start_idx; i < size; i++) {
 			if (vvalue[i].iov_len) {
 				if (_is_string_data(vvalue[i].iov_base, vvalue[i].iov_len))
-					print_str_array_elem(format, buf, level + 1, vvalue[i].iov_base, i > VVALUE_IDX_DATA);
+					print_str_array_elem(format, buf, level + 1, vvalue[i].iov_base, i > start_idx);
 				else
 					print_binary_array_elem(format,
 					                        buf,
 					                        level + 1,
 					                        vvalue[i].iov_base,
 					                        vvalue[i].iov_len,
-					                        i + VVALUE_IDX_DATA);
+					                        i + start_idx);
 			} else
 				print_str_array_elem(format, buf, level + 1, "", false);
 		}
 		print_end_array(format, buf, level);
-	} else if (vvalue[VVALUE_IDX_DATA].iov_len) {
-		if (_is_string_data(vvalue[VVALUE_IDX_DATA].iov_base, vvalue[VVALUE_IDX_DATA].iov_len))
-			print_str_field(format, buf, level, name, vvalue[VVALUE_IDX_DATA].iov_base, true);
+	} else if (vvalue[start_idx].iov_len) {
+		if (_is_string_data(vvalue[start_idx].iov_base, vvalue[start_idx].iov_len))
+			print_str_field(format, buf, level, name, vvalue[start_idx].iov_base, true);
 		else
-			print_binary_field(format,
-			                   buf,
-			                   level,
-			                   name,
-			                   vvalue[VVALUE_IDX_DATA].iov_base,
-			                   vvalue[VVALUE_IDX_DATA].iov_len,
-			                   true);
+			print_binary_field(format, buf, level, name, vvalue[start_idx].iov_base, vvalue[start_idx].iov_len, true);
 	} else
 		print_str_field(format, buf, level, name, "", true);
 }
@@ -2161,9 +2173,10 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
                                  const void             *value,
                                  size_t                  value_size)
 {
-	const char          *owner = _get_mod_name(mod);
-	char                *key   = NULL;
-	kv_vector_t          vvalue[VVALUE_SINGLE_CNT];
+	const char          *owner      = _get_mod_name(mod);
+	char                *key        = NULL;
+	size_t               vvalue_cnt = flags & KV_ALIGN ? VVALUE_SINGLE_ALIGNED_CNT : VVALUE_SINGLE_CNT;
+	kv_vector_t          vvalue[vvalue_cnt];
 	kv_scalar_t         *svalue;
 	struct kv_update_arg update_arg;
 	struct kv_key_spec   key_spec = {.extra_op = NULL,
@@ -2223,7 +2236,7 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 		if (!(svalue = kv_store_set_value_with_archive(ucmd_ctx->common->kv_store_res,
 		                                               key + 1,
 		                                               vvalue,
-		                                               VVALUE_SINGLE_CNT,
+		                                               vvalue_cnt,
 		                                               KV_STORE_VALUE_VECTOR,
 		                                               KV_STORE_VALUE_OP_MERGE,
 		                                               _kv_cb_write,
@@ -2234,7 +2247,7 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 		if (!(svalue = kv_store_set_value(ucmd_ctx->common->kv_store_res,
 		                                  key,
 		                                  vvalue,
-		                                  VVALUE_SINGLE_CNT,
+		                                  vvalue_cnt,
 		                                  KV_STORE_VALUE_VECTOR,
 		                                  KV_STORE_VALUE_OP_MERGE,
 		                                  _kv_cb_write,
@@ -2872,6 +2885,8 @@ int sid_ucmd_group_create(struct module          *mod,
 {
 	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
+
+	group_flags &= ~KV_ALIGN;
 
 	return _do_sid_ucmd_group_create(mod, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_flags, group_cat, group_id);
 }
@@ -5749,9 +5764,10 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 
 static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 {
-	kv_vector_t  vvalue[VVALUE_IDX_DATA + 1];
-	const char  *key;
-	kv_scalar_t *svalue;
+	kv_vector_t         vvalue[VVALUE_SINGLE_ALIGNED_CNT];
+	sid_ucmd_kv_flags_t flags = value_flags_no_sync | KV_ALIGN;
+	const char         *key;
+	kv_scalar_t        *svalue;
 
 	if (!(key = _compose_key(ctx->gen_buf,
 	                         &((struct kv_key_spec) {.extra_op = NULL,
@@ -5772,13 +5788,13 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 
 	log_debug(ID(ctx->res), "Current generation number: %" PRIu16, ctx->gennum);
 
-	VVALUE_HEADER_PREP(vvalue, null_int, value_flags_no_sync, ctx->gennum, core_owner);
+	VVALUE_HEADER_PREP(vvalue, null_int, flags, ctx->gennum, core_owner);
 	VVALUE_DATA_PREP(vvalue, 0, &ctx->gennum, sizeof(ctx->gennum));
 
 	kv_store_set_value(ctx->kv_store_res,
 	                   key,
 	                   vvalue,
-	                   VVALUE_IDX_DATA + 1,
+	                   VVALUE_SINGLE_ALIGNED_CNT,
 	                   KV_STORE_VALUE_VECTOR,
 	                   KV_STORE_VALUE_OP_MERGE,
 	                   NULL,
