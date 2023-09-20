@@ -288,9 +288,14 @@ enum {
 	VVALUE_IDX_FLAGS,
 	VVALUE_IDX_GENNUM,
 	VVALUE_IDX_OWNER,
+	VVALUE_IDX_PADDING,
 	VVALUE_IDX_DATA,
 	_VVALUE_IDX_COUNT,
 };
+
+#define SVALUE_DATA_ALIGNMENT sizeof(void *)
+
+static char padding[SVALUE_DATA_ALIGNMENT] = {0}; /* used for referencing in vvalue[VVALUE_IDX_PADDING] */
 
 #define SVALUE_HEADER_SIZE (offsetof(kv_scalar_t, data))
 
@@ -303,10 +308,12 @@ typedef struct iovec kv_vector_t;
 	vvalue[VVALUE_IDX_SEQNUM] = (kv_vector_t) {&(seqnum), sizeof(seqnum)};                                                     \
 	vvalue[VVALUE_IDX_FLAGS]  = (kv_vector_t) {&(flags), sizeof(flags)};                                                       \
 	vvalue[VVALUE_IDX_GENNUM] = (kv_vector_t) {&(gennum), sizeof(gennum)};                                                     \
-	vvalue[VVALUE_IDX_OWNER]  = (kv_vector_t)                                                                                  \
-	{                                                                                                                          \
-		owner, strlen(owner) + 1                                                                                           \
-	}
+	do {                                                                                                                       \
+		size_t __owner_size      = strlen(owner) + 1;                                                                      \
+		vvalue[VVALUE_IDX_OWNER] = (kv_vector_t) {owner, __owner_size};                                                    \
+		vvalue[VVALUE_IDX_PADDING] =                                                                                       \
+			(kv_vector_t) {padding, MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + __owner_size, SVALUE_DATA_ALIGNMENT)};       \
+	} while (0)
 
 #define VVALUE_DATA_PREP(vvalue, idx, data, size)                                                                                  \
 	vvalue[VVALUE_IDX_DATA + idx] = (kv_vector_t) {.iov_base = (void *) (data), .iov_len = (size)};
@@ -992,7 +999,8 @@ static const char *_get_mod_name(struct module *mod)
 
 static size_t _svalue_ext_data_offset(kv_scalar_t *svalue)
 {
-	return strlen(svalue->data) + 1;
+	size_t owner_size = strlen(svalue->data) + 1;
+	return owner_size + MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + owner_size, SVALUE_DATA_ALIGNMENT);
 }
 
 bool _is_string_data(char *ptr, size_t len)
