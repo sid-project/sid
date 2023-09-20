@@ -324,6 +324,19 @@ typedef struct iovec kv_vector_t;
 #define VVALUE_OWNER(vvalue)  ((char *) ((kv_vector_t *) vvalue)[VVALUE_IDX_OWNER].iov_base)
 #define VVALUE_DATA(vvalue)   (((kv_vector_t *) vvalue)[VVALUE_IDX_DATA].iov_base)
 
+#define SVALUE_TO_VVALUE(svalue, svalue_size, vvalue)                                                                              \
+	vvalue[VVALUE_IDX_SEQNUM] = (kv_vector_t) {&(svalue)->seqnum, sizeof((svalue)->seqnum)};                                   \
+	vvalue[VVALUE_IDX_FLAGS]  = (kv_vector_t) {&(svalue)->flags, sizeof((svalue)->flags)};                                     \
+	vvalue[VVALUE_IDX_GENNUM] = (kv_vector_t) {&(svalue)->gennum, sizeof((svalue)->gennum)};                                   \
+	do {                                                                                                                       \
+		size_t __owner_size        = strlen((svalue)->data) + 1;                                                           \
+		size_t __padding_size      = MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + __owner_size, SVALUE_DATA_ALIGNMENT);           \
+		vvalue[VVALUE_IDX_OWNER]   = (kv_vector_t) {(svalue)->data, __owner_size};                                         \
+		vvalue[VVALUE_IDX_PADDING] = (kv_vector_t) {(svalue)->data + __owner_size, __padding_size};                        \
+		vvalue[VVALUE_IDX_DATA]    = (kv_vector_t) {(svalue)->data + __owner_size + __padding_size,                        \
+		                                            (svalue_size) -SVALUE_HEADER_SIZE - __owner_size - __padding_size};    \
+	} while (0)
+
 struct kv_update_arg {
 	sid_resource_t    *res;
 	struct sid_buffer *gen_buf;
@@ -716,20 +729,13 @@ static const char *_copy_ns_part_from_key(const char *key, char *buf, size_t buf
 
 static kv_vector_t *_get_vvalue(kv_store_value_flags_t kv_store_value_flags, void *value, size_t value_size, kv_vector_t *vvalue)
 {
-	size_t       owner_size;
-	kv_scalar_t *svalue;
-
 	if (!value)
 		return NULL;
 
 	if (kv_store_value_flags & KV_STORE_VALUE_VECTOR)
 		return value;
 
-	svalue     = value;
-	owner_size = strlen(svalue->data) + 1;
-
-	VVALUE_HEADER_PREP(vvalue, svalue->seqnum, svalue->flags, svalue->gennum, svalue->data);
-	VVALUE_DATA_PREP(vvalue, 0, svalue->data + owner_size, value_size - SVALUE_HEADER_SIZE - owner_size);
+	SVALUE_TO_VVALUE((kv_scalar_t *) value, value_size, vvalue);
 
 	return vvalue;
 }
