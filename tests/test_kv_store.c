@@ -111,6 +111,7 @@ static void test_kvstore_iterate(void **state)
 	sid_ucmd_kv_flags_t    ucmd_flags = DEFAULT_VALUE_FLAGS_CORE;
 	kv_store_value_flags_t flags;
 	uint64_t               seqnum       = 0;
+	uint16_t               gennum       = 0;
 	sid_resource_t        *kv_store_res = NULL;
 	struct kv_update_arg   update_arg;
 	size_t                 meta_size = 0;
@@ -123,7 +124,7 @@ static void test_kvstore_iterate(void **state)
                                            SID_RESOURCE_PRIO_NORMAL,
                                            SID_RESOURCE_NO_SERVICE_LINKS);
 
-	VVALUE_HEADER_PREP(test_iov, seqnum, seqnum, ucmd_flags, (char *) TEST_OWNER);
+	VVALUE_HEADER_PREP(test_iov, seqnum, ucmd_flags, gennum, (char *) TEST_OWNER);
 	test_iov[VVALUE_IDX_DATA].iov_base = "test";
 	test_iov[VVALUE_IDX_DATA].iov_len  = sizeof("test");
 

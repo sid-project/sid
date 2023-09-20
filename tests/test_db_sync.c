@@ -178,7 +178,7 @@ static void _set_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **data
 	key_spec.core = core;
 	assert_non_null(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec));
 
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, flags, (char *) owner);
+	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->req_env.dev.udev.seqnum, flags, ucmd_ctx->common->gennum, (char *) owner);
 	for (i = 0; i < nr_data; i++)
 		VVALUE_DATA_PREP(vvalue, i, data[i], data[i] ? strlen(data[i]) + 1 : 0);
 
@@ -211,7 +211,7 @@ static void _set_broken_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 	key_spec.core                   = core;
 	assert_non_null(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec));
 
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->common->gennum, ucmd_ctx->req_env.dev.udev.seqnum, flags, (char *) owner);
+	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->req_env.dev.udev.seqnum, flags, ucmd_ctx->common->gennum, (char *) owner);
 	assert_non_null(kv_store_set_value(ucmd_ctx->common->kv_store_res,
 	                                   key,
 	                                   vvalue,
