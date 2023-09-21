@@ -2037,12 +2037,12 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 		if (!(key_prefix = _compose_key_prefix(NULL, rel_spec->rel_key_spec)))
 			goto out;
 
-		VVALUE_HEADER_PREP(rel_vvalue,
-		                   VVALUE_SEQNUM(vheader),
-		                   value_flags_no_sync,
-		                   VVALUE_GENNUM(vheader),
-		                   (char *) update_arg->owner);
-		VVALUE_DATA_PREP(rel_vvalue, 0, key_prefix, strlen(key_prefix) + 1);
+		_vvalue_header_prep(rel_vvalue,
+		                    &VVALUE_SEQNUM(vheader),
+		                    &value_flags_no_sync,
+		                    &VVALUE_GENNUM(vheader),
+		                    (char *) update_arg->owner);
+		_vvalue_data_prep(rel_vvalue, 0, (void *) key_prefix, strlen(key_prefix) + 1);
 
 		for (i = VVALUE_IDX_DATA; i < delta_vsize; i++) {
 			if (!(ns_part = _copy_ns_part_from_key(delta_vvalue[i].iov_base, NULL, 0)))
@@ -2247,8 +2247,8 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	if (!value)
 		value_size = 0;
 
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->req_env.dev.udev.seqnum, flags, ucmd_ctx->common->gennum, (char *) owner);
-	VVALUE_DATA_PREP(vvalue, 0, value, value_size);
+	_vvalue_header_prep(vvalue, &ucmd_ctx->req_env.dev.udev.seqnum, &flags, &ucmd_ctx->common->gennum, (char *) owner);
+	_vvalue_data_prep(vvalue, 0, (void *) value, value_size);
 
 	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->common->kv_store_res,
 	                                     .owner    = owner,
@@ -2548,7 +2548,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 		if (kv_store_unset(common->kv_store_res, key, _kv_cb_reserve, &update_arg) < 0 || update_arg.ret_code < 0)
 			goto out;
 	} else {
-		VVALUE_HEADER_PREP(vvalue, null_int, flags, common->gennum, (char *) owner);
+		_vvalue_header_prep(vvalue, &null_int, &flags, &common->gennum, (char *) owner);
 		if (!kv_store_set_value(common->kv_store_res,
 		                        key,
 		                        vvalue,
@@ -2813,8 +2813,12 @@ static int _handle_dev_for_group(struct module          *mod,
 	if (!(rel_key_prefix = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 		goto out;
 
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_no_sync, ucmd_ctx->common->gennum, core_owner);
-	VVALUE_DATA_PREP(vvalue, 0, rel_key_prefix, strlen(rel_key_prefix) + 1);
+	_vvalue_header_prep(vvalue,
+	                    &ucmd_ctx->req_env.dev.udev.seqnum,
+	                    &value_flags_no_sync,
+	                    &ucmd_ctx->common->gennum,
+	                    core_owner);
+	_vvalue_data_prep(vvalue, 0, (void *) rel_key_prefix, strlen(rel_key_prefix) + 1);
 
 	if (_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg, true) < 0)
 		goto out;
@@ -2881,7 +2885,7 @@ static int _do_sid_ucmd_group_create(struct module          *mod,
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
 		goto out;
 
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->req_env.dev.udev.seqnum, group_flags, ucmd_ctx->common->gennum, (char *) owner);
+	_vvalue_header_prep(vvalue, &ucmd_ctx->req_env.dev.udev.seqnum, &group_flags, &ucmd_ctx->common->gennum, (char *) owner);
 
 	if (!kv_store_set_value(ucmd_ctx->common->kv_store_res,
 	                        key,
@@ -2994,11 +2998,11 @@ static int _do_sid_ucmd_group_destroy(struct module          *mod,
 		goto out;
 	}
 
-	VVALUE_HEADER_PREP(vvalue,
-	                   ucmd_ctx->req_env.dev.udev.seqnum,
-	                   kv_flags_sync_no_reserved,
-	                   ucmd_ctx->common->gennum,
-	                   core_owner);
+	_vvalue_header_prep(vvalue,
+	                    &ucmd_ctx->req_env.dev.udev.seqnum,
+	                    &kv_flags_sync_no_reserved,
+	                    &ucmd_ctx->common->gennum,
+	                    core_owner);
 
 	if ((r = _kv_delta_set(key, vvalue, VVALUE_HEADER_CNT, &update_arg, true)) < 0)
 		goto out;
@@ -3738,7 +3742,11 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	if (sid_buffer_add(vec_buf, NULL, VVALUE_HEADER_CNT, (const void **) &vvalue, NULL) < 0)
 		goto out;
 
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_no_sync, ucmd_ctx->common->gennum, core_owner);
+	_vvalue_header_prep(vvalue,
+	                    &ucmd_ctx->req_env.dev.udev.seqnum,
+	                    &value_flags_no_sync,
+	                    &ucmd_ctx->common->gennum,
+	                    core_owner);
 	sid_buffer_unbind_mem(vec_buf, vvalue);
 
 	/* Read relatives from sysfs into vec_buf. */
@@ -3887,7 +3895,11 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
 	                                   .custom  = &rel_spec};
 
-	VVALUE_HEADER_PREP(vvalue, ucmd_ctx->req_env.dev.udev.seqnum, value_flags_no_sync, ucmd_ctx->common->gennum, core_owner);
+	_vvalue_header_prep(vvalue,
+	                    &ucmd_ctx->req_env.dev.udev.seqnum,
+	                    &value_flags_no_sync,
+	                    &ucmd_ctx->common->gennum,
+	                    core_owner);
 	if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 		goto out;
 
@@ -3909,7 +3921,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 		goto out;
 
-	VVALUE_DATA_PREP(vvalue, 0, s, strlen(s) + 1);
+	_vvalue_data_prep(vvalue, 0, (void *) s, strlen(s) + 1);
 	rel_spec.rel_key_spec->ns_part = ID_NULL;
 
 	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec))) {
@@ -5813,8 +5825,8 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 
 	log_debug(ID(ctx->res), "Current generation number: %" PRIu16, ctx->gennum);
 
-	VVALUE_HEADER_PREP(vvalue, null_int, flags, ctx->gennum, core_owner);
-	VVALUE_DATA_PREP(vvalue, 0, &ctx->gennum, sizeof(ctx->gennum));
+	_vvalue_header_prep(vvalue, &null_int, &flags, &ctx->gennum, core_owner);
+	_vvalue_data_prep(vvalue, 0, &ctx->gennum, sizeof(ctx->gennum));
 
 	kv_store_set_value(ctx->kv_store_res,
 	                   key,
@@ -5862,8 +5874,8 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 
 	log_debug(ID(ctx->res), "Current system boot id: %s.", boot_id);
 
-	VVALUE_HEADER_PREP(vvalue, null_int, value_flags_no_sync, ctx->gennum, core_owner);
-	VVALUE_DATA_PREP(vvalue, 0, boot_id, sizeof(boot_id));
+	_vvalue_header_prep(vvalue, &null_int, &value_flags_no_sync, &ctx->gennum, core_owner);
+	_vvalue_data_prep(vvalue, 0, boot_id, sizeof(boot_id));
 
 	kv_store_set_value(ctx->kv_store_res,
 	                   key,
