@@ -124,7 +124,7 @@ static void test_kvstore_iterate(void **state)
                                            SID_RESOURCE_PRIO_NORMAL,
                                            SID_RESOURCE_NO_SERVICE_LINKS);
 
-	VVALUE_HEADER_PREP(test_iov, seqnum, ucmd_flags, gennum, (char *) TEST_OWNER);
+	_vvalue_header_prep(test_iov, &seqnum, &ucmd_flags, &gennum, (char *) TEST_OWNER);
 	test_iov[VVALUE_IDX_DATA].iov_base = "test";
 	test_iov[VVALUE_IDX_DATA].iov_len  = sizeof("test");
 
