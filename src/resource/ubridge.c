@@ -313,42 +313,6 @@ typedef struct iovec kv_vector_t;
 #define VVALUE_OWNER(vvalue)  ((char *) ((kv_vector_t *) vvalue)[VVALUE_IDX_OWNER].iov_base)
 #define VVALUE_DATA(vvalue)   (((kv_vector_t *) vvalue)[VVALUE_IDX_DATA].iov_base)
 
-#define VVALUE_HEADER_PREP(vvalue, seqnum, flags, gennum, owner)                                                                   \
-	vvalue[VVALUE_IDX_SEQNUM] = (kv_vector_t) {&(seqnum), sizeof(seqnum)};                                                     \
-	vvalue[VVALUE_IDX_FLAGS]  = (kv_vector_t) {&(flags), sizeof(flags)};                                                       \
-	vvalue[VVALUE_IDX_GENNUM] = (kv_vector_t) {&(gennum), sizeof(gennum)};                                                     \
-	do {                                                                                                                       \
-		size_t __owner_size      = strlen(owner) + 1;                                                                      \
-		vvalue[VVALUE_IDX_OWNER] = (kv_vector_t) {owner, __owner_size};                                                    \
-		if ((flags) &KV_ALIGN) {                                                                                           \
-			vvalue[VVALUE_IDX_PADDING] =                                                                               \
-				(kv_vector_t) {padding,                                                                            \
-			                       MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + __owner_size, SVALUE_DATA_ALIGNMENT)};        \
-		}                                                                                                                  \
-	} while (0)
-
-#define VVALUE_DATA_PREP(vvalue, idx, data, size)                                                                                  \
-	vvalue[(VVALUE_FLAGS(vvalue) & KV_ALIGN ? VVALUE_IDX_DATA_ALIGNED : VVALUE_IDX_DATA) + idx] =                              \
-		(kv_vector_t) {.iov_base = (void *) (data), .iov_len = (size)};
-
-#define SVALUE_TO_VVALUE(svalue, svalue_size, vvalue)                                                                              \
-	vvalue[VVALUE_IDX_SEQNUM] = (kv_vector_t) {&(svalue)->seqnum, sizeof((svalue)->seqnum)};                                   \
-	vvalue[VVALUE_IDX_FLAGS]  = (kv_vector_t) {&(svalue)->flags, sizeof((svalue)->flags)};                                     \
-	vvalue[VVALUE_IDX_GENNUM] = (kv_vector_t) {&(svalue)->gennum, sizeof((svalue)->gennum)};                                   \
-	do {                                                                                                                       \
-		size_t __owner_size      = strlen((svalue)->data) + 1;                                                             \
-		vvalue[VVALUE_IDX_OWNER] = (kv_vector_t) {(svalue)->data, __owner_size};                                           \
-		if ((svalue)->flags & KV_ALIGN) {                                                                                  \
-			size_t __padding_size      = MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + __owner_size, SVALUE_DATA_ALIGNMENT);   \
-			vvalue[VVALUE_IDX_PADDING] = (kv_vector_t) {(svalue)->data + __owner_size, __padding_size};                \
-			vvalue[VVALUE_IDX_DATA_ALIGNED] =                                                                          \
-				(kv_vector_t) {(svalue)->data + __owner_size + __padding_size,                                     \
-			                       (svalue_size) -SVALUE_HEADER_SIZE - __owner_size - __padding_size};                 \
-		} else                                                                                                             \
-			vvalue[VVALUE_IDX_DATA] =                                                                                  \
-				(kv_vector_t) {(svalue)->data + __owner_size, (svalue_size) -SVALUE_HEADER_SIZE - __owner_size};   \
-	} while (0)
-
 struct kv_update_arg {
 	sid_resource_t    *res;
 	struct sid_buffer *gen_buf;
