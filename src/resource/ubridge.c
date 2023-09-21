@@ -1305,7 +1305,9 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			print_uint_field(format, export_buf, 3, "gennum", VVALUE_GENNUM(vvalue), true);
 			print_uint64_field(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
 			print_start_array(format, export_buf, 3, "flags", true);
-			print_bool_array_elem(format, export_buf, 4, "KV_SYNC_P", VVALUE_FLAGS(vvalue) & KV_SYNC_P, false);
+			print_bool_array_elem(format, export_buf, 4, "KV_ALIGN", VVALUE_FLAGS(vvalue) & KV_ALIGN, false);
+			print_bool_array_elem(format, export_buf, 4, "KV_SYNC", VVALUE_FLAGS(vvalue) & KV_SYNC, true);
+			print_bool_array_elem(format, export_buf, 4, "KV_PERSIST", VVALUE_FLAGS(vvalue) & KV_PERSIST, true);
 			print_bool_array_elem(format, export_buf, 4, "KV_AR", VVALUE_FLAGS(vvalue) & KV_AR, true);
 			print_bool_array_elem(format, export_buf, 4, "KV_RS", VVALUE_FLAGS(vvalue) & KV_RS, true);
 			print_bool_array_elem(format, export_buf, 4, "KV_FRG_RD", VVALUE_FLAGS(vvalue) & KV_FRG_RD, true);
