@@ -103,7 +103,7 @@ static void test_type_H(void **state)
 
 static void test_kvstore_iterate(void **state)
 {
-	struct iovec           test_iov[_VVALUE_IDX_COUNT];
+	struct iovec           test_iov[VVALUE_SINGLE_CNT];
 	size_t                 data_size, kv_size;
 	const char            *key;
 	struct iovec          *return_iov;
