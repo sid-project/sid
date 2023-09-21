@@ -739,6 +739,29 @@ static const char *_copy_ns_part_from_key(const char *key, char *buf, size_t buf
 	return ns;
 }
 
+static void _vvalue_header_prep(kv_vector_t *vvalue, uint64_t *seqnum, sid_ucmd_kv_flags_t *flags, uint16_t *gennum, char *owner)
+{
+	size_t owner_size         = strlen(owner) + 1;
+
+	vvalue[VVALUE_IDX_SEQNUM] = (kv_vector_t) {seqnum, sizeof(*seqnum)};
+	vvalue[VVALUE_IDX_FLAGS]  = (kv_vector_t) {flags, sizeof(*flags)};
+	vvalue[VVALUE_IDX_GENNUM] = (kv_vector_t) {gennum, sizeof(*gennum)};
+	vvalue[VVALUE_IDX_OWNER]  = (kv_vector_t) {owner, owner_size};
+
+	if (*flags & KV_ALIGN) {
+		vvalue[VVALUE_IDX_PADDING] =
+			(kv_vector_t) {padding, MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + owner_size, SVALUE_DATA_ALIGNMENT)};
+	}
+}
+
+static void _vvalue_data_prep(kv_vector_t *vvalue, size_t idx, void *data, size_t data_size)
+{
+	if (VVALUE_FLAGS(vvalue) & KV_ALIGN)
+		vvalue[VVALUE_IDX_DATA_ALIGNED + idx] = (kv_vector_t) {data, data_size};
+	else
+		vvalue[VVALUE_IDX_DATA + idx] = (kv_vector_t) {data, data_size};
+}
+
 static kv_vector_t *_get_vvalue(kv_store_value_flags_t kv_store_value_flags, void *value, size_t value_size, kv_vector_t *vvalue)
 {
 	if (!value)
