@@ -764,13 +764,33 @@ static void _vvalue_data_prep(kv_vector_t *vvalue, size_t idx, void *data, size_
 
 static kv_vector_t *_get_vvalue(kv_store_value_flags_t kv_store_value_flags, void *value, size_t value_size, kv_vector_t *vvalue)
 {
+	kv_scalar_t *svalue;
+	size_t       owner_size;
+	size_t       padding_size;
+
 	if (!value)
 		return NULL;
 
 	if (kv_store_value_flags & KV_STORE_VALUE_VECTOR)
 		return value;
 
-	SVALUE_TO_VVALUE((kv_scalar_t *) value, value_size, vvalue);
+	svalue                    = value;
+	owner_size                = strlen(svalue->data) + 1;
+
+	vvalue[VVALUE_IDX_SEQNUM] = (kv_vector_t) {&svalue->seqnum, sizeof(svalue->seqnum)};
+	vvalue[VVALUE_IDX_FLAGS]  = (kv_vector_t) {&svalue->flags, sizeof(svalue->flags)};
+	vvalue[VVALUE_IDX_GENNUM] = (kv_vector_t) {&svalue->gennum, sizeof(svalue->gennum)};
+	vvalue[VVALUE_IDX_OWNER]  = (kv_vector_t) {svalue->data, owner_size};
+
+	if (svalue->flags & KV_ALIGN) {
+		padding_size                    = MEM_ALIGN_UP_PAD(SVALUE_HEADER_SIZE + owner_size, SVALUE_DATA_ALIGNMENT);
+
+		vvalue[VVALUE_IDX_PADDING]      = (kv_vector_t) {svalue->data + owner_size, padding_size};
+		vvalue[VVALUE_IDX_DATA_ALIGNED] = (kv_vector_t) {svalue->data + owner_size + padding_size,
+		                                                 value_size - SVALUE_HEADER_SIZE - owner_size - padding_size};
+	} else {
+		vvalue[VVALUE_IDX_DATA] = (kv_vector_t) {svalue->data + owner_size, value_size - SVALUE_HEADER_SIZE - owner_size};
+	}
 
 	return vvalue;
 }
