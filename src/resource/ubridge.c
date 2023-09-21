@@ -1173,7 +1173,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			svalue               = NULL;
 			VVALUE_FLAGS(vvalue) &= ~KV_SYNC;
 			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
-				if (!(VVALUE_FLAGS(vvalue) & KV_SYNC_P))
+				if (!(VVALUE_FLAGS(vvalue) & KV_PERSIST))
 					continue;
 			}
 		} else {
@@ -1182,7 +1182,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			svalue        = raw_value;
 			svalue->flags &= ~KV_SYNC;
 			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
-				if (!(svalue->flags & KV_SYNC_P))
+				if (!(svalue->flags & KV_PERSIST))
 					continue;
 			}
 		}
