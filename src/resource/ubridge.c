@@ -1319,8 +1319,10 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			print_bool_array_elem(format, export_buf, 4, "RS", VVALUE_FLAGS(vvalue) & KV_RS, true);
 			print_bool_array_elem(format, export_buf, 4, "FR_RD", VVALUE_FLAGS(vvalue) & KV_FRG_RD, true);
 			print_bool_array_elem(format, export_buf, 4, "SB_RD", VVALUE_FLAGS(vvalue) & KV_SUB_RD, true);
+			print_bool_array_elem(format, export_buf, 4, "SP_RD", VVALUE_FLAGS(vvalue) & KV_SUP_RD, true);
 			print_bool_array_elem(format, export_buf, 4, "FR_WR", VVALUE_FLAGS(vvalue) & KV_FRG_WR, true);
 			print_bool_array_elem(format, export_buf, 4, "SB_WR", VVALUE_FLAGS(vvalue) & KV_SUB_WR, true);
+			print_bool_array_elem(format, export_buf, 4, "SP_WR", VVALUE_FLAGS(vvalue) & KV_SUP_WR, true);
 			print_end_array(format, export_buf, 3);
 			print_str_field(format, export_buf, 3, "owner", VVALUE_OWNER(vvalue), true);
 			_print_vvalue(vvalue, vector, size, vector ? "values" : "value", format, export_buf, 3);
