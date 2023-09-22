@@ -141,7 +141,7 @@ static void _check_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **da
 	assert_non_null(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec));
 
 	assert_non_null(value = kv_store_get_value(ucmd_ctx->common->kv_store_res, key, &size, &flags));
-	vvalue = _get_vvalue(flags, value, size, tmp_vvalue);
+	vvalue = _get_vvalue(flags, value, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
 	if (flags & KV_STORE_VALUE_VECTOR) {
 		assert_true(vector);
 	} else {
@@ -178,9 +178,14 @@ static void _set_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **data
 	key_spec.core = core;
 	assert_non_null(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec));
 
-	_vvalue_header_prep(vvalue, &ucmd_ctx->req_env.dev.udev.seqnum, &flags, &ucmd_ctx->common->gennum, (char *) owner);
+	_vvalue_header_prep(vvalue,
+	                    VVALUE_CNT(vvalue),
+	                    &ucmd_ctx->req_env.dev.udev.seqnum,
+	                    &flags,
+	                    &ucmd_ctx->common->gennum,
+	                    (char *) owner);
 	for (i = 0; i < nr_data; i++)
-		_vvalue_data_prep(vvalue, i, data[i], data[i] ? strlen(data[i]) + 1 : 0);
+		_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), i, data[i], data[i] ? strlen(data[i]) + 1 : 0);
 
 	assert_non_null(kv_store_set_value(ucmd_ctx->common->kv_store_res,
 	                                   key,
@@ -211,7 +216,12 @@ static void _set_broken_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 	key_spec.core                   = core;
 	assert_non_null(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec));
 
-	_vvalue_header_prep(vvalue, &ucmd_ctx->req_env.dev.udev.seqnum, &flags, &ucmd_ctx->common->gennum, (char *) owner);
+	_vvalue_header_prep(vvalue,
+	                    VVALUE_CNT(vvalue),
+	                    &ucmd_ctx->req_env.dev.udev.seqnum,
+	                    &flags,
+	                    &ucmd_ctx->common->gennum,
+	                    (char *) owner);
 	assert_non_null(kv_store_set_value(ucmd_ctx->common->kv_store_res,
 	                                   key,
 	                                   vvalue,
