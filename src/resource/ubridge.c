@@ -308,6 +308,8 @@ static char padding[SVALUE_DATA_ALIGNMENT] = {0}; /* used for referencing in vva
 
 typedef struct iovec kv_vector_t;
 
+#define VVALUE_CNT(vvalue)    (sizeof(vvalue) / sizeof(kv_vector_t))
+
 #define VVALUE_SEQNUM(vvalue) (*((uint64_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_SEQNUM].iov_base))
 #define VVALUE_FLAGS(vvalue)  (*((sid_ucmd_kv_flags_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_FLAGS].iov_base))
 #define VVALUE_GENNUM(vvalue) (*((uint16_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_GENNUM].iov_base))
@@ -704,7 +706,12 @@ static const char *_copy_ns_part_from_key(const char *key, char *buf, size_t buf
 	return ns;
 }
 
-static void _vvalue_header_prep(kv_vector_t *vvalue, size_t vvalue_size, uint64_t *seqnum, sid_ucmd_kv_flags_t *flags, uint16_t *gennum, char *owner)
+static void _vvalue_header_prep(kv_vector_t         *vvalue,
+                                size_t               vvalue_size,
+                                uint64_t            *seqnum,
+                                sid_ucmd_kv_flags_t *flags,
+                                uint16_t            *gennum,
+                                char                *owner)
 {
 	size_t owner_size = strlen(owner) + 1;
 
@@ -732,7 +739,11 @@ static void _vvalue_data_prep(kv_vector_t *vvalue, size_t vvalue_size, size_t id
 	}
 }
 
-static kv_vector_t *_get_vvalue(kv_store_value_flags_t kv_store_value_flags, void *value, size_t value_size, kv_vector_t *vvalue, size_t vvalue_size)
+static kv_vector_t *_get_vvalue(kv_store_value_flags_t kv_store_value_flags,
+                                void                  *value,
+                                size_t                 value_size,
+                                kv_vector_t           *vvalue,
+                                size_t                 vvalue_size)
 {
 	kv_scalar_t *svalue;
 	size_t       owner_size;
@@ -744,8 +755,8 @@ static kv_vector_t *_get_vvalue(kv_store_value_flags_t kv_store_value_flags, voi
 	if (kv_store_value_flags & KV_STORE_VALUE_VECTOR)
 		return value;
 
-	svalue                    = value;
-	owner_size                = strlen(svalue->data) + 1;
+	svalue     = value;
+	owner_size = strlen(svalue->data) + 1;
 
 	if (svalue->flags & KV_ALIGN) {
 		assert(vvalue_size >= VVALUE_SINGLE_ALIGNED_CNT);
@@ -983,8 +994,8 @@ static int _kv_cb_write(struct kv_store_update_spec *spec)
 	kv_vector_t           tmp_vvalue_new[VVALUE_SINGLE_CNT];
 	kv_vector_t          *vvalue_old, *vvalue_new;
 
-	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old);
-	vvalue_new = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new);
+	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old, VVALUE_CNT(tmp_vvalue_old));
+	vvalue_new = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new, VVALUE_CNT(tmp_vvalue_old));
 
 	if ((update_arg->ret_code = _check_kv_wr_allowed(update_arg, spec->key, vvalue_old, vvalue_new)) < 0)
 		return 0;
@@ -1000,7 +1011,11 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 	kv_vector_t           tmp_vvalue_new[VVALUE_SINGLE_CNT];
 	kv_vector_t          *vvalue_old, *vvalue_new;
 
-	if ((vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old))) {
+	if ((vvalue_old = _get_vvalue(spec->old_flags,
+	                              spec->old_data,
+	                              spec->old_data_size,
+	                              tmp_vvalue_old,
+	                              VVALUE_CNT(tmp_vvalue_old)))) {
 		/* only allow the same module that reserved before to re-reserve/unreserve */
 		switch (_mod_match(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
 			case MOD_MATCH:
@@ -1019,7 +1034,7 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 		}
 	}
 
-	vvalue_new           = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new);
+	vvalue_new = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new, VVALUE_CNT(tmp_vvalue_new));
 
 	update_arg->ret_code = _check_kv_index_needed(vvalue_old, vvalue_new);
 	return 1;
@@ -1315,7 +1330,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			print_start_elem(format, export_buf, 2, needs_comma);
 			print_uint_field(format, export_buf, 3, "RECORD", records, false);
 			print_str_field(format, export_buf, 3, "key", key, true);
-			vvalue = _get_vvalue(kv_store_value_flags, raw_value, size, tmp_vvalue);
+			vvalue = _get_vvalue(kv_store_value_flags, raw_value, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
 			print_uint_field(format, export_buf, 3, "gennum", VVALUE_GENNUM(vvalue), true);
 			print_uint64_field(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
 			print_start_array(format, export_buf, 3, "flags", true);
@@ -1391,7 +1406,7 @@ static int _check_global_kv_rs_for_wr(struct sid_ucmd_ctx    *ucmd_ctx,
 	if (!(found = kv_store_get_value(ucmd_ctx->common->kv_store_res, key, &value_size, &kv_store_value_flags)))
 		goto out;
 
-	vvalue = _get_vvalue(kv_store_value_flags, found, value_size, tmp_vvalue);
+	vvalue = _get_vvalue(kv_store_value_flags, found, value_size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
 
 	if (!(VVALUE_FLAGS(vvalue) & KV_RS))
 		goto out;
@@ -2031,11 +2046,12 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 			goto out;
 
 		_vvalue_header_prep(rel_vvalue,
+		                    VVALUE_CNT(rel_vvalue),
 		                    &VVALUE_SEQNUM(vheader),
 		                    &value_flags_no_sync,
 		                    &VVALUE_GENNUM(vheader),
 		                    (char *) update_arg->owner);
-		_vvalue_data_prep(rel_vvalue, 0, (void *) key_prefix, strlen(key_prefix) + 1);
+		_vvalue_data_prep(rel_vvalue, VVALUE_CNT(rel_vvalue), 0, (void *) key_prefix, strlen(key_prefix) + 1);
 
 		for (i = VVALUE_IDX_DATA; i < delta_vsize; i++) {
 			if (!(ns_part = _copy_ns_part_from_key(delta_vvalue[i].iov_base, NULL, 0)))
@@ -2240,8 +2256,13 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	if (!value)
 		value_size = 0;
 
-	_vvalue_header_prep(vvalue, &ucmd_ctx->req_env.dev.udev.seqnum, &flags, &ucmd_ctx->common->gennum, (char *) owner);
-	_vvalue_data_prep(vvalue, 0, (void *) value, value_size);
+	_vvalue_header_prep(vvalue,
+	                    vvalue_cnt,
+	                    &ucmd_ctx->req_env.dev.udev.seqnum,
+	                    &flags,
+	                    &ucmd_ctx->common->gennum,
+	                    (char *) owner);
+	_vvalue_data_prep(vvalue, vvalue_cnt, 0, (void *) value, value_size);
 
 	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->common->kv_store_res,
 	                                     .owner    = owner,
@@ -2541,7 +2562,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
 		if (kv_store_unset(common->kv_store_res, key, _kv_cb_reserve, &update_arg) < 0 || update_arg.ret_code < 0)
 			goto out;
 	} else {
-		_vvalue_header_prep(vvalue, &null_int, &flags, &common->gennum, (char *) owner);
+		_vvalue_header_prep(vvalue, VVALUE_CNT(vvalue), &null_int, &flags, &common->gennum, (char *) owner);
 		if (!kv_store_set_value(common->kv_store_res,
 		                        key,
 		                        vvalue,
@@ -2807,11 +2828,12 @@ static int _handle_dev_for_group(struct module          *mod,
 		goto out;
 
 	_vvalue_header_prep(vvalue,
+	                    VVALUE_CNT(vvalue),
 	                    &ucmd_ctx->req_env.dev.udev.seqnum,
 	                    &value_flags_no_sync,
 	                    &ucmd_ctx->common->gennum,
 	                    core_owner);
-	_vvalue_data_prep(vvalue, 0, (void *) rel_key_prefix, strlen(rel_key_prefix) + 1);
+	_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, (void *) rel_key_prefix, strlen(rel_key_prefix) + 1);
 
 	if (_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg, true) < 0)
 		goto out;
@@ -2878,7 +2900,12 @@ static int _do_sid_ucmd_group_create(struct module          *mod,
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
 		goto out;
 
-	_vvalue_header_prep(vvalue, &ucmd_ctx->req_env.dev.udev.seqnum, &group_flags, &ucmd_ctx->common->gennum, (char *) owner);
+	_vvalue_header_prep(vvalue,
+	                    VVALUE_CNT(vvalue),
+	                    &ucmd_ctx->req_env.dev.udev.seqnum,
+	                    &group_flags,
+	                    &ucmd_ctx->common->gennum,
+	                    (char *) owner);
 
 	if (!kv_store_set_value(ucmd_ctx->common->kv_store_res,
 	                        key,
@@ -2992,6 +3019,7 @@ static int _do_sid_ucmd_group_destroy(struct module          *mod,
 	}
 
 	_vvalue_header_prep(vvalue,
+	                    VVALUE_CNT(vvalue),
 	                    &ucmd_ctx->req_env.dev.udev.seqnum,
 	                    &kv_flags_sync_no_reserved,
 	                    &ucmd_ctx->common->gennum,
@@ -3520,7 +3548,7 @@ static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
 
 		if (!strcmp(key_core, KV_KEY_GEN_GROUP_IN) || !strcmp(key_core, KV_KEY_GEN_GROUP_MEMBERS) ||
 		    !strcmp(key_core, KV_KEY_DEV_RESERVED)) {
-			vvalue = _get_vvalue(kv_store_value_flags, data, size, tmp_vvalue);
+			vvalue = _get_vvalue(kv_store_value_flags, data, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
 			_print_vvalue(vvalue, kv_store_value_flags & KV_STORE_VALUE_VECTOR, size, key_core, format, prn_buf, 3);
 		} else if (!strcmp(key_core, KV_KEY_DEV_READY)) {
 			print_str_field(format, prn_buf, 3, KV_KEY_DEV_READY, _sval_to_dev_ready_str(data), with_comma);
@@ -3732,10 +3760,12 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		goto out;
 	}
 
-	if (sid_buffer_add(vec_buf, NULL, VVALUE_HEADER_CNT, (const void **) &vvalue, NULL) < 0)
+	vsize = VVALUE_HEADER_CNT;
+	if (sid_buffer_add(vec_buf, NULL, vsize, (const void **) &vvalue, NULL) < 0)
 		goto out;
 
 	_vvalue_header_prep(vvalue,
+	                    vsize,
 	                    &ucmd_ctx->req_env.dev.udev.seqnum,
 	                    &value_flags_no_sync,
 	                    &ucmd_ctx->common->gennum,
@@ -3889,6 +3919,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	                                   .custom  = &rel_spec};
 
 	_vvalue_header_prep(vvalue,
+	                    VVALUE_CNT(vvalue),
 	                    &ucmd_ctx->req_env.dev.udev.seqnum,
 	                    &value_flags_no_sync,
 	                    &ucmd_ctx->common->gennum,
@@ -3914,7 +3945,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 		goto out;
 
-	_vvalue_data_prep(vvalue, 0, (void *) s, strlen(s) + 1);
+	_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, (void *) s, strlen(s) + 1);
 	rel_spec.rel_key_spec->ns_part = ID_NULL;
 
 	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec))) {
@@ -4989,7 +5020,7 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 	if (!spec->old_data)
 		return 1;
 
-	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old);
+	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old, VVALUE_CNT(tmp_vvalue_old));
 
 	switch (_mod_match(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
 		case MOD_NO_MATCH:
@@ -5028,8 +5059,8 @@ static int _kv_cb_main_set(struct kv_store_update_spec *spec)
 	kv_vector_t          *old_vvalue, *new_vvalue;
 	int                   r;
 
-	old_vvalue = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_old_vvalue);
-	new_vvalue = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_new_vvalue);
+	old_vvalue = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_old_vvalue, VVALUE_CNT(tmp_old_vvalue));
+	new_vvalue = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_new_vvalue, VVALUE_CNT(tmp_new_vvalue));
 
 	/* overwrite whole value */
 	r          = (!old_vvalue || ((VVALUE_SEQNUM(new_vvalue) >= VVALUE_SEQNUM(old_vvalue)) && _kv_cb_write(spec)));
@@ -5818,8 +5849,8 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 
 	log_debug(ID(ctx->res), "Current generation number: %" PRIu16, ctx->gennum);
 
-	_vvalue_header_prep(vvalue, &null_int, &flags, &ctx->gennum, core_owner);
-	_vvalue_data_prep(vvalue, 0, &ctx->gennum, sizeof(ctx->gennum));
+	_vvalue_header_prep(vvalue, VVALUE_CNT(vvalue), &null_int, &flags, &ctx->gennum, core_owner);
+	_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, &ctx->gennum, sizeof(ctx->gennum));
 
 	kv_store_set_value(ctx->kv_store_res,
 	                   key,
@@ -5867,8 +5898,8 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 
 	log_debug(ID(ctx->res), "Current system boot id: %s.", boot_id);
 
-	_vvalue_header_prep(vvalue, &null_int, &value_flags_no_sync, &ctx->gennum, core_owner);
-	_vvalue_data_prep(vvalue, 0, boot_id, sizeof(boot_id));
+	_vvalue_header_prep(vvalue, VVALUE_CNT(vvalue), &null_int, &value_flags_no_sync, &ctx->gennum, core_owner);
+	_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, boot_id, sizeof(boot_id));
 
 	kv_store_set_value(ctx->kv_store_res,
 	                   key,
