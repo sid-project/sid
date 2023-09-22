@@ -5868,7 +5868,7 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 {
 	char         boot_id[UTIL_UUID_STR_SIZE];
-	kv_vector_t  vvalue[VVALUE_IDX_DATA + 1];
+	kv_vector_t  vvalue[VVALUE_SINGLE_CNT];
 	const char  *key;
 	kv_scalar_t *svalue;
 	char        *old_boot_id;
