@@ -1134,7 +1134,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	int                    r           = -1;
 	struct sid_buffer     *export_buf  = NULL;
 	bool                   needs_comma = false;
-	kv_vector_t            tmp_vvalue[VVALUE_SINGLE_CNT];
+	kv_vector_t            tmp_vvalue[VVALUE_SINGLE_ALIGNED_CNT];
 
 	if (!(cmd_reg->flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_RESBUF |
 	                        CMD_KV_EXPORT_SID_TO_EXPBUF)))
