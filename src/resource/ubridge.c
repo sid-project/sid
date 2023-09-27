@@ -4204,6 +4204,8 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 	const struct sid_ucmd_mod_fns *mod_fns;
 	const char                    *mod_name;
 
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
+
 	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL, 0))) {
 		if (!(mod_name = _lookup_mod_name(exec_arg->cmd_res,
 		                                  ucmd_ctx->req_env.dev.udev.major,
@@ -4231,8 +4233,6 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 
 	if (!(exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
 		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
-
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
 
 	if (!exec_arg->type_mod_res_current)
 		return 0;
