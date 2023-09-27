@@ -101,6 +101,13 @@ static int _dummy_block_trigger_action_next(struct module *module, struct sid_uc
 }
 SID_UCMD_TRIGGER_ACTION_NEXT(_dummy_block_trigger_action_next)
 
+static int _dummy_block_scan_remove(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	log_debug(MID, "scan-remove");
+	return 0;
+}
+SID_UCMD_SCAN_REMOVE(_dummy_block_scan_remove)
+
 static int _dummy_block_error(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	log_debug(MID, "error");

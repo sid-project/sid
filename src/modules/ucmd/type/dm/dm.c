@@ -68,6 +68,10 @@ static struct module_symbol_params dm_submod_symbol_params[] = {
 		SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
 		MODULE_SYMBOL_INDIRECT,
 	},
+	{
+		SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
+		MODULE_SYMBOL_INDIRECT,
+	},
 	NULL_MODULE_SYMBOL_PARAMS,
 };
 
@@ -79,6 +83,7 @@ struct dm_submod_fns {
 	sid_ucmd_fn_t *scan_next;
 	sid_ucmd_fn_t *scan_post_current;
 	sid_ucmd_fn_t *scan_post_next;
+	sid_ucmd_fn_t *scan_remove;
 } __packed;
 
 struct dm_mod_ctx {
@@ -355,6 +360,26 @@ static int _dm_scan_post_next(struct module *module, struct sid_ucmd_ctx *ucmd_c
 	return 0;
 }
 SID_UCMD_SCAN_POST_NEXT(_dm_scan_post_next)
+
+static int _dm_scan_remove(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	struct dm_mod_ctx    *dm_mod;
+	struct dm_submod_fns *submod_fns;
+
+	log_debug(DM_ID, "scan-remove");
+
+	dm_mod = module_get_data(module);
+
+	if (!dm_mod->submod_res_current)
+		return 0;
+
+	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &submod_fns);
+	if (submod_fns && submod_fns->scan_remove)
+		(void) submod_fns->scan_remove(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+
+	return 0;
+}
+SID_UCMD_SCAN_REMOVE(_dm_scan_remove)
 
 static int _dm_error(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {

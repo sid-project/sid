@@ -156,12 +156,18 @@ typedef enum {
 	CMD_SCAN_PHASE_A_SCAN_POST_CURRENT, /* module */
 	CMD_SCAN_PHASE_A_SCAN_POST_NEXT,    /* module */
 	CMD_SCAN_PHASE_A_WAITING,           /* core waits for confirmation */
-	CMD_SCAN_PHASE_A_EXIT,              /* core exits phase "A" */
+	CMD_SCAN_PHASE_A_EXIT,              /* core finishes phase "A" */
+	CMD_SCAN_PHASE_A_CLEANUP,           /* core exits phase "A" */
 
 	CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT,
 	__CMD_SCAN_PHASE_B_TRIGGER_ACTION_START = CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT,
 	CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT,
 	__CMD_SCAN_PHASE_B_TRIGGER_ACTION_END = CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT,
+
+	CMD_SCAN_PHASE_REMOVE_INIT,
+	CMD_SCAN_PHASE_REMOVE_MODS,
+	CMD_SCAN_PHASE_REMOVE_CORE,
+	CMD_SCAN_PHASE_REMOVE_CLEANUP,
 
 	CMD_SCAN_PHASE_ERROR,
 } cmd_scan_phase_t;
@@ -4072,6 +4078,10 @@ static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_
 				    block_mod_fns->trigger_action_next(block_mod, ucmd_ctx) < 0)
 					goto out;
 				break;
+			case CMD_SCAN_PHASE_REMOVE_MODS:
+				if (block_mod_fns->scan_remove && block_mod_fns->scan_remove(block_mod, ucmd_ctx) < 0)
+					goto out;
+				break;
 			case CMD_SCAN_PHASE_ERROR:
 				if (block_mod_fns->error && block_mod_fns->error(block_mod, ucmd_ctx) < 0)
 					goto out;
@@ -4088,6 +4098,25 @@ static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_
 	r = 0;
 out:
 	return r;
+}
+
+static int _get_device_uuid(sid_resource_t *cmd_res)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	char                 buf[UTIL_UUID_STR_SIZE]; /* used for both uuid and diskseq */
+	const char          *uuid_p;
+
+	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL, 0)) &&
+	    !(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
+		/* SID doesn't appera to have a record of this device */
+		log_error(ID(cmd_res),
+		          "Couldn't find UUID for device " CMD_DEV_NAME_NUM_FMT ".",
+		          CMD_DEV_NAME_NUM(ucmd_ctx));
+		return -1;
+	}
+	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
+
+	return 0;
 }
 
 static int _set_device_kv_records(sid_resource_t *cmd_res)
@@ -4184,7 +4213,10 @@ static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
 		goto fail;
 	}
 
-	if (_set_device_kv_records(exec_arg->cmd_res) < 0)
+	if (ucmd_ctx->scan.phase == CMD_SCAN_PHASE_REMOVE_INIT) {
+		if (_get_device_uuid(exec_arg->cmd_res) < 0)
+			goto fail;
+	} else if (_set_device_kv_records(exec_arg->cmd_res) < 0)
 		goto fail;
 
 	return 0;
@@ -4354,8 +4386,13 @@ static int _cmd_exec_scan_exit(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 
 	if (sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == DEV_RDY_UNPROCESSED)
-		sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_PUBLIC);
+		return sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_PUBLIC);
 
+	return 0;
+}
+
+static int _cmd_exec_scan_cleanup(struct cmd_exec_arg *exec_arg)
+{
 	if (exec_arg->block_mod_iter) {
 		sid_resource_iter_destroy(exec_arg->block_mod_iter);
 		exec_arg->block_mod_iter = NULL;
@@ -4372,6 +4409,38 @@ static int _cmd_exec_trigger_action_current(struct cmd_exec_arg *exec_arg)
 static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
 {
 	return 0;
+}
+
+static int _cmd_exec_scan_remove_mods(struct cmd_exec_arg *exec_arg)
+{
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	const char                    *mod_name;
+	const struct sid_ucmd_mod_fns *mod_fns;
+
+	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_REMOVE_MODS);
+
+	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL, 0))) {
+		log_error(ID(exec_arg->cmd_res),
+		          "Failed to find device " CMD_DEV_NAME_NUM_FMT " module name",
+		          CMD_DEV_NAME_NUM(ucmd_ctx));
+		return -1;
+	}
+
+	if (!(exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name))) {
+		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
+		return 0;
+	}
+
+	module_registry_get_module_symbols(exec_arg->type_mod_res_current, (const void ***) &mod_fns);
+	if (mod_fns && mod_fns->scan_remove)
+		return mod_fns->scan_remove(sid_resource_get_data(exec_arg->type_mod_res_current), ucmd_ctx);
+
+	return 0;
+}
+
+static int _cmd_exec_scan_remove_core(struct cmd_exec_arg *exec_arg)
+{
+	return _refresh_device_hierarchy_from_sysfs(exec_arg->cmd_res);
 }
 
 static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
@@ -4416,11 +4485,21 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 
 	[CMD_SCAN_PHASE_A_EXIT]              = {.name = "exit", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_exit},
 
+	[CMD_SCAN_PHASE_A_CLEANUP]           = {.name = "cleanup", .flags = 0, .exec = _cmd_exec_scan_cleanup},
+
 	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT] = {.name  = "trigger-action-current",
                                                      .flags = 0,
                                                      .exec  = _cmd_exec_trigger_action_current},
 
 	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT] = {.name = "trigger-action-next", .flags = 0, .exec = _cmd_exec_trigger_action_next},
+
+	[CMD_SCAN_PHASE_REMOVE_INIT]           = {.name = "remove-init", .flags = 0, .exec = _cmd_exec_scan_init},
+
+	[CMD_SCAN_PHASE_REMOVE_MODS]           = {.name = "remove-mods", .flags = 0, .exec = _cmd_exec_scan_remove_mods},
+
+	[CMD_SCAN_PHASE_REMOVE_CORE]           = {.name = "remove-core", .flags = 0, .exec = _cmd_exec_scan_remove_core},
+
+	[CMD_SCAN_PHASE_REMOVE_CLEANUP]        = {.name = "remove-cleanup", .flags = 0, .exec = _cmd_exec_scan_cleanup},
 
 	[CMD_SCAN_PHASE_ERROR]                 = {.name = "error", .flags = 0, .exec = _cmd_exec_scan_error},
 };
@@ -4428,17 +4507,25 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
-	cmd_scan_phase_t     phase;
+	cmd_scan_phase_t     phase, phase_start, phase_end;
 
-	for (phase = CMD_SCAN_PHASE_A_INIT; phase <= CMD_SCAN_PHASE_A_EXIT; phase++) {
+	if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE) {
+		phase_start = CMD_SCAN_PHASE_REMOVE_INIT;
+		phase_end   = CMD_SCAN_PHASE_REMOVE_CLEANUP;
+	} else {
+		phase_start = CMD_SCAN_PHASE_A_INIT;
+		phase_end   = CMD_SCAN_PHASE_A_CLEANUP;
+	}
+
+	for (phase = phase_start; phase <= phase_end; phase++) {
 		log_debug(ID(exec_arg->cmd_res), "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
 		ucmd_ctx->scan.phase = phase;
 
 		if (_cmd_scan_phase_regs[phase].exec(exec_arg) < 0) {
 			log_error(ID(exec_arg->cmd_res), "%s phase failed.", _cmd_scan_phase_regs[phase].name);
 
-			/* if init or exit phase fails, there's nothing else we can do */
-			if (phase == CMD_SCAN_PHASE_A_INIT || phase == CMD_SCAN_PHASE_A_EXIT)
+			/* if init or cleanup phase fails, there's nothing else we can do */
+			if (phase == CMD_SCAN_PHASE_A_INIT || phase == CMD_SCAN_PHASE_A_CLEANUP)
 				return -1;
 
 			/* otherwise, call out modules to handle the error case */
@@ -6018,6 +6105,10 @@ static struct module_symbol_params block_symbol_params[]                  = {{
                                                                     MODULE_SYMBOL_INDIRECT,
                                                             },
                                                                              {
+                                                                    SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
+                                                                    MODULE_SYMBOL_INDIRECT,
+                                                            },
+                                                                             {
                                                                     SID_UCMD_MOD_FN_NAME_ERROR,
                                                                     MODULE_SYMBOL_FAIL_ON_MISSING | MODULE_SYMBOL_INDIRECT,
                                                             },
@@ -6053,6 +6144,10 @@ static struct module_symbol_params type_symbol_params[]                   = {{
                                                            },
                                                                              {
                                                                    SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_NEXT,
+                                                                   MODULE_SYMBOL_INDIRECT,
+                                                           },
+                                                                             {
+                                                                   SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
                                                                    MODULE_SYMBOL_INDIRECT,
                                                            },
                                                                              {

@@ -171,6 +171,13 @@ static int _dm_mpath_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 }
 SID_UCMD_SCAN_NEXT(_dm_mpath_scan_next)
 
+static int _dm_mpath_scan_remove(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	log_debug(MID, "scan-remove");
+	return 0;
+}
+SID_UCMD_SCAN_REMOVE(_dm_mpath_scan_remove)
+
 static int _dm_mpath_error(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	log_debug(MID, "error");
