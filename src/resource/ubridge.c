@@ -3670,10 +3670,10 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	if (!(vec_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
 	                                                              .type    = SID_BUFFER_TYPE_VECTOR,
 	                                                              .mode    = SID_BUFFER_MODE_PLAIN}),
-		                          &((struct sid_buffer_init) {.size = VVALUE_HEADER_CNT + (count >= 2 ? count - 2 : 0),
+	                                  &((struct sid_buffer_init) {.size = VVALUE_HEADER_CNT + (count >= 2 ? count - 2 : 0),
 	                                                              .alloc_step = 1,
 	                                                              .limit      = 0}),
-		                          &r))) {
+	                                  &r))) {
 		log_error_errno(ID(cmd_res),
 		                r,
 		                "Failed to create buffer to record hierarchy for device " CMD_DEV_NAME_NUM_FMT,
