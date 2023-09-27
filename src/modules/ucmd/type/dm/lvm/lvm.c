@@ -103,3 +103,10 @@ static int _lvm_scan_post_next(struct module *module, struct sid_ucmd_ctx *ucmd_
 	return 0;
 }
 SID_UCMD_SCAN_POST_NEXT(_lvm_scan_post_next)
+
+static int _lvm_scan_remove(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	log_debug(LVM_ID, "scan-remove");
+	return 0;
+}
+SID_UCMD_SCAN_REMOVE(_lvm_scan_remove)

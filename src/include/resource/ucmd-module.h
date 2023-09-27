@@ -43,6 +43,8 @@ extern "C" {
 #define SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT "sid_ucmd_scan_post_current"
 #define SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT    "sid_ucmd_scan_post_next"
 
+#define SID_UCMD_MOD_FN_NAME_SCAN_REMOVE       "sid_ucmd_scan_remove"
+
 #define SID_UCMD_MOD_FN_NAME_ERROR             "sid_ucmd_error"
 
 struct sid_ucmd_common_ctx;
@@ -62,6 +64,7 @@ struct sid_ucmd_mod_fns {
 	sid_ucmd_fn_t *scan_post_next;
 	sid_ucmd_fn_t *trigger_action_current;
 	sid_ucmd_fn_t *trigger_action_next;
+	sid_ucmd_fn_t *scan_remove;
 	sid_ucmd_fn_t *error;
 } __packed;
 
@@ -123,6 +126,7 @@ struct sid_ucmd_mod_fns {
 #define SID_UCMD_SCAN_POST_NEXT(fn)         SID_UCMD_FN(scan_post_next, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_TRIGGER_ACTION_CURRENT(fn) SID_UCMD_FN(trigger_action_current, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_TRIGGER_ACTION_NEXT(fn)    SID_UCMD_FN(trigger_action_next, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_REMOVE(fn)            SID_UCMD_FN(scan_emove, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_ERROR(fn)                  SID_UCMD_FN(error, _SID_UCMD_FN_CHECK_TYPE(fn))
 
 /*

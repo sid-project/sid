@@ -297,6 +297,13 @@ out:
 }
 SID_UCMD_SCAN_NEXT(_blkid_scan_next)
 
+static int _blkid_scan_remove(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	log_debug(MID, "scan-remove");
+	return 0;
+}
+SID_UCMD_SCAN_REMOVE(_blkid_scan_remove)
+
 static int _blkid_error(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	log_debug(MID, "error");
