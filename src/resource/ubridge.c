@@ -3598,7 +3598,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	char                 devid_buf[UTIL_UUID_STR_SIZE];
 	kv_vector_t         *vvalue;
 	size_t               vsize = 0;
-	int                  count = 0, i;
+	int                  count = 0, i = 0;
 	util_mem_t           mem;
 	int                  r      = -1;
 
