@@ -990,8 +990,8 @@ static int _check_kv_wr_allowed(struct kv_update_arg *update_arg, const char *ke
 static int _kv_cb_write(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
-	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_CNT];
-	kv_vector_t           tmp_vvalue_new[VVALUE_SINGLE_CNT];
+	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_ALIGNED_CNT];
+	kv_vector_t           tmp_vvalue_new[VVALUE_SINGLE_ALIGNED_CNT];
 	kv_vector_t          *vvalue_old, *vvalue_new;
 
 	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old, VVALUE_CNT(tmp_vvalue_old));
@@ -1007,8 +1007,8 @@ static int _kv_cb_write(struct kv_store_update_spec *spec)
 static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
-	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_CNT];
-	kv_vector_t           tmp_vvalue_new[VVALUE_SINGLE_CNT];
+	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_ALIGNED_CNT];
+	kv_vector_t           tmp_vvalue_new[VVALUE_SINGLE_ALIGNED_CNT];
 	kv_vector_t          *vvalue_old, *vvalue_new;
 
 	if ((vvalue_old = _get_vvalue(spec->old_flags,
@@ -5013,7 +5013,7 @@ static int _destroy_command(sid_resource_t *res)
 static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
-	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_CNT];
+	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_ALIGNED_CNT];
 	kv_vector_t          *vvalue_old;
 	int                   r = 0;
 
@@ -5054,8 +5054,8 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 static int _kv_cb_main_set(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
-	kv_vector_t           tmp_old_vvalue[VVALUE_SINGLE_CNT];
-	kv_vector_t           tmp_new_vvalue[VVALUE_SINGLE_CNT];
+	kv_vector_t           tmp_old_vvalue[VVALUE_SINGLE_ALIGNED_CNT];
+	kv_vector_t           tmp_new_vvalue[VVALUE_SINGLE_ALIGNED_CNT];
 	kv_vector_t          *old_vvalue, *new_vvalue;
 	int                   r;
 
