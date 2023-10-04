@@ -3904,7 +3904,8 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	const char          *s   = NULL;
 	char                *key = NULL;
 	util_mem_t           mem;
-	int                  r      = -1;
+	int                  r = -1;
+	size_t               count;
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
 
@@ -3934,35 +3935,46 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
 	                                   .custom  = &rel_spec};
 
+	count = (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE) ? VVALUE_HEADER_CNT : VVALUE_SINGLE_CNT;
 	_vvalue_header_prep(vvalue,
-	                    VVALUE_CNT(vvalue),
+	                    count,
 	                    &ucmd_ctx->req_env.dev.udev.seqnum,
 	                    &value_flags_no_sync,
 	                    &ucmd_ctx->common->gennum,
 	                    core_owner);
-	if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
-		goto out;
 
-	_canonicalize_kv_key(devno_buf);
-
-	if (!(rel_spec.rel_key_spec->ns_part = _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
-		mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
-		if (!util_uuid_gen_str(&mem)) {
-			log_error(ID(cmd_res),
-			          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
-			          CMD_DEV_NAME_NUM(ucmd_ctx));
+	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
+		if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 			goto out;
+
+		_canonicalize_kv_key(devno_buf);
+
+		if (!(rel_spec.rel_key_spec->ns_part = _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
+			mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
+			if (!util_uuid_gen_str(&mem)) {
+				log_error(ID(cmd_res),
+				          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
+				          CMD_DEV_NAME_NUM(ucmd_ctx));
+				goto out;
+			}
+			rel_spec.rel_key_spec->ns_part = mem.base;
+
+			_handle_dev_for_group(NULL,
+			                      ucmd_ctx,
+			                      mem.base,
+			                      KV_KEY_DOM_ALIAS,
+			                      KV_NS_MODULE,
+			                      "devno",
+			                      devno_buf,
+			                      KV_OP_PLUS);
 		}
-		rel_spec.rel_key_spec->ns_part = mem.base;
 
-		_handle_dev_for_group(NULL, ucmd_ctx, mem.base, KV_KEY_DOM_ALIAS, KV_NS_MODULE, "devno", devno_buf, KV_OP_PLUS);
+		if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
+			goto out;
+
+		_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, (void *) s, strlen(s) + 1);
+		rel_spec.rel_key_spec->ns_part = ID_NULL;
 	}
-
-	if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
-		goto out;
-
-	_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, (void *) s, strlen(s) + 1);
-	rel_spec.rel_key_spec->ns_part = ID_NULL;
 
 	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec))) {
 		log_error(ID(cmd_res),
@@ -3978,7 +3990,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	 * The delta.final is computed inside _kv_cb_delta out of vec_buf.
 	 * The _kv_cb_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
 	 */
-	_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg, true);
+	_kv_delta_set(key, vvalue, count, &update_arg, true);
 
 	r = 0;
 out:
