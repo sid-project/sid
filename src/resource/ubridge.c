@@ -474,7 +474,7 @@ static sid_ucmd_kv_flags_t value_flags_sync    = DEFAULT_VALUE_FLAGS_CORE;
 static char               *core_owner          = OWNER_CORE;
 static uint64_t            null_int            = 0;
 
-static int        _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index);
+static int        _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index);
 static const char _key_prefix_err_msg[] =
 	"Failed to get key prefix to store hierarchy records for device " CMD_DEV_NAME_NUM_FMT ".";
 
@@ -2032,11 +2032,11 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 		rel_spec->delta->op    = op;
 		/*
 		 * WARNING: Mind that at this point, we're in _delta_update which is
-		 *          already called from _kv_delta_set outside. If we called
-		 *          the _kv_delta_set from here with DELTA_WITH_REL, we'd
+		 *          already called from _do_kv_delta_set outside. If we called
+		 *          the _do_kv_delta_set from here with DELTA_WITH_REL, we'd
 		 *          get into infinite loop:
 		 *
-		 *          _kv_delta_set -> _delta_update -> _kv_delta_set -> _delta_update ...
+		 *          _do_kv_delta_set -> _delta_update -> _do_kv_delta_set -> _delta_update ...
 		 */
 		rel_spec->delta->flags = DELTA_WITH_DIFF;
 
@@ -2064,7 +2064,7 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 				goto out;
 			}
 
-			_kv_delta_set(key, rel_vvalue, VVALUE_SINGLE_CNT, update_arg, index);
+			_do_kv_delta_set(key, rel_vvalue, VVALUE_SINGLE_CNT, update_arg, index);
 
 			rel_spec->cur_key_spec->ns_part = NULL;
 			_destroy_key(NULL, key);
@@ -2116,7 +2116,7 @@ static int _kv_cb_main_delta_step(struct kv_store_update_spec *spec)
 	return _do_kv_cb_delta_step(spec, true);
 }
 
-static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index)
+static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index)
 {
 	struct kv_rel_spec *rel_spec = update_arg->custom;
 	int                 r        = -1;
@@ -2195,6 +2195,22 @@ static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv
 out:
 	_destroy_delta_buffers(rel_spec->abs_delta);
 	_destroy_delta_buffers(rel_spec->delta);
+	return r;
+}
+
+static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index)
+{
+	struct kv_rel_spec *rel_spec = update_arg->custom;
+	int                 r;
+
+	if ((r = kv_store_transaction_begin(update_arg->res)) < 0) {
+		if (r == -EBUSY)
+			log_error(ID(update_arg->res), INTERNAL_ERROR "%s: kv_store already in a transaction", __func__);
+		return r;
+	}
+	r = _do_kv_delta_set(key, vvalue, vsize, update_arg, index);
+	kv_store_transaction_end(update_arg->res, false);
+
 	return r;
 }
 
