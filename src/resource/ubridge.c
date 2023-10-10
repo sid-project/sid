@@ -2206,8 +2206,7 @@ out:
 
 static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index)
 {
-	struct kv_rel_spec *rel_spec = update_arg->custom;
-	int                 r;
+	int r;
 
 	if ((r = kv_store_transaction_begin(update_arg->res)) < 0) {
 		if (r == -EBUSY)
@@ -4109,9 +4108,7 @@ static int _get_device_uuid(sid_resource_t *cmd_res)
 	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL, 0)) &&
 	    !(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
 		/* SID doesn't appera to have a record of this device */
-		log_error(ID(cmd_res),
-		          "Couldn't find UUID for device " CMD_DEV_NAME_NUM_FMT ".",
-		          CMD_DEV_NAME_NUM(ucmd_ctx));
+		log_error(ID(cmd_res), "Couldn't find UUID for device " CMD_DEV_NAME_NUM_FMT ".", CMD_DEV_NAME_NUM(ucmd_ctx));
 		return -1;
 	}
 	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
