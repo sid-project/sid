@@ -1,7 +1,0 @@
- {
-	dlopen false positive
-	Memcheck:Leak
-	fun:calloc
-	fun:_dlerror_run
-	fun:dlopen@@GLIBC_2.2.5
-}
