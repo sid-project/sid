@@ -2686,7 +2686,7 @@ const char *sid_ucmd_dev_ready_to_str(dev_ready_t ready)
 	return dev_ready_str[ready];
 }
 
-int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
+static int _do_sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
 	dev_ready_t old_ready;
 
@@ -2745,7 +2745,15 @@ int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, de
 	return 0;
 }
 
-dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
+int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
+{
+	if (!mod)
+		return -EINVAL;
+
+	return _do_sid_ucmd_dev_set_ready(mod, ucmd_ctx, ready);
+}
+
+static dev_ready_t _do_sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
 	const void *val;
 	dev_ready_t ready_arch;
@@ -2768,6 +2776,14 @@ dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd
 	}
 
 	return ucmd_ctx->scan.dev_ready;
+}
+
+dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
+{
+	if (!mod)
+		return DEV_RDY_UNDEFINED;
+
+	return _do_sid_ucmd_dev_get_ready(mod, ucmd_ctx, archive);
 }
 
 int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved)
@@ -4186,8 +4202,8 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 		return -1;
 	}
 
-	if (sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == DEV_RDY_UNDEFINED)
-		sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_UNPROCESSED);
+	if (_do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == DEV_RDY_UNDEFINED)
+		_do_sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_UNPROCESSED);
 
 	return _refresh_device_hierarchy_from_sysfs(cmd_res);
 }
@@ -4390,8 +4406,8 @@ static int _cmd_exec_scan_exit(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 
-	if (sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == DEV_RDY_UNPROCESSED)
-		return sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_PUBLIC);
+	if (_do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == DEV_RDY_UNPROCESSED)
+		return _do_sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_PUBLIC);
 
 	return 0;
 }
