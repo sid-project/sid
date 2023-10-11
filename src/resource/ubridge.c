@@ -950,6 +950,7 @@ static int _check_kv_wr_allowed(struct kv_update_arg *update_arg, const char *ke
 			}
 			break;
 		case MOD_MATCH:
+		case MOD_CORE_MATCH:
 			r = 1;
 			break;
 		case MOD_SUB_MATCH:
@@ -1029,6 +1030,7 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 		/* only allow the same module that reserved before to re-reserve/unreserve */
 		switch (_mod_match(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
 			case MOD_MATCH:
+			case MOD_CORE_MATCH:
 				break;
 
 			case MOD_NO_MATCH:
@@ -1426,6 +1428,7 @@ static int _check_global_kv_rs_for_wr(struct sid_ucmd_ctx    *ucmd_ctx,
 			r = VVALUE_FLAGS(vvalue) & KV_FRG_WR;
 			break;
 		case MOD_MATCH:
+		case MOD_CORE_MATCH:
 			r = 1;
 			break;
 		case MOD_SUB_MATCH:
@@ -2375,6 +2378,7 @@ static const void *_cmd_get_key_spec_value(struct module       *mod,
 				goto out;
 			break;
 		case MOD_MATCH:
+		case MOD_CORE_MATCH:
 			/* nothing to do here */
 			break;
 		case MOD_SUB_MATCH:
@@ -5143,6 +5147,7 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 			r = !(VVALUE_FLAGS(vvalue_old) & KV_RS) && (VVALUE_FLAGS(vvalue_old) & KV_FRG_WR);
 			break;
 		case MOD_MATCH:
+		case MOD_CORE_MATCH:
 			r = 1;
 			break;
 		case MOD_SUB_MATCH:
