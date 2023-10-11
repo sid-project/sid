@@ -331,10 +331,11 @@ struct kv_update_arg {
 };
 
 typedef enum {
-	MOD_NO_MATCH,  /* modules do not match */
-	MOD_MATCH,     /* modules do match (1:1) */
-	MOD_SUB_MATCH, /* modules do match (submod of a mod) */
-	MOD_SUP_MATCH, /* modules do match (supmod of a mod) */
+	MOD_NO_MATCH,   /* modules do not match */
+	MOD_MATCH,      /* modules do match (1:1) */
+	MOD_CORE_MATCH, /* modules do match (core) */
+	MOD_SUB_MATCH,  /* modules do match (submod of a mod) */
+	MOD_SUP_MATCH,  /* modules do match (supmod of a mod) */
 } mod_match_t;
 
 typedef enum {
@@ -885,6 +886,9 @@ static int _manage_kv_index(struct kv_update_arg *update_arg, char *key)
 static mod_match_t _mod_match(const char *mod1, const char *mod2)
 {
 	size_t i = 0;
+
+	if (!strcmp(mod2, MOD_NAME_CORE))
+		return MOD_CORE_MATCH;
 
 	while ((mod1[i] && mod2[i]) && (mod1[i] == mod2[i]))
 		i++;
