@@ -259,13 +259,18 @@ int sid_ucmd_mod_unreserve_kv(struct module              *mod,
 int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx *ucmd_common_ctx, sid_resource_t *mod_subresource);
 
 typedef enum {
+	/* states in which any layers above are not possible */
 	DEV_RDY_UNDEFINED,     /* undefined or invalid */
+	DEV_RDY_REMOVED,       /* not ready - removed */
 	DEV_RDY_UNPROCESSED,   /* not ready - not yet processed by SID */
 	DEV_RDY_UNCONFIGURED,  /* not ready - not able to perform IO */
 	DEV_RDY_UNINITIALIZED, /* not ready - able to perform IO, but not yet initialized */
-	DEV_RDY_UNAVAILABLE,   /* ready     - temporarily unavailable at the moment, e.g. suspended device */
-	DEV_RDY_PRIVATE,       /* ready     - for private use of the module/subsystem */
-	DEV_RDY_PUBLIC,        /* ready     - publicly available for use */
+	DEV_RDY_PRIVATE,       /* ready     - but only for private use of the module/subsystem */
+	DEV_RDY_FLAT,          /* ready     - publicly available for use, but possible layers on top kept folded intentionally */
+
+	/* states in which layers above possible */
+	DEV_RDY_UNAVAILABLE, /* ready     - but temporarily unavailable at the moment, e.g. suspended device */
+	DEV_RDY_PUBLIC,      /* ready     - publicly available for use */
 } dev_ready_t;
 
 typedef enum {

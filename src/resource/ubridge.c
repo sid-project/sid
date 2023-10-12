@@ -220,11 +220,13 @@ static const char *cmd_state_str[]        = {[CMD_INITIALIZING]         = "CMD_I
 
 static const char * const dev_ready_str[] = {
 	[DEV_RDY_UNDEFINED]     = "undefined",
+	[DEV_RDY_REMOVED]       = "removed",
 	[DEV_RDY_UNPROCESSED]   = "unprocessed",
 	[DEV_RDY_UNCONFIGURED]  = "unconfigured",
 	[DEV_RDY_UNINITIALIZED] = "uninitialized",
 	[DEV_RDY_UNAVAILABLE]   = "unavailable",
 	[DEV_RDY_PRIVATE]       = "private",
+	[DEV_RDY_FLAT]          = "flat",
 	[DEV_RDY_PUBLIC]        = "public",
 };
 
@@ -2705,6 +2707,9 @@ static int _do_sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *u
 		case DEV_RDY_UNDEFINED:
 			return -EBADRQC;
 
+		case DEV_RDY_REMOVED:
+			break;
+
 		case DEV_RDY_UNPROCESSED:
 			if (old_ready != DEV_RDY_UNDEFINED)
 				return -EBADRQC;
@@ -2723,6 +2728,9 @@ static int _do_sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *u
 		case DEV_RDY_UNAVAILABLE:
 			if (old_ready != DEV_RDY_PUBLIC && old_ready != DEV_RDY_PRIVATE)
 				return -EBADRQC;
+			break;
+
+		case DEV_RDY_FLAT:
 			break;
 
 		case DEV_RDY_PRIVATE:
