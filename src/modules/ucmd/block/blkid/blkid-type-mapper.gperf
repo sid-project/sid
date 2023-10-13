@@ -25,6 +25,7 @@ hpt37x_raid_member,            MOD_NAME_MD
 adaptec_raid_member,           MOD_NAME_MD
 jmicron_raid_member,           MOD_NAME_MD
 bcache,                        MOD_NAME_BCACHE
+bcachefs,                      MOD_NAME_FS
 ceph_bluestore,                MOD_NAME_CEPH
 drbd,                          MOD_NAME_DRBD
 drbdmanage_control_volume,     MOD_NAME_DRBD
@@ -40,6 +41,7 @@ ubi,                           MOD_NAME_UBI
 vdo,                           MOD_NAME_VDO
 stratis,                       MOD_NAME_STRATIS
 BitLocker,                     MOD_NAME_BITLOCKER
+cs_fvault2,                    MOD_NAME_FILEVAULT
 vfat,                          MOD_NAME_FS
 swsuspend,                     MOD_NAME_FS
 swap,                          MOD_NAME_FS
@@ -88,3 +90,4 @@ f2fs,                          MOD_NAME_FS
 mpool,                         MOD_NAME_FS
 apfs,                          MOD_NAME_FS
 zonefs,                        MOD_NAME_FS
+erofs,                         MOD_NAME_FS
