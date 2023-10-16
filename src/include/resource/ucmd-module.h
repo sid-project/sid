@@ -276,15 +276,16 @@ typedef enum {
 typedef enum {
 	DEV_RES_UNDEFINED,   /* undefined or invalid */
 	DEV_RES_UNPROCESSED, /* not yet processed by SID */
-	DEV_RES_FREE,        /* not yet reserved by a layer above */
 	DEV_RES_RESERVED,    /* reserved by a layer above */
+	DEV_RES_USED,        /* used by a layer above */
+	DEV_RES_FREE,        /* not yet reserved or used by a layer above */
 } dev_reserved_t;
 
 int         sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready);
 dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
 
 int            sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved);
-dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx);
+dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
 
 int sid_ucmd_dev_add_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id);
 int sid_ucmd_dev_remove_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id);
