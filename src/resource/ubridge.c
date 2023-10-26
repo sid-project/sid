@@ -2717,11 +2717,16 @@ static int _do_sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *u
 	if ((old_ready = ucmd_ctx->scan.dev_ready) == ready)
 		return 0;
 
+	if (old_ready == ready)
+		return 0;
+
 	switch (ready) {
 		case DEV_RDY_UNDEFINED:
 			return -EBADRQC;
 
 		case DEV_RDY_REMOVED:
+			if (old_ready == DEV_RDY_UNDEFINED)
+				return -EBADRQC;
 			break;
 
 		case DEV_RDY_UNPROCESSED:
@@ -2735,22 +2740,11 @@ static int _do_sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *u
 			break;
 
 		case DEV_RDY_UNINITIALIZED:
-			if (old_ready != DEV_RDY_UNPROCESSED && old_ready != DEV_RDY_UNCONFIGURED)
-				return -EBADRQC;
-			break;
-
-		case DEV_RDY_UNAVAILABLE:
-			if (old_ready != DEV_RDY_PUBLIC && old_ready != DEV_RDY_PRIVATE)
-				return -EBADRQC;
-			break;
-
-		case DEV_RDY_FLAT:
-			break;
-
 		case DEV_RDY_PRIVATE:
+		case DEV_RDY_FLAT:
+		case DEV_RDY_UNAVAILABLE:
 		case DEV_RDY_PUBLIC:
-			if (old_ready != DEV_RDY_UNPROCESSED && old_ready != DEV_RDY_UNCONFIGURED &&
-			    old_ready != DEV_RDY_UNINITIALIZED && old_ready != DEV_RDY_UNAVAILABLE)
+			if (old_ready < _DEV_RDY && old_ready != DEV_RDY_UNCONFIGURED)
 				return -EBADRQC;
 			break;
 	}
