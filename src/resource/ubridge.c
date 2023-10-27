@@ -4048,7 +4048,7 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	return 0;
 }
 
-static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_t phase)
+static int _execute_block_modules(struct cmd_exec_arg *exec_arg)
 {
 	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	sid_resource_t                *block_mod_res;
@@ -4066,7 +4066,7 @@ static int _execute_block_modules(struct cmd_exec_arg *exec_arg, cmd_scan_phase_
 
 		block_mod = sid_resource_get_data(block_mod_res);
 
-		switch (phase) {
+		switch (ucmd_ctx->scan.phase) {
 			case CMD_SCAN_PHASE_A_IDENT:
 				if (block_mod_fns->ident && block_mod_fns->ident(block_mod, ucmd_ctx) < 0)
 					goto out;
@@ -4257,7 +4257,7 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 	const struct sid_ucmd_mod_fns *mod_fns;
 	const char                    *mod_name;
 
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_IDENT);
+	_execute_block_modules(exec_arg);
 
 	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL, 0))) {
 		if (!(mod_name = _lookup_mod_name(exec_arg->cmd_res,
@@ -4302,7 +4302,7 @@ static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct sid_ucmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_PRE);
+	_execute_block_modules(exec_arg);
 
 	if (!exec_arg->type_mod_res_current)
 		return 0;
@@ -4319,7 +4319,7 @@ static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct sid_ucmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_CURRENT);
+	_execute_block_modules(exec_arg);
 
 	if (!exec_arg->type_mod_res_current)
 		return 0;
@@ -4338,7 +4338,7 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 	const struct sid_ucmd_mod_fns *mod_fns;
 	const char                    *next_mod_name;
 
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_NEXT);
+	_execute_block_modules(exec_arg);
 
 	if ((next_mod_name = _do_sid_ucmd_get_kv(NULL,
 	                                         ucmd_ctx,
@@ -4368,7 +4368,7 @@ static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct sid_ucmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_CURRENT);
+	_execute_block_modules(exec_arg);
 
 	if (!exec_arg->type_mod_res_current)
 		return 0;
@@ -4385,7 +4385,7 @@ static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
 	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
 	const struct sid_ucmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_A_SCAN_POST_NEXT);
+	_execute_block_modules(exec_arg);
 
 	if (!exec_arg->type_mod_res_next)
 		return 0;
@@ -4438,7 +4438,7 @@ static int _cmd_exec_scan_remove_mods(struct cmd_exec_arg *exec_arg)
 	const char                    *mod_name;
 	const struct sid_ucmd_mod_fns *mod_fns;
 
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_REMOVE_MODS);
+	_execute_block_modules(exec_arg);
 
 	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL, 0))) {
 		log_error(ID(exec_arg->cmd_res),
@@ -4470,7 +4470,7 @@ static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
 	const struct sid_ucmd_mod_fns *mod_fns;
 	int                            r = 0;
 
-	_execute_block_modules(exec_arg, CMD_SCAN_PHASE_ERROR);
+	_execute_block_modules(exec_arg);
 
 	if (exec_arg->type_mod_res_current) {
 		module_registry_get_module_symbols(exec_arg->type_mod_res_current, (const void ***) &mod_fns);
