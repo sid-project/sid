@@ -4515,7 +4515,7 @@ static int _cmd_exec_scan_exit(struct cmd_exec_arg *exec_arg)
 	if (_do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == DEV_RDY_UNPROCESSED)
 		return _do_sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_PUBLIC);
 
-	if (_do_sid_ucmd_dev_get_reserved(NULL, ucmd_ctx, 0) == DEV_RDY_UNPROCESSED)
+	if (_do_sid_ucmd_dev_get_reserved(NULL, ucmd_ctx, 0) == DEV_RES_UNPROCESSED)
 		return _do_sid_ucmd_dev_set_reserved(NULL, ucmd_ctx, DEV_RES_FREE);
 
 	return 0;
