@@ -40,6 +40,19 @@ extern "C" {
 		(b)           = tmp;                                                                                               \
 	} while (0)
 
+#define UTIL_IN_SET(a, ...)                                                                                                        \
+	({                                                                                                                         \
+		typeof(a) _arr[] = {__VA_ARGS__};                                                                                  \
+		int       _found = 0;                                                                                              \
+		for (unsigned int _i = 0; _i < sizeof(_arr) / sizeof(_arr[0]); _i++) {                                             \
+			if (a == _arr[_i]) {                                                                                       \
+				_found = 1;                                                                                        \
+				break;                                                                                             \
+			}                                                                                                          \
+		}                                                                                                                  \
+		_found;                                                                                                            \
+	})
+
 /*
  *   All functions that need to use allocated memory and they provide a
  *   possibility to use preallocated memory contain 'util_mem_t *mem'
