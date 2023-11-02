@@ -4388,6 +4388,10 @@ static int _cmd_exec_scan_pre(sid_resource_t *cmd_res)
 static int _cmd_exec_scan_current(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	dev_ready_t          ready    = _do_sid_ucmd_dev_get_ready(NULL, sid_resource_get_data(cmd_res), 0);
+
+	if (!UTIL_IN_SET(ready, DEV_RDY_PRIVATE, DEV_RDY_FLAT, DEV_RDY_PUBLIC))
+		return 0;
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
@@ -4396,7 +4400,13 @@ static int _cmd_exec_scan_current(sid_resource_t *cmd_res)
 static int _cmd_exec_scan_next(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	dev_ready_t          ready;
 	const char          *next_mod_name;
+
+	ready = _do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0);
+
+	if (!UTIL_IN_SET(ready, DEV_RDY_PUBLIC))
+		return 0;
 
 	_exec_block_mods(cmd_res);
 
@@ -4420,6 +4430,10 @@ static int _cmd_exec_scan_next(sid_resource_t *cmd_res)
 static int _cmd_exec_scan_post_current(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	dev_ready_t          ready    = _do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0);
+
+	if (!UTIL_IN_SET(ready, DEV_RDY_PRIVATE, DEV_RDY_FLAT, DEV_RDY_PUBLIC))
+		return 0;
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
@@ -4428,6 +4442,10 @@ static int _cmd_exec_scan_post_current(sid_resource_t *cmd_res)
 static int _cmd_exec_scan_post_next(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	dev_ready_t          ready    = _do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0);
+
+	if (!UTIL_IN_SET(ready, DEV_RDY_PUBLIC))
+		return 0;
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
