@@ -47,17 +47,17 @@ log_t *log_init_with_handle(log_target_t target, int verbose_mode)
 	return &_log;
 }
 
-void log_change_target(log_target_t new_target)
+void log_change_target(log_t *log, log_target_t new_target)
 {
-	if (_log.target == new_target)
+	if (!log || log->target == new_target)
 		return;
 
-	if (_log.target != LOG_TARGET_NONE)
-		log_target_registry[_log.target]->close();
+	if (log->target != LOG_TARGET_NONE)
+		log_target_registry[log->target]->close();
 	if (new_target != LOG_TARGET_NONE)
-		log_target_registry[new_target]->open(_log.verbose_mode);
+		log_target_registry[new_target]->open(log->verbose_mode);
 
-	_log.target = new_target;
+	log->target = new_target;
 }
 
 void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...)

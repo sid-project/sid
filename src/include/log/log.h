@@ -64,7 +64,7 @@ extern const struct log_target log_target_journal;
 
 void   log_init(log_target_t target, int verbose_mode);
 log_t *log_init_with_handle(log_target_t target, int verbose_mode);
-void   log_change_target(log_target_t new_target);
+void   log_change_target(log_t *log, log_target_t new_target);
 
 __format_printf(3, 4) void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...);
 
