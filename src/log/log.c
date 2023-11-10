@@ -19,8 +19,10 @@
 
 #include "log/log.h"
 
-static log_target_t _current_target                   = LOG_TARGET_NONE;
-static int          _current_verbose_mode             = 0;
+struct log {
+	log_target_t target;
+	int          verbose_mode;
+} _log                                                = {LOG_TARGET_NONE, 0};
 
 static const struct log_target *log_target_registry[] = {[LOG_TARGET_STANDARD] = &log_target_standard,
                                                          [LOG_TARGET_SYSLOG]   = &log_target_syslog,
@@ -28,24 +30,24 @@ static const struct log_target *log_target_registry[] = {[LOG_TARGET_STANDARD] =
 
 void log_init(log_target_t target, int verbose_mode)
 {
-	_current_target       = target;
-	_current_verbose_mode = verbose_mode;
+	_log.target       = target;
+	_log.verbose_mode = verbose_mode;
 
-	if (_current_target != LOG_TARGET_NONE)
-		log_target_registry[_current_target]->open(verbose_mode);
+	if (_log.target != LOG_TARGET_NONE)
+		log_target_registry[_log.target]->open(verbose_mode);
 }
 
 void log_change_target(log_target_t new_target)
 {
-	if (_current_target == new_target)
+	if (_log.target == new_target)
 		return;
 
-	if (_current_target != LOG_TARGET_NONE)
-		log_target_registry[_current_target]->close();
+	if (_log.target != LOG_TARGET_NONE)
+		log_target_registry[_log.target]->close();
 	if (new_target != LOG_TARGET_NONE)
-		log_target_registry[new_target]->open(_current_verbose_mode);
+		log_target_registry[new_target]->open(_log.verbose_mode);
 
-	_current_target = new_target;
+	_log.target = new_target;
 }
 
 void log_output(struct log_ctx *ctx, const char *format, ...)
@@ -53,7 +55,7 @@ void log_output(struct log_ctx *ctx, const char *format, ...)
 	int     orig_errno;
 	va_list ap;
 
-	if (_current_target == LOG_TARGET_NONE)
+	if (_log.target == LOG_TARGET_NONE)
 		return;
 
 	if (ctx->errno_id < 0)
@@ -61,7 +63,7 @@ void log_output(struct log_ctx *ctx, const char *format, ...)
 
 	orig_errno = errno;
 	va_start(ap, format);
-	log_target_registry[_current_target]->output(ctx, format, ap);
+	log_target_registry[_log.target]->output(ctx, format, ap);
 	va_end(ap);
 	errno = orig_errno;
 }
