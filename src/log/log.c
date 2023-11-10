@@ -31,6 +31,9 @@ static const struct log_target *log_target_registry[] = {[LOG_TARGET_STANDARD] =
 
 void log_init(log_target_t target, int verbose_mode)
 {
+	if (_log.target != LOG_TARGET_NONE)
+		return;
+
 	_log.handle_required = 0;
 	_log.target          = target;
 	_log.verbose_mode    = verbose_mode;
