@@ -326,9 +326,9 @@ static bptree_record_t *_make_record(bptree_t *bptree, void *data, size_t data_s
 	if (!(rec = malloc(sizeof(bptree_record_t))))
 		return NULL;
 
-	rec->data_size    = data_size;
-	rec->data         = data;
-	rec->ref_count    = 0;
+	rec->data_size     = data_size;
+	rec->data          = data;
+	rec->ref_count     = 0;
 
 	bptree->meta_size += sizeof(*rec);
 	bptree->data_size += data_size;
@@ -372,7 +372,7 @@ static bptree_key_t *_make_bkey(bptree_t *bptree, const char *key)
 		return NULL;
 	}
 
-	bkey->ref_count   = 0;
+	bkey->ref_count    = 0;
 
 	bptree->meta_size += (sizeof(*bkey) + strlen(key) + 1);
 
@@ -429,9 +429,9 @@ static bptree_node_t *_make_node(bptree_t *bptree)
 		return NULL;
 	}
 
-	new_node->is_leaf  = false;
-	new_node->num_keys = 0;
-	new_node->parent   = NULL;
+	new_node->is_leaf   = false;
+	new_node->num_keys  = 0;
+	new_node->parent    = NULL;
 
 	bptree->meta_size  += (sizeof(*new_node) + pointers_size + bkeys_size);
 
@@ -814,9 +814,9 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	bptree_key_t    *bkey;
 
 	if ((rec = _find(bptree, key, LOOKUP_EXACT, NULL, NULL, NULL))) {
-		rec->data         = data;
+		rec->data          = data;
 		bptree->data_size -= rec->data_size;
-		rec->data_size    = data_size;
+		rec->data_size     = data_size;
 		bptree->data_size += rec->data_size;
 		return 0;
 	}
@@ -937,9 +937,9 @@ int bptree_update(bptree_t             *bptree,
 	switch (act) {
 		case BPTREE_UPDATE_WRITE:
 			if (rec) {
-				rec->data         = data ? *data : NULL;
+				rec->data          = data ? *data : NULL;
 				bptree->data_size -= rec->data_size;
-				rec->data_size    = data_size ? *data_size : 0;
+				rec->data_size     = data_size ? *data_size : 0;
 				bptree->data_size += rec->data_size;
 			} else
 				r = bptree_insert(bptree, key, data ? *data : NULL, data_size ? *data_size : 0);

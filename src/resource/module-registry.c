@@ -436,7 +436,7 @@ static int _init_module(sid_resource_t *module_res, const void *kickstart_data, 
 		goto fail;
 
 	symbol_params.flags |= MODULE_SYMBOL_FAIL_ON_MISSING;
-	symbol_params.name  = MODULE_INIT_NAME;
+	symbol_params.name   = MODULE_INIT_NAME;
 	if (_load_module_symbol(module_res, module->handle, &symbol_params, (void **) &module->init_fn) < 0)
 		goto fail;
 

@@ -65,7 +65,7 @@ void verify_node(bptree_t       *bptree,
 			*bkey = n->bkeys[i];
 			assert_true((*bkey)->ref_count == ref);
 			*meta_size += sizeof(bptree_key_t) + strlen((*bkey)->key) + 1 + sizeof(bptree_record_t);
-			rec        = n->pointers[i];
+			rec         = n->pointers[i];
 			assert_true(rec->ref_count > 0);
 			*data_size += rec->data_size;
 		}

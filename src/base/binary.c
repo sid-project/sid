@@ -59,10 +59,10 @@ int sid_binary_encode(const unsigned char *src, size_t in_len, unsigned char *de
 	in  = src;
 	pos = dest;
 	while (end - in >= 3) {
-		*pos++ = base64_table[in[0] >> 2];
-		*pos++ = base64_table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
-		*pos++ = base64_table[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
-		*pos++ = base64_table[in[2] & 0x3f];
+		*pos++  = base64_table[in[0] >> 2];
+		*pos++  = base64_table[((in[0] & 0x03) << 4) | (in[1] >> 4)];
+		*pos++  = base64_table[((in[1] & 0x0f) << 2) | (in[2] >> 6)];
+		*pos++  = base64_table[in[2] & 0x3f];
 		in     += 3;
 	}
 

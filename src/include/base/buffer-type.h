@@ -36,17 +36,17 @@ struct sid_buffer {
 };
 
 struct sid_buffer_type {
-	int (*create)(struct sid_buffer *buf);
-	int (*destroy)(struct sid_buffer *buf);
-	int (*reset)(struct sid_buffer *buf);
-	int (*add)(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos);
-	int (*fmt_add)(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
-	int (*release)(struct sid_buffer *buf, size_t pos, bool rewind);
-	int (*release_mem)(struct sid_buffer *buf, const void *mem, bool rewind);
-	bool (*is_complete)(struct sid_buffer *buf, int *ret_code);
-	int (*get_data)(struct sid_buffer *buf, size_t pos, const void **data, size_t *data_size);
-	int (*get_fd)(struct sid_buffer *buf);
-	size_t (*count)(struct sid_buffer *buf);
+	int     (*create)(struct sid_buffer *buf);
+	int     (*destroy)(struct sid_buffer *buf);
+	int     (*reset)(struct sid_buffer *buf);
+	int     (*add)(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos);
+	int     (*fmt_add)(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
+	int     (*release)(struct sid_buffer *buf, size_t pos, bool rewind);
+	int     (*release_mem)(struct sid_buffer *buf, const void *mem, bool rewind);
+	bool    (*is_complete)(struct sid_buffer *buf, int *ret_code);
+	int     (*get_data)(struct sid_buffer *buf, size_t pos, const void **data, size_t *data_size);
+	int     (*get_fd)(struct sid_buffer *buf);
+	size_t  (*count)(struct sid_buffer *buf);
 	ssize_t (*read)(struct sid_buffer *buf, int fd);
 	ssize_t (*write)(struct sid_buffer *buf, int fd, size_t pos);
 };

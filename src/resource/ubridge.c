@@ -293,7 +293,7 @@ struct cmd_exec_arg {
 struct cmd_reg {
 	const char *name;
 	uint32_t    flags;
-	int (*exec)(struct cmd_exec_arg *exec_arg);
+	int         (*exec)(struct cmd_exec_arg *exec_arg);
 };
 
 typedef struct {
@@ -1222,18 +1222,18 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		vector = kv_store_value_flags & KV_STORE_VALUE_VECTOR;
 
 		if (vector) {
-			vvalue               = raw_value;
-			vvalue_size          = size;
-			svalue               = NULL;
+			vvalue                = raw_value;
+			vvalue_size           = size;
+			svalue                = NULL;
 			VVALUE_FLAGS(vvalue) &= ~KV_SYNC;
 			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
 				if (!(VVALUE_FLAGS(vvalue) & KV_PERSIST))
 					continue;
 			}
 		} else {
-			vvalue        = NULL;
-			vvalue_size   = 0;
-			svalue        = raw_value;
+			vvalue         = NULL;
+			vvalue_size    = 0;
+			svalue         = raw_value;
 			svalue->flags &= ~KV_SYNC;
 			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
 				if (!(svalue->flags & KV_PERSIST))
@@ -2359,7 +2359,7 @@ void *sid_ucmd_set_kv(struct module          *mod,
 		return NULL;
 
 	if (ns == KV_NS_UDEV) {
-		dom   = NULL;
+		dom    = NULL;
 		flags |= KV_SYNC_P;
 	} else
 		dom = KV_KEY_DOM_USER;
@@ -2407,7 +2407,7 @@ static const void *_cmd_get_key_spec_value(struct module       *mod,
 	if (flags)
 		*flags = svalue->flags;
 
-	ext_data_offset = _svalue_ext_data_offset(svalue);
+	ext_data_offset  = _svalue_ext_data_offset(svalue);
 	size            -= (SVALUE_HEADER_SIZE + ext_data_offset);
 
 	if (value_size)
@@ -5376,7 +5376,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 		goto out;
 	}
 
-	end = p + msg_size;
+	end  = p + msg_size;
 	p   += sizeof(msg_size);
 
 	if (kv_store_transaction_begin(common_ctx->kv_store_res) < 0) {
@@ -5394,7 +5394,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 		memcpy(&value_size, p, sizeof(value_size));
 		p   += sizeof(value_size);
 
-		key = p;
+		key  = p;
 		p   += key_size;
 
 		/*
@@ -5419,7 +5419,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			for (i = 0; i < value_size; i++) {
 				memcpy(&vvalue[i].iov_len, p, sizeof(size_t));
 				p                  += sizeof(size_t);
-				vvalue[i].iov_base = p;
+				vvalue[i].iov_base  = p;
 				p                  += vvalue[i].iov_len;
 			}
 			/* Copy values to aligned memory */
@@ -5476,12 +5476,12 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			memcpy(svalue, p, value_size);
 			p                   += value_size;
 
-			ext_data_offset     = _svalue_ext_data_offset(svalue);
-			unset               = ((svalue->flags != KV_RS) && (value_size == SVALUE_HEADER_SIZE + ext_data_offset));
+			ext_data_offset      = _svalue_ext_data_offset(svalue);
+			unset                = ((svalue->flags != KV_RS) && (value_size == SVALUE_HEADER_SIZE + ext_data_offset));
 
-			update_arg.owner    = svalue->data;
-			update_arg.res      = common_ctx->kv_store_res;
-			update_arg.ret_code = 0;
+			update_arg.owner     = svalue->data;
+			update_arg.res       = common_ctx->kv_store_res;
+			update_arg.ret_code  = 0;
 
 			log_debug(ID(res), syncing_msg, key, unset ? "NULL" : svalue->data + ext_data_offset, svalue->seqnum);
 

@@ -146,7 +146,7 @@ static const char *_get_arg_value(const char *str, const char *key_eq, size_t *s
 		if (!strncmp(key_eq, str, strlen(key_eq))) {
 			/* get the value and its size */
 			str   += strlen(key_eq);
-			*size = line_end - str;
+			*size  = line_end - str;
 			return str;
 		}
 	}

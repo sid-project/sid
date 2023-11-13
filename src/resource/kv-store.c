@@ -264,7 +264,7 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 					memcpy(p, iov[i].iov_base, iov[i].iov_len);
 					if (flags & KV_STORE_VALUE_AUTOFREE)
 						free(iov[i].iov_base);
-					iov[i].iov_base = p;
+					iov[i].iov_base  = p;
 					p               += iov[i].iov_len;
 				}
 
@@ -289,9 +289,9 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 					p += iov[i].iov_len;
 				}
 
-				value->size      = data_size;
+				value->size       = data_size;
 				flags            &= ~KV_STORE_VALUE_VECTOR;
-				value->int_flags = KV_STORE_VALUE_INT_ALLOC;
+				value->int_flags  = KV_STORE_VALUE_INT_ALLOC;
 			} else {
 				/* E */
 				value_size = sizeof(*value) + iov_cnt * sizeof(struct iovec) + data_size;
@@ -304,8 +304,8 @@ static struct kv_store_value *_create_kv_store_value(struct iovec             *i
 
 				for (i = 0; i < iov_cnt; i++) {
 					memcpy(p, iov[i].iov_base, iov[i].iov_len);
-					iov2[i].iov_base = p;
-					iov2[i].iov_len  = iov[i].iov_len;
+					iov2[i].iov_base  = p;
+					iov2[i].iov_len   = iov[i].iov_len;
 					p                += iov[i].iov_len;
 				}
 

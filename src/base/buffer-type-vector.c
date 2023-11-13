@@ -382,9 +382,9 @@ static ssize_t _buffer_vector_write(struct sid_buffer *buf, int fd, size_t pos)
 	if (pos) {
 		for (; i < buf->stat.usage.used; i++) {
 			if (iov[i].iov_len > start_off) {
-				start_idx       = i;
-				save_base       = iov[i].iov_base;
-				save_len        = iov[i].iov_len;
+				start_idx        = i;
+				save_base        = iov[i].iov_base;
+				save_len         = iov[i].iov_len;
 				iov[i].iov_base += start_off;
 				iov[i].iov_len  -= start_off;
 				break;

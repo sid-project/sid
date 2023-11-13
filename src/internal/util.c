@@ -280,7 +280,7 @@ static int _copy_token_to_strv(const char *token, size_t len, bool merge_back, v
 
 	memcpy(copier->s, token, len);
 	copier->s  += len;
-	*copier->s = '\0';
+	*copier->s  = '\0';
 
 	copier->s++;
 	copier->i++;

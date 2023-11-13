@@ -182,8 +182,8 @@ static size_t add_sequential_test_data(char                     *key,
 		int   strlen = snprintf(NULL, 0, "%d", i);
 		char *str    = malloc(strlen + 1);
 		snprintf(str, strlen + 1, "%d", i);
-		test_iov[i].iov_base = str;
-		test_iov[i].iov_len  = strlen + 1;
+		test_iov[i].iov_base  = str;
+		test_iov[i].iov_len   = strlen + 1;
 		size                 += strlen + 1;
 	}
 	assert_ptr_not_equal(kv_store_set_value(kv_store_res, MERGE_KEY, test_iov, MAX_TEST_ENTRIES, flags, op_flags, NULL, NULL),

@@ -76,8 +76,8 @@ static unsigned long _hash(const char *key, unsigned key_len)
 
 	for (i = 0; i < key_len; i++) {
 		h <<= 4;
-		h += _nums[(unsigned char) *key++];
-		g = h & ((unsigned long) 0xf << 16u);
+		h  += _nums[(unsigned char) *key++];
+		g   = h & ((unsigned long) 0xf << 16u);
 		if (g) {
 			h ^= g >> 16u;
 			h ^= g >> 5u;
