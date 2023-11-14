@@ -4647,7 +4647,12 @@ static int _cmd_exec_scan(sid_resource_t *cmd_res)
 		ucmd_ctx->scan.phase = phase;
 
 		if (_cmd_scan_phase_regs[phase].exec(cmd_res) < 0) {
-			log_error(ID(cmd_res), "%s phase failed.", _cmd_scan_phase_regs[phase].name);
+			log_error(ID(cmd_res),
+			          "%s phase failed. Switching to %s phase.",
+			          _cmd_scan_phase_regs[phase].name,
+			          _cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].name);
+
+			ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_ERROR;
 
 			/* if init or cleanup phase fails, there's nothing else we can do */
 			if (phase == CMD_SCAN_PHASE_A_INIT || phase == CMD_SCAN_PHASE_A_CLEANUP)
