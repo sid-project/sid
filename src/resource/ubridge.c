@@ -260,9 +260,14 @@ struct sid_ucmd_ctx {
 	/* cmd specific context */
 	union {
 		struct {
-			cmd_scan_phase_t phase; /* current scan phase */
-			dev_ready_t      dev_ready;
-			dev_reserved_t   dev_reserved;
+			sid_resource_iter_t *block_mod_iter;
+			sid_resource_t      *type_mod_registry_res;
+			sid_resource_t      *type_mod_res_current;
+			sid_resource_t      *type_mod_res_next;
+			sid_resource_t      *type_mod_res; /* current type module */
+			cmd_scan_phase_t     phase;        /* current scan phase */
+			dev_ready_t          dev_ready;
+			dev_reserved_t       dev_reserved;
 		} scan;
 
 		struct {
@@ -281,19 +286,10 @@ struct sid_ucmd_ctx {
 	struct sid_buffer    *exp_buf; /* export buffer */
 };
 
-struct cmd_exec_arg {
-	sid_resource_t      *cmd_res;
-	sid_resource_t      *type_mod_registry_res;
-	sid_resource_iter_t *block_mod_iter;       /* all block modules to execute */
-	sid_resource_t      *type_mod_res_current; /* one type module for current layer to execute */
-	sid_resource_t      *type_mod_res_next;    /* one type module for next layer to execute */
-	sid_resource_t      *type_mod_res;
-};
-
 struct cmd_reg {
 	const char *name;
 	uint32_t    flags;
-	int         (*exec)(struct cmd_exec_arg *exec_arg);
+	int         (*exec)(sid_resource_t *cmd_res);
 };
 
 typedef struct {
@@ -3472,9 +3468,9 @@ static void _change_cmd_state(sid_resource_t *cmd_res, cmd_state_t state)
 	log_debug(ID(cmd_res), "Command state changed to %s.", cmd_state_str[state]);
 }
 
-static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_version(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct sid_buffer   *prn_buf  = ucmd_ctx->prn_buf;
 	char                *version_data;
 	size_t               size;
@@ -3493,9 +3489,9 @@ static int _cmd_exec_version(struct cmd_exec_arg *exec_arg)
 	return sid_buffer_add(ucmd_ctx->res_buf, version_data, size, NULL, NULL);
 }
 
-static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_resources(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct sid_buffer   *gen_buf  = ucmd_ctx->common->gen_buf;
 	struct sid_buffer   *prn_buf  = ucmd_ctx->prn_buf;
 	output_format_t      format;
@@ -3525,7 +3521,7 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 		 * we also need to send this cmd resource's id withing the request - it is sent
 		 * right after the struct internal_msg_header.
 		 */
-		id = sid_resource_get_id(exec_arg->cmd_res);
+		id = sid_resource_get_id(cmd_res);
 
 		sid_buffer_add(gen_buf,
 		               &(struct internal_msg_header) {.cat = MSG_CATEGORY_SYSTEM,
@@ -3542,19 +3538,17 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 		sid_buffer_add(gen_buf, (void *) id, strlen(id) + 1, NULL, NULL);
 		sid_buffer_get_data_from(gen_buf, buf_pos0, (const void **) &data, &size);
 
-		if ((r = worker_control_channel_send(exec_arg->cmd_res,
+		if ((r = worker_control_channel_send(cmd_res,
 		                                     MAIN_WORKER_CHANNEL_ID,
 		                                     &(struct worker_data_spec) {
 							     .data      = data,
 							     .data_size = size,
 							     .ext.used  = false,
 						     })) < 0) {
-			log_error_errno(ID(exec_arg->cmd_res),
-			                r,
-			                "Failed to sent request to main process to write its resource tree.");
+			log_error_errno(ID(cmd_res), r, "Failed to sent request to main process to write its resource tree.");
 			r = -1;
 		} else
-			_change_cmd_state(exec_arg->cmd_res, CMD_EXPECTING_DATA);
+			_change_cmd_state(cmd_res, CMD_EXPECTING_DATA);
 
 		sid_buffer_rewind(gen_buf, buf_pos0, SID_BUFFER_POS_ABS);
 		return r;
@@ -3580,7 +3574,7 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 	print_start_array(format, prn_buf, 1, "sidresources", false);
 	buf_pos1 = sid_buffer_count(prn_buf);
 
-	sid_resource_write_tree_recursively(sid_resource_search(exec_arg->cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
+	sid_resource_write_tree_recursively(sid_resource_search(cmd_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL),
 	                                    format,
 	                                    prn_buf,
 	                                    2,
@@ -3605,7 +3599,7 @@ static int _cmd_exec_resources(struct cmd_exec_arg *exec_arg)
 out:
 	ucmd_ctx->resources.main_res_mem      = NULL;
 	ucmd_ctx->resources.main_res_mem_size = 0;
-	_change_cmd_state(exec_arg->cmd_res, CMD_EXEC_FINISHED);
+	_change_cmd_state(cmd_res, CMD_EXEC_FINISHED);
 	return r;
 }
 
@@ -3625,11 +3619,11 @@ static const char *_sval_to_dev_reserved_str(kv_scalar_t *val)
 	return dev_reserved_str[reserved];
 }
 
-static int _cmd_exec_devices(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_devices(sid_resource_t *cmd_res)
 {
 	char                   uuid_buf1[UTIL_UUID_STR_SIZE];
 	char                   uuid_buf2[UTIL_UUID_STR_SIZE];
-	struct sid_ucmd_ctx   *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx   *ucmd_ctx = sid_resource_get_data(cmd_res);
 	output_format_t        format   = flags_to_format(ucmd_ctx->req_hdr.flags);
 	struct sid_buffer     *prn_buf  = ucmd_ctx->prn_buf;
 	kv_vector_t            tmp_vvalue[VVALUE_SINGLE_CNT];
@@ -3697,10 +3691,10 @@ out:
 	return r;
 }
 
-static int _cmd_exec_dbstats(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_dbstats(sid_resource_t *cmd_res)
 {
 	int                  r;
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	struct sid_buffer   *prn_buf  = ucmd_ctx->prn_buf;
 	struct sid_dbstats   stats;
 	char                *stats_data;
@@ -4126,19 +4120,19 @@ static int _refresh_device_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	return 0;
 }
 
-static int _exec_block_mods(struct cmd_exec_arg *exec_arg)
+static int _exec_block_mods(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(cmd_res);
 	sid_resource_t                *block_mod_res;
 	struct module                 *block_mod;
 	const struct sid_ucmd_mod_fns *block_mod_fns;
 	int                            r = -1;
 
-	sid_resource_iter_reset(exec_arg->block_mod_iter);
+	sid_resource_iter_reset(ucmd_ctx->scan.block_mod_iter);
 
-	while ((block_mod_res = sid_resource_iter_next(exec_arg->block_mod_iter))) {
+	while ((block_mod_res = sid_resource_iter_next(ucmd_ctx->scan.block_mod_iter))) {
 		if (module_registry_get_module_symbols(block_mod_res, (const void ***) &block_mod_fns) < 0) {
-			log_error(ID(exec_arg->cmd_res), "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
+			log_error(ID(cmd_res), "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
 			goto out;
 		}
 
@@ -4188,7 +4182,7 @@ static int _exec_block_mods(struct cmd_exec_arg *exec_arg)
 					goto out;
 				break;
 			default:
-				log_error(ID(exec_arg->cmd_res),
+				log_error(ID(cmd_res),
 				          INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
 				          __func__,
 				          _cmd_scan_phase_regs[ucmd_ctx->scan.phase].name);
@@ -4201,22 +4195,22 @@ out:
 	return r;
 }
 
-static int _exec_type_mod(struct cmd_exec_arg *exec_arg)
+static int _exec_type_mod(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const struct sid_ucmd_mod_fns *type_mod_fns;
 	struct module                 *type_mod;
 	int                            r = -1;
 
-	if (!exec_arg->type_mod_res)
+	if (!ucmd_ctx->scan.type_mod_res)
 		return 0;
 
-	if (module_registry_get_module_symbols(exec_arg->type_mod_res, (const void ***) &type_mod_fns) < 0) {
-		log_error(ID(exec_arg->cmd_res), "Failed to retrieve module symbols from module %s.", ID(exec_arg->type_mod_res));
+	if (module_registry_get_module_symbols(ucmd_ctx->scan.type_mod_res, (const void ***) &type_mod_fns) < 0) {
+		log_error(ID(cmd_res), "Failed to retrieve module symbols from module %s.", ID(ucmd_ctx->scan.type_mod_res));
 		goto out;
 	}
 
-	type_mod = sid_resource_get_data(exec_arg->type_mod_res);
+	type_mod = sid_resource_get_data(ucmd_ctx->scan.type_mod_res);
 
 	switch (ucmd_ctx->scan.phase) {
 		case CMD_SCAN_PHASE_A_IDENT:
@@ -4366,63 +4360,63 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	return _refresh_device_hierarchy_from_sysfs(cmd_res);
 }
 
-static int _cmd_exec_scan_init(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_init(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	sid_resource_t      *block_mod_registry_res;
 
 	if (!(block_mod_registry_res = sid_resource_search(ucmd_ctx->common->modules_res,
 	                                                   SID_RESOURCE_SEARCH_IMM_DESC,
 	                                                   &sid_resource_type_module_registry,
 	                                                   MODULES_BLOCK_ID))) {
-		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
+		log_error(ID(cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
 		goto fail;
 	}
 
-	if (!(exec_arg->block_mod_iter = sid_resource_iter_create(block_mod_registry_res))) {
-		log_error(ID(exec_arg->cmd_res), "Failed to create block module iterator.");
+	if (!(ucmd_ctx->scan.block_mod_iter = sid_resource_iter_create(block_mod_registry_res))) {
+		log_error(ID(cmd_res), "Failed to create block module iterator.");
 		goto fail;
 	}
 
-	if (!(exec_arg->type_mod_registry_res = sid_resource_search(ucmd_ctx->common->modules_res,
-	                                                            SID_RESOURCE_SEARCH_IMM_DESC,
-	                                                            &sid_resource_type_module_registry,
-	                                                            MODULES_TYPE_ID))) {
-		log_error(ID(exec_arg->cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
+	if (!(ucmd_ctx->scan.type_mod_registry_res = sid_resource_search(ucmd_ctx->common->modules_res,
+	                                                                 SID_RESOURCE_SEARCH_IMM_DESC,
+	                                                                 &sid_resource_type_module_registry,
+	                                                                 MODULES_TYPE_ID))) {
+		log_error(ID(cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
 		goto fail;
 	}
 
 	if (ucmd_ctx->scan.phase == CMD_SCAN_PHASE_REMOVE_INIT) {
-		if (_get_device_uuid(exec_arg->cmd_res) < 0)
+		if (_get_device_uuid(cmd_res) < 0)
 			goto fail;
-	} else if (_set_device_kv_records(exec_arg->cmd_res) < 0)
+	} else if (_set_device_kv_records(cmd_res) < 0)
 		goto fail;
 
 	return 0;
 fail:
-	if (exec_arg->block_mod_iter) {
-		sid_resource_iter_destroy(exec_arg->block_mod_iter);
-		exec_arg->block_mod_iter = NULL;
+	if (ucmd_ctx->scan.block_mod_iter) {
+		sid_resource_iter_destroy(ucmd_ctx->scan.block_mod_iter);
+		ucmd_ctx->scan.block_mod_iter = NULL;
 	}
 
 	return -1;
 }
 
-static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_ident(sid_resource_t *cmd_res)
 {
 	char                 buf[80];
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const char          *mod_name;
 
-	_exec_block_mods(exec_arg);
+	_exec_block_mods(cmd_res);
 
 	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL, 0))) {
-		if (!(mod_name = _lookup_mod_name(exec_arg->cmd_res,
+		if (!(mod_name = _lookup_mod_name(cmd_res,
 		                                  ucmd_ctx->req_env.dev.udev.major,
 		                                  ucmd_ctx->req_env.dev.udev.name,
 		                                  buf,
 		                                  sizeof(buf)))) {
-			log_error(ID(exec_arg->cmd_res), "Module name lookup failed.");
+			log_error(ID(cmd_res), "Module name lookup failed.");
 			return -1;
 		}
 
@@ -4434,38 +4428,38 @@ static int _cmd_exec_scan_ident(struct cmd_exec_arg *exec_arg)
 		                         DEFAULT_VALUE_FLAGS_CORE,
 		                         mod_name,
 		                         strlen(mod_name) + 1)) {
-			log_error(ID(exec_arg->cmd_res),
+			log_error(ID(cmd_res),
 			          "Failed to store device " CMD_DEV_NAME_NUM_FMT " module name",
 			          CMD_DEV_NAME_NUM(ucmd_ctx));
 			return -1;
 		}
 	}
 
-	if (!(exec_arg->type_mod_res = exec_arg->type_mod_res_current =
-	              module_registry_get_module(exec_arg->type_mod_registry_res, mod_name)))
-		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
+	if (!(ucmd_ctx->scan.type_mod_res = ucmd_ctx->scan.type_mod_res_current =
+	              module_registry_get_module(ucmd_ctx->scan.type_mod_registry_res, mod_name)))
+		log_debug(ID(cmd_res), "Module %s not loaded.", mod_name);
 
-	return _exec_type_mod(exec_arg);
+	return _exec_type_mod(cmd_res);
 }
 
-static int _cmd_exec_scan_pre(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_pre(sid_resource_t *cmd_res)
 {
-	_exec_block_mods(exec_arg);
-	return _exec_type_mod(exec_arg);
+	_exec_block_mods(cmd_res);
+	return _exec_type_mod(cmd_res);
 }
 
-static int _cmd_exec_scan_current(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_current(sid_resource_t *cmd_res)
 {
-	_exec_block_mods(exec_arg);
-	return _exec_type_mod(exec_arg);
+	_exec_block_mods(cmd_res);
+	return _exec_type_mod(cmd_res);
 }
 
-static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_next(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const char          *next_mod_name;
 
-	_exec_block_mods(exec_arg);
+	_exec_block_mods(cmd_res);
 
 	if ((next_mod_name = _do_sid_ucmd_get_kv(NULL,
 	                                         ucmd_ctx,
@@ -4475,42 +4469,43 @@ static int _cmd_exec_scan_next(struct cmd_exec_arg *exec_arg)
 	                                         NULL,
 	                                         NULL,
 	                                         0))) {
-		if (!(exec_arg->type_mod_res_next = module_registry_get_module(exec_arg->type_mod_registry_res, next_mod_name)))
-			log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", next_mod_name);
+		if (!(ucmd_ctx->scan.type_mod_res_next =
+		              module_registry_get_module(ucmd_ctx->scan.type_mod_registry_res, next_mod_name)))
+			log_debug(ID(cmd_res), "Module %s not loaded.", next_mod_name);
 	} else
-		exec_arg->type_mod_res_next = NULL;
+		ucmd_ctx->scan.type_mod_res_next = NULL;
 
-	exec_arg->type_mod_res = exec_arg->type_mod_res_next;
+	ucmd_ctx->scan.type_mod_res = ucmd_ctx->scan.type_mod_res_next;
 
-	return _exec_type_mod(exec_arg);
+	return _exec_type_mod(cmd_res);
 }
 
-static int _cmd_exec_scan_post_current(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_post_current(sid_resource_t *cmd_res)
 {
-	_exec_block_mods(exec_arg);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 
-	exec_arg->type_mod_res = exec_arg->type_mod_res_current;
-
-	return _exec_type_mod(exec_arg);
+	_exec_block_mods(cmd_res);
+	ucmd_ctx->scan.type_mod_res = ucmd_ctx->scan.type_mod_res_current;
+	return _exec_type_mod(cmd_res);
 }
 
-static int _cmd_exec_scan_post_next(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_post_next(sid_resource_t *cmd_res)
 {
-	_exec_block_mods(exec_arg);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 
-	exec_arg->type_mod_res = exec_arg->type_mod_res_next;
-
-	return _exec_type_mod(exec_arg);
+	_exec_block_mods(cmd_res);
+	ucmd_ctx->scan.type_mod_res = ucmd_ctx->scan.type_mod_res_next;
+	return _exec_type_mod(cmd_res);
 }
 
-static int _cmd_exec_scan_wait(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_wait(sid_resource_t *cmd_res)
 {
 	return 0;
 }
 
-static int _cmd_exec_scan_exit(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_exit(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 
 	if (_do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == DEV_RDY_UNPROCESSED)
 		return _do_sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_PUBLIC);
@@ -4521,76 +4516,76 @@ static int _cmd_exec_scan_exit(struct cmd_exec_arg *exec_arg)
 	return 0;
 }
 
-static int _cmd_exec_scan_cleanup(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_cleanup(sid_resource_t *cmd_res)
 {
-	if (exec_arg->block_mod_iter) {
-		sid_resource_iter_destroy(exec_arg->block_mod_iter);
-		exec_arg->block_mod_iter = NULL;
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+
+	if (ucmd_ctx->scan.block_mod_iter) {
+		sid_resource_iter_destroy(ucmd_ctx->scan.block_mod_iter);
+		ucmd_ctx->scan.block_mod_iter = NULL;
 	}
 
 	return 0;
 }
 
-static int _cmd_exec_trigger_action_current(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_trigger_action_current(sid_resource_t *cmd_res)
 {
 	return 0;
 }
 
-static int _cmd_exec_trigger_action_next(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_trigger_action_next(sid_resource_t *cmd_res)
 {
 	return 0;
 }
 
-static int _cmd_exec_scan_remove_mods(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_remove_mods(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const char                    *mod_name;
 	const struct sid_ucmd_mod_fns *mod_fns;
 
-	_exec_block_mods(exec_arg);
+	_exec_block_mods(cmd_res);
 
 	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL, 0))) {
-		log_error(ID(exec_arg->cmd_res),
-		          "Failed to find device " CMD_DEV_NAME_NUM_FMT " module name",
-		          CMD_DEV_NAME_NUM(ucmd_ctx));
+		log_error(ID(cmd_res), "Failed to find device " CMD_DEV_NAME_NUM_FMT " module name", CMD_DEV_NAME_NUM(ucmd_ctx));
 		return -1;
 	}
 
-	if (!(exec_arg->type_mod_res_current = module_registry_get_module(exec_arg->type_mod_registry_res, mod_name))) {
-		log_debug(ID(exec_arg->cmd_res), "Module %s not loaded.", mod_name);
+	if (!(ucmd_ctx->scan.type_mod_res_current = module_registry_get_module(ucmd_ctx->scan.type_mod_registry_res, mod_name))) {
+		log_debug(ID(cmd_res), "Module %s not loaded.", mod_name);
 		return 0;
 	}
 
-	module_registry_get_module_symbols(exec_arg->type_mod_res_current, (const void ***) &mod_fns);
+	module_registry_get_module_symbols(ucmd_ctx->scan.type_mod_res_current, (const void ***) &mod_fns);
 	if (mod_fns && mod_fns->scan_remove)
-		return mod_fns->scan_remove(sid_resource_get_data(exec_arg->type_mod_res_current), ucmd_ctx);
+		return mod_fns->scan_remove(sid_resource_get_data(ucmd_ctx->scan.type_mod_res_current), ucmd_ctx);
 
 	return 0;
 }
 
-static int _cmd_exec_scan_remove_core(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_remove_core(sid_resource_t *cmd_res)
 {
-	return _refresh_device_hierarchy_from_sysfs(exec_arg->cmd_res);
+	return _refresh_device_hierarchy_from_sysfs(cmd_res);
 }
 
-static int _cmd_exec_scan_error(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan_error(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const struct sid_ucmd_mod_fns *mod_fns;
 	int                            r = 0;
 
-	_exec_block_mods(exec_arg);
+	_exec_block_mods(cmd_res);
 
-	if (exec_arg->type_mod_res_current) {
-		module_registry_get_module_symbols(exec_arg->type_mod_res_current, (const void ***) &mod_fns);
+	if (ucmd_ctx->scan.type_mod_res_current) {
+		module_registry_get_module_symbols(ucmd_ctx->scan.type_mod_res_current, (const void ***) &mod_fns);
 		if (mod_fns && mod_fns->error)
-			r |= mod_fns->error(sid_resource_get_data(exec_arg->type_mod_res_current), ucmd_ctx);
+			r |= mod_fns->error(sid_resource_get_data(ucmd_ctx->scan.type_mod_res_current), ucmd_ctx);
 	}
 
-	if (exec_arg->type_mod_res_next) {
-		module_registry_get_module_symbols(exec_arg->type_mod_res_next, (const void ***) &mod_fns);
+	if (ucmd_ctx->scan.type_mod_res_next) {
+		module_registry_get_module_symbols(ucmd_ctx->scan.type_mod_res_next, (const void ***) &mod_fns);
 		if (mod_fns && mod_fns->error)
-			r |= mod_fns->error(sid_resource_get_data(exec_arg->type_mod_res_next), ucmd_ctx);
+			r |= mod_fns->error(sid_resource_get_data(ucmd_ctx->scan.type_mod_res_next), ucmd_ctx);
 	}
 
 	return r;
@@ -4634,9 +4629,9 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 	[CMD_SCAN_PHASE_ERROR]                 = {.name = "error", .flags = 0, .exec = _cmd_exec_scan_error},
 };
 
-static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
+static int _cmd_exec_scan(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(exec_arg->cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	cmd_scan_phase_t     phase, phase_start, phase_end;
 
 	if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE) {
@@ -4648,19 +4643,19 @@ static int _cmd_exec_scan(struct cmd_exec_arg *exec_arg)
 	}
 
 	for (phase = phase_start; phase <= phase_end; phase++) {
-		log_debug(ID(exec_arg->cmd_res), "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
+		log_debug(ID(cmd_res), "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
 		ucmd_ctx->scan.phase = phase;
 
-		if (_cmd_scan_phase_regs[phase].exec(exec_arg) < 0) {
-			log_error(ID(exec_arg->cmd_res), "%s phase failed.", _cmd_scan_phase_regs[phase].name);
+		if (_cmd_scan_phase_regs[phase].exec(cmd_res) < 0) {
+			log_error(ID(cmd_res), "%s phase failed.", _cmd_scan_phase_regs[phase].name);
 
 			/* if init or cleanup phase fails, there's nothing else we can do */
 			if (phase == CMD_SCAN_PHASE_A_INIT || phase == CMD_SCAN_PHASE_A_CLEANUP)
 				return -1;
 
 			/* otherwise, call out modules to handle the error case */
-			if (_cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].exec(exec_arg) < 0)
-				log_error(ID(exec_arg->cmd_res), "error phase failed.");
+			if (_cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].exec(cmd_res) < 0)
+				log_error(ID(cmd_res), "error phase failed.");
 		}
 	}
 
@@ -4841,7 +4836,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 	if (ucmd_ctx->state == CMD_EXEC_SCHEDULED) {
 		_change_cmd_state(cmd_res, CMD_EXECUTING);
 
-		if (cmd_reg->exec && ((r = cmd_reg->exec(&(struct cmd_exec_arg) {.cmd_res = cmd_res})) < 0)) {
+		if (cmd_reg->exec && ((r = cmd_reg->exec(cmd_res)) < 0)) {
 			log_error(ID(cmd_res), "Failed to execute command");
 			goto out;
 		}
