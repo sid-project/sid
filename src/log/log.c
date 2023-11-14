@@ -20,6 +20,7 @@
 #include "log/log.h"
 
 struct log {
+	int          handle_required;
 	log_target_t target;
 	int          verbose_mode;
 } _log                                                = {LOG_TARGET_NONE, 0};
@@ -30,8 +31,9 @@ static const struct log_target *log_target_registry[] = {[LOG_TARGET_STANDARD] =
 
 void log_init(log_target_t target, int verbose_mode)
 {
-	_log.target       = target;
-	_log.verbose_mode = verbose_mode;
+	_log.handle_required = 0;
+	_log.target          = target;
+	_log.verbose_mode    = verbose_mode;
 
 	if (target != LOG_TARGET_NONE)
 		log_target_registry[_log.target]->open(verbose_mode);
@@ -40,6 +42,8 @@ void log_init(log_target_t target, int verbose_mode)
 log_t *log_init_with_handle(log_target_t target, int verbose_mode)
 {
 	log_init(target, verbose_mode);
+	_log.handle_required = 1;
+
 	return &_log;
 }
 
@@ -56,10 +60,13 @@ void log_change_target(log_target_t new_target)
 	_log.target = new_target;
 }
 
-void log_output(struct log_ctx *ctx, const char *format, ...)
+void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...)
 {
 	int     orig_errno;
 	va_list ap;
+
+	if (_log.handle_required && (log != &_log))
+		return;
 
 	if (_log.target == LOG_TARGET_NONE)
 		return;

@@ -66,14 +66,15 @@ void   log_init(log_target_t target, int verbose_mode);
 log_t *log_init_with_handle(log_target_t target, int verbose_mode);
 void   log_change_target(log_target_t new_target);
 
-__format_printf(2, 3) void log_output(struct log_ctx *ctx, const char *format, ...);
+__format_printf(3, 4) void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...);
 
 #define LOG_CLASS_UNCLASSIFIED 0x0001
 
 #define LOG_PRINT              LOG_LOCAL0
 
-#define LOG_LINE(l, p, e, ...)                                                                                                     \
-	log_output(&((struct log_ctx) {.level_id = l,                                                                              \
+#define LOG_LINE(h, l, p, e, ...)                                                                                                  \
+	log_output(h,                                                                                                              \
+	           &((struct log_ctx) {.level_id = l,                                                                              \
 	                               .prefix   = p,                                                                              \
 	                               .class_id = LOG_CLASS_UNCLASSIFIED,                                                         \
 	                               .errno_id = e,                                                                              \
@@ -82,13 +83,13 @@ __format_printf(2, 3) void log_output(struct log_ctx *ctx, const char *format, .
 	                               .src_func = __func__}),                                                                     \
 	           __VA_ARGS__)
 
-#define log_debug(p, ...)          LOG_LINE(LOG_DEBUG, p, 0, __VA_ARGS__)
-#define log_info(p, ...)           LOG_LINE(LOG_INFO, p, 0, __VA_ARGS__)
-#define log_notice(p, ...)         LOG_LINE(LOG_NOTICE, p, 0, __VA_ARGS__)
-#define log_warning(p, ...)        LOG_LINE(LOG_WARNING, p, 0, __VA_ARGS__)
-#define log_error(p, ...)          LOG_LINE(LOG_ERR, p, 0, __VA_ARGS__)
-#define log_print(p, ...)          LOG_LINE(LOG_PRINT, p, 0, __VA_ARGS__)
-#define log_error_errno(p, e, ...) LOG_LINE(LOG_ERR, p, e, __VA_ARGS__)
+#define log_debug(p, ...)          LOG_LINE(NULL, LOG_DEBUG, p, 0, __VA_ARGS__)
+#define log_info(p, ...)           LOG_LINE(NULL, LOG_INFO, p, 0, __VA_ARGS__)
+#define log_notice(p, ...)         LOG_LINE(NULL, LOG_NOTICE, p, 0, __VA_ARGS__)
+#define log_warning(p, ...)        LOG_LINE(NULL, LOG_WARNING, p, 0, __VA_ARGS__)
+#define log_error(p, ...)          LOG_LINE(NULL, LOG_ERR, p, 0, __VA_ARGS__)
+#define log_print(p, ...)          LOG_LINE(NULL, LOG_PRINT, p, 0, __VA_ARGS__)
+#define log_error_errno(p, e, ...) LOG_LINE(NULL, LOG_ERR, p, e, __VA_ARGS__)
 #define log_sys_error(p, x, y)     log_error_errno(p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
 
 #define INTERNAL_ERROR             "Internal error: "
