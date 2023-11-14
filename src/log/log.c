@@ -65,11 +65,25 @@ void log_change_target(log_t *log, log_target_t new_target)
 
 void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...)
 {
-	int     orig_errno;
-	va_list ap;
+	static int log_ignored = 0;
+	int        orig_errno;
+	va_list    ap;
 
-	if (_log.handle_required && (log != &_log))
+	if (_log.handle_required && (log != &_log)) {
+		if (!log_ignored) {
+			log_output(&_log,
+			           &((struct log_ctx) {.level_id = LOG_ERR,
+			                               .class_id = LOG_CLASS_UNCLASSIFIED,
+			                               .prefix   = "",
+			                               .errno_id = 0,
+			                               .src_file = ctx->src_file,
+			                               .src_line = ctx->src_line,
+			                               .src_func = ctx->src_func}),
+			           INTERNAL_ERROR "Incorrect or missing log handle, skipping log messages.");
+			log_ignored = 1;
+		}
 		return;
+	}
 
 	if (_log.target == LOG_TARGET_NONE)
 		return;
