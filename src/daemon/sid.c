@@ -107,13 +107,6 @@ static void _become_daemon()
 	umask(SID_DEFAULT_UMASK);
 }
 
-static sid_resource_service_link_def_t service_link_defs[] = {{
-								      .name         = "systemd",
-								      .type         = SERVICE_TYPE_SYSTEMD,
-								      .notification = SERVICE_NOTIFICATION_READY,
-							      },
-                                                              NULL_SERVICE_LINK};
-
 int main(int argc, char *argv[])
 {
 	unsigned long long val;
@@ -122,14 +115,15 @@ int main(int argc, char *argv[])
 	int                foreground = 0;
 	int                journal    = 0;
 	sid_resource_t    *sid_res    = NULL;
-	int                r          = -1;
+	log_t             *log;
+	int                r     = -1;
 
-	struct option longopts[]      = {{"foreground", 0, NULL, 'f'},
-	                                 {"journal", 0, NULL, 'j'},
-	                                 {"help", 0, NULL, 'h'},
-	                                 {"verbose", 0, NULL, 'v'},
-	                                 {"version", 0, NULL, 'V'},
-	                                 {NULL, 0, NULL, 0}};
+	struct option longopts[] = {{"foreground", 0, NULL, 'f'},
+	                            {"journal", 0, NULL, 'j'},
+	                            {"help", 0, NULL, 'h'},
+	                            {"verbose", 0, NULL, 'v'},
+	                            {"version", 0, NULL, 'V'},
+	                            {NULL, 0, NULL, 0}};
 
 	while ((opt = getopt_long(argc, argv, "fjhvV", longopts, NULL)) != -1) {
 		switch (opt) {
@@ -159,25 +153,42 @@ int main(int argc, char *argv[])
 
 	if (foreground) {
 		if (journal)
-			log_init(LOG_TARGET_JOURNAL, verbose);
+			log = log_init_with_handle(LOG_TARGET_JOURNAL, verbose);
 		else
-			log_init(LOG_TARGET_STANDARD, verbose);
+			log = log_init_with_handle(LOG_TARGET_STANDARD, verbose);
 	} else {
 		if (journal)
-			log_init(LOG_TARGET_JOURNAL, verbose);
+			log = log_init_with_handle(LOG_TARGET_JOURNAL, verbose);
 		else
-			log_init(LOG_TARGET_SYSLOG, verbose);
+			log = log_init_with_handle(LOG_TARGET_SYSLOG, verbose);
 		_become_daemon();
 	}
 
-	if (!(sid_res = sid_resource_ref(sid_resource_create(SID_RESOURCE_NO_PARENT,
-	                                                     &sid_resource_type_sid,
-	                                                     SID_RESOURCE_NO_FLAGS,
-	                                                     SID_RESOURCE_NO_CUSTOM_ID,
-	                                                     SID_RESOURCE_NO_PARAMS,
-	                                                     SID_RESOURCE_PRIO_NORMAL,
-	                                                     service_link_defs))))
+	sid_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
+	                              &sid_resource_type_sid,
+	                              SID_RESOURCE_NO_FLAGS,
+	                              SID_RESOURCE_NO_CUSTOM_ID,
+	                              SID_RESOURCE_NO_PARAMS,
+	                              SID_RESOURCE_PRIO_NORMAL,
+	                              (sid_resource_service_link_def_t[]) {
+					      {
+						      .name         = "systemd",
+						      .type         = SERVICE_TYPE_SYSTEMD,
+						      .notification = SERVICE_NOTIFICATION_READY,
+						      .data         = NULL,
+					      },
+					      {
+						      .name         = "logger",
+						      .type         = SERVICE_TYPE_LOGGER,
+						      .notification = SERVICE_NOTIFICATION_READY | SERVICE_NOTIFICATION_MESSAGE,
+						      .data         = log,
+					      },
+					      NULL_SERVICE_LINK});
+
+	if (!sid_res)
 		goto out;
+
+	sid_resource_ref(sid_res);
 
 	r = sid_resource_run_event_loop(sid_res);
 	if (r == -ECHILD) {
