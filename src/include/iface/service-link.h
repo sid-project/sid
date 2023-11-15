@@ -30,6 +30,7 @@ extern "C" {
 typedef enum {
 	SERVICE_TYPE_NONE,
 	SERVICE_TYPE_SYSTEMD,
+	SERVICE_TYPE_LOGGER,
 	_SERVICE_TYPE_COUNT
 } service_link_type_t;
 
@@ -60,6 +61,9 @@ typedef enum {
 
 	/* notify about service reaching a point where watchdog action needs to be executed; no arg */
 	SERVICE_NOTIFICATION_WATCHDOG_TRIGGER = UINT64_C(0x0000000000000080),
+
+	/* notify with a message */
+	SERVICE_NOTIFICATION_MESSAGE          = UINT64_C(0x0000000000000100),
 } service_link_notification_t;
 
 struct service_link;
