@@ -39,6 +39,7 @@ struct service_link {
 	const char                 *name;
 	service_link_type_t         type;
 	service_link_notification_t notification;
+	void                       *data;
 };
 
 struct service_link_group {
@@ -46,7 +47,7 @@ struct service_link_group {
 	struct list members;
 };
 
-struct service_link *service_link_create(service_link_type_t type, const char *name)
+struct service_link *service_link_create(service_link_type_t type, const char *name, void *data)
 {
 	struct service_link *sl;
 
@@ -57,6 +58,7 @@ struct service_link *service_link_create(service_link_type_t type, const char *n
 	sl->group        = NULL;
 	sl->name         = name;
 	sl->type         = type;
+	sl->data         = data;
 	sl->notification = SERVICE_NOTIFICATION_NONE;
 
 	return sl;

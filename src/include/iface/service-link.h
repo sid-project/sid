@@ -79,7 +79,7 @@ struct service_link_group;
 /* int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) */
 #define service_fd_is_socket_unix       sd_is_socket_unix
 
-struct service_link *service_link_create(service_link_type_t type, const char *name);
+struct service_link *service_link_create(service_link_type_t type, const char *name, void *data);
 void                 service_link_destroy(struct service_link *sl);
 
 void service_link_add_notification(struct service_link *sl, service_link_notification_t notification);
