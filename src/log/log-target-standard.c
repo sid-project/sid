@@ -59,36 +59,28 @@ void log_standard_close(void)
 	fflush(stderr);
 }
 
-void log_standard_output(int         level_id,
-                         const char *prefix,
-                         int         class_id,
-                         int         errno_id,
-                         const char *src_file_name,
-                         int         src_line_number,
-                         const char *function_name,
-                         const char *format,
-                         va_list     ap)
+void log_standard_output(const struct log_ctx *ctx, const char *format, va_list ap)
 {
 	FILE *out_file;
 
-	if (level_id > _max_level_id && level_id != LOG_PRINT)
+	if (ctx->level_id > _max_level_id && ctx->level_id != LOG_PRINT)
 		return;
 
-	out_file = _force_err_out ? stderr : level_id <= LOG_WARNING ? stderr : stdout;
+	out_file = _force_err_out ? stderr : ctx->level_id <= LOG_WARNING ? stderr : stdout;
 
 	if (_with_pids)
 		fprintf(out_file, "[%d:%d]:", getppid(), getpid());
 
 	if (_with_src_info)
-		fprintf(out_file, "%s:%d%s%s\t", src_file_name, src_line_number, function_name ? ":" : "", function_name ?: "");
+		fprintf(out_file, "%s:%d%s%s\t", ctx->src_file, ctx->src_line, ctx->src_func ? ":" : "", ctx->src_func ?: "");
 
-	if (prefix)
-		fprintf(out_file, "<%s> ", prefix);
+	if (ctx->prefix)
+		fprintf(out_file, "<%s> ", ctx->prefix);
 
 	vfprintf(out_file, format, ap);
 
-	if (errno_id)
-		fprintf(out_file, ": %s.", strerror(errno_id));
+	if (ctx->errno_id)
+		fprintf(out_file, ": %s.", strerror(ctx->errno_id));
 
 	fputc('\n', out_file);
 }

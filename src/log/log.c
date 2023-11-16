@@ -48,15 +48,7 @@ void log_change_target(log_target_t new_target)
 	_current_target = new_target;
 }
 
-void log_output(int         level_id,
-                const char *prefix,
-                int         class_id,
-                int         errno_id,
-                const char *file_name,
-                int         line_number,
-                const char *function_name,
-                const char *format,
-                ...)
+void log_output(struct log_ctx *ctx, const char *format, ...)
 {
 	int     orig_errno;
 	va_list ap;
@@ -64,13 +56,12 @@ void log_output(int         level_id,
 	if (_current_target == LOG_TARGET_NONE)
 		return;
 
-	if (errno_id < 0)
-		errno_id = -errno_id;
+	if (ctx->errno_id < 0)
+		ctx->errno_id = -ctx->errno_id;
 
 	orig_errno = errno;
 	va_start(ap, format);
-	log_target_registry[_current_target]
-		->output(level_id, prefix, class_id, errno_id, file_name, line_number, function_name, format, ap);
+	log_target_registry[_current_target]->output(ctx, format, ap);
 	va_end(ap);
 	errno = orig_errno;
 }

@@ -60,36 +60,28 @@ void log_journal_close(void)
 	fflush(stderr);
 }
 
-void log_journal_output(int         level_id,
-                        const char *prefix,
-                        int         class_id,
-                        int         errno_id,
-                        const char *src_file_name,
-                        int         src_line_number,
-                        const char *function_name,
-                        const char *format,
-                        va_list     ap)
+void log_journal_output(const struct log_ctx *ctx, const char *format, va_list ap)
 {
 	char   msg[4096];
 	size_t prefix_len, remaining_len;
 	int    r;
 
-	if (level_id > _max_level_id)
+	if (ctx->level_id > _max_level_id)
 		return;
 
 	/* +1 for '<', +1 for '>' and +1 for '\0' at the end */
-	prefix_len = strlen(prefix) + 3;
+	prefix_len = strlen(ctx->prefix) + 3;
 
 	if (prefix_len >= sizeof(msg)) {
 		sd_journal_send("MESSAGE=%s: (log prefix too long)",
 		                "PRIORITY=%d",
-		                level_id,
+		                ctx->level_id,
 		                "CODE_FILE=%s",
-		                src_file_name,
+		                ctx->src_file,
 		                "CODE_LINE=%d",
-		                src_line_number,
+		                ctx->src_line,
 		                "CODE_FUNC=%s",
-		                function_name,
+		                ctx->src_func,
 		                NULL);
 
 		return;
@@ -97,19 +89,19 @@ void log_journal_output(int         level_id,
 
 	remaining_len = sizeof(msg) - prefix_len;
 
-	(void) snprintf(msg, sizeof(msg), "<%s> ", prefix);
+	(void) snprintf(msg, sizeof(msg), "<%s> ", ctx->prefix);
 	r = vsnprintf(msg + prefix_len, remaining_len, format, ap);
 
 	if (r < 0 || r >= remaining_len)
 		sd_journal_send("MESSAGE=%s: (log message truncated)",
 		                "PRIORITY=%d",
-		                level_id,
+		                ctx->level_id,
 		                "CODE_FILE=%s",
-		                src_file_name,
+		                ctx->src_file,
 		                "CODE_LINE=%d",
-		                src_line_number,
+		                ctx->src_line,
 		                "CODE_FUNC=%s",
-		                function_name,
+		                ctx->src_func,
 		                NULL);
 
 	if (r > 0) {
@@ -117,18 +109,18 @@ void log_journal_output(int         level_id,
 			sd_journal_send("MESSAGE=%s",
 			                msg,
 			                "PREFIX=%s",
-			                prefix,
+			                ctx->prefix,
 			                "PRIORITY=%d",
-			                level_id,
+			                ctx->level_id,
 			                "CODE_FILE=%s",
-			                src_file_name,
+			                ctx->src_file,
 			                "CODE_LINE=%d",
-			                src_line_number,
+			                ctx->src_line,
 			                "CODE_FUNC=%s",
-			                function_name,
+			                ctx->src_func,
 			                NULL);
 		else
-			sd_journal_send("MESSAGE=%s", msg, "PREFIX=%s", prefix, "PRIORITY=%d", level_id, NULL);
+			sd_journal_send("MESSAGE=%s", msg, "PREFIX=%s", ctx->prefix, "PRIORITY=%d", ctx->level_id, NULL);
 	}
 }
 
