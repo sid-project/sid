@@ -264,8 +264,7 @@ struct sid_ucmd_ctx {
 			sid_resource_t      *type_mod_registry_res;
 			sid_resource_t      *type_mod_res_current;
 			sid_resource_t      *type_mod_res_next;
-			sid_resource_t      *type_mod_res; /* current type module */
-			cmd_scan_phase_t     phase;        /* current scan phase */
+			cmd_scan_phase_t     phase; /* current scan phase */
 			dev_ready_t          dev_ready;
 			dev_reserved_t       dev_reserved;
 		} scan;
@@ -4195,22 +4194,22 @@ out:
 	return r;
 }
 
-static int _exec_type_mod(sid_resource_t *cmd_res)
+static int _exec_type_mod(sid_resource_t *cmd_res, sid_resource_t *type_mod_res)
 {
 	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const struct sid_ucmd_mod_fns *type_mod_fns;
 	struct module                 *type_mod;
 	int                            r = -1;
 
-	if (!ucmd_ctx->scan.type_mod_res)
+	if (!type_mod_res)
 		return 0;
 
-	if (module_registry_get_module_symbols(ucmd_ctx->scan.type_mod_res, (const void ***) &type_mod_fns) < 0) {
-		log_error(ID(cmd_res), "Failed to retrieve module symbols from module %s.", ID(ucmd_ctx->scan.type_mod_res));
+	if (module_registry_get_module_symbols(type_mod_res, (const void ***) &type_mod_fns) < 0) {
+		log_error(ID(cmd_res), "Failed to retrieve module symbols from module %s.", ID(type_mod_res));
 		goto out;
 	}
 
-	type_mod = sid_resource_get_data(ucmd_ctx->scan.type_mod_res);
+	type_mod = sid_resource_get_data(type_mod_res);
 
 	switch (ucmd_ctx->scan.phase) {
 		case CMD_SCAN_PHASE_A_IDENT:
@@ -4435,23 +4434,26 @@ static int _cmd_exec_scan_ident(sid_resource_t *cmd_res)
 		}
 	}
 
-	if (!(ucmd_ctx->scan.type_mod_res = ucmd_ctx->scan.type_mod_res_current =
-	              module_registry_get_module(ucmd_ctx->scan.type_mod_registry_res, mod_name)))
+	if (!(ucmd_ctx->scan.type_mod_res_current = module_registry_get_module(ucmd_ctx->scan.type_mod_registry_res, mod_name)))
 		log_debug(ID(cmd_res), "Module %s not loaded.", mod_name);
 
-	return _exec_type_mod(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
 static int _cmd_exec_scan_pre(sid_resource_t *cmd_res)
 {
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+
 	_exec_block_mods(cmd_res);
-	return _exec_type_mod(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
 static int _cmd_exec_scan_current(sid_resource_t *cmd_res)
 {
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+
 	_exec_block_mods(cmd_res);
-	return _exec_type_mod(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
 static int _cmd_exec_scan_next(sid_resource_t *cmd_res)
@@ -4475,9 +4477,7 @@ static int _cmd_exec_scan_next(sid_resource_t *cmd_res)
 	} else
 		ucmd_ctx->scan.type_mod_res_next = NULL;
 
-	ucmd_ctx->scan.type_mod_res = ucmd_ctx->scan.type_mod_res_next;
-
-	return _exec_type_mod(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
 }
 
 static int _cmd_exec_scan_post_current(sid_resource_t *cmd_res)
@@ -4485,8 +4485,7 @@ static int _cmd_exec_scan_post_current(sid_resource_t *cmd_res)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 
 	_exec_block_mods(cmd_res);
-	ucmd_ctx->scan.type_mod_res = ucmd_ctx->scan.type_mod_res_current;
-	return _exec_type_mod(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
 static int _cmd_exec_scan_post_next(sid_resource_t *cmd_res)
@@ -4494,8 +4493,7 @@ static int _cmd_exec_scan_post_next(sid_resource_t *cmd_res)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 
 	_exec_block_mods(cmd_res);
-	ucmd_ctx->scan.type_mod_res = ucmd_ctx->scan.type_mod_res_next;
-	return _exec_type_mod(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
 }
 
 static int _cmd_exec_scan_wait(sid_resource_t *cmd_res)
