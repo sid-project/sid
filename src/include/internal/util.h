@@ -73,11 +73,11 @@ char *util_str_rstr(const char *haystack, const char *needle);
 char *util_str_combstr(const char *haystack, const char *prefix, const char *needle, const char *suffix, bool ignorecase);
 
 typedef int (*util_str_token_fn_t)(const char *token, size_t len, bool merge_back, void *data);
-int         util_str_iterate_tokens(const char         *str,
-                                    const char         *delims,
-                                    const char         *quotes,
-                                    util_str_token_fn_t token_fn,
-                                    void               *token_fn_data);
+int util_str_iterate_tokens(const char         *str,
+                            const char         *delims,
+                            const char         *quotes,
+                            util_str_token_fn_t token_fn,
+                            void               *token_fn_data);
 
 char *util_str_comb_to_str(util_mem_t *mem, const char *prefix, const char *str, const char *suffix);
 

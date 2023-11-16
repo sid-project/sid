@@ -40,11 +40,11 @@ extern "C" {
 typedef struct sid_resource sid_resource_t;
 
 typedef struct sid_resource_type {
-	const char  *name;
-	const char  *short_name;
-	const char  *description;
-	int          (*init)(sid_resource_t *res, const void *kickstart_data, void **data);
-	int          (*destroy)(sid_resource_t *res);
+	const char *name;
+	const char *short_name;
+	const char *description;
+	int (*init)(sid_resource_t *res, const void *kickstart_data, void **data);
+	int (*destroy)(sid_resource_t *res);
 	unsigned int with_event_loop:1;
 	unsigned int with_watchdog  :1;
 } sid_resource_type_t;

@@ -289,7 +289,7 @@ struct sid_ucmd_ctx {
 struct cmd_reg {
 	const char *name;
 	uint32_t    flags;
-	int         (*exec)(sid_resource_t *cmd_res);
+	int (*exec)(sid_resource_t *cmd_res);
 };
 
 typedef struct {

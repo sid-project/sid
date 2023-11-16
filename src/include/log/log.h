@@ -41,17 +41,17 @@ typedef enum {
 
 struct log_target {
 	const char *name;
-	void        (*open)(int verbose_mode);
-	void        (*close)(void);
-	void        (*output)(int         level_id,
-                       const char *prefix,
-                       int         class_id,
-                       int         errno_id,
-                       const char *src_file_name,
-                       int         src_line_number,
-                       const char *function_name,
-                       const char *format,
-                       va_list     ap);
+	void (*open)(int verbose_mode);
+	void (*close)(void);
+	void (*output)(int         level_id,
+	               const char *prefix,
+	               int         class_id,
+	               int         errno_id,
+	               const char *src_file_name,
+	               int         src_line_number,
+	               const char *function_name,
+	               const char *format,
+	               va_list     ap);
 };
 
 extern const struct log_target log_target_standard;
