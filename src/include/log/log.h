@@ -68,7 +68,7 @@ void   log_change_target(log_t *log, log_target_t new_target);
 
 __format_printf(3, 4) void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...);
 
-#define LOG_CLASS_UNCLASSIFIED 0x0001
+#define LOG_CLASS_UNCLASSIFIED 0x0000
 
 #define LOG_PRINT              LOG_LOCAL0
 
