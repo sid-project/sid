@@ -1060,9 +1060,9 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 	return 1;
 }
 
-static const char *_get_mod_name(struct module *mod)
+static const char *_get_mod_name(sid_resource_t *mod_res)
 {
-	return mod ? module_get_full_name(mod) : MOD_NAME_CORE;
+	return mod_res ? module_get_full_name(mod_res) : MOD_NAME_CORE;
 }
 
 static size_t _svalue_ext_data_offset(kv_scalar_t *svalue)
@@ -1458,7 +1458,7 @@ out:
 	return r;
 }
 
-static const char *_get_ns_part(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_kv_namespace_t ns)
+static const char *_get_ns_part(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_kv_namespace_t ns)
 {
 	switch (ns) {
 		case KV_NS_UDEV:
@@ -1467,7 +1467,7 @@ static const char *_get_ns_part(struct module *mod, struct sid_ucmd_ctx *ucmd_ct
 		case KV_NS_DEVMOD:
 			return ucmd_ctx->req_env.dev.uid_s ?: ID_NULL;
 		case KV_NS_MODULE:
-			return _get_mod_name(mod);
+			return _get_mod_name(mod_res);
 		case KV_NS_GLOBAL:
 		case KV_NS_UNDEFINED:
 			break;
@@ -1476,7 +1476,7 @@ static const char *_get_ns_part(struct module *mod, struct sid_ucmd_ctx *ucmd_ct
 	return ID_NULL;
 }
 
-static const char *_get_foreign_ns_part(struct module          *mod,
+static const char *_get_foreign_ns_part(sid_resource_t         *mod_res,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
                                         const char             *foreign_mod_name,
                                         const char             *foreign_dev_id,
@@ -1489,7 +1489,7 @@ static const char *_get_foreign_ns_part(struct module          *mod,
 		case KV_NS_DEVMOD:
 			return foreign_dev_id ?: ucmd_ctx->req_env.dev.uid_s ?: ID_NULL;
 		case KV_NS_MODULE:
-			return foreign_mod_name ?: _get_mod_name(mod);
+			return foreign_mod_name ?: _get_mod_name(mod_res);
 		case KV_NS_GLOBAL:
 		case KV_NS_UNDEFINED:
 			break;
@@ -2234,7 +2234,7 @@ static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv
 	return r;
 }
 
-static void *_do_sid_ucmd_set_kv(struct module          *mod,
+static void *_do_sid_ucmd_set_kv(sid_resource_t         *mod_res,
                                  struct sid_ucmd_ctx    *ucmd_ctx,
                                  const char             *dom,
                                  sid_ucmd_kv_namespace_t ns,
@@ -2243,7 +2243,7 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
                                  const void             *value,
                                  size_t                  value_size)
 {
-	const char          *owner      = _get_mod_name(mod);
+	const char          *owner      = _get_mod_name(mod_res);
 	char                *key        = NULL;
 	size_t               vvalue_cnt = flags & KV_ALIGN ? VVALUE_SINGLE_ALIGNED_CNT : VVALUE_SINGLE_CNT;
 	kv_vector_t          vvalue[vvalue_cnt];
@@ -2253,9 +2253,9 @@ static void *_do_sid_ucmd_set_kv(struct module          *mod,
 	                                 .op       = KV_OP_SET,
 	                                 .dom      = dom ?: ID_NULL,
 	                                 .ns       = ns,
-	                                 .ns_part  = _get_ns_part(mod, ucmd_ctx, ns),
+	                                 .ns_part  = _get_ns_part(mod_res, ucmd_ctx, ns),
 	                                 .id_cat   = ns == KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
-	                                 .id       = ns == KV_NS_DEVMOD ? _get_ns_part(mod, ucmd_ctx, KV_NS_MODULE) : ID_NULL,
+	                                 .id       = ns == KV_NS_DEVMOD ? _get_ns_part(mod_res, ucmd_ctx, KV_NS_MODULE) : ID_NULL,
 	                                 .core     = key_core};
 	int                  r;
 	void                *ret = NULL;
@@ -2340,7 +2340,7 @@ out:
 	return ret;
 }
 
-void *sid_ucmd_set_kv(struct module          *mod,
+void *sid_ucmd_set_kv(sid_resource_t         *mod_res,
                       struct sid_ucmd_ctx    *ucmd_ctx,
                       sid_ucmd_kv_namespace_t ns,
                       const char             *key,
@@ -2350,7 +2350,7 @@ void *sid_ucmd_set_kv(struct module          *mod,
 {
 	const char *dom;
 
-	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	if (ns == KV_NS_UDEV) {
@@ -2359,16 +2359,16 @@ void *sid_ucmd_set_kv(struct module          *mod,
 	} else
 		dom = KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_set_kv(mod, ucmd_ctx, dom, ns, key, flags, value, value_size);
+	return _do_sid_ucmd_set_kv(mod_res, ucmd_ctx, dom, ns, key, flags, value, value_size);
 }
 
-static const void *_cmd_get_key_spec_value(struct module       *mod,
+static const void *_cmd_get_key_spec_value(sid_resource_t      *mod_res,
                                            struct sid_ucmd_ctx *ucmd_ctx,
                                            struct kv_key_spec  *key_spec,
                                            size_t              *value_size,
                                            sid_ucmd_kv_flags_t *flags)
 {
-	const char  *owner = _get_mod_name(mod);
+	const char  *owner = _get_mod_name(mod_res);
 	const char  *key   = NULL;
 	kv_scalar_t *svalue;
 	size_t       size, ext_data_offset;
@@ -2415,7 +2415,7 @@ out:
 	return ret;
 }
 
-static const void *_do_sid_ucmd_get_kv(struct module          *mod,
+static const void *_do_sid_ucmd_get_kv(sid_resource_t         *mod_res,
                                        struct sid_ucmd_ctx    *ucmd_ctx,
                                        const char             *dom,
                                        sid_ucmd_kv_namespace_t ns,
@@ -2428,14 +2428,14 @@ static const void *_do_sid_ucmd_get_kv(struct module          *mod,
 	                               .op       = KV_OP_SET,
 	                               .dom      = dom ?: ID_NULL,
 	                               .ns       = ns,
-	                               .ns_part  = _get_ns_part(mod, ucmd_ctx, ns),
+	                               .ns_part  = _get_ns_part(mod_res, ucmd_ctx, ns),
 	                               .id_cat   = ns == KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
-	                               .id       = ns == KV_NS_DEVMOD ? _get_ns_part(mod, ucmd_ctx, KV_NS_MODULE) : ID_NULL,
+	                               .id       = ns == KV_NS_DEVMOD ? _get_ns_part(mod_res, ucmd_ctx, KV_NS_MODULE) : ID_NULL,
 	                               .core     = key};
-	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
+	return _cmd_get_key_spec_value(mod_res, ucmd_ctx, &key_spec, value_size, flags);
 }
 
-const void *sid_ucmd_get_kv(struct module          *mod,
+const void *sid_ucmd_get_kv(sid_resource_t         *mod_res,
                             struct sid_ucmd_ctx    *ucmd_ctx,
                             sid_ucmd_kv_namespace_t ns,
                             const char             *key,
@@ -2445,7 +2445,7 @@ const void *sid_ucmd_get_kv(struct module          *mod,
 {
 	const char *dom;
 
-	if (!mod || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	if (ns == KV_NS_UDEV)
@@ -2453,10 +2453,10 @@ const void *sid_ucmd_get_kv(struct module          *mod,
 	else
 		dom = KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_get_kv(mod, ucmd_ctx, dom, ns, key, value_size, flags, archive);
+	return _do_sid_ucmd_get_kv(mod_res, ucmd_ctx, dom, ns, key, value_size, flags, archive);
 }
 
-static const void *_do_sid_ucmd_get_foreign_kv(struct module          *mod,
+static const void *_do_sid_ucmd_get_foreign_kv(sid_resource_t         *mod_res,
                                                struct sid_ucmd_ctx    *ucmd_ctx,
                                                const char             *foreign_mod_name,
                                                const char             *foreign_dev_id,
@@ -2471,15 +2471,15 @@ static const void *_do_sid_ucmd_get_foreign_kv(struct module          *mod,
 	                               .op       = KV_OP_SET,
 	                               .dom      = dom ?: ID_NULL,
 	                               .ns       = ns,
-	                               .ns_part  = _get_foreign_ns_part(mod, ucmd_ctx, foreign_mod_name, foreign_dev_id, ns),
+	                               .ns_part  = _get_foreign_ns_part(mod_res, ucmd_ctx, foreign_mod_name, foreign_dev_id, ns),
 	                               .id_cat   = ns == KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
 	                               .id       = ns == KV_NS_DEVMOD ? foreign_mod_name : ID_NULL,
 	                               .core     = key};
 
-	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
+	return _cmd_get_key_spec_value(mod_res, ucmd_ctx, &key_spec, value_size, flags);
 }
 
-const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
+const void *sid_ucmd_get_foreign_mod_kv(sid_resource_t         *mod_res,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
                                         const char             *foreign_mod_name,
                                         sid_ucmd_kv_namespace_t ns,
@@ -2490,16 +2490,16 @@ const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
 {
 	const char *dom;
 
-	if (!mod || !ucmd_ctx || !foreign_mod_name || !*foreign_mod_name || (ns == KV_NS_UNDEFINED) || !key || !*key ||
+	if (!mod_res || !ucmd_ctx || !foreign_mod_name || !*foreign_mod_name || (ns == KV_NS_UNDEFINED) || !key || !*key ||
 	    (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, foreign_mod_name, NULL, dom, ns, key, value_size, flags, archive);
+	return _do_sid_ucmd_get_foreign_kv(mod_res, ucmd_ctx, foreign_mod_name, NULL, dom, ns, key, value_size, flags, archive);
 }
 
-const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
+const void *sid_ucmd_get_foreign_dev_kv(sid_resource_t         *mod_res,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
                                         const char             *foreign_dev_id,
                                         sid_ucmd_kv_namespace_t ns,
@@ -2510,16 +2510,16 @@ const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
 {
 	const char *dom;
 
-	if (!mod || !ucmd_ctx || !foreign_dev_id || !*foreign_dev_id || (ns == KV_NS_UNDEFINED) || !key || !*key ||
+	if (!mod_res || !ucmd_ctx || !foreign_dev_id || !*foreign_dev_id || (ns == KV_NS_UNDEFINED) || !key || !*key ||
 	    (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_get_foreign_kv(mod, ucmd_ctx, NULL, foreign_dev_id, dom, ns, key, value_size, flags, archive);
+	return _do_sid_ucmd_get_foreign_kv(mod_res, ucmd_ctx, NULL, foreign_dev_id, dom, ns, key, value_size, flags, archive);
 }
 
-const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
+const void *sid_ucmd_get_foreign_dev_mod_kv(sid_resource_t         *mod_res,
                                             struct sid_ucmd_ctx    *ucmd_ctx,
                                             const char             *foreign_dev_id,
                                             const char             *foreign_mod_name,
@@ -2531,13 +2531,13 @@ const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
 {
 	const char *dom;
 
-	if (!mod || !ucmd_ctx || !foreign_dev_id || !*foreign_dev_id || !foreign_mod_name || !*foreign_mod_name ||
+	if (!mod_res || !ucmd_ctx || !foreign_dev_id || !*foreign_dev_id || !foreign_mod_name || !*foreign_mod_name ||
 	    (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_get_foreign_kv(mod,
+	return _do_sid_ucmd_get_foreign_kv(mod_res,
 	                                   ucmd_ctx,
 	                                   foreign_mod_name,
 	                                   foreign_dev_id,
@@ -2549,7 +2549,7 @@ const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
 	                                   archive);
 }
 
-int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
+int _do_sid_ucmd_mod_reserve_kv(sid_resource_t             *mod_res,
                                 struct sid_ucmd_common_ctx *common,
                                 const char                 *dom,
                                 sid_ucmd_kv_namespace_t     ns,
@@ -2557,7 +2557,7 @@ int _do_sid_ucmd_mod_reserve_kv(struct module              *mod,
                                 sid_ucmd_kv_flags_t         flags,
                                 int                         unset)
 {
-	const char          *owner = _get_mod_name(mod);
+	const char          *owner = _get_mod_name(mod_res);
 	char                *key   = NULL;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT]; /* only header */
 	struct kv_update_arg update_arg;
@@ -2619,7 +2619,7 @@ out:
 	return r;
 }
 
-int sid_ucmd_mod_reserve_kv(struct module              *mod,
+int sid_ucmd_mod_reserve_kv(sid_resource_t             *mod_res,
                             struct sid_ucmd_common_ctx *common,
                             sid_ucmd_kv_namespace_t     ns,
                             const char                 *key,
@@ -2627,50 +2627,38 @@ int sid_ucmd_mod_reserve_kv(struct module              *mod,
 {
 	const char *dom;
 
-	if (!mod || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, common, dom, ns, key, flags, 0);
+	return _do_sid_ucmd_mod_reserve_kv(mod_res, common, dom, ns, key, flags, 0);
 }
 
-int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
+int sid_ucmd_mod_unreserve_kv(sid_resource_t             *mod_res,
+                              struct sid_ucmd_common_ctx *common,
+                              sid_ucmd_kv_namespace_t     ns,
+                              const char                 *key)
 {
 	const char *dom;
 
-	if (!mod || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_mod_reserve_kv(mod, common, dom, ns, key, KV_FLAGS_UNSET, 1);
+	return _do_sid_ucmd_mod_reserve_kv(mod_res, common, dom, ns, key, KV_FLAGS_UNSET, 1);
 }
 
-static sid_resource_t *_get_mod_res_from_mod(struct module *mod, struct sid_ucmd_common_ctx *common)
+int sid_ucmd_mod_add_subresource(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subresource)
 {
-	sid_resource_t *res;
-
-	if (!(res = sid_resource_search(common->type_mod_registry_res, SID_RESOURCE_SEARCH_IMM_DESC, NULL, module_get_name(mod))))
-		res = sid_resource_search(common->block_mod_registry_res, SID_RESOURCE_SEARCH_IMM_DESC, NULL, module_get_name(mod));
-
-	return res;
-}
-
-int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subresource)
-{
-	sid_resource_t *res;
-
-	if (!mod || !common || !mod_subresource)
+	if (!mod_res || !common || !mod_subresource)
 		return -EINVAL;
 
-	if (!(res = _get_mod_res_from_mod(mod, common)))
-		return -ENOLINK;
-
 	if (sid_resource_match(mod_subresource, &sid_resource_type_module_registry, NULL))
-		return module_registry_add_module_subregistry(res, mod_subresource);
+		return module_registry_add_module_subregistry(mod_res, mod_subresource);
 
-	return sid_resource_add_child(res, mod_subresource, SID_RESOURCE_RESTRICT_WALK_UP);
+	return sid_resource_add_child(mod_res, mod_subresource, SID_RESOURCE_RESTRICT_WALK_UP);
 }
 
 const char *sid_ucmd_dev_ready_to_str(dev_ready_t ready)
@@ -2683,7 +2671,7 @@ const char *sid_ucmd_dev_reserved_to_str(dev_reserved_t reserved)
 	return dev_reserved_str[reserved];
 }
 
-static int _do_sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
+static int _do_sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
 	dev_ready_t old_ready;
 
@@ -2728,7 +2716,7 @@ static int _do_sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *u
 			break;
 	}
 
-	if (!_do_sid_ucmd_set_kv(mod,
+	if (!_do_sid_ucmd_set_kv(mod_res,
 	                         ucmd_ctx,
 	                         NULL,
 	                         KV_NS_DEVICE,
@@ -2742,15 +2730,15 @@ static int _do_sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *u
 	return 0;
 }
 
-int sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
+int sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
-	if (!mod)
+	if (!mod_res)
 		return -EINVAL;
 
-	return _do_sid_ucmd_dev_set_ready(mod, ucmd_ctx, ready);
+	return _do_sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, ready);
 }
 
-static dev_ready_t _do_sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
+static dev_ready_t _do_sid_ucmd_dev_get_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
 	const void *val;
 	dev_ready_t ready_arch;
@@ -2759,7 +2747,7 @@ static dev_ready_t _do_sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucm
 		return DEV_RDY_UNDEFINED;
 
 	if (archive) {
-		if ((val = _do_sid_ucmd_get_kv(mod, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, archive)))
+		if ((val = _do_sid_ucmd_get_kv(mod_res, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, archive)))
 			memcpy(&ready_arch, val, sizeof(dev_ready_t));
 		else
 			ready_arch = DEV_RDY_UNDEFINED;
@@ -2768,22 +2756,22 @@ static dev_ready_t _do_sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucm
 	}
 
 	if (ucmd_ctx->scan.dev_ready == DEV_RDY_UNDEFINED) {
-		if ((val = _do_sid_ucmd_get_kv(mod, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, 0)))
+		if ((val = _do_sid_ucmd_get_kv(mod_res, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, 0)))
 			memcpy(&ucmd_ctx->scan.dev_ready, val, sizeof(dev_ready_t));
 	}
 
 	return ucmd_ctx->scan.dev_ready;
 }
 
-dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
+dev_ready_t sid_ucmd_dev_get_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
-	if (!mod)
+	if (!mod_res)
 		return DEV_RDY_UNDEFINED;
 
-	return _do_sid_ucmd_dev_get_ready(mod, ucmd_ctx, archive);
+	return _do_sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, archive);
 }
 
-static int _do_sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved)
+static int _do_sid_ucmd_dev_set_reserved(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved)
 {
 	dev_reserved_t old_reserved;
 
@@ -2815,7 +2803,7 @@ static int _do_sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx
 			break;
 	}
 
-	if (!_do_sid_ucmd_set_kv(mod,
+	if (!_do_sid_ucmd_set_kv(mod_res,
 	                         ucmd_ctx,
 	                         NULL,
 	                         KV_NS_DEVICE,
@@ -2829,15 +2817,15 @@ static int _do_sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx
 	return 0;
 }
 
-int sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved)
+int sid_ucmd_dev_set_reserved(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved)
 {
-	if (!mod)
+	if (!mod_res)
 		return -EINVAL;
 
-	return _do_sid_ucmd_dev_set_reserved(mod, ucmd_ctx, reserved);
+	return _do_sid_ucmd_dev_set_reserved(mod_res, ucmd_ctx, reserved);
 }
 
-static dev_reserved_t _do_sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
+static dev_reserved_t _do_sid_ucmd_dev_get_reserved(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
 	const void    *val;
 	dev_reserved_t reserved_arch;
@@ -2846,7 +2834,7 @@ static dev_reserved_t _do_sid_ucmd_dev_get_reserved(struct module *mod, struct s
 		return DEV_RES_UNDEFINED;
 
 	if (archive) {
-		if ((val = _do_sid_ucmd_get_kv(mod, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL, archive)))
+		if ((val = _do_sid_ucmd_get_kv(mod_res, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL, archive)))
 			memcpy(&reserved_arch, val, sizeof(dev_ready_t));
 		else
 			reserved_arch = DEV_RES_UNDEFINED;
@@ -2855,22 +2843,22 @@ static dev_reserved_t _do_sid_ucmd_dev_get_reserved(struct module *mod, struct s
 	}
 
 	if (ucmd_ctx->scan.dev_reserved == DEV_RES_UNDEFINED) {
-		if ((val = _do_sid_ucmd_get_kv(mod, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL, 0)))
+		if ((val = _do_sid_ucmd_get_kv(mod_res, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL, 0)))
 			memcpy(&ucmd_ctx->scan.dev_reserved, val, sizeof(dev_ready_t));
 	}
 
 	return ucmd_ctx->scan.dev_reserved;
 }
 
-dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
+dev_reserved_t sid_ucmd_dev_get_reserved(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
-	if (!mod)
+	if (!mod_res)
 		return DEV_RES_UNDEFINED;
 
-	return _do_sid_ucmd_dev_get_reserved(mod, ucmd_ctx, archive);
+	return _do_sid_ucmd_dev_get_reserved(mod_res, ucmd_ctx, archive);
 }
 
-static int _handle_dev_for_group(struct module          *mod,
+static int _handle_dev_for_group(sid_resource_t         *mod_res,
                                  struct sid_ucmd_ctx    *ucmd_ctx,
                                  const char             *dev_id,
                                  const char             *dom,
@@ -2893,7 +2881,7 @@ static int _handle_dev_for_group(struct module          *mod,
 	                                                .op       = KV_OP_SET,
 	                                                .dom      = dom ?: ID_NULL,
 	                                                .ns       = group_ns,
-	                                                .ns_part  = _get_ns_part(mod, ucmd_ctx, KV_NS_MODULE),
+	                                                .ns_part  = _get_ns_part(mod_res, ucmd_ctx, KV_NS_MODULE),
 	                                                .id_cat   = group_cat,
 	                                                .id       = group_id,
 	                                                .core     = KV_KEY_GEN_GROUP_MEMBERS}),
@@ -2902,7 +2890,7 @@ static int _handle_dev_for_group(struct module          *mod,
 	                                                .op       = KV_OP_SET,
 	                                                .dom      = ID_NULL,
 	                                                .ns       = KV_NS_DEVICE,
-	                                                .ns_part  = dev_id ?: _get_ns_part(mod, ucmd_ctx, KV_NS_DEVICE),
+	                                                .ns_part  = dev_id ?: _get_ns_part(mod_res, ucmd_ctx, KV_NS_DEVICE),
 	                                                .id_cat   = ID_NULL,
 	                                                .id       = ID_NULL,
 	                                                .core     = KV_KEY_GEN_GROUP_IN})};
@@ -2938,20 +2926,20 @@ out:
 	return r;
 }
 
-int sid_ucmd_dev_add_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
+int sid_ucmd_dev_add_alias(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
 {
-	if (!mod || !ucmd_ctx || !alias_cat || !*alias_cat || !alias_id || !*alias_id)
+	if (!mod_res || !ucmd_ctx || !alias_cat || !*alias_cat || !alias_id || !*alias_id)
 		return -EINVAL;
 
-	return _handle_dev_for_group(mod, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, KV_NS_MODULE, alias_cat, alias_id, KV_OP_PLUS);
+	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, KV_NS_MODULE, alias_cat, alias_id, KV_OP_PLUS);
 }
 
-int sid_ucmd_dev_remove_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
+int sid_ucmd_dev_remove_alias(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
 {
-	if (!mod || !ucmd_ctx || !alias_cat || !*alias_cat || !alias_id || !*alias_id)
+	if (!mod_res || !ucmd_ctx || !alias_cat || !*alias_cat || !alias_id || !*alias_id)
 		return -EINVAL;
 
-	return _handle_dev_for_group(mod, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, KV_NS_MODULE, alias_cat, alias_id, KV_OP_MINUS);
+	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, KV_NS_MODULE, alias_cat, alias_id, KV_OP_MINUS);
 }
 
 static int _kv_cb_write_new_only(struct kv_store_update_spec *spec)
@@ -2962,7 +2950,7 @@ static int _kv_cb_write_new_only(struct kv_store_update_spec *spec)
 	return _kv_cb_write(spec);
 }
 
-static int _do_sid_ucmd_group_create(struct module          *mod,
+static int _do_sid_ucmd_group_create(sid_resource_t         *mod_res,
                                      struct sid_ucmd_ctx    *ucmd_ctx,
                                      const char             *dom,
                                      sid_ucmd_kv_namespace_t group_ns,
@@ -2970,7 +2958,7 @@ static int _do_sid_ucmd_group_create(struct module          *mod,
                                      const char             *group_cat,
                                      const char             *group_id)
 {
-	const char *owner = _get_mod_name(mod);
+	const char *owner = _get_mod_name(mod_res);
 	char       *key   = NULL;
 	kv_vector_t vvalue[VVALUE_HEADER_CNT];
 	int         r                   = -1;
@@ -2979,7 +2967,7 @@ static int _do_sid_ucmd_group_create(struct module          *mod,
 	                                   .op       = KV_OP_SET,
 	                                   .dom      = dom ?: ID_NULL,
 	                                   .ns       = group_ns,
-	                                   .ns_part  = _get_ns_part(mod, ucmd_ctx, group_ns),
+	                                   .ns_part  = _get_ns_part(mod_res, ucmd_ctx, group_ns),
 	                                   .id_cat   = group_cat,
 	                                   .id       = group_id,
 	                                   .core     = KV_KEY_GEN_GROUP_MEMBERS};
@@ -3018,46 +3006,46 @@ out:
 	return r;
 }
 
-int sid_ucmd_group_create(struct module          *mod,
+int sid_ucmd_group_create(sid_resource_t         *mod_res,
                           struct sid_ucmd_ctx    *ucmd_ctx,
                           sid_ucmd_kv_namespace_t group_ns,
                           sid_ucmd_kv_flags_t     group_flags,
                           const char             *group_cat,
                           const char             *group_id)
 {
-	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
+	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
 
 	group_flags &= ~KV_ALIGN;
 
-	return _do_sid_ucmd_group_create(mod, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_flags, group_cat, group_id);
+	return _do_sid_ucmd_group_create(mod_res, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_flags, group_cat, group_id);
 }
 
-int sid_ucmd_group_add_current_dev(struct module          *mod,
+int sid_ucmd_group_add_current_dev(sid_resource_t         *mod_res,
                                    struct sid_ucmd_ctx    *ucmd_ctx,
                                    sid_ucmd_kv_namespace_t group_ns,
                                    const char             *group_cat,
                                    const char             *group_id)
 {
-	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_cat || !*group_cat || !group_id || !*group_id)
+	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_cat || !*group_cat || !group_id || !*group_id)
 		return -EINVAL;
 
-	return _handle_dev_for_group(mod, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_PLUS);
+	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_PLUS);
 }
 
-int sid_ucmd_group_remove_current_dev(struct module          *mod,
+int sid_ucmd_group_remove_current_dev(sid_resource_t         *mod_res,
                                       struct sid_ucmd_ctx    *ucmd_ctx,
                                       sid_ucmd_kv_namespace_t group_ns,
                                       const char             *group_cat,
                                       const char             *group_id)
 {
-	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_cat || !*group_cat || !group_id || !*group_id)
+	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_cat || !*group_cat || !group_id || !*group_id)
 		return -EINVAL;
 
-	return _handle_dev_for_group(mod, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_MINUS);
+	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_MINUS);
 }
 
-static int _do_sid_ucmd_group_destroy(struct module          *mod,
+static int _do_sid_ucmd_group_destroy(sid_resource_t         *mod_res,
                                       struct sid_ucmd_ctx    *ucmd_ctx,
                                       const char             *dom,
                                       sid_ucmd_kv_namespace_t group_ns,
@@ -3078,10 +3066,10 @@ static int _do_sid_ucmd_group_destroy(struct module          *mod,
 	                                                                        .op       = KV_OP_SET,
 	                                                                        .dom      = dom ?: ID_NULL,
 	                                                                        .ns       = group_ns,
-	                                                                        .ns_part  = _get_ns_part(mod, ucmd_ctx, group_ns),
-	                                                                        .id_cat   = group_cat,
-	                                                                        .id       = group_id,
-	                                                                        .core     = KV_KEY_GEN_GROUP_MEMBERS}),
+	                                                                        .ns_part = _get_ns_part(mod_res, ucmd_ctx, group_ns),
+	                                                                        .id_cat  = group_cat,
+	                                                                        .id      = group_id,
+	                                                                        .core    = KV_KEY_GEN_GROUP_MEMBERS}),
 
 	                                .rel_key_spec = &((struct kv_key_spec) {.extra_op = NULL,
 	                                                                        .op       = KV_OP_SET,
@@ -3127,17 +3115,17 @@ out:
 	return r;
 }
 
-int sid_ucmd_group_destroy(struct module          *mod,
+int sid_ucmd_group_destroy(sid_resource_t         *mod_res,
                            struct sid_ucmd_ctx    *ucmd_ctx,
                            sid_ucmd_kv_namespace_t group_ns,
                            const char             *group_cat,
                            const char             *group_id,
                            int                     force)
 {
-	if (!mod || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
+	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
 		return -EINVAL;
 
-	return _do_sid_ucmd_group_destroy(mod, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, force);
+	return _do_sid_ucmd_group_destroy(mod_res, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, force);
 }
 
 static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
@@ -3234,7 +3222,7 @@ static char *_canonicalize_kv_key(char *id)
 	return id;
 }
 
-int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char *devno_buf, size_t devno_buf_size)
+int _part_get_whole_disk(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, char *devno_buf, size_t devno_buf_size)
 {
 	const char *s;
 	int         r;
@@ -3245,7 +3233,7 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 	                            "%s%s/../dev",
 	                            SYSTEM_SYSFS_PATH,
 	                            ucmd_ctx->req_env.dev.udev.path)) < 0) {
-		log_error_errno(_get_mod_name(mod),
+		log_error_errno(_get_mod_name(mod_res),
 		                r,
 		                "Failed to compose sysfs path for whole device of partition device " CMD_DEV_NAME_NUM_FMT,
 		                CMD_DEV_NAME_NUM(ucmd_ctx));
@@ -3253,7 +3241,7 @@ int _part_get_whole_disk(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, char
 	}
 
 	if ((r = sid_util_sysfs_get_value(s, devno_buf, devno_buf_size)) < 0 || !*devno_buf)
-		log_error_errno(_get_mod_name(mod), r, "Failed to read whole disk device number from sysfs file %s.", s);
+		log_error_errno(_get_mod_name(mod_res), r, "Failed to read whole disk device number from sysfs file %s.", s);
 
 	sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
 	return r;
@@ -3704,7 +3692,7 @@ static int _cmd_exec_dbstats(sid_resource_t *cmd_res)
 	return r;
 }
 
-const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
+const void *sid_ucmd_part_get_disk_kv(sid_resource_t      *mod_res,
                                       struct sid_ucmd_ctx *ucmd_ctx,
                                       const char          *key_core,
                                       size_t              *value_size,
@@ -3720,15 +3708,15 @@ const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
 	                               .id       = ID_NULL,
 	                               .core     = key_core};
 
-	if (!mod || !ucmd_ctx || !key_core || !*key_core || (key_core[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !ucmd_ctx || !key_core || !*key_core || (key_core[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	if (_part_get_whole_disk(mod, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
+	if (_part_get_whole_disk(mod_res, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 		return NULL;
 
 	key_spec.ns_part = _canonicalize_kv_key(devno_buf);
 
-	return _cmd_get_key_spec_value(mod, ucmd_ctx, &key_spec, value_size, flags);
+	return _cmd_get_key_spec_value(mod_res, ucmd_ctx, &key_spec, value_size, flags);
 }
 
 static const char *_devno_to_devid(struct sid_ucmd_ctx *ucmd_ctx, const char *devno, char *devid_buf, size_t devid_buf_size)
@@ -4107,7 +4095,6 @@ static int _exec_block_mods(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(cmd_res);
 	sid_resource_t                *block_mod_res;
-	struct module                 *block_mod;
 	const struct sid_ucmd_mod_fns *block_mod_fns;
 	int                            r = -1;
 
@@ -4119,49 +4106,48 @@ static int _exec_block_mods(sid_resource_t *cmd_res)
 			goto out;
 		}
 
-		block_mod = sid_resource_get_data(block_mod_res);
-
 		switch (ucmd_ctx->scan.phase) {
 			case CMD_SCAN_PHASE_A_IDENT:
-				if (block_mod_fns->ident && block_mod_fns->ident(block_mod, ucmd_ctx) < 0)
+				if (block_mod_fns->ident && block_mod_fns->ident(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_A_SCAN_PRE:
-				if (block_mod_fns->scan_pre && block_mod_fns->scan_pre(block_mod, ucmd_ctx) < 0)
+				if (block_mod_fns->scan_pre && block_mod_fns->scan_pre(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_A_SCAN_CURRENT:
-				if (block_mod_fns->scan_current && block_mod_fns->scan_current(block_mod, ucmd_ctx) < 0)
+				if (block_mod_fns->scan_current && block_mod_fns->scan_current(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_A_SCAN_NEXT:
-				if (block_mod_fns->scan_next && block_mod_fns->scan_next(block_mod, ucmd_ctx) < 0)
+				if (block_mod_fns->scan_next && block_mod_fns->scan_next(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_A_SCAN_POST_CURRENT:
-				if (block_mod_fns->scan_post_current && block_mod_fns->scan_post_current(block_mod, ucmd_ctx) < 0)
+				if (block_mod_fns->scan_post_current &&
+				    block_mod_fns->scan_post_current(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_A_SCAN_POST_NEXT:
-				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(block_mod, ucmd_ctx) < 0)
+				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT:
 				if (block_mod_fns->trigger_action_current &&
-				    block_mod_fns->trigger_action_current(block_mod, ucmd_ctx) < 0)
+				    block_mod_fns->trigger_action_current(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT:
 				if (block_mod_fns->trigger_action_next &&
-				    block_mod_fns->trigger_action_next(block_mod, ucmd_ctx) < 0)
+				    block_mod_fns->trigger_action_next(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_REMOVE_MODS:
-				if (block_mod_fns->scan_remove && block_mod_fns->scan_remove(block_mod, ucmd_ctx) < 0)
+				if (block_mod_fns->scan_remove && block_mod_fns->scan_remove(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_ERROR:
-				if (block_mod_fns->error && block_mod_fns->error(block_mod, ucmd_ctx) < 0)
+				if (block_mod_fns->error && block_mod_fns->error(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			default:
@@ -4182,7 +4168,6 @@ static int _exec_type_mod(sid_resource_t *cmd_res, sid_resource_t *type_mod_res)
 {
 	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(cmd_res);
 	const struct sid_ucmd_mod_fns *type_mod_fns;
-	struct module                 *type_mod;
 	int                            r = -1;
 
 	if (!type_mod_res)
@@ -4193,56 +4178,55 @@ static int _exec_type_mod(sid_resource_t *cmd_res, sid_resource_t *type_mod_res)
 		goto out;
 	}
 
-	type_mod = sid_resource_get_data(type_mod_res);
-
 	switch (ucmd_ctx->scan.phase) {
 		case CMD_SCAN_PHASE_A_IDENT:
-			if (type_mod_fns->ident && type_mod_fns->ident(type_mod, ucmd_ctx) < 0)
+			if (type_mod_fns->ident && type_mod_fns->ident(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
 		case CMD_SCAN_PHASE_A_SCAN_PRE:
-			if (type_mod_fns->scan_pre && type_mod_fns->scan_pre(type_mod, ucmd_ctx) < 0)
+			if (type_mod_fns->scan_pre && type_mod_fns->scan_pre(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
 		case CMD_SCAN_PHASE_A_SCAN_CURRENT:
-			if (type_mod_fns->scan_current && type_mod_fns->scan_current(type_mod, ucmd_ctx) < 0)
+			if (type_mod_fns->scan_current && type_mod_fns->scan_current(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
 		case CMD_SCAN_PHASE_A_SCAN_NEXT:
-			if (type_mod_fns->scan_next && type_mod_fns->scan_next(type_mod, ucmd_ctx) < 0)
+			if (type_mod_fns->scan_next && type_mod_fns->scan_next(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
 		case CMD_SCAN_PHASE_A_SCAN_POST_CURRENT:
-			if (type_mod_fns->scan_post_current && type_mod_fns->scan_post_current(type_mod, ucmd_ctx) < 0)
+			if (type_mod_fns->scan_post_current && type_mod_fns->scan_post_current(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
 		case CMD_SCAN_PHASE_A_SCAN_POST_NEXT:
-			if (type_mod_fns->scan_post_next && type_mod_fns->scan_post_next(type_mod, ucmd_ctx) < 0)
+			if (type_mod_fns->scan_post_next && type_mod_fns->scan_post_next(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
 		case CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT:
-			if (type_mod_fns->trigger_action_current && type_mod_fns->trigger_action_current(type_mod, ucmd_ctx) < 0)
+			if (type_mod_fns->trigger_action_current &&
+			    type_mod_fns->trigger_action_current(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
 		case CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT:
-			if (type_mod_fns->trigger_action_next && type_mod_fns->trigger_action_next(type_mod, ucmd_ctx) < 0)
+			if (type_mod_fns->trigger_action_next && type_mod_fns->trigger_action_next(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
 		case CMD_SCAN_PHASE_REMOVE_MODS:
-			if (type_mod_fns->scan_remove && type_mod_fns->scan_remove(type_mod, ucmd_ctx) < 0)
+			if (type_mod_fns->scan_remove && type_mod_fns->scan_remove(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
 		case CMD_SCAN_PHASE_ERROR:
-			if (type_mod_fns->error && type_mod_fns->error(type_mod, ucmd_ctx) < 0)
+			if (type_mod_fns->error && type_mod_fns->error(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 

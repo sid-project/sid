@@ -52,8 +52,8 @@ struct sid_ucmd_ctx;
 typedef struct sid_resource sid_resource_t;
 
 typedef module_prio_t sid_ucmd_mod_prio_t;
-typedef int           sid_ucmd_mod_fn_t(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx);
-typedef int           sid_ucmd_fn_t(struct module *module, struct sid_ucmd_ctx *ucmd_ctx);
+typedef int           sid_ucmd_mod_fn_t(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx);
+typedef int           sid_ucmd_fn_t(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx);
 
 struct sid_ucmd_mod_fns {
 	sid_ucmd_fn_t *ident;
@@ -182,7 +182,7 @@ typedef enum {
 #define SID_UCMD_KV_UNSET            ((void *) -1)
 #define SID_UCMD_KEY_DEVICE_NEXT_MOD "SID_NEXT_MOD"
 
-void *sid_ucmd_set_kv(struct module          *mod,
+void *sid_ucmd_set_kv(sid_resource_t         *mod_res,
                       struct sid_ucmd_ctx    *ucmd_ctx,
                       sid_ucmd_kv_namespace_t ns,
                       const char             *key,
@@ -190,7 +190,7 @@ void *sid_ucmd_set_kv(struct module          *mod,
                       size_t                  value_size,
                       sid_ucmd_kv_flags_t     flags);
 
-const void *sid_ucmd_get_kv(struct module          *mod,
+const void *sid_ucmd_get_kv(sid_resource_t         *mod_res,
                             struct sid_ucmd_ctx    *ucmd_ctx,
                             sid_ucmd_kv_namespace_t ns,
                             const char             *key,
@@ -198,7 +198,7 @@ const void *sid_ucmd_get_kv(struct module          *mod,
                             sid_ucmd_kv_flags_t    *flags,
                             unsigned int            archive);
 
-const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
+const void *sid_ucmd_get_foreign_mod_kv(sid_resource_t         *mod_res,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
                                         const char             *foreign_mod_name,
                                         sid_ucmd_kv_namespace_t ns,
@@ -207,7 +207,7 @@ const void *sid_ucmd_get_foreign_mod_kv(struct module          *mod,
                                         sid_ucmd_kv_flags_t    *flags,
                                         unsigned int            archive);
 
-const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
+const void *sid_ucmd_get_foreign_dev_kv(sid_resource_t         *mod_res,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
                                         const char             *foreign_dev_id,
                                         sid_ucmd_kv_namespace_t ns,
@@ -216,7 +216,7 @@ const void *sid_ucmd_get_foreign_dev_kv(struct module          *mod,
                                         sid_ucmd_kv_flags_t    *flags,
                                         unsigned int            archive);
 
-const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
+const void *sid_ucmd_get_foreign_dev_mod_kv(sid_resource_t         *mod_res,
                                             struct sid_ucmd_ctx    *ucmd_ctx,
                                             const char             *foreign_dev_id,
                                             const char             *foreign_mod_name,
@@ -239,24 +239,26 @@ const void *sid_ucmd_get_foreign_dev_mod_kv(struct module          *mod,
 // 	 partitions and other devices which are not partitions, but layered
 // 	 devices in general.
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-const void *sid_ucmd_part_get_disk_kv(struct module       *mod,
+const void *sid_ucmd_part_get_disk_kv(sid_resource_t      *mod_res,
                                       struct sid_ucmd_ctx *ucmd_ctx,
                                       const char          *key,
                                       size_t              *value_size,
                                       sid_ucmd_kv_flags_t *flags);
 
-int sid_ucmd_mod_reserve_kv(struct module              *mod,
+int sid_ucmd_mod_reserve_kv(sid_resource_t             *mod_res,
                             struct sid_ucmd_common_ctx *ucmd_common_ctx,
                             sid_ucmd_kv_namespace_t     ns,
                             const char                 *key,
                             sid_ucmd_kv_flags_t         flags);
 
-int sid_ucmd_mod_unreserve_kv(struct module              *mod,
+int sid_ucmd_mod_unreserve_kv(sid_resource_t             *mod_res,
                               struct sid_ucmd_common_ctx *ucmd_common_ctx,
                               sid_ucmd_kv_namespace_t     ns,
                               const char                 *key);
 
-int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx *ucmd_common_ctx, sid_resource_t *mod_subresource);
+int sid_ucmd_mod_add_subresource(sid_resource_t             *mod_res,
+                                 struct sid_ucmd_common_ctx *ucmd_common_ctx,
+                                 sid_resource_t             *mod_subresource);
 
 typedef enum {
 	/* states in which any layers above are not possible */
@@ -286,35 +288,35 @@ typedef enum {
 	DEV_RES_FREE,        /* not yet reserved or used by a layer above */
 } dev_reserved_t;
 
-int         sid_ucmd_dev_set_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready);
-dev_ready_t sid_ucmd_dev_get_ready(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
+int         sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready);
+dev_ready_t sid_ucmd_dev_get_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
 
-int            sid_ucmd_dev_set_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved);
-dev_reserved_t sid_ucmd_dev_get_reserved(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
+int            sid_ucmd_dev_set_reserved(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved);
+dev_reserved_t sid_ucmd_dev_get_reserved(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
 
-int sid_ucmd_dev_add_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id);
-int sid_ucmd_dev_remove_alias(struct module *mod, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id);
+int sid_ucmd_dev_add_alias(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id);
+int sid_ucmd_dev_remove_alias(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id);
 
-int sid_ucmd_group_create(struct module          *mod,
+int sid_ucmd_group_create(sid_resource_t         *mod_res,
                           struct sid_ucmd_ctx    *ucmd_ctx,
                           sid_ucmd_kv_namespace_t group_ns,
                           sid_ucmd_kv_flags_t     group_flags,
                           const char             *group_cat,
                           const char             *group_id);
 
-int sid_ucmd_group_add_current_dev(struct module          *mod,
+int sid_ucmd_group_add_current_dev(sid_resource_t         *mod_res,
                                    struct sid_ucmd_ctx    *ucmd_ctx,
                                    sid_ucmd_kv_namespace_t group_ns,
                                    const char             *group_cat,
                                    const char             *group_id);
 
-int sid_ucmd_group_remove_current_dev(struct module          *mod,
+int sid_ucmd_group_remove_current_dev(sid_resource_t         *mod_res,
                                       struct sid_ucmd_ctx    *ucmd_ctx,
                                       sid_ucmd_kv_namespace_t group_ns,
                                       const char             *group_cat,
                                       const char             *group_id);
 
-int sid_ucmd_group_destroy(struct module          *mod,
+int sid_ucmd_group_destroy(sid_resource_t         *mod_res,
                            struct sid_ucmd_ctx    *ucmd_ctx,
                            sid_ucmd_kv_namespace_t group_ns,
                            const char             *group_cat,
