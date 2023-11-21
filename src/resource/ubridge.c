@@ -129,11 +129,12 @@ const sid_resource_type_t sid_resource_type_ubridge_connection;
 const sid_resource_type_t sid_resource_type_ubridge_command;
 
 struct sid_ucmd_common_ctx {
-	sid_resource_t    *res;          /* resource representing this common ctx */
-	sid_resource_t    *modules_res;  /* top-level resource for all ucmd module registries */
-	sid_resource_t    *kv_store_res; /* main KV store or KV store snapshot */
-	uint16_t           gennum;       /* current KV store generation number */
-	struct sid_buffer *gen_buf;      /* generic buffer */
+	sid_resource_t    *res;                    /* resource representing this common ctx */
+	sid_resource_t    *block_mod_registry_res; /* block modules */
+	sid_resource_t    *type_mod_registry_res;  /* type modules */
+	sid_resource_t    *kv_store_res;           /* main KV store or KV store snapshot */
+	uint16_t           gennum;                 /* current KV store generation number */
+	struct sid_buffer *gen_buf;                /* generic buffer */
 };
 
 struct umonitor {
@@ -261,7 +262,6 @@ struct sid_ucmd_ctx {
 	union {
 		struct {
 			sid_resource_iter_t *block_mod_iter;
-			sid_resource_t      *type_mod_registry_res;
 			sid_resource_t      *type_mod_res_current;
 			sid_resource_t      *type_mod_res_next;
 			cmd_scan_phase_t     phase; /* current scan phase */
@@ -2647,41 +2647,25 @@ int sid_ucmd_mod_unreserve_kv(struct module *mod, struct sid_ucmd_common_ctx *co
 	return _do_sid_ucmd_mod_reserve_kv(mod, common, dom, ns, key, KV_FLAGS_UNSET, 1);
 }
 
-static sid_resource_t *_get_mod_res_from_mod(struct module *mod, sid_resource_t *modules_res, int *ret_code)
+static sid_resource_t *_get_mod_res_from_mod(struct module *mod, struct sid_ucmd_common_ctx *common)
 {
-	sid_resource_t *res   = NULL;
-	char          **pathv = NULL, **name;
-	int             r     = 0;
+	sid_resource_t *res;
 
-	if (!(pathv = util_str_comb_to_strv(NULL, NULL, module_get_full_name(mod), NULL, MODULE_NAME_DELIM, NULL))) {
-		r = -ENOMEM;
-		goto out;
-	}
+	if (!(res = sid_resource_search(common->type_mod_registry_res, SID_RESOURCE_SEARCH_IMM_DESC, NULL, module_get_name(mod))))
+		res = sid_resource_search(common->block_mod_registry_res, SID_RESOURCE_SEARCH_IMM_DESC, NULL, module_get_name(mod));
 
-	for (res = modules_res, name = pathv; *name; name++) {
-		if (!(res = sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_DESC, NULL, *name))) {
-			r = -ENOLINK;
-			goto out;
-		}
-	}
-out:
-	free(pathv);
-
-	if (ret_code)
-		*ret_code = r;
 	return res;
 }
 
 int sid_ucmd_mod_add_subresource(struct module *mod, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subresource)
 {
 	sid_resource_t *res;
-	int             r;
 
 	if (!mod || !common || !mod_subresource)
 		return -EINVAL;
 
-	if (!(res = _get_mod_res_from_mod(mod, common->modules_res, &r)))
-		return r;
+	if (!(res = _get_mod_res_from_mod(mod, common)))
+		return -ENOLINK;
 
 	if (sid_resource_match(mod_subresource, &sid_resource_type_module_registry, NULL))
 		return module_registry_add_module_subregistry(res, mod_subresource);
@@ -4362,26 +4346,9 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 static int _cmd_exec_scan_init(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
-	sid_resource_t      *block_mod_registry_res;
 
-	if (!(block_mod_registry_res = sid_resource_search(ucmd_ctx->common->modules_res,
-	                                                   SID_RESOURCE_SEARCH_IMM_DESC,
-	                                                   &sid_resource_type_module_registry,
-	                                                   MODULES_BLOCK_ID))) {
-		log_error(ID(cmd_res), INTERNAL_ERROR "%s: Failed to find block module registry resource.", __func__);
-		goto fail;
-	}
-
-	if (!(ucmd_ctx->scan.block_mod_iter = sid_resource_iter_create(block_mod_registry_res))) {
+	if (!(ucmd_ctx->scan.block_mod_iter = sid_resource_iter_create(ucmd_ctx->common->block_mod_registry_res))) {
 		log_error(ID(cmd_res), "Failed to create block module iterator.");
-		goto fail;
-	}
-
-	if (!(ucmd_ctx->scan.type_mod_registry_res = sid_resource_search(ucmd_ctx->common->modules_res,
-	                                                                 SID_RESOURCE_SEARCH_IMM_DESC,
-	                                                                 &sid_resource_type_module_registry,
-	                                                                 MODULES_TYPE_ID))) {
-		log_error(ID(cmd_res), INTERNAL_ERROR "%s: Failed to find type module registry resource.", __func__);
 		goto fail;
 	}
 
@@ -4434,7 +4401,7 @@ static int _cmd_exec_scan_ident(sid_resource_t *cmd_res)
 		}
 	}
 
-	if (!(ucmd_ctx->scan.type_mod_res_current = module_registry_get_module(ucmd_ctx->scan.type_mod_registry_res, mod_name)))
+	if (!(ucmd_ctx->scan.type_mod_res_current = module_registry_get_module(ucmd_ctx->common->type_mod_registry_res, mod_name)))
 		log_debug(ID(cmd_res), "Module %s not loaded.", mod_name);
 
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
@@ -4472,7 +4439,7 @@ static int _cmd_exec_scan_next(sid_resource_t *cmd_res)
 	                                         NULL,
 	                                         0))) {
 		if (!(ucmd_ctx->scan.type_mod_res_next =
-		              module_registry_get_module(ucmd_ctx->scan.type_mod_registry_res, next_mod_name)))
+		              module_registry_get_module(ucmd_ctx->common->type_mod_registry_res, next_mod_name)))
 			log_debug(ID(cmd_res), "Module %s not loaded.", next_mod_name);
 	} else
 		ucmd_ctx->scan.type_mod_res_next = NULL;
@@ -4549,7 +4516,8 @@ static int _cmd_exec_scan_remove_mods(sid_resource_t *cmd_res)
 		return -1;
 	}
 
-	if (!(ucmd_ctx->scan.type_mod_res_current = module_registry_get_module(ucmd_ctx->scan.type_mod_registry_res, mod_name))) {
+	if (!(ucmd_ctx->scan.type_mod_res_current =
+	              module_registry_get_module(ucmd_ctx->common->type_mod_registry_res, mod_name))) {
 		log_debug(ID(cmd_res), "Module %s not loaded.", mod_name);
 		return 0;
 	}
@@ -6305,7 +6273,7 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 	 */
 	if (!(common_ctx->kv_store_res = sid_resource_create(common_ctx->res,
 	                                                     &sid_resource_type_kv_store,
-	                                                     SID_RESOURCE_RESTRICT_WALK_UP,
+	                                                     SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_DISALLOW_ISOLATION,
 	                                                     MAIN_KV_STORE_NAME,
 	                                                     &main_kv_store_res_params,
 	                                                     SID_RESOURCE_PRIO_NORMAL - 1,
@@ -6327,22 +6295,11 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 	if (_set_up_kv_store_generation(common_ctx) < 0 || _set_up_boot_id(common_ctx) < 0)
 		goto fail;
 
-	if (!(common_ctx->modules_res = sid_resource_create(common_ctx->res,
-	                                                    &sid_resource_type_aggregate,
-	                                                    SID_RESOURCE_NO_FLAGS,
-	                                                    MODULES_AGGREGATE_ID,
-	                                                    SID_RESOURCE_NO_PARAMS,
-	                                                    SID_RESOURCE_PRIO_NORMAL,
-	                                                    SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(ID(res), "Failed to create aggreagete resource for module handlers.");
-		goto fail;
-	}
-
 	struct module_registry_resource_params block_res_mod_params = {
 		.directory     = SID_UCMD_BLOCK_MOD_DIR,
 		.module_prefix = NULL,
 		.module_suffix = ".so",
-		.flags         = MODULE_REGISTRY_PRELOAD,
+		.flags         = 0,
 		.symbol_params = block_symbol_params,
 		.cb_arg        = common_ctx,
 	};
@@ -6351,26 +6308,42 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 		.directory     = SID_UCMD_TYPE_MOD_DIR,
 		.module_prefix = NULL,
 		.module_suffix = ".so",
-		.flags         = MODULE_REGISTRY_PRELOAD,
+		.flags         = 0,
 		.symbol_params = type_symbol_params,
 		.cb_arg        = common_ctx,
 	};
 
-	if (!(sid_resource_create(common_ctx->modules_res,
-	                          &sid_resource_type_module_registry,
-	                          SID_RESOURCE_DISALLOW_ISOLATION,
-	                          MODULES_BLOCK_ID,
-	                          &block_res_mod_params,
-	                          SID_RESOURCE_PRIO_NORMAL,
-	                          SID_RESOURCE_NO_SERVICE_LINKS)) ||
-	    !(sid_resource_create(common_ctx->modules_res,
-	                          &sid_resource_type_module_registry,
-	                          SID_RESOURCE_DISALLOW_ISOLATION,
-	                          MODULES_TYPE_ID,
-	                          &type_res_mod_params,
-	                          SID_RESOURCE_PRIO_NORMAL,
-	                          SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(ID(res), "Failed to create module handler.");
+	if (!(common_ctx->block_mod_registry_res =
+	              sid_resource_create(common_ctx->res,
+	                                  &sid_resource_type_module_registry,
+	                                  SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_DISALLOW_ISOLATION,
+	                                  MODULES_BLOCK_ID,
+	                                  &block_res_mod_params,
+	                                  SID_RESOURCE_PRIO_NORMAL,
+	                                  SID_RESOURCE_NO_SERVICE_LINKS))) {
+		log_error(ID(res), "Failed to create type module registry.");
+		goto fail;
+	}
+
+	if (!(common_ctx->type_mod_registry_res =
+	              sid_resource_create(common_ctx->res,
+	                                  &sid_resource_type_module_registry,
+	                                  SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_DISALLOW_ISOLATION,
+	                                  MODULES_TYPE_ID,
+	                                  &type_res_mod_params,
+	                                  SID_RESOURCE_PRIO_NORMAL,
+	                                  SID_RESOURCE_NO_SERVICE_LINKS))) {
+		log_error(ID(res), "Failed to create block module registry.");
+		goto fail;
+	}
+
+	if (module_registry_load_modules(common_ctx->block_mod_registry_res) < 0) {
+		log_error(ID(res), "Failed to preload block modules.");
+		goto fail;
+	}
+
+	if (module_registry_load_modules(common_ctx->type_mod_registry_res) < 0) {
+		log_error(ID(res), "Failed to preload type modules.");
 		goto fail;
 	}
 
