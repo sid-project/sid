@@ -92,7 +92,7 @@ struct dm_mod_ctx {
 	sid_resource_t *submod_res_next;
 };
 
-static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
+static int _dm_init(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	struct dm_mod_ctx *dm_mod = NULL;
 
@@ -123,7 +123,7 @@ static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_comm
 		goto fail;
 	}
 
-	if (sid_ucmd_mod_add_subresource(module, ucmd_common_ctx, dm_mod->submod_registry) < 0) {
+	if (sid_ucmd_mod_add_subresource(mod_res, ucmd_common_ctx, dm_mod->submod_registry) < 0) {
 		log_error(DM_ID, "Failed to attach submodule registry.");
 		goto fail;
 	}
@@ -133,7 +133,7 @@ static int _dm_init(struct module *module, struct sid_ucmd_common_ctx *ucmd_comm
 		goto fail;
 	}
 
-	module_set_data(module, dm_mod);
+	module_set_data(mod_res, dm_mod);
 	return 0;
 fail:
 	if (dm_mod->submod_registry)
@@ -143,27 +143,27 @@ fail:
 }
 SID_UCMD_MOD_INIT(_dm_init)
 
-static int _dm_exit(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
+static int _dm_exit(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	struct dm_mod_ctx *dm_mod;
 
 	log_debug(DM_ID, "exit");
 
-	dm_mod = module_get_data(module);
+	dm_mod = module_get_data(mod_res);
 	free(dm_mod);
 
 	return 0;
 }
 SID_UCMD_MOD_EXIT(_dm_exit)
 
-static int _dm_reset(struct module *module, struct sid_ucmd_common_ctx *ucmd_common_ctx)
+static int _dm_reset(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	log_debug(DM_ID, "reset");
 	return 0;
 }
 SID_UCMD_MOD_RESET(_dm_reset)
 
-static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_ident(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	char                  path[PATH_MAX];
 	char                  name[DM_NAME_LEN];
@@ -181,19 +181,19 @@ static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 		log_error(DM_ID, "Failed to get DM uuid.");
 		return -1;
 	}
-	sid_ucmd_dev_add_alias(module, ucmd_ctx, "uuid", uuid);
-	sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVMOD, "uuid", uuid, strlen(uuid) + 1, KV_SYNC | KV_SUB_RD);
+	sid_ucmd_dev_add_alias(mod_res, ucmd_ctx, "uuid", uuid);
+	sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_DEVMOD, "uuid", uuid, strlen(uuid) + 1, KV_SYNC | KV_SUB_RD);
 
 	snprintf(path, sizeof(path), "%s%s/dm/name", SYSTEM_SYSFS_PATH, sid_ucmd_event_get_dev_path(ucmd_ctx));
 	if (sid_util_sysfs_get_value(path, name, sizeof(name)) < 0) {
 		log_error(DM_ID, "Failed to get DM name.");
 		return -1;
 	}
-	sid_ucmd_dev_add_alias(module, ucmd_ctx, "name", name);
-	sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVMOD, "name", name, strlen(name) + 1, KV_SYNC | KV_SUB_RD);
+	sid_ucmd_dev_add_alias(mod_res, ucmd_ctx, "name", name);
+	sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_DEVMOD, "name", name, strlen(name) + 1, KV_SYNC | KV_SUB_RD);
 
-	dm_mod      = module_get_data(module);
-	submod_name = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_DEVICE, DM_SUBMODULES_ID, NULL, NULL, 0);
+	dm_mod      = module_get_data(mod_res);
+	submod_name = sid_ucmd_get_kv(mod_res, ucmd_ctx, KV_NS_DEVICE, DM_SUBMODULES_ID, NULL, NULL, 0);
 
 	if (submod_name) {
 		if (strcmp(submod_name, DM_SUBMODULE_ID_NONE) != 0) {
@@ -215,7 +215,7 @@ static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 			}
 
 			if (submod_fns->subsys_match) {
-				if (submod_fns->subsys_match(sid_resource_get_data(submod_res), ucmd_ctx)) {
+				if (submod_fns->subsys_match(submod_res, ucmd_ctx)) {
 					dm_mod->submod_res_current = submod_res;
 					submod_name                = sid_resource_get_id(submod_res);
 					log_debug(DM_ID, "%s submodule claimed this DM device.", submod_name);
@@ -229,7 +229,7 @@ static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 		if (!submod_name)
 			submod_name = DM_SUBMODULE_ID_NONE;
 
-		sid_ucmd_set_kv(module, ucmd_ctx, KV_NS_DEVICE, DM_SUBMODULES_ID, submod_name, strlen(submod_name) + 1, KV_FRG_RD);
+		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_DEVICE, DM_SUBMODULES_ID, submod_name, strlen(submod_name) + 1, KV_FRG_RD);
 	}
 
 	if (!dm_mod->submod_res_current)
@@ -237,53 +237,53 @@ static int _dm_ident(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 
 	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &submod_fns);
 	if (submod_fns && submod_fns->ident)
-		(void) submod_fns->ident(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+		(void) submod_fns->ident(dm_mod->submod_res_current, ucmd_ctx);
 
 	return 0;
 }
 SID_UCMD_IDENT(_dm_ident)
 
-static int _dm_scan_pre(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_scan_pre(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	struct dm_mod_ctx    *dm_mod;
 	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "scan-pre");
 
-	dm_mod = module_get_data(module);
+	dm_mod = module_get_data(mod_res);
 
 	if (!dm_mod->submod_res_current)
 		return 0;
 
 	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &submod_fns);
 	if (submod_fns && submod_fns->scan_pre)
-		(void) submod_fns->scan_pre(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+		(void) submod_fns->scan_pre(dm_mod->submod_res_current, ucmd_ctx);
 
 	return 0;
 }
 SID_UCMD_SCAN_PRE(_dm_scan_pre)
 
-static int _dm_scan_current(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_scan_current(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	struct dm_mod_ctx    *dm_mod;
 	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "scan-current");
 
-	dm_mod = module_get_data(module);
+	dm_mod = module_get_data(mod_res);
 
 	if (!dm_mod->submod_res_current)
 		return 0;
 
 	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &submod_fns);
 	if (submod_fns && submod_fns->scan_current)
-		(void) submod_fns->scan_current(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+		(void) submod_fns->scan_current(dm_mod->submod_res_current, ucmd_ctx);
 
 	return 0;
 }
 SID_UCMD_SCAN_CURRENT(_dm_scan_current)
 
-static int _dm_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	struct dm_mod_ctx    *dm_mod;
 	const char           *val;
@@ -292,7 +292,7 @@ static int _dm_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 
 	log_debug(DM_ID, "scan-next");
 
-	if ((val = sid_ucmd_get_kv(module, ucmd_ctx, KV_NS_UDEV, "ID_FS_TYPE", NULL, NULL, 0))) {
+	if ((val = sid_ucmd_get_kv(mod_res, ucmd_ctx, KV_NS_UDEV, "ID_FS_TYPE", NULL, NULL, 0))) {
 		if (!strcmp(val, "LVM2_member") || !strcmp(val, "LVM1_member"))
 			submod_name = "lvm";
 		else if (!strcmp(val, "DM_snapshot_cow"))
@@ -306,7 +306,7 @@ static int _dm_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 	if (!submod_name)
 		return 0;
 
-	dm_mod = module_get_data(module);
+	dm_mod = module_get_data(mod_res);
 
 	if (!(dm_mod->submod_res_next = module_registry_get_module(dm_mod->submod_registry, submod_name))) {
 		log_debug(DM_ID, "Module %s not loaded.", submod_name);
@@ -315,73 +315,73 @@ static int _dm_scan_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
 
 	module_registry_get_module_symbols(dm_mod->submod_res_next, (const void ***) &submod_fns);
 	if (submod_fns && submod_fns->scan_next)
-		(void) submod_fns->scan_next(sid_resource_get_data(dm_mod->submod_res_next), ucmd_ctx);
+		(void) submod_fns->scan_next(dm_mod->submod_res_next, ucmd_ctx);
 
 	return 0;
 }
 SID_UCMD_SCAN_NEXT(_dm_scan_next)
 
-static int _dm_scan_post_current(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_scan_post_current(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	struct dm_mod_ctx    *dm_mod;
 	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "scan-post-current");
 
-	dm_mod = module_get_data(module);
+	dm_mod = module_get_data(mod_res);
 
 	if (!dm_mod->submod_res_current)
 		return 0;
 
 	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &submod_fns);
 	if (submod_fns && submod_fns->scan_post_current)
-		(void) submod_fns->scan_post_current(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+		(void) submod_fns->scan_post_current(dm_mod->submod_res_current, ucmd_ctx);
 
 	return 0;
 }
 SID_UCMD_SCAN_POST_CURRENT(_dm_scan_post_current)
 
-static int _dm_scan_post_next(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_scan_post_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	struct dm_mod_ctx    *dm_mod;
 	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "scan-post-next");
 
-	dm_mod = module_get_data(module);
+	dm_mod = module_get_data(mod_res);
 
 	if (!(dm_mod->submod_res_next))
 		return 0;
 
 	module_registry_get_module_symbols(dm_mod->submod_res_next, (const void ***) &submod_fns);
 	if (submod_fns && submod_fns->scan_post_next)
-		(void) submod_fns->scan_post_next(sid_resource_get_data(dm_mod->submod_res_next), ucmd_ctx);
+		(void) submod_fns->scan_post_next(dm_mod->submod_res_next, ucmd_ctx);
 
 	return 0;
 }
 SID_UCMD_SCAN_POST_NEXT(_dm_scan_post_next)
 
-static int _dm_scan_remove(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_scan_remove(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	struct dm_mod_ctx    *dm_mod;
 	struct dm_submod_fns *submod_fns;
 
 	log_debug(DM_ID, "scan-remove");
 
-	dm_mod = module_get_data(module);
+	dm_mod = module_get_data(mod_res);
 
 	if (!dm_mod->submod_res_current)
 		return 0;
 
 	module_registry_get_module_symbols(dm_mod->submod_res_current, (const void ***) &submod_fns);
 	if (submod_fns && submod_fns->scan_remove)
-		(void) submod_fns->scan_remove(sid_resource_get_data(dm_mod->submod_res_current), ucmd_ctx);
+		(void) submod_fns->scan_remove(dm_mod->submod_res_current, ucmd_ctx);
 
 	return 0;
 }
 SID_UCMD_SCAN_REMOVE(_dm_scan_remove)
 
-static int _dm_error(struct module *module, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_error(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	log_debug(DM_ID, "error");
 	return 0;
