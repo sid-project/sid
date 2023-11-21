@@ -51,16 +51,16 @@ struct module_registry_resource_params {
 	const struct module_symbol_params *symbol_params; /* NULL-terminated list of symbol params */
 };
 
-int             module_registry_load_modules(sid_resource_t *module_registry_res);
-sid_resource_t *module_registry_load_module(sid_resource_t *module_registry_res, const char *module_name);
-sid_resource_t *module_registry_get_module(sid_resource_t *module_registry_res, const char *module_name);
-int             module_registry_unload_module(sid_resource_t *module_res);
-int             module_registry_get_module_symbols(sid_resource_t *module_res, const void ***ret);
+int             module_registry_load_modules(sid_resource_t *mod_registry_res);
+sid_resource_t *module_registry_load_module(sid_resource_t *mod_registry_res, const char *mod_name);
+sid_resource_t *module_registry_get_module(sid_resource_t *mod_registry_res, const char *mod_name);
+int             module_registry_unload_module(sid_resource_t *mod_res);
+int             module_registry_get_module_symbols(sid_resource_t *mod_res, const void ***ret);
 
-int module_registry_reset_modules(sid_resource_t *module_registry_res);
-int module_registry_reset_module(sid_resource_t *module_res);
+int module_registry_reset_modules(sid_resource_t *mod_registry_res);
+int module_registry_reset_module(sid_resource_t *mod_res);
 
-int module_registry_add_module_subregistry(sid_resource_t *module_res, sid_resource_t *module_subregistry_res);
+int module_registry_add_module_subregistry(sid_resource_t *mod_res, sid_resource_t *mod_subregistry_res);
 
 #ifdef __cplusplus
 }

@@ -20,6 +20,8 @@
 #ifndef _SID_MODULE_H
 #define _SID_MODULE_H
 
+#include "resource.h"
+
 #include <inttypes.h>
 
 #ifdef __cplusplus
@@ -29,7 +31,7 @@ extern "C" {
 struct module;
 
 typedef int64_t module_prio_t;
-typedef int     module_cb_fn_t(struct module *module, void *cb_arg);
+typedef int     module_cb_fn_t(sid_resource_t *mod_res, void *cb_arg);
 
 #define MODULE_NAME_MAX_LEN   255
 #define MODULE_NAME_DELIM     "/"
@@ -43,10 +45,10 @@ typedef int     module_cb_fn_t(struct module *module, void *cb_arg);
 #define MODULE_EXIT(fn)       MODULE_FN(exit, fn)
 #define MODULE_RESET(fn)      MODULE_FN(reset, fn)
 
-const char *module_get_full_name(struct module *module);
-const char *module_get_name(struct module *module);
-void        module_set_data(struct module *module, void *data);
-void       *module_get_data(struct module *module);
+const char *module_get_full_name(sid_resource_t *mod_res);
+const char *module_get_name(sid_resource_t *mod_res);
+void        module_set_data(sid_resource_t *mod_res, void *data);
+void       *module_get_data(sid_resource_t *mod_res);
 
 #ifdef __cplusplus
 }
