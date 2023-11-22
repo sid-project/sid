@@ -148,7 +148,7 @@ typedef enum {
 
 } sid_resource_search_method_t;
 
-sid_resource_t *sid_resource_search(sid_resource_t              *root_res,
+sid_resource_t *sid_resource_search(sid_resource_t              *start_res,
                                     sid_resource_search_method_t method,
                                     const sid_resource_type_t   *type,
                                     const char                  *id);
