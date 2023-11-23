@@ -1121,6 +1121,11 @@ sid_resource_t *sid_resource_search(sid_resource_t              *start_res,
 	return NULL;
 }
 
+bool sid_resource_has_parent(sid_resource_t *res)
+{
+	return res->parent != NULL;
+}
+
 int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child, sid_resource_flags_t flags)
 {
 	if (child->parent)

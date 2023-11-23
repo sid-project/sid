@@ -153,6 +153,8 @@ sid_resource_t *sid_resource_search(sid_resource_t              *start_res,
                                     const sid_resource_type_t   *type,
                                     const char                  *id);
 
+bool sid_resource_has_parent(sid_resource_t *res);
+
 /*
  * structure/tree modification functions
  */
