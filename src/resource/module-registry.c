@@ -46,15 +46,16 @@ struct module_registry {
 };
 
 struct module {
-	module_cb_fn_t *init_fn;
-	module_cb_fn_t *exit_fn;
-	module_cb_fn_t *reset_fn;
-	char           *full_name;
-	char           *name;
-	char           *aliases;
-	void           *handle;
-	void          **symbols;
-	void           *data;
+	struct module_registry *registry;
+	module_cb_fn_t         *init_fn;
+	module_cb_fn_t         *exit_fn;
+	module_cb_fn_t         *reset_fn;
+	char                   *full_name;
+	char                   *name;
+	char                   *aliases;
+	void                   *handle;
+	void                  **symbols;
+	void                   *data;
 };
 
 static int _set_module_name(struct module_registry *registry, struct module *module, const char *name)
@@ -187,11 +188,9 @@ int module_registry_reset_modules(sid_resource_t *mod_registry_res)
 
 int module_registry_reset_module(sid_resource_t *mod_res)
 {
-	struct module_registry *registry =
-		sid_resource_get_data(sid_resource_search(mod_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct module *module = sid_resource_get_data(mod_res);
 
-	if (module->reset_fn && module->reset_fn(mod_res, registry->cb_arg) < 0) {
+	if (module->reset_fn && module->reset_fn(mod_res, module->registry->cb_arg) < 0) {
 		log_error(ID(mod_res), mod_reset_failed_msg);
 		return -1;
 	}
@@ -318,7 +317,7 @@ static int _load_modules(sid_resource_t *mod_registry_res)
 			                         &sid_resource_type_module,
 			                         SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_DISALLOW_ISOLATION,
 			                         name,
-			                         NULL,
+			                         registry,
 			                         SID_RESOURCE_PRIO_NORMAL,
 			                         SID_RESOURCE_NO_SERVICE_LINKS))
 				log_error(ID(mod_registry_res),
@@ -381,8 +380,7 @@ out:
 
 static int _init_module(sid_resource_t *mod_res, const void *kickstart_data, void **data)
 {
-	struct module_registry *registry =
-		sid_resource_get_data(sid_resource_search(mod_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
+	struct module_registry     *registry      = (struct module_registry *) kickstart_data;
 	struct module_symbol_params symbol_params = {0};
 	struct module              *module        = NULL;
 	char                        path[PATH_MAX];
@@ -395,6 +393,8 @@ static int _init_module(sid_resource_t *mod_res, const void *kickstart_data, voi
 		log_error(ID(mod_res), "Failed to allocate module structure.");
 		goto fail;
 	}
+
+	module->registry = registry;
 
 	if ((r = _set_module_name(registry, module, sid_resource_get_id(mod_res))) < 0) {
 		log_error_errno(ID(mod_res), r, "Failed to set module name");
@@ -482,11 +482,9 @@ fail:
 
 static int _destroy_module(sid_resource_t *mod_res)
 {
-	struct module_registry *registry =
-		sid_resource_get_data(sid_resource_search(mod_res, SID_RESOURCE_SEARCH_IMM_ANC, NULL, NULL));
 	struct module *module = sid_resource_get_data(mod_res);
 
-	if (module->exit_fn(mod_res, registry->cb_arg) < 0)
+	if (module->exit_fn(mod_res, module->registry->cb_arg) < 0)
 		log_error(ID(mod_res), "Module-specific finalization failed.");
 
 	if (dlclose(module->handle) < 0)
