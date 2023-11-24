@@ -25,6 +25,7 @@
 #include "internal/mem.h"
 #include "log/log.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -1274,6 +1275,23 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 	}
 
 	return sd_event_exit(res->event_loop.sd_event_loop, 0);
+}
+
+void sid_resource_log_output(sid_resource_t *res, struct log_ctx *log_ctx, const char *fmt, ...)
+{
+	const char *orig_prefix = log_ctx->prefix;
+	va_list     ap;
+
+	if (!res)
+		return;
+
+	log_ctx->prefix = res->id;
+
+	va_start(ap, fmt);
+	service_link_group_vnotify(res->slg, SERVICE_NOTIFICATION_MESSAGE, log_ctx, fmt, ap);
+	va_end(ap);
+
+	log_ctx->prefix = orig_prefix;
 }
 
 static void _write_event_source_elem_fields(sid_resource_event_source_t *es,

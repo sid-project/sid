@@ -247,6 +247,31 @@ int sid_resource_run_event_loop(sid_resource_t *res);
 int sid_resource_exit_event_loop(sid_resource_t *res);
 
 /*
+ * logging
+ */
+void sid_resource_log_output(sid_resource_t *res, struct log_ctx *log_ctx, const char *fmt, ...);
+
+#define SID_RESOURCE_LOG_LINE(res, l, e, ...)                                                                                      \
+	sid_resource_log_output(res,                                                                                               \
+	                        &((struct log_ctx) {.level_id = l,                                                                 \
+	                                            .prefix   = NULL,                                                              \
+	                                            .class_id = LOG_CLASS_UNCLASSIFIED,                                            \
+	                                            .errno_id = e,                                                                 \
+	                                            .src_file = __FILE__,                                                          \
+	                                            .src_line = __LINE__,                                                          \
+	                                            .src_func = __func__}),                                                        \
+	                        __VA_ARGS__)
+
+#define sid_resource_log_debug(res, ...)           SID_RESOURCE_LOG_LINE(res, LOG_DEBUG, 0, __VA_ARGS__)
+#define sid_resource_log_info(res, ...)            SID_RESOURCE_LOG_LINE(res, LOG_INFO, 0, __VA_ARGS__)
+#define sid_resource_log_notice(res, ...)          SID_RESOURCE_LOG_LINE(res, LOG_NOTICE, 0, __VA_ARGS__)
+#define sid_resource_log_warning(res, ...)         SID_RESOURCE_LOG_LINE(res, LOG_WARNING, 0, __VA_ARGS__)
+#define sid_resource_log_error(res, ...)           SID_RESOURCE_LOG_LINE(res, LOG_ERR, 0, __VA_ARGS__)
+#define sid_resource_log_print(res, ...)           SID_RESOURCE_LOG_LINE(res, LOG_PRINT, 0, __VA_ARGS__)
+#define sid_resource_log_error_errno(res, e, ...)  SID_RESOURCE_LOG_LINE(res, LOG_DEBUG, e, __VA_ARGS__)
+#define sid_resource_log_sys_error(res, x, y, ...) sid_resource_log_error_errno(res, errno, "%s%s%s failed", y, *y ? ": " : "", x)
+
+/*
  * miscellanous functions
  */
 int sid_resource_write_tree_recursively(sid_resource_t    *res,
