@@ -272,6 +272,15 @@ out:
 	return r;
 }
 
+int service_link_vnotify(struct service_link        *sl,
+                         service_link_notification_t notification,
+                         struct log_ctx             *log_ctx,
+                         const char                 *fmt,
+                         va_list                     ap)
+{
+	return _do_service_link_notify(sl, NULL, notification, log_ctx, fmt, ap);
+}
+
 int service_link_notify(struct service_link        *sl,
                         service_link_notification_t notification,
                         struct log_ctx             *log_ctx,
@@ -286,6 +295,15 @@ int service_link_notify(struct service_link        *sl,
 	va_end(ap);
 
 	return r;
+}
+
+int service_link_group_vnotify(struct service_link_group  *slg,
+                               service_link_notification_t notification,
+                               struct log_ctx             *log_ctx,
+                               const char                 *fmt,
+                               va_list                     ap)
+{
+	return _do_service_link_notify(NULL, slg, notification, log_ctx, fmt, ap);
 }
 
 int service_link_group_notify(struct service_link_group  *slg,
