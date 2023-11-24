@@ -33,7 +33,6 @@ typedef enum {
 	SERVICE_TYPE_NONE,
 	SERVICE_TYPE_SYSTEMD,
 	SERVICE_TYPE_LOGGER,
-	_SERVICE_TYPE_COUNT
 } service_link_type_t;
 
 typedef enum {
