@@ -20,6 +20,8 @@
 #ifndef _SID_SERVICE_LINK_IFACE_H
 #define _SID_SERVICE_LINK_IFACE_H
 
+#include "log/log.h"
+
 #include <errno.h>
 #include <systemd/sd-daemon.h>
 
@@ -100,8 +102,17 @@ int  service_link_group_remove_member(struct service_link_group *slg, struct ser
  * Send service notification.
  * Arguments depend on notification type used - see comments in enum service_notification_t definition.
  */
-int service_link_notify(struct service_link *sl, service_link_notification_t notification, const char *fmt, ...);
-int service_link_group_notify(struct service_link_group *slg, service_link_notification_t notification, const char *fmt, ...);
+int service_link_notify(struct service_link        *sl,
+                        service_link_notification_t notification,
+                        struct log_ctx             *log_ctx,
+                        const char                 *fmt,
+                        ...);
+
+int service_link_group_notify(struct service_link_group  *slg,
+                              service_link_notification_t notification,
+                              struct log_ctx             *log_ctx,
+                              const char                 *fmt,
+                              ...);
 
 #ifdef __cplusplus
 }

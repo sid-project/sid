@@ -164,6 +164,7 @@ out:
 static int _do_service_link_notify(struct service_link        *sl,
                                    struct service_link_group  *slg,
                                    service_link_notification_t notification,
+                                   struct log_ctx             *log_ctx,
                                    const char                 *fmt,
                                    va_list                     ap)
 {
@@ -271,25 +272,33 @@ out:
 	return r;
 }
 
-int service_link_notify(struct service_link *sl, service_link_notification_t notification, const char *fmt, ...)
+int service_link_notify(struct service_link        *sl,
+                        service_link_notification_t notification,
+                        struct log_ctx             *log_ctx,
+                        const char                 *fmt,
+                        ...)
 {
 	va_list ap;
 	int     r;
 
 	va_start(ap, fmt);
-	r = _do_service_link_notify(sl, NULL, notification, fmt, ap);
+	r = _do_service_link_notify(sl, NULL, notification, log_ctx, fmt, ap);
 	va_end(ap);
 
 	return r;
 }
 
-int service_link_group_notify(struct service_link_group *slg, service_link_notification_t notification, const char *fmt, ...)
+int service_link_group_notify(struct service_link_group  *slg,
+                              service_link_notification_t notification,
+                              struct log_ctx             *log_ctx,
+                              const char                 *fmt,
+                              ...)
 {
 	va_list ap;
 	int     r;
 
 	va_start(ap, fmt);
-	r = _do_service_link_notify(NULL, slg, notification, fmt, ap);
+	r = _do_service_link_notify(NULL, slg, notification, log_ctx, fmt, ap);
 	va_end(ap);
 
 	return r;
