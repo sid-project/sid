@@ -67,6 +67,7 @@ log_t *log_init_with_handle(log_target_t target, int verbose_mode);
 void   log_change_target(log_t *log, log_target_t new_target);
 
 __format_printf(3, 4) void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...);
+void log_voutput(log_t *log, struct log_ctx *ctx, const char *format, va_list ap);
 
 #define LOG_CLASS_UNCLASSIFIED 0x0000
 

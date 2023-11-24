@@ -63,26 +63,26 @@ void log_change_target(log_t *log, log_target_t new_target)
 	log->target = new_target;
 }
 
-void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...)
+void log_voutput(log_t *log, struct log_ctx *ctx, const char *format, va_list ap)
 {
 	static int log_ignored = 0;
-	int        orig_errno;
-	va_list    ap;
+	int        orig_errno  = errno;
 
 	if (_log.handle_required && (log != &_log)) {
 		if (!log_ignored) {
-			log_output(&_log,
-			           &((struct log_ctx) {.level_id = LOG_ERR,
-			                               .class_id = LOG_CLASS_UNCLASSIFIED,
-			                               .prefix   = "",
-			                               .errno_id = 0,
-			                               .src_file = ctx->src_file,
-			                               .src_line = ctx->src_line,
-			                               .src_func = ctx->src_func}),
-			           INTERNAL_ERROR "Incorrect or missing log handle, skipping log messages.");
+			log_voutput(&_log,
+			            &((struct log_ctx) {.level_id = LOG_ERR,
+			                                .class_id = LOG_CLASS_UNCLASSIFIED,
+			                                .prefix   = "",
+			                                .errno_id = 0,
+			                                .src_file = ctx->src_file,
+			                                .src_line = ctx->src_line,
+			                                .src_func = ctx->src_func}),
+			            INTERNAL_ERROR "Incorrect or missing log handle, skipping log messages.",
+			            ap);
 			log_ignored = 1;
 		}
-		return;
+		goto out;
 	}
 
 	if (_log.target == LOG_TARGET_NONE)
@@ -91,9 +91,16 @@ void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...)
 	if (ctx->errno_id < 0)
 		ctx->errno_id = -ctx->errno_id;
 
-	orig_errno = errno;
-	va_start(ap, format);
 	log_target_registry[_log.target]->output(ctx, format, ap);
-	va_end(ap);
+out:
 	errno = orig_errno;
+}
+
+void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...)
+{
+	va_list ap;
+
+	va_start(ap, format);
+	log_voutput(log, ctx, format, ap);
+	va_end(ap);
 }
