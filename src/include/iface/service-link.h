@@ -102,6 +102,16 @@ int  service_link_group_remove_member(struct service_link_group *slg, struct ser
  * Send service notification.
  * Arguments depend on notification type used - see comments in enum service_notification_t definition.
  */
+
+#define SERVICE_LINK_DEFAULT_LOG_CTX                                                                                               \
+	((struct log_ctx) {.level_id = LOG_DEBUG,                                                                                  \
+	                   .class_id = LOG_CLASS_UNCLASSIFIED,                                                                     \
+	                   .prefix   = "service-link",                                                                             \
+	                   .errno_id = 0,                                                                                          \
+	                   .src_file = __FILE__,                                                                                   \
+	                   .src_line = __LINE__,                                                                                   \
+	                   .src_func = __func__})
+
 int service_link_notify(struct service_link        *sl,
                         service_link_notification_t notification,
                         struct log_ctx             *log_ctx,
