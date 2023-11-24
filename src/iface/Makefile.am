@@ -33,6 +33,7 @@ libsidiface_servicelink_la_LDFLAGS = -version-info 0:0:0
 
 libsidiface_servicelink_la_LIBADD = $(top_builddir)/src/internal/libsidinternal.la \
 				    $(top_builddir)/src/base/libsidbase.la \
+				    $(top_builddir)/src/log/libsidlog.la \
 				    $(SYSTEMD_LIBS)
 
 libsidiface_la_SOURCES = iface.c
