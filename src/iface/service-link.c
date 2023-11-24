@@ -157,22 +157,17 @@ out:
 	return NULL;
 }
 
-/*
- * FIXME: For now, we have notification for systemd only, but to support more types,
- * 	  we need to separate this function into distinct functions per each type.
- */
-static int _do_service_link_notify(struct service_link        *sl,
-                                   struct service_link_group  *slg,
-                                   service_link_notification_t notification,
-                                   struct log_ctx             *log_ctx,
-                                   const char                 *fmt,
-                                   va_list                     ap)
+static int _notify_systemd(struct service_link        *sl,
+                           service_link_notification_t notification,
+                           struct log_ctx             *log_ctx,
+                           const char                 *fmt,
+                           va_list                     ap)
 {
 	struct sid_buffer *buf = NULL, *fmt_buf = NULL;
 	const char        *arg_str, *arg_value;
 	size_t             size;
 	int                unset = 0;
-	int                iter_r, r = 0;
+	int                r     = 0;
 
 	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
 	                                                          .type    = SID_BUFFER_TYPE_LINEAR,
@@ -251,23 +246,68 @@ static int _do_service_link_notify(struct service_link        *sl,
 
 	sid_buffer_get_data(buf, (const void **) &arg_str, &size);
 
-	if (sl) {
-		if (!(sl->notification & notification))
-			goto out;
-		r = sd_notify(unset, arg_str);
-	} else if (slg) {
-		list_iterate_items (sl, &slg->members) {
-			if (!(sl->notification & notification))
-				continue;
-			if ((iter_r = sd_notify(unset, arg_str)) < 0)
-				r = iter_r;
-		}
-	}
+	r = sd_notify(unset, arg_str);
 out:
 	if (fmt_buf)
 		sid_buffer_destroy(fmt_buf);
 	if (buf)
 		sid_buffer_destroy(buf);
+
+	return r;
+}
+
+static int _notify_logger(struct service_link        *sl,
+                          service_link_notification_t notification,
+                          struct log_ctx             *log_ctx,
+                          const char                 *fmt,
+                          va_list                     ap)
+{
+	log_voutput((log_t *) sl->data, log_ctx, fmt, ap);
+	return 0;
+}
+
+static int _do_service_link_notify(struct service_link        *sl,
+                                   struct service_link_group  *slg,
+                                   service_link_notification_t notification,
+                                   struct log_ctx             *log_ctx,
+                                   const char                 *fmt,
+                                   va_list                     ap)
+{
+	int iter_r = 0, r = 0;
+
+	if (sl) {
+		if (sl->notification & notification) {
+			switch (sl->type) {
+				case SERVICE_TYPE_SYSTEMD:
+					r = _notify_systemd(sl, notification, log_ctx, fmt, ap);
+					break;
+				case SERVICE_TYPE_LOGGER:
+					r = _notify_logger(sl, notification, log_ctx, fmt, ap);
+					break;
+				case SERVICE_TYPE_NONE:
+					break;
+			}
+		}
+	} else if (slg) {
+		list_iterate_items (sl, &slg->members) {
+			if (!(sl->notification & notification))
+				continue;
+
+			switch (sl->type) {
+				case SERVICE_TYPE_SYSTEMD:
+					iter_r = _notify_systemd(sl, notification, log_ctx, fmt, ap);
+					break;
+				case SERVICE_TYPE_LOGGER:
+					iter_r = _notify_logger(sl, notification, log_ctx, fmt, ap);
+					break;
+				case SERVICE_TYPE_NONE:
+					break;
+			}
+
+			if (iter_r < 0)
+				r = iter_r;
+		}
+	}
 
 	return r;
 }
