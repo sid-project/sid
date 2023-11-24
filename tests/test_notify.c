@@ -30,7 +30,7 @@ static void test_notify_ready(void **state)
 	assert_non_null(sl);
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_READY);
 	will_return(__wrap_sd_notify, "READY=1\n");
-	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_READY, NULL), 0);
+	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_READY, &SERVICE_LINK_DEFAULT_LOG_CTX, NULL), 0);
 	service_link_destroy(sl);
 }
 
@@ -42,7 +42,11 @@ static void test_notify_ready_reloading(void **state)
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_READY);
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_RELOADING);
 	will_return(__wrap_sd_notify, "READY=1\nRELOADING=1\n");
-	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_READY | SERVICE_NOTIFICATION_RELOADING, NULL), 0);
+	assert_int_equal(service_link_notify(sl,
+	                                     SERVICE_NOTIFICATION_READY | SERVICE_NOTIFICATION_RELOADING,
+	                                     &SERVICE_LINK_DEFAULT_LOG_CTX,
+	                                     NULL),
+	                 0);
 	service_link_destroy(sl);
 }
 
@@ -53,7 +57,7 @@ static void test_notify_blank(void **state)
 	assert_non_null(sl);
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_STATUS);
 	will_return(__wrap_sd_notify, "");
-	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_STATUS, NULL), 0);
+	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_STATUS, &SERVICE_LINK_DEFAULT_LOG_CTX, NULL), 0);
 	service_link_destroy(sl);
 }
 
@@ -64,7 +68,7 @@ static void test_notify_errno(void **state)
 	assert_non_null(sl);
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_ERRNO);
 	will_return(__wrap_sd_notify, "ERRNO=2\n");
-	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_ERRNO, "ERRNO=%d\n", 2), 0);
+	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_ERRNO, &SERVICE_LINK_DEFAULT_LOG_CTX, "ERRNO=%d\n", 2), 0);
 	service_link_destroy(sl);
 }
 
@@ -76,9 +80,12 @@ static void test_notify_errno_status(void **state)
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_ERRNO);
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_STATUS);
 	will_return(__wrap_sd_notify, "STATUS=testing\nERRNO=2\n");
-	assert_int_equal(
-		service_link_notify(sl, SERVICE_NOTIFICATION_ERRNO | SERVICE_NOTIFICATION_STATUS, "ERRNO=%d\nSTATUS=testing", 2),
-		0);
+	assert_int_equal(service_link_notify(sl,
+	                                     SERVICE_NOTIFICATION_ERRNO | SERVICE_NOTIFICATION_STATUS,
+	                                     &SERVICE_LINK_DEFAULT_LOG_CTX,
+	                                     "ERRNO=%d\nSTATUS=testing",
+	                                     2),
+	                 0);
 	service_link_destroy(sl);
 }
 

@@ -1240,7 +1240,8 @@ void sid_resource_iter_destroy(sid_resource_iter_t *iter)
 
 int sid_resource_run_event_loop(sid_resource_t *res)
 {
-	int r;
+	struct log_ctx log_ctx = SERVICE_LINK_DEFAULT_LOG_CTX;
+	int            r;
 
 	if (!res->event_loop.sd_event_loop)
 		return -ENOMEDIUM;
@@ -1248,7 +1249,8 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 	sid_resource_ref(res);
 	log_debug(res->id, "Entering event loop.");
 
-	(void) service_link_group_notify(res->slg, SERVICE_NOTIFICATION_READY, NULL);
+	log_ctx.prefix = res->id;
+	(void) service_link_group_notify(res->slg, SERVICE_NOTIFICATION_READY, &log_ctx, NULL);
 
 	if ((r = sd_event_loop(res->event_loop.sd_event_loop)) < 0) {
 		if (r == -ECHILD)
