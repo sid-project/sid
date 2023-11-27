@@ -116,10 +116,10 @@ sid_resource_t *module_registry_load_module(sid_resource_t *mod_registry_res, co
 	sid_resource_t         *mod_res;
 
 	if ((mod_res = _find_module(mod_registry_res, module_name))) {
-		log_debug(ID(mod_registry_res),
-		          "Module %s/%s already loaded, skipping load request.",
-		          registry->directory,
-		          module_name);
+		sid_resource_log_debug(mod_registry_res,
+		                       "Module %s/%s already loaded, skipping load request.",
+		                       registry->directory,
+		                       module_name);
 		return mod_res;
 	}
 
@@ -130,7 +130,7 @@ sid_resource_t *module_registry_load_module(sid_resource_t *mod_registry_res, co
 	                                    NULL,
 	                                    SID_RESOURCE_PRIO_NORMAL,
 	                                    SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(ID(mod_registry_res), "Failed to load module %s/%s.", registry->directory, module_name);
+		sid_resource_log_debug(mod_registry_res, "Failed to load module %s/%s.", registry->directory, module_name);
 		return NULL;
 	}
 
@@ -180,7 +180,7 @@ int module_registry_reset_modules(sid_resource_t *mod_registry_res)
 			_set_module_name(registry, module, module->name);
 
 		if (module->reset_fn && module->reset_fn(mod_res, registry->cb_arg) < 0)
-			log_error(ID(mod_res), mod_reset_failed_msg);
+			sid_resource_log_debug(mod_res, mod_reset_failed_msg);
 	}
 
 	return 0;
@@ -191,7 +191,7 @@ int module_registry_reset_module(sid_resource_t *mod_res)
 	struct module *module = sid_resource_get_data(mod_res);
 
 	if (module->reset_fn && module->reset_fn(mod_res, module->registry->cb_arg) < 0) {
-		log_error(ID(mod_res), mod_reset_failed_msg);
+		sid_resource_log_debug(mod_res, mod_reset_failed_msg);
 		return -1;
 	}
 
@@ -293,7 +293,7 @@ static int _load_modules(sid_resource_t *mod_registry_res)
 	count                     = scandir(registry->directory, &dirent, NULL, versionsort);
 
 	if (count < 0) {
-		log_sys_error(ID(mod_registry_res), "scandir", registry->directory);
+		sid_resource_log_sys_error(mod_registry_res, "scandir", registry->directory);
 		r = -1;
 		goto out;
 	}
@@ -308,7 +308,7 @@ static int _load_modules(sid_resource_t *mod_registry_res)
 			                                  dirent[i]->d_name,
 			                                  prefix_len,
 			                                  strlen(dirent[i]->d_name) - prefix_len - suffix_len))) {
-				log_error(ID(mod_registry_res), "Failed to copy name out of %s.", dirent[i]->d_name);
+				sid_resource_log_debug(mod_registry_res, "Failed to copy name out of %s.", dirent[i]->d_name);
 				free(dirent[i]);
 				continue;
 			}
@@ -320,10 +320,10 @@ static int _load_modules(sid_resource_t *mod_registry_res)
 			                         registry,
 			                         SID_RESOURCE_PRIO_NORMAL,
 			                         SID_RESOURCE_NO_SERVICE_LINKS))
-				log_error(ID(mod_registry_res),
-				          "Failed to load module %s/%s.",
-				          registry->directory,
-				          dirent[i]->d_name);
+				sid_resource_log_error(mod_registry_res,
+				                       "Failed to load module %s/%s.",
+				                       registry->directory,
+				                       dirent[i]->d_name);
 		}
 
 		free(dirent[i]);
@@ -336,9 +336,9 @@ out:
 int module_registry_load_modules(sid_resource_t *mod_registry_res)
 {
 	if (_load_modules(mod_registry_res) < 0) {
-		log_error(ID(mod_registry_res),
-		          "Failed to load modules from directory %s.",
-		          ((struct module_registry *) sid_resource_get_data(mod_registry_res))->directory);
+		sid_resource_log_error(mod_registry_res,
+		                       "Failed to load modules from directory %s.",
+		                       ((struct module_registry *) sid_resource_get_data(mod_registry_res))->directory);
 		return -1;
 	}
 
@@ -357,10 +357,10 @@ static int _load_module_symbol(sid_resource_t                    *mod_res,
 
 	if (!(symbol = dlsym(dl_handle, params->name))) {
 		if (params->flags & MODULE_SYMBOL_FAIL_ON_MISSING) {
-			log_error(ID(mod_res), "Failed to load symbol %s: %s.", params->name, dlerror());
+			sid_resource_log_debug(mod_res, "Failed to load symbol %s: %s.", params->name, dlerror());
 			goto out;
 		} else if (params->flags & MODULE_SYMBOL_WARN_ON_MISSING)
-			log_warning(ID(mod_res), "Symbol %s not loaded.", params->name);
+			sid_resource_log_warning(mod_res, "Symbol %s not loaded.", params->name);
 	}
 
 	r = 0;
@@ -390,19 +390,19 @@ static int _init_module(sid_resource_t *mod_res, const void *kickstart_data, voi
 	int                         r;
 
 	if (!(module = mem_zalloc(sizeof(*module)))) {
-		log_error(ID(mod_res), "Failed to allocate module structure.");
+		sid_resource_log_debug(mod_res, "Failed to allocate module structure.");
 		goto fail;
 	}
 
 	module->registry = registry;
 
 	if ((r = _set_module_name(registry, module, sid_resource_get_id(mod_res))) < 0) {
-		log_error_errno(ID(mod_res), r, "Failed to set module name");
+		sid_resource_log_error_errno(mod_res, r, "Failed to set module name");
 		goto fail;
 	}
 
 	if (!(module->symbols = mem_zalloc(registry->symbol_count * sizeof(void *)))) {
-		log_error(ID(mod_res), "Failed to allocate array to store symbol pointers.");
+		sid_resource_log_debug(mod_res, "Failed to allocate array to store symbol pointers.");
 		goto fail;
 	}
 
@@ -413,12 +413,12 @@ static int _init_module(sid_resource_t *mod_res, const void *kickstart_data, voi
 	             registry->module_prefix ?: "",
 	             module->name,
 	             registry->module_suffix ?: "") < 0) {
-		log_error(ID(mod_res), "Failed to create module path.");
+		sid_resource_log_debug(mod_res, "Failed to create module path.");
 		goto fail;
 	}
 
 	if (!(module->handle = dlopen(path, RTLD_NOW))) {
-		log_error(ID(mod_res), "Failed to open module: %s.", dlerror());
+		sid_resource_log_debug(mod_res, "Failed to open module: %s.", dlerror());
 		goto fail;
 	}
 
@@ -464,7 +464,7 @@ static int _init_module(sid_resource_t *mod_res, const void *kickstart_data, voi
 	*data = module;
 
 	if (module->init_fn(mod_res, registry->cb_arg) < 0) {
-		log_error(ID(mod_res), "Module-specific initialization failed.");
+		sid_resource_log_debug(mod_res, "Module-specific initialization failed.");
 		goto fail;
 	}
 
@@ -485,10 +485,10 @@ static int _destroy_module(sid_resource_t *mod_res)
 	struct module *module = sid_resource_get_data(mod_res);
 
 	if (module->exit_fn(mod_res, module->registry->cb_arg) < 0)
-		log_error(ID(mod_res), "Module-specific finalization failed.");
+		sid_resource_log_debug(mod_res, "Module-specific finalization failed.");
 
 	if (dlclose(module->handle) < 0)
-		log_error(ID(mod_res), "Failed to close %s module handle: %s.", module->name, dlerror());
+		sid_resource_log_debug(mod_res, "Failed to close %s module handle: %s.", module->name, dlerror());
 
 	free(module->symbols);
 	free(module->full_name);
@@ -525,12 +525,12 @@ static int _init_module_registry(sid_resource_t *mod_registry_res, const void *k
 	unsigned                                      i, symbol_count = 0;
 
 	if (!params) {
-		log_error(ID(mod_registry_res), "Module resource parameters not specified.");
+		sid_resource_log_debug(mod_registry_res, "Module resource parameters not specified.");
 		goto fail;
 	}
 
 	if (!params->directory || !*params->directory) {
-		log_error(ID(mod_registry_res), "Module directory not specified.");
+		sid_resource_log_debug(mod_registry_res, "Module directory not specified.");
 		goto fail;
 	}
 
@@ -538,45 +538,45 @@ static int _init_module_registry(sid_resource_t *mod_registry_res, const void *k
 		symbol_count++;
 
 	if (!symbol_count) {
-		log_error(ID(mod_registry_res), "Module's symbol parameters not specified.");
+		sid_resource_log_debug(mod_registry_res, "Module's symbol parameters not specified.");
 		goto fail;
 	}
 
 	if (!(registry = mem_zalloc(sizeof(*registry)))) {
-		log_error(ID(mod_registry_res), "Failed to allocate module reigistry structure.");
+		sid_resource_log_debug(mod_registry_res, "Failed to allocate module reigistry structure.");
 		goto fail;
 	}
 
 	if (!(registry->base_name = util_str_comb_to_str(NULL, MODULE_NAME_DELIM, sid_resource_get_id(mod_registry_res), NULL))) {
-		log_error(ID(mod_registry_res), "Failed to set base name.");
+		sid_resource_log_debug(mod_registry_res, "Failed to set base name.");
 		goto fail;
 	}
 
 	registry->symbol_count = symbol_count;
 
 	if (!(registry->directory = strdup(params->directory))) {
-		log_error(ID(mod_registry_res), "Failed to copy module directory name.");
+		sid_resource_log_debug(mod_registry_res, "Failed to copy module directory name.");
 		goto fail;
 	}
 
 	if (params->module_prefix && *params->module_prefix && !(registry->module_prefix = strdup(params->module_prefix))) {
-		log_error(ID(mod_registry_res), "Failed to copy common module prefix.");
+		sid_resource_log_debug(mod_registry_res, "Failed to copy common module prefix.");
 		goto fail;
 	}
 
 	if (params->module_suffix && *params->module_suffix && !(registry->module_suffix = strdup(params->module_suffix))) {
-		log_error(ID(mod_registry_res), "Failed to copy common module suffix.");
+		sid_resource_log_debug(mod_registry_res, "Failed to copy common module suffix.");
 		goto fail;
 	}
 
 	if (!(registry->symbol_params = mem_zalloc(symbol_count * sizeof(struct module_symbol_params)))) {
-		log_error(ID(mod_registry_res), "Failed to allocate memory for symbol parameters.");
+		sid_resource_log_debug(mod_registry_res, "Failed to allocate memory for symbol parameters.");
 		goto fail;
 	}
 
 	for (i = 0; i < symbol_count; i++) {
 		if (!(registry->symbol_params[i].name = strdup(params->symbol_params[i].name))) {
-			log_error(ID(mod_registry_res), "Failed to copy symbol name.");
+			sid_resource_log_debug(mod_registry_res, "Failed to copy symbol name.");
 			goto fail;
 		}
 		registry->symbol_params[i].flags = params->symbol_params[i].flags;
@@ -588,12 +588,12 @@ static int _init_module_registry(sid_resource_t *mod_registry_res, const void *k
 	*data            = registry;
 
 	if (!(registry->module_iter = sid_resource_iter_create(mod_registry_res))) {
-		log_error(ID(mod_registry_res), "Failed to prepare iterator for modules in module registry.");
+		sid_resource_log_debug(mod_registry_res, "Failed to prepare iterator for modules in module registry.");
 		goto fail;
 	}
 
 	if ((registry->flags & MODULE_REGISTRY_PRELOAD) && _load_modules(mod_registry_res) < 0) {
-		log_error(ID(mod_registry_res), "Failed to preload modules from directory %s.", registry->directory);
+		sid_resource_log_debug(mod_registry_res, "Failed to preload modules from directory %s.", registry->directory);
 		goto fail;
 	}
 

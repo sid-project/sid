@@ -124,7 +124,7 @@ static void _change_worker_proxy_state(sid_resource_t *worker_proxy_res, worker_
 	struct worker_proxy *worker_proxy = sid_resource_get_data(worker_proxy_res);
 
 	worker_proxy->state               = state;
-	log_debug(ID(worker_proxy_res), "Worker state changed to %s.", worker_state_str[state]);
+	sid_resource_log_debug(worker_proxy_res, "Worker state changed to %s.", worker_state_str[state]);
 }
 
 static int _create_channel(sid_resource_t                   *worker_control_res,
@@ -147,7 +147,7 @@ static int _create_channel(sid_resource_t                   *worker_control_res,
 		case WORKER_WIRE_PIPE_TO_WORKER:
 			if (pipe(comms_fds) < 0) {
 				proxy_chan->fd = chan->fd = -1;
-				log_sys_error(ID(worker_control_res), "pipe", "Failed to create pipe to worker.");
+				sid_resource_log_sys_error(worker_control_res, "pipe", "Failed to create pipe to worker.");
 				return -1;
 			}
 
@@ -158,7 +158,7 @@ static int _create_channel(sid_resource_t                   *worker_control_res,
 		case WORKER_WIRE_PIPE_TO_PROXY:
 			if (pipe(comms_fds) < 0) {
 				proxy_chan->fd = chan->fd = -1;
-				log_sys_error(ID(worker_control_res), "pipe", "Failed to create pipe to worker proxy.");
+				sid_resource_log_sys_error(worker_control_res, "pipe", "Failed to create pipe to worker proxy.");
 				return -1;
 			}
 
@@ -171,7 +171,7 @@ static int _create_channel(sid_resource_t                   *worker_control_res,
 			//        also need to be enhanced to use sendmsg/recvmsg instead of pure read/write somehow.
 			if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, comms_fds) < 0) {
 				proxy_chan->fd = chan->fd = -1;
-				log_sys_error(ID(worker_control_res), "socketpair", "Failed to create socket.");
+				sid_resource_log_sys_error(worker_control_res, "socketpair", "Failed to create socket.");
 				return -1;
 			}
 
@@ -192,12 +192,12 @@ static int _create_channels(sid_resource_t         *worker_control_res,
 	unsigned               i = 0;
 
 	if (!(proxy_chans = mem_zalloc((worker_control->channel_spec_count) * sizeof(struct worker_channel)))) {
-		log_error(ID(worker_control_res), "Failed to allocate worker proxy channel array.");
+		sid_resource_log_error(worker_control_res, "Failed to allocate worker proxy channel array.");
 		goto fail;
 	}
 
 	if (!(chans = mem_zalloc((worker_control->channel_spec_count) * sizeof(struct worker_channel)))) {
-		log_error(ID(worker_control_res), "Failed to allocate worker channel array.");
+		sid_resource_log_error(worker_control_res, "Failed to allocate worker channel array.");
 		goto fail;
 	}
 
@@ -253,9 +253,9 @@ static int _chan_buf_recv(const struct worker_channel *chan,
 
 	if (revents & EPOLLERR) {
 		if (hup)
-			log_error(ID(chan->owner), "Peer closed channel %s prematurely.", chan->spec->id);
+			sid_resource_log_error(chan->owner, "Peer closed channel %s prematurely.", chan->spec->id);
 		else
-			log_error(ID(chan->owner), "Error detected on channel %s.", chan->spec->id);
+			sid_resource_log_error(chan->owner, "Error detected on channel %s.", chan->spec->id);
 
 		return -EPIPE;
 	}
@@ -301,10 +301,10 @@ static int _chan_buf_recv(const struct worker_channel *chan,
 							continue;
 
 						data_spec->ext.socket.fd_pass = -1;
-						log_error_errno(ID(chan->owner),
-						                n,
-						                "Failed to read ancillary data on channel %s",
-						                chan->spec->id);
+						sid_resource_log_error_errno(chan->owner,
+						                             n,
+						                             "Failed to read ancillary data on channel %s",
+						                             chan->spec->id);
 
 						return n;
 					}
@@ -320,7 +320,7 @@ static int _chan_buf_recv(const struct worker_channel *chan,
 		if (n == -EAGAIN || n == -EINTR)
 			return 0;
 
-		log_error_errno(ID(chan->owner), n, "Failed to read data on channel %s", chan->spec->id);
+		sid_resource_log_error_errno(chan->owner, n, "Failed to read data on channel %s", chan->spec->id);
 		return n;
 	} else {
 		if (sid_buffer_stat(chan->in_buf).spec.mode == SID_BUFFER_MODE_PLAIN) {
@@ -388,14 +388,14 @@ static int _on_worker_proxy_channel_event(sid_resource_event_source_t *es, int f
 				if (chan->spec->proxy_rx_cb.cb) {
 					if (chan->spec->proxy_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->proxy_rx_cb.arg) <
 					    0)
-						log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
+						sid_resource_log_warning(chan->owner, "%s", _custom_message_handling_failed_msg);
 				}
 				break;
 			default:
-				log_error(ID(chan->owner),
-				          INTERNAL_ERROR "%s %s",
-				          worker_channel_cmd_str[chan_cmd],
-				          _unexpected_internal_command_msg);
+				sid_resource_log_error(chan->owner,
+				                       INTERNAL_ERROR "%s %s",
+				                       worker_channel_cmd_str[chan_cmd],
+				                       _unexpected_internal_command_msg);
 		}
 
 		sid_buffer_reset(chan->in_buf);
@@ -434,14 +434,14 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 					                                chan,
 					                                &data_spec,
 					                                chan->spec->worker_rx_cb.arg) < 0)
-						log_warning(ID(chan->owner), "%s", _custom_message_handling_failed_msg);
+						sid_resource_log_warning(chan->owner, "%s", _custom_message_handling_failed_msg);
 				}
 				break;
 			default:
-				log_error(ID(chan->owner),
-				          INTERNAL_ERROR "%s %s",
-				          worker_channel_cmd_str[chan_cmd],
-				          _unexpected_internal_command_msg);
+				sid_resource_log_error(chan->owner,
+				                       INTERNAL_ERROR "%s %s",
+				                       worker_channel_cmd_str[chan_cmd],
+				                       _unexpected_internal_command_msg);
 		}
 
 		sid_buffer_reset(chan->in_buf);
@@ -453,17 +453,15 @@ static int _on_worker_channel_event(sid_resource_event_source_t *es, int fd, uin
 	return 0;
 }
 
-static int
-	_setup_channel(sid_resource_t *owner, const char *alt_id, bool is_worker, worker_type_t type, struct worker_channel *chan)
+static int _setup_channel(sid_resource_t *owner, bool is_worker, worker_type_t type, struct worker_channel *chan)
 {
 	struct sid_buffer    **buf1, **buf2;
 	struct sid_buffer_spec buf_spec = {.backend = SID_BUFFER_BACKEND_MALLOC, .type = SID_BUFFER_TYPE_LINEAR, .mode = 0};
 	struct sid_buffer_init buf_init = {0};
-	const char            *id       = owner ? ID(owner) : alt_id;
 	int                    r;
 
 	if (chan->in_buf || chan->out_buf) {
-		log_error(id, INTERNAL_ERROR "%s: Buffers already set.", __func__);
+		sid_resource_log_error(owner, INTERNAL_ERROR "%s: Buffers already set.", __func__);
 		r = -EINVAL;
 		goto fail;
 	}
@@ -544,17 +542,20 @@ static int
 
 		case WORKER_WIRE_PIPE_TO_WORKER:
 			if (buf2 && !(*buf2 = sid_buffer_create(&buf_spec, &buf_init, &r))) {
-				log_error_errno(id, r, "Failed to create buffer for channel with ID %s.", chan->spec->id);
+				sid_resource_log_error_errno(owner,
+				                             r,
+				                             "Failed to create buffer for channel with ID %s.",
+				                             chan->spec->id);
 				goto fail;
 			}
 
 			if (is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
 				if (dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir) < 0) {
-					log_error_errno(id,
-					                errno,
-					                "Failed to redirect FD %d through channel %s",
-					                chan->spec->wire.ext.pipe.fd_redir,
-					                chan->spec->id);
+					sid_resource_log_error_errno(owner,
+					                             errno,
+					                             "Failed to redirect FD %d through channel %s",
+					                             chan->spec->wire.ext.pipe.fd_redir,
+					                             chan->spec->id);
 					r = -errno;
 					goto fail;
 				}
@@ -570,11 +571,11 @@ static int
 
 			if (is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
 				if (dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir) < 0) {
-					log_error_errno(id,
-					                errno,
-					                "Failed to redirect FD %d through channel %s",
-					                chan->spec->wire.ext.pipe.fd_redir,
-					                chan->spec->id);
+					sid_resource_log_error_errno(owner,
+					                             errno,
+					                             "Failed to redirect FD %d through channel %s",
+					                             chan->spec->wire.ext.pipe.fd_redir,
+					                             chan->spec->id);
 					r = -errno;
 					goto fail;
 				}
@@ -587,17 +588,21 @@ static int
 		case WORKER_WIRE_SOCKET:
 			if ((buf1 && !(*buf1 = sid_buffer_create(&buf_spec, &buf_init, &r))) ||
 			    (buf2 && !(*buf2 = sid_buffer_create(&buf_spec, &buf_init, &r)))) {
-				log_error_errno(id, r, "Failed to create buffer for channel with ID %s.", chan->spec->id);
+				sid_resource_log_error_errno(owner,
+				                             r,
+				                             "Failed to create buffer for channel with ID %s.",
+				                             chan->spec->id);
 				goto fail;
 			}
 
 			if (is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.socket.fd_redir >= 0) {
 				if (dup2(chan->fd, chan->spec->wire.ext.socket.fd_redir) < 0) {
-					log_error_errno(id,
-					                errno,
-					                "Failed to redirect FD %d through channel %s : WORKER_WIRE_SOCKET",
-					                chan->spec->wire.ext.pipe.fd_redir,
-					                chan->spec->id);
+					sid_resource_log_error_errno(
+						owner,
+						errno,
+						"Failed to redirect FD %d through channel %s : WORKER_WIRE_SOCKET",
+						chan->spec->wire.ext.pipe.fd_redir,
+						chan->spec->id);
 				}
 
 				close(chan->fd);
@@ -614,7 +619,7 @@ static int
 		                                        0,
 		                                        chan->spec->id,
 		                                        chan) < 0) {
-			log_error(id, "Failed to register communication channel with ID %s.", chan->spec->id);
+			sid_resource_log_error(owner, "Failed to register communication channel with ID %s.", chan->spec->id);
 			r = -1;
 			goto fail;
 		}
@@ -637,19 +642,18 @@ fail:
 	return r;
 }
 
-static int _setup_channels(sid_resource_t        *owner,
-                           const char            *alt_id,
-                           worker_type_t          type,
-                           struct worker_channel *chans,
-                           unsigned               chan_count)
+static int _setup_channels(sid_resource_t *owner, worker_type_t type, struct worker_channel *chans, unsigned chan_count)
 {
 	bool     is_worker;
 	unsigned i = 0;
 
-	is_worker  = owner ? worker_control_is_worker(owner) : true;
+	if (sid_resource_match(owner, &sid_resource_type_worker_control, NULL))
+		is_worker = true;
+	else
+		is_worker = owner ? worker_control_is_worker(owner) : true;
 
 	while (i < chan_count) {
-		if (_setup_channel(owner, alt_id, is_worker, type, &chans[i]) < 0)
+		if (_setup_channel(owner, is_worker, type, &chans[i]) < 0)
 			goto fail;
 		i++;
 	}
@@ -715,7 +719,7 @@ int _close_non_channel_fds(sid_resource_t *res, struct worker_channel *channels,
 	int                fd, i, r = -1;
 
 	if (!(d = opendir(proc_self_fd_dir))) {
-		log_sys_error(ID(res), "opendir", proc_self_fd_dir);
+		sid_resource_log_sys_error(res, "opendir", proc_self_fd_dir);
 		goto out;
 	}
 
@@ -737,18 +741,18 @@ int _close_non_channel_fds(sid_resource_t *res, struct worker_channel *channels,
 			continue;
 
 		if (close(fd) < 0) {
-			log_sys_error(ID(res), "close non-channel fd", dirent->d_name);
+			sid_resource_log_sys_error(res, "close non-channel fd", dirent->d_name);
 			goto out;
 		}
 
-		log_debug(ID(res), "Closed non-channel fd %d.", fd);
+		sid_resource_log_debug(res, "Closed non-channel fd %d.", fd);
 	}
 
 	r = 0;
 out:
 	if (d) {
 		if (closedir(d) < 0) {
-			log_sys_error(ID(res), "closedir", proc_self_fd_dir);
+			sid_resource_log_sys_error(res, "closedir", proc_self_fd_dir);
 			r = -1;
 		}
 	}
@@ -774,24 +778,24 @@ static int _do_worker_control_get_new_worker(sid_resource_t       *worker_contro
 	*res_p = NULL;
 
 	if (_create_channels(worker_control_res, &worker_proxy_channels, &worker_channels) < 0) {
-		log_error(ID(worker_control_res), "Failed to create worker channels.");
+		sid_resource_log_error(worker_control_res, "Failed to create worker channels.");
 		goto out;
 	}
 
 	if (sigfillset(&new_sigmask) < 0) {
-		log_sys_error(ID(worker_control_res), "sigfillset", "");
+		sid_resource_log_sys_error(worker_control_res, "sigfillset", "");
 		goto out;
 	}
 
 	if (sigprocmask(SIG_SETMASK, &new_sigmask, &original_sigmask) < 0) {
-		log_sys_error(ID(worker_control_res), "sigprocmask", "blocking signals before fork");
+		sid_resource_log_sys_error(worker_control_res, "sigprocmask", "blocking signals before fork");
 		goto out;
 	}
 	signals_blocked = 1;
 	original_pid    = getpid();
 
 	if ((pid = fork()) < 0) {
-		log_sys_error(ID(worker_control_res), "fork", "");
+		sid_resource_log_sys_error(worker_control_res, "fork", "");
 		goto out;
 	}
 
@@ -803,21 +807,22 @@ static int _do_worker_control_get_new_worker(sid_resource_t       *worker_contro
 		if (worker_control->worker_type == WORKER_TYPE_INTERNAL) {
 			/* WORKER_TYPE_INTERNAL - request a SIGUSR1 signal if parent dies */
 			if (prctl(PR_SET_PDEATHSIG, SIGUSR1) < 0)
-				log_sys_error(ID(worker_control_res),
-				              "prctl",
-				              "failed to set parent-death signal for internal worker");
+				sid_resource_log_sys_error(worker_control_res,
+				                           "prctl",
+				                           "failed to set parent-death signal for internal worker");
 		} else {
 			/* WORKER_TYPE_EXTERNAL - request a SIGTERM signal if parent dies */
 			if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
-				log_sys_error(ID(worker_control_res),
-				              "prctl",
-				              "failed to set parent-death signal for external worker");
+				sid_resource_log_sys_error(worker_control_res,
+				                           "prctl",
+				                           "failed to set parent-death signal for external worker");
 		}
 
 		/* Check to make sure the parent didn't die right after the fork() */
 		curr_ppid = getppid();
 		if (curr_ppid != original_pid) {
-			log_debug(ID(worker_control_res), "parent died before prctl() call completed - exiting SID worker process");
+			sid_resource_log_debug(worker_control_res,
+			                       "parent died before prctl() call completed - exiting SID worker process");
 			raise(SIGTERM);
 			exit(EXIT_FAILURE);
 		}
@@ -851,8 +856,10 @@ static int _do_worker_control_get_new_worker(sid_resource_t       *worker_contro
 			                                                                   NULL,
 			                                                                   UTIL_STR_DEFAULT_DELIMS,
 			                                                                   UTIL_STR_DEFAULT_QUOTES))) {
-				log_error(worker_control->worker_init.id ?: WORKER_EXT_NAME,
-				          "Failed to convert argument and environment strings to vectors.");
+				sid_resource_log_error(
+					worker_control_res,
+					"Failed to convert argument and environment strings to vectors for external worker %s.",
+					worker_control->worker_init.id ?: WORKER_EXT_NAME);
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -867,7 +874,7 @@ static int _do_worker_control_get_new_worker(sid_resource_t       *worker_contro
 	 * WORKER PROXY HERE
 	 */
 
-	log_debug(ID(worker_control_res), "Created new worker process with PID %d.", pid);
+	sid_resource_log_debug(worker_control_res, "Created new worker process with PID %d.", pid);
 
 	_destroy_channels(worker_channels, worker_control->channel_spec_count);
 	worker_channels         = NULL;
@@ -909,7 +916,7 @@ out:
 	}
 
 	if (signals_blocked && sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
-		log_sys_error(ID(worker_control_res), "sigprocmask", "after forking process");
+		sid_resource_log_sys_error(worker_control_res, "sigprocmask", "after forking process");
 
 	/* return worker proxy resource */
 	*res_p = res;
@@ -1001,7 +1008,7 @@ int _run_external_worker(sid_resource_t *worker_control_res)
 	envp                                 = worker_control->worker_init.ext_envp;
 	worker_control->worker_init.ext_envp = NULL;
 
-	if ((r = _setup_channels(NULL, id, WORKER_TYPE_EXTERNAL, channels, channel_count)) < 0)
+	if ((r = _setup_channels(worker_control_res, WORKER_TYPE_EXTERNAL, channels, channel_count)) < 0)
 		goto fail;
 
 	if (worker_control->init_cb_spec.cb && (r = worker_control->init_cb_spec.cb(NULL, worker_control->init_cb_spec.arg)) < 0)
@@ -1009,7 +1016,7 @@ int _run_external_worker(sid_resource_t *worker_control_res)
 
 	r = execve(argv[0], argv, envp);
 	/* On success, execve never returns */
-	log_sys_error(id, "execve", "");
+	sid_resource_log_sys_error(worker_control_res, "execve", id);
 fail:
 	if (id != gen_id)
 		free(id);
@@ -1164,7 +1171,7 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 	}
 
 	if ((r = sid_buffer_write_all(chan->out_buf, chan->fd)) < 0) {
-		log_error_errno(ID(chan->owner), r, "Failed to write data on channel %s", chan->spec->id);
+		sid_resource_log_error_errno(chan->owner, r, "Failed to write data on channel %s", chan->spec->id);
 		goto out;
 	}
 
@@ -1184,10 +1191,10 @@ static int _chan_buf_send(const struct worker_channel *chan, worker_channel_cmd_
 					if (n == -EAGAIN || n == -EINTR)
 						continue;
 
-					log_error_errno(ID(chan->owner),
-					                n,
-					                "Failed to send ancillary data on channel %s",
-					                chan->spec->id);
+					sid_resource_log_error_errno(chan->owner,
+					                             n,
+					                             "Failed to send ancillary data on channel %s",
+					                             chan->spec->id);
 					r = n;
 					goto out;
 				}
@@ -1240,7 +1247,7 @@ int worker_control_channel_send(sid_resource_t *current_res, const char *channel
 
 		if (chan->spec->proxy_tx_cb.cb)
 			if (chan->spec->proxy_tx_cb.cb(res, chan, data_spec, chan->spec->proxy_tx_cb.arg) < 0)
-				log_warning(ID(current_res), "%s", _custom_message_handling_failed_msg);
+				sid_resource_log_warning(current_res, "%s", _custom_message_handling_failed_msg);
 
 	} else if ((res = sid_resource_search(current_res, SID_RESOURCE_SEARCH_TOP, &sid_resource_type_worker, NULL))) {
 		/* sending from worker to worker proxy */
@@ -1251,7 +1258,7 @@ int worker_control_channel_send(sid_resource_t *current_res, const char *channel
 
 		if (chan->spec->worker_tx_cb.cb)
 			if (chan->spec->worker_tx_cb.cb(res, chan, data_spec, chan->spec->worker_tx_cb.arg) < 0)
-				log_warning(ID(current_res), "%s", _custom_message_handling_failed_msg);
+				sid_resource_log_warning(current_res, "%s", _custom_message_handling_failed_msg);
 
 	} else
 		return -ENOMEDIUM;
@@ -1292,17 +1299,17 @@ static int _on_worker_proxy_child_event(sid_resource_event_source_t *es, const s
 
 	switch (si->si_code) {
 		case CLD_EXITED:
-			log_debug(ID(worker_proxy_res), "Worker exited with exit code %d.", si->si_status);
+			sid_resource_log_debug(worker_proxy_res, "Worker exited with exit code %d.", si->si_status);
 			break;
 		case CLD_KILLED:
 		case CLD_DUMPED:
-			log_debug(ID(worker_proxy_res),
-			          "Worker terminated by signal %d (%s).",
-			          si->si_status,
-			          strsignal(si->si_status));
+			sid_resource_log_debug(worker_proxy_res,
+			                       "Worker terminated by signal %d (%s).",
+			                       si->si_status,
+			                       strsignal(si->si_status));
 			break;
 		default:
-			log_debug(ID(worker_proxy_res), "Worker failed unexpectedly.");
+			sid_resource_log_debug(worker_proxy_res, "Worker failed unexpectedly.");
 	}
 
 	_change_worker_proxy_state(worker_proxy_res, WORKER_STATE_EXITED);
@@ -1342,7 +1349,7 @@ static int _on_worker_signal_event(sid_resource_event_source_t *es, const struct
 	sid_resource_t *res = arg;
 	struct worker  *worker;
 
-	log_debug(ID(res), "Received signal %d from %d.", si->ssi_signo, si->ssi_pid);
+	sid_resource_log_debug(res, "Received signal %d from %d.", si->ssi_signo, si->ssi_pid);
 
 	switch (si->ssi_signo) {
 		case SIGTERM:
@@ -1371,14 +1378,17 @@ static int _on_worker_proxy_timeout_event(sid_resource_event_source_t *es, uint6
 	_change_worker_proxy_state(worker_proxy_res, WORKER_STATE_TIMED_OUT);
 
 	if ((signum = worker_proxy->timeout_spec.signum)) {
-		log_debug(ID(worker_proxy_res), "Sending signal %d (SIG%s)) to worker process.", signum, sigabbrev_np(signum));
+		sid_resource_log_debug(worker_proxy_res,
+		                       "Sending signal %d (SIG%s)) to worker process.",
+		                       signum,
+		                       sigabbrev_np(signum));
 
 		if ((r = kill(worker_proxy->pid, signum)) < 0)
-			log_error_errno(ID(worker_proxy_res),
-			                errno,
-			                "Failed to send signal %d (SIG%s) to worker process.",
-			                signum,
-			                sigabbrev_np(signum));
+			sid_resource_log_error_errno(worker_proxy_res,
+			                             errno,
+			                             "Failed to send signal %d (SIG%s) to worker process.",
+			                             signum,
+			                             sigabbrev_np(signum));
 	}
 
 	return r;
@@ -1390,7 +1400,7 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	struct worker_proxy           *worker_proxy = NULL;
 
 	if (!(worker_proxy = mem_zalloc(sizeof(*worker_proxy)))) {
-		log_error(ID(worker_proxy_res), "Failed to allocate worker_proxy structure.");
+		sid_resource_log_error(worker_proxy_res, "Failed to allocate worker_proxy structure.");
 		goto fail;
 	}
 
@@ -1410,11 +1420,11 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	                                           1,
 	                                           "worker process monitor",
 	                                           worker_proxy_res) < 0) {
-		log_error(ID(worker_proxy_res), "Failed to register worker process monitoring in worker proxy.");
+		sid_resource_log_error(worker_proxy_res, "Failed to register worker process monitoring in worker proxy.");
 		goto fail;
 	}
 
-	if (_setup_channels(worker_proxy_res, NULL, kickstart->type, kickstart->channels, kickstart->channel_count) < 0)
+	if (_setup_channels(worker_proxy_res, kickstart->type, kickstart->channels, kickstart->channel_count) < 0)
 		goto fail;
 
 	if (kickstart->timeout_spec.usec && sid_resource_create_time_event_source(worker_proxy_res,
@@ -1427,7 +1437,7 @@ static int _init_worker_proxy(sid_resource_t *worker_proxy_res, const void *kick
 	                                                                          0,
 	                                                                          "timeout",
 	                                                                          worker_proxy_res) < 0) {
-		log_error(ID(worker_proxy_res), "Failed to create timeout event.");
+		sid_resource_log_error(worker_proxy_res, "Failed to create timeout event.");
 		goto fail;
 	}
 
@@ -1460,7 +1470,7 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 	sigaddset(&mask, SIGUSR1);
 
 	if (!(worker = mem_zalloc(sizeof(*worker)))) {
-		log_error(ID(worker_res), "Failed to allocate new worker structure.");
+		sid_resource_log_error(worker_res, "Failed to allocate new worker structure.");
 		goto fail;
 	}
 
@@ -1477,11 +1487,11 @@ static int _init_worker(sid_resource_t *worker_res, const void *kickstart_data, 
 	                                            0,
 	                                            "worker_signal_handler",
 	                                            worker_res) < 0) {
-		log_error(ID(worker_res), "Failed to create signal handlers.");
+		sid_resource_log_error(worker_res, "Failed to create signal handlers.");
 		goto fail;
 	}
 
-	if (_setup_channels(worker_res, NULL, kickstart->type, kickstart->channels, kickstart->channel_count) < 0)
+	if (_setup_channels(worker_res, kickstart->type, kickstart->channels, kickstart->channel_count) < 0)
 		goto fail;
 
 	*data = worker;
@@ -1548,12 +1558,14 @@ static int _init_worker_control(sid_resource_t *worker_control_res, const void *
 	int                                          r;
 
 	if (!(worker_control = mem_zalloc(sizeof(*worker_control)))) {
-		log_error(ID(worker_control_res), "Failed to allocate memory for worker control structure.");
+		sid_resource_log_error(worker_control_res, "Failed to allocate memory for worker control structure.");
 		goto fail;
 	}
 
 	if ((r = _set_channel_specs(worker_control, params->channel_specs)) < 0) {
-		log_error_errno(ID(worker_control_res), r, "Failed to set channel specs while initializing worker control.");
+		sid_resource_log_error_errno(worker_control_res,
+		                             r,
+		                             "Failed to set channel specs while initializing worker control.");
 		goto fail;
 	}
 

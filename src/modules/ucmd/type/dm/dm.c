@@ -96,10 +96,10 @@ static int _dm_init(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_co
 {
 	struct dm_mod_ctx *dm_mod = NULL;
 
-	log_debug(DM_ID, "init");
+	sid_resource_log_debug(mod_res, "init");
 
 	if (!(dm_mod = mem_zalloc(sizeof(*dm_mod)))) {
-		log_error(DM_ID, "Failed to allocate memory module context structure.");
+		sid_resource_log_error(mod_res, "Failed to allocate memory module context structure.");
 		return -1;
 	}
 
@@ -119,17 +119,17 @@ static int _dm_init(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_co
 	                                                    &dm_submod_registry_res_mod_params,
 	                                                    SID_RESOURCE_PRIO_NORMAL,
 	                                                    SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(DM_ID, "Failed to create submodule registry.");
+		sid_resource_log_error(mod_res, "Failed to create submodule registry.");
 		goto fail;
 	}
 
 	if (sid_ucmd_mod_add_subresource(mod_res, ucmd_common_ctx, dm_mod->submod_registry) < 0) {
-		log_error(DM_ID, "Failed to attach submodule registry.");
+		sid_resource_log_error(mod_res, "Failed to attach submodule registry.");
 		goto fail;
 	}
 
 	if (module_registry_load_modules(dm_mod->submod_registry) < 0) {
-		log_error(DM_ID, "Failed to load submodules.");
+		sid_resource_log_error(mod_res, "Failed to load submodules.");
 		goto fail;
 	}
 
@@ -147,7 +147,7 @@ static int _dm_exit(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_co
 {
 	struct dm_mod_ctx *dm_mod;
 
-	log_debug(DM_ID, "exit");
+	sid_resource_log_debug(mod_res, "exit");
 
 	dm_mod = module_get_data(mod_res);
 	free(dm_mod);
@@ -158,7 +158,7 @@ SID_UCMD_MOD_EXIT(_dm_exit)
 
 static int _dm_reset(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(DM_ID, "reset");
+	sid_resource_log_debug(mod_res, "reset");
 	return 0;
 }
 SID_UCMD_MOD_RESET(_dm_reset)
@@ -174,11 +174,11 @@ static int _dm_ident(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	const char           *submod_name = NULL;
 	struct dm_submod_fns *submod_fns;
 
-	log_debug(DM_ID, "ident");
+	sid_resource_log_debug(mod_res, "ident");
 
 	snprintf(path, sizeof(path), "%s%s/dm/uuid", SYSTEM_SYSFS_PATH, sid_ucmd_event_get_dev_path(ucmd_ctx));
 	if (sid_util_sysfs_get_value(path, uuid, sizeof(uuid)) < 0) {
-		log_error(DM_ID, "Failed to get DM uuid.");
+		sid_resource_log_error(mod_res, "Failed to get DM uuid.");
 		return -1;
 	}
 	sid_ucmd_dev_add_alias(mod_res, ucmd_ctx, "uuid", uuid);
@@ -186,7 +186,7 @@ static int _dm_ident(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	snprintf(path, sizeof(path), "%s%s/dm/name", SYSTEM_SYSFS_PATH, sid_ucmd_event_get_dev_path(ucmd_ctx));
 	if (sid_util_sysfs_get_value(path, name, sizeof(name)) < 0) {
-		log_error(DM_ID, "Failed to get DM name.");
+		sid_resource_log_error(mod_res, "Failed to get DM name.");
 		return -1;
 	}
 	sid_ucmd_dev_add_alias(mod_res, ucmd_ctx, "name", name);
@@ -198,19 +198,21 @@ static int _dm_ident(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	if (submod_name) {
 		if (strcmp(submod_name, DM_SUBMODULE_ID_NONE) != 0) {
 			if (!(dm_mod->submod_res_current = module_registry_get_module(dm_mod->submod_registry, submod_name))) {
-				log_debug(DM_ID, "Module %s not loaded.", submod_name);
+				sid_resource_log_debug(mod_res, "Module %s not loaded.", submod_name);
 				return 0;
 			}
 		}
 	} else {
 		if (!(iter = sid_resource_iter_create(dm_mod->submod_registry))) {
-			log_error(DM_ID, "Failed to create submodule iterator.");
+			sid_resource_log_error(mod_res, "Failed to create submodule iterator.");
 			return -1;
 		}
 
 		while ((submod_res = sid_resource_iter_next(iter))) {
 			if (module_registry_get_module_symbols(submod_res, (const void ***) &submod_fns) < 0) {
-				log_error(DM_ID, "Failed to retrieve submodule symbols from submodule %s.", ID(submod_res));
+				sid_resource_log_error(mod_res,
+				                       "Failed to retrieve submodule symbols from submodule %s.",
+				                       ID(submod_res));
 				continue;
 			}
 
@@ -218,7 +220,7 @@ static int _dm_ident(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 				if (submod_fns->subsys_match(submod_res, ucmd_ctx)) {
 					dm_mod->submod_res_current = submod_res;
 					submod_name                = sid_resource_get_id(submod_res);
-					log_debug(DM_ID, "%s submodule claimed this DM device.", submod_name);
+					sid_resource_log_debug(mod_res, "%s submodule claimed this DM device.", submod_name);
 					break;
 				}
 			}
@@ -248,7 +250,7 @@ static int _dm_scan_pre(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	struct dm_mod_ctx    *dm_mod;
 	struct dm_submod_fns *submod_fns;
 
-	log_debug(DM_ID, "scan-pre");
+	sid_resource_log_debug(mod_res, "scan-pre");
 
 	dm_mod = module_get_data(mod_res);
 
@@ -268,7 +270,7 @@ static int _dm_scan_current(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_c
 	struct dm_mod_ctx    *dm_mod;
 	struct dm_submod_fns *submod_fns;
 
-	log_debug(DM_ID, "scan-current");
+	sid_resource_log_debug(mod_res, "scan-current");
 
 	dm_mod = module_get_data(mod_res);
 
@@ -290,7 +292,7 @@ static int _dm_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	const char           *submod_name = NULL;
 	struct dm_submod_fns *submod_fns;
 
-	log_debug(DM_ID, "scan-next");
+	sid_resource_log_debug(mod_res, "scan-next");
 
 	if ((val = sid_ucmd_get_kv(mod_res, ucmd_ctx, KV_NS_UDEV, "ID_FS_TYPE", NULL, NULL, 0))) {
 		if (!strcmp(val, "LVM2_member") || !strcmp(val, "LVM1_member"))
@@ -309,7 +311,7 @@ static int _dm_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	dm_mod = module_get_data(mod_res);
 
 	if (!(dm_mod->submod_res_next = module_registry_get_module(dm_mod->submod_registry, submod_name))) {
-		log_debug(DM_ID, "Module %s not loaded.", submod_name);
+		sid_resource_log_debug(mod_res, "Module %s not loaded.", submod_name);
 		return 0;
 	}
 
@@ -326,7 +328,7 @@ static int _dm_scan_post_current(sid_resource_t *mod_res, struct sid_ucmd_ctx *u
 	struct dm_mod_ctx    *dm_mod;
 	struct dm_submod_fns *submod_fns;
 
-	log_debug(DM_ID, "scan-post-current");
+	sid_resource_log_debug(mod_res, "scan-post-current");
 
 	dm_mod = module_get_data(mod_res);
 
@@ -346,7 +348,7 @@ static int _dm_scan_post_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd
 	struct dm_mod_ctx    *dm_mod;
 	struct dm_submod_fns *submod_fns;
 
-	log_debug(DM_ID, "scan-post-next");
+	sid_resource_log_debug(mod_res, "scan-post-next");
 
 	dm_mod = module_get_data(mod_res);
 
@@ -366,7 +368,7 @@ static int _dm_scan_remove(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ct
 	struct dm_mod_ctx    *dm_mod;
 	struct dm_submod_fns *submod_fns;
 
-	log_debug(DM_ID, "scan-remove");
+	sid_resource_log_debug(mod_res, "scan-remove");
 
 	dm_mod = module_get_data(mod_res);
 
@@ -383,7 +385,7 @@ SID_UCMD_SCAN_REMOVE(_dm_scan_remove)
 
 static int _dm_error(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(DM_ID, "error");
+	sid_resource_log_debug(mod_res, "error");
 	return 0;
 }
 SID_UCMD_ERROR(_dm_error)

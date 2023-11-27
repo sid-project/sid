@@ -20,97 +20,95 @@
 #include "log/log.h"
 #include "resource/ucmd-module.h"
 
-#define MID "dummy_type"
-
 SID_UCMD_MOD_PRIO(1)
 
 static int _dummy_type_init(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(MID, "init");
+	sid_resource_log_debug(mod_res, "init");
 	return 0;
 }
 SID_UCMD_MOD_INIT(_dummy_type_init)
 
 static int _dummy_type_exit(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(MID, "exit");
+	sid_resource_log_debug(mod_res, "exit");
 	return 0;
 }
 SID_UCMD_MOD_EXIT(_dummy_type_exit)
 
 static int _dummy_type_reset(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(MID, "reset");
+	sid_resource_log_debug(mod_res, "reset");
 	return 0;
 }
 SID_UCMD_MOD_RESET(_dummy_type_reset)
 
 static int _dummy_type_ident(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "ident");
+	sid_resource_log_debug(mod_res, "ident");
 	return 0;
 }
 SID_UCMD_IDENT(_dummy_type_ident)
 
 static int _dummy_type_scan_pre(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "scan-pre");
+	sid_resource_log_debug(mod_res, "scan-pre");
 	return 0;
 }
 SID_UCMD_SCAN_PRE(_dummy_type_scan_pre)
 
 static int _dummy_type_scan_current(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "scan-current");
+	sid_resource_log_debug(mod_res, "scan-current");
 	return 0;
 }
 SID_UCMD_SCAN_CURRENT(_dummy_type_scan_current)
 
 static int _dummy_type_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "scan-next");
+	sid_resource_log_debug(mod_res, "scan-next");
 	return 0;
 }
 SID_UCMD_SCAN_NEXT(_dummy_type_scan_next)
 
 static int _dummy_type_scan_post_current(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "scan-post-current");
+	sid_resource_log_debug(mod_res, "scan-post-current");
 	return 0;
 }
 SID_UCMD_SCAN_POST_CURRENT(_dummy_type_scan_post_current)
 
 static int _dummy_type_scan_post_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "scan-post-next");
+	sid_resource_log_debug(mod_res, "scan-post-next");
 	return 0;
 }
 SID_UCMD_SCAN_POST_NEXT(_dummy_type_scan_post_next)
 
 static int _dummy_type_trigger_action_current(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "trigger-action-current");
+	sid_resource_log_debug(mod_res, "trigger-action-current");
 	return 0;
 }
 SID_UCMD_TRIGGER_ACTION_CURRENT(_dummy_type_trigger_action_current)
 
 static int _dummy_type_trigger_action_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "trigger-action-next");
+	sid_resource_log_debug(mod_res, "trigger-action-next");
 	return 0;
 }
 SID_UCMD_TRIGGER_ACTION_NEXT(_dummy_type_trigger_action_next)
 
 static int _dummy_type_scan_remove(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "scan-remove");
+	sid_resource_log_debug(mod_res, "scan-remove");
 	return 0;
 }
 SID_UCMD_SCAN_REMOVE(_dummy_type_scan_remove)
 
 static int _dummy_type_error(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "error");
+	sid_resource_log_debug(mod_res, "error");
 	return 0;
 }
 SID_UCMD_ERROR(_dummy_type_error)

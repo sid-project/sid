@@ -25,28 +25,27 @@
 
 #include <stdlib.h>
 
-#define LVM_ID             "lvm"
 #define LVM_DM_UUID_PREFIX "LVM-"
 
 SID_UCMD_MOD_PRIO(0)
 
 static int _lvm_init(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(LVM_ID, "init");
+	sid_resource_log_debug(mod_res, "init");
 	return 0;
 }
 SID_UCMD_MOD_INIT(_lvm_init)
 
 static int _lvm_exit(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(LVM_ID, "exit");
+	sid_resource_log_debug(mod_res, "exit");
 	return 0;
 }
 SID_UCMD_MOD_EXIT(_lvm_exit)
 
 static int _lvm_reset(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(LVM_ID, "reset");
+	sid_resource_log_debug(mod_res, "reset");
 	return 0;
 }
 SID_UCMD_MOD_RESET(_lvm_reset)
@@ -64,49 +63,49 @@ SID_UCMD_MOD_DM_SUBSYS_MATCH(_lvm_subsys_match)
 
 static int _lvm_ident(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(LVM_ID, "ident");
+	sid_resource_log_debug(mod_res, "ident");
 	return 0;
 }
 SID_UCMD_IDENT(_lvm_ident)
 
 static int _lvm_scan_pre(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(LVM_ID, "scan-pre");
+	sid_resource_log_debug(mod_res, "scan-pre");
 	return 0;
 }
 SID_UCMD_SCAN_PRE(_lvm_scan_pre)
 
 static int _lvm_scan_current(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(LVM_ID, "scan-current");
+	sid_resource_log_debug(mod_res, "scan-current");
 	return 0;
 }
 SID_UCMD_SCAN_CURRENT(_lvm_scan_current)
 
 static int _lvm_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(LVM_ID, "scan-next");
+	sid_resource_log_debug(mod_res, "scan-next");
 	return 0;
 }
 SID_UCMD_SCAN_NEXT(_lvm_scan_next)
 
 static int _lvm_scan_post_current(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(LVM_ID, "scan-post-current");
+	sid_resource_log_debug(mod_res, "scan-post-current");
 	return 0;
 }
 SID_UCMD_SCAN_POST_CURRENT(_lvm_scan_post_current)
 
 static int _lvm_scan_post_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(LVM_ID, "scan-post-next");
+	sid_resource_log_debug(mod_res, "scan-post-next");
 	return 0;
 }
 SID_UCMD_SCAN_POST_NEXT(_lvm_scan_post_next)
 
 static int _lvm_scan_remove(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(LVM_ID, "scan-remove");
+	sid_resource_log_debug(mod_res, "scan-remove");
 	return 0;
 }
 SID_UCMD_SCAN_REMOVE(_lvm_scan_remove)

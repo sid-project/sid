@@ -27,8 +27,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MID "dm_mpath"
-
 SID_UCMD_MOD_PRIO(-1)
 
 #define U_DEV_PATH "DM_MULTIPATH_DEVICE_PATH"
@@ -37,16 +35,16 @@ SID_UCMD_MOD_PRIO(-1)
 
 static int _dm_mpath_init(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(MID, "init");
+	sid_resource_log_debug(mod_res, "init");
 
 	/* TODO - set up dm/udev logging */
 	if (mpathvalid_init(MPATH_LOG_PRIO_NOLOG, MPATH_LOG_STDERR)) {
-		log_error(MID, "failed to initialize mpathvalid");
+		sid_resource_log_error(mod_res, "failed to initialize mpathvalid");
 		return -1;
 	}
 
 	if (sid_ucmd_mod_reserve_kv(mod_res, ucmd_common_ctx, KV_NS_UDEV, U_DEV_PATH, KV_FRG_RD) < 0) {
-		log_error(MID, "Failed to reserve multipath udev key %s.", U_DEV_PATH);
+		sid_resource_log_error(mod_res, "Failed to reserve multipath udev key %s.", U_DEV_PATH);
 		goto fail;
 	}
 
@@ -59,10 +57,10 @@ SID_UCMD_MOD_INIT(_dm_mpath_init)
 
 static int _dm_mpath_exit(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(MID, "exit");
+	sid_resource_log_debug(mod_res, "exit");
 
 	if (sid_ucmd_mod_unreserve_kv(mod_res, ucmd_common_ctx, KV_NS_UDEV, U_DEV_PATH) < 0)
-		log_error(MID, "Failed to unreserve multipath udev key %s.", U_DEV_PATH);
+		sid_resource_log_error(mod_res, "Failed to unreserve multipath udev key %s.", U_DEV_PATH);
 
 	mpathvalid_exit();
 	return 0;
@@ -82,7 +80,7 @@ static int _kernel_cmdline_allow(void)
 
 static int _dm_mpath_reset(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(MID, "reset");
+	sid_resource_log_debug(mod_res, "reset");
 	return 0;
 }
 SID_UCMD_MOD_RESET(_dm_mpath_reset)
@@ -103,10 +101,10 @@ static int _is_parent_multipathed(sid_resource_t *mod_res, struct sid_ucmd_ctx *
 			return 0;
 	}
 	if (r == MPATH_IS_VALID) {
-		log_debug(MID, "%s whole disk is a multipath path", sid_ucmd_event_get_dev_name(ucmd_ctx));
+		sid_resource_log_debug(mod_res, "%s whole disk is a multipath path", sid_ucmd_event_get_dev_name(ucmd_ctx));
 		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, U_DEV_PATH, "1", 2, KV_RD);
 	} else
-		log_debug(MID, "%s whole disk is not a multipath path", sid_ucmd_event_get_dev_name(ucmd_ctx));
+		sid_resource_log_debug(mod_res, "%s whole disk is not a multipath path", sid_ucmd_event_get_dev_name(ucmd_ctx));
 	return 0;
 }
 
@@ -115,7 +113,7 @@ static int _dm_mpath_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucm
 	int   r;
 	char *wwid;
 	char  valid_str[2];
-	log_debug(MID, "scan-next");
+	sid_resource_log_debug(mod_res, "scan-next");
 
 	if (!_kernel_cmdline_allow()) // treat failure as allowed
 		return 0;
@@ -130,12 +128,12 @@ static int _dm_mpath_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucm
 	}
 
 	if (mpathvalid_reload_config() < 0) {
-		log_error(MID, "failed to reinitialize mpathvalid");
+		sid_resource_log_error(mod_res, "failed to reinitialize mpathvalid");
 		return -1;
 	}
 	// currently treats MPATH_SMART like MPATH_STRICT
 	r = mpathvalid_is_path(sid_ucmd_event_get_dev_name(ucmd_ctx), MPATH_DEFAULT, &wwid, NULL, 0);
-	log_debug(MID, "%s mpathvalid_is_path returned %d", sid_ucmd_event_get_dev_name(ucmd_ctx), r);
+	sid_resource_log_debug(mod_res, "%s mpathvalid_is_path returned %d", sid_ucmd_event_get_dev_name(ucmd_ctx), r);
 
 	if (r == MPATH_IS_VALID) {
 		const char *old_valid_str;
@@ -149,7 +147,9 @@ static int _dm_mpath_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucm
 			// If old_valid is garbage assume the device
 			// wasn't claimed before
 			if (errno || !p || *p || old_valid != MPATH_IS_VALID) {
-				log_debug(MID, "previously released %s. not claiming", sid_ucmd_event_get_dev_name(ucmd_ctx));
+				sid_resource_log_debug(mod_res,
+				                       "previously released %s. not claiming",
+				                       sid_ucmd_event_get_dev_name(ucmd_ctx));
 				r = MPATH_IS_NOT_VALID;
 			}
 		}
@@ -173,14 +173,14 @@ SID_UCMD_SCAN_NEXT(_dm_mpath_scan_next)
 
 static int _dm_mpath_scan_remove(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "scan-remove");
+	sid_resource_log_debug(mod_res, "scan-remove");
 	return 0;
 }
 SID_UCMD_SCAN_REMOVE(_dm_mpath_scan_remove)
 
 static int _dm_mpath_error(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "error");
+	sid_resource_log_debug(mod_res, "error");
 	return 0;
 }
 SID_UCMD_ERROR(_dm_mpath_error)

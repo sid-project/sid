@@ -32,8 +32,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define MID "blkid"
-
 SID_UCMD_MOD_PRIO(0)
 
 enum {
@@ -88,18 +86,18 @@ static int _blkid_init(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd
 {
 	unsigned i;
 
-	log_debug(MID, "init");
+	sid_resource_log_debug(mod_res, "init");
 
 	for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
 		if (sid_ucmd_mod_reserve_kv(mod_res, ucmd_common_ctx, KV_NS_UDEV, keys[i], KV_FRG_RD) < 0) {
-			log_error(MID, "Failed to reserve blkid udev key %s.", keys[i]);
+			sid_resource_log_error(mod_res, "Failed to reserve blkid udev key %s.", keys[i]);
 			return -1;
 		}
 	}
 
 	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
 		if (sid_ucmd_mod_reserve_kv(mod_res, ucmd_common_ctx, KV_NS_DEVICE, keys[i], KV_FRG_RD) < 0) {
-			log_error(MID, "Failed to reserve blkid device key %s.", keys[i]);
+			sid_resource_log_error(mod_res, "Failed to reserve blkid device key %s.", keys[i]);
 			return -1;
 		}
 	}
@@ -112,18 +110,18 @@ static int _blkid_exit(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd
 {
 	unsigned i;
 
-	log_debug(MID, "exit");
+	sid_resource_log_debug(mod_res, "exit");
 
 	for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
 		if (sid_ucmd_mod_unreserve_kv(mod_res, ucmd_common_ctx, KV_NS_UDEV, keys[i]) < 0) {
-			log_error(MID, "Failed to unreserve blkid udev key %s.", keys[i]);
+			sid_resource_log_error(mod_res, "Failed to unreserve blkid udev key %s.", keys[i]);
 			return -1;
 		}
 	}
 
 	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
 		if (sid_ucmd_mod_unreserve_kv(mod_res, ucmd_common_ctx, KV_NS_DEVICE, keys[i]) < 0) {
-			log_error(MID, "Failed to unreserve blkid device key %s.", keys[i]);
+			sid_resource_log_error(mod_res, "Failed to unreserve blkid device key %s.", keys[i]);
 			return -1;
 		}
 	}
@@ -134,7 +132,7 @@ SID_UCMD_MOD_EXIT(_blkid_exit)
 
 static int _blkid_reset(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	log_debug(MID, "reset");
+	sid_resource_log_debug(mod_res, "reset");
 	return 0;
 }
 SID_UCMD_MOD_RESET(_blkid_reset)
@@ -266,14 +264,14 @@ static int _blkid_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_c
 	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ucmd_event_get_dev_name(ucmd_ctx));
 
 	if ((fd = open(dev_path, O_RDONLY | O_CLOEXEC)) < 0) {
-		log_error_errno(MID, errno, "Failed to open device %s", dev_path);
+		sid_resource_log_error_errno(mod_res, errno, "Failed to open device %s", dev_path);
 		goto out;
 	}
 
 	if ((r = blkid_probe_set_device(pr, fd, offset, 0)) < 0)
 		goto out;
 
-	log_debug(MID, "Probe %s %sraid offset=%" PRIi64, dev_path, noraid ? "no" : "", offset);
+	sid_resource_log_debug(mod_res, "Probe %s %sraid offset=%" PRIi64, dev_path, noraid ? "no" : "", offset);
 
 	if ((r = _probe_superblocks(pr)) < 0)
 		goto out;
@@ -299,14 +297,14 @@ SID_UCMD_SCAN_NEXT(_blkid_scan_next)
 
 static int _blkid_scan_remove(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "scan-remove");
+	sid_resource_log_debug(mod_res, "scan-remove");
 	return 0;
 }
 SID_UCMD_SCAN_REMOVE(_blkid_scan_remove)
 
 static int _blkid_error(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	log_debug(MID, "error");
+	sid_resource_log_debug(mod_res, "error");
 	return 0;
 }
 SID_UCMD_ERROR(_blkid_error)

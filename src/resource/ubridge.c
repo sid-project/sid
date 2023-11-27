@@ -831,7 +831,7 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 
 	memset(stats, 0, sizeof(*stats));
 	if (!(iter = kv_store_iter_create(kv_store_res, NULL, NULL))) {
-		log_error(ID(kv_store_res), INTERNAL_ERROR "%s: failed to create record iterator", __func__);
+		sid_resource_log_error(kv_store_res, INTERNAL_ERROR "%s: failed to create record iterator", __func__);
 		return -ENOMEM;
 	}
 	while (kv_store_iter_next(iter, &size, &key, NULL)) {
@@ -845,11 +845,11 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_resource_t *kv_s
 	}
 	kv_store_get_size(kv_store_res, &meta_size, &int_size);
 	if (stats->value_int_size != int_size)
-		log_error(ID(kv_store_res),
-		          INTERNAL_ERROR "%s: kv-store size mismatch: %" PRIu64 " is not equal to %zu",
-		          __func__,
-		          stats->value_int_size,
-		          int_size);
+		sid_resource_log_error(kv_store_res,
+		                       INTERNAL_ERROR "%s: kv-store size mismatch: %" PRIu64 " is not equal to %zu",
+		                       __func__,
+		                       stats->value_int_size,
+		                       int_size);
 	stats->meta_size = meta_size;
 	kv_store_iter_destroy(iter);
 	return 0;
@@ -996,12 +996,12 @@ static int _check_kv_wr_allowed(struct kv_update_arg *update_arg, const char *ke
 	}
 
 	if (r < 0)
-		log_debug(ID(update_arg->res),
-		          "Module %s can't write value with key %s which is %s and already attached to module %s.",
-		          new_owner,
-		          key,
-		          reason,
-		          old_owner);
+		sid_resource_log_debug(update_arg->res,
+		                       "Module %s can't write value with key %s which is %s and already attached to module %s.",
+		                       new_owner,
+		                       key,
+		                       reason,
+		                       old_owner);
 
 	return r;
 }
@@ -1044,11 +1044,11 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 			case MOD_NO_MATCH:
 			case MOD_SUB_MATCH:
 			case MOD_SUP_MATCH:
-				log_debug(ID(update_arg->res),
-				          "Module %s can't reserve key %s which is already reserved by module %s.",
-				          update_arg->owner,
-				          spec->key,
-				          VVALUE_OWNER(vvalue_old));
+				sid_resource_log_debug(update_arg->res,
+				                       "Module %s can't reserve key %s which is already reserved by module %s.",
+				                       update_arg->owner,
+				                       spec->key,
+				                       VVALUE_OWNER(vvalue_old));
 				update_arg->ret_code = -EPERM;
 				return 0;
 		}
@@ -1177,7 +1177,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 
 	if (!iter) {
 		// TODO: Discard udev kv-store we've already appended to the output buffer!
-		log_error(ID(cmd_res), "Failed to create iterator for temp key-value store.");
+		sid_resource_log_error(cmd_res, "Failed to create iterator for temp key-value store.");
 		goto fail;
 	}
 
@@ -1194,7 +1194,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 	if (!(export_buf = sid_buffer_create(&buf_spec,
 	                                     &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
 	                                     &r))) {
-		log_error(ID(cmd_res), "Failed to create export buffer.");
+		sid_resource_log_error(cmd_res, "Failed to create export buffer.");
 		goto fail;
 	}
 
@@ -1247,15 +1247,15 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == KV_NS_UDEV) {
 			if (!(cmd_reg->flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF))) {
-				log_debug(ID(cmd_res), "Ignoring request to export record with key %s to udev.", key);
+				sid_resource_log_debug(cmd_res, "Ignoring request to export record with key %s to udev.", key);
 				continue;
 			}
 
 			if (vector) {
-				log_error(ID(cmd_res),
-				          INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
-				          __func__,
-				          key);
+				sid_resource_log_error(cmd_res,
+				                       INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
+				                       __func__,
+				                       key);
 				r = -ENOTSUP;
 				goto fail;
 			}
@@ -1278,10 +1278,10 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 					    ((r = sid_buffer_add(ucmd_ctx->res_buf, KV_END_C, 1, NULL, NULL)) < 0))
 						goto fail;
 
-					log_debug(ID(ucmd_ctx->common->kv_store_res),
-					          "Exported udev property %s=%s",
-					          key,
-					          svalue->data + ext_data_offset);
+					sid_resource_log_debug(ucmd_ctx->common->kv_store_res,
+					                       "Exported udev property %s=%s",
+					                       key,
+					                       svalue->data + ext_data_offset);
 				}
 			}
 
@@ -1289,7 +1289,9 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 				continue;
 		} else { /* _get_ns_from_key(key) != KV_NS_UDEV */
 			if (!(cmd_reg->flags & (CMD_KV_EXPORT_SID_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF))) {
-				log_debug(ID(cmd_res), "Ignoring request to export record with key %s to SID main KV store.", key);
+				sid_resource_log_debug(cmd_res,
+				                       "Ignoring request to export record with key %s to SID main KV store.",
+				                       key);
 				continue;
 			}
 		}
@@ -1323,7 +1325,7 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 			    ((r = sid_buffer_add(export_buf, &key_size, sizeof(key_size), NULL, NULL)) < 0) ||
 			    ((r = sid_buffer_add(export_buf, &size, sizeof(size), NULL, NULL)) < 0) ||
 			    ((r = sid_buffer_add(export_buf, (char *) key, strlen(key) + 1, NULL, NULL)) < 0)) {
-				log_error_errno(ID(cmd_res), errno, "sid_buffer_add failed");
+				sid_resource_log_error_errno(cmd_res, errno, "sid_buffer_add failed");
 				goto fail;
 			}
 
@@ -1338,12 +1340,12 @@ static int _build_cmd_kv_buffers(sid_resource_t *cmd_res, const struct cmd_reg *
 					                         NULL)) < 0) ||
 					    ((r = sid_buffer_add(export_buf, vvalue[i].iov_base, vvalue[i].iov_len, NULL, NULL)) <
 					     0)) {
-						log_error_errno(ID(cmd_res), errno, "sid_buffer_add failed");
+						sid_resource_log_error_errno(cmd_res, errno, "sid_buffer_add failed");
 						goto fail;
 					}
 				}
 			} else if ((r = sid_buffer_add(export_buf, svalue, size, NULL, NULL)) < 0) {
-				log_error_errno(ID(cmd_res), errno, "sid_buffer_add failed");
+				sid_resource_log_error_errno(cmd_res, errno, "sid_buffer_add failed");
 				goto fail;
 			}
 		} else {
@@ -1448,11 +1450,11 @@ static int _check_global_kv_rs_for_wr(struct sid_ucmd_ctx    *ucmd_ctx,
 	}
 
 	if (!r)
-		log_debug(ID(ucmd_ctx->common->kv_store_res),
-		          "Module %s can't overwrite value with key %s which is reserved and attached to %s module.",
-		          owner,
-		          key,
-		          VVALUE_OWNER(vvalue));
+		sid_resource_log_debug(ucmd_ctx->common->kv_store_res,
+		                       "Module %s can't overwrite value with key %s which is reserved and attached to %s module.",
+		                       owner,
+		                       key,
+		                       VVALUE_OWNER(vvalue));
 out:
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 	return r;
@@ -2016,7 +2018,7 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 		sid_buffer_get_data(rel_spec->abs_delta->minus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
 		sid_buffer_get_data(rel_spec->delta->minus, (const void **) &delta_vvalue, &delta_vsize);
 	} else {
-		log_error(ID(update_arg->res), INTERNAL_ERROR "%s: incorrect delta operation requested.", __func__);
+		sid_resource_log_error(update_arg->res, INTERNAL_ERROR "%s: incorrect delta operation requested.", __func__);
 		return -1;
 	}
 
@@ -2225,7 +2227,7 @@ static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv
 
 	if ((r = kv_store_transaction_begin(update_arg->res)) < 0) {
 		if (r == -EBUSY)
-			log_error(ID(update_arg->res), INTERNAL_ERROR "%s: kv_store already in a transaction", __func__);
+			sid_resource_log_error(update_arg->res, INTERNAL_ERROR "%s: kv_store already in a transaction", __func__);
 		return r;
 	}
 	r = _do_kv_delta_set(key, vvalue, vsize, update_arg, index);
@@ -3142,7 +3144,7 @@ static int _device_add_field(struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 	if (!(value = _do_sid_ucmd_set_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, key, KV_RD | KV_WR, value, strlen(value) + 1)))
 		return -1;
 
-	log_debug(ID(ucmd_ctx->common->kv_store_res), "Imported udev property %s=%s", key, value);
+	sid_resource_log_debug(ucmd_ctx->common->kv_store_res, "Imported udev property %s=%s", key, value);
 
 	/* Common key=value pairs are also directly in the ucmd_ctx->udev_dev structure. */
 	if (!strcmp(key, UDEV_KEY_ACTION))
@@ -3233,15 +3235,16 @@ int _part_get_whole_disk(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx,
 	                            "%s%s/../dev",
 	                            SYSTEM_SYSFS_PATH,
 	                            ucmd_ctx->req_env.dev.udev.path)) < 0) {
-		log_error_errno(_get_mod_name(mod_res),
-		                r,
-		                "Failed to compose sysfs path for whole device of partition device " CMD_DEV_NAME_NUM_FMT,
-		                CMD_DEV_NAME_NUM(ucmd_ctx));
+		sid_resource_log_error_errno(
+			mod_res,
+			r,
+			"Failed to compose sysfs path for whole device of partition device " CMD_DEV_NAME_NUM_FMT,
+			CMD_DEV_NAME_NUM(ucmd_ctx));
 		return r;
 	}
 
 	if ((r = sid_util_sysfs_get_value(s, devno_buf, devno_buf_size)) < 0 || !*devno_buf)
-		log_error_errno(_get_mod_name(mod_res), r, "Failed to read whole disk device number from sysfs file %s.", s);
+		sid_resource_log_error_errno(mod_res, r, "Failed to read whole disk device number from sysfs file %s.", s);
 
 	sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
 	return r;
@@ -3326,7 +3329,7 @@ static char *_lookup_mod_name(sid_resource_t *cmd_res, const int dev_major, cons
 	size_t len;
 
 	if (!(f = fopen(SYSTEM_PROC_DEVICES_PATH, "r"))) {
-		log_sys_error(ID(cmd_res), "fopen", SYSTEM_PROC_DEVICES_PATH);
+		sid_resource_log_sys_error(cmd_res, "fopen", SYSTEM_PROC_DEVICES_PATH);
 		goto out;
 	}
 
@@ -3373,11 +3376,11 @@ static char *_lookup_mod_name(sid_resource_t *cmd_res, const int dev_major, cons
 	}
 
 	if (!found) {
-		log_error(ID(cmd_res),
-		          "Unable to find major number %d for device %s in %s.",
-		          dev_major,
-		          dev_name,
-		          SYSTEM_PROC_DEVICES_PATH);
+		sid_resource_log_error(cmd_res,
+		                       "Unable to find major number %d for device %s in %s.",
+		                       dev_major,
+		                       dev_name,
+		                       SYSTEM_PROC_DEVICES_PATH);
 		goto out;
 	}
 
@@ -3388,7 +3391,7 @@ static char *_lookup_mod_name(sid_resource_t *cmd_res, const int dev_major, cons
 
 	if (!strncmp(found, MOD_NAME_BLKEXT, sizeof(MOD_NAME_BLKEXT))) {
 		if (!(found = _get_mod_name_from_blkext(cmd_res, buf, buf_size))) {
-			log_error(ID(cmd_res), "Failed to get module name for blkext device.");
+			sid_resource_log_error(cmd_res, "Failed to get module name for blkext device.");
 			goto out;
 		}
 		len = strlen(found);
@@ -3396,12 +3399,12 @@ static char *_lookup_mod_name(sid_resource_t *cmd_res, const int dev_major, cons
 		len = p - found;
 
 	if (len >= buf_size) {
-		log_error(ID(cmd_res),
-		          "Insufficient result buffer for device lookup in %s, "
-		          "found string \"%s\", buffer size is only %zu.",
-		          SYSTEM_PROC_DEVICES_PATH,
-		          found,
-		          sizeof(buf));
+		sid_resource_log_error(cmd_res,
+		                       "Insufficient result buffer for device lookup in %s, "
+		                       "found string \"%s\", buffer size is only %zu.",
+		                       SYSTEM_PROC_DEVICES_PATH,
+		                       found,
+		                       sizeof(buf));
 		goto out;
 	}
 
@@ -3436,7 +3439,7 @@ static void _change_cmd_state(sid_resource_t *cmd_res, cmd_state_t state)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 
 	ucmd_ctx->state               = state;
-	log_debug(ID(cmd_res), "Command state changed to %s.", cmd_state_str[state]);
+	sid_resource_log_debug(cmd_res, "Command state changed to %s.", cmd_state_str[state]);
 }
 
 static int _cmd_exec_version(sid_resource_t *cmd_res)
@@ -3516,7 +3519,9 @@ static int _cmd_exec_resources(sid_resource_t *cmd_res)
 							     .data_size = size,
 							     .ext.used  = false,
 						     })) < 0) {
-			log_error_errno(ID(cmd_res), r, "Failed to sent request to main process to write its resource tree.");
+			sid_resource_log_error_errno(cmd_res,
+			                             r,
+			                             "Failed to sent request to main process to write its resource tree.");
 			r = -1;
 		} else
 			_change_cmd_state(cmd_res, CMD_EXPECTING_DATA);
@@ -3805,11 +3810,11 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		                            SYSTEM_SYSFS_PATH,
 		                            ucmd_ctx->req_env.dev.udev.path,
 		                            SYSTEM_SYSFS_SLAVES)) < 0) {
-			log_error_errno(ID(cmd_res),
-			                r,
-			                "Failed to compose sysfs %s path for device " CMD_DEV_NAME_NUM_FMT,
-			                SYSTEM_SYSFS_SLAVES,
-			                CMD_DEV_NAME_NUM(ucmd_ctx));
+			sid_resource_log_error_errno(cmd_res,
+			                             r,
+			                             "Failed to compose sysfs %s path for device " CMD_DEV_NAME_NUM_FMT,
+			                             SYSTEM_SYSFS_SLAVES,
+			                             CMD_DEV_NAME_NUM(ucmd_ctx));
 			goto out;
 		}
 
@@ -3820,7 +3825,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 			 * content, e.g. because we're processing this uevent too late: the device has already been removed right
 			 * after this uevent was triggered. For now, error out even in this case.
 			 */
-			log_sys_error(ID(cmd_res), "scandir", s);
+			sid_resource_log_sys_error(cmd_res, "scandir", s);
 			sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
 			goto out;
 		}
@@ -3841,10 +3846,10 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	                                                              .alloc_step = 1,
 	                                                              .limit      = 0}),
 	                                  &r))) {
-		log_error_errno(ID(cmd_res),
-		                r,
-		                "Failed to create buffer to record hierarchy for device " CMD_DEV_NAME_NUM_FMT,
-		                CMD_DEV_NAME_NUM(ucmd_ctx));
+		sid_resource_log_error_errno(cmd_res,
+		                             r,
+		                             "Failed to create buffer to record hierarchy for device " CMD_DEV_NAME_NUM_FMT,
+		                             CMD_DEV_NAME_NUM(ucmd_ctx));
 		goto out;
 	}
 
@@ -3874,18 +3879,19 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 			                       ucmd_ctx->req_env.dev.udev.path,
 			                       SYSTEM_SYSFS_SLAVES,
 			                       dirent[i]->d_name) < 0) {
-				log_error_errno(ID(cmd_res),
-				                r,
-				                "Failed to compose sysfs path for device %s which is relative of "
-				                "device " CMD_DEV_NAME_NUM_FMT,
-				                dirent[i]->d_name,
-				                CMD_DEV_NAME_NUM(ucmd_ctx));
+				sid_resource_log_error_errno(cmd_res,
+				                             r,
+				                             "Failed to compose sysfs path for device %s which is relative of "
+				                             "device " CMD_DEV_NAME_NUM_FMT,
+				                             dirent[i]->d_name,
+				                             CMD_DEV_NAME_NUM(ucmd_ctx));
 			} else {
 				if ((r = sid_util_sysfs_get_value(s, devno_buf, sizeof(devno_buf))) < 0 || !*devno_buf) {
-					log_error_errno(ID(cmd_res),
-					                r,
-					                "Failed to read related disk device number from sysfs file %s.",
-					                s);
+					sid_resource_log_error_errno(
+						cmd_res,
+						r,
+						"Failed to read related disk device number from sysfs file %s.",
+						s);
 					sid_buffer_rewind_mem(ucmd_ctx->common->gen_buf, s);
 					goto next;
 				}
@@ -3896,9 +3902,10 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				              _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
 					mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
 					if (!util_uuid_gen_str(&mem)) {
-						log_error(ID(cmd_res),
-						          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
-						          CMD_DEV_NAME_NUM(ucmd_ctx));
+						sid_resource_log_error(cmd_res,
+						                       "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT
+						                       ".",
+						                       CMD_DEV_NAME_NUM(ucmd_ctx));
 						goto next;
 					}
 					rel_spec.rel_key_spec->ns_part = mem.base;
@@ -3911,9 +3918,9 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 					                          "devno",
 					                          devno_buf,
 					                          KV_OP_PLUS) < 0) {
-						log_error(ID(cmd_res),
-						          "Failed to add devno alias for device " CMD_DEV_NAME_NUM_FMT,
-						          CMD_DEV_NAME_NUM(ucmd_ctx));
+						sid_resource_log_error(cmd_res,
+						                       "Failed to add devno alias for device " CMD_DEV_NAME_NUM_FMT,
+						                       CMD_DEV_NAME_NUM(ucmd_ctx));
 						goto next;
 					}
 				}
@@ -3937,11 +3944,11 @@ next:
 	qsort(vvalue + VVALUE_HEADER_CNT, vsize - VVALUE_HEADER_CNT, sizeof(kv_vector_t), _vvalue_str_cmp);
 
 	if (!(s = _compose_key(NULL, rel_spec.cur_key_spec))) {
-		log_error(ID(cmd_res),
-		          _key_prefix_err_msg,
-		          ucmd_ctx->req_env.dev.udev.name,
-		          ucmd_ctx->req_env.dev.udev.major,
-		          ucmd_ctx->req_env.dev.udev.minor);
+		sid_resource_log_error(cmd_res,
+		                       _key_prefix_err_msg,
+		                       ucmd_ctx->req_env.dev.udev.name,
+		                       ucmd_ctx->req_env.dev.udev.major,
+		                       ucmd_ctx->req_env.dev.udev.minor);
 		goto out;
 	}
 
@@ -4024,9 +4031,9 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 		if (!(rel_spec.rel_key_spec->ns_part = _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
 			mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
 			if (!util_uuid_gen_str(&mem)) {
-				log_error(ID(cmd_res),
-				          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
-				          CMD_DEV_NAME_NUM(ucmd_ctx));
+				sid_resource_log_error(cmd_res,
+				                       "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
+				                       CMD_DEV_NAME_NUM(ucmd_ctx));
 				goto out;
 			}
 			rel_spec.rel_key_spec->ns_part = mem.base;
@@ -4049,11 +4056,11 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	}
 
 	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec))) {
-		log_error(ID(cmd_res),
-		          _key_prefix_err_msg,
-		          ucmd_ctx->req_env.dev.udev.name,
-		          ucmd_ctx->req_env.dev.udev.major,
-		          ucmd_ctx->req_env.dev.udev.minor);
+		sid_resource_log_error(cmd_res,
+		                       _key_prefix_err_msg,
+		                       ucmd_ctx->req_env.dev.udev.name,
+		                       ucmd_ctx->req_env.dev.udev.major,
+		                       ucmd_ctx->req_env.dev.udev.minor);
 		goto out;
 	}
 
@@ -4102,7 +4109,7 @@ static int _exec_block_mods(sid_resource_t *cmd_res)
 
 	while ((block_mod_res = sid_resource_iter_next(ucmd_ctx->scan.block_mod_iter))) {
 		if (module_registry_get_module_symbols(block_mod_res, (const void ***) &block_mod_fns) < 0) {
-			log_error(ID(cmd_res), "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
+			sid_resource_log_error(cmd_res, "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
 			goto out;
 		}
 
@@ -4151,10 +4158,10 @@ static int _exec_block_mods(sid_resource_t *cmd_res)
 					goto out;
 				break;
 			default:
-				log_error(ID(cmd_res),
-				          INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
-				          __func__,
-				          _cmd_scan_phase_regs[ucmd_ctx->scan.phase].name);
+				sid_resource_log_error(cmd_res,
+				                       INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
+				                       __func__,
+				                       _cmd_scan_phase_regs[ucmd_ctx->scan.phase].name);
 				break;
 		}
 	}
@@ -4174,7 +4181,7 @@ static int _exec_type_mod(sid_resource_t *cmd_res, sid_resource_t *type_mod_res)
 		return 0;
 
 	if (module_registry_get_module_symbols(type_mod_res, (const void ***) &type_mod_fns) < 0) {
-		log_error(ID(cmd_res), "Failed to retrieve module symbols from module %s.", ID(type_mod_res));
+		sid_resource_log_error(cmd_res, "Failed to retrieve module symbols from module %s.", ID(type_mod_res));
 		goto out;
 	}
 
@@ -4248,7 +4255,9 @@ static int _get_device_uuid(sid_resource_t *cmd_res)
 	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL, 0)) &&
 	    !(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
 		/* SID doesn't appera to have a record of this device */
-		log_error(ID(cmd_res), "Couldn't find UUID for device " CMD_DEV_NAME_NUM_FMT ".", CMD_DEV_NAME_NUM(ucmd_ctx));
+		sid_resource_log_error(cmd_res,
+		                       "Couldn't find UUID for device " CMD_DEV_NAME_NUM_FMT ".",
+		                       CMD_DEV_NAME_NUM(ucmd_ctx));
 		return -1;
 	}
 	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
@@ -4269,9 +4278,9 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 		if (!(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
 			/* if we haven't set the UUID for this device yet, do it now */
 			if (!util_uuid_gen_str(&mem)) {
-				log_error(ID(cmd_res),
-				          "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
-				          CMD_DEV_NAME_NUM(ucmd_ctx));
+				sid_resource_log_error(cmd_res,
+				                       "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
+				                       CMD_DEV_NAME_NUM(ucmd_ctx));
 				return -1;
 			}
 			uuid_p = mem.base;
@@ -4285,7 +4294,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 		                         KV_SYNC,
 		                         uuid_p,
 		                         strlen(uuid_p) + 1)) {
-			log_error(ID(cmd_res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_DEV_ID);
+			sid_resource_log_error(cmd_res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_DEV_ID);
 			return -1;
 		}
 	}
@@ -4293,7 +4302,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
 
 	if (snprintf(buf, sizeof(buf), "%" PRIu64, ucmd_ctx->req_env.dev.udev.diskseq) < 0) {
-		log_error(ID(cmd_res), "Failed to convert DISKSEQ to string.");
+		sid_resource_log_error(cmd_res, "Failed to convert DISKSEQ to string.");
 		return -1;
 	}
 
@@ -4314,7 +4323,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	                          "name",
 	                          ucmd_ctx->req_env.dev.udev.name,
 	                          KV_OP_PLUS) < 0) {
-		log_error(ID(cmd_res), "Failed to add dseq/devno/name device alias.");
+		sid_resource_log_error(cmd_res, "Failed to add dseq/devno/name device alias.");
 		return -1;
 	}
 
@@ -4332,7 +4341,7 @@ static int _cmd_exec_scan_init(sid_resource_t *cmd_res)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 
 	if (!(ucmd_ctx->scan.block_mod_iter = sid_resource_iter_create(ucmd_ctx->common->block_mod_registry_res))) {
-		log_error(ID(cmd_res), "Failed to create block module iterator.");
+		sid_resource_log_error(cmd_res, "Failed to create block module iterator.");
 		goto fail;
 	}
 
@@ -4366,7 +4375,7 @@ static int _cmd_exec_scan_ident(sid_resource_t *cmd_res)
 		                                  ucmd_ctx->req_env.dev.udev.name,
 		                                  buf,
 		                                  sizeof(buf)))) {
-			log_error(ID(cmd_res), "Module name lookup failed.");
+			sid_resource_log_error(cmd_res, "Module name lookup failed.");
 			return -1;
 		}
 
@@ -4378,15 +4387,15 @@ static int _cmd_exec_scan_ident(sid_resource_t *cmd_res)
 		                         DEFAULT_VALUE_FLAGS_CORE,
 		                         mod_name,
 		                         strlen(mod_name) + 1)) {
-			log_error(ID(cmd_res),
-			          "Failed to store device " CMD_DEV_NAME_NUM_FMT " module name",
-			          CMD_DEV_NAME_NUM(ucmd_ctx));
+			sid_resource_log_error(cmd_res,
+			                       "Failed to store device " CMD_DEV_NAME_NUM_FMT " module name",
+			                       CMD_DEV_NAME_NUM(ucmd_ctx));
 			return -1;
 		}
 	}
 
 	if (!(ucmd_ctx->scan.type_mod_res_current = module_registry_get_module(ucmd_ctx->common->type_mod_registry_res, mod_name)))
-		log_debug(ID(cmd_res), "Module %s not loaded.", mod_name);
+		sid_resource_log_debug(cmd_res, "Module %s not loaded.", mod_name);
 
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
@@ -4424,7 +4433,7 @@ static int _cmd_exec_scan_next(sid_resource_t *cmd_res)
 	                                         0))) {
 		if (!(ucmd_ctx->scan.type_mod_res_next =
 		              module_registry_get_module(ucmd_ctx->common->type_mod_registry_res, next_mod_name)))
-			log_debug(ID(cmd_res), "Module %s not loaded.", next_mod_name);
+			sid_resource_log_debug(cmd_res, "Module %s not loaded.", next_mod_name);
 	} else
 		ucmd_ctx->scan.type_mod_res_next = NULL;
 
@@ -4496,13 +4505,15 @@ static int _cmd_exec_scan_remove_mods(sid_resource_t *cmd_res)
 	_exec_block_mods(cmd_res);
 
 	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL, 0))) {
-		log_error(ID(cmd_res), "Failed to find device " CMD_DEV_NAME_NUM_FMT " module name", CMD_DEV_NAME_NUM(ucmd_ctx));
+		sid_resource_log_error(cmd_res,
+		                       "Failed to find device " CMD_DEV_NAME_NUM_FMT " module name",
+		                       CMD_DEV_NAME_NUM(ucmd_ctx));
 		return -1;
 	}
 
 	if (!(ucmd_ctx->scan.type_mod_res_current =
 	              module_registry_get_module(ucmd_ctx->common->type_mod_registry_res, mod_name))) {
-		log_debug(ID(cmd_res), "Module %s not loaded.", mod_name);
+		sid_resource_log_debug(cmd_res, "Module %s not loaded.", mod_name);
 		return 0;
 	}
 
@@ -4593,25 +4604,25 @@ static int _cmd_exec_scan(sid_resource_t *cmd_res)
 	}
 
 	for (phase = phase_start; phase <= phase_end; phase++) {
-		log_debug(ID(cmd_res), "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
+		sid_resource_log_debug(cmd_res, "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
 		ucmd_ctx->scan.phase = phase;
 
 		if (_cmd_scan_phase_regs[phase].exec(cmd_res) < 0) {
 			/* if init or cleanup phase fails, there's nothing else we can do */
 			if (phase == CMD_SCAN_PHASE_A_INIT || phase == CMD_SCAN_PHASE_A_CLEANUP) {
-				log_error(ID(cmd_res), "%s phase failed.", _cmd_scan_phase_regs[phase].name);
+				sid_resource_log_error(cmd_res, "%s phase failed.", _cmd_scan_phase_regs[phase].name);
 				return -1;
 			} else
-				log_error(ID(cmd_res),
-				          "%s phase failed. Switching to %s phase.",
-				          _cmd_scan_phase_regs[phase].name,
-				          _cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].name);
+				sid_resource_log_error(cmd_res,
+				                       "%s phase failed. Switching to %s phase.",
+				                       _cmd_scan_phase_regs[phase].name,
+				                       _cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].name);
 
 			ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_ERROR;
 
 			/* otherwise, call out modules to handle the error case */
 			if (_cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].exec(cmd_res) < 0)
-				log_error(ID(cmd_res), "error phase failed.");
+				sid_resource_log_error(cmd_res, "error phase failed.");
 		}
 	}
 
@@ -4714,7 +4725,7 @@ static int _send_out_cmd_expbuf(sid_resource_t *cmd_res)
 			                                                                 .ext.used           = true,
 			                                                                 .ext.socket.fd_pass = sid_buffer_get_fd(
 												 ucmd_ctx->exp_buf)})) < 0) {
-				log_error_errno(ID(cmd_res), r, "Failed to send command exports to main SID process.");
+				sid_resource_log_error_errno(cmd_res, r, "Failed to send command exports to main SID process.");
 				r = -1;
 			}
 
@@ -4722,7 +4733,7 @@ static int _send_out_cmd_expbuf(sid_resource_t *cmd_res)
 		} // TODO: if sid_buffer_count returns 0, then set the cmd state as if the buffer was acked
 	} else if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
 		if ((r = fsync(sid_buffer_get_fd(ucmd_ctx->exp_buf))) < 0) {
-			log_error_errno(ID(cmd_res), r, "Failed to fsync command exports to a file.");
+			sid_resource_log_error_errno(cmd_res, r, "Failed to fsync command exports to a file.");
 			r = -1;
 		}
 	} else {
@@ -4735,7 +4746,7 @@ static int _send_out_cmd_expbuf(sid_resource_t *cmd_res)
 				conn     = sid_resource_get_data(conn_res);
 
 				if ((r = _send_fd_over_unix_comms(sid_buffer_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0) {
-					log_error_errno(ID(cmd_res), r, "Failed to send command exports to client.");
+					sid_resource_log_error_errno(cmd_res, r, "Failed to send command exports to client.");
 					r = -1;
 				}
 				break;
@@ -4766,7 +4777,7 @@ static int _send_out_cmd_resbuf(sid_resource_t *cmd_res)
 			conn     = sid_resource_get_data(conn_res);
 
 			if (sid_buffer_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
-				log_error(ID(cmd_res), "Failed to send command response to client.");
+				sid_resource_log_error(cmd_res, "Failed to send command response to client.");
 				(void) _connection_cleanup(conn_res);
 				goto out;
 			}
@@ -4793,7 +4804,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 		_change_cmd_state(cmd_res, CMD_EXECUTING);
 
 		if (cmd_reg->exec && ((r = cmd_reg->exec(cmd_res)) < 0)) {
-			log_error(ID(cmd_res), "Failed to execute command");
+			sid_resource_log_error(cmd_res, "Failed to execute command");
 			goto out;
 		}
 
@@ -4807,7 +4818,7 @@ static int _cmd_handler(sid_resource_event_source_t *es, void *data)
 
 	if (ucmd_ctx->state == CMD_EXEC_FINISHED) {
 		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
-			log_error(ID(cmd_res), "Failed to export KV store.");
+			sid_resource_log_error(cmd_res, "Failed to export KV store.");
 			goto out;
 		}
 
@@ -4886,7 +4897,7 @@ static int _check_msg(sid_resource_t *res, struct sid_msg *msg)
 	struct sid_msg_header header;
 
 	if (msg->size < sizeof(struct sid_msg_header)) {
-		log_error(ID(res), "Incorrect message header size.");
+		sid_resource_log_error(res, "Incorrect message header size.");
 		return -1;
 	}
 
@@ -4907,16 +4918,16 @@ static int _check_msg(sid_resource_t *res, struct sid_msg *msg)
 				header.cmd = SID_CMD_UNKNOWN;
 
 			if (!sid_resource_match(res, &sid_resource_type_ubridge_connection, NULL)) {
-				log_error(ID(res),
-				          INTERNAL_ERROR "Connection resource missing for client command %s.",
-				          sid_cmd_type_to_name(header.cmd));
+				sid_resource_log_error(res,
+				                       INTERNAL_ERROR "Connection resource missing for client command %s.",
+				                       sid_cmd_type_to_name(header.cmd));
 				return -1;
 			}
 
 			if (!_socket_client_is_capable(((struct connection *) sid_resource_get_data(res))->fd, header.cmd)) {
-				log_error(ID(res),
-				          "Client does not have permission to run command %s.",
-				          sid_cmd_type_to_name(header.cmd));
+				sid_resource_log_error(res,
+				                       "Client does not have permission to run command %s.",
+				                       sid_cmd_type_to_name(header.cmd));
 				return -1;
 			}
 			break;
@@ -4941,7 +4952,7 @@ static int _create_command_resource(sid_resource_t *parent_res, struct sid_msg *
 	                         msg,
 	                         SID_RESOURCE_PRIO_NORMAL,
 	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
-		log_error(ID(parent_res), "Failed to register command for processing.");
+		sid_resource_log_error(parent_res, "Failed to register command for processing.");
 		return -1;
 	}
 
@@ -4957,9 +4968,9 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 
 	if (revents & EPOLLERR) {
 		if (revents & EPOLLHUP)
-			log_error(ID(conn_res), "Peer connection closed prematurely.");
+			sid_resource_log_error(conn_res, "Peer connection closed prematurely.");
 		else
-			log_error(ID(conn_res), "Connection error.");
+			sid_resource_log_error(conn_res, "Connection error.");
 		goto fail;
 	}
 
@@ -4979,7 +4990,7 @@ static int _on_connection_event(sid_resource_event_source_t *es, int fd, uint32_
 		}
 	} else if (n < 0) {
 		if (n != -EAGAIN && n != -EINTR) {
-			log_error_errno(ID(conn_res), n, "buffer_read_msg");
+			sid_resource_log_error_errno(conn_res, n, "buffer_read_msg");
 			return -1;
 		}
 	} else {
@@ -5000,14 +5011,14 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 	int                            r;
 
 	if (!(conn = mem_zalloc(sizeof(*conn)))) {
-		log_error(ID(res), "Failed to allocate new connection structure.");
+		sid_resource_log_error(res, "Failed to allocate new connection structure.");
 		goto fail;
 	}
 
 	conn->fd = data_spec->ext.socket.fd_pass;
 
 	if (sid_resource_create_io_event_source(res, NULL, conn->fd, _on_connection_event, 0, "client connection", res) < 0) {
-		log_error(ID(res), "Failed to register connection event handler.");
+		sid_resource_log_error(res, "Failed to register connection event handler.");
 		goto fail;
 	}
 
@@ -5016,7 +5027,7 @@ static int _init_connection(sid_resource_t *res, const void *kickstart_data, voi
 	                                                                .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
 	                                    &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
 	                                    &r))) {
-		log_error_errno(ID(res), r, "Failed to create connection buffer");
+		sid_resource_log_error_errno(res, r, "Failed to create connection buffer");
 		goto fail;
 	}
 
@@ -5059,7 +5070,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	memcpy(&header, msg->header, sizeof(header));
 
 	if (!(ucmd_ctx = mem_zalloc(sizeof(*ucmd_ctx)))) {
-		log_error(ID(res), "Failed to allocate new command structure.");
+		sid_resource_log_error(res, "Failed to allocate new command structure.");
 		goto fail;
 	}
 
@@ -5071,12 +5082,12 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 
 	/* Require exact protocol version. We can add possible backward/forward compatibility in future stable versions. */
 	if (ucmd_ctx->req_hdr.prot != SID_PROTOCOL) {
-		log_error(ID(res), "Protocol version unsupported: %u", ucmd_ctx->req_hdr.prot);
+		sid_resource_log_error(res, "Protocol version unsupported: %u", ucmd_ctx->req_hdr.prot);
 		goto fail;
 	}
 
 	if (!(cmd_reg = _get_cmd_reg(ucmd_ctx))) {
-		log_error(ID(res), INTERNAL_ERROR "%s: Unknown request category: %d.", __func__, (int) ucmd_ctx->req_cat);
+		sid_resource_log_error(res, INTERNAL_ERROR "%s: Unknown request category: %d.", __func__, (int) ucmd_ctx->req_cat);
 		goto fail;
 	}
 
@@ -5086,7 +5097,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	                                                                        .mode    = SID_BUFFER_MODE_PLAIN}),
 	                                            &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
 	                                            &r))) {
-		log_error_errno(ID(res), r, "Failed to create print buffer");
+		sid_resource_log_error_errno(res, r, "Failed to create print buffer");
 		goto fail;
 	}
 
@@ -5095,7 +5106,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 	                                                                        .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
 	                                            &((struct sid_buffer_init) {.size = 1, .alloc_step = 1, .limit = 0}),
 	                                            &r))) {
-		log_error_errno(ID(res), r, "Failed to create response buffer");
+		sid_resource_log_error_errno(res, r, "Failed to create response buffer");
 		goto fail;
 	}
 
@@ -5104,7 +5115,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		goto fail;
 
 	if (!(common_res = sid_resource_search(res, SID_RESOURCE_SEARCH_GENUS, &sid_resource_type_ubridge_common, COMMON_ID))) {
-		log_error(ID(res), INTERNAL_ERROR "%s: Failed to find common resource.", __func__);
+		sid_resource_log_error(res, INTERNAL_ERROR "%s: Failed to find common resource.", __func__);
 		goto fail;
 	}
 	ucmd_ctx->common = sid_resource_get_data(common_res);
@@ -5114,11 +5125,11 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		if ((r = _parse_cmd_udev_env(ucmd_ctx,
 		                             (const char *) msg->header + SID_MSG_HEADER_SIZE,
 		                             msg->size - SID_MSG_HEADER_SIZE)) < 0) {
-			log_error_errno(ID(res), r, "Failed to parse udev environment variables");
+			sid_resource_log_error_errno(res, r, "Failed to parse udev environment variables");
 			goto fail;
 		}
 
-		log_debug(ID(res), "Processing uevent for device " CMD_DEV_NAME_NUM_FMT, CMD_DEV_NAME_NUM(ucmd_ctx));
+		sid_resource_log_debug(res, "Processing uevent for device " CMD_DEV_NAME_NUM_FMT, CMD_DEV_NAME_NUM(ucmd_ctx));
 	}
 
 	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
@@ -5129,7 +5140,7 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 
 	if (cmd_reg->flags & CMD_SESSION_ID) {
 		if (!(worker_id = worker_control_get_worker_id(res))) {
-			log_error(ID(res), "Failed to get worker ID to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
+			sid_resource_log_error(res, "Failed to get worker ID to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
 			goto fail;
 		}
 
@@ -5141,14 +5152,14 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		                         KV_SYNC_P,
 		                         worker_id,
 		                         strlen(worker_id) + 1)) {
-			log_error(ID(res), "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
+			sid_resource_log_error(res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
 			goto fail;
 		}
 	}
 
 	if (sid_resource_create_deferred_event_source(res, &ucmd_ctx->cmd_handler_es, _cmd_handler, 0, "command handler", res) <
 	    0) {
-		log_error(ID(res), "Failed to register command handler.");
+		sid_resource_log_error(res, "Failed to register command handler.");
 		goto fail;
 	}
 
@@ -5235,13 +5246,13 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 	}
 
 	if (!r) {
-		log_debug(ID(update_arg->res),
-		          "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
-		          "which belongs to module %s.",
-		          update_arg->owner,
-		          spec->key,
-		          VVALUE_SEQNUM(vvalue_old),
-		          VVALUE_OWNER(vvalue_old));
+		sid_resource_log_debug(update_arg->res,
+		                       "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
+		                       "which belongs to module %s.",
+		                       update_arg->owner,
+		                       spec->key,
+		                       VVALUE_SEQNUM(vvalue_old),
+		                       VVALUE_OWNER(vvalue_old));
 		update_arg->ret_code = EBUSY;
 	}
 
@@ -5263,17 +5274,17 @@ static int _kv_cb_main_set(struct kv_store_update_spec *spec)
 	r          = (!old_vvalue || ((VVALUE_SEQNUM(new_vvalue) >= VVALUE_SEQNUM(old_vvalue)) && _kv_cb_write(spec)));
 
 	if (r)
-		log_debug(ID(update_arg->res),
-		          "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
-		          spec->key,
-		          VVALUE_SEQNUM(new_vvalue),
-		          old_vvalue ? VVALUE_SEQNUM(old_vvalue) : 0);
+		sid_resource_log_debug(update_arg->res,
+		                       "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
+		                       spec->key,
+		                       VVALUE_SEQNUM(new_vvalue),
+		                       old_vvalue ? VVALUE_SEQNUM(old_vvalue) : 0);
 	else
-		log_debug(ID(update_arg->res),
-		          "Keeping old value for key %s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
-		          spec->key,
-		          VVALUE_SEQNUM(new_vvalue),
-		          old_vvalue ? VVALUE_SEQNUM(old_vvalue) : 0);
+		sid_resource_log_debug(update_arg->res,
+		                       "Keeping old value for key %s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
+		                       spec->key,
+		                       VVALUE_SEQNUM(new_vvalue),
+		                       old_vvalue ? VVALUE_SEQNUM(old_vvalue) : 0);
 
 	return r;
 }
@@ -5283,7 +5294,7 @@ static char *_compose_archive_key(sid_resource_t *res, const char *key, size_t k
 	char *archive_key;
 
 	if (!(archive_key = malloc(key_size + 1))) {
-		log_error(ID(res), "Failed to create archive key for key %s.", key);
+		sid_resource_log_error(res, "Failed to create archive key for key %s.", key);
 		return NULL;
 	}
 
@@ -5310,7 +5321,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	int                         r = -1;
 
 	if (read(fd, &msg_size, SID_BUFFER_SIZE_PREFIX_LEN) != SID_BUFFER_SIZE_PREFIX_LEN) {
-		log_error_errno(ID(res), errno, "Failed to read shared memory size");
+		sid_resource_log_error_errno(res, errno, "Failed to read shared memory size");
 		goto out;
 	}
 
@@ -5318,12 +5329,12 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 		r = 0;
 		goto out;
 	} else if (msg_size > INTERNAL_MSG_MAX_FD_DATA_SIZE) {
-		log_error(ID(res), "Maximum internal messages size exceeded.");
+		sid_resource_log_error(res, "Maximum internal messages size exceeded.");
 		goto out;
 	}
 
 	if ((p = shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
-		log_error_errno(ID(res), errno, "Failed to map memory with key-value store");
+		sid_resource_log_error_errno(res, errno, "Failed to map memory with key-value store");
 		goto out;
 	}
 
@@ -5331,7 +5342,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	p   += sizeof(msg_size);
 
 	if (kv_store_transaction_begin(common_ctx->kv_store_res) < 0) {
-		log_error(ID(res), "Failed to start key-value store transaction");
+		sid_resource_log_error(res, "Failed to start key-value store transaction");
 		goto out;
 	}
 
@@ -5356,14 +5367,14 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 
 		if (kv_store_value_flags & KV_STORE_VALUE_VECTOR) {
 			if (value_size < VVALUE_HEADER_CNT) {
-				log_error(ID(res),
-				          "Received incorrect vector of size %zu to sync with main key-value store.",
-				          value_size);
+				sid_resource_log_error(res,
+				                       "Received incorrect vector of size %zu to sync with main key-value store.",
+				                       value_size);
 				goto out;
 			}
 
 			if (!(vvalue = malloc(value_size * sizeof(kv_vector_t)))) {
-				log_error(ID(res), "Failed to allocate vector to sync main key-value store.");
+				sid_resource_log_error(res, "Failed to allocate vector to sync main key-value store.");
 				goto out;
 			}
 
@@ -5388,7 +5399,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			update_arg.ret_code                = 0;
 
 			vvalue_str                         = _buffer_get_vvalue_str(common_ctx->gen_buf, unset, vvalue, value_size);
-			log_debug(ID(res), syncing_msg, key, vvalue_str ?: "NULL", VVALUE_SEQNUM(vvalue));
+			sid_resource_log_debug(res, syncing_msg, key, vvalue_str ?: "NULL", VVALUE_SEQNUM(vvalue));
 			if (vvalue_str)
 				sid_buffer_rewind_mem(common_ctx->gen_buf, vvalue_str);
 
@@ -5402,10 +5413,11 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 				case KV_OP_SET:
 					break;
 				case KV_OP_ILLEGAL:
-					log_error(ID(res),
-					          INTERNAL_ERROR
-					          "Illegal operator found for key %s while trying to sync main key-value store.",
-					          key);
+					sid_resource_log_error(
+						res,
+						INTERNAL_ERROR
+						"Illegal operator found for key %s while trying to sync main key-value store.",
+						key);
 					goto out;
 			}
 
@@ -5413,14 +5425,14 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			value_to_store = vvalue;
 		} else {
 			if (value_size <= SVALUE_HEADER_SIZE) {
-				log_error(ID(res),
-				          "Received incorrect value of size %zu to sync with main key-value store.",
-				          value_size);
+				sid_resource_log_error(res,
+				                       "Received incorrect value of size %zu to sync with main key-value store.",
+				                       value_size);
 				goto out;
 			}
 
 			if (!(svalue = malloc(value_size))) {
-				log_error(ID(res), "Failed to allocate svalue to sync main key-value store.");
+				sid_resource_log_error(res, "Failed to allocate svalue to sync main key-value store.");
 				goto out;
 			}
 
@@ -5434,7 +5446,11 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			update_arg.res       = common_ctx->kv_store_res;
 			update_arg.ret_code  = 0;
 
-			log_debug(ID(res), syncing_msg, key, unset ? "NULL" : svalue->data + ext_data_offset, svalue->seqnum);
+			sid_resource_log_debug(res,
+			                       syncing_msg,
+			                       key,
+			                       unset ? "NULL" : svalue->data + ext_data_offset,
+			                       svalue->seqnum);
 
 			rel_spec.delta->op = KV_OP_SET;
 
@@ -5521,7 +5537,7 @@ out:
 	free(archive_key);
 
 	if (shm != MAP_FAILED && munmap(shm, msg_size) < 0) {
-		log_error_errno(ID(res), errno, "Failed to unmap memory with key-value store");
+		sid_resource_log_error_errno(res, errno, "Failed to unmap memory with key-value store");
 		r = -1;
 	}
 
@@ -5534,7 +5550,8 @@ static int _worker_proxy_recv_system_cmd_sync(sid_resource_t *worker_proxy_res, 
 	int                         r;
 
 	if (!data_spec->ext.used) {
-		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Received KV store sync request, but KV store sync data missing.");
+		sid_resource_log_error(worker_proxy_res,
+		                       INTERNAL_ERROR "Received KV store sync request, but KV store sync data missing.");
 		return -1;
 	}
 
@@ -5564,7 +5581,7 @@ static int _worker_proxy_recv_system_cmd_resources(sid_resource_t          *work
 	                                                          .mode    = SID_BUFFER_MODE_SIZE_PREFIX}),
 	                              &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
 	                              &r))) {
-		log_error_errno(ID(worker_proxy_res), r, "Failed to create temporary buffer.");
+		sid_resource_log_error_errno(worker_proxy_res, r, "Failed to create temporary buffer.");
 		return -1;
 	}
 
@@ -5573,7 +5590,7 @@ static int _worker_proxy_recv_system_cmd_resources(sid_resource_t          *work
 	                                        buf,
 	                                        2,
 	                                        false)) {
-		log_error(ID(worker_proxy_res), "Failed to write resource tree.");
+		sid_resource_log_error(worker_proxy_res, "Failed to write resource tree.");
 		goto out;
 	}
 
@@ -5597,14 +5614,14 @@ static int _worker_proxy_recv_fn(sid_resource_t          *worker_proxy_res,
 	struct internal_msg_header int_msg;
 
 	if (data_spec->data_size < INTERNAL_MSG_HEADER_SIZE) {
-		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Incorrect internal message header size.");
+		sid_resource_log_error(worker_proxy_res, INTERNAL_ERROR "Incorrect internal message header size.");
 		return -1;
 	}
 
 	memcpy(&int_msg, data_spec->data, INTERNAL_MSG_HEADER_SIZE);
 
 	if (int_msg.cat != MSG_CATEGORY_SYSTEM) {
-		log_error(ID(worker_proxy_res), INTERNAL_ERROR "Received unexpected message category.");
+		sid_resource_log_error(worker_proxy_res, INTERNAL_ERROR "Received unexpected message category.");
 		return -1;
 	}
 
@@ -5616,7 +5633,7 @@ static int _worker_proxy_recv_fn(sid_resource_t          *worker_proxy_res,
 			return _worker_proxy_recv_system_cmd_resources(worker_proxy_res, data_spec, arg);
 
 		default:
-			log_error(ID(worker_proxy_res), "Unknown system command.");
+			sid_resource_log_error(worker_proxy_res, "Unknown system command.");
 			return -1;
 	}
 }
@@ -5633,33 +5650,33 @@ static int _worker_recv_system_cmd_resources(sid_resource_t *worker_res, struct 
 	// TODO: make sure error path is not causing the client waiting for response to hang !!!
 
 	if (!data_spec->ext.used) {
-		log_error(ID(worker_res), "%s data handler is missing.", _msg_prologue);
+		sid_resource_log_error(worker_res, "%s data handler is missing.", _msg_prologue);
 		return -1;
 	}
 
 	if (read(data_spec->ext.socket.fd_pass, &msg_size, SID_BUFFER_SIZE_PREFIX_LEN) != SID_BUFFER_SIZE_PREFIX_LEN) {
-		log_error_errno(ID(worker_res), errno, "%s failed to read shared memory size", _msg_prologue);
+		sid_resource_log_error_errno(worker_res, errno, "%s failed to read shared memory size", _msg_prologue);
 		goto out;
 	}
 
 	if (msg_size <= SID_BUFFER_SIZE_PREFIX_LEN) {
-		log_error(ID(worker_res), "%s no data received.", _msg_prologue);
+		sid_resource_log_error(worker_res, "%s no data received.", _msg_prologue);
 		goto out;
 	} else if (msg_size > INTERNAL_MSG_MAX_FD_DATA_SIZE) {
-		log_error(ID(worker_res), "Maximum internal messages size exceeded.");
+		sid_resource_log_error(worker_res, "Maximum internal messages size exceeded.");
 		goto out;
 	}
 
 	/* cmd id needs at least 1 character with '0' at the end - so 2 characters at least! */
 	if ((data_spec->data_size - INTERNAL_MSG_HEADER_SIZE) < 2) {
-		log_error(ID(worker_res), "%s missing command id to match.", _msg_prologue);
+		sid_resource_log_error(worker_res, "%s missing command id to match.", _msg_prologue);
 		goto out;
 	}
 
 	cmd_id = data_spec->data + INTERNAL_MSG_HEADER_SIZE;
 
 	if (!(cmd_res = sid_resource_search(worker_res, SID_RESOURCE_SEARCH_DFS, &sid_resource_type_ubridge_command, cmd_id))) {
-		log_error(ID(worker_res), "%s failed to find command resource with id %s.", _msg_prologue, cmd_id);
+		sid_resource_log_error(worker_res, "%s failed to find command resource with id %s.", _msg_prologue, cmd_id);
 		goto out;
 	}
 
@@ -5687,7 +5704,7 @@ static int _worker_recv_system_cmd_sync(sid_resource_t *worker_res, struct worke
 
 	/* cmd_id needs at least 1 character with '\0' at the end - so 2 characters at least! */
 	if ((data_spec->data_size - INTERNAL_MSG_HEADER_SIZE) < 2) {
-		log_error(ID(worker_res), "%s missing command id to match.", _msg_prologue);
+		sid_resource_log_error(worker_res, "%s missing command id to match.", _msg_prologue);
 		_change_cmd_state(worker_res, CMD_ERROR);
 		return -1;
 	}
@@ -5695,7 +5712,7 @@ static int _worker_recv_system_cmd_sync(sid_resource_t *worker_res, struct worke
 	cmd_id = data_spec->data + INTERNAL_MSG_HEADER_SIZE;
 
 	if (!(cmd_res = sid_resource_search(worker_res, SID_RESOURCE_SEARCH_DFS, &sid_resource_type_ubridge_command, cmd_id))) {
-		log_error(ID(worker_res), "%s failed to find command resource with id %s.", _msg_prologue, cmd_id);
+		sid_resource_log_error(worker_res, "%s failed to find command resource with id %s.", _msg_prologue, cmd_id);
 		_change_cmd_state(worker_res, CMD_ERROR);
 		return -1;
 	}
@@ -5716,7 +5733,7 @@ static int _worker_recv_fn(sid_resource_t          *worker_res,
 	struct internal_msg_header int_msg;
 
 	if (data_spec->data_size < INTERNAL_MSG_HEADER_SIZE) {
-		log_error(ID(worker_res), INTERNAL_ERROR "Incorrect internal message header size.");
+		sid_resource_log_error(worker_res, INTERNAL_ERROR "Incorrect internal message header size.");
 		return -1;
 	}
 
@@ -5736,7 +5753,7 @@ static int _worker_recv_fn(sid_resource_t          *worker_res,
 					break;
 
 				default:
-					log_error(ID(worker_res), INTERNAL_ERROR "Received unexpected system command.");
+					sid_resource_log_error(worker_res, INTERNAL_ERROR "Received unexpected system command.");
 					return -1;
 			}
 			break;
@@ -5754,11 +5771,12 @@ static int _worker_recv_fn(sid_resource_t          *worker_res,
 				                         data_spec,
 				                         SID_RESOURCE_PRIO_NORMAL,
 				                         SID_RESOURCE_NO_SERVICE_LINKS)) {
-					log_error(ID(worker_res), "Failed to create connection resource.");
+					sid_resource_log_error(worker_res, "Failed to create connection resource.");
 					return -1;
 				}
 			} else {
-				log_error(ID(worker_res), "Received command from worker proxy, but connection handle missing.");
+				sid_resource_log_error(worker_res,
+				                       "Received command from worker proxy, but connection handle missing.");
 				return -1;
 			}
 			break;
@@ -5809,17 +5827,17 @@ static int _get_worker(sid_resource_t *ubridge_res, sid_resource_t **res_p)
 	                                               SID_RESOURCE_SEARCH_IMM_DESC,
 	                                               &sid_resource_type_worker_control,
 	                                               NULL))) {
-		log_error(ID(ubridge_res), INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
+		sid_resource_log_error(ubridge_res, INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
 		return -1;
 	}
 
 	if ((worker_proxy_res = worker_control_get_idle_worker(worker_control_res)))
 		*res_p = worker_proxy_res;
 	else {
-		log_debug(ID(ubridge_res), "Idle worker not found, creating a new one.");
+		sid_resource_log_debug(ubridge_res, "Idle worker not found, creating a new one.");
 
 		if (!util_uuid_gen_str(&mem)) {
-			log_error(ID(ubridge_res), "Failed to generate UUID for new worker.");
+			sid_resource_log_error(ubridge_res, "Failed to generate UUID for new worker.");
 			return -1;
 		}
 
@@ -5839,7 +5857,7 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	struct internal_msg_header int_msg;
 	int                        r;
 
-	log_debug(ID(ubridge_res), "Received an event.");
+	sid_resource_log_debug(ubridge_res, "Received an event.");
 
 	if (_get_worker(ubridge_res, &worker_proxy_res) < 0)
 		return -1;
@@ -5856,12 +5874,12 @@ static int _on_ubridge_interface_event(sid_resource_event_source_t *es, int fd, 
 	data_spec.ext.used  = true;
 
 	if ((data_spec.ext.socket.fd_pass = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
-		log_sys_error(ID(ubridge_res), "accept", "");
+		sid_resource_log_sys_error(ubridge_res, "accept", "");
 		return -1;
 	}
 
 	if ((r = worker_control_channel_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec)) < 0) {
-		log_error_errno(ID(ubridge_res), r, "worker_control_channel_send");
+		sid_resource_log_error_errno(ubridge_res, r, "worker_control_channel_send");
 		r = -1;
 	}
 
@@ -5921,9 +5939,9 @@ static int _load_kv_store(sid_resource_t *ubridge_res, struct sid_ucmd_common_ct
 	int r;
 
 	if (common_ctx->gennum != 0) {
-		log_error(ID(ubridge_res),
-		          INTERNAL_ERROR "%s: unexpected KV generation number, KV store already loaded.",
-		          __func__);
+		sid_resource_log_error(ubridge_res,
+		                       INTERNAL_ERROR "%s: unexpected KV generation number, KV store already loaded.",
+		                       __func__);
 		return -1;
 	}
 
@@ -5931,7 +5949,7 @@ static int _load_kv_store(sid_resource_t *ubridge_res, struct sid_ucmd_common_ct
 		if (errno == ENOENT)
 			return 0;
 
-		log_error_errno(ID(ubridge_res), fd, "Failed to open db file");
+		sid_resource_log_error_errno(ubridge_res, fd, "Failed to open db file");
 		return -1;
 	}
 
@@ -5991,12 +6009,12 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 
 	if (service_fd_activation_present(1)) {
 		if (!(val = getenv(SERVICE_KEY_ACTIVATION_TYPE))) {
-			log_error(ID(ubridge_res), "Missing %s key in environment.", SERVICE_KEY_ACTIVATION_TYPE);
+			sid_resource_log_error(ubridge_res, "Missing %s key in environment.", SERVICE_KEY_ACTIVATION_TYPE);
 			return -ENOKEY;
 		}
 
 		if (strcmp(val, SERVICE_VALUE_ACTIVATION_FD)) {
-			log_error(ID(ubridge_res), "Incorrect value for key %s: %s.", SERVICE_VALUE_ACTIVATION_FD, val);
+			sid_resource_log_error(ubridge_res, "Incorrect value for key %s: %s.", SERVICE_VALUE_ACTIVATION_FD, val);
 			return -EINVAL;
 		}
 
@@ -6004,14 +6022,14 @@ static int _set_up_ubridge_socket(sid_resource_t *ubridge_res, int *ubridge_sock
 		fd = SERVICE_FD_ACTIVATION_FDS_START;
 
 		if (!(service_fd_is_socket_unix(fd, SOCK_STREAM, 1, SID_SOCKET_PATH, SID_SOCKET_PATH_LEN))) {
-			log_error(ID(ubridge_res), "Passed file descriptor is of incorrect type.");
+			sid_resource_log_error(ubridge_res, "Passed file descriptor is of incorrect type.");
 			return -EINVAL;
 		}
 	} else {
 		/* No systemd autoactivation - create new socket FD. */
 		if ((fd = sid_comms_unix_create(SID_SOCKET_PATH, SID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) <
 		    0) {
-			log_error_errno(ID(ubridge_res), fd, "Failed to create local server socket");
+			sid_resource_log_error_errno(ubridge_res, fd, "Failed to create local server socket");
 			return fd;
 		}
 	}
@@ -6044,7 +6062,7 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 	} else
 		ctx->gennum = 1;
 
-	log_debug(ID(ctx->res), "Current generation number: %" PRIu16, ctx->gennum);
+	sid_resource_log_debug(ctx->res, "Current generation number: %" PRIu16, ctx->gennum);
 
 	_vvalue_header_prep(vvalue, VVALUE_CNT(vvalue), &null_int, &flags, &ctx->gennum, core_owner);
 	_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, &ctx->gennum, sizeof(ctx->gennum));
@@ -6091,9 +6109,9 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 		return r;
 
 	if (old_boot_id)
-		log_debug(ID(ctx->res), "Previous system boot id: %s.", old_boot_id);
+		sid_resource_log_debug(ctx->res, "Previous system boot id: %s.", old_boot_id);
 
-	log_debug(ID(ctx->res), "Current system boot id: %s.", boot_id);
+	sid_resource_log_debug(ctx->res, "Current system boot id: %s.", boot_id);
 
 	_vvalue_header_prep(vvalue, VVALUE_CNT(vvalue), &null_int, &value_flags_no_sync, &ctx->gennum, core_owner);
 	_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, boot_id, sizeof(boot_id));
@@ -6116,17 +6134,17 @@ static int _set_up_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *um
 	int umonitor_fd = -1;
 
 	if (!(umonitor->udev = udev_new())) {
-		log_error(ID(ubridge_res), "Failed to create udev handle.");
+		sid_resource_log_error(ubridge_res, "Failed to create udev handle.");
 		goto fail;
 	}
 
 	if (!(umonitor->mon = udev_monitor_new_from_netlink(umonitor->udev, "udev"))) {
-		log_error(ID(ubridge_res), "Failed to create udev monitor.");
+		sid_resource_log_error(ubridge_res, "Failed to create udev monitor.");
 		goto fail;
 	}
 
 	if (udev_monitor_filter_add_match_tag(umonitor->mon, UDEV_TAG_SID) < 0) {
-		log_error(ID(ubridge_res), "Failed to create tag filter.");
+		sid_resource_log_error(ubridge_res, "Failed to create tag filter.");
 		goto fail;
 	}
 
@@ -6139,12 +6157,12 @@ static int _set_up_udev_monitor(sid_resource_t *ubridge_res, struct umonitor *um
 	                                        0,
 	                                        "udev monitor",
 	                                        ubridge_res) < 0) {
-		log_error(ID(ubridge_res), "Failed to register udev monitoring.");
+		sid_resource_log_error(ubridge_res, "Failed to register udev monitoring.");
 		goto fail;
 	}
 
 	if (udev_monitor_enable_receiving(umonitor->mon) < 0) {
-		log_error(ID(ubridge_res), "Failed to enable udev monitoring.");
+		sid_resource_log_error(ubridge_res, "Failed to enable udev monitoring.");
 		goto fail;
 	}
 
@@ -6246,7 +6264,7 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 	int                         r;
 
 	if (!(common_ctx = mem_zalloc(sizeof(struct sid_ucmd_common_ctx)))) {
-		log_error(ID(res), "Failed to allocate memory for common structure.");
+		sid_resource_log_error(res, "Failed to allocate memory for common structure.");
 		goto fail;
 	}
 	common_ctx->res = res;
@@ -6262,7 +6280,7 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 	                                                     &main_kv_store_res_params,
 	                                                     SID_RESOURCE_PRIO_NORMAL - 1,
 	                                                     SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(ID(res), "Failed to create main key-value store.");
+		sid_resource_log_error(res, "Failed to create main key-value store.");
 		goto fail;
 	}
 
@@ -6271,7 +6289,7 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 	                                                                          .mode    = SID_BUFFER_MODE_PLAIN}),
 	                                              &((struct sid_buffer_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
 	                                              &r))) {
-		log_error_errno(ID(res), r, "Failed to create generic buffer");
+		sid_resource_log_error_errno(res, r, "Failed to create generic buffer");
 		goto fail;
 	}
 
@@ -6305,7 +6323,7 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 	                                  &block_res_mod_params,
 	                                  SID_RESOURCE_PRIO_NORMAL,
 	                                  SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(ID(res), "Failed to create type module registry.");
+		sid_resource_log_error(res, "Failed to create type module registry.");
 		goto fail;
 	}
 
@@ -6317,17 +6335,17 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 	                                  &type_res_mod_params,
 	                                  SID_RESOURCE_PRIO_NORMAL,
 	                                  SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(ID(res), "Failed to create block module registry.");
+		sid_resource_log_error(res, "Failed to create block module registry.");
 		goto fail;
 	}
 
 	if (module_registry_load_modules(common_ctx->block_mod_registry_res) < 0) {
-		log_error(ID(res), "Failed to preload block modules.");
+		sid_resource_log_error(res, "Failed to preload block modules.");
 		goto fail;
 	}
 
 	if (module_registry_load_modules(common_ctx->type_mod_registry_res) < 0) {
-		log_error(ID(res), "Failed to preload type modules.");
+		sid_resource_log_error(res, "Failed to preload type modules.");
 		goto fail;
 	}
 
@@ -6360,7 +6378,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	struct sid_ucmd_common_ctx *common_ctx = NULL;
 
 	if (!(ubridge = mem_zalloc(sizeof(struct ubridge)))) {
-		log_error(ID(res), "Failed to allocate memory for ubridge structure.");
+		sid_resource_log_error(res, "Failed to allocate memory for ubridge structure.");
 		goto fail;
 	}
 	ubridge->socket_fd = -1;
@@ -6372,7 +6390,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                                                  ubridge,
 	                                                  SID_RESOURCE_PRIO_NORMAL,
 	                                                  SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(ID(res), "Failed to create internal ubridge resource.");
+		sid_resource_log_error(res, "Failed to create internal ubridge resource.");
 		goto fail;
 	}
 
@@ -6383,7 +6401,7 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                                       common_ctx,
 	                                       SID_RESOURCE_PRIO_NORMAL,
 	                                       SID_RESOURCE_NO_SERVICE_LINKS))) {
-		log_error(ID(res), "Failed to create ubridge common resource.");
+		sid_resource_log_error(res, "Failed to create ubridge common resource.");
 		goto fail;
 	}
 	common_ctx                                                      = sid_resource_get_data(common_res);
@@ -6430,12 +6448,12 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                         &worker_control_res_params,
 	                         SID_RESOURCE_PRIO_NORMAL,
 	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
-		log_error(ID(res), "Failed to create worker control.");
+		sid_resource_log_error(res, "Failed to create worker control.");
 		goto fail;
 	}
 
 	if (_set_up_ubridge_socket(res, &ubridge->socket_fd) < 0) {
-		log_error(ID(res), "Failed to set up local server socket.");
+		sid_resource_log_error(res, "Failed to set up local server socket.");
 		goto fail;
 	}
 
@@ -6446,12 +6464,12 @@ static int _init_ubridge(sid_resource_t *res, const void *kickstart_data, void *
 	                                        0,
 	                                        sid_resource_type_ubridge.name,
 	                                        res) < 0) {
-		log_error(ID(res), "Failed to register interface with event loop.");
+		sid_resource_log_error(res, "Failed to register interface with event loop.");
 		goto fail;
 	}
 
 	if (_set_up_udev_monitor(res, &ubridge->umonitor) < 0) {
-		log_error(ID(res), "Failed to set up udev monitor.");
+		sid_resource_log_error(res, "Failed to set up udev monitor.");
 		goto fail;
 	}
 

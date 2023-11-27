@@ -57,7 +57,7 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGCHLD);
 	if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
-		log_error(ID(res), "Failed to block SIGCHLD signal.");
+		sid_resource_log_error(res, "Failed to block SIGCHLD signal.");
 		goto fail;
 	}
 
@@ -69,7 +69,7 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 	sigaddset(&mask, SIGUSR1);
 
 	if (sid_resource_create_signal_event_source(res, NULL, mask, _on_sid_signal_event, 0, "signal_handler", res) < 0) {
-		log_error(ID(res), "Failed to create signal handlers.");
+		sid_resource_log_error(res, "Failed to create signal handlers.");
 		goto fail;
 	}
 
@@ -80,7 +80,7 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 	                         SID_RESOURCE_NO_PARAMS,
 	                         SID_RESOURCE_PRIO_NORMAL,
 	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
-		log_error(ID(res), "Failed to create udev bridge interface.");
+		sid_resource_log_error(res, "Failed to create udev bridge interface.");
 		goto fail;
 	}
 

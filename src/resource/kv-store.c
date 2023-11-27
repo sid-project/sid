@@ -912,7 +912,7 @@ static int _rollback_fn(const char             *key,
 	if (!trans_arg->is_archive)
 		_destroy_kv_store_value(curr_value);
 
-	log_debug(ID(trans_arg->res), "Rolling back value for key %s", key);
+	sid_resource_log_debug(trans_arg->res, "Rolling back value for key %s", key);
 
 	if (rollback_value)
 		return 1;
@@ -1025,7 +1025,7 @@ int kv_store_transaction_begin(sid_resource_t *kv_store_res)
 	                                                                   .mode    = SID_BUFFER_MODE_PLAIN}),
 	                                       &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
 	                                       &r))) {
-		log_error_errno(ID(kv_store_res), r, "Failed to create transaction rollback tracker buffer");
+		sid_resource_log_error_errno(kv_store_res, r, "Failed to create transaction rollback tracker buffer");
 		return r;
 	}
 	if (!(unset_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
@@ -1033,7 +1033,7 @@ int kv_store_transaction_begin(sid_resource_t *kv_store_res)
 	                                                                .mode    = SID_BUFFER_MODE_PLAIN}),
 	                                    &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
 	                                    &r))) {
-		log_error_errno(ID(kv_store_res), r, "Failed to create transaction unset tracker buffer");
+		sid_resource_log_error_errno(kv_store_res, r, "Failed to create transaction unset tracker buffer");
 		sid_buffer_destroy(rollback_buf);
 		return r;
 	}
@@ -1051,7 +1051,7 @@ void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback)
 	size_t                  i, nr_args;
 
 	if (!kv_store_in_transaction(kv_store_res)) {
-		log_warning(ID(kv_store_res), "Ending a transaction that hasn't been started");
+		sid_resource_log_warning(kv_store_res, "Ending a transaction that hasn't been started");
 		return;
 	}
 
@@ -1298,7 +1298,7 @@ static int _init_kv_store(sid_resource_t *kv_store_res, const void *kickstart_da
 	struct kv_store                           *kv_store;
 
 	if (!(kv_store = mem_zalloc(sizeof(*kv_store)))) {
-		log_error(ID(kv_store_res), "Failed to allocate key-value store structure.");
+		sid_resource_log_error(kv_store_res, "Failed to allocate key-value store structure.");
 		goto out;
 	}
 
@@ -1307,14 +1307,14 @@ static int _init_kv_store(sid_resource_t *kv_store_res, const void *kickstart_da
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
 			if (!(kv_store->ht = hash_create(params->hash.initial_size))) {
-				log_error(ID(kv_store_res), "Failed to create hash table for key-value store.");
+				sid_resource_log_error(kv_store_res, "Failed to create hash table for key-value store.");
 				goto out;
 			}
 			break;
 
 		case KV_STORE_BACKEND_BPTREE:
 			if (!(kv_store->bpt = bptree_create(params->bptree.order))) {
-				log_error(ID(kv_store_res), "Failed to create B+ tree for key-value store.");
+				sid_resource_log_error(kv_store_res, "Failed to create B+ tree for key-value store.");
 				goto out;
 			}
 	}
