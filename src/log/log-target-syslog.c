@@ -19,6 +19,7 @@
 
 #include "log/log.h"
 
+#include <limits.h>
 #include <stdio.h>
 
 #define SID_SYSLOG_IDENT "sid"
@@ -49,7 +50,7 @@ void log_syslog_close(void)
 
 void log_syslog_output(const struct log_ctx *ctx, const char *format, va_list ap)
 {
-	char   msg[4096];
+	char   msg[LINE_MAX];
 	size_t prefix_len, remaining_len;
 	int    r;
 
