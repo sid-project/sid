@@ -19,6 +19,7 @@
 
 #include "log/log.h"
 
+#include <limits.h>
 #include <stdio.h>
 #include <systemd/sd-journal.h>
 #include <unistd.h>
@@ -62,7 +63,7 @@ void log_journal_close(void)
 
 void log_journal_output(const struct log_ctx *ctx, const char *format, va_list ap)
 {
-	char   msg[4096];
+	char   msg[LINE_MAX];
 	size_t prefix_len, remaining_len;
 	int    r;
 
