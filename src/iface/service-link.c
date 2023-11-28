@@ -262,7 +262,36 @@ static int _notify_logger(struct service_link        *sl,
                           const char                 *fmt,
                           va_list                     ap)
 {
-	log_voutput((log_t *) sl->data, log_ctx, fmt, ap);
+	switch (notification) {
+		case SERVICE_NOTIFICATION_MESSAGE:
+			log_voutput((log_t *) sl->data, log_ctx, fmt, ap);
+			break;
+		case SERVICE_NOTIFICATION_STATUS:
+			// TODO: add output
+			break;
+		case SERVICE_NOTIFICATION_ERRNO:
+			// TODO: add output
+			break;
+		case SERVICE_NOTIFICATION_READY:
+			log_output((log_t *) sl->data, log_ctx, "| READY |");
+			break;
+		case SERVICE_NOTIFICATION_RELOADING:
+			log_output((log_t *) sl->data, log_ctx, "| RELOADING |");
+			break;
+		case SERVICE_NOTIFICATION_STOPPING:
+			log_output((log_t *) sl->data, log_ctx, "| STOPPING |");
+			break;
+		case SERVICE_NOTIFICATION_WATCHDOG_REFRESH:
+			log_output((log_t *) sl->data, log_ctx, "| WATCHDOG_REFRESH |");
+			break;
+		case SERVICE_NOTIFICATION_WATCHDOG_TRIGGER:
+			log_output((log_t *) sl->data, log_ctx, "| WATCHDOG_TRIGGER |");
+			break;
+		case SERVICE_NOTIFICATION_NONE:
+		case SERVICE_NOTIFICATION_UNSET:
+			break;
+	}
+
 	return 0;
 }
 
