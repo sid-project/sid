@@ -250,18 +250,32 @@ sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
 	/* +1 for '/' if id is defined and +1 for '\0' at the end */
 	id_size = (type->short_name ? strlen(type->short_name) : 0) + (id_part ? strlen(id_part) + 1 : 0) + 1;
 
-	if (!(id = malloc(id_size)))
-		goto fail;
+	if (!(id = malloc(id_size)) ||
+	    (snprintf(id, id_size, "%s%s%s", type->short_name ?: "", id_part ? " " : "", id_part ?: "") < 0)) {
+		sid_resource_log_error(parent_res, "Failed to construct identifier for a new %s child resource.", type->short_name);
+		free(id);
+		return NULL;
+	}
 
-	if (snprintf(id, id_size, "%s%s%s", type->short_name ?: "", id_part ? " " : "", id_part ?: "") < 0)
-		goto fail;
+	if (!(res = mem_zalloc(sizeof(*res)))) {
+		sid_resource_log_error(parent_res,
+		                       "Failed to allocate structure for a new child resource of type %s.",
+		                       type->short_name);
+		free(id);
+		return NULL;
+	}
 
-	if (!(res = mem_zalloc(sizeof(*res))))
-		goto fail;
+	res->id = id;
+
+	if (_create_service_link_group(res, service_link_defs) < 0) {
+		sid_resource_log_error(parent_res, "Failed to attach service links to a new %s child resource.", type->short_name);
+		free(id);
+		free(res);
+		return NULL;
+	}
 
 	sid_resource_log_debug(res, "Creating resource.");
 
-	res->id = id;
 	list_init(&res->children);
 	list_init(&res->event_sources);
 
@@ -276,9 +290,6 @@ sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
 	 * anywhere else which would be confusing.
 	 */
 	res->ref_count++;
-
-	if (_create_service_link_group(res, service_link_defs) < 0)
-		goto fail;
 
 	res->flags                    = flags;
 	res->type                     = type;
@@ -306,35 +317,33 @@ sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
 	res->initialized = 1;
 	return res;
 fail:
-	if (res) {
-		list_iterate_items_safe_back (child_res, tmp_child_res, &res->children)
-			(void) sid_resource_unref(child_res);
+	list_iterate_items_safe_back (child_res, tmp_child_res, &res->children)
+		(void) sid_resource_unref(child_res);
 
-		_remove_res_from_parent_res(res);
+	_remove_res_from_parent_res(res);
 
-		list_iterate_items_safe_back (es, tmp_es, &res->event_sources)
-			_destroy_event_source(es);
+	list_iterate_items_safe_back (es, tmp_es, &res->event_sources)
+		_destroy_event_source(es);
 
-		if (res->event_loop.sd_event_loop)
-			sd_event_unref(res->event_loop.sd_event_loop);
+	if (res->event_loop.sd_event_loop)
+		sd_event_unref(res->event_loop.sd_event_loop);
 
-		if (res->slg)
-			service_link_group_destroy_with_members(res->slg);
+	if (res->slg)
+		service_link_group_destroy_with_members(res->slg);
 
-		/* Drop the termporary reference! */
-		res->ref_count--;
+	/* Drop the termporary reference! */
+	res->ref_count--;
 
-		if (res->ref_count > 0)
-			sid_resource_log_error(res,
-			                       INTERNAL_ERROR
-			                       "%s: Resource has %u references left while destroying it because of a failure.",
-			                       __func__,
-			                       res->ref_count);
-
-		free(res);
-	}
+	if (res->ref_count > 0)
+		sid_resource_log_error(res,
+		                       INTERNAL_ERROR
+		                       "%s: Resource has %u references left while destroying it because of a failure.",
+		                       __func__,
+		                       res->ref_count);
 
 	sid_resource_log_debug(res, "Resource NOT created.");
+
+	free(res);
 	free(id);
 	return NULL;
 }
