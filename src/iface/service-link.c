@@ -39,6 +39,7 @@ struct service_link {
 	const char                 *name;
 	service_link_type_t         type;
 	service_link_notification_t notification;
+	service_link_flags_t        flags;
 	void                       *data;
 };
 
@@ -47,7 +48,7 @@ struct service_link_group {
 	struct list members;
 };
 
-struct service_link *service_link_create(service_link_type_t type, const char *name, void *data)
+struct service_link *service_link_create(service_link_type_t type, const char *name, service_link_flags_t flags, void *data)
 {
 	struct service_link *sl;
 
@@ -61,11 +62,37 @@ struct service_link *service_link_create(service_link_type_t type, const char *n
 
 	sl->group        = NULL;
 	sl->type         = type;
+	sl->flags        = flags;
 	sl->data         = data;
 	sl->notification = SERVICE_NOTIFICATION_NONE;
 	list_init(&sl->list);
 
 	return sl;
+}
+
+struct service_link *service_link_clone(struct service_link *sl, const char *name)
+{
+	struct service_link *sl_clone;
+
+	if (!(sl_clone = malloc(sizeof(*sl))))
+		return NULL;
+
+	if (!name)
+		name = sl->name;
+
+	if (!(sl_clone->name = strdup(name))) {
+		free(sl_clone);
+		return NULL;
+	}
+
+	sl_clone->group        = NULL;
+	sl_clone->type         = sl->type;
+	sl_clone->flags        = sl->flags;
+	sl_clone->data         = sl->data;
+	sl_clone->notification = sl->notification;
+	list_init(&sl_clone->list);
+
+	return sl_clone;
 }
 
 void service_link_destroy(struct service_link *sl)
@@ -102,6 +129,36 @@ struct service_link_group *service_link_group_create(const char *name)
 	list_init(&slg->members);
 
 	return slg;
+}
+
+struct service_link_group *service_link_group_clone(struct service_link_group *slg, const char *name)
+{
+	struct service_link_group *slg_clone;
+	struct service_link       *sl, *sl_clone;
+
+	if (!slg)
+		return NULL;
+
+	if (!name)
+		name = slg->name;
+
+	if (!(slg_clone = service_link_group_create(name)))
+		return NULL;
+
+	list_iterate_items (sl, &slg->members) {
+		if (!(sl->flags & SERVICE_FLAG_CLONEABLE))
+			continue;
+
+		if (!(sl_clone = service_link_clone(sl, NULL)))
+			goto fail;
+
+		service_link_group_add_member(slg_clone, sl_clone);
+	}
+
+	return slg_clone;
+fail:
+	service_link_group_destroy_with_members(slg_clone);
+	return NULL;
 }
 
 void service_link_group_destroy(struct service_link_group *slg)

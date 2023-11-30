@@ -67,6 +67,11 @@ typedef enum {
 	SERVICE_NOTIFICATION_MESSAGE          = UINT64_C(0x0000000000000100),
 } service_link_notification_t;
 
+typedef enum {
+	SERVICE_FLAG_NONE      = UINT64_C(0x0000000000000000),
+	SERVICE_FLAG_CLONEABLE = UINT64_C(0x0000000000000001),
+} service_link_flags_t;
+
 struct service_link;
 struct service_link_group;
 
@@ -84,13 +89,15 @@ struct service_link_group;
 /* int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) */
 #define service_fd_is_socket_unix       sd_is_socket_unix
 
-struct service_link *service_link_create(service_link_type_t type, const char *name, void *data);
+struct service_link *service_link_create(service_link_type_t type, const char *name, service_link_flags_t flags, void *data);
+struct service_link *service_link_clone(struct service_link *sl, const char *name);
 void                 service_link_destroy(struct service_link *sl);
 
 void service_link_add_notification(struct service_link *sl, service_link_notification_t notification);
 void service_link_remove_notification(struct service_link *sl, service_link_notification_t notification);
 
 struct service_link_group *service_link_group_create(const char *name);
+struct service_link_group *service_link_group_clone(struct service_link_group *slg, const char *name);
 void                       service_link_group_destroy(struct service_link_group *slg);
 void                       service_link_group_destroy_with_members(struct service_link_group *slg);
 
