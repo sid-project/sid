@@ -74,6 +74,7 @@ typedef struct sid_resource_service_link_def {
 	const char                 *name;
 	service_link_type_t         type;
 	service_link_notification_t notification;
+	service_link_flags_t        flags;
 	void                       *data;
 } sid_resource_service_link_def_t;
 

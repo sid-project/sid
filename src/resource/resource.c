@@ -200,6 +200,7 @@ static int _create_service_link_group(sid_resource_t                 *parent_res
 				goto out;
 			}
 
+			service_link_set_flags(sl, def->flags);
 			service_link_set_data(sl, def->data);
 			service_link_add_notification(sl, def->notification);
 			service_link_group_add_member(slg, sl);
