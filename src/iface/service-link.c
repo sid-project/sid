@@ -54,12 +54,16 @@ struct service_link *service_link_create(service_link_type_t type, const char *n
 	if (!(sl = malloc(sizeof(*sl))))
 		return NULL;
 
-	list_init(&sl->list);
+	if (!(sl->name = strdup(name))) {
+		free(sl);
+		return NULL;
+	}
+
 	sl->group        = NULL;
-	sl->name         = name;
 	sl->type         = type;
 	sl->data         = data;
 	sl->notification = SERVICE_NOTIFICATION_NONE;
+	list_init(&sl->list);
 
 	return sl;
 }
@@ -69,6 +73,7 @@ void service_link_destroy(struct service_link *sl)
 	if (sl->group)
 		service_link_group_remove_member(sl->group, sl);
 
+	free((void *) sl->name);
 	free(sl);
 }
 
@@ -89,7 +94,11 @@ struct service_link_group *service_link_group_create(const char *name)
 	if (!(slg = malloc(sizeof(*slg))))
 		return NULL;
 
-	slg->name = name;
+	if (!(slg->name = strdup(name))) {
+		free(slg);
+		return NULL;
+	}
+
 	list_init(&slg->members);
 
 	return slg;
@@ -102,6 +111,7 @@ void service_link_group_destroy(struct service_link_group *slg)
 	list_iterate_items_safe (sl, tmp_sl, &slg->members)
 		list_del(&sl->list);
 
+	free((void *) slg->name);
 	free(slg);
 }
 
@@ -112,6 +122,7 @@ void service_link_group_destroy_with_members(struct service_link_group *slg)
 	list_iterate_items_safe (sl, tmp_sl, &slg->members)
 		service_link_destroy(sl);
 
+	free((void *) slg->name);
 	free(slg);
 }
 
