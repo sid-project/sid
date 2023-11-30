@@ -176,28 +176,34 @@ static void _destroy_event_source(sid_resource_event_source_t *es)
 	free(es);
 }
 
-static int _create_service_link_group(sid_resource_t *res, sid_resource_service_link_def_t service_link_defs[])
+static int _create_service_link_group(sid_resource_t                 *parent_res,
+                                      sid_resource_t                 *res,
+                                      sid_resource_service_link_def_t service_link_defs[])
 {
 	sid_resource_service_link_def_t *def;
 	struct service_link_group       *slg;
 	struct service_link             *sl;
 	int                              r = 0;
 
-	if (!service_link_defs)
-		return 0;
+	if (parent_res && parent_res->slg)
+		slg = service_link_group_clone(parent_res->slg, res->id);
+	else
+		slg = NULL;
 
-	if (!(slg = service_link_group_create(res->id)))
-		return -ENOMEM;
+	if (service_link_defs) {
+		if (!slg && !(slg = service_link_group_create(res->id)))
+			return -ENOMEM;
 
-	for (def = service_link_defs; def->type != SERVICE_TYPE_NONE; def++) {
-		if (!(sl = service_link_create(def->type, def->name))) {
-			r = -ENOMEM;
-			goto out;
+		for (def = service_link_defs; def->type != SERVICE_TYPE_NONE; def++) {
+			if (!(sl = service_link_create(def->type, def->name))) {
+				r = -ENOMEM;
+				goto out;
+			}
+
+			service_link_set_data(sl, def->data);
+			service_link_add_notification(sl, def->notification);
+			service_link_group_add_member(slg, sl);
 		}
-
-		service_link_set_data(sl, def->data);
-		service_link_add_notification(sl, def->notification);
-		service_link_group_add_member(slg, sl);
 	}
 
 	res->slg = slg;
@@ -268,7 +274,7 @@ sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
 
 	res->id = id;
 
-	if (_create_service_link_group(res, service_link_defs) < 0) {
+	if (_create_service_link_group(parent_res, res, service_link_defs) < 0) {
 		sid_resource_log_error(parent_res, "Failed to attach service links to a new %s child resource.", type->short_name);
 		free(id);
 		free(res);
