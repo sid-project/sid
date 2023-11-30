@@ -48,7 +48,7 @@ struct service_link_group {
 	struct list members;
 };
 
-struct service_link *service_link_create(service_link_type_t type, const char *name, service_link_flags_t flags, void *data)
+struct service_link *service_link_create(service_link_type_t type, const char *name)
 {
 	struct service_link *sl;
 
@@ -62,8 +62,8 @@ struct service_link *service_link_create(service_link_type_t type, const char *n
 
 	sl->group        = NULL;
 	sl->type         = type;
-	sl->flags        = flags;
-	sl->data         = data;
+	sl->flags        = SERVICE_FLAG_NONE;
+	sl->data         = NULL;
 	sl->notification = SERVICE_NOTIFICATION_NONE;
 	list_init(&sl->list);
 
@@ -102,6 +102,16 @@ void service_link_destroy(struct service_link *sl)
 
 	free((void *) sl->name);
 	free(sl);
+}
+
+void service_link_set_flags(struct service_link *sl, service_link_flags_t flags)
+{
+	sl->flags = flags;
+}
+
+void service_link_set_data(struct service_link *sl, void *data)
+{
+	sl->data = data;
 }
 
 void service_link_add_notification(struct service_link *sl, service_link_notification_t notification)
