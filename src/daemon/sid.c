@@ -175,12 +175,14 @@ int main(int argc, char *argv[])
 						      .name         = "systemd",
 						      .type         = SERVICE_TYPE_SYSTEMD,
 						      .notification = SERVICE_NOTIFICATION_READY,
+						      .flags        = SERVICE_FLAG_NONE,
 						      .data         = NULL,
 					      },
 					      {
 						      .name         = "logger",
 						      .type         = SERVICE_TYPE_LOGGER,
 						      .notification = SERVICE_NOTIFICATION_READY | SERVICE_NOTIFICATION_MESSAGE,
+						      .flags        = SERVICE_FLAG_CLONEABLE,
 						      .data         = log,
 					      },
 					      NULL_SERVICE_LINK});
