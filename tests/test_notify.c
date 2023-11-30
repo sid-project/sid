@@ -25,7 +25,7 @@ int __wrap_sid_buffer_get_data(struct sid_buffer *buf, const void **data, size_t
 
 static void test_notify_ready(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd", NULL);
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_READY);
@@ -36,7 +36,7 @@ static void test_notify_ready(void **state)
 
 static void test_notify_ready_reloading(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd", NULL);
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_READY);
@@ -52,7 +52,7 @@ static void test_notify_ready_reloading(void **state)
 
 static void test_notify_blank(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd", NULL);
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_STATUS);
@@ -63,7 +63,7 @@ static void test_notify_blank(void **state)
 
 static void test_notify_errno(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd", NULL);
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_ERRNO);
@@ -74,7 +74,7 @@ static void test_notify_errno(void **state)
 
 static void test_notify_errno_status(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd", NULL);
+	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
 	service_link_add_notification(sl, SERVICE_NOTIFICATION_ERRNO);

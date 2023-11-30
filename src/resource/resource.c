@@ -190,11 +190,12 @@ static int _create_service_link_group(sid_resource_t *res, sid_resource_service_
 		return -ENOMEM;
 
 	for (def = service_link_defs; def->type != SERVICE_TYPE_NONE; def++) {
-		if (!(sl = service_link_create(def->type, def->name, def->data))) {
+		if (!(sl = service_link_create(def->type, def->name))) {
 			r = -ENOMEM;
 			goto out;
 		}
 
+		service_link_set_data(sl, def->data);
 		service_link_add_notification(sl, def->notification);
 		service_link_group_add_member(slg, sl);
 	}
