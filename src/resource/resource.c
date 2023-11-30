@@ -439,13 +439,13 @@ static int _do_sid_resource_unref(sid_resource_t *res, int nested)
 
 	_remove_res_from_parent_res(res);
 
-	if (res->slg)
-		service_link_group_destroy_with_members(res->slg);
-
 	if (pid == res->pid_created)
 		sid_resource_log_debug(res, "%s.", msg_destroyed);
 	else
 		sid_resource_log_debug(res, "%s (%s: %d/%d).", msg_destroyed, msg_pid_created_current, res->pid_created, pid);
+
+	if (res->slg)
+		service_link_group_destroy_with_members(res->slg);
 
 	free(res->id);
 	free(res);
