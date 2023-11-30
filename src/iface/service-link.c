@@ -108,8 +108,10 @@ void service_link_group_destroy(struct service_link_group *slg)
 {
 	struct service_link *sl, *tmp_sl;
 
-	list_iterate_items_safe (sl, tmp_sl, &slg->members)
+	list_iterate_items_safe (sl, tmp_sl, &slg->members) {
 		list_del(&sl->list);
+		sl->group = NULL;
+	}
 
 	free((void *) slg->name);
 	free(slg);
