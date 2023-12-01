@@ -4592,23 +4592,36 @@ static int _cmd_exec_scan(sid_resource_t *cmd_res)
 		sid_resource_log_debug(cmd_res, "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
 		ucmd_ctx->scan.phase = phase;
 
-		if (_cmd_scan_phase_regs[phase].exec(cmd_res) < 0) {
-			/* if init or cleanup phase fails, there's nothing else we can do */
-			if (phase == CMD_SCAN_PHASE_A_INIT || phase == CMD_SCAN_PHASE_A_CLEANUP) {
-				sid_resource_log_error(cmd_res, "%s phase failed.", _cmd_scan_phase_regs[phase].name);
-				return -1;
-			} else
-				sid_resource_log_error(cmd_res,
-				                       "%s phase failed. Switching to %s phase.",
-				                       _cmd_scan_phase_regs[phase].name,
-				                       _cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].name);
+		if (_cmd_scan_phase_regs[phase].exec(cmd_res) == 0)
+			/* No error, continue with subsequent phases */
+			continue;
 
-			ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_ERROR;
+		/* Handle error case. */
 
-			/* otherwise, call out modules to handle the error case */
-			if (_cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].exec(cmd_res) < 0)
-				sid_resource_log_error(cmd_res, "error phase failed.");
+		/* if init or cleanup phase has failed, there's nothing else we can do - return. */
+		if (phase == CMD_SCAN_PHASE_A_INIT || phase == CMD_SCAN_PHASE_A_CLEANUP) {
+			sid_resource_log_error(cmd_res, "%s phase failed.", _cmd_scan_phase_regs[phase].name);
+			return -1;
 		}
+
+		/* Otherwise, call out modules to handle the error case. */
+		sid_resource_log_error(cmd_res,
+		                       "%s phase failed. Switching to %s phase.",
+		                       _cmd_scan_phase_regs[phase].name,
+		                       _cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].name);
+
+		ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_ERROR;
+		if (_cmd_scan_phase_regs[phase].exec(cmd_res) < 0)
+			sid_resource_log_error(cmd_res, "%s phase failed.", _cmd_scan_phase_regs[phase].name);
+
+		/* Also, call out modules to cleanup after the error phase. */
+		if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE)
+			ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_REMOVE_CLEANUP;
+		else
+			ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_A_CLEANUP;
+
+		if (_cmd_scan_phase_regs[phase].exec(cmd_res))
+			sid_resource_log_error(cmd_res, "%s phase failed.", _cmd_scan_phase_regs[phase].name);
 	}
 
 	return 0;
