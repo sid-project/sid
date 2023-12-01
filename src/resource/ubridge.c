@@ -4498,9 +4498,8 @@ static int _cmd_exec_trigger_action_next(sid_resource_t *cmd_res)
 
 static int _cmd_exec_scan_remove_mods(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(cmd_res);
-	const char                    *mod_name;
-	const struct sid_ucmd_mod_fns *mod_fns;
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	const char          *mod_name;
 
 	_exec_block_mods(cmd_res);
 
@@ -4517,11 +4516,7 @@ static int _cmd_exec_scan_remove_mods(sid_resource_t *cmd_res)
 		return 0;
 	}
 
-	module_registry_get_module_symbols(ucmd_ctx->scan.type_mod_res_current, (const void ***) &mod_fns);
-	if (mod_fns && mod_fns->scan_remove)
-		return mod_fns->scan_remove(sid_resource_get_data(ucmd_ctx->scan.type_mod_res_current), ucmd_ctx);
-
-	return 0;
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
 static int _cmd_exec_scan_remove_core(sid_resource_t *cmd_res)
@@ -4531,23 +4526,13 @@ static int _cmd_exec_scan_remove_core(sid_resource_t *cmd_res)
 
 static int _cmd_exec_scan_error(sid_resource_t *cmd_res)
 {
-	struct sid_ucmd_ctx           *ucmd_ctx = sid_resource_get_data(cmd_res);
-	const struct sid_ucmd_mod_fns *mod_fns;
-	int                            r = 0;
+	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	int                  r        = 0;
 
 	_exec_block_mods(cmd_res);
 
-	if (ucmd_ctx->scan.type_mod_res_current) {
-		module_registry_get_module_symbols(ucmd_ctx->scan.type_mod_res_current, (const void ***) &mod_fns);
-		if (mod_fns && mod_fns->error)
-			r |= mod_fns->error(sid_resource_get_data(ucmd_ctx->scan.type_mod_res_current), ucmd_ctx);
-	}
-
-	if (ucmd_ctx->scan.type_mod_res_next) {
-		module_registry_get_module_symbols(ucmd_ctx->scan.type_mod_res_next, (const void ***) &mod_fns);
-		if (mod_fns && mod_fns->error)
-			r |= mod_fns->error(sid_resource_get_data(ucmd_ctx->scan.type_mod_res_next), ucmd_ctx);
-	}
+	r |= _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
+	r |= _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
 
 	return r;
 }
