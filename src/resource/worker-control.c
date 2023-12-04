@@ -928,7 +928,7 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 	return _do_worker_control_get_new_worker(worker_control_res, params, res_p, false);
 }
 
-int _run_internal_worker(sid_resource_t *worker_control_res)
+static int _run_internal_worker(sid_resource_t *worker_control_res)
 {
 	struct worker_control  *worker_control = sid_resource_get_data(worker_control_res);
 	struct worker_kickstart kickstart;
@@ -973,7 +973,7 @@ int _run_internal_worker(sid_resource_t *worker_control_res)
 	return sid_resource_run_event_loop(res);
 }
 
-int _run_external_worker(sid_resource_t *worker_control_res)
+static int _run_external_worker(sid_resource_t *worker_control_res)
 {
 	struct worker_control      *worker_control = sid_resource_get_data(worker_control_res);
 	struct worker_channel_spec *channel_specs;
