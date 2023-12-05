@@ -59,13 +59,13 @@ static void _version(FILE *f)
 	fprintf(f, "Compiled by: %s on %s with %s\n", SID_COMPILED_BY, SID_COMPILATION_HOST, SID_COMPILER);
 }
 
-static void _become_daemon()
+static void _become_daemon(log_t *log)
 {
 	int fd;
 
 	switch (fork()) {
 		case -1:
-			log_error_errno(LOG_PREFIX, errno, "Failed to fork daemon");
+			log_herror_errno(log, LOG_PREFIX, errno, "Failed to fork daemon");
 			exit(EXIT_FAILURE);
 		case 0:
 			break;
@@ -74,22 +74,22 @@ static void _become_daemon()
 	}
 
 	if (!setsid()) {
-		log_error_errno(LOG_PREFIX, errno, "Failed to set session ID");
+		log_herror_errno(log, LOG_PREFIX, errno, "Failed to set session ID");
 		exit(EXIT_FAILURE);
 	}
 
 	if (chdir("/")) {
-		log_error_errno(LOG_PREFIX, errno, "Failed to change working directory");
+		log_herror_errno(log, LOG_PREFIX, errno, "Failed to change working directory");
 		exit(EXIT_FAILURE);
 	}
 
 	if ((fd = open("/dev/null", O_RDWR)) == -1) {
-		log_error_errno(LOG_PREFIX, errno, "Failed to open /dev/null");
+		log_herror_errno(log, LOG_PREFIX, errno, "Failed to open /dev/null");
 		exit(EXIT_FAILURE);
 	}
 
 	if ((dup2(fd, STDIN_FILENO) < 0) || (dup2(fd, STDOUT_FILENO) < 0) || (dup2(fd, STDERR_FILENO) < 0)) {
-		log_error_errno(LOG_PREFIX, errno, "Failed to duplicate standard IO streams");
+		log_herror_errno(log, LOG_PREFIX, errno, "Failed to duplicate standard IO streams");
 		(void) close(fd);
 		exit(EXIT_FAILURE);
 	}
@@ -100,7 +100,7 @@ static void _become_daemon()
 		if (close(fd)) {
 			if (errno == EBADF)
 				continue;
-			log_error_errno(LOG_PREFIX, errno, "Failed to close FD %d", fd);
+			log_herror_errno(log, LOG_PREFIX, errno, "Failed to close FD %d", fd);
 		}
 	}
 
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
 			log = log_init_with_handle(LOG_TARGET_JOURNAL, verbose);
 		else
 			log = log_init_with_handle(LOG_TARGET_SYSLOG, verbose);
-		_become_daemon();
+		_become_daemon(log);
 	}
 
 	sid_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
 		                                               SID_RESOURCE_SEARCH_WIDE_DFS,
 		                                               &sid_resource_type_worker_control,
 		                                               NULL))) {
-			log_error(LOG_PREFIX, INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
+			log_herror(log, LOG_PREFIX, INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
 			goto out;
 		}
 		sid_res = NULL;
