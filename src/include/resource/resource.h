@@ -256,7 +256,6 @@ void sid_resource_log_output(sid_resource_t *res, struct log_ctx *log_ctx, const
 	sid_resource_log_output(res,                                                                                               \
 	                        &((struct log_ctx) {.level_id = l,                                                                 \
 	                                            .prefix   = NULL,                                                              \
-	                                            .class_id = LOG_CLASS_UNCLASSIFIED,                                            \
 	                                            .errno_id = e,                                                                 \
 	                                            .src_file = __FILE__,                                                          \
 	                                            .src_line = __LINE__,                                                          \
