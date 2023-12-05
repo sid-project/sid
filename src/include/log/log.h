@@ -43,7 +43,6 @@ typedef enum {
 
 struct log_ctx {
 	int         level_id;
-	int         class_id;
 	const char *prefix;
 	int         errno_id;
 	const char *src_file;
@@ -69,15 +68,12 @@ void   log_change_target(log_t *log, log_target_t new_target);
 __format_printf(3, 4) void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...);
 void log_voutput(log_t *log, struct log_ctx *ctx, const char *format, va_list ap);
 
-#define LOG_CLASS_UNCLASSIFIED 0x0000
-
-#define LOG_PRINT              LOG_LOCAL0
+#define LOG_PRINT LOG_LOCAL0
 
 #define LOG_LINE(h, l, p, e, ...)                                                                                                  \
 	log_output(h,                                                                                                              \
 	           &((struct log_ctx) {.level_id = l,                                                                              \
 	                               .prefix   = p,                                                                              \
-	                               .class_id = LOG_CLASS_UNCLASSIFIED,                                                         \
 	                               .errno_id = e,                                                                              \
 	                               .src_file = __FILE__,                                                                       \
 	                               .src_line = __LINE__,                                                                       \

@@ -72,7 +72,6 @@ void log_voutput(log_t *log, struct log_ctx *ctx, const char *format, va_list ap
 		if (!log_ignored) {
 			log_voutput(&_log,
 			            &((struct log_ctx) {.level_id = LOG_ERR,
-			                                .class_id = LOG_CLASS_UNCLASSIFIED,
 			                                .prefix   = "",
 			                                .errno_id = 0,
 			                                .src_file = ctx->src_file,
