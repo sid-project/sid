@@ -41,20 +41,31 @@ typedef enum {
 	_LOG_TARGET_COUNT
 } log_target_t;
 
-struct log_ctx {
+typedef struct log_pfx log_pfx_t;
+
+typedef struct log_pfx {
+	const char *s;
+	log_pfx_t  *n;
+} log_pfx_t;
+
+typedef struct log_ctx {
 	int         level_id;
-	const char *prefix;
 	int         errno_id;
 	const char *src_file;
 	int         src_line;
 	const char *src_func;
-};
+} log_ctx_t;
+
+typedef struct log_req {
+	log_pfx_t *pfx;
+	log_ctx_t *ctx;
+} log_req_t;
 
 struct log_target {
 	const char *name;
 	void (*open)(int verbose_mode);
 	void (*close)(void);
-	void (*output)(const struct log_ctx *ctx, const char *format, va_list ap);
+	void (*output)(const log_req_t *req, const char *format, va_list ap);
 };
 
 extern const struct log_target log_target_standard;
@@ -65,19 +76,19 @@ void   log_init(log_target_t target, int verbose_mode);
 log_t *log_init_with_handle(log_target_t target, int verbose_mode);
 void   log_change_target(log_t *log, log_target_t new_target);
 
-__format_printf(3, 4) void log_output(log_t *log, struct log_ctx *ctx, const char *format, ...);
-void log_voutput(log_t *log, struct log_ctx *ctx, const char *format, va_list ap);
+__format_printf(3, 4) void log_output(log_t *log, log_req_t *req, const char *format, ...);
+void log_voutput(log_t *log, log_req_t *req, const char *format, va_list ap);
 
 #define LOG_PRINT LOG_LOCAL0
 
 #define LOG_LINE(h, l, p, e, ...)                                                                                                  \
 	log_output(h,                                                                                                              \
-	           &((struct log_ctx) {.level_id = l,                                                                              \
-	                               .prefix   = p,                                                                              \
-	                               .errno_id = e,                                                                              \
-	                               .src_file = __FILE__,                                                                       \
-	                               .src_line = __LINE__,                                                                       \
-	                               .src_func = __func__}),                                                                     \
+	           &(struct log_req) {.pfx = p ? &(log_pfx_t) {.s = p, .n = NULL} : NULL,                                          \
+	                              .ctx = &((log_ctx_t) {.level_id = l,                                                         \
+	                                                    .errno_id = e,                                                         \
+	                                                    .src_file = __FILE__,                                                  \
+	                                                    .src_line = __LINE__,                                                  \
+	                                                    .src_func = __func__})},                                               \
 	           __VA_ARGS__)
 
 #define log_debug(p, ...)              LOG_LINE(NULL, LOG_DEBUG, p, 0, __VA_ARGS__)
