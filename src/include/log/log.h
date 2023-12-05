@@ -84,16 +84,25 @@ void log_voutput(log_t *log, struct log_ctx *ctx, const char *format, va_list ap
 	                               .src_func = __func__}),                                                                     \
 	           __VA_ARGS__)
 
-#define log_debug(p, ...)          LOG_LINE(NULL, LOG_DEBUG, p, 0, __VA_ARGS__)
-#define log_info(p, ...)           LOG_LINE(NULL, LOG_INFO, p, 0, __VA_ARGS__)
-#define log_notice(p, ...)         LOG_LINE(NULL, LOG_NOTICE, p, 0, __VA_ARGS__)
-#define log_warning(p, ...)        LOG_LINE(NULL, LOG_WARNING, p, 0, __VA_ARGS__)
-#define log_error(p, ...)          LOG_LINE(NULL, LOG_ERR, p, 0, __VA_ARGS__)
-#define log_print(p, ...)          LOG_LINE(NULL, LOG_PRINT, p, 0, __VA_ARGS__)
-#define log_error_errno(p, e, ...) LOG_LINE(NULL, LOG_ERR, p, e, __VA_ARGS__)
-#define log_sys_error(p, x, y)     log_error_errno(p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
+#define log_debug(p, ...)              LOG_LINE(NULL, LOG_DEBUG, p, 0, __VA_ARGS__)
+#define log_info(p, ...)               LOG_LINE(NULL, LOG_INFO, p, 0, __VA_ARGS__)
+#define log_notice(p, ...)             LOG_LINE(NULL, LOG_NOTICE, p, 0, __VA_ARGS__)
+#define log_warning(p, ...)            LOG_LINE(NULL, LOG_WARNING, p, 0, __VA_ARGS__)
+#define log_error(p, ...)              LOG_LINE(NULL, LOG_ERR, p, 0, __VA_ARGS__)
+#define log_print(p, ...)              LOG_LINE(NULL, LOG_PRINT, p, 0, __VA_ARGS__)
+#define log_error_errno(p, e, ...)     LOG_LINE(NULL, LOG_ERR, p, e, __VA_ARGS__)
+#define log_sys_error(p, x, y)         log_error_errno(p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
 
-#define INTERNAL_ERROR             "Internal error: "
+#define log_hdebug(h, p, ...)          LOG_LINE(h, LOG_DEBUG, p, 0, __VA_ARGS__)
+#define log_hinfo(h, p, ...)           LOG_LINE(h, LOG_INFO, p, 0, __VA_ARGS__)
+#define log_hnotice(h, p, ...)         LOG_LINE(h, LOG_NOTICE, p, 0, __VA_ARGS__)
+#define log_hwarning(h, p, ...)        LOG_LINE(h, LOG_WARNING, p, 0, __VA_ARGS__)
+#define log_herror(h, p, ...)          LOG_LINE(h, LOG_ERR, p, 0, __VA_ARGS__)
+#define log_hprint(h, p, ...)          LOG_LINE(h, LOG_PRINT, p, 0, __VA_ARGS__)
+#define log_herror_errno(h, p, e, ...) LOG_LINE(h, LOG_ERR, p, e, __VA_ARGS__)
+#define log_hsys_error(h, p, x, y)     log_herror_errno(h, p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
+
+#define INTERNAL_ERROR                 "Internal error: "
 
 #ifdef __cplusplus
 }
