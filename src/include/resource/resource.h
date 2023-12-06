@@ -250,16 +250,16 @@ int sid_resource_exit_event_loop(sid_resource_t *res);
 /*
  * logging
  */
-void sid_resource_log_output(sid_resource_t *res, struct log_ctx *log_ctx, const char *fmt, ...);
+void sid_resource_log_output(sid_resource_t *res, log_req_t *log_req, const char *fmt, ...);
 
 #define SID_RESOURCE_LOG_LINE(res, l, e, ...)                                                                                      \
 	sid_resource_log_output(res,                                                                                               \
-	                        &((struct log_ctx) {.level_id = l,                                                                 \
-	                                            .prefix   = NULL,                                                              \
-	                                            .errno_id = e,                                                                 \
-	                                            .src_file = __FILE__,                                                          \
-	                                            .src_line = __LINE__,                                                          \
-	                                            .src_func = __func__}),                                                        \
+	                        &((log_req_t) {.pfx = NULL,                                                                        \
+	                                       .ctx = &((log_ctx_t) {.level_id = l,                                                \
+	                                                             .errno_id = e,                                                \
+	                                                             .src_file = __FILE__,                                         \
+	                                                             .src_line = __LINE__,                                         \
+	                                                             .src_func = __func__})}),                                     \
 	                        __VA_ARGS__)
 
 #define sid_resource_log_debug(res, ...)           SID_RESOURCE_LOG_LINE(res, LOG_DEBUG, 0, __VA_ARGS__)

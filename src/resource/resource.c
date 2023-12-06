@@ -1259,8 +1259,8 @@ void sid_resource_iter_destroy(sid_resource_iter_t *iter)
 
 int sid_resource_run_event_loop(sid_resource_t *res)
 {
-	struct log_ctx log_ctx = SERVICE_LINK_DEFAULT_LOG_CTX;
-	int            r;
+	log_req_t log_req = SERVICE_LINK_DEFAULT_LOG_REQ;
+	int       r;
 
 	if (!res->event_loop.sd_event_loop)
 		return -ENOMEDIUM;
@@ -1268,8 +1268,8 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 	sid_resource_ref(res);
 	sid_resource_log_debug(res, "Entering event loop.");
 
-	log_ctx.prefix = res->id;
-	(void) service_link_group_notify(res->slg, SERVICE_NOTIFICATION_READY, &log_ctx, NULL);
+	log_req.pfx = &((log_pfx_t) {.s = res->id, .n = NULL});
+	(void) service_link_group_notify(res->slg, SERVICE_NOTIFICATION_READY, &log_req, NULL);
 
 	if ((r = sd_event_loop(res->event_loop.sd_event_loop)) < 0) {
 		if (r == -ECHILD)
@@ -1295,21 +1295,21 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 	return sd_event_exit(res->event_loop.sd_event_loop, 0);
 }
 
-void sid_resource_log_output(sid_resource_t *res, struct log_ctx *log_ctx, const char *fmt, ...)
+void sid_resource_log_output(sid_resource_t *res, struct log_req *log_req, const char *fmt, ...)
 {
-	const char *orig_prefix = log_ctx->prefix;
-	va_list     ap;
+	log_pfx_t *orig_pfx = log_req->pfx;
+	va_list    ap;
 
 	if (!res)
 		return;
 
-	log_ctx->prefix = res->id;
+	log_req->pfx = &((log_pfx_t) {.s = res->id, .n = NULL});
 
 	va_start(ap, fmt);
-	service_link_group_vnotify(res->slg, SERVICE_NOTIFICATION_MESSAGE, log_ctx, fmt, ap);
+	service_link_group_vnotify(res->slg, SERVICE_NOTIFICATION_MESSAGE, log_req, fmt, ap);
 	va_end(ap);
 
-	log_ctx->prefix = orig_prefix;
+	log_req->pfx = orig_pfx;
 }
 
 static void _write_event_source_elem_fields(sid_resource_event_source_t *es,
