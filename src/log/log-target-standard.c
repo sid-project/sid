@@ -61,7 +61,8 @@ void log_standard_close(void)
 
 void log_standard_output(const log_req_t *req, const char *format, va_list ap)
 {
-	FILE *out_file;
+	FILE      *out_file;
+	log_pfx_t *pfx;
 
 	if (req->ctx->level_id > _max_level_id && req->ctx->level_id != LOG_PRINT)
 		return;
@@ -79,8 +80,8 @@ void log_standard_output(const log_req_t *req, const char *format, va_list ap)
 		        req->ctx->src_func ? ":" : "",
 		        req->ctx->src_func ?: "");
 
-	if (req->pfx)
-		fprintf(out_file, "<%s> ", req->pfx->s);
+	for (pfx = req->pfx; pfx; pfx = pfx->n)
+		fprintf(out_file, "<%s> ", pfx->s ?: "");
 
 	vfprintf(out_file, format, ap);
 
