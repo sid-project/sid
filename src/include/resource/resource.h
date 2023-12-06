@@ -250,7 +250,7 @@ int sid_resource_exit_event_loop(sid_resource_t *res);
 /*
  * logging
  */
-void sid_resource_log_output(sid_resource_t *res, log_req_t *log_req, const char *fmt, ...);
+void sid_resource_log_output(sid_resource_t *res, const log_req_t *log_req, const char *fmt, ...);
 
 #define SID_RESOURCE_LOG_LINE(res, l, e, ...)                                                                                      \
 	sid_resource_log_output(res,                                                                                               \

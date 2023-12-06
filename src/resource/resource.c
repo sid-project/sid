@@ -1295,21 +1295,19 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 	return sd_event_exit(res->event_loop.sd_event_loop, 0);
 }
 
-void sid_resource_log_output(sid_resource_t *res, struct log_req *log_req, const char *fmt, ...)
+void sid_resource_log_output(sid_resource_t *res, const log_req_t *log_req, const char *fmt, ...)
 {
-	log_pfx_t *orig_pfx = log_req->pfx;
-	va_list    ap;
+	log_req_t req;
+	va_list   ap;
 
 	if (!res)
 		return;
 
-	log_req->pfx = &((log_pfx_t) {.s = res->id, .n = NULL});
+	req = (log_req_t) {.pfx = &((log_pfx_t) {.s = res->id, .n = log_req->pfx}), .ctx = log_req->ctx};
 
 	va_start(ap, fmt);
-	service_link_group_vnotify(res->slg, SERVICE_NOTIFICATION_MESSAGE, log_req, fmt, ap);
+	service_link_group_vnotify(res->slg, SERVICE_NOTIFICATION_MESSAGE, &req, fmt, ap);
 	va_end(ap);
-
-	log_req->pfx = orig_pfx;
 }
 
 static void _write_event_source_elem_fields(sid_resource_event_source_t *es,
