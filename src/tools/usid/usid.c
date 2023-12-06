@@ -267,8 +267,8 @@ static void _version(FILE *f)
 int main(int argc, char *argv[])
 {
 	int opt;
-	int verbose = 0;
-	int r       = -1;
+	int verbose              = 0;
+	int r                    = -1;
 
 	struct option longopts[] = {{"help", 0, NULL, 'h'},
 	                            {"verbose", 0, NULL, 'v'},
