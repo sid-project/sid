@@ -270,11 +270,6 @@ int main(int argc, char *argv[])
 	int verbose = 0;
 	int r       = -1;
 
-	if (_init_usid()) {
-		log_error(LOG_PREFIX, "_init_usid failed");
-		return EXIT_FAILURE;
-	}
-
 	struct option longopts[] = {{"help", 0, NULL, 'h'},
 	                            {"verbose", 0, NULL, 'v'},
 	                            {"version", 0, NULL, 'V'},
@@ -308,6 +303,11 @@ int main(int argc, char *argv[])
 	}
 
 	log_init(LOG_TARGET_STANDARD, verbose);
+
+	if (_init_usid()) {
+		log_error(LOG_PREFIX, "_init_usid failed");
+		return EXIT_FAILURE;
+	}
 
 	switch (sid_cmd_name_to_type(argv[optind])) {
 		case SID_CMD_ACTIVE:
