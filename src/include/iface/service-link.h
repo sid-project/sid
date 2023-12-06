@@ -112,35 +112,35 @@ int  service_link_group_remove_member(struct service_link_group *slg, struct ser
  * Arguments depend on notification type used - see comments in enum service_notification_t definition.
  */
 
-#define SERVICE_LINK_DEFAULT_LOG_CTX                                                                                               \
-	((struct log_ctx) {.level_id = LOG_DEBUG,                                                                                  \
-	                   .prefix   = "service-link",                                                                             \
-	                   .errno_id = 0,                                                                                          \
-	                   .src_file = __FILE__,                                                                                   \
-	                   .src_line = __LINE__,                                                                                   \
-	                   .src_func = __func__})
+#define SERVICE_LINK_DEFAULT_LOG_REQ                                                                                               \
+	((log_req_t) {.pfx = NULL,                                                                                                 \
+	              .ctx = &((log_ctx_t) {.level_id = LOG_DEBUG,                                                                 \
+	                                    .errno_id = 0,                                                                         \
+	                                    .src_file = __FILE__,                                                                  \
+	                                    .src_line = __LINE__,                                                                  \
+	                                    .src_func = __func__})})
 
 int service_link_notify(struct service_link        *sl,
                         service_link_notification_t notification,
-                        struct log_ctx             *log_ctx,
+                        struct log_req             *log_req,
                         const char                 *fmt,
                         ...);
 
 int service_link_vnotify(struct service_link        *sl,
                          service_link_notification_t notification,
-                         struct log_ctx             *log_ctx,
+                         struct log_req             *log_req,
                          const char                 *fmt,
                          va_list                     ap);
 
 int service_link_group_notify(struct service_link_group  *slg,
                               service_link_notification_t notification,
-                              struct log_ctx             *log_ctx,
+                              struct log_req             *log_req,
                               const char                 *fmt,
                               ...);
 
 int service_link_group_vnotify(struct service_link_group  *slg,
                                service_link_notification_t notification,
-                               struct log_ctx             *log_ctx,
+                               struct log_req             *log_req,
                                const char                 *fmt,
                                va_list                     ap);
 

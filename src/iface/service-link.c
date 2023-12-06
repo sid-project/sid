@@ -239,7 +239,7 @@ out:
 
 static int _notify_systemd(struct service_link        *sl,
                            service_link_notification_t notification,
-                           struct log_ctx             *log_ctx,
+                           log_req_t                  *log_req,
                            const char                 *fmt,
                            va_list                     ap)
 {
@@ -338,13 +338,13 @@ out:
 
 static int _notify_logger(struct service_link        *sl,
                           service_link_notification_t notification,
-                          struct log_ctx             *log_ctx,
+                          log_req_t                  *log_req,
                           const char                 *fmt,
                           va_list                     ap)
 {
 	switch (notification) {
 		case SERVICE_NOTIFICATION_MESSAGE:
-			log_voutput((log_t *) sl->data, log_ctx, fmt, ap);
+			log_voutput((log_t *) sl->data, log_req, fmt, ap);
 			break;
 		case SERVICE_NOTIFICATION_STATUS:
 			// TODO: add output
@@ -353,19 +353,19 @@ static int _notify_logger(struct service_link        *sl,
 			// TODO: add output
 			break;
 		case SERVICE_NOTIFICATION_READY:
-			log_output((log_t *) sl->data, log_ctx, "| READY |");
+			log_output((log_t *) sl->data, log_req, "| READY |");
 			break;
 		case SERVICE_NOTIFICATION_RELOADING:
-			log_output((log_t *) sl->data, log_ctx, "| RELOADING |");
+			log_output((log_t *) sl->data, log_req, "| RELOADING |");
 			break;
 		case SERVICE_NOTIFICATION_STOPPING:
-			log_output((log_t *) sl->data, log_ctx, "| STOPPING |");
+			log_output((log_t *) sl->data, log_req, "| STOPPING |");
 			break;
 		case SERVICE_NOTIFICATION_WATCHDOG_REFRESH:
-			log_output((log_t *) sl->data, log_ctx, "| WATCHDOG_REFRESH |");
+			log_output((log_t *) sl->data, log_req, "| WATCHDOG_REFRESH |");
 			break;
 		case SERVICE_NOTIFICATION_WATCHDOG_TRIGGER:
-			log_output((log_t *) sl->data, log_ctx, "| WATCHDOG_TRIGGER |");
+			log_output((log_t *) sl->data, log_req, "| WATCHDOG_TRIGGER |");
 			break;
 		case SERVICE_NOTIFICATION_NONE:
 		case SERVICE_NOTIFICATION_UNSET:
@@ -378,7 +378,7 @@ static int _notify_logger(struct service_link        *sl,
 static int _do_service_link_notify(struct service_link        *sl,
                                    struct service_link_group  *slg,
                                    service_link_notification_t notification,
-                                   struct log_ctx             *log_ctx,
+                                   log_req_t                  *log_req,
                                    const char                 *fmt,
                                    va_list                     ap)
 {
@@ -388,10 +388,10 @@ static int _do_service_link_notify(struct service_link        *sl,
 		if (sl->notification & notification) {
 			switch (sl->type) {
 				case SERVICE_TYPE_SYSTEMD:
-					r = _notify_systemd(sl, notification, log_ctx, fmt, ap);
+					r = _notify_systemd(sl, notification, log_req, fmt, ap);
 					break;
 				case SERVICE_TYPE_LOGGER:
-					r = _notify_logger(sl, notification, log_ctx, fmt, ap);
+					r = _notify_logger(sl, notification, log_req, fmt, ap);
 					break;
 				case SERVICE_TYPE_NONE:
 					break;
@@ -404,10 +404,10 @@ static int _do_service_link_notify(struct service_link        *sl,
 
 			switch (sl->type) {
 				case SERVICE_TYPE_SYSTEMD:
-					iter_r = _notify_systemd(sl, notification, log_ctx, fmt, ap);
+					iter_r = _notify_systemd(sl, notification, log_req, fmt, ap);
 					break;
 				case SERVICE_TYPE_LOGGER:
-					iter_r = _notify_logger(sl, notification, log_ctx, fmt, ap);
+					iter_r = _notify_logger(sl, notification, log_req, fmt, ap);
 					break;
 				case SERVICE_TYPE_NONE:
 					break;
@@ -423,24 +423,20 @@ static int _do_service_link_notify(struct service_link        *sl,
 
 int service_link_vnotify(struct service_link        *sl,
                          service_link_notification_t notification,
-                         struct log_ctx             *log_ctx,
+                         log_req_t                  *log_req,
                          const char                 *fmt,
                          va_list                     ap)
 {
-	return _do_service_link_notify(sl, NULL, notification, log_ctx, fmt, ap);
+	return _do_service_link_notify(sl, NULL, notification, log_req, fmt, ap);
 }
 
-int service_link_notify(struct service_link        *sl,
-                        service_link_notification_t notification,
-                        struct log_ctx             *log_ctx,
-                        const char                 *fmt,
-                        ...)
+int service_link_notify(struct service_link *sl, service_link_notification_t notification, log_req_t *log_req, const char *fmt, ...)
 {
 	va_list ap;
 	int     r;
 
 	va_start(ap, fmt);
-	r = _do_service_link_notify(sl, NULL, notification, log_ctx, fmt, ap);
+	r = _do_service_link_notify(sl, NULL, notification, log_req, fmt, ap);
 	va_end(ap);
 
 	return r;
@@ -448,16 +444,16 @@ int service_link_notify(struct service_link        *sl,
 
 int service_link_group_vnotify(struct service_link_group  *slg,
                                service_link_notification_t notification,
-                               struct log_ctx             *log_ctx,
+                               log_req_t                  *log_req,
                                const char                 *fmt,
                                va_list                     ap)
 {
-	return _do_service_link_notify(NULL, slg, notification, log_ctx, fmt, ap);
+	return _do_service_link_notify(NULL, slg, notification, log_req, fmt, ap);
 }
 
 int service_link_group_notify(struct service_link_group  *slg,
                               service_link_notification_t notification,
-                              struct log_ctx             *log_ctx,
+                              log_req_t                  *log_req,
                               const char                 *fmt,
                               ...)
 {
@@ -465,7 +461,7 @@ int service_link_group_notify(struct service_link_group  *slg,
 	int     r;
 
 	va_start(ap, fmt);
-	r = _do_service_link_notify(NULL, slg, notification, log_ctx, fmt, ap);
+	r = _do_service_link_notify(NULL, slg, notification, log_req, fmt, ap);
 	va_end(ap);
 
 	return r;
