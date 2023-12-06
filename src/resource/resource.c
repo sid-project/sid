@@ -1324,7 +1324,8 @@ static void _resource_log_output(sid_resource_t *res, log_req_t *log_req, const 
 	if (!res)
 		return;
 
-	req = (log_req_t) {.pfx = &((log_pfx_t) {.s = "res", .n = &((log_pfx_t) {.s = res->id, .n = NULL})}), .ctx = log_req->ctx};
+	req = (log_req_t) {.pfx = &((log_pfx_t) {.s = "res-int", .n = &((log_pfx_t) {.s = res->id, .n = NULL})}),
+	                   .ctx = log_req->ctx};
 
 	va_start(ap, fmt);
 	service_link_group_vnotify(res->slg, SERVICE_NOTIFICATION_MESSAGE, &req, fmt, ap);
@@ -1339,7 +1340,8 @@ void sid_resource_log_output(sid_resource_t *res, const log_req_t *log_req, cons
 	if (!res)
 		return;
 
-	req = (log_req_t) {.pfx = &((log_pfx_t) {.s = res->id, .n = log_req->pfx}), .ctx = log_req->ctx};
+	req = (log_req_t) {.pfx = &((log_pfx_t) {.s = "res-imp", .n = &((log_pfx_t) {.s = res->id, .n = log_req->pfx})}),
+	                   .ctx = log_req->ctx};
 
 	va_start(ap, fmt);
 	service_link_group_vnotify(res->slg, SERVICE_NOTIFICATION_MESSAGE, &req, fmt, ap);
