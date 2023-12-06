@@ -34,6 +34,27 @@
 #include <systemd/sd-event.h>
 #include <unistd.h>
 
+static void _resource_log_output(sid_resource_t *res, log_req_t *log_req, const char *fmt, ...);
+
+#define LOG_LINE_INTERNAL(res, l, e, ...)                                                                                          \
+	_resource_log_output(res,                                                                                                  \
+	                     &((log_req_t) {.pfx = NULL,                                                                           \
+	                                    .ctx = &((log_ctx_t) {.level_id = l,                                                   \
+	                                                          .errno_id = e,                                                   \
+	                                                          .src_file = __FILE__,                                            \
+	                                                          .src_line = __LINE__,                                            \
+	                                                          .src_func = __func__})}),                                        \
+	                     __VA_ARGS__)
+
+#define resource_log_debug(res, ...)           LOG_LINE_INTERNAL(res, LOG_DEBUG, 0, __VA_ARGS__)
+#define resource_log_info(res, ...)            LOG_LINE_INTERNAL(res, LOG_INFO, 0, __VA_ARGS__)
+#define resource_log_notice(res, ...)          LOG_LINE_INTERNAL(res, LOG_NOTICE, 0, __VA_ARGS__)
+#define resource_log_warning(res, ...)         LOG_LINE_INTERNAL(res, LOG_WARNING, 0, __VA_ARGS__)
+#define resource_log_error(res, ...)           LOG_LINE_INTERNAL(res, LOG_ERR, 0, __VA_ARGS__)
+#define resource_log_print(res, ...)           LOG_LINE_INTERNAL(res, LOG_PRINT, 0, __VA_ARGS__)
+#define resource_log_error_errno(res, e, ...)  LOG_LINE_INTERNAL(res, LOG_DEBUG, e, __VA_ARGS__)
+#define resource_log_sys_error(res, x, y, ...) resource_log_error_errno(res, errno, "%s%s%s failed", y, *y ? ": " : "", x)
+
 typedef struct sid_resource {
 	/* structuring */
 	struct list     list;
@@ -157,7 +178,7 @@ static int _create_event_source(sid_resource_t               *res,
 	else
 		sd_event_source_set_enabled(new_es->sd_es, SD_EVENT_ON);
 
-	sid_resource_log_debug(res, "%s event source created: %s.", _event_source_type_names[type], name);
+	resource_log_debug(res, "%s event source created: %s.", _event_source_type_names[type], name);
 
 	list_add(&res->event_sources, &new_es->list);
 out:
@@ -169,7 +190,7 @@ out:
 
 static void _destroy_event_source(sid_resource_event_source_t *es)
 {
-	sid_resource_log_debug(es->res, "%s event source removed: %s.", _event_source_type_names[es->type], es->name);
+	resource_log_debug(es->res, "%s event source removed: %s.", _event_source_type_names[es->type], es->name);
 
 	sd_event_source_disable_unref(es->sd_es);
 	list_del(&es->list);
@@ -260,15 +281,15 @@ sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
 
 	if (!(id = malloc(id_size)) ||
 	    (snprintf(id, id_size, "%s%s%s", type->short_name ?: "", id_part ? " " : "", id_part ?: "") < 0)) {
-		sid_resource_log_error(parent_res, "Failed to construct identifier for a new %s child resource.", type->short_name);
+		resource_log_error(parent_res, "Failed to construct identifier for a new %s child resource.", type->short_name);
 		free(id);
 		return NULL;
 	}
 
 	if (!(res = mem_zalloc(sizeof(*res)))) {
-		sid_resource_log_error(parent_res,
-		                       "Failed to allocate structure for a new child resource of type %s.",
-		                       type->short_name);
+		resource_log_error(parent_res,
+		                   "Failed to allocate structure for a new child resource of type %s.",
+		                   type->short_name);
 		free(id);
 		return NULL;
 	}
@@ -276,13 +297,13 @@ sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
 	res->id = id;
 
 	if (_create_service_link_group(parent_res, res, service_link_defs) < 0) {
-		sid_resource_log_error(parent_res, "Failed to attach service links to a new %s child resource.", type->short_name);
+		resource_log_error(parent_res, "Failed to attach service links to a new %s child resource.", type->short_name);
 		free(id);
 		free(res);
 		return NULL;
 	}
 
-	sid_resource_log_debug(res, "Creating resource.");
+	resource_log_debug(res, "Creating resource.");
 
 	list_init(&res->children);
 	list_init(&res->event_sources);
@@ -317,7 +338,7 @@ sid_resource_t *sid_resource_create(sid_resource_t                 *parent_res,
 	if (type->init && type->init(res, kickstart_data, &res->data) < 0)
 		goto fail;
 
-	sid_resource_log_debug(res, "Resource created.");
+	resource_log_debug(res, "Resource created.");
 
 	/* Drop the temporary reference! */
 	res->ref_count--;
@@ -343,13 +364,12 @@ fail:
 	res->ref_count--;
 
 	if (res->ref_count > 0)
-		sid_resource_log_error(res,
-		                       INTERNAL_ERROR
-		                       "%s: Resource has %u references left while destroying it because of a failure.",
-		                       __func__,
-		                       res->ref_count);
+		resource_log_error(res,
+		                   INTERNAL_ERROR "%s: Resource has %u references left while destroying it because of a failure.",
+		                   __func__,
+		                   res->ref_count);
 
-	sid_resource_log_debug(res, "Resource NOT created.");
+	resource_log_debug(res, "Resource NOT created.");
 
 	free(res);
 	free(id);
@@ -415,9 +435,9 @@ static int _do_sid_resource_unref(sid_resource_t *res, int nested)
 		return 0;
 
 	if (pid == res->pid_created)
-		sid_resource_log_debug(res, "%s.", msg_destroying);
+		resource_log_debug(res, "%s.", msg_destroying);
 	else
-		sid_resource_log_debug(res, "%s (%s: %d/%d).", msg_destroying, msg_pid_created_current, res->pid_created, pid);
+		resource_log_debug(res, "%s (%s: %d/%d).", msg_destroying, msg_pid_created_current, res->pid_created, pid);
 
 	list_iterate_items_safe_back (child_res, tmp_child_res, &res->children)
 		/* nesting... */
@@ -440,9 +460,9 @@ static int _do_sid_resource_unref(sid_resource_t *res, int nested)
 	_remove_res_from_parent_res(res);
 
 	if (pid == res->pid_created)
-		sid_resource_log_debug(res, "%s.", msg_destroyed);
+		resource_log_debug(res, "%s.", msg_destroyed);
 	else
-		sid_resource_log_debug(res, "%s (%s: %d/%d).", msg_destroyed, msg_pid_created_current, res->pid_created, pid);
+		resource_log_debug(res, "%s (%s: %d/%d).", msg_destroyed, msg_pid_created_current, res->pid_created, pid);
 
 	if (res->slg)
 		service_link_group_destroy_with_members(res->slg);
@@ -509,7 +529,7 @@ int sid_resource_set_prio(sid_resource_t *res, int64_t prio)
 
 		_add_res_to_parent_res(res, parent_res);
 
-		sid_resource_log_debug(res, "Resource priority changed from %" PRId64 " to %" PRId64 ".", orig_prio, prio);
+		resource_log_debug(res, "Resource priority changed from %" PRId64 " to %" PRId64 ".", orig_prio, prio);
 	}
 
 	return 0;
@@ -531,7 +551,7 @@ sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_
 	} while (tmp_res);
 
 	if (error_if_not_found)
-		sid_resource_log_error(res, INTERNAL_ERROR "%s: No event loop found.", __func__);
+		resource_log_error(res, INTERNAL_ERROR "%s: No event loop found.", __func__);
 
 	return NULL;
 }
@@ -604,11 +624,11 @@ static int _sd_signal_event_handler(sd_event_source *sd_es, int sfd, uint32_t re
 	res = read(sfd, &si, sizeof(si));
 
 	if (res < 0) {
-		sid_resource_log_error(es->res, "failed to read signal");
+		resource_log_error(es->res, "failed to read signal");
 		return 1;
 	}
 	if (res != sizeof(si)) {
-		sid_resource_log_error(es->res, "failed to read size of return data");
+		resource_log_error(es->res, "failed to read size of return data");
 		return 1;
 	}
 
@@ -639,14 +659,14 @@ int sid_resource_create_signal_event_source(sid_resource_t                     *
 		return -ENOMEDIUM;
 
 	if (sigprocmask(SIG_BLOCK, &mask, &original_sigmask) < 0) {
-		sid_resource_log_error(res, "Failed to set sigprocmask().");
+		resource_log_error(res, "Failed to set sigprocmask().");
 		return -errno;
 	}
 
 	if (res_event_loop->event_loop.signalfd == -1) {
 		res_event_loop->event_loop.signalfd = signalfd(-1, &mask, SFD_NONBLOCK);
 		if (res_event_loop->event_loop.signalfd < 0) {
-			sid_resource_log_error(res, "Failed to create signalfd.");
+			resource_log_error(res, "Failed to create signalfd.");
 			r = -errno;
 			goto fail;
 		}
@@ -661,7 +681,7 @@ int sid_resource_create_signal_event_source(sid_resource_t                     *
 	                         EPOLLIN,
 	                         _sd_signal_event_handler,
 	                         NULL)) < 0) {
-		sid_resource_log_error(res, "Failed sd_event_add_io().");
+		resource_log_error(res, "Failed sd_event_add_io().");
 		goto fail;
 	}
 
@@ -681,7 +701,7 @@ int sid_resource_create_signal_event_source(sid_resource_t                     *
 	return 0;
 fail:
 	if (sigprocmask(SIG_SETMASK, &original_sigmask, NULL) < 0)
-		sid_resource_log_error(res, "Failed to restore original sigprocmask().");
+		resource_log_error(res, "Failed to restore original sigprocmask().");
 
 	if (sd_es)
 		sd_event_source_unref(sd_es);
@@ -1153,7 +1173,7 @@ int sid_resource_add_child(sid_resource_t *res, sid_resource_t *child, sid_resou
 	child->flags = flags;
 	_add_res_to_parent_res(child, res);
 
-	sid_resource_log_debug(res, "Child %s added.", child->id);
+	resource_log_debug(res, "Child %s added.", child->id);
 	return 0;
 }
 
@@ -1266,7 +1286,7 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 		return -ENOMEDIUM;
 
 	sid_resource_ref(res);
-	sid_resource_log_debug(res, "Entering event loop.");
+	resource_log_debug(res, "Entering event loop.");
 
 	log_req.pfx = &((log_pfx_t) {.s = res->id, .n = NULL});
 	log_req.ctx = &SERVICE_LINK_DEFAULT_LOG_CTX;
@@ -1274,13 +1294,13 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 
 	if ((r = sd_event_loop(res->event_loop.sd_event_loop)) < 0) {
 		if (r == -ECHILD)
-			sid_resource_log_debug(res, "Exitting event loop in child");
+			resource_log_debug(res, "Exitting event loop in child");
 		else
-			sid_resource_log_error_errno(res, r, "Event loop failed");
+			resource_log_error_errno(res, r, "Event loop failed");
 		goto out;
 	}
 
-	sid_resource_log_debug(res, "Exiting event loop.");
+	resource_log_debug(res, "Exiting event loop.");
 out:
 	sid_resource_unref(res);
 	return r;
@@ -1289,11 +1309,26 @@ out:
 int sid_resource_exit_event_loop(sid_resource_t *res)
 {
 	if (!res->event_loop.sd_event_loop) {
-		sid_resource_log_debug(res, "sid_resource_exit_event_loop call with NULL event loop.");
+		resource_log_debug(res, "sid_resource_exit_event_loop call with NULL event loop.");
 		return -ENOMEDIUM;
 	}
 
 	return sd_event_exit(res->event_loop.sd_event_loop, 0);
+}
+
+static void _resource_log_output(sid_resource_t *res, log_req_t *log_req, const char *fmt, ...)
+{
+	log_req_t req;
+	va_list   ap;
+
+	if (!res)
+		return;
+
+	req = (log_req_t) {.pfx = &((log_pfx_t) {.s = "res", .n = &((log_pfx_t) {.s = res->id, .n = NULL})}), .ctx = log_req->ctx};
+
+	va_start(ap, fmt);
+	service_link_group_vnotify(res->slg, SERVICE_NOTIFICATION_MESSAGE, &req, fmt, ap);
+	va_end(ap);
 }
 
 void sid_resource_log_output(sid_resource_t *res, const log_req_t *log_req, const char *fmt, ...)
