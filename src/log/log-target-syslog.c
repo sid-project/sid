@@ -50,15 +50,20 @@ void log_syslog_close(void)
 
 void log_syslog_output(const log_req_t *req, const char *format, va_list ap)
 {
-	char   msg[LINE_MAX];
-	size_t prefix_len, remaining_len;
-	int    r;
+	char       msg[LINE_MAX];
+	log_pfx_t *pfx;
+	size_t     prefix_len = 0, remaining_len;
+	int        r;
 
 	if (req->ctx->level_id > _max_level_id)
 		return;
 
-	/* +1 for '<', +1 for '>' and +1 for '\0' at the end */
-	prefix_len = req->pfx ? strlen(req->pfx->s) + 3 : 3;
+	for (pfx = req->pfx; pfx; pfx = pfx->n)
+		/* +1 for '<' and +1 for '>' */
+		prefix_len += strlen(req->pfx->s) + 2;
+
+	/* +1 for '\0' at the end */
+	prefix_len += 1;
 
 	if (prefix_len >= sizeof(msg)) {
 		syslog(req->ctx->level_id, INTERNAL_ERROR "%s: (log prefix too long)", __func__);
@@ -68,7 +73,9 @@ void log_syslog_output(const log_req_t *req, const char *format, va_list ap)
 
 	remaining_len = sizeof(msg) - prefix_len;
 
-	(void) snprintf(msg, sizeof(msg), "<%s> ", req->pfx ? req->pfx->s : "");
+	for (pfx = req->pfx; pfx; pfx = pfx->n)
+		(void) snprintf(msg, sizeof(msg), "<%s> ", pfx->s ?: "");
+
 	r = vsnprintf(msg + prefix_len, remaining_len, format, ap);
 
 	if (r < 0 || r >= remaining_len)
