@@ -79,7 +79,7 @@ void log_journal_output(const log_req_t *req, const char *format, va_list ap)
 	prefix_len += 1;
 
 	if (prefix_len >= sizeof(msg)) {
-		sd_journal_send("MESSAGE=%s: (log prefix too long)",
+		sd_journal_send("MESSAGE=(log prefix too long)",
 		                "PRIORITY=%d",
 		                req->ctx->level_id,
 		                "CODE_FILE=%s",
@@ -101,7 +101,7 @@ void log_journal_output(const log_req_t *req, const char *format, va_list ap)
 	r = vsnprintf(msg + prefix_len, remaining_len, format, ap);
 
 	if (r < 0 || r >= remaining_len)
-		sd_journal_send("MESSAGE=%s: (log message truncated)",
+		sd_journal_send("MESSAGE=(log message truncated)",
 		                "PRIORITY=%d",
 		                req->ctx->level_id,
 		                "CODE_FILE=%s",
