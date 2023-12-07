@@ -26,7 +26,7 @@
 
 static int _max_level_id = -1;
 
-void log_syslog_open(int verbose_mode)
+static void _log_syslog_open(int verbose_mode)
 {
 	switch (verbose_mode) {
 		case 0:
@@ -43,12 +43,12 @@ void log_syslog_open(int verbose_mode)
 	openlog(SID_SYSLOG_IDENT, LOG_PID, LOG_DAEMON);
 }
 
-void log_syslog_close(void)
+static void _log_syslog_close(void)
 {
 	closelog();
 }
 
-void log_syslog_output(const log_req_t *req, const char *format, va_list ap)
+static void _log_syslog_output(const log_req_t *req, const char *format, va_list ap)
 {
 	char       msg[LINE_MAX];
 	log_pfx_t *pfx;
@@ -81,6 +81,6 @@ void log_syslog_output(const log_req_t *req, const char *format, va_list ap)
 }
 
 const struct log_target log_target_syslog = {.name   = "syslog",
-                                             .open   = log_syslog_open,
-                                             .close  = log_syslog_close,
-                                             .output = log_syslog_output};
+                                             .open   = _log_syslog_open,
+                                             .close  = _log_syslog_close,
+                                             .output = _log_syslog_output};
