@@ -29,7 +29,7 @@ static int _force_err_out = 0;
 static int _with_pids     = 0;
 static int _with_src_info = 1;
 
-void log_journal_open(int verbose_mode)
+static void _log_journal_open(int verbose_mode)
 {
 	switch (verbose_mode) {
 		case 0:
@@ -55,13 +55,13 @@ void log_journal_open(int verbose_mode)
 	}
 }
 
-void log_journal_close(void)
+static void _log_journal_close(void)
 {
 	fflush(stdout);
 	fflush(stderr);
 }
 
-void log_journal_output(const log_req_t *req, const char *format, va_list ap)
+static void _log_journal_output(const log_req_t *req, const char *format, va_list ap)
 {
 	char       msg[LINE_MAX];
 	log_pfx_t *pfx;
@@ -133,6 +133,6 @@ void log_journal_output(const log_req_t *req, const char *format, va_list ap)
 }
 
 const struct log_target log_target_journal = {.name   = "journal",
-                                              .open   = log_journal_open,
-                                              .close  = log_journal_close,
-                                              .output = log_journal_output};
+                                              .open   = _log_journal_open,
+                                              .close  = _log_journal_close,
+                                              .output = _log_journal_output};
