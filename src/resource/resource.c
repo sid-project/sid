@@ -1260,7 +1260,7 @@ void sid_resource_iter_destroy(sid_resource_iter_t *iter)
 int sid_resource_run_event_loop(sid_resource_t *res)
 {
 	log_req_t log_req;
-	int r;
+	int       r;
 
 	if (!res->event_loop.sd_event_loop)
 		return -ENOMEDIUM;
