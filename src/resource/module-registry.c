@@ -125,7 +125,7 @@ sid_resource_t *module_registry_load_module(sid_resource_t *mod_registry_res, co
 
 	if (!(mod_res = sid_resource_create(mod_registry_res,
 	                                    &sid_resource_type_module,
-	                                    SID_RESOURCE_DISALLOW_ISOLATION,
+	                                    SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_DISALLOW_ISOLATION,
 	                                    module_name,
 	                                    NULL,
 	                                    SID_RESOURCE_PRIO_NORMAL,
