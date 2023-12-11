@@ -928,7 +928,7 @@ int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct wor
 	return _do_worker_control_get_new_worker(worker_control_res, params, res_p, false);
 }
 
-static int _run_internal_worker(sid_resource_t *worker_control_res)
+static int _run_internal_worker(sid_resource_t *worker_control_res, sid_resource_service_link_def_t service_link_defs[])
 {
 	struct worker_control  *worker_control = sid_resource_get_data(worker_control_res);
 	struct worker_kickstart kickstart;
@@ -954,7 +954,7 @@ static int _run_internal_worker(sid_resource_t *worker_control_res)
 	                          id,
 	                          &kickstart,
 	                          SID_RESOURCE_PRIO_NORMAL,
-	                          SID_RESOURCE_NO_SERVICE_LINKS);
+	                          service_link_defs);
 	if (!res) {
 		(void) sid_resource_unref(sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_TOP, NULL, NULL));
 		return -1;
@@ -1027,7 +1027,7 @@ fail:
 	return r;
 }
 
-int worker_control_run_worker(sid_resource_t *worker_control_res)
+int worker_control_run_worker(sid_resource_t *worker_control_res, sid_resource_service_link_def_t service_link_defs[])
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
 
@@ -1037,7 +1037,7 @@ int worker_control_run_worker(sid_resource_t *worker_control_res)
 	worker_control->worker_init.prepared = false;
 
 	if (worker_control->worker_type == WORKER_TYPE_INTERNAL)
-		return _run_internal_worker(worker_control_res);
+		return _run_internal_worker(worker_control_res, service_link_defs);
 
 	return _run_external_worker(worker_control_res);
 }
@@ -1046,7 +1046,9 @@ int worker_control_run_worker(sid_resource_t *worker_control_res)
  * FIXME: Cleanup resources before running the external worker or do
  *        something to make valgrind happy, otherwise it will report memleaks.
  */
-int worker_control_run_new_worker(sid_resource_t *worker_control_res, struct worker_params *params)
+int worker_control_run_new_worker(sid_resource_t                 *worker_control_res,
+                                  struct worker_params           *params,
+                                  sid_resource_service_link_def_t service_link_defs[])
 {
 	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
 	sid_resource_t        *proxy_res;
@@ -1070,7 +1072,7 @@ int worker_control_run_new_worker(sid_resource_t *worker_control_res, struct wor
 		/*
 		 * WORKER HERE
 		 */
-		return worker_control_run_worker(worker_control_res);
+		return worker_control_run_worker(worker_control_res, service_link_defs);
 }
 
 sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_res)

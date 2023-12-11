@@ -153,8 +153,10 @@ struct worker_params {
 };
 
 int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params, sid_resource_t **res_p);
-int worker_control_run_new_worker(sid_resource_t *worker_control_res, struct worker_params *params);
-int worker_control_run_worker(sid_resource_t *worker_control_res);
+int worker_control_run_new_worker(sid_resource_t                 *worker_control_res,
+                                  struct worker_params           *params,
+                                  sid_resource_service_link_def_t service_link_defs[]);
+int worker_control_run_worker(sid_resource_t *worker_control_res, sid_resource_service_link_def_t service_link_defs[]);
 sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_res);
 sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, const char *id);
 
