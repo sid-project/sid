@@ -204,7 +204,17 @@ int main(int argc, char *argv[])
 			goto out;
 		}
 		sid_res = NULL;
-		r       = worker_control_run_worker(worker_control_res);
+		r       = worker_control_run_worker(worker_control_res,
+                                              (sid_resource_service_link_def_t[]) {
+                                                      {
+								    .name         = "worker-logger",
+								    .type         = SERVICE_TYPE_LOGGER,
+								    .notification = SERVICE_NOTIFICATION_MESSAGE,
+								    .flags        = SERVICE_FLAG_CLONEABLE,
+								    .data         = log,
+                                                      },
+                                                      NULL_SERVICE_LINK,
+                                              });
 	}
 
 out:
