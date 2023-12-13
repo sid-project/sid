@@ -123,7 +123,7 @@ static int _dm_init(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_co
 		goto fail;
 	}
 
-	if (sid_ucmd_mod_add_subresource(mod_res, ucmd_common_ctx, dm_mod->submod_registry) < 0) {
+	if (module_registry_add_module_subregistry(mod_res, dm_mod->submod_registry) < 0) {
 		sid_resource_log_error(mod_res, "Failed to attach submodule registry.");
 		goto fail;
 	}
