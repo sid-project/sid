@@ -112,8 +112,13 @@ static sid_resource_t *_find_module(sid_resource_t *mod_registry_res, const char
 
 sid_resource_t *module_registry_load_module(sid_resource_t *mod_registry_res, const char *module_name)
 {
-	struct module_registry *registry = sid_resource_get_data(mod_registry_res);
+	struct module_registry *registry;
 	sid_resource_t         *mod_res;
+
+	if (!sid_resource_match(mod_registry_res, &sid_resource_type_module_registry, NULL) || UTIL_STR_EMPTY(module_name))
+		return NULL;
+
+	registry = sid_resource_get_data(mod_registry_res);
 
 	if ((mod_res = _find_module(mod_registry_res, module_name))) {
 		sid_resource_log_debug(mod_registry_res,
@@ -139,11 +144,17 @@ sid_resource_t *module_registry_load_module(sid_resource_t *mod_registry_res, co
 
 sid_resource_t *module_registry_get_module(sid_resource_t *mod_registry_res, const char *module_name)
 {
+	if (!sid_resource_match(mod_registry_res, &sid_resource_type_module_registry, NULL) || UTIL_STR_EMPTY(module_name))
+		return NULL;
+
 	return _find_module(mod_registry_res, module_name);
 }
 
 int module_registry_unload_module(sid_resource_t *mod_res)
 {
+	if (!sid_resource_match(mod_res, &sid_resource_type_module, NULL))
+		return -EINVAL;
+
 	return sid_resource_unref(mod_res);
 }
 
@@ -151,10 +162,8 @@ int module_registry_get_module_symbols(sid_resource_t *mod_res, const void ***re
 {
 	struct module *module;
 
-	if (!mod_res) {
-		*ret = NULL;
-		return 0;
-	}
+	if (!sid_resource_match(mod_res, &sid_resource_type_module, NULL) || !ret)
+		return -EINVAL;
 
 	module = sid_resource_get_data(mod_res);
 	*ret   = (const void **) module->symbols;
@@ -166,10 +175,14 @@ static const char mod_reset_failed_msg[] = "Module-specific reset failed.";
 
 int module_registry_reset_modules(sid_resource_t *mod_registry_res)
 {
-	struct module_registry *registry = sid_resource_get_data(mod_registry_res);
+	struct module_registry *registry;
 	sid_resource_t         *mod_res;
 	struct module          *module;
 
+	if (!sid_resource_match(mod_registry_res, &sid_resource_type_module_registry, NULL))
+		return -EINVAL;
+
+	registry = sid_resource_get_data(mod_registry_res);
 	sid_resource_iter_reset(registry->module_iter);
 
 	while ((mod_res = sid_resource_iter_next(registry->module_iter))) {
@@ -188,7 +201,12 @@ int module_registry_reset_modules(sid_resource_t *mod_registry_res)
 
 int module_registry_reset_module(sid_resource_t *mod_res)
 {
-	struct module *module = sid_resource_get_data(mod_res);
+	struct module *module;
+
+	if (!sid_resource_match(mod_res, &sid_resource_type_module, NULL))
+		return -EINVAL;
+
+	module = sid_resource_get_data(mod_res);
 
 	if (module->reset_fn && module->reset_fn(mod_res, module->registry->cb_arg) < 0) {
 		sid_resource_log_debug(mod_res, mod_reset_failed_msg);
@@ -230,21 +248,25 @@ void *module_get_data(sid_resource_t *mod_res)
 	return ((struct module *) sid_resource_get_data(mod_res))->data;
 }
 
-int module_registry_add_module_subregistry(sid_resource_t *mod_res, sid_resource_t *module_subregistry_res)
+int module_registry_add_module_subregistry(sid_resource_t *mod_res, sid_resource_t *mod_subregistry_res)
 {
 	struct module          *module;
 	struct module_registry *subregistry;
 	char                   *orig_base_name;
 
+	if (!sid_resource_match(mod_res, &sid_resource_type_module, NULL) ||
+	    !sid_resource_match(mod_subregistry_res, &sid_resource_type_module_registry, NULL))
+		return -EINVAL;
+
 	/*
 	 * Check subregistry does not have any existing parent,
 	 * because we need to make the module as subregistry's parent here.
 	 */
-	if (sid_resource_has_parent(module_subregistry_res))
+	if (sid_resource_has_parent(mod_subregistry_res))
 		return -EINVAL;
 
 	module         = sid_resource_get_data(mod_res);
-	subregistry    = sid_resource_get_data(module_subregistry_res);
+	subregistry    = sid_resource_get_data(mod_subregistry_res);
 
 	orig_base_name = subregistry->base_name;
 
@@ -265,13 +287,11 @@ int module_registry_add_module_subregistry(sid_resource_t *mod_res, sid_resource
 	 *
 	 * If anything fails, revert to the original base name and reset again.
 	 */
-	if (module_registry_reset_modules(module_subregistry_res) < 0 ||
-	    sid_resource_add_child(mod_res,
-	                           module_subregistry_res,
-	                           SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_DISALLOW_ISOLATION)) {
+	if (module_registry_reset_modules(mod_subregistry_res) < 0 ||
+	    sid_resource_add_child(mod_res, mod_subregistry_res, SID_RESOURCE_RESTRICT_WALK_UP | SID_RESOURCE_DISALLOW_ISOLATION)) {
 		free(subregistry->base_name);
 		subregistry->base_name = orig_base_name;
-		(void) module_registry_reset_modules(module_subregistry_res);
+		(void) module_registry_reset_modules(mod_subregistry_res);
 		return -1;
 	}
 
@@ -335,6 +355,9 @@ out:
 
 int module_registry_load_modules(sid_resource_t *mod_registry_res)
 {
+	if (!sid_resource_match(mod_registry_res, &sid_resource_type_module_registry, NULL))
+		return -EINVAL;
+
 	if (_load_modules(mod_registry_res) < 0) {
 		sid_resource_log_error(mod_registry_res,
 		                       "Failed to load modules from directory %s.",

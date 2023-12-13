@@ -69,7 +69,7 @@ udev_devtype_t util_udev_str_to_udev_devtype(const char *str);
 #define UTIL_STR_DEFAULT_DELIMS " \t\r\n\v\f"
 #define UTIL_STR_DEFAULT_QUOTES "\"\'"
 
-#define UTIL_STR_EMPTY(s) (!s || s[0] == '\0')
+#define UTIL_STR_EMPTY(s)       (!s || s[0] == '\0')
 
 char *util_str_rstr(const char *haystack, const char *needle);
 char *util_str_combstr(const char *haystack, const char *prefix, const char *needle, const char *suffix, bool ignorecase);
