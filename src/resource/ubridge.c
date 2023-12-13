@@ -5882,6 +5882,9 @@ int ubridge_cmd_dbdump(sid_resource_t *ubridge_res, const char *file_path)
 	size_t                      file_path_size;
 	char                        buf[INTERNAL_MSG_HEADER_SIZE + PATH_MAX + 1];
 
+	if (!sid_resource_match(ubridge_res, &sid_resource_type_ubridge, NULL))
+		return -EINVAL;
+
 	if (_get_worker(ubridge_res, &worker_proxy_res) < 0)
 		return -1;
 
