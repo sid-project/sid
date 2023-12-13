@@ -925,6 +925,9 @@ out:
 
 int worker_control_get_new_worker(sid_resource_t *worker_control_res, struct worker_params *params, sid_resource_t **res_p)
 {
+	if (!sid_resource_match(worker_control_res, &sid_resource_type_worker_control, NULL) || !params || !res_p)
+		return -EINVAL;
+
 	return _do_worker_control_get_new_worker(worker_control_res, params, res_p, false);
 }
 
@@ -1029,7 +1032,12 @@ fail:
 
 int worker_control_run_worker(sid_resource_t *worker_control_res, sid_resource_service_link_def_t service_link_defs[])
 {
-	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
+	struct worker_control *worker_control;
+
+	if (!sid_resource_match(worker_control_res, &sid_resource_type_worker_control, NULL))
+		return -EINVAL;
+
+	worker_control = sid_resource_get_data(worker_control_res);
 
 	if (!worker_control->worker_init.prepared)
 		return -ESRCH;
@@ -1050,9 +1058,14 @@ int worker_control_run_new_worker(sid_resource_t                 *worker_control
                                   struct worker_params           *params,
                                   sid_resource_service_link_def_t service_link_defs[])
 {
-	struct worker_control *worker_control = sid_resource_get_data(worker_control_res);
+	struct worker_control *worker_control;
 	sid_resource_t        *proxy_res;
 	int                    r;
+
+	if (!sid_resource_match(worker_control_res, &sid_resource_type_worker_control, NULL) || !params)
+		return -EINVAL;
+
+	worker_control = sid_resource_get_data(worker_control_res);
 
 	if (worker_control->worker_type != WORKER_TYPE_EXTERNAL)
 		return -ENOTSUP;
@@ -1080,6 +1093,9 @@ sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_re
 	sid_resource_iter_t *iter;
 	sid_resource_t      *res;
 
+	if (!sid_resource_match(worker_control_res, &sid_resource_type_worker_control, NULL))
+		return NULL;
+
 	if (!(iter = sid_resource_iter_create(worker_control_res)))
 		return NULL;
 
@@ -1094,11 +1110,17 @@ sid_resource_t *worker_control_get_idle_worker(sid_resource_t *worker_control_re
 
 sid_resource_t *worker_control_find_worker(sid_resource_t *worker_control_res, const char *id)
 {
+	if (!sid_resource_match(worker_control_res, &sid_resource_type_worker_control, NULL) || UTIL_STR_EMPTY(id))
+		return NULL;
+
 	return sid_resource_search(worker_control_res, SID_RESOURCE_SEARCH_IMM_DESC, &sid_resource_type_worker_proxy, id);
 }
 
 bool worker_control_is_worker(sid_resource_t *res)
 {
+	if (!res)
+		return NULL;
+
 	// TODO: detect external worker
 	if (sid_resource_match(res, &sid_resource_type_worker, NULL))
 		return true;
@@ -1111,6 +1133,9 @@ bool worker_control_is_worker(sid_resource_t *res)
 worker_state_t worker_control_get_worker_state(sid_resource_t *res)
 {
 	struct worker_proxy *worker_proxy;
+
+	if (!res)
+		return WORKER_STATE_UNKNOWN;
 
 	do {
 		if (sid_resource_match(res, &sid_resource_type_worker_proxy, NULL) ||
@@ -1125,6 +1150,9 @@ worker_state_t worker_control_get_worker_state(sid_resource_t *res)
 
 const char *worker_control_get_worker_id(sid_resource_t *res)
 {
+	if (!res)
+		return NULL;
+
 	do {
 		if (sid_resource_match(res, &sid_resource_type_worker, NULL) ||
 		    sid_resource_match(res, &sid_resource_type_worker_proxy, NULL) ||
@@ -1137,6 +1165,9 @@ const char *worker_control_get_worker_id(sid_resource_t *res)
 
 void *worker_control_get_worker_arg(sid_resource_t *res)
 {
+	if (!res)
+		return NULL;
+
 	do {
 		if (sid_resource_match(res, &sid_resource_type_worker, NULL))
 			return (((struct worker *) sid_resource_get_data(res))->arg);
@@ -1226,13 +1257,18 @@ static struct worker_channel *_get_channel(struct worker_channel *channels, unsi
 
 int worker_control_channel_send(sid_resource_t *current_res, const char *channel_id, struct worker_data_spec *data_spec)
 {
-	sid_resource_t        *res = current_res;
+	sid_resource_t        *res;
 	struct worker_proxy   *worker_proxy;
 	struct worker         *worker;
 	struct worker_channel *chan;
 
-	if (!channel_id || !*channel_id)
+	if (!current_res || !data_spec)
+		return -EINVAL;
+
+	if (UTIL_STR_EMPTY(channel_id))
 		return -ECHRNG;
+
+	res = current_res;
 
 	if (sid_resource_match(res, &sid_resource_type_worker_proxy, NULL) ||
 	    (res = sid_resource_search(current_res, SID_RESOURCE_SEARCH_ANC, &sid_resource_type_worker_proxy, NULL))) {
@@ -1274,6 +1310,9 @@ int worker_control_worker_yield(sid_resource_t *res)
 	struct worker         *worker;
 	struct worker_channel *chan;
 	unsigned               i;
+
+	if (!res)
+		return -EINVAL;
 
 	if (sid_resource_match(res, &sid_resource_type_worker, NULL))
 		worker_res = res;
