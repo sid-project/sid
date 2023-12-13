@@ -24,6 +24,7 @@
 #include "internal/bptree.h"
 #include "internal/hash.h"
 #include "internal/mem.h"
+#include "internal/util.h"
 #include "log/log.h"
 #include "resource/resource.h"
 
@@ -634,6 +635,9 @@ void *kv_store_set_value(sid_resource_t           *kv_store_res,
                          kv_store_update_cb_fn_t   kv_update_fn,
                          void                     *kv_update_fn_arg)
 {
+	if (!sid_resource_match(kv_store_res, &sid_resource_type_kv_store, NULL) || UTIL_STR_EMPTY(key))
+		return NULL;
+
 	return _do_kv_store_set_value(kv_store_res, key, value, value_size, flags, op_flags, kv_update_fn, kv_update_fn_arg, NULL);
 }
 
@@ -647,6 +651,9 @@ void *kv_store_set_value_with_archive(sid_resource_t           *kv_store_res,
                                       void                     *kv_update_fn_arg,
                                       const char               *archive_key)
 {
+	if (!sid_resource_match(kv_store_res, &sid_resource_type_kv_store, NULL) || UTIL_STR_EMPTY(key))
+		return NULL;
+
 	return _do_kv_store_set_value(kv_store_res,
 	                              key,
 	                              value,
@@ -660,10 +667,14 @@ void *kv_store_set_value_with_archive(sid_resource_t           *kv_store_res,
 
 int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char *alias, bool force)
 {
-	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+	struct kv_store *kv_store;
 
-	key                       = _canonicalize_key(key);
-	alias                     = _canonicalize_key(alias);
+	if (!sid_resource_match(kv_store_res, &sid_resource_type_kv_store, NULL) || UTIL_STR_EMPTY(key) || UTIL_STR_EMPTY(alias))
+		return -EINVAL;
+
+	kv_store = sid_resource_get_data(kv_store_res);
+	key      = _canonicalize_key(key);
+	alias    = _canonicalize_key(alias);
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_BPTREE:
@@ -676,13 +687,15 @@ int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char
 
 void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *value_size, kv_store_value_flags_t *flags)
 {
-	struct kv_store       *kv_store = sid_resource_get_data(kv_store_res);
-	struct kv_store_value *found    = NULL;
+	struct kv_store       *kv_store;
+	struct kv_store_value *found;
 
-	if (!key)
+	if (!sid_resource_match(kv_store_res, &sid_resource_type_kv_store, NULL) || UTIL_STR_EMPTY(key))
 		return NULL;
 
-	key = _canonicalize_key(key);
+	kv_store = sid_resource_get_data(kv_store_res);
+	key      = _canonicalize_key(key);
+	found    = NULL;
 
 	switch (kv_store->backend) {
 		case KV_STORE_BACKEND_HASH:
@@ -1007,15 +1020,24 @@ static void _kv_store_trans_unset_value(sid_resource_t *kv_store_res, struct kv_
 
 bool kv_store_in_transaction(sid_resource_t *kv_store_res)
 {
-	struct kv_store *kv_store = sid_resource_get_data(kv_store_res);
+	struct kv_store *kv_store;
+
+	if (!sid_resource_match(kv_store_res, &sid_resource_type_kv_store, NULL))
+		return false;
+
+	kv_store = sid_resource_get_data(kv_store_res);
+
 	return (kv_store->trans_rollback_buf != NULL);
 }
 
 int kv_store_transaction_begin(sid_resource_t *kv_store_res)
 {
-	struct kv_store   *kv_store = sid_resource_get_data(kv_store_res);
+	struct kv_store   *kv_store;
 	struct sid_buffer *rollback_buf, *unset_buf;
 	int                r = -1;
+
+	if (!sid_resource_match(kv_store_res, &sid_resource_type_kv_store, NULL))
+		return -EINVAL;
 
 	if (kv_store_in_transaction(kv_store_res))
 		return -EBUSY;
@@ -1038,22 +1060,29 @@ int kv_store_transaction_begin(sid_resource_t *kv_store_res)
 		return r;
 	}
 
+	kv_store                     = sid_resource_get_data(kv_store_res);
 	kv_store->trans_rollback_buf = rollback_buf;
 	kv_store->trans_unset_buf    = unset_buf;
+
 	return 0;
 }
 
 void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback)
 {
-	struct kv_store        *kv_store = sid_resource_get_data(kv_store_res);
+	struct kv_store        *kv_store;
 	struct kv_rollback_arg *rollback_args;
 	struct kv_unset_arg    *unset_args;
 	size_t                  i, nr_args;
+
+	if (!sid_resource_match(kv_store_res, &sid_resource_type_kv_store, NULL))
+		return;
 
 	if (!kv_store_in_transaction(kv_store_res)) {
 		sid_resource_log_warning(kv_store_res, "Ending a transaction that hasn't been started");
 		return;
 	}
+
+	kv_store = sid_resource_get_data(kv_store_res);
 
 	/*
 	 * Handle unset buffer.
@@ -1094,6 +1123,9 @@ kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res, const char *
 {
 	kv_store_iter_t *iter;
 
+	if (!sid_resource_match(kv_store_res, &sid_resource_type_kv_store, NULL))
+		return NULL;
+
 	if (!(iter = malloc(sizeof(*iter))))
 		return NULL;
 
@@ -1118,7 +1150,12 @@ kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res, const char *
 
 void *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags)
 {
-	struct kv_store_value *value = NULL;
+	struct kv_store_value *value;
+
+	if (!iter)
+		return NULL;
+
+	value = NULL;
 
 	switch (iter->store->backend) {
 		case KV_STORE_BACKEND_HASH:
@@ -1149,10 +1186,12 @@ int kv_store_iter_current_size(kv_store_iter_t *iter,
                                size_t          *ext_data_size)
 {
 	size_t                 iov_size, data_size;
-	struct kv_store_value *value = NULL;
+	struct kv_store_value *value;
 
 	if (!iter || !int_size || !int_data_size || !ext_size || !ext_data_size)
 		return -1;
+
+	value = NULL;
 
 	switch (iter->store->backend) {
 		case KV_STORE_BACKEND_HASH:
@@ -1201,6 +1240,9 @@ const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 {
 	const char *key;
 
+	if (!iter)
+		return NULL;
+
 	switch (iter->store->backend) {
 		case KV_STORE_BACKEND_HASH:
 			return iter->ht.current ? hash_get_key(iter->store->ht, iter->ht.current, NULL) : NULL;
@@ -1215,6 +1257,9 @@ const char *kv_store_iter_current_key(kv_store_iter_t *iter)
 
 void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **return_key, kv_store_value_flags_t *flags)
 {
+	if (!iter)
+		return NULL;
+
 	switch (iter->store->backend) {
 		case KV_STORE_BACKEND_HASH:
 			iter->ht.current = iter->ht.current ? hash_get_next(iter->store->ht, iter->ht.current)
@@ -1234,6 +1279,9 @@ void *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **retur
 
 void kv_store_iter_reset(kv_store_iter_t *iter, const char *key_start, const char *key_end)
 {
+	if (!iter)
+		return;
+
 	switch (iter->store->backend) {
 		case KV_STORE_BACKEND_HASH:
 			// TODO: use key_start and key_end
@@ -1248,6 +1296,9 @@ void kv_store_iter_reset(kv_store_iter_t *iter, const char *key_start, const cha
 
 void kv_store_iter_destroy(kv_store_iter_t *iter)
 {
+	if (!iter)
+		return;
+
 	switch (iter->store->backend) {
 		case KV_STORE_BACKEND_HASH:
 			free(iter);
