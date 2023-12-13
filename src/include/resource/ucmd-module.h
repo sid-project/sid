@@ -256,10 +256,6 @@ int sid_ucmd_mod_unreserve_kv(sid_resource_t             *mod_res,
                               sid_ucmd_kv_namespace_t     ns,
                               const char                 *key);
 
-int sid_ucmd_mod_add_subresource(sid_resource_t             *mod_res,
-                                 struct sid_ucmd_common_ctx *ucmd_common_ctx,
-                                 sid_resource_t             *mod_subresource);
-
 typedef enum {
 	/* states in which any layers above are not possible */
 	DEV_RDY_UNDEFINED,    /* undefined or invalid */

@@ -2652,17 +2652,6 @@ int sid_ucmd_mod_unreserve_kv(sid_resource_t             *mod_res,
 	return _do_sid_ucmd_mod_reserve_kv(mod_res, common, dom, ns, key, KV_FLAGS_UNSET, 1);
 }
 
-int sid_ucmd_mod_add_subresource(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *common, sid_resource_t *mod_subresource)
-{
-	if (!mod_res || !common || !mod_subresource)
-		return -EINVAL;
-
-	if (sid_resource_match(mod_subresource, &sid_resource_type_module_registry, NULL))
-		return module_registry_add_module_subregistry(mod_res, mod_subresource);
-
-	return sid_resource_add_child(mod_res, mod_subresource, SID_RESOURCE_RESTRICT_WALK_UP);
-}
-
 const char *sid_ucmd_dev_ready_to_str(dev_ready_t ready)
 {
 	return dev_ready_str[ready];
