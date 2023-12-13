@@ -218,7 +218,7 @@ int module_registry_reset_module(sid_resource_t *mod_res)
 
 const char *module_get_full_name(sid_resource_t *mod_res)
 {
-	if (!mod_res || !sid_resource_match(mod_res, &sid_resource_type_module, NULL))
+	if (!sid_resource_match(mod_res, &sid_resource_type_module, NULL))
 		return NULL;
 
 	return ((struct module *) sid_resource_get_data(mod_res))->full_name;
@@ -226,7 +226,7 @@ const char *module_get_full_name(sid_resource_t *mod_res)
 
 const char *module_get_name(sid_resource_t *mod_res)
 {
-	if (!mod_res || !sid_resource_match(mod_res, &sid_resource_type_module, NULL))
+	if (!sid_resource_match(mod_res, &sid_resource_type_module, NULL))
 		return NULL;
 
 	return ((struct module *) sid_resource_get_data(mod_res))->name;
@@ -234,7 +234,7 @@ const char *module_get_name(sid_resource_t *mod_res)
 
 void module_set_data(sid_resource_t *mod_res, void *data)
 {
-	if (!mod_res || !sid_resource_match(mod_res, &sid_resource_type_module, NULL))
+	if (!sid_resource_match(mod_res, &sid_resource_type_module, NULL))
 		return;
 
 	((struct module *) sid_resource_get_data(mod_res))->data = data;
@@ -242,7 +242,7 @@ void module_set_data(sid_resource_t *mod_res, void *data)
 
 void *module_get_data(sid_resource_t *mod_res)
 {
-	if (!mod_res || !sid_resource_match(mod_res, &sid_resource_type_module, NULL))
+	if (!sid_resource_match(mod_res, &sid_resource_type_module, NULL))
 		return NULL;
 
 	return ((struct module *) sid_resource_get_data(mod_res))->data;
