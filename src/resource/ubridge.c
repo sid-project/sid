@@ -2352,7 +2352,7 @@ void *sid_ucmd_set_kv(sid_resource_t         *mod_res,
 {
 	const char *dom;
 
-	if (!mod_res || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	if (ns == KV_NS_UDEV) {
@@ -2447,7 +2447,7 @@ const void *sid_ucmd_get_kv(sid_resource_t         *mod_res,
 {
 	const char *dom;
 
-	if (!mod_res || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !ucmd_ctx || (ns == KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	if (ns == KV_NS_UDEV)
@@ -2492,8 +2492,8 @@ const void *sid_ucmd_get_foreign_mod_kv(sid_resource_t         *mod_res,
 {
 	const char *dom;
 
-	if (!mod_res || !ucmd_ctx || !foreign_mod_name || !*foreign_mod_name || (ns == KV_NS_UNDEFINED) || !key || !*key ||
-	    (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_mod_name) || !*foreign_mod_name || (ns == KV_NS_UNDEFINED) ||
+	    UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2512,7 +2512,7 @@ const void *sid_ucmd_get_foreign_dev_kv(sid_resource_t         *mod_res,
 {
 	const char *dom;
 
-	if (!mod_res || !ucmd_ctx || !foreign_dev_id || !*foreign_dev_id || (ns == KV_NS_UNDEFINED) || !key || !*key ||
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_dev_id) || (ns == KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) ||
 	    (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
@@ -2533,8 +2533,8 @@ const void *sid_ucmd_get_foreign_dev_mod_kv(sid_resource_t         *mod_res,
 {
 	const char *dom;
 
-	if (!mod_res || !ucmd_ctx || !foreign_dev_id || !*foreign_dev_id || !foreign_mod_name || !*foreign_mod_name ||
-	    (ns == KV_NS_UNDEFINED) || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_dev_id) || UTIL_STR_EMPTY(foreign_mod_name) ||
+	    (ns == KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2629,7 +2629,7 @@ int sid_ucmd_mod_reserve_kv(sid_resource_t             *mod_res,
 {
 	const char *dom;
 
-	if (!mod_res || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !common || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2644,7 +2644,7 @@ int sid_ucmd_mod_unreserve_kv(sid_resource_t             *mod_res,
 {
 	const char *dom;
 
-	if (!mod_res || !common || !key || !*key || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !common || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
 	dom = ns == KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2665,9 +2665,6 @@ const char *sid_ucmd_dev_reserved_to_str(dev_reserved_t reserved)
 static int _do_sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
 	dev_ready_t old_ready;
-
-	if (!ucmd_ctx)
-		return -EINVAL;
 
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RDY))
 		return -EPERM;
@@ -2723,7 +2720,7 @@ static int _do_sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_c
 
 int sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
-	if (!mod_res)
+	if (!mod_res || !ucmd_ctx)
 		return -EINVAL;
 
 	return _do_sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, ready);
@@ -2733,9 +2730,6 @@ static dev_ready_t _do_sid_ucmd_dev_get_ready(sid_resource_t *mod_res, struct si
 {
 	const void *val;
 	dev_ready_t ready_arch;
-
-	if (!ucmd_ctx)
-		return DEV_RDY_UNDEFINED;
 
 	if (archive) {
 		if ((val = _do_sid_ucmd_get_kv(mod_res, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_READY, NULL, NULL, archive)))
@@ -2756,7 +2750,7 @@ static dev_ready_t _do_sid_ucmd_dev_get_ready(sid_resource_t *mod_res, struct si
 
 dev_ready_t sid_ucmd_dev_get_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
-	if (!mod_res)
+	if (!mod_res || !ucmd_ctx)
 		return DEV_RDY_UNDEFINED;
 
 	return _do_sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, archive);
@@ -2765,9 +2759,6 @@ dev_ready_t sid_ucmd_dev_get_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx 
 static int _do_sid_ucmd_dev_set_reserved(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved)
 {
 	dev_reserved_t old_reserved;
-
-	if (!ucmd_ctx)
-		return -EINVAL;
 
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RES))
 		return -EPERM;
@@ -2810,7 +2801,7 @@ static int _do_sid_ucmd_dev_set_reserved(sid_resource_t *mod_res, struct sid_ucm
 
 int sid_ucmd_dev_set_reserved(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_reserved_t reserved)
 {
-	if (!mod_res)
+	if (!mod_res || !ucmd_ctx)
 		return -EINVAL;
 
 	return _do_sid_ucmd_dev_set_reserved(mod_res, ucmd_ctx, reserved);
@@ -2820,9 +2811,6 @@ static dev_reserved_t _do_sid_ucmd_dev_get_reserved(sid_resource_t *mod_res, str
 {
 	const void    *val;
 	dev_reserved_t reserved_arch;
-
-	if (!ucmd_ctx)
-		return DEV_RES_UNDEFINED;
 
 	if (archive) {
 		if ((val = _do_sid_ucmd_get_kv(mod_res, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_RESERVED, NULL, NULL, archive)))
@@ -2843,7 +2831,7 @@ static dev_reserved_t _do_sid_ucmd_dev_get_reserved(sid_resource_t *mod_res, str
 
 dev_reserved_t sid_ucmd_dev_get_reserved(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
-	if (!mod_res)
+	if (!mod_res || !ucmd_ctx)
 		return DEV_RES_UNDEFINED;
 
 	return _do_sid_ucmd_dev_get_reserved(mod_res, ucmd_ctx, archive);
@@ -2919,7 +2907,7 @@ out:
 
 int sid_ucmd_dev_add_alias(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
 {
-	if (!mod_res || !ucmd_ctx || !alias_cat || !*alias_cat || !alias_id || !*alias_id)
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_cat) || UTIL_STR_EMPTY(alias_id))
 		return -EINVAL;
 
 	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, KV_NS_MODULE, alias_cat, alias_id, KV_OP_PLUS);
@@ -2927,7 +2915,7 @@ int sid_ucmd_dev_add_alias(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ct
 
 int sid_ucmd_dev_remove_alias(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
 {
-	if (!mod_res || !ucmd_ctx || !alias_cat || !*alias_cat || !alias_id || !*alias_id)
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_cat) || UTIL_STR_EMPTY(alias_id))
 		return -EINVAL;
 
 	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, KV_NS_MODULE, alias_cat, alias_id, KV_OP_MINUS);
@@ -3004,7 +2992,7 @@ int sid_ucmd_group_create(sid_resource_t         *mod_res,
                           const char             *group_cat,
                           const char             *group_id)
 {
-	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
+	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
 	group_flags &= ~KV_ALIGN;
@@ -3018,7 +3006,7 @@ int sid_ucmd_group_add_current_dev(sid_resource_t         *mod_res,
                                    const char             *group_cat,
                                    const char             *group_id)
 {
-	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_cat || !*group_cat || !group_id || !*group_id)
+	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_cat) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
 	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_PLUS);
@@ -3030,7 +3018,7 @@ int sid_ucmd_group_remove_current_dev(sid_resource_t         *mod_res,
                                       const char             *group_cat,
                                       const char             *group_id)
 {
-	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_cat || !*group_cat || !group_id || !*group_id)
+	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_cat) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
 	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_MINUS);
@@ -3113,7 +3101,7 @@ int sid_ucmd_group_destroy(sid_resource_t         *mod_res,
                            const char             *group_id,
                            int                     force)
 {
-	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || !group_id || !*group_id)
+	if (!mod_res || !ucmd_ctx || (group_ns == KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
 	return _do_sid_ucmd_group_destroy(mod_res, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, force);
@@ -3702,7 +3690,7 @@ const void *sid_ucmd_part_get_disk_kv(sid_resource_t      *mod_res,
 	                               .id       = ID_NULL,
 	                               .core     = key_core};
 
-	if (!mod_res || !ucmd_ctx || !key_core || !*key_core || (key_core[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(key_core) || (key_core[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
 	if (_part_get_whole_disk(mod_res, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
