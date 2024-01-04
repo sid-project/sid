@@ -2699,7 +2699,7 @@ static int _do_sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_c
 		case DEV_RDY_FLAT:
 		case DEV_RDY_UNAVAILABLE:
 		case DEV_RDY_PUBLIC:
-			if (old_ready < _DEV_RDY && old_ready != DEV_RDY_UNCONFIGURED)
+			if (old_ready == DEV_RDY_UNDEFINED)
 				return -EBADRQC;
 			break;
 	}
