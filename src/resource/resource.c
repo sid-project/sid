@@ -1294,7 +1294,7 @@ int sid_resource_run_event_loop(sid_resource_t *res)
 
 	if ((r = sd_event_loop(res->event_loop.sd_event_loop)) < 0) {
 		if (r == -ECHILD)
-			resource_log_debug(res, "Exitting event loop in child");
+			resource_log_debug(res, "Exiting event loop in child");
 		else
 			resource_log_error_errno(res, r, "Event loop failed");
 		goto out;
