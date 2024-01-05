@@ -34,17 +34,13 @@
 #include <systemd/sd-event.h>
 #include <unistd.h>
 
-static void _resource_log_output(sid_resource_t *res, log_req_t *log_req, const char *fmt, ...);
+static void _resource_log_output(sid_resource_t *res, log_ctx_t *ctx, const char *fmt, ...);
 
 #define LOG_LINE_INTERNAL(res, l, e, ...)                                                                                          \
-	_resource_log_output(res,                                                                                                  \
-	                     &((log_req_t) {.pfx = NULL,                                                                           \
-	                                    .ctx = &((log_ctx_t) {.level_id = l,                                                   \
-	                                                          .errno_id = e,                                                   \
-	                                                          .src_file = __FILE__,                                            \
-	                                                          .src_line = __LINE__,                                            \
-	                                                          .src_func = __func__})}),                                        \
-	                     __VA_ARGS__)
+	_resource_log_output(                                                                                                      \
+		res,                                                                                                               \
+		&((log_ctx_t) {.level_id = l, .errno_id = e, .src_file = __FILE__, .src_line = __LINE__, .src_func = __func__}),   \
+		__VA_ARGS__)
 
 #define resource_log_debug(res, ...)           LOG_LINE_INTERNAL(res, LOG_DEBUG, 0, __VA_ARGS__)
 #define resource_log_info(res, ...)            LOG_LINE_INTERNAL(res, LOG_INFO, 0, __VA_ARGS__)
@@ -1316,7 +1312,7 @@ int sid_resource_exit_event_loop(sid_resource_t *res)
 	return sd_event_exit(res->event_loop.sd_event_loop, 0);
 }
 
-static void _resource_log_output(sid_resource_t *res, log_req_t *log_req, const char *fmt, ...)
+static void _resource_log_output(sid_resource_t *res, log_ctx_t *ctx, const char *fmt, ...)
 {
 	log_req_t req;
 	va_list   ap;
@@ -1324,8 +1320,7 @@ static void _resource_log_output(sid_resource_t *res, log_req_t *log_req, const 
 	if (!res)
 		return;
 
-	req = (log_req_t) {.pfx = &((log_pfx_t) {.s = "res-int", .n = &((log_pfx_t) {.s = res->id, .n = NULL})}),
-	                   .ctx = log_req->ctx};
+	req = (log_req_t) {.pfx = &((log_pfx_t) {.s = "res-int", .n = &((log_pfx_t) {.s = res->id, .n = NULL})}), .ctx = ctx};
 
 	va_start(ap, fmt);
 	service_link_group_vnotify(res->slg, SERVICE_NOTIFICATION_MESSAGE, &req, fmt, ap);
