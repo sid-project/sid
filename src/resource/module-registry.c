@@ -636,9 +636,9 @@ const sid_resource_type_t sid_resource_type_module = {
 	.name        = "module",
 	.short_name  = "mod",
 	.description = "Resource representing a single module with loaded symbols.",
+	.log_prefix  = "mod",
 	.init        = _init_module,
 	.destroy     = _destroy_module,
-	.log_pfx     = (log_pfx_t) {.s = "mod", .n = NULL},
 };
 
 const sid_resource_type_t sid_resource_type_module_registry = {
