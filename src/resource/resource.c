@@ -1329,18 +1329,19 @@ static void _resource_log_output(sid_resource_t *res, log_ctx_t *ctx, const char
 
 void sid_resource_log_output(sid_resource_t *res, const log_req_t *log_req, const char *fmt, ...)
 {
-	log_pfx_t pfx;
 	log_req_t req;
 	va_list   ap;
 
 	if (!res)
 		return;
 
-	if (res->type->log_pfx.s) {
-		pfx   = res->type->log_pfx;
-		pfx.n = &((log_pfx_t) {.s = res->id, .n = log_req->pfx});
-		req   = (log_req_t) {.pfx = &((log_pfx_t) {.s = "res-imp", .n = &pfx}), .ctx = log_req->ctx};
-	} else
+	if (res->type->log_prefix)
+		req = (log_req_t) {
+			.pfx = &((log_pfx_t) {.s = "res-imp",
+		                              .n = &((log_pfx_t) {.s = res->type->log_prefix,
+		                                                  .n = &((log_pfx_t) {.s = res->id, .n = log_req->pfx})})}),
+			.ctx = log_req->ctx};
+	else
 		req = (log_req_t) {.pfx = &((log_pfx_t) {.s = "res-imp", .n = &((log_pfx_t) {.s = res->id, .n = log_req->pfx})}),
 		                   .ctx = log_req->ctx};
 
