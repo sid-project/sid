@@ -23,6 +23,7 @@ struct log {
 	int          handle_required;
 	log_target_t target;
 	int          verbose_mode;
+	const char  *prefix;
 } _log                                                = {LOG_TARGET_NONE, 0};
 
 static const struct log_target *log_target_registry[] = {[LOG_TARGET_STANDARD] = &log_target_standard,
@@ -63,10 +64,25 @@ void log_change_target(log_t *log, log_target_t new_target)
 	log->target = new_target;
 }
 
+void log_set_prefix(log_t *log, const char *prefix)
+{
+	if (!log)
+		return;
+
+	log->prefix = prefix;
+}
+
 void log_voutput(log_t *log, log_req_t *req, const char *format, va_list ap)
 {
 	static int log_ignored = 0;
 	int        orig_errno  = errno;
+	log_req_t  tmp_req;
+
+	if (log && log->prefix) {
+		tmp_req.pfx = &((log_pfx_t) {.s = log->prefix, .n = req->pfx});
+		tmp_req.ctx = req->ctx;
+		req         = &tmp_req;
+	}
 
 	if (_log.handle_required && (log != &_log)) {
 		if (!log_ignored) {

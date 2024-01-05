@@ -75,6 +75,7 @@ extern const struct log_target log_target_journal;
 void   log_init(log_target_t target, int verbose_mode);
 log_t *log_init_with_handle(log_target_t target, int verbose_mode);
 void   log_change_target(log_t *log, log_target_t new_target);
+void   log_set_prefix(log_t *log, const char *prefix);
 
 __format_printf(3, 4) void log_output(log_t *log, log_req_t *req, const char *format, ...);
 void log_voutput(log_t *log, log_req_t *req, const char *format, va_list ap);
