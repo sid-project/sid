@@ -5122,7 +5122,12 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 			goto fail;
 		}
 
-		sid_resource_log_debug(res, "Processing uevent for device " CMD_DEV_NAME_NUM_FMT, CMD_DEV_NAME_NUM(ucmd_ctx));
+		sid_resource_log_debug(res,
+		                       "Processing event: %s %s uevent with seqno %" PRIu64 " for device " CMD_DEV_NAME_NUM_FMT,
+		                       sid_ucmd_event_get_dev_synth_uuid(ucmd_ctx) == NULL ? "genuine" : "synthetic",
+		                       util_udev_action_to_str(sid_ucmd_event_get_dev_action(ucmd_ctx)),
+		                       sid_ucmd_event_get_dev_seqnum(ucmd_ctx),
+		                       CMD_DEV_NAME_NUM(ucmd_ctx));
 	}
 
 	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
