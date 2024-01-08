@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
 				return EXIT_SUCCESS;
 			default:
 				_help(stderr);
-				return -EINVAL;
+				return EINVAL;
 		}
 	}
 
