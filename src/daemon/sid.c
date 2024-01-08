@@ -20,6 +20,7 @@
 #include "internal/common.h"
 
 #include "base/util.h"
+#include "internal/util.h"
 #include "log/log.h"
 #include "resource/resource.h"
 #include "resource/worker-control.h"
@@ -28,6 +29,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -114,6 +116,16 @@ static void _close_log()
 	log_close(_log);
 }
 
+static void _set_log_prefix()
+{
+	static char buf[16] = "c ";
+
+	if (util_process_pid_to_str(getpid(), buf + 2, sizeof(buf) - 2) < 0)
+		return;
+
+	log_set_prefix(_log, buf);
+}
+
 int main(int argc, char *argv[])
 {
 	unsigned long long val;
@@ -171,6 +183,11 @@ int main(int argc, char *argv[])
 		else
 			_log = log_init_with_handle(LOG_TARGET_SYSLOG, verbose);
 		_become_daemon();
+	}
+
+	if (pthread_atfork(NULL, NULL, _set_log_prefix) < 0) {
+		log_herror(_log, LOG_PREFIX, "Failed to register fork handler.");
+		return EXIT_FAILURE;
 	}
 
 	sid_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
