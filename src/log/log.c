@@ -51,6 +51,15 @@ log_t *log_init_with_handle(log_target_t target, int verbose_mode)
 	return &_log;
 }
 
+void log_close(log_t *log)
+{
+	if (log && log != &_log)
+		return;
+
+	if (_log.target != LOG_TARGET_NONE)
+		log_target_registry[_log.target]->close();
+}
+
 void log_change_target(log_t *log, log_target_t new_target)
 {
 	if (!log || log->target == new_target)
