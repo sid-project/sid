@@ -105,6 +105,11 @@ udev_devtype_t util_udev_str_to_udev_devtype(const char *str)
 		return UDEV_DEVTYPE_UNKNOWN;
 }
 
+const char *util_udev_devtype_to_str(udev_devtype_t devtype)
+{
+	return udev_devtype_str[devtype];
+}
+
 /*
  * String-related utilities.
  */
