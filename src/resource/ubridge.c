@@ -119,9 +119,10 @@
 #define OWNER_CORE                                  MOD_NAME_CORE
 #define DEFAULT_VALUE_FLAGS_CORE                    KV_SYNC_P | KV_RS
 
-#define CMD_DEV_NAME_NUM_FMT                        "%s (%d:%d)"
-#define CMD_DEV_NAME_NUM(ucmd_ctx)                                                                                                 \
-	ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.udev.major, ucmd_ctx->req_env.dev.udev.minor
+#define CMD_DEV_PRINT_FMT                           "%s (%d:%d/%" PRIu64 ")"
+#define CMD_DEV_PRINT(ucmd_ctx)                                                                                                    \
+	ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.udev.major, ucmd_ctx->req_env.dev.udev.minor,                       \
+		ucmd_ctx->req_env.dev.udev.diskseq
 
 const sid_resource_type_t sid_resource_type_ubridge;
 const sid_resource_type_t sid_resource_type_ubridge_common;
@@ -490,8 +491,7 @@ static char               *core_owner          = OWNER_CORE;
 static uint64_t            null_int            = 0;
 
 static int        _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index);
-static const char _key_prefix_err_msg[] =
-	"Failed to get key prefix to store hierarchy records for device " CMD_DEV_NAME_NUM_FMT ".";
+static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_PRINT_FMT ".";
 
 udev_action_t sid_ucmd_event_get_dev_action(struct sid_ucmd_ctx *ucmd_ctx)
 {
@@ -3212,11 +3212,10 @@ int _part_get_whole_disk(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx,
 	                            "%s%s/../dev",
 	                            SYSTEM_SYSFS_PATH,
 	                            ucmd_ctx->req_env.dev.udev.path)) < 0) {
-		sid_resource_log_error_errno(
-			mod_res,
-			r,
-			"Failed to compose sysfs path for whole device of partition device " CMD_DEV_NAME_NUM_FMT,
-			CMD_DEV_NAME_NUM(ucmd_ctx));
+		sid_resource_log_error_errno(mod_res,
+		                             r,
+		                             "Failed to compose sysfs path for whole device of partition device " CMD_DEV_PRINT_FMT,
+		                             CMD_DEV_PRINT(ucmd_ctx));
 		return r;
 	}
 
@@ -3789,9 +3788,9 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 		                            SYSTEM_SYSFS_SLAVES)) < 0) {
 			sid_resource_log_error_errno(cmd_res,
 			                             r,
-			                             "Failed to compose sysfs %s path for device " CMD_DEV_NAME_NUM_FMT,
+			                             "Failed to compose sysfs %s path for device " CMD_DEV_PRINT_FMT,
 			                             SYSTEM_SYSFS_SLAVES,
-			                             CMD_DEV_NAME_NUM(ucmd_ctx));
+			                             CMD_DEV_PRINT(ucmd_ctx));
 			goto out;
 		}
 
@@ -3825,8 +3824,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	                                  &r))) {
 		sid_resource_log_error_errno(cmd_res,
 		                             r,
-		                             "Failed to create buffer to record hierarchy for device " CMD_DEV_NAME_NUM_FMT,
-		                             CMD_DEV_NAME_NUM(ucmd_ctx));
+		                             "Failed to create buffer to record hierarchy for device " CMD_DEV_PRINT_FMT,
+		                             CMD_DEV_PRINT(ucmd_ctx));
 		goto out;
 	}
 
@@ -3859,9 +3858,9 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 				sid_resource_log_error_errno(cmd_res,
 				                             r,
 				                             "Failed to compose sysfs path for device %s which is relative of "
-				                             "device " CMD_DEV_NAME_NUM_FMT,
+				                             "device " CMD_DEV_PRINT_FMT,
 				                             dirent[i]->d_name,
-				                             CMD_DEV_NAME_NUM(ucmd_ctx));
+				                             CMD_DEV_PRINT(ucmd_ctx));
 			} else {
 				if ((r = sid_util_sysfs_get_value(s, devno_buf, sizeof(devno_buf))) < 0 || !*devno_buf) {
 					sid_resource_log_error_errno(
@@ -3880,9 +3879,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 					mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
 					if (!util_uuid_gen_str(&mem)) {
 						sid_resource_log_error(cmd_res,
-						                       "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT
-						                       ".",
-						                       CMD_DEV_NAME_NUM(ucmd_ctx));
+						                       "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
+						                       CMD_DEV_PRINT(ucmd_ctx));
 						goto next;
 					}
 					rel_spec.rel_key_spec->ns_part = mem.base;
@@ -3896,8 +3894,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 					                          devno_buf,
 					                          KV_OP_PLUS) < 0) {
 						sid_resource_log_error(cmd_res,
-						                       "Failed to add devno alias for device " CMD_DEV_NAME_NUM_FMT,
-						                       CMD_DEV_NAME_NUM(ucmd_ctx));
+						                       "Failed to add devno alias for device " CMD_DEV_PRINT_FMT,
+						                       CMD_DEV_PRINT(ucmd_ctx));
 						goto next;
 					}
 				}
@@ -4009,8 +4007,8 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 			mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
 			if (!util_uuid_gen_str(&mem)) {
 				sid_resource_log_error(cmd_res,
-				                       "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
-				                       CMD_DEV_NAME_NUM(ucmd_ctx));
+				                       "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
+				                       CMD_DEV_PRINT(ucmd_ctx));
 				goto out;
 			}
 			rel_spec.rel_key_spec->ns_part = mem.base;
@@ -4232,9 +4230,7 @@ static int _get_device_uuid(sid_resource_t *cmd_res)
 	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL, 0)) &&
 	    !(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
 		/* SID doesn't appera to have a record of this device */
-		sid_resource_log_error(cmd_res,
-		                       "Couldn't find UUID for device " CMD_DEV_NAME_NUM_FMT ".",
-		                       CMD_DEV_NAME_NUM(ucmd_ctx));
+		sid_resource_log_error(cmd_res, "Couldn't find UUID for device " CMD_DEV_PRINT_FMT ".", CMD_DEV_PRINT(ucmd_ctx));
 		return -1;
 	}
 	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
@@ -4256,8 +4252,8 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 			/* if we haven't set the UUID for this device yet, do it now */
 			if (!util_uuid_gen_str(&mem)) {
 				sid_resource_log_error(cmd_res,
-				                       "Failed to generate UUID for device " CMD_DEV_NAME_NUM_FMT ".",
-				                       CMD_DEV_NAME_NUM(ucmd_ctx));
+				                       "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
+				                       CMD_DEV_PRINT(ucmd_ctx));
 				return -1;
 			}
 			uuid_p = mem.base;
@@ -4365,8 +4361,8 @@ static int _cmd_exec_scan_ident(sid_resource_t *cmd_res)
 		                         mod_name,
 		                         strlen(mod_name) + 1)) {
 			sid_resource_log_error(cmd_res,
-			                       "Failed to store device " CMD_DEV_NAME_NUM_FMT " module name",
-			                       CMD_DEV_NAME_NUM(ucmd_ctx));
+			                       "Failed to store device " CMD_DEV_PRINT_FMT " module name",
+			                       CMD_DEV_PRINT(ucmd_ctx));
 			return -1;
 		}
 	}
@@ -4499,9 +4495,7 @@ static int _cmd_exec_scan_remove_mods(sid_resource_t *cmd_res)
 	_exec_block_mods(cmd_res);
 
 	if (!(mod_name = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, KV_NS_DEVICE, KV_KEY_DEV_MOD, NULL, NULL, 0))) {
-		sid_resource_log_error(cmd_res,
-		                       "Failed to find device " CMD_DEV_NAME_NUM_FMT " module name",
-		                       CMD_DEV_NAME_NUM(ucmd_ctx));
+		sid_resource_log_error(cmd_res, "Failed to find device " CMD_DEV_PRINT_FMT " module name", CMD_DEV_PRINT(ucmd_ctx));
 		return -1;
 	}
 
@@ -5123,11 +5117,11 @@ static int _init_command(sid_resource_t *res, const void *kickstart_data, void *
 		}
 
 		sid_resource_log_debug(res,
-		                       "Processing event: %s %s uevent with seqno %" PRIu64 " for device " CMD_DEV_NAME_NUM_FMT,
+		                       "Processing event: %s %s uevent with seqno %" PRIu64 " for device " CMD_DEV_PRINT_FMT,
 		                       sid_ucmd_event_get_dev_synth_uuid(ucmd_ctx) == NULL ? "genuine" : "synthetic",
 		                       util_udev_action_to_str(sid_ucmd_event_get_dev_action(ucmd_ctx)),
 		                       sid_ucmd_event_get_dev_seqnum(ucmd_ctx),
-		                       CMD_DEV_NAME_NUM(ucmd_ctx));
+		                       CMD_DEV_PRINT(ucmd_ctx));
 	}
 
 	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
