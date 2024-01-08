@@ -109,6 +109,11 @@ static void _become_daemon()
 	umask(SID_DEFAULT_UMASK);
 }
 
+static void _close_log()
+{
+	log_close(_log);
+}
+
 int main(int argc, char *argv[])
 {
 	unsigned long long val;
@@ -151,6 +156,9 @@ int main(int argc, char *argv[])
 
 	if (sid_util_env_get_ull(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
 		verbose = val;
+
+	if (atexit(_close_log) < 0)
+		return EXIT_FAILURE;
 
 	if (foreground) {
 		if (journal)
