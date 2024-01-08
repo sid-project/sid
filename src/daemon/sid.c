@@ -39,6 +39,8 @@
 
 #define KEY_VERBOSE       "VERBOSE"
 
+static log_t *_log = NULL;
+
 static void _help(FILE *f)
 {
 	fprintf(f,
@@ -59,13 +61,13 @@ static void _version(FILE *f)
 	fprintf(f, "Compiled by: %s on %s with %s\n", SID_COMPILED_BY, SID_COMPILATION_HOST, SID_COMPILER);
 }
 
-static void _become_daemon(log_t *log)
+static void _become_daemon()
 {
 	int fd;
 
 	switch (fork()) {
 		case -1:
-			log_herror_errno(log, LOG_PREFIX, errno, "Failed to fork daemon");
+			log_herror_errno(_log, LOG_PREFIX, errno, "Failed to fork daemon");
 			exit(EXIT_FAILURE);
 		case 0:
 			break;
@@ -74,22 +76,22 @@ static void _become_daemon(log_t *log)
 	}
 
 	if (!setsid()) {
-		log_herror_errno(log, LOG_PREFIX, errno, "Failed to set session ID");
+		log_herror_errno(_log, LOG_PREFIX, errno, "Failed to set session ID");
 		exit(EXIT_FAILURE);
 	}
 
 	if (chdir("/")) {
-		log_herror_errno(log, LOG_PREFIX, errno, "Failed to change working directory");
+		log_herror_errno(_log, LOG_PREFIX, errno, "Failed to change working directory");
 		exit(EXIT_FAILURE);
 	}
 
 	if ((fd = open("/dev/null", O_RDWR)) == -1) {
-		log_herror_errno(log, LOG_PREFIX, errno, "Failed to open /dev/null");
+		log_herror_errno(_log, LOG_PREFIX, errno, "Failed to open /dev/null");
 		exit(EXIT_FAILURE);
 	}
 
 	if ((dup2(fd, STDIN_FILENO) < 0) || (dup2(fd, STDOUT_FILENO) < 0) || (dup2(fd, STDERR_FILENO) < 0)) {
-		log_herror_errno(log, LOG_PREFIX, errno, "Failed to duplicate standard IO streams");
+		log_herror_errno(_log, LOG_PREFIX, errno, "Failed to duplicate standard IO streams");
 		(void) close(fd);
 		exit(EXIT_FAILURE);
 	}
@@ -100,7 +102,7 @@ static void _become_daemon(log_t *log)
 		if (close(fd)) {
 			if (errno == EBADF)
 				continue;
-			log_herror_errno(log, LOG_PREFIX, errno, "Failed to close FD %d", fd);
+			log_herror_errno(_log, LOG_PREFIX, errno, "Failed to close FD %d", fd);
 		}
 	}
 
@@ -115,15 +117,14 @@ int main(int argc, char *argv[])
 	int                foreground = 0;
 	int                journal    = 0;
 	sid_resource_t    *sid_res    = NULL;
-	log_t             *log;
-	int                r     = -1;
+	int                r          = -1;
 
-	struct option longopts[] = {{"foreground", 0, NULL, 'f'},
-	                            {"journal", 0, NULL, 'j'},
-	                            {"help", 0, NULL, 'h'},
-	                            {"verbose", 0, NULL, 'v'},
-	                            {"version", 0, NULL, 'V'},
-	                            {NULL, 0, NULL, 0}};
+	struct option longopts[]      = {{"foreground", 0, NULL, 'f'},
+	                                 {"journal", 0, NULL, 'j'},
+	                                 {"help", 0, NULL, 'h'},
+	                                 {"verbose", 0, NULL, 'v'},
+	                                 {"version", 0, NULL, 'V'},
+	                                 {NULL, 0, NULL, 0}};
 
 	while ((opt = getopt_long(argc, argv, "fjhvV", longopts, NULL)) != -1) {
 		switch (opt) {
@@ -153,15 +154,15 @@ int main(int argc, char *argv[])
 
 	if (foreground) {
 		if (journal)
-			log = log_init_with_handle(LOG_TARGET_JOURNAL, verbose);
+			_log = log_init_with_handle(LOG_TARGET_JOURNAL, verbose);
 		else
-			log = log_init_with_handle(LOG_TARGET_STANDARD, verbose);
+			_log = log_init_with_handle(LOG_TARGET_STANDARD, verbose);
 	} else {
 		if (journal)
-			log = log_init_with_handle(LOG_TARGET_JOURNAL, verbose);
+			_log = log_init_with_handle(LOG_TARGET_JOURNAL, verbose);
 		else
-			log = log_init_with_handle(LOG_TARGET_SYSLOG, verbose);
-		_become_daemon(log);
+			_log = log_init_with_handle(LOG_TARGET_SYSLOG, verbose);
+		_become_daemon();
 	}
 
 	sid_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
@@ -183,7 +184,7 @@ int main(int argc, char *argv[])
 						      .type         = SERVICE_TYPE_LOGGER,
 						      .notification = SERVICE_NOTIFICATION_READY | SERVICE_NOTIFICATION_MESSAGE,
 						      .flags        = SERVICE_FLAG_CLONEABLE,
-						      .data         = log,
+						      .data         = _log,
 					      },
 					      NULL_SERVICE_LINK});
 
@@ -200,7 +201,7 @@ int main(int argc, char *argv[])
 		                                               SID_RESOURCE_SEARCH_WIDE_DFS,
 		                                               &sid_resource_type_worker_control,
 		                                               NULL))) {
-			log_herror(log, LOG_PREFIX, INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
+			log_herror(_log, LOG_PREFIX, INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
 			goto out;
 		}
 		sid_res = NULL;
@@ -211,7 +212,7 @@ int main(int argc, char *argv[])
 								    .type         = SERVICE_TYPE_LOGGER,
 								    .notification = SERVICE_NOTIFICATION_MESSAGE,
 								    .flags        = SERVICE_FLAG_CLONEABLE,
-								    .data         = log,
+								    .data         = _log,
                                                       },
                                                       NULL_SERVICE_LINK,
                                               });
