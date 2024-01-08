@@ -74,6 +74,7 @@ int util_process_pid_to_str(pid_t pid, char *buf, size_t buf_size);
  * Udev-related utilities.
  */
 udev_action_t  util_udev_str_to_udev_action(const char *str);
+const char    *util_udev_action_to_str(const udev_action_t action);
 udev_devtype_t util_udev_str_to_udev_devtype(const char *str);
 
 /*

@@ -84,6 +84,11 @@ udev_action_t util_udev_str_to_udev_action(const char *str)
 		return UDEV_ACTION_UNKNOWN;
 }
 
+const char *util_udev_action_to_str(const udev_action_t action)
+{
+	return udev_action_str[action];
+}
+
 static const char *udev_devtype_str[] = {
 	[UDEV_DEVTYPE_DISK]      = UDEV_VALUE_DEVTYPE_DISK,
 	[UDEV_DEVTYPE_PARTITION] = UDEV_VALUE_DEVTYPE_PARTITION,
