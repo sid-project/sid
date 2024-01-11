@@ -199,6 +199,7 @@ typedef enum {
 } msg_category_t;
 
 typedef enum {
+	CMD_UNDEFINED,            /* not defined yet */
 	CMD_INITIALIZING,         /* initializing context for cmd */
 	CMD_EXEC_SCHEDULED,       /* cmd handler execution scheduled */
 	CMD_EXECUTING,            /* executing cmd handler */
@@ -210,7 +211,8 @@ typedef enum {
 	CMD_ERROR,                /* cmd error */
 } cmd_state_t;
 
-static const char *cmd_state_str[]        = {[CMD_INITIALIZING]         = "CMD_INITIALIZING",
+static const char *cmd_state_str[]        = {[CMD_UNDEFINED]            = "CMD_UNDEFINED",
+                                             [CMD_INITIALIZING]         = "CMD_INITIALIZING",
                                              [CMD_EXEC_SCHEDULED]       = "CMD_EXEC_SCHEDULED",
                                              [CMD_EXECUTING]            = "CMD_EXECUTING",
                                              [CMD_EXPECTING_DATA]       = "CMD_EXPECTING_DATA",
