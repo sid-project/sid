@@ -221,15 +221,15 @@ static const char *cmd_state_str[]        = {[CMD_INITIALIZING]         = "CMD_I
                                              [CMD_ERROR]                = "CMD_ERROR"};
 
 static const char * const dev_ready_str[] = {
-	[DEV_RDY_UNDEFINED]     = "undefined",
-	[DEV_RDY_REMOVED]       = "removed",
-	[DEV_RDY_UNPROCESSED]   = "unprocessed",
-	[DEV_RDY_UNCONFIGURED]  = "unconfigured",
-	[DEV_RDY_UNINITIALIZED] = "uninitialized",
-	[DEV_RDY_UNAVAILABLE]   = "unavailable",
-	[DEV_RDY_PRIVATE]       = "private",
-	[DEV_RDY_FLAT]          = "flat",
-	[DEV_RDY_PUBLIC]        = "public",
+	[DEV_RDY_UNDEFINED]     = "RDY_UNDEFINED",
+	[DEV_RDY_REMOVED]       = "RDY_REMOVED",
+	[DEV_RDY_UNPROCESSED]   = "RDY_UNPROCESSED",
+	[DEV_RDY_UNCONFIGURED]  = "RDY_UNCONFIGURED",
+	[DEV_RDY_UNINITIALIZED] = "RDY_UNINITIALIZED",
+	[DEV_RDY_UNAVAILABLE]   = "RDY_UNAVAILABLE",
+	[DEV_RDY_PRIVATE]       = "RDY_PRIVATE",
+	[DEV_RDY_FLAT]          = "RDY_FLAT",
+	[DEV_RDY_PUBLIC]        = "RDY_PUBLIC",
 };
 
 static const char * const dev_reserved_str[] = {
@@ -3442,8 +3442,8 @@ static void _change_cmd_state(sid_resource_t *cmd_res, cmd_state_t state)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 
-	ucmd_ctx->state               = state;
-	sid_resource_log_debug(cmd_res, "Command state changed to %s.", cmd_state_str[state]);
+	sid_resource_log_debug(cmd_res, "Command state changed: %s --> %s.", cmd_state_str[ucmd_ctx->state], cmd_state_str[state]);
+	ucmd_ctx->state = state;
 }
 
 static int _cmd_exec_version(sid_resource_t *cmd_res)
