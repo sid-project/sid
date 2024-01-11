@@ -2672,9 +2672,6 @@ static int _do_sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_c
 	if ((old_ready = ucmd_ctx->scan.dev_ready) == ready)
 		return 0;
 
-	if (old_ready == ready)
-		return 0;
-
 	switch (ready) {
 		case DEV_RDY_UNDEFINED:
 			return -EBADRQC;
