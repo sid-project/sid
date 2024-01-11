@@ -52,12 +52,12 @@ static const char *worker_channel_cmd_str[] = {
 	[WORKER_CHANNEL_CMD_DATA_EXT] = "DATA+EXT",
 };
 
-static const char *worker_state_str[] = {[WORKER_STATE_NEW]       = "WORKER_NEW",
-                                         [WORKER_STATE_IDLE]      = "WORKER_IDLE",
-                                         [WORKER_STATE_ASSIGNED]  = "WORKER_ASSIGNED",
-                                         [WORKER_STATE_EXITING]   = "WORKER_EXITING",
-                                         [WORKER_STATE_TIMED_OUT] = "WORKER_TIMED_OUT",
-                                         [WORKER_STATE_EXITED]    = "WORKER_EXITED"};
+static const char *worker_state_str[] = {[WORKER_STATE_NEW]       = "WRK_NEW",
+                                         [WORKER_STATE_IDLE]      = "WRK_IDLE",
+                                         [WORKER_STATE_ASSIGNED]  = "WRK_ASSIGNED",
+                                         [WORKER_STATE_EXITING]   = "WRK_EXITING",
+                                         [WORKER_STATE_TIMED_OUT] = "WRK_TIMED_OUT",
+                                         [WORKER_STATE_EXITED]    = "WRK_EXITED"};
 
 const sid_resource_type_t sid_resource_type_worker_proxy;
 const sid_resource_type_t sid_resource_type_worker_proxy_with_ev_loop;
@@ -123,8 +123,11 @@ static void _change_worker_proxy_state(sid_resource_t *worker_proxy_res, worker_
 {
 	struct worker_proxy *worker_proxy = sid_resource_get_data(worker_proxy_res);
 
-	worker_proxy->state               = state;
-	sid_resource_log_debug(worker_proxy_res, "Worker state changed to %s.", worker_state_str[state]);
+	sid_resource_log_debug(worker_proxy_res,
+	                       "Worker state changed: %s --> %s.",
+	                       worker_state_str[worker_proxy->state],
+	                       worker_state_str[state]);
+	worker_proxy->state = state;
 }
 
 static int _create_channel(sid_resource_t                   *worker_control_res,
