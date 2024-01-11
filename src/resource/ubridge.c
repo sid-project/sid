@@ -2662,33 +2662,45 @@ const char *sid_ucmd_dev_reserved_to_str(dev_reserved_t reserved)
 	return dev_reserved_str[reserved];
 }
 
-static int _do_sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
+static int _do_sid_ucmd_dev_set_ready(sid_resource_t *res, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
 {
-	dev_ready_t old_ready;
+	dev_ready_t old_ready = ucmd_ctx->scan.dev_ready;
+	int         r;
 
-	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RDY))
-		return -EPERM;
+	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RDY)) {
+		r = -EPERM;
+		goto out;
+	}
 
-	if ((old_ready = ucmd_ctx->scan.dev_ready) == ready)
-		return 0;
+	if (ready == old_ready) {
+		r = 0;
+		goto out;
+	}
 
 	switch (ready) {
 		case DEV_RDY_UNDEFINED:
-			return -EBADRQC;
+			r = -EBADRQC;
+			goto out;
 
 		case DEV_RDY_REMOVED:
-			if (old_ready == DEV_RDY_UNDEFINED)
-				return -EBADRQC;
+			if (old_ready == DEV_RDY_UNDEFINED) {
+				r = -EBADRQC;
+				goto out;
+			}
 			break;
 
 		case DEV_RDY_UNPROCESSED:
-			if (old_ready != DEV_RDY_UNDEFINED)
-				return -EBADRQC;
+			if (old_ready != DEV_RDY_UNDEFINED) {
+				r = -EBADRQC;
+				goto out;
+			}
 			break;
 
 		case DEV_RDY_UNCONFIGURED:
-			if (old_ready != DEV_RDY_UNPROCESSED)
-				return -EBADRQC;
+			if (old_ready != DEV_RDY_UNPROCESSED) {
+				r = -EBADRQC;
+				goto out;
+			}
 			break;
 
 		case DEV_RDY_UNINITIALIZED:
@@ -2696,12 +2708,14 @@ static int _do_sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_c
 		case DEV_RDY_FLAT:
 		case DEV_RDY_UNAVAILABLE:
 		case DEV_RDY_PUBLIC:
-			if (old_ready == DEV_RDY_UNDEFINED)
-				return -EBADRQC;
+			if (old_ready == DEV_RDY_UNDEFINED) {
+				r = -EBADRQC;
+				goto out;
+			}
 			break;
 	}
 
-	if (!_do_sid_ucmd_set_kv(mod_res,
+	if (!_do_sid_ucmd_set_kv(sid_resource_match(res, &sid_resource_type_ubridge_command, NULL) ? NULL : res,
 	                         ucmd_ctx,
 	                         NULL,
 	                         KV_NS_DEVICE,
@@ -2709,10 +2723,27 @@ static int _do_sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_c
 	                         KV_SYNC | KV_AR | KV_RD | KV_SUB_WR | KV_SUP_WR,
 	                         &ready,
 	                         sizeof(ready)))
-		return -1;
+		r = -1;
+	else
+		r = 0;
+out:
+	if (r < 0) {
+		sid_resource_log_error_errno(res,
+		                             r,
+		                             "Ready state change failed for device " CMD_DEV_PRINT_FMT ": %s --> %s.",
+		                             CMD_DEV_PRINT(ucmd_ctx),
+		                             dev_ready_str[old_ready],
+		                             dev_ready_str[ready]);
+	} else {
+		ucmd_ctx->scan.dev_ready = ready;
+		sid_resource_log_debug(res,
+		                       "Ready state changed for device " CMD_DEV_PRINT_FMT ": %s --> %s.",
+		                       CMD_DEV_PRINT(ucmd_ctx),
+		                       dev_ready_str[old_ready],
+		                       dev_ready_str[ready]);
+	}
 
-	ucmd_ctx->scan.dev_ready = ready;
-	return 0;
+	return r;
 }
 
 int sid_ucmd_dev_set_ready(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dev_ready_t ready)
@@ -4298,7 +4329,7 @@ static int _set_device_kv_records(sid_resource_t *cmd_res)
 	}
 
 	if (_do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == DEV_RDY_UNDEFINED)
-		_do_sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_UNPROCESSED);
+		_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, DEV_RDY_UNPROCESSED);
 
 	if (_do_sid_ucmd_dev_get_reserved(NULL, ucmd_ctx, 0) == DEV_RES_UNDEFINED)
 		_do_sid_ucmd_dev_set_reserved(NULL, ucmd_ctx, DEV_RES_UNPROCESSED);
@@ -4454,7 +4485,7 @@ static int _cmd_exec_scan_exit(sid_resource_t *cmd_res)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 
 	if (_do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == DEV_RDY_UNPROCESSED)
-		return _do_sid_ucmd_dev_set_ready(NULL, ucmd_ctx, DEV_RDY_PUBLIC);
+		return _do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, DEV_RDY_PUBLIC);
 
 	if (_do_sid_ucmd_dev_get_reserved(NULL, ucmd_ctx, 0) == DEV_RES_UNPROCESSED)
 		return _do_sid_ucmd_dev_set_reserved(NULL, ucmd_ctx, DEV_RES_FREE);
