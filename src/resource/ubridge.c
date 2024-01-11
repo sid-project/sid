@@ -4415,7 +4415,7 @@ static int _cmd_exec_scan_current(sid_resource_t *cmd_res)
 	dev_ready_t          ready    = _do_sid_ucmd_dev_get_ready(NULL, sid_resource_get_data(cmd_res), 0);
 
 	if (!UTIL_IN_SET(ready, DEV_RDY_PRIVATE, DEV_RDY_FLAT, DEV_RDY_PUBLIC))
-		return 0;
+		return 1;
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
@@ -4430,7 +4430,7 @@ static int _cmd_exec_scan_next(sid_resource_t *cmd_res)
 	ready = _do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0);
 
 	if (!UTIL_IN_SET(ready, DEV_RDY_PUBLIC))
-		return 0;
+		return 1;
 
 	_exec_block_mods(cmd_res);
 
@@ -4457,7 +4457,7 @@ static int _cmd_exec_scan_post_current(sid_resource_t *cmd_res)
 	dev_ready_t          ready    = _do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0);
 
 	if (!UTIL_IN_SET(ready, DEV_RDY_PRIVATE, DEV_RDY_FLAT, DEV_RDY_PUBLIC))
-		return 0;
+		return 1;
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
@@ -4469,7 +4469,7 @@ static int _cmd_exec_scan_post_next(sid_resource_t *cmd_res)
 	dev_ready_t          ready    = _do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0);
 
 	if (!UTIL_IN_SET(ready, DEV_RDY_PUBLIC))
-		return 0;
+		return 1;
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
@@ -4596,6 +4596,7 @@ static int _cmd_exec_scan(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
 	cmd_scan_phase_t     phase, phase_start, phase_end;
+	const char          *phase_name;
 
 	if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE) {
 		phase_start = CMD_SCAN_PHASE_REMOVE_INIT;
@@ -4606,30 +4607,41 @@ static int _cmd_exec_scan(sid_resource_t *cmd_res)
 	}
 
 	for (phase = phase_start; phase <= phase_end; phase++) {
-		sid_resource_log_debug(cmd_res, "Executing %s phase.", _cmd_scan_phase_regs[phase].name);
+		sid_resource_log_debug(cmd_res, "About to execute %s phase.", _cmd_scan_phase_regs[phase].name);
 		ucmd_ctx->scan.phase = phase;
+		phase_name           = _cmd_scan_phase_regs[phase].name;
 
-		if (_cmd_scan_phase_regs[phase].exec(cmd_res) == 0)
-			/* No error, continue with subsequent phases */
-			continue;
+		switch (_cmd_scan_phase_regs[phase].exec(cmd_res)) {
+			case 0:
+				/* No error, continue with subsequent phases */
+				sid_resource_log_debug(cmd_res, "Finished executing %s phase.", phase_name);
+				continue;
+			case 1:
+				/* Skipped, continue with subsequent phases */
+				sid_resource_log_debug(cmd_res, "Phase %s skipped, unsuitable ready state.", phase_name);
+				continue;
+			default:
+				/* Error, handle it... */
+				break;
+		}
 
 		/* Handle error case. */
 
 		/* if init or cleanup phase has failed, there's nothing else we can do - return. */
 		if (phase == CMD_SCAN_PHASE_A_INIT || phase == CMD_SCAN_PHASE_A_CLEANUP) {
-			sid_resource_log_error(cmd_res, "%s phase failed.", _cmd_scan_phase_regs[phase].name);
+			sid_resource_log_error(cmd_res, "%s phase failed.", phase_name);
 			return -1;
 		}
 
 		/* Otherwise, call out modules to handle the error case. */
 		sid_resource_log_error(cmd_res,
 		                       "%s phase failed. Switching to %s phase.",
-		                       _cmd_scan_phase_regs[phase].name,
+		                       phase_name,
 		                       _cmd_scan_phase_regs[CMD_SCAN_PHASE_ERROR].name);
 
 		ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_ERROR;
 		if (_cmd_scan_phase_regs[phase].exec(cmd_res) < 0)
-			sid_resource_log_error(cmd_res, "%s phase failed.", _cmd_scan_phase_regs[phase].name);
+			sid_resource_log_error(cmd_res, "%s phase failed.", phase_name);
 
 		/* Also, call out modules to cleanup after the error phase. */
 		if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE)
@@ -4638,7 +4650,7 @@ static int _cmd_exec_scan(sid_resource_t *cmd_res)
 			ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_A_CLEANUP;
 
 		if (_cmd_scan_phase_regs[phase].exec(cmd_res))
-			sid_resource_log_error(cmd_res, "%s phase failed.", _cmd_scan_phase_regs[phase].name);
+			sid_resource_log_error(cmd_res, "%s phase failed.", phase_name);
 	}
 
 	return 0;
