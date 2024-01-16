@@ -5279,28 +5279,28 @@ static int _destroy_command(sid_resource_t *res)
 static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
-	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_ALIGNED_CNT];
-	kv_vector_t          *vvalue_old;
+	kv_vector_t           tmp_old_vvalue[VVALUE_SINGLE_ALIGNED_CNT];
+	kv_vector_t          *old_vvalue;
 	int                   r = 0;
 
 	if (!spec->old_data)
 		return 1;
 
-	vvalue_old = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_vvalue_old, VVALUE_CNT(tmp_vvalue_old));
+	old_vvalue = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_old_vvalue, VVALUE_CNT(tmp_old_vvalue));
 
-	switch (_mod_match(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
+	switch (_mod_match(VVALUE_OWNER(old_vvalue), update_arg->owner)) {
 		case MOD_NO_MATCH:
-			r = !(VVALUE_FLAGS(vvalue_old) & KV_RS) && (VVALUE_FLAGS(vvalue_old) & KV_FRG_WR);
+			r = !(VVALUE_FLAGS(old_vvalue) & KV_RS) && (VVALUE_FLAGS(old_vvalue) & KV_FRG_WR);
 			break;
 		case MOD_MATCH:
 		case MOD_CORE_MATCH:
 			r = 1;
 			break;
 		case MOD_SUB_MATCH:
-			r = VVALUE_FLAGS(vvalue_old) & KV_SUB_WR;
+			r = VVALUE_FLAGS(old_vvalue) & KV_SUB_WR;
 			break;
 		case MOD_SUP_MATCH:
-			r = VVALUE_FLAGS(vvalue_old) & KV_SUP_WR;
+			r = VVALUE_FLAGS(old_vvalue) & KV_SUP_WR;
 			break;
 	}
 
@@ -5310,8 +5310,8 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 		                       "which belongs to module %s.",
 		                       update_arg->owner,
 		                       spec->key,
-		                       VVALUE_SEQNUM(vvalue_old),
-		                       VVALUE_OWNER(vvalue_old));
+		                       VVALUE_SEQNUM(old_vvalue),
+		                       VVALUE_OWNER(old_vvalue));
 		update_arg->ret_code = EBUSY;
 	}
 
