@@ -333,10 +333,14 @@ typedef struct iovec kv_vector_t;
 #define VVALUE_OWNER(vvalue)  ((char *) ((kv_vector_t *) vvalue)[VVALUE_IDX_OWNER].iov_base)
 #define VVALUE_DATA(vvalue)   (((kv_vector_t *) vvalue)[VVALUE_IDX_DATA].iov_base)
 
+struct kv_unset_nfo {
+	uint64_t    seqnum;
+	const char *owner;
+};
+
 struct kv_update_arg {
 	sid_resource_t    *res;
 	struct sid_buffer *gen_buf;
-	const char        *owner;    /* in */
 	void              *custom;   /* in/out */
 	int                ret_code; /* out */
 };
@@ -926,21 +930,28 @@ static mod_match_t _mod_match(const char *mod1, const char *mod2)
 
 static int _check_kv_wr_allowed(struct kv_update_arg *update_arg, const char *key, kv_vector_t *vvalue_old, kv_vector_t *vvalue_new)
 {
-	static const char   reason_reserved[] = "reserved";
-	static const char   reason_readonly[] = "read-only";
-	static const char   reason_private[]  = "private";
-	sid_ucmd_kv_flags_t old_flags;
-	const char         *old_owner;
-	const char         *new_owner;
-	const char         *reason;
-	int                 r = 0;
+	static const char    reason_reserved[] = "reserved";
+	static const char    reason_readonly[] = "read-only";
+	static const char    reason_private[]  = "private";
+	struct kv_unset_nfo *unset_nfo;
+	sid_ucmd_kv_flags_t  old_flags;
+	const char          *old_owner;
+	const char          *new_owner;
+	const char          *reason;
+	int                  r = 0;
 
 	if (!vvalue_old)
 		return 0;
 
 	old_flags = VVALUE_FLAGS(vvalue_old);
 	old_owner = VVALUE_OWNER(vvalue_old);
-	new_owner = vvalue_new ? VVALUE_OWNER(vvalue_new) : update_arg->owner;
+
+	if (vvalue_new)
+		new_owner = VVALUE_OWNER(vvalue_new);
+	else {
+		unset_nfo = update_arg->custom;
+		new_owner = unset_nfo->owner;
+	}
 
 	switch (_mod_match(old_owner, new_owner)) {
 		case MOD_NO_MATCH:
@@ -1031,6 +1042,17 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 	kv_vector_t           tmp_vvalue_old[VVALUE_SINGLE_ALIGNED_CNT];
 	kv_vector_t           tmp_vvalue_new[VVALUE_SINGLE_ALIGNED_CNT];
 	kv_vector_t          *vvalue_old, *vvalue_new;
+	struct kv_unset_nfo  *unset_nfo;
+	const char           *new_owner;
+
+	vvalue_new = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new, VVALUE_CNT(tmp_vvalue_new));
+
+	if (vvalue_new)
+		new_owner = VVALUE_OWNER(vvalue_new);
+	else {
+		unset_nfo = update_arg->custom;
+		new_owner = unset_nfo->owner;
+	}
 
 	if ((vvalue_old = _get_vvalue(spec->old_flags,
 	                              spec->old_data,
@@ -1038,7 +1060,7 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 	                              tmp_vvalue_old,
 	                              VVALUE_CNT(tmp_vvalue_old)))) {
 		/* only allow the same module that reserved before to re-reserve/unreserve */
-		switch (_mod_match(VVALUE_OWNER(vvalue_old), update_arg->owner)) {
+		switch (_mod_match(VVALUE_OWNER(vvalue_old), new_owner)) {
 			case MOD_MATCH:
 			case MOD_CORE_MATCH:
 				break;
@@ -1048,15 +1070,13 @@ static int _kv_cb_reserve(struct kv_store_update_spec *spec)
 			case MOD_SUP_MATCH:
 				sid_resource_log_debug(update_arg->res,
 				                       "Module %s can't reserve key %s which is already reserved by module %s.",
-				                       update_arg->owner,
+				                       new_owner,
 				                       spec->key,
 				                       VVALUE_OWNER(vvalue_old));
 				update_arg->ret_code = -EPERM;
 				return 0;
 		}
 	}
-
-	vvalue_new = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_vvalue_new, VVALUE_CNT(tmp_vvalue_new));
 
 	update_arg->ret_code = _check_kv_index_needed(vvalue_old, vvalue_new);
 	return 1;
@@ -2075,7 +2095,7 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 		                    &VVALUE_SEQNUM(vheader),
 		                    &value_flags_no_sync,
 		                    &VVALUE_GENNUM(vheader),
-		                    (char *) update_arg->owner);
+		                    VVALUE_OWNER(vheader));
 		_vvalue_data_prep(rel_vvalue, VVALUE_CNT(rel_vvalue), 0, (void *) key_prefix, strlen(key_prefix) + 1);
 
 		for (i = VVALUE_IDX_DATA; i < delta_vsize; i++) {
@@ -2305,7 +2325,6 @@ static void *_do_sid_ucmd_set_kv(sid_resource_t         *mod_res,
 	_vvalue_data_prep(vvalue, vvalue_cnt, 0, (void *) value, value_size);
 
 	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->common->kv_store_res,
-	                                     .owner    = owner,
 	                                     .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                     .custom   = NULL,
 	                                     .ret_code = -EREMOTEIO};
@@ -2565,6 +2584,7 @@ int _do_sid_ucmd_mod_reserve_kv(sid_resource_t             *mod_res,
 	char                *key   = NULL;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT]; /* only header */
 	struct kv_update_arg update_arg;
+	struct kv_unset_nfo  unset_nfo;
 	int                  is_worker;
 	struct kv_key_spec   key_spec = {.extra_op = NULL,
 	                                 .op       = KV_OP_SET,
@@ -2582,11 +2602,7 @@ int _do_sid_ucmd_mod_reserve_kv(sid_resource_t             *mod_res,
 	if (!(common->kv_store_res))
 		goto out;
 
-	update_arg = (struct kv_update_arg) {.res      = common->kv_store_res,
-	                                     .gen_buf  = NULL,
-	                                     .owner    = owner,
-	                                     .custom   = NULL,
-	                                     .ret_code = -EREMOTEIO};
+	update_arg = (struct kv_update_arg) {.res = common->kv_store_res, .gen_buf = NULL, .custom = NULL, .ret_code = -EREMOTEIO};
 
 	/*
 	 * FIXME: If possible, try to find out a way without calling worker_control_is_worker here.
@@ -2600,6 +2616,10 @@ int _do_sid_ucmd_mod_reserve_kv(sid_resource_t             *mod_res,
 		flags |= KV_RS | KV_SYNC_P;
 
 	if (unset && !is_worker) {
+		unset_nfo.owner   = owner;
+		unset_nfo.seqnum  = 0; /* reservation is handled before/after any events, so no seqnum here - use 0 instead */
+		update_arg.custom = &unset_nfo;
+
 		if (kv_store_unset(common->kv_store_res, key, _kv_cb_reserve, &update_arg) < 0 || update_arg.ret_code < 0)
 			goto out;
 	} else {
@@ -2930,7 +2950,6 @@ static int _handle_dev_for_group(sid_resource_t         *mod_res,
 	                                                .core     = KV_KEY_GEN_GROUP_IN})};
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
-	                                   .owner   = OWNER_CORE,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
 	                                   .custom  = &rel_spec};
 
@@ -3007,7 +3026,6 @@ static int _do_sid_ucmd_group_create(sid_resource_t         *mod_res,
 	                                   .core     = KV_KEY_GEN_GROUP_MEMBERS};
 
 	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kv_store_res,
-	                                   .owner    = owner,
 	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                   .custom   = NULL,
 	                                   .ret_code = 0};
@@ -3115,7 +3133,6 @@ static int _do_sid_ucmd_group_destroy(sid_resource_t         *mod_res,
 	                                                                        .core     = KV_KEY_GEN_GROUP_IN})};
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
-	                                   .owner   = OWNER_CORE,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
 	                                   .custom  = &rel_spec};
 
@@ -3829,7 +3846,6 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_resource_t *cmd_res)
 	                                                                       .core     = KV_KEY_GEN_GROUP_IN})};
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
-	                                   .owner   = OWNER_CORE,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
 	                                   .custom  = &rel_spec};
 
@@ -4040,7 +4056,6 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_resource_t *cmd_re
 	                                                                       .core     = KV_KEY_GEN_GROUP_IN})};
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
-	                                   .owner   = OWNER_CORE,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
 	                                   .custom  = &rel_spec};
 
@@ -5279,6 +5294,7 @@ static int _destroy_command(sid_resource_t *res)
 static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
+	struct kv_unset_nfo  *unset_nfo  = update_arg->custom;
 	kv_vector_t           tmp_old_vvalue[VVALUE_SINGLE_ALIGNED_CNT];
 	kv_vector_t          *old_vvalue;
 	int                   r = 0;
@@ -5288,7 +5304,7 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 
 	old_vvalue = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_old_vvalue, VVALUE_CNT(tmp_old_vvalue));
 
-	switch (_mod_match(VVALUE_OWNER(old_vvalue), update_arg->owner)) {
+	switch (_mod_match(VVALUE_OWNER(old_vvalue), unset_nfo->owner)) {
 		case MOD_NO_MATCH:
 			r = !(VVALUE_FLAGS(old_vvalue) & KV_RS) && (VVALUE_FLAGS(old_vvalue) & KV_FRG_WR);
 			break;
@@ -5308,7 +5324,7 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 		sid_resource_log_debug(update_arg->res,
 		                       "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
 		                       "which belongs to module %s.",
-		                       update_arg->owner,
+		                       unset_nfo->owner,
 		                       spec->key,
 		                       VVALUE_SEQNUM(old_vvalue),
 		                       VVALUE_OWNER(old_vvalue));
@@ -5376,6 +5392,7 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 	void                       *value_to_store;
 	struct kv_rel_spec          rel_spec   = {.delta = &((struct kv_delta) {0}), .abs_delta = &((struct kv_delta) {0})};
 	struct kv_update_arg        update_arg = {.gen_buf = common_ctx->gen_buf, .custom = &rel_spec};
+	struct kv_unset_nfo         unset_nfo;
 	bool                        unset, archive;
 	int                         r = -1;
 
@@ -5453,11 +5470,16 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 
 			unset                              = !(VVALUE_FLAGS(vvalue) & KV_RS) && (value_size == VVALUE_HEADER_CNT);
 
-			update_arg.owner                   = VVALUE_OWNER(vvalue);
 			update_arg.res                     = common_ctx->kv_store_res;
 			update_arg.ret_code                = 0;
 
-			vvalue_str                         = _buffer_get_vvalue_str(common_ctx->gen_buf, unset, vvalue, value_size);
+			if (unset) {
+				unset_nfo.owner   = VVALUE_OWNER(vvalue);
+				unset_nfo.seqnum  = VVALUE_SEQNUM(vvalue);
+				update_arg.custom = &unset_nfo;
+			}
+
+			vvalue_str = _buffer_get_vvalue_str(common_ctx->gen_buf, unset, vvalue, value_size);
 			sid_resource_log_debug(res, syncing_msg, key, vvalue_str ?: "NULL", VVALUE_SEQNUM(vvalue));
 			if (vvalue_str)
 				sid_buffer_rewind_mem(common_ctx->gen_buf, vvalue_str);
@@ -5501,9 +5523,14 @@ static int _sync_main_kv_store(sid_resource_t *res, struct sid_ucmd_common_ctx *
 			ext_data_offset      = _svalue_ext_data_offset(svalue);
 			unset                = ((svalue->flags != KV_RS) && (value_size == SVALUE_HEADER_SIZE + ext_data_offset));
 
-			update_arg.owner     = svalue->data;
 			update_arg.res       = common_ctx->kv_store_res;
 			update_arg.ret_code  = 0;
+
+			if (unset) {
+				unset_nfo.owner   = svalue->data;
+				unset_nfo.seqnum  = svalue->seqnum;
+				update_arg.custom = &unset_nfo;
+			}
 
 			sid_resource_log_debug(res,
 			                       syncing_msg,
