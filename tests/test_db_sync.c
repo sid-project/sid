@@ -168,7 +168,6 @@ static void _set_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **data
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT + nr_data];
 	sid_ucmd_kv_flags_t  flags      = KV_RD;
 	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kv_store_res,
-	                                   .owner    = owner,
 	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                   .custom   = NULL,
 	                                   .ret_code = -EREMOTEIO};
@@ -208,7 +207,6 @@ static void _set_broken_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT];
 	sid_ucmd_kv_flags_t  flags      = KV_RD;
 	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kv_store_res,
-	                                   .owner    = owner,
 	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                   .custom   = NULL,
 	                                   .ret_code = -EREMOTEIO};

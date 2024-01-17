@@ -114,6 +114,7 @@ static void test_kvstore_iterate(void **state)
 	uint16_t               gennum       = 0;
 	sid_resource_t        *kv_store_res = NULL;
 	struct kv_update_arg   update_arg;
+	struct kv_unset_nfo    unset_nfo;
 	size_t                 meta_size = 0;
 
 	kv_store_res                     = sid_resource_create(SID_RESOURCE_NO_PARENT,
@@ -128,11 +129,7 @@ static void test_kvstore_iterate(void **state)
 	test_iov[VVALUE_IDX_DATA].iov_base = "test";
 	test_iov[VVALUE_IDX_DATA].iov_len  = sizeof("test");
 
-	update_arg                         = (struct kv_update_arg) {.res      = kv_store_res,
-	                                                             .gen_buf  = NULL,
-	                                                             .owner    = TEST_OWNER,
-	                                                             .custom   = NULL,
-	                                                             .ret_code = -EREMOTEIO};
+	update_arg = (struct kv_update_arg) {.res = kv_store_res, .gen_buf = NULL, .custom = NULL, .ret_code = -EREMOTEIO};
 
 	/* Add the whole vector with TEST_KEY as the key */
 	assert_ptr_not_equal(kv_store_set_value(kv_store_res,
@@ -160,6 +157,9 @@ static void test_kvstore_iterate(void **state)
 	assert_int_equal(kv_store_num_entries(kv_store_res), 1);
 	/* TODO: if update_arg is NULL in the following call it causes SEGV */
 	update_arg.ret_code = 0;
+	unset_nfo.owner     = TEST_OWNER;
+	unset_nfo.seqnum    = 0;
+	update_arg.custom   = &unset_nfo;
 	assert_int_equal(kv_store_unset(kv_store_res, TEST_KEY, _kv_cb_main_unset, &update_arg), 0);
 	assert_int_equal(update_arg.ret_code, 0);
 	assert_int_equal(kv_store_num_entries(kv_store_res), 0);
