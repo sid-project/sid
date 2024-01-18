@@ -5330,13 +5330,15 @@ static int _kv_cb_main_set(struct kv_store_update_spec *spec)
 	kv_vector_t          *old_vvalue, *new_vvalue;
 	int                   r;
 
+	if (!spec->old_data)
+		return 1;
+
 	old_vvalue = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_old_vvalue, VVALUE_CNT(tmp_old_vvalue));
 	new_vvalue = _get_vvalue(spec->new_flags, spec->new_data, spec->new_data_size, tmp_new_vvalue, VVALUE_CNT(tmp_new_vvalue));
 
 	/* overwrite whole value */
 	/* note that 'VVALUE_SEQNUM(new_vvalue) == 0' means 'skip seqnum check' */
-	r = (!old_vvalue || (((VVALUE_SEQNUM(new_vvalue) == 0) || (VVALUE_SEQNUM(new_vvalue) >= VVALUE_SEQNUM(old_vvalue))) &&
-	                     _kv_cb_write(spec)));
+	r = ((VVALUE_SEQNUM(new_vvalue) == 0) || (VVALUE_SEQNUM(new_vvalue) >= VVALUE_SEQNUM(old_vvalue))) && _kv_cb_write(spec);
 
 	if (r)
 		sid_resource_log_debug(update_arg->res,
