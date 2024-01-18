@@ -2158,7 +2158,26 @@ static int _kv_cb_delta_step(struct kv_store_update_spec *spec)
 
 static int _kv_cb_main_delta_step(struct kv_store_update_spec *spec)
 {
-	return _do_kv_cb_delta_step(spec, true);
+	struct kv_update_arg *update_arg = spec->arg;
+	int                   r;
+
+	r = _do_kv_cb_delta_step(spec, true);
+
+	if (r) {
+		sid_resource_log_debug(update_arg->res,
+		                       "%s value for key %s (old seqnum %" PRIu64 ", new seqnum %" PRIu64 ").",
+		                       spec->old_data ? "Updating" : "Adding",
+		                       spec->key,
+		                       spec->old_data ? VVALUE_SEQNUM(spec->old_data) : 0,
+		                       VVALUE_SEQNUM(spec->new_data));
+	} else
+		sid_resource_log_debug(update_arg->res,
+		                       "Keeping old value for key %s (old seqnum %" PRIu64 ", new seqnum %" PRIu64 ").",
+		                       spec->key,
+		                       spec->old_data ? VVALUE_SEQNUM(spec->old_data) : 0,
+		                       VVALUE_SEQNUM(spec->new_data));
+
+	return r;
 }
 
 static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index)
