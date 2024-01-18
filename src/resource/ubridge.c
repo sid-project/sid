@@ -5338,16 +5338,16 @@ static int _kv_cb_main_set(struct kv_store_update_spec *spec)
 
 	if (r)
 		sid_resource_log_debug(update_arg->res,
-		                       "Updating value for key %s (new seqnum %" PRIu64 " >= old seqnum %" PRIu64 ")",
+		                       "Updating value for key %s (old seqnum %" PRIu64 ", new seqnum %" PRIu64 ").",
 		                       spec->key,
-		                       VVALUE_SEQNUM(new_vvalue),
-		                       old_vvalue ? VVALUE_SEQNUM(old_vvalue) : 0);
+		                       old_vvalue ? VVALUE_SEQNUM(old_vvalue) : 0,
+		                       VVALUE_SEQNUM(new_vvalue));
 	else
 		sid_resource_log_debug(update_arg->res,
-		                       "Keeping old value for key %s (new seqnum %" PRIu64 " < old seqnum %" PRIu64 ")",
+		                       "Keeping old value for key %s (old seqnum %" PRIu64 ", new seqnum %" PRIu64 ").",
 		                       spec->key,
-		                       VVALUE_SEQNUM(new_vvalue),
-		                       old_vvalue ? VVALUE_SEQNUM(old_vvalue) : 0);
+		                       old_vvalue ? VVALUE_SEQNUM(old_vvalue) : 0,
+		                       VVALUE_SEQNUM(new_vvalue));
 
 	return r;
 }
