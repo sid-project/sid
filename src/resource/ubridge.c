@@ -5304,7 +5304,7 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 
 	old_vvalue = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_old_vvalue, VVALUE_CNT(tmp_old_vvalue));
 
-	r          = _kv_cb_write(spec);
+	r          = ((unset_nfo->seqnum == 0) || (unset_nfo->seqnum >= VVALUE_SEQNUM(old_vvalue))) && _kv_cb_write(spec);
 
 	if (r)
 		sid_resource_log_debug(update_arg->res,
