@@ -108,7 +108,7 @@ static void test_kvstore_iterate(void **state)
 	const char            *key;
 	struct iovec          *return_iov;
 	kv_store_iter_t       *iter;
-	sid_ucmd_kv_flags_t    ucmd_flags = DEFAULT_VALUE_FLAGS_CORE;
+	sid_ucmd_kv_flags_t    ucmd_flags = KV_FLAGS_UNSET;
 	kv_store_value_flags_t flags;
 	uint64_t               seqnum       = 0;
 	uint16_t               gennum       = 0;
