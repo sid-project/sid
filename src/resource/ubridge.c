@@ -5318,8 +5318,13 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 	kv_vector_t          *old_vvalue;
 	int                   r = 0;
 
-	if (!spec->old_data)
+	if (!spec->old_data) {
+		sid_resource_log_debug(update_arg->res,
+		                       "Skipping unset for key %s as it is already unset (new seqnum %" PRIu64 ").",
+		                       spec->key,
+		                       unset_nfo->seqnum);
 		return 1;
+	}
 
 	old_vvalue = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_old_vvalue, VVALUE_CNT(tmp_old_vvalue));
 
