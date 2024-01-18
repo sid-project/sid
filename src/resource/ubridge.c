@@ -5304,32 +5304,20 @@ static int _kv_cb_main_unset(struct kv_store_update_spec *spec)
 
 	old_vvalue = _get_vvalue(spec->old_flags, spec->old_data, spec->old_data_size, tmp_old_vvalue, VVALUE_CNT(tmp_old_vvalue));
 
-	switch (_mod_match(VVALUE_OWNER(old_vvalue), unset_nfo->owner)) {
-		case MOD_NO_MATCH:
-			r = !(VVALUE_FLAGS(old_vvalue) & KV_RS) && (VVALUE_FLAGS(old_vvalue) & KV_FRG_WR);
-			break;
-		case MOD_MATCH:
-		case MOD_CORE_MATCH:
-			r = 1;
-			break;
-		case MOD_SUB_MATCH:
-			r = VVALUE_FLAGS(old_vvalue) & KV_SUB_WR;
-			break;
-		case MOD_SUP_MATCH:
-			r = VVALUE_FLAGS(old_vvalue) & KV_SUP_WR;
-			break;
-	}
+	r          = _kv_cb_write(spec);
 
-	if (!r) {
+	if (r)
 		sid_resource_log_debug(update_arg->res,
-		                       "Refusing request from module %s to unset existing value for key %s (seqnum %" PRIu64
-		                       "which belongs to module %s.",
-		                       unset_nfo->owner,
+		                       "Unsetting key %s (old seqnum %" PRIu64 ", new seqnum %" PRIu64 ").",
 		                       spec->key,
 		                       VVALUE_SEQNUM(old_vvalue),
-		                       VVALUE_OWNER(old_vvalue));
-		update_arg->ret_code = EBUSY;
-	}
+		                       unset_nfo->seqnum);
+	else
+		sid_resource_log_debug(update_arg->res,
+		                       "Keeping key %s (old seqnum %" PRIu64 ", new seqnum %" PRIu64 ").",
+		                       spec->key,
+		                       VVALUE_SEQNUM(old_vvalue),
+		                       unset_nfo->seqnum);
 
 	return r;
 }
