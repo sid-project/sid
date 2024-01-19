@@ -22,7 +22,6 @@
 
 #include "log/log.h"
 
-#include <errno.h>
 #include <systemd/sd-daemon.h>
 
 #ifdef __cplusplus

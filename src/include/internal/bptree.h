@@ -20,8 +20,6 @@
 #ifndef _SID_BPTREE_H
 #define _SID_BPTREE_H
 
-#include "internal/common.h"
-
 #include <stdbool.h>
 #include <stddef.h>
 

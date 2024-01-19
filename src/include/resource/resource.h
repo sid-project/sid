@@ -20,8 +20,6 @@
 #ifndef _SID_RESOURCE_H
 #define _SID_RESOURCE_H
 
-#include "internal/common.h"
-
 #include "base/buffer.h"
 #include "iface/service-link.h"
 #include "internal/formatter.h"

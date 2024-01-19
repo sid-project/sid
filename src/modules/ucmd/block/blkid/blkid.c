@@ -18,7 +18,6 @@
  */
 
 #include "blkid-type.h"
-#include "log/log.h"
 #include "resource/ucmd-module.h"
 
 #include <blkid/blkid.h>

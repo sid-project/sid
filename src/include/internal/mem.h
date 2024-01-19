@@ -22,7 +22,6 @@
 
 #include "internal/comp-attrs.h"
 
-#include <inttypes.h>
 #include <stdlib.h>
 
 #ifdef __cplusplus

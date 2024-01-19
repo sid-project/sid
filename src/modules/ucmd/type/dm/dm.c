@@ -23,7 +23,6 @@
 
 #include "base/util.h"
 #include "internal/mem.h"
-#include "log/log.h"
 #include "resource/module-registry.h"
 #include "resource/ucmd-module.h"
 

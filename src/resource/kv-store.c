@@ -25,11 +25,9 @@
 #include "internal/hash.h"
 #include "internal/mem.h"
 #include "internal/util.h"
-#include "log/log.h"
 #include "resource/resource.h"
 
 #include <ctype.h>
-#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 

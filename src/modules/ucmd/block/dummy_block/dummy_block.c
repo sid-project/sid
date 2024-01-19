@@ -17,7 +17,6 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "log/log.h"
 #include "resource/ucmd-module.h"
 
 SID_UCMD_MOD_PRIO(1)

@@ -23,12 +23,10 @@
 
 #include "internal/mem.h"
 #include "internal/util.h"
-#include "log/log.h"
 #include "resource/resource.h"
 
 #include <dirent.h>
 #include <dlfcn.h>
-#include <limits.h>
 #include <stdio.h>
 
 const sid_resource_type_t sid_resource_type_module;

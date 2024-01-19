@@ -22,6 +22,7 @@
 
 #include "base/buffer-common.h"
 
+#include <stdarg.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus

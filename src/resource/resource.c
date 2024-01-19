@@ -25,7 +25,6 @@
 #include "internal/mem.h"
 #include "log/log.h"
 
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>

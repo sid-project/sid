@@ -17,9 +17,6 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "base/buffer.h"
-#include "internal/mem.h"
-#include "log/log.h"
 #include "resource/resource.h"
 #include "resource/ubridge.h"
 

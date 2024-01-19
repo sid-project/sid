@@ -1,7 +1,6 @@
 #include "../src/base/util.c"
 #include "../src/iface/iface.c"
 #include "base/buffer.h"
-#include "base/util.h"
 #include "iface/iface.h"
 
 #include <setjmp.h>

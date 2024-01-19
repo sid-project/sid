@@ -18,11 +18,9 @@
  */
 
 #include "base/util.h"
-#include "log/log.h"
 #include "resource/ucmd-module.h"
 
 #include <libudev.h>
-#include <limits.h>
 #include <mpath_valid.h>
 #include <stdio.h>
 #include <stdlib.h>
