@@ -17,8 +17,6 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "internal/common.h"
-
 #include "resource/module-registry.h"
 
 #include "internal/mem.h"

@@ -20,6 +20,7 @@
 #ifndef _SID_BUFFER_COMMON_H
 #define _SID_BUFFER_COMMON_H
 
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
 
