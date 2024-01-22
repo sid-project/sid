@@ -275,7 +275,6 @@ interface libraries.
 Summary: Libraries for Storage Instantiation Daemon (SID) resources
 License: GPL-2.0-or-later
 Requires: %{name}-internal-libs%{?_isa} = %{?epoch}:%{version}-%{release}
-Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-iface-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 # Systemd supports event loop since v221
 Requires: systemd-libs >= 221
