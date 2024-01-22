@@ -31,7 +31,6 @@
 #include "internal/formatter.h"
 #include "internal/mem.h"
 #include "internal/util.h"
-#include "log/log.h"
 #include "resource/kv-store.h"
 #include "resource/module-registry.h"
 #include "resource/resource.h"
