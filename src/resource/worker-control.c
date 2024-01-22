@@ -23,7 +23,6 @@
 #include "base/comms.h"
 #include "internal/mem.h"
 #include "internal/util.h"
-#include "log/log.h"
 #include "resource/resource.h"
 
 #include <dirent.h>
