@@ -344,7 +344,6 @@ This package contains tools to support Storage Instantiation Daemon (SID).
 ##############################################################################
 %package mod-dummies
 Summary: Dummy block and type module for Storage Instantiation Daemon (SID)
-Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description mod-dummies
 This package contains dummy block and type modules for Storage Instantiation
@@ -368,7 +367,6 @@ execution.
 
 %package mod-block-blkid
 Summary: Blkid block module for Storage Instantiation Daemon (SID)
-Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description mod-block-blkid
 This package contains blkid block module for Storage Instantiation Daemon (SID).
@@ -390,7 +388,6 @@ This package contains blkid block module for Storage Instantiation Daemon (SID).
 
 %package mod-block-dm-mpath
 Summary: Device-mapper multipath block module for Storage Instantiation Daemon (SID)
-Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: device-mapper-multipath-libs >= 0.8.4-7
 %description mod-block-dm-mpath
@@ -414,7 +411,6 @@ Instantiation Daemon (SID).
 
 %package mod-type-dm
 Summary: Device-mapper type module for Storage Instantiation Daemon (SID)
-Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description mod-type-dm
 This package contains device-mapper type module for Storage Instantiation
@@ -435,7 +431,6 @@ Daemon (SID).
 
 %package mod-type-dm-lvm
 Summary: LVM type module for Storage Instantiation Daemon (SID)
-Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-mod-type-dm%{?_isa} = %{?epoch}:%{version}-%{release}
 %description mod-type-dm-lvm
