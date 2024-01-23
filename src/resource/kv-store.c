@@ -549,15 +549,15 @@ static int _set_value(struct kv_store           *kv_store,
 
 static void _kv_store_trans_rollback_value(sid_resource_t *kv_store_res, struct kv_rollback_arg *rollback_arg);
 
-void *_do_kv_store_set_value(sid_resource_t           *kv_store_res,
-                             const char               *key,
-                             void                     *value,
-                             size_t                    value_size,
-                             kv_store_value_flags_t    flags,
-                             kv_store_value_op_flags_t op_flags,
-                             kv_store_update_cb_fn_t   kv_update_fn,
-                             void                     *kv_update_fn_arg,
-                             const char               *archive_key)
+static void *_do_kv_store_set_value(sid_resource_t           *kv_store_res,
+                                    const char               *key,
+                                    void                     *value,
+                                    size_t                    value_size,
+                                    kv_store_value_flags_t    flags,
+                                    kv_store_value_op_flags_t op_flags,
+                                    kv_store_update_cb_fn_t   kv_update_fn,
+                                    void                     *kv_update_fn_arg,
+                                    const char               *archive_key)
 {
 	struct kv_store          *kv_store     = sid_resource_get_data(kv_store_res);
 	struct iovec              iov_internal = {.iov_base = value, .iov_len = value_size};
@@ -837,12 +837,12 @@ static int _unset_value(struct kv_store *kv_store, const char *key, struct kv_up
 	return 0;
 }
 
-int _do_kv_store_unset(sid_resource_t         *kv_store_res,
-                       const char             *key,
-                       struct sid_buffer      *unset_buf,
-                       kv_store_update_cb_fn_t kv_unset_fn,
-                       void                   *kv_unset_fn_arg,
-                       const char             *archive_key)
+static int _do_kv_store_unset(sid_resource_t         *kv_store_res,
+                              const char             *key,
+                              struct sid_buffer      *unset_buf,
+                              kv_store_update_cb_fn_t kv_unset_fn,
+                              void                   *kv_unset_fn_arg,
+                              const char             *archive_key)
 {
 	struct kv_store          *kv_store = sid_resource_get_data(kv_store_res);
 	struct kv_update_fn_relay relay;

@@ -1096,7 +1096,7 @@ static size_t _svalue_ext_data_offset(kv_scalar_t *svalue)
 	return owner_size;
 }
 
-bool _is_string_data(char *ptr, size_t len)
+static bool _is_string_data(char *ptr, size_t len)
 {
 	int i;
 
@@ -2590,13 +2590,13 @@ const void *sid_ucmd_get_foreign_dev_mod_kv(sid_resource_t         *mod_res,
 	                                   archive);
 }
 
-int _do_sid_ucmd_mod_reserve_kv(sid_resource_t             *mod_res,
-                                struct sid_ucmd_common_ctx *common,
-                                const char                 *dom,
-                                sid_ucmd_kv_namespace_t     ns,
-                                const char                 *key_core,
-                                sid_ucmd_kv_flags_t         flags,
-                                int                         unset)
+static int _do_sid_ucmd_mod_reserve_kv(sid_resource_t             *mod_res,
+                                       struct sid_ucmd_common_ctx *common,
+                                       const char                 *dom,
+                                       sid_ucmd_kv_namespace_t     ns,
+                                       const char                 *key_core,
+                                       sid_ucmd_kv_flags_t         flags,
+                                       int                         unset)
 {
 	const char          *owner = _get_mod_name(mod_res);
 	char                *key   = NULL;
@@ -3291,7 +3291,7 @@ static char *_canonicalize_kv_key(char *id)
 	return id;
 }
 
-int _part_get_whole_disk(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, char *devno_buf, size_t devno_buf_size)
+static int _part_get_whole_disk(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, char *devno_buf, size_t devno_buf_size)
 {
 	const char *s;
 	int         r;

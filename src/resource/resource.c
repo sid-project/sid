@@ -535,7 +535,7 @@ int64_t sid_resource_get_prio(sid_resource_t *res)
 	return res->prio;
 }
 
-sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_not_found)
+static sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_not_found)
 {
 	sid_resource_t *tmp_res = res;
 
@@ -551,7 +551,7 @@ sid_resource_t *_get_resource_with_event_loop(sid_resource_t *res, int error_if_
 	return NULL;
 }
 
-void _handle_event_counter(sid_resource_event_source_t *es)
+static void _handle_event_counter(sid_resource_event_source_t *es)
 {
 	es->events_fired++;
 	if ((es->events_max != SID_RESOURCE_UNLIMITED_EVENT_COUNT) && (es->events_fired == es->events_max))

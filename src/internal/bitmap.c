@@ -84,7 +84,7 @@ void bitmap_destroy(struct bitmap *bitmap)
 	free(bitmap);
 }
 
-int _get_coord(struct bitmap *bitmap, size_t bit_pos, unsigned *block, unsigned *bit)
+static int _get_coord(struct bitmap *bitmap, size_t bit_pos, unsigned *block, unsigned *bit)
 {
 	if (bit_pos >= bitmap->bit_count)
 		return -ERANGE;

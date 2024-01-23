@@ -684,7 +684,7 @@ fail:
 	return -1;
 }
 
-void _destroy_channels(struct worker_channel *channels, unsigned channel_count)
+static void _destroy_channels(struct worker_channel *channels, unsigned channel_count)
 {
 	unsigned               i;
 	struct worker_channel *chan;
@@ -713,7 +713,7 @@ void _destroy_channels(struct worker_channel *channels, unsigned channel_count)
 	free(channels);
 }
 
-int _close_non_channel_fds(sid_resource_t *res, struct worker_channel *channels, unsigned channel_count)
+static int _close_non_channel_fds(sid_resource_t *res, struct worker_channel *channels, unsigned channel_count)
 {
 	static const char *proc_self_fd_dir = SYSTEM_PROC_PATH "/self/fd";
 	DIR               *d;

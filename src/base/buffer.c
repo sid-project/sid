@@ -178,7 +178,7 @@ int sid_buffer_vfmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, c
 	return 0;
 }
 
-int _do_sid_buffer_release(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence, bool rewind)
+static int _do_sid_buffer_release(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence, bool rewind)
 {
 	size_t count = sid_buffer_count(buf);
 
@@ -204,7 +204,7 @@ int sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whenc
 	return _do_sid_buffer_release(buf, pos, whence, true);
 }
 
-int _do_sid_buffer_release_mem(struct sid_buffer *buf, const void *mem, bool rewind)
+static int _do_sid_buffer_release_mem(struct sid_buffer *buf, const void *mem, bool rewind)
 {
 	if (mem < buf->mem)
 		return -EINVAL;
