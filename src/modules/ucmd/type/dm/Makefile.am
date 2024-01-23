@@ -28,7 +28,7 @@ dm_la_SOURCES = dm.c dm.h
 dm_la_LDFLAGS = -module -avoid-version
 
 dm_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
-	       $(top_builddir)/src/log/libsidlog.la
+	       $(top_builddir)/src/resource/libsidresource.la
 
 install-data-local:
 	${MKDIR_P} ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm

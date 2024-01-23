@@ -26,4 +26,4 @@ lvm_la_SOURCES = lvm.c
 lvm_la_LDFLAGS = -module -avoid-version
 
 lvm_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
-		$(top_builddir)/src/log/libsidlog.la
+		$(top_builddir)/src/resource/libsidresource.la

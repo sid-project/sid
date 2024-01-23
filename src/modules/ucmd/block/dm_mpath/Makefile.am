@@ -26,5 +26,5 @@ dm_mpath_la_SOURCES = dm_mpath.c
 dm_mpath_la_LDFLAGS = -module -avoid-version
 
 dm_mpath_la_LIBADD = $(top_builddir)/src/base/libsidbase.la \
-		     $(top_builddir)/src/log/libsidlog.la \
+		     $(top_builddir)/src/resource/libsidresource.la \
 		     -lmpathvalid

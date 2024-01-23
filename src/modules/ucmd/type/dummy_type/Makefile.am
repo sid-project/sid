@@ -25,4 +25,4 @@ dummy_type_la_SOURCES = dummy_type.c
 
 dummy_type_la_LDFLAGS = -module -avoid-version
 
-dummy_type_la_LIBADD = $(top_builddir)/src/log/libsidlog.la
+dummy_type_la_LIBADD = $(top_builddir)/src/resource/libsidresource.la
