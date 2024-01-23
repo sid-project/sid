@@ -1330,19 +1330,25 @@ void sid_resource_log_output(sid_resource_t *res, const log_req_t *log_req, cons
 {
 	log_req_t req;
 	va_list   ap;
+	log_pfx_t pfx1, pfx2, pfx_last;
 
 	if (!res)
 		return;
 
-	if (res->type->log_prefix)
-		req = (log_req_t) {
-			.pfx = &((log_pfx_t) {.s = "res-imp",
-		                              .n = &((log_pfx_t) {.s = res->type->log_prefix,
-		                                                  .n = &((log_pfx_t) {.s = res->id, .n = log_req->pfx})})}),
-			.ctx = log_req->ctx};
-	else
-		req = (log_req_t) {.pfx = &((log_pfx_t) {.s = "res-imp", .n = &((log_pfx_t) {.s = res->id, .n = log_req->pfx})}),
-		                   .ctx = log_req->ctx};
+	pfx_last.s = res->id;
+	pfx_last.n = log_req->pfx;
+
+	pfx1.s     = "res-imp";
+
+	if (res->type->log_prefix) {
+		pfx2.s = res->type->log_prefix;
+		pfx2.n = &pfx_last;
+		pfx1.n = &pfx2;
+	} else
+		pfx1.n = &pfx_last;
+
+	req.pfx = &pfx1;
+	req.ctx = log_req->ctx;
 
 	va_start(ap, fmt);
 	service_link_group_vnotify(res->slg, SERVICE_NOTIFICATION_MESSAGE, &req, fmt, ap);
