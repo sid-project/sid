@@ -6449,14 +6449,26 @@ static int _init_common(sid_resource_t *res, const void *kickstart_data, void **
 		goto fail;
 	}
 
-	if (module_registry_load_modules(common_ctx->block_mod_registry_res) < 0) {
-		sid_resource_log_error(res, "Failed to preload block modules.");
-		goto fail;
+	if ((r = module_registry_load_modules(common_ctx->block_mod_registry_res)) < 0) {
+		if (r == -ENOENT)
+			sid_resource_log_debug(res, "Block module directory %s not present.", SID_UCMD_BLOCK_MOD_DIR);
+		else if (r == -ENOMEDIUM)
+			sid_resource_log_debug(res, "Block module directory %s empty.", SID_UCMD_BLOCK_MOD_DIR);
+		else {
+			sid_resource_log_error(res, "Failed to preload block modules.");
+			goto fail;
+		}
 	}
 
-	if (module_registry_load_modules(common_ctx->type_mod_registry_res) < 0) {
-		sid_resource_log_error(res, "Failed to preload type modules.");
-		goto fail;
+	if ((r = module_registry_load_modules(common_ctx->type_mod_registry_res)) < 0) {
+		if (r == -ENOENT)
+			sid_resource_log_debug(res, "Type module directory %s not present.", SID_UCMD_TYPE_MOD_DIR);
+		else if (r == -ENOMEDIUM)
+			sid_resource_log_debug(res, "Type module directory %s empty.", SID_UCMD_TYPE_MOD_DIR);
+		else {
+			sid_resource_log_error(res, "Failed to preload type modules.");
+			goto fail;
+		}
 	}
 
 	*data = common_ctx;
