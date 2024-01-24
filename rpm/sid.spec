@@ -231,6 +231,7 @@ logging libraries.
 Summary: Libraries for Storage Instantiation Daemon (SID) interfaces
 License: GPL-2.0-or-later
 Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
+Requires: %{name}-internal-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description iface-libs
 This package contains shared libraries to support interfaces used in Storage
