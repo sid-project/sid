@@ -23,7 +23,6 @@
 #include "internal/formatter.h"
 #include "internal/list.h"
 #include "internal/mem.h"
-#include "log/log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
