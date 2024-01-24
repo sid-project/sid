@@ -42,8 +42,6 @@ BuildRequires: device-mapper-multipath-devel >= 0.8.4-7
 
 Requires: systemd
 Requires: systemd-udev
-Requires: %{name}-internal-libs%{?_isa} = %{?epoch}:%{version}-%{release}
-Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-tools = %{?epoch}:%{version}-%{release}
 
@@ -230,7 +228,6 @@ logging libraries.
 %package iface-libs
 Summary: Libraries for Storage Instantiation Daemon (SID) interfaces
 License: GPL-2.0-or-later
-Requires: %{name}-base-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-internal-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description iface-libs
@@ -326,8 +323,6 @@ resource libraries.
 
 %package tools
 Summary: Storage Instantiation Daemon (SID) supporting tools
-Requires: %{name}-internal-libs%{?_isa} = %{?epoch}:%{version}-%{release}
-Requires: %{name}-log-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: %{name}-iface-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 Requires: systemd-udev
 %description tools
