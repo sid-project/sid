@@ -303,23 +303,29 @@ static int _load_modules(sid_resource_t *mod_registry_res)
 	struct dirent         **dirent = NULL;
 	size_t                  prefix_len, suffix_len;
 	char                   *name;
-	int                     count, i;
+	int                     count, i, found;
 	int                     r = 0;
 
 	count                     = scandir(registry->directory, &dirent, NULL, versionsort);
 
 	if (count < 0) {
-		sid_resource_log_sys_error(mod_registry_res, "scandir", registry->directory);
-		r = -1;
+		if (errno == ENOENT)
+			r = -ENOENT;
+		else {
+			sid_resource_log_sys_error(mod_registry_res, "scandir", registry->directory);
+			r = -1;
+		}
 		goto out;
 	}
 
 	prefix_len = registry->module_prefix ? strlen(registry->module_prefix) : 0;
 	suffix_len = registry->module_suffix ? strlen(registry->module_suffix) : 0;
 
-	for (i = 0; i < count; i++) {
+	for (i = 0, found = 0; i < count; i++) {
 		if (dirent[i]->d_name[0] != '.' &&
 		    util_str_combstr(dirent[i]->d_name, registry->module_prefix, NULL, registry->module_suffix, 1)) {
+			found++;
+
 			if (!(name = util_str_copy_substr(&mem,
 			                                  dirent[i]->d_name,
 			                                  prefix_len,
@@ -344,6 +350,9 @@ static int _load_modules(sid_resource_t *mod_registry_res)
 
 		free(dirent[i]);
 	}
+
+	if (!found)
+		r = -ENOMEDIUM;
 out:
 	free(dirent);
 	return r;
@@ -354,14 +363,7 @@ int module_registry_load_modules(sid_resource_t *mod_registry_res)
 	if (!sid_resource_match(mod_registry_res, &sid_resource_type_module_registry, NULL))
 		return -EINVAL;
 
-	if (_load_modules(mod_registry_res) < 0) {
-		sid_resource_log_error(mod_registry_res,
-		                       "Failed to load modules from directory %s.",
-		                       ((struct module_registry *) sid_resource_get_data(mod_registry_res))->directory);
-		return -1;
-	}
-
-	return 0;
+	return _load_modules(mod_registry_res);
 }
 
 typedef void (*generic_t)(void);
