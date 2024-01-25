@@ -4543,14 +4543,17 @@ static int _cmd_exec_scan_wait(sid_resource_t *cmd_res)
 static int _cmd_exec_scan_exit(sid_resource_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_resource_get_data(cmd_res);
+	int                  r        = 0;
 
 	if (_do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == DEV_RDY_UNPROCESSED)
-		return _do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, DEV_RDY_PUBLIC);
+		if (_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, DEV_RDY_PUBLIC) < 0)
+			r = -1;
 
 	if (_do_sid_ucmd_dev_get_reserved(NULL, ucmd_ctx, 0) == DEV_RES_UNPROCESSED)
-		return _do_sid_ucmd_dev_set_reserved(cmd_res, ucmd_ctx, DEV_RES_FREE);
+		if (_do_sid_ucmd_dev_set_reserved(cmd_res, ucmd_ctx, DEV_RES_FREE) < 0)
+			r = -1;
 
-	return 0;
+	return r;
 }
 
 static int _cmd_exec_scan_cleanup(sid_resource_t *cmd_res)
