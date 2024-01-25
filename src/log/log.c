@@ -86,24 +86,25 @@ void log_voutput(log_t *log, log_req_t *req, const char *format, va_list ap)
 	static int log_ignored = 0;
 	int        orig_errno  = errno;
 	log_req_t  tmp_req;
+	log_pfx_t  pfx;
 
 	if (log && log->prefix) {
-		tmp_req.pfx = &((log_pfx_t) {.s = log->prefix, .n = req->pfx});
+		pfx.s       = log->prefix;
+		pfx.n       = req->pfx;
+		tmp_req.pfx = &pfx;
 		tmp_req.ctx = req->ctx;
 		req         = &tmp_req;
 	}
 
 	if (_log.handle_required && (log != &_log)) {
 		if (!log_ignored) {
-			log_voutput(&_log,
-			            &((log_req_t) {.pfx = NULL,
-			                           .ctx = &((log_ctx_t) {.level_id = LOG_ERR,
-			                                                 .errno_id = 0,
-			                                                 .src_file = req->ctx->src_file,
-			                                                 .src_line = req->ctx->src_line,
-			                                                 .src_func = req->ctx->src_func})}),
-			            INTERNAL_ERROR "Incorrect or missing log handle, skipping log messages.",
-			            ap);
+			tmp_req.pfx = NULL;
+			tmp_req.ctx = &((log_ctx_t) {.level_id = LOG_ERR,
+			                             .errno_id = 0,
+			                             .src_file = req->ctx->src_file,
+			                             .src_line = req->ctx->src_line,
+			                             .src_func = req->ctx->src_func});
+			log_voutput(&_log, &tmp_req, INTERNAL_ERROR "Incorrect or missing log handle, skipping log messages.", ap);
 			log_ignored = 1;
 		}
 		goto out;
