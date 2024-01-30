@@ -614,7 +614,7 @@ static int _setup_channel(sid_resource_t *owner, bool is_worker, worker_type_t t
 			break;
 	}
 
-	if (owner) {
+	if (!(type == WORKER_TYPE_EXTERNAL && is_worker)) {
 		if (sid_resource_create_io_event_source(owner,
 		                                        NULL,
 		                                        chan->fd,
