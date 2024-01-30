@@ -1349,7 +1349,10 @@ int sid_res_ev_loop_run(sid_res_t *res)
 
 	log_req.pfx = &((sid_log_pfx_t) {.s = res->id, .n = NULL});
 	log_req.ctx = &SID_SRV_LNK_DEFAULT_LOG_CTX;
-	(void) sid_srv_lnk_grp_notify(res->slg, SID_SRV_LNK_NOTIF_READY, &log_req, NULL);
+	(void) sid_srv_lnk_grp_notify(res->slg,
+	                              SID_SRV_LNK_NOTIF_READY | SID_SRV_LNK_NOTIF_STATUS,
+	                              &log_req,
+	                              "STATUS=Processing requests...");
 
 	if ((r = sd_event_loop(res->event_loop.sd_event_loop)) < 0) {
 		if (r == -ECHILD)
