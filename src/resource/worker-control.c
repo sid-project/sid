@@ -563,7 +563,7 @@ static int _setup_channel(sid_resource_t *owner, bool is_worker, worker_type_t t
 					goto fail;
 				}
 				close(chan->fd);
-				chan->fd = -1;
+				chan->fd = chan->spec->wire.ext.pipe.fd_redir;
 			}
 
 			break;
@@ -583,7 +583,7 @@ static int _setup_channel(sid_resource_t *owner, bool is_worker, worker_type_t t
 					goto fail;
 				}
 				close(chan->fd);
-				chan->fd = -1;
+				chan->fd = chan->spec->wire.ext.pipe.fd_redir;
 			}
 
 			break;
@@ -609,7 +609,7 @@ static int _setup_channel(sid_resource_t *owner, bool is_worker, worker_type_t t
 				}
 
 				close(chan->fd);
-				chan->fd = -1;
+				chan->fd = chan->spec->wire.ext.socket.fd_redir;
 			}
 			break;
 	}
