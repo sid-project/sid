@@ -133,6 +133,7 @@ struct worker_control_resource_params {
 };
 
 int worker_control_channel_send(sid_resource_t *res, const char *channel_id, struct worker_data_spec *data_spec);
+int worker_control_channel_close(sid_resource_t *res, const char *channel_id);
 
 /* Worker creation/lookup. */
 struct worker_params {

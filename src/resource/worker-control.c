@@ -1258,7 +1258,10 @@ static struct worker_channel *_get_channel(struct worker_channel *channels, unsi
 	return NULL;
 }
 
-int worker_control_channel_send(sid_resource_t *current_res, const char *channel_id, struct worker_data_spec *data_spec)
+static int _channel_prepare_send(sid_resource_t          *current_res,
+                                 const char              *channel_id,
+                                 struct worker_data_spec *data_spec,
+                                 struct worker_channel  **found_chan)
 {
 	sid_resource_t        *res;
 	struct worker_proxy   *worker_proxy;
@@ -1304,7 +1307,33 @@ int worker_control_channel_send(sid_resource_t *current_res, const char *channel
 	} else
 		return -ENOMEDIUM;
 
+	*found_chan = chan;
+	return 0;
+}
+
+int worker_control_channel_send(sid_resource_t *current_res, const char *channel_id, struct worker_data_spec *data_spec)
+{
+	struct worker_channel *chan;
+	int                    r;
+
+	if ((r = _channel_prepare_send(current_res, channel_id, data_spec, &chan)) < 0)
+		return r;
+
 	return _chan_buf_send(chan, data_spec->ext.used ? WORKER_CHANNEL_CMD_DATA_EXT : WORKER_CHANNEL_CMD_DATA, data_spec);
+}
+
+int worker_control_channel_close(sid_resource_t *current_res, const char *channel_id)
+{
+	struct worker_channel *chan;
+	int                    r;
+
+	if ((r = _channel_prepare_send(current_res, channel_id, &((struct worker_data_spec) {0}), &chan)) < 0)
+		return r;
+
+	close(chan->fd);
+	chan->fd = -1;
+
+	return 0;
 }
 
 int worker_control_worker_yield(sid_resource_t *res)
