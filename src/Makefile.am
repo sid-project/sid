@@ -19,8 +19,6 @@
 
 SUBDIRS = base internal log iface resource daemon modules tools
 
-pkginclude_HEADERS = $(top_builddir)/src/include/config.h
-
 uninstall-hook:
 	test -d ${DESTDIR}${pkglibdir} && rmdir ${DESTDIR}${pkglibdir}
 	test -d ${DESTDIR}${pkgincludedir} && rmdir ${DESTDIR}${pkgincludedir}
