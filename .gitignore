@@ -6,8 +6,6 @@
 /config.log
 /autoscan.log
 /configure.scan
-/config.h.in
-/config.h
 **/.deps
 **/.libs
 
