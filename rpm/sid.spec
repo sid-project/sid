@@ -75,7 +75,6 @@ rm -f %{buildroot}/%{_libdir}/sid/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/block/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/dm/*.{a,la}
-%multilib_fix_c_header --file %{_includedir}/sid/config.h
 
 %files
 %license COPYING BSD_LICENSE
@@ -131,7 +130,6 @@ base libraries.
 %dir %{_libdir}/sid
 %{_libdir}/sid/libsidbase.so
 %dir %{_includedir}/sid
-%{_includedir}/sid/config*.h
 %dir %{_includedir}/sid/base
 %{_includedir}/sid/base/binary.h
 %{_includedir}/sid/base/buffer-common.h
