@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout the repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install podman
         run: |
@@ -61,7 +61,7 @@ jobs:
 
       - name: Upload the test csmock logs
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: csmock_logs
           path: sid-csmock-results/*
