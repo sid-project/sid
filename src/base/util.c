@@ -17,8 +17,6 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
-
 #include "base/util.h"
 
 #include <errno.h>

@@ -20,8 +20,6 @@
 #ifndef _SID_INTERNAL_COMMON_H
 #define _SID_INTERNAL_COMMON_H
 
-#include "config.h"
-
 #define SYSTEM_DEV_PATH              "/dev"
 #define SYSTEM_SYSFS_PATH            "/sys"
 #define SYSTEM_PROC_PATH             "/proc"

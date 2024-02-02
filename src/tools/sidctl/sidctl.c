@@ -17,8 +17,6 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "config.h"
-
 #include "base/buffer.h"
 #include "iface/iface.h"
 #include "internal/formatter.h"
