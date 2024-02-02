@@ -1,7 +1,7 @@
 ##############################################################################
 # This file is part of SID.
 #
-# Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+# Copyright (C) 2024 Red Hat, Inc. All rights reserved.
 #
 # SID is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,14 +17,4 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-include $(top_srcdir)/Makefile.common
-
-dummy_typedir = $(pkglibdir)/modules/ucmd/type
-
-dummy_type_LTLIBRARIES = dummy_type.la
-
-dummy_type_la_SOURCES = dummy_type.c
-
-dummy_type_la_LDFLAGS = -module -avoid-version
-
-dummy_type_la_LIBADD = $(top_builddir)/src/resource/libsidresource.la
+AM_CPPFLAGS = -include $(CONFIG_HEADER)

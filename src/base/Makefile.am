@@ -17,6 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
+include $(top_srcdir)/Makefile.common
+
 pkglib_LTLIBRARIES = libsidbase.la
 
 libsidbase_la_SOURCES = buffer-type-linear.c \

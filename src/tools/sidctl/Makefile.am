@@ -17,6 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
+include $(top_srcdir)/Makefile.common
+
 sbin_PROGRAMS = sidctl
 
 sidctl_SOURCES = sidctl.c

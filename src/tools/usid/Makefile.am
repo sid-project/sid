@@ -17,6 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
+include $(top_srcdir)/Makefile.common
+
 udevdir = $(UDEV_DIR)
 
 udev_PROGRAMS = usid

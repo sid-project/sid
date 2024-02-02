@@ -17,6 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
+include $(top_srcdir)/Makefile.common
+
 blkiddir = $(pkglibdir)/modules/ucmd/block
 
 blkid-type-mapper.c: blkid-type-mapper.gperf

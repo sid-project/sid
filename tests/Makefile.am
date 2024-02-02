@@ -1,5 +1,7 @@
 if HAVE_CMOCKA
 
+include $(top_srcdir)/Makefile.common
+
 LOG_DRIVER = CMOCKA_MESSAGE_OUTPUT=TAP $(top_srcdir)/autoconf/tap-driver.sh
 
 check_PROGRAMS = \

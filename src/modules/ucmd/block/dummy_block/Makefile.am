@@ -17,6 +17,8 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
+include $(top_srcdir)/Makefile.common
+
 dummy_blockdir = $(pkglibdir)/modules/ucmd/block
 
 dummy_block_LTLIBRARIES = dummy_block.la
