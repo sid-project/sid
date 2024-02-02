@@ -653,7 +653,7 @@ static int _setup_channels(sid_resource_t *owner, worker_type_t type, struct wor
 	if (sid_resource_match(owner, &sid_resource_type_worker_control, NULL))
 		is_worker = true;
 	else
-		is_worker = owner ? worker_control_is_worker(owner) : true;
+		is_worker = worker_control_is_worker(owner);
 
 	while (i < chan_count) {
 		if (_setup_channel(owner, is_worker, type, &chans[i]) < 0)
