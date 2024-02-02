@@ -2,8 +2,6 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
-/* define __USE_GNU for ucred definition */
-#define __USE_GNU
 #include <sys/socket.h>
 #define UNIT_TESTING /* enable cmocka memory testing in mem.c and kv-store.c*/
 #include "../src/internal/mem.c"

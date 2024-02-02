@@ -2,8 +2,6 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
-/* define __USE_GNU for ucred definition */
-#define __USE_GNU
 #include "../src/internal/mem.c"
 #include "../src/resource/kv-store.c"
 #include "../src/resource/ubridge.c"
