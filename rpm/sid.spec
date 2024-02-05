@@ -3,7 +3,11 @@
 %{?commit:%global commitdate 20200828}
 %{?commit:%global scmsnap %{commitdate}git%{shortcommit}}
 
+%global enable_mod_dummies 1
+%global enable_mod_block_blkid 1
 %global enable_mod_block_dm_mpath 1
+%global enable_mod_type_dm 1
+%global enable_mod_type_dm__lvm 1
 
 ##############################################################################
 # SID
@@ -35,7 +39,9 @@ BuildRequires: systemd-rpm-macros
 BuildRequires: systemd-devel >= 221
 BuildRequires: libudev-devel >= 174
 BuildRequires: libuuid-devel
+%if %{enable_mod_block_blkid}
 BuildRequires: libblkid-devel
+%endif
 %if %{enable_mod_block_dm_mpath}
 BuildRequires: device-mapper-multipath-devel >= 0.8.4-7
 %endif
@@ -60,13 +66,40 @@ of devices and their layers in the stack.
 %autosetup -p1 -n sid-%{version}
 %endif
 
-%if ! %{enable_mod_block_dm_mpath}
+%if %{enable_mod_block_blkid}
+%global configure_mod_block_blkid --enable-mod-block-blkid
+%else
+%global configure_mod_block_dm_mpath --disable-mod-block-blkid
+%endif
+
+%if %{enable_mod_block_dm_mpath}
+%global configure_mod_block_dm_mpath --enable-mod-block-dm_mpath
+%else
 %global configure_mod_block_dm_mpath --disable-mod-block-dm_mpath
+%endif
+
+%if %{enable_mod_type_dm}
+%global configure_mod_type_dm --enable-mod-type-dm
+%else
+%global configure_mod_type_dm --disable-mod-type-dm
+%endif
+
+%if %{enable_mod_type_dm__lvm}
+%global configure_mod_type_dm__lvm --enable-mod-type-dm-lvm
+%else
+%global configure_mod_type_dm__lvm --disable-mod-type-dm-lvm
+%endif
+
+%if %{enable_mod_dummies}
+%global configure_mod_dummies --enable-mod-block-dummy --enable-mod-type-dummy
+%else
+%global configure_mod_dummies --disable-mod-block-dummy --disable-mod-type-dummy
 %endif
 
 %build
 autoreconf -ivf
-%configure %{?configure_mod_block_dm_mpath}
+%configure %{?configure_mod_block_blkid} %{?configure_mod_block_dm_mpath} %{?configure_mod_type_dm} %{?configure_mod_type_dm__lvm} %{?configure_mod_dummies}
+
 %make_build
 
 %install
@@ -139,6 +172,7 @@ base libraries.
 %{_includedir}/sid/base/util.h
 %doc README.md
 
+
 ##############################################################################
 # SID-INTERNAL-LIBS
 ##############################################################################
@@ -157,6 +191,7 @@ functions.
 %dir %{_libdir}/sid
 %{_libdir}/sid/libsidinternal.so.*
 %doc README.md
+
 
 ##############################################################################
 # SID-INTERNAL-LIBS-DEVEL
@@ -180,6 +215,7 @@ internal libraries.
 %{_includedir}/sid/internal/mem.h
 %{_includedir}/sid/internal/util.h
 %{_libdir}/sid/libsidinternal.so
+
 
 ##############################################################################
 # SID-LOG-LIBS
@@ -336,6 +372,9 @@ This package contains tools to support Storage Instantiation Daemon (SID).
 ##############################################################################
 # SID-MOD-DUMMIES
 ##############################################################################
+
+%if %{enable_mod_dummies}
+
 %package mod-dummies
 Summary: Dummy block and type module for Storage Instantiation Daemon (SID)
 Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
@@ -354,10 +393,14 @@ execution.
 %{_libdir}/sid/modules/ucmd/type/dummy_type.so
 %doc README.md
 
+%endif
+
 
 ##############################################################################
 # SID-MOD-BLOCK-BLKID
 ##############################################################################
+
+%if %{enable_mod_block_blkid}
 
 %package mod-block-blkid
 Summary: Blkid block module for Storage Instantiation Daemon (SID)
@@ -372,6 +415,8 @@ This package contains blkid block module for Storage Instantiation Daemon (SID).
 %dir %{_libdir}/sid/modules/ucmd/block
 %{_libdir}/sid/modules/ucmd/block/blkid.so
 %doc README.md
+
+%endif
 
 
 ##############################################################################
@@ -403,6 +448,8 @@ Instantiation Daemon (SID).
 # SID-MOD-TYPE-DM
 ##############################################################################
 
+%if %{enable_mod_type_dm}
+
 %package mod-type-dm
 Summary: Device-mapper type module for Storage Instantiation Daemon (SID)
 Requires: %{name}-resource-libs%{?_isa} = %{?epoch}:%{version}-%{release}
@@ -419,9 +466,14 @@ Daemon (SID).
 %{_libdir}/sid/modules/ucmd/type/dm.so
 %doc README.md
 
+%endif
+
+
 ##############################################################################
 # SID-MOD-TYPE-DM-LVM
 ##############################################################################
+
+%if %{enable_mod_type_dm__lvm}
 
 %package mod-type-dm-lvm
 Summary: LVM type module for Storage Instantiation Daemon (SID)
@@ -434,6 +486,8 @@ Daemon (SID).
 %files mod-type-dm-lvm
 %{_libdir}/sid/modules/ucmd/type/dm/lvm.so
 %doc README.md
+
+%endif
 
 
 %changelog
