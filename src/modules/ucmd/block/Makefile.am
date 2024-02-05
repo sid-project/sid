@@ -17,7 +17,7 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = dummy_block
+SUBDIRS =
 
 if BUILD_MOD_UCMD_BLOCK_BLKID
 SUBDIRS += blkid
@@ -25,6 +25,10 @@ endif
 
 if BUILD_MOD_UCMD_BLOCK_DM_MPATH
 SUBDIRS += dm_mpath
+endif
+
+if BUILD_MOD_UCMD_BLOCK_DUMMY
+SUBDIRS += dummy_block
 endif
 
 uninstall-hook:

@@ -158,6 +158,17 @@ if test x$BUILD_MOD_UCMD_BLOCK_DM_MPATH = xyes; then
 fi
 AM_CONDITIONAL([BUILD_MOD_UCMD_BLOCK_DM_MPATH], [test x$BUILD_MOD_UCMD_BLOCK_DM_MPATH = xyes])
 
+AC_MSG_CHECKING(whether to build dummy block module)
+AC_ARG_ENABLE(mod-block-dummy,
+	      AS_HELP_STRING([--enable-mod-block-dummy], [enable dummy block module]),
+	      BUILD_MOD_UCMD_BLOCK_DUMMY=$enableval,
+	      BUILD_MOD_UCMD_BLOCK_DUMMY=no)
+AC_MSG_RESULT($BUILD_MOD_UCMD_BLOCK_DUMMY)
+if test x$BUILD_MOD_UCMD_BLOCK_DUMMY = xyes; then
+	AC_DEFINE([MOD_UCMD_BLOCK_DUMMY], 1, [Define to 1 to enable dummy block module.])
+fi
+AM_CONDITIONAL([BUILD_MOD_UCMD_BLOCK_DUMMY], [test x$BUILD_MOD_UCMD_BLOCK_DUMMY = xyes])
+
 AC_MSG_CHECKING(whether to build dm type module)
 AC_ARG_ENABLE(mod-type-dm,
 	      AS_HELP_STRING([--enable-mod-type-dm], [enable device-mapper type module]),
