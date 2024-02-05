@@ -136,15 +136,15 @@ AC_ARG_WITH(udevrulesdir,
 			   [udevrulesdir="${UDEV_DIR}/rules.d"])
 AC_MSG_RESULT([$udevrulesdir])
 
-AC_MSG_CHECKING(whether to build dm_mpath module)
-AC_ARG_ENABLE(mod-dm_mpath,
-	      AS_HELP_STRING([--enable-mod-dm_mpath], [enable device-mapper multipath module]),
+AC_MSG_CHECKING(whether to build dm_mpath block module)
+AC_ARG_ENABLE(mod-block-dm_mpath,
+	      AS_HELP_STRING([--enable-mod-block-dm_mpath], [enable device-mapper multipath block module]),
 	      BUILD_MOD_UCMD_BLOCK_DM_MPATH=$enableval,
 	      BUILD_MOD_UCMD_BLOCK_DM_MPATH=yes)
 AC_MSG_RESULT($BUILD_MOD_UCMD_BLOCK_DM_MPATH)
 if test x$BUILD_MOD_UCMD_BLOCK_DM_MPATH = xyes; then
-	AC_CHECK_HEADER([mpath_valid.h], , [AC_MSG_ERROR(--enable-mod-dm_mpath requires mpath_valid.h)])
-	AC_DEFINE([MOD_UCMD_BLOCK_DM_MPATH], 1, [Define to 1 to enable device-mapper multipath module.])
+	AC_CHECK_HEADER([mpath_valid.h], , [AC_MSG_ERROR(--enable-mod-block-dm_mpath requires mpath_valid.h)])
+	AC_DEFINE([MOD_UCMD_BLOCK_DM_MPATH], 1, [Define to 1 to enable device-mapper multipath block module.])
 fi
 AM_CONDITIONAL([BUILD_MOD_UCMD_BLOCK_DM_MPATH], [test x$BUILD_MOD_UCMD_BLOCK_DM_MPATH = xyes])
 
