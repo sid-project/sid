@@ -19,7 +19,9 @@
 
 include $(top_srcdir)/Makefile.common
 
+if BUILD_MOD_UCMD_TYPE_DM__LVM
 SUBDIRS = lvm
+endif
 
 dmdir = $(pkglibdir)/modules/ucmd/type
 

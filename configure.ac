@@ -159,6 +159,18 @@ if test x$BUILD_MOD_UCMD_TYPE_DM = xyes; then
 fi
 AM_CONDITIONAL([BUILD_MOD_UCMD_TYPE_DM], [test x$BUILD_MOD_UCMD_TYPE_DM = xyes])
 
+AC_MSG_CHECKING(whether to build dm/lvm type module)
+AC_ARG_ENABLE(mod-type-dm-lvm,
+	      AS_HELP_STRING([--enable-mod-type-dm-lvm], [enable device-mapper/LVM type module]),
+	      BUILD_MOD_UCMD_TYPE_DM__LVM=$enableval,
+	      BUILD_MOD_UCMD_TYPE_DM__LVM=yes)
+AC_MSG_RESULT($BUILD_MOD_UCMD_TYPE_DM__LVM)
+if test x$BUILD_MOD_UCMD_TYPE_DM__LVM = xyes; then
+	AS_IF([test x$BUILD_MOD_UCMD_TYPE_DM != xyes], AC_MSG_ERROR([--enable-mod-type-dm-lvm requires --enable-mod-type-dm]))
+	AC_DEFINE([MOD_UCMD_TYPE_DM__LVM], 1, [Define to 1 to enable device-mapper/LVM type module.])
+fi
+AM_CONDITIONAL([BUILD_MOD_UCMD_TYPE_DM__LVM], [test x$BUILD_MOD_UCMD_TYPE_DM__LVM = xyes])
+
 AC_SUBST([sysconfigdir])
 AC_SUBST([systemdsystemunitdir])
 AC_SUBST([udevrulesdir])
