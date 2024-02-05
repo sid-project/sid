@@ -78,7 +78,7 @@ AC_CONFIG_FILES([Makefile
 AC_CONFIG_HEADERS([src/include/config.h])
 AC_CHECK_HEADERS([fcntl.h inttypes.h limits.h stddef.h stdint.h stdlib.h syslog.h sys/ioctl.h sys/socket.h unistd.h])
 AC_CHECK_HEADER_STDBOOL
-AC_CHECK_FUNCS([clock_gettime dup2 ftruncate memchr memset mkdir munmap select socket stpcpy strcasecmp strchr strcspn strdup strerror strncasecmp strndup strpbrk strrchr strspn strstr strtol strtoul strtoull])
+AC_CHECK_FUNCS([atexit clock_gettime dup2 ftruncate memchr memset mkdir munmap select socket stpcpy strcasecmp strchr strcspn strdup strerror strncasecmp strndup strpbrk strrchr strspn strstr strtol strtoul strtoull])
 AC_C_INLINE
 AC_FUNC_FORK
 AC_FUNC_MALLOC
