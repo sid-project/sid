@@ -1,12 +1,12 @@
-#include <setjmp.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdlib.h>
 #include "../src/internal/mem.c"
 #include "../src/resource/kv-store.c"
 #include "../src/resource/ubridge.c"
 #include "ucmd-module.h"
 
+#include <setjmp.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 
 #include <cmocka.h>
