@@ -40,7 +40,7 @@ jobs:
 
     - name: Build
       run: |
-        ./autogen.sh && ./configure --disable-mod-dm_mpath && make -j
+        ./autogen.sh && ./configure --disable-mod-block-dm_mpath && make -j
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3

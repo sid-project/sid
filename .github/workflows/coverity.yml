@@ -31,7 +31,7 @@ jobs:
 
       - name: Configure
         run: |
-          ./autogen.sh && ./configure --disable-mod-dm_mpath
+          ./autogen.sh && ./configure --disable-mod-block-dm_mpath
 
       - name: Download Coverity
         run: |
