@@ -32,4 +32,4 @@ SUBDIRS += dummy_block
 endif
 
 uninstall-hook:
-	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/block && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/block
+	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/block && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/block || true

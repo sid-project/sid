@@ -38,4 +38,4 @@ install-data-local:
 	${MKDIR_P} ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm
 
 uninstall-local:
-	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm
+	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/type/dm || true

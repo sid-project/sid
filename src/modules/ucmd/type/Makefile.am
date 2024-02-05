@@ -28,4 +28,4 @@ SUBDIRS += dummy_type
 endif
 
 uninstall-hook:
-	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/type && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/type
+	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/type && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/type || true
