@@ -17,10 +17,14 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = dummy_type
+SUBDIRS =
 
 if BUILD_MOD_UCMD_TYPE_DM
 SUBDIRS += dm
+endif
+
+if BUILD_MOD_UCMD_TYPE_DUMMY
+SUBDIRS += dummy_type
 endif
 
 uninstall-hook:

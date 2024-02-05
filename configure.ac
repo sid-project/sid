@@ -192,6 +192,17 @@ if test x$BUILD_MOD_UCMD_TYPE_DM__LVM = xyes; then
 fi
 AM_CONDITIONAL([BUILD_MOD_UCMD_TYPE_DM__LVM], [test x$BUILD_MOD_UCMD_TYPE_DM__LVM = xyes])
 
+AC_MSG_CHECKING(whether to build dummy type module)
+AC_ARG_ENABLE(mod-type-dummy,
+	      AS_HELP_STRING([--enable-mod-type-dummy], [enable dummy type module]),
+	      BUILD_MOD_UCMD_TYPE_DUMMY=$enableval,
+	      BUILD_MOD_UCMD_TYPE_DUMMY=no)
+AC_MSG_RESULT($BUILD_MOD_UCMD_TYPE_DUMMY)
+if test x$BUILD_MOD_UCMD_TYPE_DUMMY = xyes; then
+	AC_DEFINE([MOD_UCMD_TYPE_DUMMY], 1, [Define to 1 to enable dummy type module.])
+fi
+AM_CONDITIONAL([BUILD_MOD_UCMD_TYPE_DUMMY], [test x$BUILD_MOD_UCMD_TYPE_DUMMY = xyes])
+
 AC_SUBST([sysconfigdir])
 AC_SUBST([systemdsystemunitdir])
 AC_SUBST([udevrulesdir])
