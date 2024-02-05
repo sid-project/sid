@@ -3,7 +3,7 @@
 %{?commit:%global commitdate 20200828}
 %{?commit:%global scmsnap %{commitdate}git%{shortcommit}}
 
-%global enable_dm_mpath_support 1
+%global enable_mod_block_dm_mpath 1
 
 ##############################################################################
 # SID
@@ -36,7 +36,7 @@ BuildRequires: systemd-devel >= 221
 BuildRequires: libudev-devel >= 174
 BuildRequires: libuuid-devel
 BuildRequires: libblkid-devel
-%if %{enable_dm_mpath_support}
+%if %{enable_mod_block_dm_mpath}
 BuildRequires: device-mapper-multipath-devel >= 0.8.4-7
 %endif
 
@@ -60,13 +60,13 @@ of devices and their layers in the stack.
 %autosetup -p1 -n sid-%{version}
 %endif
 
-%if ! %{enable_dm_mpath_support}
-%global configure_dm_mpath --disable-mod-dm_mpath
+%if ! %{enable_mod_block_dm_mpath}
+%global configure_mod_block_dm_mpath --disable-mod-block-dm_mpath
 %endif
 
 %build
 autoreconf -ivf
-%configure %{?configure_dm_mpath}
+%configure %{?configure_mod_block_dm_mpath}
 %make_build
 
 %install
@@ -378,7 +378,7 @@ This package contains blkid block module for Storage Instantiation Daemon (SID).
 # SID-MOD-BLOCK-DM_MPATH
 ##############################################################################
 
-%if %{enable_dm_mpath_support}
+%if %{enable_mod_block_dm_mpath}
 
 %package mod-block-dm-mpath
 Summary: Device-mapper multipath block module for Storage Instantiation Daemon (SID)
