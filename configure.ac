@@ -100,8 +100,6 @@ PKG_CHECK_MODULES(SYSTEMD, libsystemd >= 221) # event loop supported in libsyste
 
 PKG_CHECK_MODULES(UDEV, libudev >= 174) # support for device tagging added in libudev version >= 174
 
-PKG_CHECK_MODULES(BLKID, blkid)
-
 PKG_CHECK_MODULES(UUID, uuid)
 
 AC_MSG_CHECKING(for systemd system unit directory)
@@ -135,6 +133,18 @@ AC_ARG_WITH(udevrulesdir,
 			   [udevrulesdir=$withval],
 			   [udevrulesdir="${UDEV_DIR}/rules.d"])
 AC_MSG_RESULT([$udevrulesdir])
+
+AC_MSG_CHECKING(whether to build blkid block module)
+AC_ARG_ENABLE(mod-block-blkid,
+	      AS_HELP_STRING([--enable-mod-block-blkid], [enable blkid block module]),
+	      BUILD_MOD_UCMD_BLOCK_BLKID=$enableval,
+	      BUILD_MOD_UCMD_BLOCK_BLKID=yes)
+AC_MSG_RESULT($BUILD_MOD_UCMD_BLOCK_BLKID)
+if test x$BUILD_MOD_UCMD_BLOCK_BLKID = xyes; then
+	PKG_CHECK_MODULES(BLKID, blkid)
+	AC_DEFINE([MOD_UCMD_BLOCK_BLKID], 1, [Define to 1 to enable blkid block module.])
+fi
+AM_CONDITIONAL([BUILD_MOD_UCMD_BLOCK_BLKID], [test x$BUILD_MOD_UCMD_BLOCK_BLKID = xyes])
 
 AC_MSG_CHECKING(whether to build dm_mpath block module)
 AC_ARG_ENABLE(mod-block-dm_mpath,
