@@ -148,6 +148,17 @@ if test x$BUILD_MOD_UCMD_BLOCK_DM_MPATH = xyes; then
 fi
 AM_CONDITIONAL([BUILD_MOD_UCMD_BLOCK_DM_MPATH], [test x$BUILD_MOD_UCMD_BLOCK_DM_MPATH = xyes])
 
+AC_MSG_CHECKING(whether to build dm type module)
+AC_ARG_ENABLE(mod-type-dm,
+	      AS_HELP_STRING([--enable-mod-type-dm], [enable device-mapper type module]),
+	      BUILD_MOD_UCMD_TYPE_DM=$enableval,
+	      BUILD_MOD_UCMD_TYPE_DM=yes)
+AC_MSG_RESULT($BUILD_MOD_UCMD_TYPE_DM)
+if test x$BUILD_MOD_UCMD_TYPE_DM = xyes; then
+	AC_DEFINE([MOD_UCMD_TYPE_DM], 1, [Define to 1 to enable device-mapper type module.])
+fi
+AM_CONDITIONAL([BUILD_MOD_UCMD_TYPE_DM], [test x$BUILD_MOD_UCMD_TYPE_DM = xyes])
+
 AC_SUBST([sysconfigdir])
 AC_SUBST([systemdsystemunitdir])
 AC_SUBST([udevrulesdir])

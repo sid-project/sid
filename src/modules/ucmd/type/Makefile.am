@@ -17,7 +17,11 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-SUBDIRS = dummy_type dm
+SUBDIRS = dummy_type
+
+if BUILD_MOD_UCMD_TYPE_DM
+SUBDIRS += dm
+endif
 
 uninstall-hook:
 	test -d ${DESTDIR}${pkglibdir}/modules/ucmd/type && rmdir ${DESTDIR}${pkglibdir}/modules/ucmd/type
