@@ -24,12 +24,12 @@
 #include <errno.h>
 #include <stdlib.h>
 
-static const struct sid_buffer_type *_buffer_type_registry[] =
-	{[SID_BUFFER_TYPE_LINEAR] = &sid_buffer_type_linear, [SID_BUFFER_TYPE_VECTOR] = &sid_buffer_type_vector};
+static const struct sid_buf_type *_buffer_type_registry[] =
+	{[SID_BUF_TYPE_LINEAR] = &sid_buf_type_linear, [SID_BUF_TYPE_VECTOR] = &sid_buf_type_vector};
 
-static bool _check_buf(struct sid_buffer *buf)
+static bool _check_buf(struct sid_buf *buf)
 {
-	struct sid_buffer_stat *stat = &buf->stat;
+	struct sid_buf_stat *stat = &buf->stat;
 
 	/* We are checking only limit right now so if no limit, nothing to check as well. */
 	if (stat->init.limit == 0)
@@ -39,20 +39,20 @@ static bool _check_buf(struct sid_buffer *buf)
 	        stat->init.limit % stat->init.alloc_step == 0);
 }
 
-struct sid_buffer *sid_buffer_create(struct sid_buffer_spec *spec, struct sid_buffer_init *init, int *ret_code)
+struct sid_buf *sid_buf_create(struct sid_buf_spec *spec, struct sid_buf_init *init, int *ret_code)
 {
-	struct sid_buffer *buf;
-	int                r = 0;
+	struct sid_buf *buf;
+	int             r = 0;
 
 	if (!(buf = malloc(sizeof(*buf)))) {
 		r = -ENOMEM;
 		goto out;
 	}
 
-	buf->stat = (struct sid_buffer_stat) {
+	buf->stat = (struct sid_buf_stat) {
 		.spec  = *spec,
 		.init  = *init,
-		.usage = (struct sid_buffer_usage) {0},
+		.usage = (struct sid_buf_usage) {0},
 	};
 
 	buf->mem      = NULL;
@@ -77,19 +77,19 @@ out:
 		return buf;
 }
 
-void sid_buffer_destroy(struct sid_buffer *buf)
+void sid_buf_destroy(struct sid_buf *buf)
 {
 	(void) _buffer_type_registry[buf->stat.spec.type]->destroy(buf);
 	free(buf);
 }
 
-int sid_buffer_reset_init(struct sid_buffer *buf, struct sid_buffer_init *init)
+int sid_buf_reset_init(struct sid_buf *buf, struct sid_buf_init *init)
 {
-	struct sid_buffer_stat orig_stat = buf->stat;
+	struct sid_buf_stat orig_stat = buf->stat;
 
-	buf->stat.init                   = *init;
-	buf->mark.set                    = false;
-	buf->mark.pos                    = 0;
+	buf->stat.init                = *init;
+	buf->mark.set                 = false;
+	buf->mark.pos                 = 0;
 
 	if (!_check_buf(buf)) {
 		buf->stat = orig_stat;
@@ -99,7 +99,7 @@ int sid_buffer_reset_init(struct sid_buffer *buf, struct sid_buffer_init *init)
 	return _buffer_type_registry[buf->stat.spec.type]->reset(buf);
 }
 
-int sid_buffer_reset(struct sid_buffer *buf)
+int sid_buf_reset(struct sid_buf *buf)
 {
 	buf->mark.set = false;
 	buf->mark.pos = 0;
@@ -107,7 +107,7 @@ int sid_buffer_reset(struct sid_buffer *buf)
 	return _buffer_type_registry[buf->stat.spec.type]->reset(buf);
 }
 
-int sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos)
+int sid_buf_add(struct sid_buf *buf, void *data, size_t len, const void **mem, size_t *pos)
 {
 	size_t tmp_pos;
 	int    r;
@@ -129,7 +129,7 @@ int sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, const void **
 	return 0;
 }
 
-int sid_buffer_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, ...)
+int sid_buf_fmt_add(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, ...)
 {
 	size_t  tmp_pos;
 	va_list ap;
@@ -156,7 +156,7 @@ int sid_buffer_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, co
 	return 0;
 }
 
-int sid_buffer_vfmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap)
+int sid_buf_vfmt_add(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, va_list ap)
 {
 	size_t tmp_pos;
 	int    r;
@@ -178,9 +178,9 @@ int sid_buffer_vfmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, c
 	return 0;
 }
 
-static int _do_sid_buffer_release(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence, bool rewind)
+static int _do_sid_buf_release(struct sid_buf *buf, size_t pos, sid_buf_pos_t whence, bool rewind)
 {
-	size_t count = sid_buffer_count(buf);
+	size_t count = sid_buf_count(buf);
 
 	if (!count)
 		return pos ? -ERANGE : 0;
@@ -188,48 +188,48 @@ static int _do_sid_buffer_release(struct sid_buffer *buf, size_t pos, sid_buffer
 	if (pos > count)
 		return -ERANGE;
 
-	if (whence == SID_BUFFER_POS_REL)
+	if (whence == SID_BUF_POS_REL)
 		pos = count - pos; /* translate relative to absolute */
 
 	return _buffer_type_registry[buf->stat.spec.type]->release(buf, pos, rewind);
 }
 
-int sid_buffer_unbind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence)
+int sid_buf_unbind(struct sid_buf *buf, size_t pos, sid_buf_pos_t whence)
 {
-	return _do_sid_buffer_release(buf, pos, whence, false);
+	return _do_sid_buf_release(buf, pos, whence, false);
 }
 
-int sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence)
+int sid_buf_rewind(struct sid_buf *buf, size_t pos, sid_buf_pos_t whence)
 {
-	return _do_sid_buffer_release(buf, pos, whence, true);
+	return _do_sid_buf_release(buf, pos, whence, true);
 }
 
-static int _do_sid_buffer_release_mem(struct sid_buffer *buf, const void *mem, bool rewind)
+static int _do_sid_buf_mem_release(struct sid_buf *buf, const void *mem, bool rewind)
 {
 	if (mem < buf->mem)
 		return -EINVAL;
 
-	return _buffer_type_registry[buf->stat.spec.type]->release_mem(buf, mem, rewind);
+	return _buffer_type_registry[buf->stat.spec.type]->mem_release(buf, mem, rewind);
 }
 
-int sid_buffer_unbind_mem(struct sid_buffer *buf, const void *mem)
+int sid_buf_mem_unbind(struct sid_buf *buf, const void *mem)
 {
-	return _do_sid_buffer_release_mem(buf, mem, false);
+	return _do_sid_buf_mem_release(buf, mem, false);
 }
 
-int sid_buffer_rewind_mem(struct sid_buffer *buf, const void *mem)
+int sid_buf_mem_rewind(struct sid_buf *buf, const void *mem)
 {
-	return _do_sid_buffer_release_mem(buf, mem, true);
+	return _do_sid_buf_mem_release(buf, mem, true);
 }
 
-bool sid_buffer_is_complete(struct sid_buffer *buf, int *ret_code)
+bool sid_buf_is_complete(struct sid_buf *buf, int *ret_code)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->is_complete(buf, ret_code);
 }
 
-int sid_buffer_get_data_from(struct sid_buffer *buf, size_t pos, const void **data, size_t *data_size)
+int sid_buf_data_get_from(struct sid_buf *buf, size_t pos, const void **data, size_t *data_size)
 {
-	if (pos > sid_buffer_count(buf))
+	if (pos > sid_buf_count(buf))
 		return -ERANGE;
 
 	if (!buf->mark.set || pos < buf->mark.set) {
@@ -237,40 +237,40 @@ int sid_buffer_get_data_from(struct sid_buffer *buf, size_t pos, const void **da
 		buf->mark.pos = pos;
 	}
 
-	return _buffer_type_registry[buf->stat.spec.type]->get_data(buf, pos, data, data_size);
+	return _buffer_type_registry[buf->stat.spec.type]->data_get(buf, pos, data, data_size);
 }
 
-int sid_buffer_get_data(struct sid_buffer *buf, const void **data, size_t *data_size)
+int sid_buf_data_get(struct sid_buf *buf, const void **data, size_t *data_size)
 {
-	return sid_buffer_get_data_from(buf, 0, data, data_size);
+	return sid_buf_data_get_from(buf, 0, data, data_size);
 }
 
-int sid_buffer_get_fd(struct sid_buffer *buf)
+int sid_buf_fd_get(struct sid_buf *buf)
 {
-	return _buffer_type_registry[buf->stat.spec.type]->get_fd(buf);
+	return _buffer_type_registry[buf->stat.spec.type]->fd_get(buf);
 }
 
-ssize_t sid_buffer_read(struct sid_buffer *buf, int fd)
+ssize_t sid_buf_read(struct sid_buf *buf, int fd)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->read(buf, fd);
 }
 
-ssize_t sid_buffer_write(struct sid_buffer *buf, int fd, size_t pos)
+ssize_t sid_buf_write(struct sid_buf *buf, int fd, size_t pos)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->write(buf, fd, pos);
 }
 
-size_t sid_buffer_count(struct sid_buffer *buf)
+size_t sid_buf_count(struct sid_buf *buf)
 {
 	return _buffer_type_registry[buf->stat.spec.type]->count(buf);
 }
 
-struct sid_buffer_stat sid_buffer_stat(struct sid_buffer *buf)
+struct sid_buf_stat sid_buf_stat(struct sid_buf *buf)
 {
 	return buf->stat;
 }
 
-int sid_buffer_write_all(struct sid_buffer *buf, int fd)
+int sid_buf_write_all(struct sid_buf *buf, int fd)
 {
 	size_t  pos;
 	ssize_t n;
@@ -279,7 +279,7 @@ int sid_buffer_write_all(struct sid_buffer *buf, int fd)
 		return -EINVAL;
 
 	for (pos = 0;; pos += n) {
-		n = sid_buffer_write(buf, fd, pos);
+		n = sid_buf_write(buf, fd, pos);
 
 		if (n < 0) {
 			if (n == -ENODATA)

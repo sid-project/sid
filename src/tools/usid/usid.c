@@ -38,12 +38,12 @@
 #define USID_BRIDGE_STATUS_INACTIVE     "inactive"
 #define USID_BRIDGE_STATUS_INCOMPATIBLE "incompatible"
 
-#define KEY_SID_PROTOCOL                "SID_PROTOCOL"
+#define KEY_SID_IFC_PROTOCOL            "SID_IFC_PROTOCOL"
 #define KEY_SID_MAJOR                   "SID_MAJOR"
 #define KEY_SID_MINOR                   "SID_MINOR"
 #define KEY_SID_RELEASE                 "SID_RELEASE"
 
-#define KEY_SID_PROTOCOL                "SID_PROTOCOL"
+#define KEY_SID_IFC_PROTOCOL            "SID_IFC_PROTOCOL"
 #define KEY_SID_MAJOR                   "SID_MAJOR"
 #define KEY_SID_MINOR                   "SID_MINOR"
 #define KEY_SID_RELEASE                 "SID_RELEASE"
@@ -55,16 +55,16 @@ struct args {
 
 static int _usid_cmd_active(void)
 {
-	unsigned long long val;
-	uint8_t            prot;
-	const char        *status;
-	struct sid_result *res;
-	struct sid_request req = {.cmd = SID_CMD_VERSION, .flags = SID_CMD_FLAGS_FMT_ENV};
-	int                r;
+	unsigned long long     val;
+	uint8_t                prot;
+	const char            *status;
+	struct sid_ifc_result *res;
+	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
+	int                    r;
 
-	req.seqnum = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
+	req.seqnum = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
-	if ((r = sid_req(&req, &res)) < 0) {
+	if ((r = sid_ifc_req(&req, &res)) < 0) {
 		if (r == -ECONNREFUSED) {
 			status = USID_BRIDGE_STATUS_INACTIVE;
 			r      = 0;
@@ -73,27 +73,27 @@ static int _usid_cmd_active(void)
 		else
 			status = USID_BRIDGE_STATUS_ERROR;
 	} else {
-		if (sid_result_data(res, NULL) && sid_result_protocol(res, &prot) == 0 && prot == SID_PROTOCOL)
+		if (sid_ifc_result_data_get(res, NULL) && sid_ifc_result_protocol_get(res, &prot) == 0 && prot == SID_IFC_PROTOCOL)
 			status = USID_BRIDGE_STATUS_ACTIVE;
 		else
 			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
-		sid_result_free(res);
+		sid_ifc_result_free(res);
 	}
 
 	fprintf(stdout, KEY_USID_BRIDGE_STATUS "=%s\n", status);
 	return r;
 }
 
-static int _print_env_from_res(struct sid_result *res)
+static int _print_env_from_res(struct sid_ifc_result *res)
 {
 	size_t      size;
 	const char *end, *kv;
 
-	kv = sid_result_data(res, &size);
+	kv = sid_ifc_result_data_get(res, &size);
 	if (!kv) {
 		uint64_t status;
-		if (sid_result_status(res, &status) < 0 || status & SID_CMD_STATUS_FAILURE) {
-			log_error(LOG_PREFIX, "Command failed");
+		if (sid_ifc_result_status_get(res, &status) < 0 || status & SID_IFC_CMD_STATUS_FAILURE) {
+			sid_log_error(LOG_PREFIX, "Command failed");
 			return -EBADMSG;
 		}
 		return 0;
@@ -104,23 +104,23 @@ static int _print_env_from_res(struct sid_result *res)
 	return 0;
 }
 
-static int _usid_cmd_print_env(struct sid_request *req)
+static int _usid_cmd_print_env(struct sid_ifc_request *req)
 {
-	unsigned long long val;
-	struct sid_result *res;
-	int                r;
+	unsigned long long     val;
+	struct sid_ifc_result *res;
+	int                    r;
 
-	if ((r = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
-		log_error_errno(LOG_PREFIX, r, "Failed to get value for %s key from environment", KEY_ENV_SEQNUM);
+	if ((r = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
+		sid_log_error_errno(LOG_PREFIX, r, "Failed to get value for %s key from environment", KEY_ENV_SEQNUM);
 		return r;
 	}
 	req->seqnum = val;
 
-	if ((r = sid_req(req, &res)) < 0)
-		log_error_errno(LOG_PREFIX, r, "Command request failed");
+	if ((r = sid_ifc_req(req, &res)) < 0)
+		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
 	else {
 		r = _print_env_from_res(res);
-		sid_result_free(res);
+		sid_ifc_result_free(res);
 	}
 
 	return r;
@@ -128,18 +128,18 @@ static int _usid_cmd_print_env(struct sid_request *req)
 
 static int _usid_cmd_scan(void)
 {
-	struct sid_request req = {.cmd = SID_CMD_SCAN, .flags = SID_CMD_FLAGS_FMT_ENV};
+	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_SCAN, .flags = SID_IFC_CMD_FL_FMT_ENV};
 
 	return _usid_cmd_print_env(&req);
 }
 
 static int _usid_cmd_checkpoint(int argc, char **argv)
 {
-	struct sid_request req = {.cmd = SID_CMD_CHECKPOINT, .flags = SID_CMD_FLAGS_FMT_ENV};
+	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_CHECKPOINT, .flags = SID_IFC_CMD_FL_FMT_ENV};
 
 	if (argc < 2) {
 		/* we need at least checkpoint name */
-		log_error(LOG_PREFIX, "Missing checkpoint name.");
+		sid_log_error(LOG_PREFIX, "Missing checkpoint name.");
 		return -EINVAL;
 	}
 	req.data.checkpoint.name    = argv[1];
@@ -153,40 +153,40 @@ static int _usid_cmd_checkpoint(int argc, char **argv)
 
 static int _usid_cmd_version(void)
 {
-	unsigned long long val;
-	const char        *data;
-	int                r;
-	struct sid_result *res;
-	struct sid_request req = {.cmd = SID_CMD_VERSION, .flags = SID_CMD_FLAGS_FMT_ENV};
+	unsigned long long     val;
+	const char            *data;
+	int                    r;
+	struct sid_ifc_result *res;
+	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
 
-	req.seqnum             = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
+	req.seqnum                 = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	fprintf(stdout,
-	        KEY_SID_PROTOCOL "=%" PRIu8 "\n" KEY_SID_MAJOR "=%" PRIu16 "\n" KEY_SID_MINOR "=%" PRIu16 "\n" KEY_SID_RELEASE
-	                         "=%" PRIu16 "\n",
-	        SID_PROTOCOL,
+	        KEY_SID_IFC_PROTOCOL "=%" PRIu8 "\n" KEY_SID_MAJOR "=%" PRIu16 "\n" KEY_SID_MINOR "=%" PRIu16 "\n" KEY_SID_RELEASE
+	                             "=%" PRIu16 "\n",
+	        SID_IFC_PROTOCOL,
 	        SID_VERSION_MAJOR,
 	        SID_VERSION_MINOR,
 	        SID_VERSION_RELEASE);
 
-	if ((r = sid_req(&req, &res)) < 0) {
-		log_error_errno(LOG_PREFIX, r, "Command request failed");
+	if ((r = sid_ifc_req(&req, &res)) < 0) {
+		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
 		return r;
 	}
 
-	if ((data = sid_result_data(res, NULL)) != NULL) {
+	if ((data = sid_ifc_result_data_get(res, NULL)) != NULL) {
 		fprintf(stdout, "%s", data);
 		r = 0;
 	} else {
 		uint64_t status;
-		if (sid_result_status(res, &status) == 0 && (status & SID_CMD_STATUS_FAILURE) == 0)
-			log_error(LOG_PREFIX, "Missing reply data");
+		if (sid_ifc_result_status_get(res, &status) == 0 && (status & SID_IFC_CMD_STATUS_FAILURE) == 0)
+			sid_log_error(LOG_PREFIX, "Missing reply data");
 		else
-			log_error(LOG_PREFIX, "Command failed");
+			sid_log_error(LOG_PREFIX, "Command failed");
 		r = -1;
 	}
 
-	sid_result_free(res);
+	sid_ifc_result_free(res);
 	return r;
 }
 
@@ -195,17 +195,17 @@ static int _init_usid()
 	sigset_t sig_set;
 
 	if (sigemptyset(&sig_set) < 0) {
-		log_error_errno(LOG_PREFIX, errno, "sigemptyset failed");
+		sid_log_error_errno(LOG_PREFIX, errno, "sigemptyset failed");
 		goto fail;
 	}
 
 	if (sigaddset(&sig_set, SIGPIPE) < 0) {
-		log_error_errno(LOG_PREFIX, errno, "siggaddset failed");
+		sid_log_error_errno(LOG_PREFIX, errno, "siggaddset failed");
 		goto fail;
 	}
 
 	if (sigprocmask(SIG_BLOCK, &sig_set, NULL) < 0) {
-		log_error_errno(LOG_PREFIX, errno, "sigprocmask failed");
+		sid_log_error_errno(LOG_PREFIX, errno, "sigprocmask failed");
 		goto fail;
 	}
 
@@ -250,8 +250,8 @@ static void _help(FILE *f)
 	        "    version\n"
 	        "      Get USID and SID daemon version.\n"
 	        "      Input:  None.\n"
-	        "      Output: USID_PROTOCOL/MAJOR/MINOR/RELEASE for USID version.\n"
-	        "              SID_PROTOCOL/MAJOR/MINOR/RELEASE for SID version.\n"
+	        "      Output: USID_IFC_PROTOCOL/MAJOR/MINOR/RELEASE for USID version.\n"
+	        "              SID_IFC_PROTOCOL/MAJOR/MINOR/RELEASE for SID version.\n"
 	        "\n");
 }
 
@@ -300,24 +300,24 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	log_init(LOG_TARGET_STANDARD, verbose);
+	sid_log_init(SID_LOG_TGT_STANDARD, verbose);
 
 	if (_init_usid()) {
-		log_error(LOG_PREFIX, "_init_usid failed");
+		sid_log_error(LOG_PREFIX, "_init_usid failed");
 		return EXIT_FAILURE;
 	}
 
-	switch (sid_cmd_name_to_type(argv[optind])) {
-		case SID_CMD_ACTIVE:
+	switch (sid_ifc_cmd_name_to_type(argv[optind])) {
+		case SID_IFC_CMD_ACTIVE:
 			r = _usid_cmd_active();
 			break;
-		case SID_CMD_CHECKPOINT:
+		case SID_IFC_CMD_CHECKPOINT:
 			r = _usid_cmd_checkpoint(argc - optind, &argv[optind]);
 			break;
-		case SID_CMD_SCAN:
+		case SID_IFC_CMD_SCAN:
 			r = _usid_cmd_scan();
 			break;
-		case SID_CMD_VERSION:
+		case SID_IFC_CMD_VERSION:
 			r = _usid_cmd_version();
 			break;
 		default:

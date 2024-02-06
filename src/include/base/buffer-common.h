@@ -28,29 +28,29 @@
 extern "C" {
 #endif
 
-#define SID_BUFFER_SIZE_PREFIX_TYPE uint32_t
-#define SID_BUFFER_SIZE_PREFIX_LEN  (sizeof(uint32_t))
+#define SID_BUF_SIZE_PREFIX_TYPE uint32_t
+#define SID_BUF_SIZE_PREFIX_LEN  (sizeof(SID_BUF_SIZE_PREFIX_TYPE))
 
 typedef enum {
-	SID_BUFFER_BACKEND_MALLOC,
-	SID_BUFFER_BACKEND_MEMFD,
-	SID_BUFFER_BACKEND_FILE,
-} sid_buffer_backend_t;
+	SID_BUF_BACKEND_MALLOC,
+	SID_BUF_BACKEND_MEMFD,
+	SID_BUF_BACKEND_FILE,
+} sid_buf_backend_t;
 
 typedef enum {
-	SID_BUFFER_TYPE_LINEAR,
-	SID_BUFFER_TYPE_VECTOR,
-} sid_buffer_type_t;
+	SID_BUF_TYPE_LINEAR,
+	SID_BUF_TYPE_VECTOR,
+} sid_buf_type_t;
 
 typedef enum {
-	SID_BUFFER_MODE_PLAIN,       /* plain buffer */
-	SID_BUFFER_MODE_SIZE_PREFIX, /* has uint32_t size prefix */
-} sid_buffer_mode_t;
+	SID_BUF_MODE_PLAIN,       /* plain buffer */
+	SID_BUF_MODE_SIZE_PREFIX, /* has SID_BUF_SIZE_PREFIX_TYPE size prefix */
+} sid_buf_mode_t;
 
-struct sid_buffer_spec {
-	sid_buffer_backend_t backend;
-	sid_buffer_type_t    type;
-	sid_buffer_mode_t    mode;
+struct sid_buf_spec {
+	sid_buf_backend_t backend;
+	sid_buf_type_t    type;
+	sid_buf_mode_t    mode;
 
 	union {
 		struct {
@@ -59,21 +59,21 @@ struct sid_buffer_spec {
 	} ext;
 };
 
-struct sid_buffer_init {
+struct sid_buf_init {
 	size_t size;
 	size_t alloc_step;
 	size_t limit;
 };
 
-struct sid_buffer_usage {
+struct sid_buf_usage {
 	size_t allocated;
 	size_t used;
 };
 
-struct sid_buffer_stat {
-	struct sid_buffer_spec  spec;
-	struct sid_buffer_init  init;
-	struct sid_buffer_usage usage;
+struct sid_buf_stat {
+	struct sid_buf_spec  spec;
+	struct sid_buf_init  init;
+	struct sid_buf_usage usage;
 };
 
 #ifdef __cplusplus

@@ -33,24 +33,24 @@
 
 #define EQ                            "="
 
-struct service_link {
-	struct list                 list;
-	struct service_link_group  *group;
-	const char                 *name;
-	service_link_type_t         type;
-	service_link_notification_t notification;
-	service_link_flags_t        flags;
-	void                       *data;
+struct sid_srv_lnk {
+	struct list             list;
+	struct sid_srv_lnk_grp *group;
+	const char             *name;
+	sid_srv_lnk_type_t      type;
+	sid_srv_lnk_notif_t     notification;
+	sid_srv_lnk_fl_t        flags;
+	void                   *data;
 };
 
-struct service_link_group {
+struct sid_srv_lnk_grp {
 	const char *name;
 	struct list members;
 };
 
-struct service_link *service_link_create(service_link_type_t type, const char *name)
+struct sid_srv_lnk *sid_srv_lnk_create(sid_srv_lnk_type_t type, const char *name)
 {
-	struct service_link *sl;
+	struct sid_srv_lnk *sl;
 
 	if (!(sl = malloc(sizeof(*sl))))
 		return NULL;
@@ -62,17 +62,17 @@ struct service_link *service_link_create(service_link_type_t type, const char *n
 
 	sl->group        = NULL;
 	sl->type         = type;
-	sl->flags        = SERVICE_FLAG_NONE;
+	sl->flags        = SID_SRV_LNK_FL_NONE;
 	sl->data         = NULL;
-	sl->notification = SERVICE_NOTIFICATION_NONE;
+	sl->notification = SID_SRV_LNK_NOTIF_NONE;
 	list_init(&sl->list);
 
 	return sl;
 }
 
-struct service_link *service_link_clone(struct service_link *sl, const char *name)
+struct sid_srv_lnk *sid_srv_lnk_clone(struct sid_srv_lnk *sl, const char *name)
 {
-	struct service_link *sl_clone;
+	struct sid_srv_lnk *sl_clone;
 
 	if (!(sl_clone = malloc(sizeof(*sl))))
 		return NULL;
@@ -95,38 +95,38 @@ struct service_link *service_link_clone(struct service_link *sl, const char *nam
 	return sl_clone;
 }
 
-void service_link_destroy(struct service_link *sl)
+void sid_srv_lnk_destroy(struct sid_srv_lnk *sl)
 {
 	if (sl->group)
-		service_link_group_remove_member(sl->group, sl);
+		sid_srv_lnk_grp_member_remove(sl->group, sl);
 
 	free((void *) sl->name);
 	free(sl);
 }
 
-void service_link_set_flags(struct service_link *sl, service_link_flags_t flags)
+void sid_srv_lnk_flags_set(struct sid_srv_lnk *sl, sid_srv_lnk_fl_t flags)
 {
 	sl->flags = flags;
 }
 
-void service_link_set_data(struct service_link *sl, void *data)
+void sid_srv_lnk_data_set(struct sid_srv_lnk *sl, void *data)
 {
 	sl->data = data;
 }
 
-void service_link_add_notification(struct service_link *sl, service_link_notification_t notification)
+void sid_srv_lnk_notif_add(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification)
 {
 	sl->notification |= notification;
 }
 
-void service_link_remove_notification(struct service_link *sl, service_link_notification_t notification)
+void sid_srv_lnk_notif_remove(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification)
 {
 	sl->notification &= ~notification;
 }
 
-struct service_link_group *service_link_group_create(const char *name)
+struct sid_srv_lnk_grp *sid_srv_lnk_grp_create(const char *name)
 {
-	struct service_link_group *slg;
+	struct sid_srv_lnk_grp *slg;
 
 	if (!(slg = malloc(sizeof(*slg))))
 		return NULL;
@@ -141,10 +141,10 @@ struct service_link_group *service_link_group_create(const char *name)
 	return slg;
 }
 
-struct service_link_group *service_link_group_clone(struct service_link_group *slg, const char *name)
+struct sid_srv_lnk_grp *sid_srv_lnk_grp_clone(struct sid_srv_lnk_grp *slg, const char *name)
 {
-	struct service_link_group *slg_clone;
-	struct service_link       *sl, *sl_clone;
+	struct sid_srv_lnk_grp *slg_clone;
+	struct sid_srv_lnk     *sl, *sl_clone;
 
 	if (!slg)
 		return NULL;
@@ -152,28 +152,28 @@ struct service_link_group *service_link_group_clone(struct service_link_group *s
 	if (!name)
 		name = slg->name;
 
-	if (!(slg_clone = service_link_group_create(name)))
+	if (!(slg_clone = sid_srv_lnk_grp_create(name)))
 		return NULL;
 
 	list_iterate_items (sl, &slg->members) {
-		if (!(sl->flags & SERVICE_FLAG_CLONEABLE))
+		if (!(sl->flags & SID_SRV_LNK_FL_CLONEABLE))
 			continue;
 
-		if (!(sl_clone = service_link_clone(sl, NULL)))
+		if (!(sl_clone = sid_srv_lnk_clone(sl, NULL)))
 			goto fail;
 
-		service_link_group_add_member(slg_clone, sl_clone);
+		sid_srv_lnk_grp_member_add(slg_clone, sl_clone);
 	}
 
 	return slg_clone;
 fail:
-	service_link_group_destroy_with_members(slg_clone);
+	sid_srv_lnk_grp_destroy_with_members(slg_clone);
 	return NULL;
 }
 
-void service_link_group_destroy(struct service_link_group *slg)
+void sid_srv_lnk_grp_destroy(struct sid_srv_lnk_grp *slg)
 {
-	struct service_link *sl, *tmp_sl;
+	struct sid_srv_lnk *sl, *tmp_sl;
 
 	list_iterate_items_safe (sl, tmp_sl, &slg->members) {
 		list_del(&sl->list);
@@ -184,24 +184,24 @@ void service_link_group_destroy(struct service_link_group *slg)
 	free(slg);
 }
 
-void service_link_group_destroy_with_members(struct service_link_group *slg)
+void sid_srv_lnk_grp_destroy_with_members(struct sid_srv_lnk_grp *slg)
 {
-	struct service_link *sl, *tmp_sl;
+	struct sid_srv_lnk *sl, *tmp_sl;
 
 	list_iterate_items_safe (sl, tmp_sl, &slg->members)
-		service_link_destroy(sl);
+		sid_srv_lnk_destroy(sl);
 
 	free((void *) slg->name);
 	free(slg);
 }
 
-void service_link_group_add_member(struct service_link_group *slg, struct service_link *sl)
+void sid_srv_lnk_grp_member_add(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl)
 {
 	list_add(&slg->members, &sl->list);
 	sl->group = slg;
 }
 
-int service_link_group_remove_member(struct service_link_group *slg, struct service_link *sl)
+int sid_srv_lnk_grp_member_remove(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl)
 {
 	if (sl->group != slg)
 		return -EINVAL;
@@ -237,163 +237,163 @@ out:
 	return NULL;
 }
 
-static int _notify_systemd(struct service_link        *sl,
-                           service_link_notification_t notification,
-                           log_req_t                  *log_req,
-                           const char                 *fmt,
-                           va_list                     ap)
+static int _notify_systemd(struct sid_srv_lnk *sl,
+                           sid_srv_lnk_notif_t notification,
+                           sid_log_req_t      *log_req,
+                           const char         *fmt,
+                           va_list             ap)
 {
-	struct sid_buffer *buf = NULL, *fmt_buf = NULL;
-	const char        *arg_str, *arg_value;
-	size_t             size;
-	int                unset = 0;
-	int                r     = 0;
+	struct sid_buf *buf = NULL, *fmt_buf = NULL;
+	const char     *arg_str, *arg_value;
+	size_t          size;
+	int             unset = 0;
+	int             r     = 0;
 
-	if (!(buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
-	                                                          .type    = SID_BUFFER_TYPE_LINEAR,
-	                                                          .mode    = SID_BUFFER_MODE_PLAIN}),
-	                              &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                              &r)))
+	if (!(buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
+	                                                    .type    = SID_BUF_TYPE_LINEAR,
+	                                                    .mode    = SID_BUF_MODE_PLAIN}),
+	                           &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                           &r)))
 		goto out;
 
 	if (fmt && *fmt) {
-		if (!(fmt_buf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
-		                                                              .type    = SID_BUFFER_TYPE_LINEAR,
-		                                                              .mode    = SID_BUFFER_MODE_PLAIN}),
-		                                  &((struct sid_buffer_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-		                                  &r)))
+		if (!(fmt_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
+		                                                        .type    = SID_BUF_TYPE_LINEAR,
+		                                                        .mode    = SID_BUF_MODE_PLAIN}),
+		                               &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+		                               &r)))
 			goto out;
 
-		if ((r = sid_buffer_vfmt_add(fmt_buf, (const void **) &arg_str, NULL, fmt, ap)) < 0)
+		if ((r = sid_buf_vfmt_add(fmt_buf, (const void **) &arg_str, NULL, fmt, ap)) < 0)
 			goto out;
 	} else
 		arg_str = NULL;
 
-	if (notification & SERVICE_NOTIFICATION_UNSET)
+	if (notification & SID_SRV_LNK_NOTIF_UNSET)
 		unset = 1;
 
-	if (notification & SERVICE_NOTIFICATION_STATUS) {
-		if ((arg_value = _get_arg_value(arg_str, SERVICE_KEY_STATUS EQ, &size))) {
-			if ((r = sid_buffer_fmt_add(buf, NULL, NULL, SERVICE_KEY_STATUS EQ "%.*s\n", size, arg_value)) < 0)
+	if (notification & SID_SRV_LNK_NOTIF_STATUS) {
+		if ((arg_value = _get_arg_value(arg_str, SID_SRV_LNK_KEY_STATUS EQ, &size))) {
+			if ((r = sid_buf_fmt_add(buf, NULL, NULL, SID_SRV_LNK_KEY_STATUS EQ "%.*s\n", size, arg_value)) < 0)
 				goto out;
 
-			if ((r = sid_buffer_rewind(buf, 1, SID_BUFFER_POS_REL)) < 0)
-				goto out;
-		}
-	}
-
-	if (notification & SERVICE_NOTIFICATION_ERRNO) {
-		if ((arg_value = _get_arg_value(arg_str, SERVICE_KEY_ERRNO EQ, &size))) {
-			if ((r = sid_buffer_fmt_add(buf, NULL, NULL, SERVICE_KEY_ERRNO EQ "%.*s\n", size, arg_value)) < 0)
-				goto out;
-
-			if ((r = sid_buffer_rewind(buf, 1, SID_BUFFER_POS_REL)) < 0)
+			if ((r = sid_buf_rewind(buf, 1, SID_BUF_POS_REL)) < 0)
 				goto out;
 		}
 	}
 
-	if (notification & SERVICE_NOTIFICATION_READY)
-		if ((r = sid_buffer_add(buf, (void *) SERVICE_READY_LINE, sizeof(SERVICE_READY_LINE) - 1, NULL, NULL)) < 0)
+	if (notification & SID_SRV_LNK_NOTIF_ERRNO) {
+		if ((arg_value = _get_arg_value(arg_str, SID_SRV_LNK_KEY_ERRNO EQ, &size))) {
+			if ((r = sid_buf_fmt_add(buf, NULL, NULL, SID_SRV_LNK_KEY_ERRNO EQ "%.*s\n", size, arg_value)) < 0)
+				goto out;
+
+			if ((r = sid_buf_rewind(buf, 1, SID_BUF_POS_REL)) < 0)
+				goto out;
+		}
+	}
+
+	if (notification & SID_SRV_LNK_NOTIF_READY)
+		if ((r = sid_buf_add(buf, (void *) SERVICE_READY_LINE, sizeof(SERVICE_READY_LINE) - 1, NULL, NULL)) < 0)
 			goto out;
 
-	if (notification & SERVICE_NOTIFICATION_RELOADING)
-		if ((r = sid_buffer_add(buf, (void *) SERVICE_RELOADING_LINE, sizeof(SERVICE_RELOADING_LINE) - 1, NULL, NULL)) < 0)
+	if (notification & SID_SRV_LNK_NOTIF_RELOADING)
+		if ((r = sid_buf_add(buf, (void *) SERVICE_RELOADING_LINE, sizeof(SERVICE_RELOADING_LINE) - 1, NULL, NULL)) < 0)
 			goto out;
 
-	if (notification & SERVICE_NOTIFICATION_STOPPING)
-		if ((r = sid_buffer_add(buf, (void *) SERVICE_STOPPING_LINE, sizeof(SERVICE_STOPPING_LINE) - 1, NULL, NULL)) < 0)
+	if (notification & SID_SRV_LNK_NOTIF_STOPPING)
+		if ((r = sid_buf_add(buf, (void *) SERVICE_STOPPING_LINE, sizeof(SERVICE_STOPPING_LINE) - 1, NULL, NULL)) < 0)
 			goto out;
 
-	if (notification & SERVICE_NOTIFICATION_WATCHDOG_REFRESH)
-		if ((r = sid_buffer_add(buf,
-		                        (void *) SERVICE_WATCHDOG_REFRESH_LINE,
-		                        sizeof(SERVICE_WATCHDOG_REFRESH_LINE) - 1,
-		                        NULL,
-		                        NULL)) < 0)
+	if (notification & SID_SRV_LNK_NOTIF_WATCHDOG_REFRESH)
+		if ((r = sid_buf_add(buf,
+		                     (void *) SERVICE_WATCHDOG_REFRESH_LINE,
+		                     sizeof(SERVICE_WATCHDOG_REFRESH_LINE) - 1,
+		                     NULL,
+		                     NULL)) < 0)
 			goto out;
 
-	if (notification & SERVICE_NOTIFICATION_WATCHDOG_TRIGGER)
-		if ((r = sid_buffer_add(buf,
-		                        (void *) SERVICE_WATCHDOG_TRIGGER_LINE,
-		                        sizeof(SERVICE_WATCHDOG_TRIGGER_LINE) - 1,
-		                        NULL,
-		                        NULL)) < 0)
+	if (notification & SID_SRV_LNK_NOTIF_WATCHDOG_TRIGGER)
+		if ((r = sid_buf_add(buf,
+		                     (void *) SERVICE_WATCHDOG_TRIGGER_LINE,
+		                     sizeof(SERVICE_WATCHDOG_TRIGGER_LINE) - 1,
+		                     NULL,
+		                     NULL)) < 0)
 			goto out;
 
 	/* NULL termintate string, or create empty string */
-	if ((r = sid_buffer_add(buf, (void *) "", 1, NULL, NULL)) < 0)
+	if ((r = sid_buf_add(buf, (void *) "", 1, NULL, NULL)) < 0)
 		goto out;
 
-	sid_buffer_get_data(buf, (const void **) &arg_str, &size);
+	sid_buf_data_get(buf, (const void **) &arg_str, &size);
 
 	r = sd_notify(unset, arg_str);
 out:
 	if (fmt_buf)
-		sid_buffer_destroy(fmt_buf);
+		sid_buf_destroy(fmt_buf);
 	if (buf)
-		sid_buffer_destroy(buf);
+		sid_buf_destroy(buf);
 
 	return r;
 }
 
-static int _notify_logger(struct service_link        *sl,
-                          service_link_notification_t notification,
-                          log_req_t                  *log_req,
-                          const char                 *fmt,
-                          va_list                     ap)
+static int _notify_logger(struct sid_srv_lnk *sl,
+                          sid_srv_lnk_notif_t notification,
+                          sid_log_req_t      *log_req,
+                          const char         *fmt,
+                          va_list             ap)
 {
 	switch (notification) {
-		case SERVICE_NOTIFICATION_MESSAGE:
-			log_voutput((log_t *) sl->data, log_req, fmt, ap);
+		case SID_SRV_LNK_NOTIF_MESSAGE:
+			sid_log_voutput((sid_log_t *) sl->data, log_req, fmt, ap);
 			break;
-		case SERVICE_NOTIFICATION_STATUS:
+		case SID_SRV_LNK_NOTIF_STATUS:
 			// TODO: add output
 			break;
-		case SERVICE_NOTIFICATION_ERRNO:
+		case SID_SRV_LNK_NOTIF_ERRNO:
 			// TODO: add output
 			break;
-		case SERVICE_NOTIFICATION_READY:
-			log_output((log_t *) sl->data, log_req, "| READY |");
+		case SID_SRV_LNK_NOTIF_READY:
+			sid_log_output((sid_log_t *) sl->data, log_req, "| READY |");
 			break;
-		case SERVICE_NOTIFICATION_RELOADING:
-			log_output((log_t *) sl->data, log_req, "| RELOADING |");
+		case SID_SRV_LNK_NOTIF_RELOADING:
+			sid_log_output((sid_log_t *) sl->data, log_req, "| RELOADING |");
 			break;
-		case SERVICE_NOTIFICATION_STOPPING:
-			log_output((log_t *) sl->data, log_req, "| STOPPING |");
+		case SID_SRV_LNK_NOTIF_STOPPING:
+			sid_log_output((sid_log_t *) sl->data, log_req, "| STOPPING |");
 			break;
-		case SERVICE_NOTIFICATION_WATCHDOG_REFRESH:
-			log_output((log_t *) sl->data, log_req, "| WATCHDOG_REFRESH |");
+		case SID_SRV_LNK_NOTIF_WATCHDOG_REFRESH:
+			sid_log_output((sid_log_t *) sl->data, log_req, "| WATCHDOG_REFRESH |");
 			break;
-		case SERVICE_NOTIFICATION_WATCHDOG_TRIGGER:
-			log_output((log_t *) sl->data, log_req, "| WATCHDOG_TRIGGER |");
+		case SID_SRV_LNK_NOTIF_WATCHDOG_TRIGGER:
+			sid_log_output((sid_log_t *) sl->data, log_req, "| WATCHDOG_TRIGGER |");
 			break;
-		case SERVICE_NOTIFICATION_NONE:
-		case SERVICE_NOTIFICATION_UNSET:
+		case SID_SRV_LNK_NOTIF_NONE:
+		case SID_SRV_LNK_NOTIF_UNSET:
 			break;
 	}
 
 	return 0;
 }
 
-static int _do_service_link_notify(struct service_link        *sl,
-                                   struct service_link_group  *slg,
-                                   service_link_notification_t notification,
-                                   log_req_t                  *log_req,
-                                   const char                 *fmt,
-                                   va_list                     ap)
+static int _do_service_link_notify(struct sid_srv_lnk     *sl,
+                                   struct sid_srv_lnk_grp *slg,
+                                   sid_srv_lnk_notif_t     notification,
+                                   sid_log_req_t          *log_req,
+                                   const char             *fmt,
+                                   va_list                 ap)
 {
 	int iter_r = 0, r = 0;
 
 	if (sl) {
 		if (sl->notification & notification) {
 			switch (sl->type) {
-				case SERVICE_TYPE_SYSTEMD:
+				case SID_SRV_LNK_TYPE_SYSTEMD:
 					r = _notify_systemd(sl, notification, log_req, fmt, ap);
 					break;
-				case SERVICE_TYPE_LOGGER:
+				case SID_SRV_LNK_TYPE_LOGGER:
 					r = _notify_logger(sl, notification, log_req, fmt, ap);
 					break;
-				case SERVICE_TYPE_NONE:
+				case SID_SRV_LNK_TYPE_NONE:
 					break;
 			}
 		}
@@ -403,13 +403,13 @@ static int _do_service_link_notify(struct service_link        *sl,
 				continue;
 
 			switch (sl->type) {
-				case SERVICE_TYPE_SYSTEMD:
+				case SID_SRV_LNK_TYPE_SYSTEMD:
 					iter_r = _notify_systemd(sl, notification, log_req, fmt, ap);
 					break;
-				case SERVICE_TYPE_LOGGER:
+				case SID_SRV_LNK_TYPE_LOGGER:
 					iter_r = _notify_logger(sl, notification, log_req, fmt, ap);
 					break;
-				case SERVICE_TYPE_NONE:
+				case SID_SRV_LNK_TYPE_NONE:
 					break;
 			}
 
@@ -421,16 +421,16 @@ static int _do_service_link_notify(struct service_link        *sl,
 	return r;
 }
 
-int service_link_vnotify(struct service_link        *sl,
-                         service_link_notification_t notification,
-                         log_req_t                  *log_req,
-                         const char                 *fmt,
-                         va_list                     ap)
+int sid_srv_lnk_vnotify(struct sid_srv_lnk *sl,
+                        sid_srv_lnk_notif_t notification,
+                        sid_log_req_t      *log_req,
+                        const char         *fmt,
+                        va_list             ap)
 {
 	return _do_service_link_notify(sl, NULL, notification, log_req, fmt, ap);
 }
 
-int service_link_notify(struct service_link *sl, service_link_notification_t notification, log_req_t *log_req, const char *fmt, ...)
+int sid_srv_lnk_notify(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification, sid_log_req_t *log_req, const char *fmt, ...)
 {
 	va_list ap;
 	int     r;
@@ -442,20 +442,20 @@ int service_link_notify(struct service_link *sl, service_link_notification_t not
 	return r;
 }
 
-int service_link_group_vnotify(struct service_link_group  *slg,
-                               service_link_notification_t notification,
-                               log_req_t                  *log_req,
-                               const char                 *fmt,
-                               va_list                     ap)
+int sid_srv_lnk_grp_vnotify(struct sid_srv_lnk_grp *slg,
+                            sid_srv_lnk_notif_t     notification,
+                            sid_log_req_t          *log_req,
+                            const char             *fmt,
+                            va_list                 ap)
 {
 	return _do_service_link_notify(NULL, slg, notification, log_req, fmt, ap);
 }
 
-int service_link_group_notify(struct service_link_group  *slg,
-                              service_link_notification_t notification,
-                              log_req_t                  *log_req,
-                              const char                 *fmt,
-                              ...)
+int sid_srv_lnk_grp_notify(struct sid_srv_lnk_grp *slg,
+                           sid_srv_lnk_notif_t     notification,
+                           sid_log_req_t          *log_req,
+                           const char             *fmt,
+                           ...)
 {
 	va_list ap;
 	int     r;

@@ -59,12 +59,12 @@ static void _log_standard_close(void)
 	fflush(stderr);
 }
 
-static void _log_standard_output(const log_req_t *req, const char *format, va_list ap)
+static void _log_standard_output(const sid_log_req_t *req, const char *format, va_list ap)
 {
-	FILE      *out_file;
-	log_pfx_t *pfx;
+	FILE          *out_file;
+	sid_log_pfx_t *pfx;
 
-	if (req->ctx->level_id > _max_level_id && req->ctx->level_id != LOG_PRINT)
+	if (req->ctx->level_id > _max_level_id && req->ctx->level_id != SID_LOG_PRINT)
 		return;
 
 	out_file = _force_err_out ? stderr : req->ctx->level_id <= LOG_WARNING ? stderr : stdout;
@@ -91,7 +91,7 @@ static void _log_standard_output(const log_req_t *req, const char *format, va_li
 	fputc('\n', out_file);
 }
 
-const struct log_target log_target_standard = {.name   = "standard",
-                                               .open   = _log_standard_open,
-                                               .close  = _log_standard_close,
-                                               .output = _log_standard_output};
+const struct sid_log_tgt log_target_standard = {.name   = "standard",
+                                                .open   = _log_standard_open,
+                                                .close  = _log_standard_close,
+                                                .output = _log_standard_output};

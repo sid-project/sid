@@ -14,79 +14,77 @@ int __wrap_sd_notify(int unset_environment, const char *state)
 	return 0;
 }
 
-int __real_sid_buffer_get_data(struct sid_buffer *buf, const void **data, size_t *data_size);
+int __real_sid_buf_data_get(struct sid_buf *buf, const void **data, size_t *data_size);
 
-int __wrap_sid_buffer_get_data(struct sid_buffer *buf, const void **data, size_t *data_size)
+int __wrap_sid_buf_data_get(struct sid_buf *buf, const void **data, size_t *data_size)
 {
-	int r = __real_sid_buffer_get_data(buf, data, data_size);
+	int r = __real_sid_buf_data_get(buf, data, data_size);
 	assert_true(!*data || *data_size);
 	return r;
 }
 
 static void test_notify_ready(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
+	struct sid_srv_lnk *sl = sid_srv_lnk_create(SID_SRV_LNK_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
-	service_link_add_notification(sl, SERVICE_NOTIFICATION_READY);
+	sid_srv_lnk_notif_add(sl, SID_SRV_LNK_NOTIF_READY);
 	will_return(__wrap_sd_notify, "READY=1\n");
-	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_READY, &SERVICE_LINK_DEFAULT_LOG_REQ, NULL), 0);
-	service_link_destroy(sl);
+	assert_int_equal(sid_srv_lnk_notify(sl, SID_SRV_LNK_NOTIF_READY, &SID_SRV_LNK_DEFAULT_LOG_REQ, NULL), 0);
+	sid_srv_lnk_destroy(sl);
 }
 
 static void test_notify_ready_reloading(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
+	struct sid_srv_lnk *sl = sid_srv_lnk_create(SID_SRV_LNK_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
-	service_link_add_notification(sl, SERVICE_NOTIFICATION_READY);
-	service_link_add_notification(sl, SERVICE_NOTIFICATION_RELOADING);
+	sid_srv_lnk_notif_add(sl, SID_SRV_LNK_NOTIF_READY);
+	sid_srv_lnk_notif_add(sl, SID_SRV_LNK_NOTIF_RELOADING);
 	will_return(__wrap_sd_notify, "READY=1\nRELOADING=1\n");
-	assert_int_equal(service_link_notify(sl,
-	                                     SERVICE_NOTIFICATION_READY | SERVICE_NOTIFICATION_RELOADING,
-	                                     &SERVICE_LINK_DEFAULT_LOG_REQ,
-	                                     NULL),
-	                 0);
-	service_link_destroy(sl);
+	assert_int_equal(
+		sid_srv_lnk_notify(sl, SID_SRV_LNK_NOTIF_READY | SID_SRV_LNK_NOTIF_RELOADING, &SID_SRV_LNK_DEFAULT_LOG_REQ, NULL),
+		0);
+	sid_srv_lnk_destroy(sl);
 }
 
 static void test_notify_blank(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
+	struct sid_srv_lnk *sl = sid_srv_lnk_create(SID_SRV_LNK_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
-	service_link_add_notification(sl, SERVICE_NOTIFICATION_STATUS);
+	sid_srv_lnk_notif_add(sl, SID_SRV_LNK_NOTIF_STATUS);
 	will_return(__wrap_sd_notify, "");
-	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_STATUS, &SERVICE_LINK_DEFAULT_LOG_REQ, NULL), 0);
-	service_link_destroy(sl);
+	assert_int_equal(sid_srv_lnk_notify(sl, SID_SRV_LNK_NOTIF_STATUS, &SID_SRV_LNK_DEFAULT_LOG_REQ, NULL), 0);
+	sid_srv_lnk_destroy(sl);
 }
 
 static void test_notify_errno(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
+	struct sid_srv_lnk *sl = sid_srv_lnk_create(SID_SRV_LNK_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
-	service_link_add_notification(sl, SERVICE_NOTIFICATION_ERRNO);
+	sid_srv_lnk_notif_add(sl, SID_SRV_LNK_NOTIF_ERRNO);
 	will_return(__wrap_sd_notify, "ERRNO=2\n");
-	assert_int_equal(service_link_notify(sl, SERVICE_NOTIFICATION_ERRNO, &SERVICE_LINK_DEFAULT_LOG_REQ, "ERRNO=%d\n", 2), 0);
-	service_link_destroy(sl);
+	assert_int_equal(sid_srv_lnk_notify(sl, SID_SRV_LNK_NOTIF_ERRNO, &SID_SRV_LNK_DEFAULT_LOG_REQ, "ERRNO=%d\n", 2), 0);
+	sid_srv_lnk_destroy(sl);
 }
 
 static void test_notify_errno_status(void **state)
 {
-	struct service_link *sl = service_link_create(SERVICE_TYPE_SYSTEMD, "systemd");
+	struct sid_srv_lnk *sl = sid_srv_lnk_create(SID_SRV_LNK_TYPE_SYSTEMD, "systemd");
 
 	assert_non_null(sl);
-	service_link_add_notification(sl, SERVICE_NOTIFICATION_ERRNO);
-	service_link_add_notification(sl, SERVICE_NOTIFICATION_STATUS);
+	sid_srv_lnk_notif_add(sl, SID_SRV_LNK_NOTIF_ERRNO);
+	sid_srv_lnk_notif_add(sl, SID_SRV_LNK_NOTIF_STATUS);
 	will_return(__wrap_sd_notify, "STATUS=testing\nERRNO=2\n");
-	assert_int_equal(service_link_notify(sl,
-	                                     SERVICE_NOTIFICATION_ERRNO | SERVICE_NOTIFICATION_STATUS,
-	                                     &SERVICE_LINK_DEFAULT_LOG_REQ,
-	                                     "ERRNO=%d\nSTATUS=testing",
-	                                     2),
+	assert_int_equal(sid_srv_lnk_notify(sl,
+	                                    SID_SRV_LNK_NOTIF_ERRNO | SID_SRV_LNK_NOTIF_STATUS,
+	                                    &SID_SRV_LNK_DEFAULT_LOG_REQ,
+	                                    "ERRNO=%d\nSTATUS=testing",
+	                                    2),
 	                 0);
-	service_link_destroy(sl);
+	sid_srv_lnk_destroy(sl);
 }
 
 int main(void)

@@ -25,10 +25,10 @@
 #include <stdarg.h>
 #include <sys/types.h>
 
-struct sid_buffer {
-	struct sid_buffer_stat stat;
-	void                  *mem;
-	int                    fd;
+struct sid_buf {
+	struct sid_buf_stat stat;
+	void               *mem;
+	int                 fd;
 
 	struct {
 		bool   set;
@@ -36,23 +36,23 @@ struct sid_buffer {
 	} mark;
 };
 
-struct sid_buffer_type {
-	int (*create)(struct sid_buffer *buf);
-	int (*destroy)(struct sid_buffer *buf);
-	int (*reset)(struct sid_buffer *buf);
-	int (*add)(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos);
-	int (*fmt_add)(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
-	int (*release)(struct sid_buffer *buf, size_t pos, bool rewind);
-	int (*release_mem)(struct sid_buffer *buf, const void *mem, bool rewind);
-	bool (*is_complete)(struct sid_buffer *buf, int *ret_code);
-	int (*get_data)(struct sid_buffer *buf, size_t pos, const void **data, size_t *data_size);
-	int (*get_fd)(struct sid_buffer *buf);
-	size_t (*count)(struct sid_buffer *buf);
-	ssize_t (*read)(struct sid_buffer *buf, int fd);
-	ssize_t (*write)(struct sid_buffer *buf, int fd, size_t pos);
+struct sid_buf_type {
+	int (*create)(struct sid_buf *buf);
+	int (*destroy)(struct sid_buf *buf);
+	int (*reset)(struct sid_buf *buf);
+	int (*add)(struct sid_buf *buf, void *data, size_t len, const void **mem, size_t *pos);
+	int (*fmt_add)(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
+	int (*release)(struct sid_buf *buf, size_t pos, bool rewind);
+	int (*mem_release)(struct sid_buf *buf, const void *mem, bool rewind);
+	bool (*is_complete)(struct sid_buf *buf, int *ret_code);
+	int (*data_get)(struct sid_buf *buf, size_t pos, const void **data, size_t *data_size);
+	int (*fd_get)(struct sid_buf *buf);
+	size_t (*count)(struct sid_buf *buf);
+	ssize_t (*read)(struct sid_buf *buf, int fd);
+	ssize_t (*write)(struct sid_buf *buf, int fd, size_t pos);
 };
 
-extern const struct sid_buffer_type sid_buffer_type_linear;
-extern const struct sid_buffer_type sid_buffer_type_vector;
+extern const struct sid_buf_type sid_buf_type_linear;
+extern const struct sid_buf_type sid_buf_type_vector;
 
 #endif

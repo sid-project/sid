@@ -28,54 +28,54 @@
 extern "C" {
 #endif
 
-#define KV_STORE_KEY_JOIN     ":"
-#define KV_STORE_KEY_JOIN_LEN (sizeof(KV_STORE_KEY_JOIN) - 1)
+#define SID_KVS_KEY_JOIN     ":"
+#define SID_KVS_KEY_JOIN_LEN (sizeof(SID_KVS_KEY_JOIN) - 1)
 
 typedef enum {
-	KV_STORE_BACKEND_HASH,
-	KV_STORE_BACKEND_BPTREE,
-} kv_store_backend_t;
+	SID_KVS_BACKEND_HASH,
+	SID_KVS_BACKEND_BPTREE,
+} sid_kvs_backend_t;
 
 typedef enum {
-	KV_STORE_VALUE_NO_FLAGS         = UINT32_C(0x00000000),
-	KV_STORE_VALUE_VECTOR           = UINT32_C(0x00000001),
-	KV_STORE_VALUE_REF              = UINT32_C(0x00000002),
-	KV_STORE_VALUE_AUTOFREE         = UINT32_C(0x00000004),
-	_KV_STORE_VALUE_FLAGS_ENUM_SIZE = UINT32_C(0xFFFFFFFF),
-} kv_store_value_flags_t;
+	SID_KVS_VAL_FL_NONE       = UINT32_C(0x00000000),
+	SID_KVS_VAL_FL_VECTOR     = UINT32_C(0x00000001),
+	SID_KVS_VAL_FL_REF        = UINT32_C(0x00000002),
+	SID_KVS_VAL_FL_AUTOFREE   = UINT32_C(0x00000004),
+	_SID_KVS_VAL_FL_ENUM_SIZE = UINT32_C(0xFFFFFFFF),
+} sid_kvs_val_fl_t;
 
 typedef enum {
-	KV_STORE_VALUE_NO_OP    = UINT32_C(0x00000000),
-	KV_STORE_VALUE_OP_MERGE = UINT32_C(0x00000001),
-} kv_store_value_op_flags_t;
+	SID_KVS_VAL_OP_NONE  = UINT32_C(0x00000000),
+	SID_KVS_VAL_OP_MERGE = UINT32_C(0x00000001),
+} sid_kvs_val_op_fl_t;
 
-struct kv_store_hash_backend_params {
+struct sid_kvs_hash_backend_params {
 	size_t initial_size;
 };
 
-struct kv_store_bptree_backend_params {
+struct sid_kvs_bptree_backend_params {
 	int order;
 };
 
-struct sid_kv_store_resource_params {
-	kv_store_backend_t backend;
+struct sid_kvs_res_params {
+	sid_kvs_backend_t backend;
 
 	union {
-		struct kv_store_hash_backend_params   hash;
-		struct kv_store_bptree_backend_params bptree;
+		struct sid_kvs_hash_backend_params   hash;
+		struct sid_kvs_bptree_backend_params bptree;
 	};
 };
 
-struct kv_store_update_spec {
-	const char               *key;
-	void                     *old_data;
-	size_t                    old_data_size;
-	kv_store_value_flags_t    old_flags;
-	void                     *new_data;
-	size_t                    new_data_size;
-	kv_store_value_flags_t    new_flags;
-	kv_store_value_op_flags_t op_flags;
-	void                     *arg; /* kv_update_fn_arg or kv_unset_fn_arg from kv_store_set/unset_value call */
+struct sid_kvs_update_spec {
+	const char         *key;
+	void               *old_data;
+	size_t              old_data_size;
+	sid_kvs_val_fl_t    old_flags;
+	void               *new_data;
+	size_t              new_data_size;
+	sid_kvs_val_fl_t    new_flags;
+	sid_kvs_val_op_fl_t op_flags;
+	void               *arg; /* kv_update_fn_arg or kv_unset_fn_arg from kv_store_set/unset_value call */
 };
 
 /*
@@ -83,7 +83,7 @@ struct kv_store_update_spec {
  *   0 to keep old_data
  *   1 to update old_data with new_data
  */
-typedef int (*kv_store_update_cb_fn_t)(struct kv_store_update_spec *update_spec);
+typedef int (*sid_kvs_update_cb_fn_t)(struct sid_kvs_update_spec *update_spec);
 
 // clang-format off
 /*
@@ -129,24 +129,24 @@ typedef int (*kv_store_update_cb_fn_t)(struct kv_store_update_spec *update_spec)
  *   The value that has been set.
  */
 // clang-format on
-void *kv_store_set_value(sid_resource_t           *kv_store_res,
-                         const char               *key,
-                         void                     *value,
-                         size_t                    value_size,
-                         kv_store_value_flags_t    flags,
-                         kv_store_value_op_flags_t op_flags,
-                         kv_store_update_cb_fn_t   kv_update_fn,
-                         void                     *kv_update_fn_arg);
+void *sid_kvs_set(sid_res_t             *kv_store_res,
+                  const char            *key,
+                  void                  *value,
+                  size_t                 value_size,
+                  sid_kvs_val_fl_t       flags,
+                  sid_kvs_val_op_fl_t    op_flags,
+                  sid_kvs_update_cb_fn_t kv_update_fn,
+                  void                  *kv_update_fn_arg);
 
-void *kv_store_set_value_with_archive(sid_resource_t           *kv_store_res,
-                                      const char               *key,
-                                      void                     *value,
-                                      size_t                    value_size,
-                                      kv_store_value_flags_t    flags,
-                                      kv_store_value_op_flags_t op_flags,
-                                      kv_store_update_cb_fn_t   kv_update_fn,
-                                      void                     *kv_update_fn_arg,
-                                      const char               *archive_key);
+void *sid_kvs_set_with_archive(sid_res_t             *kv_store_res,
+                               const char            *key,
+                               void                  *value,
+                               size_t                 value_size,
+                               sid_kvs_val_fl_t       flags,
+                               sid_kvs_val_op_fl_t    op_flags,
+                               sid_kvs_update_cb_fn_t kv_update_fn,
+                               void                  *kv_update_fn_arg,
+                               const char            *archive_key);
 
 /*
  * Add alias for given key.
@@ -158,13 +158,13 @@ void *kv_store_set_value_with_archive(sid_resource_t           *kv_store_res,
  *      0 if alias added
  *     -1 if alias not added
  */
-int kv_store_add_alias(sid_resource_t *kv_store_res, const char *key, const char *alias, bool force);
+int sid_kvs_alias_add(sid_res_t *kv_store_res, const char *key, const char *alias, bool force);
 /*
  * Gets value for given key.
  *   - If value_size is not NULL, the function returns the size of the value through this output argument.
  *   - If flags is not NULL, the function returns the flags attached to the value through this output argument.
  */
-void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *value_size, kv_store_value_flags_t *flags);
+void *sid_kvs_get(sid_res_t *kv_store_res, const char *key, size_t *value_size, sid_kvs_val_fl_t *flags);
 
 /*
  * Unset given key. If this is the last key for the value (no more aliases), unsets the value too.
@@ -174,33 +174,33 @@ void *kv_store_get_value(sid_resource_t *kv_store_res, const char *key, size_t *
  *    0 if value unset
  *   -1 if value not unset
  */
-int kv_store_unset(sid_resource_t *kv_store_res, const char *key, kv_store_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg);
+int sid_kvs_unset(sid_res_t *kv_store_res, const char *key, sid_kvs_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg);
 
-int kv_store_unset_with_archive(sid_resource_t         *kv_store_res,
-                                const char             *key,
-                                kv_store_update_cb_fn_t kv_unset_fn,
-                                void                   *kv_unset_fn_arg,
-                                const char             *archive_key);
+int sid_kvs_unset_with_archive(sid_res_t             *kv_store_res,
+                               const char            *key,
+                               sid_kvs_update_cb_fn_t kv_unset_fn,
+                               void                  *kv_unset_fn_arg,
+                               const char            *archive_key);
 
-size_t kv_store_get_size(sid_resource_t *kv_store_res, size_t *meta_size, size_t *data_size);
+size_t sid_kvs_size_get(sid_res_t *kv_store_res, size_t *meta_size, size_t *data_size);
 
-int  kv_store_transaction_begin(sid_resource_t *kv_store_res);
-void kv_store_transaction_end(sid_resource_t *kv_store_res, bool rollback);
-bool kv_store_in_transaction(sid_resource_t *kv_store_res);
+int  sid_kvs_transaction_begin(sid_res_t *kv_store_res);
+void sid_kvs_transaction_end(sid_res_t *kv_store_res, bool rollback);
+bool sid_kvs_transaction_active(sid_res_t *kv_store_res);
 
-typedef struct kv_store_iter kv_store_iter_t;
+typedef struct sid_kvs_iter sid_kvs_iter_t;
 
-kv_store_iter_t *kv_store_iter_create(sid_resource_t *kv_store_res, const char *key_start, const char *key_end);
-int              kv_store_iter_current_size(kv_store_iter_t *iter,
-                                            size_t          *int_size,
-                                            size_t          *int_data_size,
-                                            size_t          *ext_size,
-                                            size_t          *ext_data_size);
-const char      *kv_store_iter_current_key(kv_store_iter_t *iter);
-void            *kv_store_iter_current(kv_store_iter_t *iter, size_t *size, kv_store_value_flags_t *flags);
-void            *kv_store_iter_next(kv_store_iter_t *iter, size_t *size, const char **return_key, kv_store_value_flags_t *flags);
-void             kv_store_iter_reset(kv_store_iter_t *iter, const char *key_start, const char *key_end);
-void             kv_store_iter_destroy(kv_store_iter_t *iter);
+sid_kvs_iter_t *sid_kvs_iter_create(sid_res_t *kv_store_res, const char *key_start, const char *key_end);
+int             sid_kvs_iter_current_size(sid_kvs_iter_t *iter,
+                                          size_t         *int_size,
+                                          size_t         *int_data_size,
+                                          size_t         *ext_size,
+                                          size_t         *ext_data_size);
+const char     *sid_kvs_iter_current_key(sid_kvs_iter_t *iter);
+void           *sid_kvs_iter_current(sid_kvs_iter_t *iter, size_t *size, sid_kvs_val_fl_t *flags);
+void           *sid_kvs_iter_next(sid_kvs_iter_t *iter, size_t *size, const char **return_key, sid_kvs_val_fl_t *flags);
+void            sid_kvs_iter_reset(sid_kvs_iter_t *iter, const char *key_start, const char *key_end);
+void            sid_kvs_iter_destroy(sid_kvs_iter_t *iter);
 
 #ifdef __cplusplus
 }

@@ -12,8 +12,8 @@
 
 #include <stddef.h>
 
-size_t         sid_binary_len_encode(size_t in_len);
-int            sid_binary_encode(const unsigned char *src, size_t len, unsigned char *dest, size_t out_len);
-unsigned char *sid_binary_decode(const unsigned char *src, size_t len, size_t *out_len);
+size_t         sid_conv_bin_len_encode(size_t in_len);
+int            sid_conv_bin_encode(const unsigned char *src, size_t len, unsigned char *dest, size_t out_len);
+unsigned char *sid_conv_bin_decode(const unsigned char *src, size_t len, size_t *out_len);
 
 #endif /* SID_BINARY_H */

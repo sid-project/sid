@@ -81,22 +81,22 @@ static const char *keys[_NUM_KEYS] = {
 	[D_NEXT_MOD]          = SID_UCMD_KEY_DEVICE_NEXT_MOD,
 };
 
-static int _blkid_init(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
+static int _blkid_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	unsigned i;
 
-	sid_resource_log_debug(mod_res, "init");
+	sid_res_log_debug(mod_res, "init");
 
 	for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
-		if (sid_ucmd_mod_reserve_kv(mod_res, ucmd_common_ctx, KV_NS_UDEV, keys[i], KV_FRG_RD) < 0) {
-			sid_resource_log_error(mod_res, "Failed to reserve blkid udev key %s.", keys[i]);
+		if (sid_ucmd_kv_reserve(mod_res, ucmd_common_ctx, SID_KV_NS_UDEV, keys[i], SID_KV_FL_FRG_RD) < 0) {
+			sid_res_log_error(mod_res, "Failed to reserve blkid udev key %s.", keys[i]);
 			return -1;
 		}
 	}
 
 	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
-		if (sid_ucmd_mod_reserve_kv(mod_res, ucmd_common_ctx, KV_NS_DEVICE, keys[i], KV_FRG_RD) < 0) {
-			sid_resource_log_error(mod_res, "Failed to reserve blkid device key %s.", keys[i]);
+		if (sid_ucmd_kv_reserve(mod_res, ucmd_common_ctx, SID_KV_NS_DEVICE, keys[i], SID_KV_FL_FRG_RD) < 0) {
+			sid_res_log_error(mod_res, "Failed to reserve blkid device key %s.", keys[i]);
 			return -1;
 		}
 	}
@@ -105,22 +105,22 @@ static int _blkid_init(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd
 }
 SID_UCMD_MOD_INIT(_blkid_init)
 
-static int _blkid_exit(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
+static int _blkid_exit(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
 	unsigned i;
 
-	sid_resource_log_debug(mod_res, "exit");
+	sid_res_log_debug(mod_res, "exit");
 
 	for (i = _UDEV_KEY_START; i <= _UDEV_KEY_END; i++) {
-		if (sid_ucmd_mod_unreserve_kv(mod_res, ucmd_common_ctx, KV_NS_UDEV, keys[i]) < 0) {
-			sid_resource_log_error(mod_res, "Failed to unreserve blkid udev key %s.", keys[i]);
+		if (sid_ucmd_kv_unreserve(mod_res, ucmd_common_ctx, SID_KV_NS_UDEV, keys[i]) < 0) {
+			sid_res_log_error(mod_res, "Failed to unreserve blkid udev key %s.", keys[i]);
 			return -1;
 		}
 	}
 
 	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
-		if (sid_ucmd_mod_unreserve_kv(mod_res, ucmd_common_ctx, KV_NS_DEVICE, keys[i]) < 0) {
-			sid_resource_log_error(mod_res, "Failed to unreserve blkid device key %s.", keys[i]);
+		if (sid_ucmd_kv_unreserve(mod_res, ucmd_common_ctx, SID_KV_NS_DEVICE, keys[i]) < 0) {
+			sid_res_log_error(mod_res, "Failed to unreserve blkid device key %s.", keys[i]);
 			return -1;
 		}
 	}
@@ -129,15 +129,15 @@ static int _blkid_exit(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd
 }
 SID_UCMD_MOD_EXIT(_blkid_exit)
 
-static int _blkid_reset(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
+static int _blkid_reset(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	sid_resource_log_debug(mod_res, "reset");
+	sid_res_log_debug(mod_res, "reset");
 	return 0;
 }
 SID_UCMD_MOD_RESET(_blkid_reset)
 
 /* TODO: Also add ID_PART_GPT_AUTO_ROOT_UUID - see udev-builtin-blkid in systemd source tree. */
-static void _add_property(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *name, const char *value)
+static void _add_property(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *name, const char *value)
 {
 	char                     s[256];
 	const struct blkid_type *blkid_type;
@@ -147,62 +147,62 @@ static void _add_property(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx
 
 	if (!strcmp(name, "TYPE")) {
 		len = strlen(value);
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_TYPE], value, len + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_TYPE], value, len + 1, SID_KV_FL_RD);
 
 		/* Translate blkid type name to sid module name and save the result in SID_UCMD_KEY_DEVICE_NEXT_MOD variable in
 		 * KV_NS_DEVICE. */
 		if ((blkid_type = blkid_type_lookup(value, len)))
-			sid_ucmd_set_kv(mod_res,
+			sid_ucmd_kv_set(mod_res,
 			                ucmd_ctx,
-			                KV_NS_DEVICE,
+			                SID_KV_NS_DEVICE,
 			                keys[D_NEXT_MOD],
 			                blkid_type->module_name,
 			                strlen(blkid_type->module_name) + 1,
-			                KV_SYNC_P | KV_RD);
+			                SID_KV_FL_SYNC_P | SID_KV_FL_RD);
 	} else if (!strcmp(name, "USAGE")) {
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_USAGE], value, strlen(value) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_USAGE], value, strlen(value) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "VERSION")) {
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_VERSION], value, strlen(value) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_VERSION], value, strlen(value) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "UUID")) {
 		blkid_safe_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_UUID], value, strlen(value) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_UUID], value, strlen(value) + 1, SID_KV_FL_RD);
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_UUID_ENC], s, strlen(s) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_UUID_ENC], s, strlen(s) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "UUID_SUB")) {
 		blkid_safe_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_UUID_SUB], value, strlen(value) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_UUID_SUB], value, strlen(value) + 1, SID_KV_FL_RD);
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_UUID_SUB_ENC], s, strlen(s) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_UUID_SUB_ENC], s, strlen(s) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "LABEL")) {
 		blkid_safe_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_LABEL], s, strlen(s) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_LABEL], s, strlen(s) + 1, SID_KV_FL_RD);
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_LABEL_ENC], s, strlen(s) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_LABEL_ENC], s, strlen(s) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "PTTYPE")) {
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_PART_TABLE_TYPE], value, strlen(value) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_PART_TABLE_TYPE], value, strlen(value) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "PTUUID")) {
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_PART_TABLE_UUID], value, strlen(value) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_PART_TABLE_UUID], value, strlen(value) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "PART_ENTRY_NAME")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_PART_ENTRY_NAME], s, strlen(s) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_PART_ENTRY_NAME], s, strlen(s) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "PART_ENTRY_TYPE")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_PART_ENTRY_TYPE], s, strlen(s) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_PART_ENTRY_TYPE], s, strlen(s) + 1, SID_KV_FL_RD);
 	} else if (!strncmp(name, "PART_ENTRY_", strlen("PART_ENTRY_"))) {
 		snprintf(s, sizeof(s), "ID_%s", name);
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, s, value, strlen(value) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, s, value, strlen(value) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "SYSTEM_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_SYSTEM_ID], s, strlen(s) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_SYSTEM_ID], s, strlen(s) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "PUBLISHER_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_PUBLISHER_ID], s, strlen(s) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_PUBLISHER_ID], s, strlen(s) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "APPLICATION_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_APPLICATION_ID], s, strlen(s) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_APPLICATION_ID], s, strlen(s) + 1, SID_KV_FL_RD);
 	} else if (!strcmp(name, "BOOT_SYSTEM_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_set_kv(mod_res, ucmd_ctx, KV_NS_UDEV, keys[U_FS_BOOT_SYSTEM_ID], s, strlen(s) + 1, KV_RD);
+		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_BOOT_SYSTEM_ID], s, strlen(s) + 1, SID_KV_FL_RD);
 	}
 }
 
@@ -237,7 +237,7 @@ static int _probe_superblocks(blkid_probe pr)
 	return blkid_do_safeprobe(pr);
 }
 
-static int _blkid_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _blkid_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	char        dev_path[PATH_MAX];
 	int64_t     offset = 0;
@@ -260,17 +260,17 @@ static int _blkid_scan_next(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_c
 
 	// TODO: Also decide when to use offset (including exact value) and noraid options.
 
-	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ucmd_event_get_dev_name(ucmd_ctx));
+	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ucmd_ev_dev_name_get(ucmd_ctx));
 
 	if ((fd = open(dev_path, O_RDONLY | O_CLOEXEC)) < 0) {
-		sid_resource_log_error_errno(mod_res, errno, "Failed to open device %s", dev_path);
+		sid_res_log_error_errno(mod_res, errno, "Failed to open device %s", dev_path);
 		goto out;
 	}
 
 	if ((r = blkid_probe_set_device(pr, fd, offset, 0)) < 0)
 		goto out;
 
-	sid_resource_log_debug(mod_res, "Probe %s %sraid offset=%" PRIi64, dev_path, noraid ? "no" : "", offset);
+	sid_res_log_debug(mod_res, "Probe %s %sraid offset=%" PRIi64, dev_path, noraid ? "no" : "", offset);
 
 	if ((r = _probe_superblocks(pr)) < 0)
 		goto out;
@@ -294,16 +294,16 @@ out:
 }
 SID_UCMD_SCAN_NEXT(_blkid_scan_next)
 
-static int _blkid_scan_remove(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _blkid_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_resource_log_debug(mod_res, "scan-remove");
+	sid_res_log_debug(mod_res, "scan-remove");
 	return 0;
 }
 SID_UCMD_SCAN_REMOVE(_blkid_scan_remove)
 
-static int _blkid_error(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _blkid_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_resource_log_debug(mod_res, "error");
+	sid_res_log_debug(mod_res, "error");
 	return 0;
 }
 SID_UCMD_ERROR(_blkid_error)

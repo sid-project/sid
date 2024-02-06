@@ -61,12 +61,12 @@ static void _log_journal_close(void)
 	fflush(stderr);
 }
 
-static void _log_journal_output(const log_req_t *req, const char *format, va_list ap)
+static void _log_journal_output(const sid_log_req_t *req, const char *format, va_list ap)
 {
-	char       msg[LINE_MAX];
-	log_pfx_t *pfx;
-	size_t     printed, remaining;
-	int        r;
+	char           msg[LINE_MAX];
+	sid_log_pfx_t *pfx;
+	size_t         printed, remaining;
+	int            r;
 
 	if (req->ctx->level_id > _max_level_id)
 		return;
@@ -132,7 +132,7 @@ static void _log_journal_output(const log_req_t *req, const char *format, va_lis
 	}
 }
 
-const struct log_target log_target_journal = {.name   = "journal",
-                                              .open   = _log_journal_open,
-                                              .close  = _log_journal_close,
-                                              .output = _log_journal_output};
+const struct sid_log_tgt log_target_journal = {.name   = "journal",
+                                               .open   = _log_journal_open,
+                                               .close  = _log_journal_close,
+                                               .output = _log_journal_output};

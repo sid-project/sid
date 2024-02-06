@@ -29,116 +29,112 @@ extern "C" {
 #endif
 
 typedef enum {
-	SERVICE_TYPE_NONE,
-	SERVICE_TYPE_SYSTEMD,
-	SERVICE_TYPE_LOGGER,
-} service_link_type_t;
+	SID_SRV_LNK_TYPE_NONE,
+	SID_SRV_LNK_TYPE_SYSTEMD,
+	SID_SRV_LNK_TYPE_LOGGER,
+} sid_srv_lnk_type_t;
 
 typedef enum {
 	/* no notification */
-	SERVICE_NOTIFICATION_NONE             = UINT64_C(0x0000000000000000),
+	SID_SRV_LNK_NOTIF_NONE             = UINT64_C(0x0000000000000000),
 
 	/* discard any further service notifications; no arg */
-	SERVICE_NOTIFICATION_UNSET            = UINT64_C(0x0000000000000001),
+	SID_SRV_LNK_NOTIF_UNSET            = UINT64_C(0x0000000000000001),
 
 	/* notify about service status; arg is STATUS=<message> */
-	SERVICE_NOTIFICATION_STATUS           = UINT64_C(0x0000000000000002),
+	SID_SRV_LNK_NOTIF_STATUS           = UINT64_C(0x0000000000000002),
 
 	/* notify about service reaching an error with errno; arg is 'ERRNO=<errno>' or 'ERRNO=<errno_identifier>' */
-	SERVICE_NOTIFICATION_ERRNO            = UINT64_C(0x0000000000000004),
+	SID_SRV_LNK_NOTIF_ERRNO            = UINT64_C(0x0000000000000004),
 
 	/* notify about service being ready; no arg */
-	SERVICE_NOTIFICATION_READY            = UINT64_C(0x0000000000000008),
+	SID_SRV_LNK_NOTIF_READY            = UINT64_C(0x0000000000000008),
 
 	/* notify about service being reloaded; no arg */
-	SERVICE_NOTIFICATION_RELOADING        = UINT64_C(0x0000000000000010),
+	SID_SRV_LNK_NOTIF_RELOADING        = UINT64_C(0x0000000000000010),
 
 	/* notify about service being stopped; no arg */
-	SERVICE_NOTIFICATION_STOPPING         = UINT64_C(0x0000000000000020),
+	SID_SRV_LNK_NOTIF_STOPPING         = UINT64_C(0x0000000000000020),
 
 	/* notify about service being still alive; no arg */
-	SERVICE_NOTIFICATION_WATCHDOG_REFRESH = UINT64_C(0x0000000000000040),
+	SID_SRV_LNK_NOTIF_WATCHDOG_REFRESH = UINT64_C(0x0000000000000040),
 
 	/* notify about service reaching a point where watchdog action needs to be executed; no arg */
-	SERVICE_NOTIFICATION_WATCHDOG_TRIGGER = UINT64_C(0x0000000000000080),
+	SID_SRV_LNK_NOTIF_WATCHDOG_TRIGGER = UINT64_C(0x0000000000000080),
 
 	/* notify with a message */
-	SERVICE_NOTIFICATION_MESSAGE          = UINT64_C(0x0000000000000100),
-} service_link_notification_t;
+	SID_SRV_LNK_NOTIF_MESSAGE          = UINT64_C(0x0000000000000100),
+} sid_srv_lnk_notif_t;
 
 typedef enum {
-	SERVICE_FLAG_NONE      = UINT64_C(0x0000000000000000),
-	SERVICE_FLAG_CLONEABLE = UINT64_C(0x0000000000000001),
-} service_link_flags_t;
+	SID_SRV_LNK_FL_NONE      = UINT64_C(0x0000000000000000),
+	SID_SRV_LNK_FL_CLONEABLE = UINT64_C(0x0000000000000001),
+} sid_srv_lnk_fl_t;
 
-struct service_link;
-struct service_link_group;
+struct sid_srv_lnk;
+struct sid_srv_lnk_grp;
 
-#define SERVICE_KEY_STATUS              "STATUS"
-#define SERVICE_KEY_ERRNO               "ERRNO"
+#define SID_SRV_LNK_KEY_STATUS              "STATUS"
+#define SID_SRV_LNK_KEY_ERRNO               "ERRNO"
 
-#define SERVICE_KEY_ACTIVATION_TYPE     "SERVICE_ACTIVATION_TYPE"
-#define SERVICE_VALUE_ACTIVATION_FD     "FD_PRELOAD"
+#define SID_SRV_LNK_KEY_ACTIVATION_TYPE     "SERVICE_ACTIVATION_TYPE"
+#define SID_SRV_LNK_VAL_ACTIVATION_FD       "FD_PRELOAD"
 
-#define SERVICE_FD_ACTIVATION_FDS_START SD_LISTEN_FDS_START
+#define SID_SRV_LNK_FD_ACTIVATION_FDS_START SD_LISTEN_FDS_START
 
 /* int sd_listen_fds(int unset_environment) */
-#define service_fd_activation_present   sd_listen_fds
+#define sid_srv_lnk_fd_activation_present   sd_listen_fds
 
 /* int sd_is_socket_unix(int fd, int type, int listening, const char *path, size_t length) */
-#define service_fd_is_socket_unix       sd_is_socket_unix
+#define sid_srv_lnk_fd_is_socket_unix       sd_is_socket_unix
 
-struct service_link *service_link_create(service_link_type_t type, const char *name);
-struct service_link *service_link_clone(struct service_link *sl, const char *name);
-void                 service_link_destroy(struct service_link *sl);
+struct sid_srv_lnk *sid_srv_lnk_create(sid_srv_lnk_type_t type, const char *name);
+struct sid_srv_lnk *sid_srv_lnk_clone(struct sid_srv_lnk *sl, const char *name);
+void                sid_srv_lnk_destroy(struct sid_srv_lnk *sl);
 
-void service_link_set_flags(struct service_link *sl, service_link_flags_t flags);
-void service_link_set_data(struct service_link *sl, void *data);
+void sid_srv_lnk_flags_set(struct sid_srv_lnk *sl, sid_srv_lnk_fl_t flags);
+void sid_srv_lnk_data_set(struct sid_srv_lnk *sl, void *data);
 
-void service_link_add_notification(struct service_link *sl, service_link_notification_t notification);
-void service_link_remove_notification(struct service_link *sl, service_link_notification_t notification);
+void sid_srv_lnk_notif_add(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification);
+void sid_srv_lnk_notif_remove(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification);
 
-struct service_link_group *service_link_group_create(const char *name);
-struct service_link_group *service_link_group_clone(struct service_link_group *slg, const char *name);
-void                       service_link_group_destroy(struct service_link_group *slg);
-void                       service_link_group_destroy_with_members(struct service_link_group *slg);
+struct sid_srv_lnk_grp *sid_srv_lnk_grp_create(const char *name);
+struct sid_srv_lnk_grp *sid_srv_lnk_grp_clone(struct sid_srv_lnk_grp *slg, const char *name);
+void                    sid_srv_lnk_grp_destroy(struct sid_srv_lnk_grp *slg);
+void                    sid_srv_lnk_grp_destroy_with_members(struct sid_srv_lnk_grp *slg);
 
-void service_link_group_add_member(struct service_link_group *slg, struct service_link *sl);
-int  service_link_group_remove_member(struct service_link_group *slg, struct service_link *sl);
+void sid_srv_lnk_grp_member_add(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl);
+int  sid_srv_lnk_grp_member_remove(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl);
 
 /*
  * Send service notification.
  * Arguments depend on notification type used - see comments in enum service_notification_t definition.
  */
 
-#define SERVICE_LINK_DEFAULT_LOG_CTX                                                                                               \
-	((log_ctx_t) {.level_id = LOG_DEBUG, .errno_id = 0, .src_file = __FILE__, .src_line = __LINE__, .src_func = __func__})
+#define SID_SRV_LNK_DEFAULT_LOG_CTX                                                                                                \
+	((sid_log_ctx_t) {.level_id = LOG_DEBUG, .errno_id = 0, .src_file = __FILE__, .src_line = __LINE__, .src_func = __func__})
 
-#define SERVICE_LINK_DEFAULT_LOG_REQ ((log_req_t) {.pfx = NULL, .ctx = &SERVICE_LINK_DEFAULT_LOG_CTX})
+#define SID_SRV_LNK_DEFAULT_LOG_REQ ((sid_log_req_t) {.pfx = NULL, .ctx = &SID_SRV_LNK_DEFAULT_LOG_CTX})
 
-int service_link_notify(struct service_link        *sl,
-                        service_link_notification_t notification,
-                        struct log_req             *log_req,
-                        const char                 *fmt,
-                        ...);
+int sid_srv_lnk_notify(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification, struct sid_log_req *log_req, const char *fmt, ...);
 
-int service_link_vnotify(struct service_link        *sl,
-                         service_link_notification_t notification,
-                         struct log_req             *log_req,
-                         const char                 *fmt,
-                         va_list                     ap);
+int sid_srv_lnk_vnotify(struct sid_srv_lnk *sl,
+                        sid_srv_lnk_notif_t notification,
+                        struct sid_log_req *log_req,
+                        const char         *fmt,
+                        va_list             ap);
 
-int service_link_group_notify(struct service_link_group  *slg,
-                              service_link_notification_t notification,
-                              struct log_req             *log_req,
-                              const char                 *fmt,
-                              ...);
+int sid_srv_lnk_grp_notify(struct sid_srv_lnk_grp *slg,
+                           sid_srv_lnk_notif_t     notification,
+                           struct sid_log_req     *log_req,
+                           const char             *fmt,
+                           ...);
 
-int service_link_group_vnotify(struct service_link_group  *slg,
-                               service_link_notification_t notification,
-                               struct log_req             *log_req,
-                               const char                 *fmt,
-                               va_list                     ap);
+int sid_srv_lnk_grp_vnotify(struct sid_srv_lnk_grp *slg,
+                            sid_srv_lnk_notif_t     notification,
+                            struct sid_log_req     *log_req,
+                            const char             *fmt,
+                            va_list                 ap);
 
 #ifdef __cplusplus
 }

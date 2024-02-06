@@ -29,33 +29,33 @@
 extern "C" {
 #endif
 
-struct sid_buffer;
+struct sid_buf;
 
 typedef enum {
-	SID_BUFFER_POS_ABS,
-	SID_BUFFER_POS_REL,
-} sid_buffer_pos_t;
+	SID_BUF_POS_ABS,
+	SID_BUF_POS_REL,
+} sid_buf_pos_t;
 
-struct sid_buffer     *sid_buffer_create(struct sid_buffer_spec *spec, struct sid_buffer_init *init, int *ret_code);
-void                   sid_buffer_destroy(struct sid_buffer *buf);
-int                    sid_buffer_reset(struct sid_buffer *buf);
-int                    sid_buffer_reset_init(struct sid_buffer *buf, struct sid_buffer_init *init);
-int                    sid_buffer_add(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos);
-int                    sid_buffer_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, ...);
-int                    sid_buffer_vfmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
-int                    sid_buffer_unbind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence);
-int                    sid_buffer_rewind(struct sid_buffer *buf, size_t pos, sid_buffer_pos_t whence);
-int                    sid_buffer_unbind_mem(struct sid_buffer *buf, const void *mem);
-int                    sid_buffer_rewind_mem(struct sid_buffer *buf, const void *mem);
-bool                   sid_buffer_is_complete(struct sid_buffer *buf, int *ret_code);
-ssize_t                sid_buffer_read(struct sid_buffer *buf, int fd);
-ssize_t                sid_buffer_write(struct sid_buffer *buf, int fd, size_t pos);
-int                    sid_buffer_get_data_from(struct sid_buffer *buf, size_t pos, const void **data, size_t *data_size);
-int                    sid_buffer_get_data(struct sid_buffer *buf, const void **data, size_t *data_size);
-int                    sid_buffer_get_fd(struct sid_buffer *buf);
-size_t                 sid_buffer_count(struct sid_buffer *buf);
-struct sid_buffer_stat sid_buffer_stat(struct sid_buffer *buf);
-int                    sid_buffer_write_all(struct sid_buffer *buf, int fd);
+struct sid_buf     *sid_buf_create(struct sid_buf_spec *spec, struct sid_buf_init *init, int *ret_code);
+void                sid_buf_destroy(struct sid_buf *buf);
+int                 sid_buf_reset(struct sid_buf *buf);
+int                 sid_buf_reset_init(struct sid_buf *buf, struct sid_buf_init *init);
+int                 sid_buf_add(struct sid_buf *buf, void *data, size_t len, const void **mem, size_t *pos);
+int                 sid_buf_fmt_add(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, ...);
+int                 sid_buf_vfmt_add(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
+int                 sid_buf_unbind(struct sid_buf *buf, size_t pos, sid_buf_pos_t whence);
+int                 sid_buf_rewind(struct sid_buf *buf, size_t pos, sid_buf_pos_t whence);
+int                 sid_buf_mem_unbind(struct sid_buf *buf, const void *mem);
+int                 sid_buf_mem_rewind(struct sid_buf *buf, const void *mem);
+bool                sid_buf_is_complete(struct sid_buf *buf, int *ret_code);
+ssize_t             sid_buf_read(struct sid_buf *buf, int fd);
+ssize_t             sid_buf_write(struct sid_buf *buf, int fd, size_t pos);
+int                 sid_buf_data_get_from(struct sid_buf *buf, size_t pos, const void **data, size_t *data_size);
+int                 sid_buf_data_get(struct sid_buf *buf, const void **data, size_t *data_size);
+int                 sid_buf_fd_get(struct sid_buf *buf);
+size_t              sid_buf_count(struct sid_buf *buf);
+struct sid_buf_stat sid_buf_stat(struct sid_buf *buf);
+int                 sid_buf_write_all(struct sid_buf *buf, int fd);
 
 #ifdef __cplusplus
 }

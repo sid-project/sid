@@ -28,19 +28,19 @@
 
 #define VECTOR_ITEM_SIZE sizeof(struct iovec)
 
-static size_t _buffer_vector_count(struct sid_buffer *buf)
+static size_t _buffer_vector_count(struct sid_buf *buf)
 {
 	switch (buf->stat.spec.mode) {
-		case SID_BUFFER_MODE_PLAIN:
+		case SID_BUF_MODE_PLAIN:
 			return buf->stat.usage.used;
-		case SID_BUFFER_MODE_SIZE_PREFIX:
+		case SID_BUF_MODE_SIZE_PREFIX:
 			return buf->stat.usage.used ? buf->stat.usage.used - 1 : 0;
 		default:
 			return 0;
 	}
 }
 
-static int _buffer_vector_realloc(struct sid_buffer *buf, size_t needed, int force)
+static int _buffer_vector_realloc(struct sid_buf *buf, size_t needed, int force)
 {
 	void  *p;
 	size_t align;
@@ -63,7 +63,7 @@ static int _buffer_vector_realloc(struct sid_buffer *buf, size_t needed, int for
 		return -EOVERFLOW;
 
 	switch (buf->stat.spec.backend) {
-		case SID_BUFFER_BACKEND_MALLOC:
+		case SID_BUF_BACKEND_MALLOC:
 			if (needed > 0) {
 				if (!(p = realloc(buf->mem, needed * VECTOR_ITEM_SIZE)))
 					return -errno;
@@ -73,11 +73,11 @@ static int _buffer_vector_realloc(struct sid_buffer *buf, size_t needed, int for
 			}
 			break;
 
-		case SID_BUFFER_BACKEND_MEMFD:
+		case SID_BUF_BACKEND_MEMFD:
 			if (buf->fd == -1 && (buf->fd = memfd_create("buffer", MFD_CLOEXEC | MFD_ALLOW_SEALING)) < 0)
 				return -errno;
 			/* fall through */
-		case SID_BUFFER_BACKEND_FILE:
+		case SID_BUF_BACKEND_FILE:
 			if (buf->fd == -1 &&
 			    (buf->fd = open(buf->stat.spec.ext.file.path, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR)) < 0)
 				return -errno;
@@ -115,12 +115,12 @@ static int _buffer_vector_realloc(struct sid_buffer *buf, size_t needed, int for
 	return 0;
 }
 
-static int _buffer_vector_create(struct sid_buffer *buf)
+static int _buffer_vector_create(struct sid_buf *buf)
 {
 	size_t needed = buf->stat.init.size;
 	int    r;
 
-	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+	if (buf->stat.spec.mode == SID_BUF_MODE_SIZE_PREFIX)
 		needed += 1;
 
 	if ((r = _buffer_vector_realloc(buf, needed, 1)) < 0) {
@@ -130,17 +130,17 @@ static int _buffer_vector_create(struct sid_buffer *buf)
 		return r;
 	}
 
-	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) {
+	if (buf->stat.spec.mode == SID_BUF_MODE_SIZE_PREFIX) {
 		/* check for buf->mem is superfluous here - this is only for static analyzers to pass */
 		if (buf->mem) {
-			if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(SID_BUFFER_SIZE_PREFIX_LEN))) {
+			if (!(((struct iovec *) buf->mem)[0].iov_base = malloc(SID_BUF_SIZE_PREFIX_LEN))) {
 				if (buf->fd > -1)
 					(void) close(buf->fd);
 				free(buf->mem);
 				return -ENOMEM;
 			}
 
-			((struct iovec *) buf->mem)[0].iov_len = SID_BUFFER_SIZE_PREFIX_LEN;
+			((struct iovec *) buf->mem)[0].iov_len = SID_BUF_SIZE_PREFIX_LEN;
 		}
 	}
 
@@ -148,23 +148,23 @@ static int _buffer_vector_create(struct sid_buffer *buf)
 	return 0;
 }
 
-static int _buffer_vector_destroy(struct sid_buffer *buf)
+static int _buffer_vector_destroy(struct sid_buf *buf)
 {
 	struct iovec *iov;
 	int           r;
 
-	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX) {
+	if (buf->stat.spec.mode == SID_BUF_MODE_SIZE_PREFIX) {
 		iov = buf->mem;
 		free(iov[0].iov_base);
 	}
 	switch (buf->stat.spec.backend) {
-		case SID_BUFFER_BACKEND_MALLOC:
+		case SID_BUF_BACKEND_MALLOC:
 			free(buf->mem);
 			r = 0;
 			break;
 
-		case SID_BUFFER_BACKEND_MEMFD:
-		case SID_BUFFER_BACKEND_FILE:
+		case SID_BUF_BACKEND_MEMFD:
+		case SID_BUF_BACKEND_FILE:
 			(void) close(buf->fd);
 			r = munmap(buf->mem, buf->stat.usage.allocated);
 			break;
@@ -176,7 +176,7 @@ static int _buffer_vector_destroy(struct sid_buffer *buf)
 	return r;
 }
 
-static int _buffer_vector_reset(struct sid_buffer *buf)
+static int _buffer_vector_reset(struct sid_buf *buf)
 {
 	size_t needed;
 
@@ -184,13 +184,13 @@ static int _buffer_vector_reset(struct sid_buffer *buf)
 
 	needed               = buf->stat.init.size;
 
-	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+	if (buf->stat.spec.mode == SID_BUF_MODE_SIZE_PREFIX)
 		needed += 1;
 
 	return _buffer_vector_realloc(buf, needed, 1);
 }
 
-static int _buffer_vector_add(struct sid_buffer *buf, void *data, size_t len, const void **mem, size_t *pos)
+static int _buffer_vector_add(struct sid_buf *buf, void *data, size_t len, const void **mem, size_t *pos)
 {
 	size_t        used = buf->stat.usage.used;
 	struct iovec *iov;
@@ -198,7 +198,7 @@ static int _buffer_vector_add(struct sid_buffer *buf, void *data, size_t len, co
 	size_t        count     = data ? 1 : len;
 	int           r;
 
-	if (!used && buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+	if (!used && buf->stat.spec.mode == SID_BUF_MODE_SIZE_PREFIX)
 		used = 1;
 
 	if (pos)
@@ -237,12 +237,12 @@ out:
 	return r;
 }
 
-static int _buffer_vector_fmt_add(struct sid_buffer *buf, const void **mem, size_t *pos, const char *fmt, va_list ap)
+static int _buffer_vector_fmt_add(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, va_list ap)
 {
 	return -ENOTSUP;
 }
 
-static int _buffer_vector_release(struct sid_buffer *buf, size_t pos, bool rewind)
+static int _buffer_vector_release(struct sid_buf *buf, size_t pos, bool rewind)
 {
 	if (buf->mark.set && pos <= buf->mark.pos) {
 		buf->mark.set = false;
@@ -250,7 +250,7 @@ static int _buffer_vector_release(struct sid_buffer *buf, size_t pos, bool rewin
 	}
 
 	if (rewind) {
-		if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+		if (buf->stat.spec.mode == SID_BUF_MODE_SIZE_PREFIX)
 			pos += 1;
 
 		buf->stat.usage.used = pos;
@@ -259,32 +259,32 @@ static int _buffer_vector_release(struct sid_buffer *buf, size_t pos, bool rewin
 	return 0;
 }
 
-static int _buffer_vector_release_mem(struct sid_buffer *buf, const void *mem, bool rewind)
+static int _buffer_vector_mem_release(struct sid_buf *buf, const void *mem, bool rewind)
 {
 	size_t pos = (struct iovec *) mem - (struct iovec *) buf->mem;
 
 	if (pos > buf->stat.usage.used)
 		return -ERANGE;
 
-	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+	if (buf->stat.spec.mode == SID_BUF_MODE_SIZE_PREFIX)
 		pos -= 1;
 
 	return _buffer_vector_release(buf, pos, rewind);
 }
 
-static bool _buffer_vector_is_complete(struct sid_buffer *buf, int *ret_code)
+static bool _buffer_vector_is_complete(struct sid_buf *buf, int *ret_code)
 {
 	/*	struct iovec *iov;
-	        SID_BUFFER_SIZE_PREFIX_TYPE size_prefix;
+	        SID_BUF_SIZE_PREFIX_TYPE size_prefix;
 	        size_t size = 0;
 	        unsigned i;
 
 	        switch (buf->mode) {
-	                case SID_BUFFER_MODE_PLAIN:
+	                case SID_BUF_MODE_PLAIN:
 	                        return true;
-	                case SID_BUFFER_MODE_SIZE_PREFIX:
+	                case SID_BUF_MODE_SIZE_PREFIX:
 	                        iov = buf->mem;
-	                        size_prefix = *((SID_BUFFER_SIZE_PREFIX_TYPE *) iov[0].iov_base);
+	                        size_prefix = *((SID_BUF_SIZE_PREFIX_TYPE *) iov[0].iov_base);
 	                        for (i = 1; i < buf->used; i++)
 	                                size += iov[i].iov_len;
 	                        return buf->used && size_prefix == size;
@@ -295,16 +295,16 @@ static bool _buffer_vector_is_complete(struct sid_buffer *buf, int *ret_code)
 	return true;
 }
 
-static int _buffer_vector_get_data(struct sid_buffer *buf, size_t pos, const void **data, size_t *data_size)
+static int _buffer_vector_data_get(struct sid_buf *buf, size_t pos, const void **data, size_t *data_size)
 {
 	switch (buf->stat.spec.mode) {
-		case SID_BUFFER_MODE_PLAIN:
+		case SID_BUF_MODE_PLAIN:
 			if (data)
 				*data = buf->mem - (pos * VECTOR_ITEM_SIZE);
 			if (data_size)
 				*data_size = buf->stat.usage.used - pos;
 			break;
-		case SID_BUFFER_MODE_SIZE_PREFIX:
+		case SID_BUF_MODE_SIZE_PREFIX:
 			if (data)
 				*data = buf->mem + (pos + 1) * VECTOR_ITEM_SIZE;
 			if (data_size)
@@ -317,26 +317,26 @@ static int _buffer_vector_get_data(struct sid_buffer *buf, size_t pos, const voi
 	return 0;
 }
 
-static void _update_size_prefix(struct sid_buffer *buf, size_t pos)
+static void _update_size_prefix(struct sid_buf *buf, size_t pos)
 {
-	struct iovec               *iov         = buf->mem;
-	SID_BUFFER_SIZE_PREFIX_TYPE size_prefix = 0;
-	size_t                      i;
+	struct iovec            *iov         = buf->mem;
+	SID_BUF_SIZE_PREFIX_TYPE size_prefix = 0;
+	size_t                   i;
 
-	if ((pos == 0) && (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)) {
+	if ((pos == 0) && (buf->stat.spec.mode == SID_BUF_MODE_SIZE_PREFIX)) {
 		for (i = 0; i < buf->stat.usage.used; i++)
 			size_prefix += iov[i].iov_len;
-		*((SID_BUFFER_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
+		*((SID_BUF_SIZE_PREFIX_TYPE *) iov[0].iov_base) = size_prefix;
 	}
 }
 
-static int _buffer_vector_get_fd(struct sid_buffer *buf)
+static int _buffer_vector_fd_get(struct sid_buf *buf)
 {
 	switch (buf->stat.spec.mode) {
-		case SID_BUFFER_MODE_PLAIN:
+		case SID_BUF_MODE_PLAIN:
 			/* nothing to do here, just return the fd */
 			break;
-		case SID_BUFFER_MODE_SIZE_PREFIX:
+		case SID_BUF_MODE_SIZE_PREFIX:
 			_update_size_prefix(buf, 0);
 			break;
 		default:
@@ -346,29 +346,29 @@ static int _buffer_vector_get_fd(struct sid_buffer *buf)
 	return buf->fd;
 }
 
-static ssize_t _buffer_vector_read_plain(struct sid_buffer *buf, int fd)
+static ssize_t _buffer_vector_read_plain(struct sid_buf *buf, int fd)
 {
 	return -ENOTSUP;
 }
 
-static ssize_t _buffer_vector_read_with_size_prefix(struct sid_buffer *buf, int fd)
+static ssize_t _buffer_vector_read_with_size_prefix(struct sid_buf *buf, int fd)
 {
 	return -ENOTSUP;
 }
 
-static ssize_t _buffer_vector_read(struct sid_buffer *buf, int fd)
+static ssize_t _buffer_vector_read(struct sid_buf *buf, int fd)
 {
 	switch (buf->stat.spec.mode) {
-		case SID_BUFFER_MODE_PLAIN:
+		case SID_BUF_MODE_PLAIN:
 			return _buffer_vector_read_plain(buf, fd);
-		case SID_BUFFER_MODE_SIZE_PREFIX:
+		case SID_BUF_MODE_SIZE_PREFIX:
 			return _buffer_vector_read_with_size_prefix(buf, fd);
 		default:
 			return -ENOTSUP;
 	}
 }
 
-static ssize_t _buffer_vector_write(struct sid_buffer *buf, int fd, size_t pos)
+static ssize_t _buffer_vector_write(struct sid_buf *buf, int fd, size_t pos)
 {
 	struct iovec *iov = buf->mem;
 	unsigned      i, start_idx = 0;
@@ -397,11 +397,11 @@ static ssize_t _buffer_vector_write(struct sid_buffer *buf, int fd, size_t pos)
 			return -ERANGE;
 	}
 
-	if (buf->stat.spec.mode == SID_BUFFER_MODE_SIZE_PREFIX)
+	if (buf->stat.spec.mode == SID_BUF_MODE_SIZE_PREFIX)
 		_update_size_prefix(buf, pos);
 
 	/*
-	 * Be aware that if we have SID_BUFFER_BACKEND_MEMFD, we still have
+	 * Be aware that if we have SID_BUF_BACKEND_MEMFD, we still have
 	 * to use writev and not the sendfile. This is because the buf->fd
 	 * only represents the memfd that stores the vector itself, but not
 	 * the contents of the memory that each iov.base points to!
@@ -417,16 +417,16 @@ static ssize_t _buffer_vector_write(struct sid_buffer *buf, int fd, size_t pos)
 	return n;
 }
 
-const struct sid_buffer_type sid_buffer_type_vector = {.create      = _buffer_vector_create,
-                                                       .destroy     = _buffer_vector_destroy,
-                                                       .reset       = _buffer_vector_reset,
-                                                       .add         = _buffer_vector_add,
-                                                       .fmt_add     = _buffer_vector_fmt_add,
-                                                       .release     = _buffer_vector_release,
-                                                       .release_mem = _buffer_vector_release_mem,
-                                                       .is_complete = _buffer_vector_is_complete,
-                                                       .get_data    = _buffer_vector_get_data,
-                                                       .get_fd      = _buffer_vector_get_fd,
-                                                       .count       = _buffer_vector_count,
-                                                       .read        = _buffer_vector_read,
-                                                       .write       = _buffer_vector_write};
+const struct sid_buf_type sid_buf_type_vector = {.create      = _buffer_vector_create,
+                                                 .destroy     = _buffer_vector_destroy,
+                                                 .reset       = _buffer_vector_reset,
+                                                 .add         = _buffer_vector_add,
+                                                 .fmt_add     = _buffer_vector_fmt_add,
+                                                 .release     = _buffer_vector_release,
+                                                 .mem_release = _buffer_vector_mem_release,
+                                                 .is_complete = _buffer_vector_is_complete,
+                                                 .data_get    = _buffer_vector_data_get,
+                                                 .fd_get      = _buffer_vector_fd_get,
+                                                 .count       = _buffer_vector_count,
+                                                 .read        = _buffer_vector_read,
+                                                 .write       = _buffer_vector_write};

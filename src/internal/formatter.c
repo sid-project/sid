@@ -33,7 +33,7 @@
 
 #define JOIN_STR(format) ((format == TABLE) ? ": " : "=")
 
-static int _print_fmt(struct sid_buffer *buf, const char *fmt, ...)
+static int _print_fmt(struct sid_buf *buf, const char *fmt, ...)
 {
 	va_list ap;
 	int     r;
@@ -43,15 +43,15 @@ static int _print_fmt(struct sid_buffer *buf, const char *fmt, ...)
 
 	va_start(ap, fmt);
 
-	r = sid_buffer_vfmt_add(buf, NULL, NULL, fmt, ap);
+	r = sid_buf_vfmt_add(buf, NULL, NULL, fmt, ap);
 	if (!r)
-		r = sid_buffer_rewind(buf, 1, SID_BUFFER_POS_REL);
+		r = sid_buf_rewind(buf, 1, SID_BUF_POS_REL);
 
 	va_end(ap);
 	return r;
 }
 
-static int _print_binary(const unsigned char *value, size_t len, struct sid_buffer *buf)
+static int _print_binary(const unsigned char *value, size_t len, struct sid_buf *buf)
 {
 	int         r;
 	size_t      enc_len;
@@ -60,20 +60,20 @@ static int _print_binary(const unsigned char *value, size_t len, struct sid_buff
 	if (!value || !buf)
 		return -EINVAL;
 
-	if ((enc_len = sid_binary_len_encode(len)) == 0)
+	if ((enc_len = sid_conv_bin_len_encode(len)) == 0)
 		return -ERANGE;
 
-	r = sid_buffer_add(buf, NULL, enc_len, (const void **) &ptr, NULL);
+	r = sid_buf_add(buf, NULL, enc_len, (const void **) &ptr, NULL);
 	if (!r)
-		r = sid_binary_encode(value, len, (unsigned char *) ptr, enc_len);
+		r = sid_conv_bin_encode(value, len, (unsigned char *) ptr, enc_len);
 	if (!r)
-		r = sid_buffer_rewind(buf, 1, SID_BUFFER_POS_REL);
+		r = sid_buf_rewind(buf, 1, SID_BUF_POS_REL);
 
-	sid_buffer_unbind_mem(buf, ptr);
+	sid_buf_mem_unbind(buf, ptr);
 	return r;
 }
 
-static int _print_indent(struct sid_buffer *buf, int level)
+static int _print_indent(struct sid_buf *buf, int level)
 {
 	int r = 0;
 
@@ -87,7 +87,7 @@ static int _print_indent(struct sid_buffer *buf, int level)
 	return r;
 }
 
-int print_start_document(output_format_t format, struct sid_buffer *buf, int level)
+int print_start_document(output_format_t format, struct sid_buf *buf, int level)
 {
 	int r = 0;
 
@@ -103,7 +103,7 @@ int print_start_document(output_format_t format, struct sid_buffer *buf, int lev
 	return r;
 }
 
-int print_end_document(output_format_t format, struct sid_buffer *buf, int level)
+int print_end_document(output_format_t format, struct sid_buf *buf, int level)
 {
 	int r = 0;
 
@@ -121,7 +121,7 @@ int print_end_document(output_format_t format, struct sid_buffer *buf, int level
 	return r;
 }
 
-int print_start_array(output_format_t format, struct sid_buffer *buf, int level, const char *array_name, bool with_comma)
+int print_start_array(output_format_t format, struct sid_buf *buf, int level, const char *array_name, bool with_comma)
 {
 	int r = 0;
 
@@ -140,7 +140,7 @@ int print_start_array(output_format_t format, struct sid_buffer *buf, int level,
 	return r;
 }
 
-int print_end_array(output_format_t format, struct sid_buffer *buf, int level)
+int print_end_array(output_format_t format, struct sid_buf *buf, int level)
 {
 	int r = 0;
 
@@ -158,7 +158,7 @@ int print_end_array(output_format_t format, struct sid_buffer *buf, int level)
 	return r;
 }
 
-int print_start_elem(output_format_t format, struct sid_buffer *buf, int level, bool with_comma)
+int print_start_elem(output_format_t format, struct sid_buf *buf, int level, bool with_comma)
 {
 	int r = 0;
 
@@ -177,7 +177,7 @@ int print_start_elem(output_format_t format, struct sid_buffer *buf, int level, 
 	return r;
 }
 
-int print_end_elem(output_format_t format, struct sid_buffer *buf, int level)
+int print_end_elem(output_format_t format, struct sid_buf *buf, int level)
 {
 	int r = 0;
 
@@ -195,7 +195,7 @@ int print_end_elem(output_format_t format, struct sid_buffer *buf, int level)
 	return r;
 }
 
-int print_elem_name(output_format_t format, struct sid_buffer *buf, int level, const char *elem_name, bool with_comma)
+int print_elem_name(output_format_t format, struct sid_buf *buf, int level, const char *elem_name, bool with_comma)
 {
 	int r = 0;
 
@@ -214,12 +214,12 @@ int print_elem_name(output_format_t format, struct sid_buffer *buf, int level, c
 	return r;
 }
 
-int print_str_field(output_format_t    format,
-                    struct sid_buffer *buf,
-                    int                level,
-                    const char        *field_name,
-                    const char        *value,
-                    bool               with_comma)
+int print_str_field(output_format_t format,
+                    struct sid_buf *buf,
+                    int             level,
+                    const char     *field_name,
+                    const char     *value,
+                    bool            with_comma)
 {
 	int r = 0;
 
@@ -238,13 +238,13 @@ int print_str_field(output_format_t    format,
 	return r;
 }
 
-int print_binary_field(output_format_t    format,
-                       struct sid_buffer *buf,
-                       int                level,
-                       const char        *field_name,
-                       const char        *value,
-                       size_t             len,
-                       bool               with_comma)
+int print_binary_field(output_format_t format,
+                       struct sid_buf *buf,
+                       int             level,
+                       const char     *field_name,
+                       const char     *value,
+                       size_t          len,
+                       bool            with_comma)
 {
 	int r = 0;
 
@@ -270,7 +270,7 @@ int print_binary_field(output_format_t    format,
 	return r;
 }
 
-int print_uint_field(output_format_t format, struct sid_buffer *buf, int level, const char *field_name, uint value, bool with_comma)
+int print_uint_field(output_format_t format, struct sid_buf *buf, int level, const char *field_name, uint value, bool with_comma)
 {
 	int r = 0;
 
@@ -289,12 +289,12 @@ int print_uint_field(output_format_t format, struct sid_buffer *buf, int level, 
 	return r;
 }
 
-int print_uint64_field(output_format_t    format,
-                       struct sid_buffer *buf,
-                       int                level,
-                       const char        *field_name,
-                       uint64_t           value,
-                       bool               with_comma)
+int print_uint64_field(output_format_t format,
+                       struct sid_buf *buf,
+                       int             level,
+                       const char     *field_name,
+                       uint64_t        value,
+                       bool            with_comma)
 {
 	int r = 0;
 
@@ -313,12 +313,12 @@ int print_uint64_field(output_format_t    format,
 	return r;
 }
 
-int print_int64_field(output_format_t    format,
-                      struct sid_buffer *buf,
-                      int                level,
-                      const char        *field_name,
-                      int64_t            value,
-                      bool               with_comma)
+int print_int64_field(output_format_t format,
+                      struct sid_buf *buf,
+                      int             level,
+                      const char     *field_name,
+                      int64_t         value,
+                      bool            with_comma)
 {
 	int r = 0;
 
@@ -337,12 +337,12 @@ int print_int64_field(output_format_t    format,
 	return r;
 }
 
-int print_bool_array_elem(output_format_t    format,
-                          struct sid_buffer *buf,
-                          int                level,
-                          const char        *field_name,
-                          bool               value,
-                          bool               with_comma)
+int print_bool_array_elem(output_format_t format,
+                          struct sid_buf *buf,
+                          int             level,
+                          const char     *field_name,
+                          bool            value,
+                          bool            with_comma)
 {
 	int r = 0;
 
@@ -363,7 +363,7 @@ int print_bool_array_elem(output_format_t    format,
 	return r;
 }
 
-int print_uint_array_elem(output_format_t format, struct sid_buffer *buf, int level, uint value, bool with_comma)
+int print_uint_array_elem(output_format_t format, struct sid_buf *buf, int level, uint value, bool with_comma)
 {
 	int r = 0;
 
@@ -382,7 +382,7 @@ int print_uint_array_elem(output_format_t format, struct sid_buffer *buf, int le
 	return r;
 }
 
-int print_str_array_elem(output_format_t format, struct sid_buffer *buf, int level, const char *value, bool with_comma)
+int print_str_array_elem(output_format_t format, struct sid_buf *buf, int level, const char *value, bool with_comma)
 {
 	int r = 0;
 
@@ -401,12 +401,7 @@ int print_str_array_elem(output_format_t format, struct sid_buffer *buf, int lev
 	return r;
 }
 
-int print_binary_array_elem(output_format_t    format,
-                            struct sid_buffer *buf,
-                            int                level,
-                            const char        *value,
-                            size_t             len,
-                            bool               with_comma)
+int print_binary_array_elem(output_format_t format, struct sid_buf *buf, int level, const char *value, size_t len, bool with_comma)
 {
 	int r = 0;
 
@@ -432,7 +427,7 @@ int print_binary_array_elem(output_format_t    format,
 	return r;
 }
 
-int print_null_byte(struct sid_buffer *buf)
+int print_null_byte(struct sid_buf *buf)
 {
-	return sid_buffer_fmt_add(buf, NULL, NULL, "");
+	return sid_buf_fmt_add(buf, NULL, NULL, "");
 }

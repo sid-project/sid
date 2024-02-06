@@ -24,13 +24,13 @@
  * There's no resource-specific implementation here.
  */
 
-static int _init_aggregate(sid_resource_t *res, const void *kickstart_data, void **data)
+static int _init_aggregate(sid_res_t *res, const void *kickstart_data, void **data)
 {
 	*data = (void *) kickstart_data;
 	return 0;
 }
 
-const sid_resource_type_t sid_resource_type_aggregate = {
+const sid_res_type_t sid_res_type_aggr = {
 	.name        = "aggregate",
 	.short_name  = "agg",
 	.description = "Simple resource to aggregate other resources.",

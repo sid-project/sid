@@ -26,7 +26,7 @@
 extern "C" {
 #endif
 
-int ubridge_cmd_dbdump(sid_resource_t *ubridge_res, const char *file_path);
+int sid_ubr_cmd_dbdump(sid_res_t *ubridge_res, const char *file_path);
 
 #ifdef __cplusplus
 }

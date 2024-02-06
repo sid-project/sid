@@ -23,7 +23,7 @@ static const unsigned char base64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefg
  * padding and NULL bytes, or 0 if the buffer overflowed.
  */
 
-size_t sid_binary_len_encode(size_t in_len)
+size_t sid_conv_bin_len_encode(size_t in_len)
 {
 	size_t out_len = 1; /* NULL termination */
 
@@ -45,13 +45,13 @@ size_t sid_binary_len_encode(size_t in_len)
  *
  * Returned buffer is nul terminated to make it easier to use as a C string.
  */
-int sid_binary_encode(const unsigned char *src, size_t in_len, unsigned char *dest, size_t out_len)
+int sid_conv_bin_encode(const unsigned char *src, size_t in_len, unsigned char *dest, size_t out_len)
 {
 	unsigned char       *pos;
 	const unsigned char *end, *in;
 	size_t               check_size;
 
-	check_size = sid_binary_len_encode(in_len);
+	check_size = sid_conv_bin_len_encode(in_len);
 	if ((in_len && !src) || !dest || check_size == 0 || check_size > out_len)
 		return -EINVAL;
 
@@ -92,7 +92,7 @@ int sid_binary_encode(const unsigned char *src, size_t in_len, unsigned char *de
  *
  * Caller is responsible for freeing the returned buffer.
  */
-unsigned char *sid_binary_decode(const unsigned char *src, size_t len, size_t *out_len)
+unsigned char *sid_conv_bin_decode(const unsigned char *src, size_t len, size_t *out_len)
 {
 	unsigned char dtable[256], *out, *pos, block[4], tmp;
 	size_t        i, count, olen;

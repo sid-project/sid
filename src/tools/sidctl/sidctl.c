@@ -29,55 +29,55 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define LOG_PREFIX          "sidctl"
+#define LOG_PREFIX           "sidctl"
 
-#define KEY_SIDCTL_PROTOCOL "SIDCTL_PROTOCOL"
-#define KEY_SIDCTL_MAJOR    "SIDCTL_MAJOR"
-#define KEY_SIDCTL_MINOR    "SIDCTL_MINOR"
-#define KEY_SIDCTL_RELEASE  "SIDCTL_RELEASE"
+#define KEY_SIDCTL_PROTOCOL  "SIDCTL_PROTOCOL"
+#define KEY_SIDCTL_MAJOR     "SIDCTL_MAJOR"
+#define KEY_SIDCTL_MINOR     "SIDCTL_MINOR"
+#define KEY_SIDCTL_RELEASE   "SIDCTL_RELEASE"
 
-#define KEY_SID_PROTOCOL    "SID_PROTOCOL"
-#define KEY_SID_MAJOR       "SID_MAJOR"
-#define KEY_SID_MINOR       "SID_MINOR"
-#define KEY_SID_RELEASE     "SID_RELEASE"
+#define KEY_SID_IFC_PROTOCOL "SID_IFC_PROTOCOL"
+#define KEY_SID_MAJOR        "SID_MAJOR"
+#define KEY_SID_MINOR        "SID_MINOR"
+#define KEY_SID_RELEASE      "SID_RELEASE"
 
-static int _sid_cmd(sid_cmd_t cmd, uint16_t format)
+static int _sid_cmd(sid_ifc_cmd_t cmd, uint16_t format)
 {
-	struct sid_result *res = NULL;
-	const char        *data;
-	size_t             size;
-	int                r;
-	struct sid_request req = {.cmd = cmd, .flags = format};
+	struct sid_ifc_result *res = NULL;
+	const char            *data;
+	size_t                 size;
+	int                    r;
+	struct sid_ifc_request req = {.cmd = cmd, .flags = format};
 
-	if ((r = sid_req(&req, &res)) < 0) {
-		log_error_errno(LOG_PREFIX, r, "Command request failed");
+	if ((r = sid_ifc_req(&req, &res)) < 0) {
+		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
 		return -1;
 	}
 
-	if ((data = sid_result_data(res, &size)) != NULL)
+	if ((data = sid_ifc_result_data_get(res, &size)) != NULL)
 		printf("%s", data);
 	else {
 		uint64_t status;
-		if (sid_result_status(res, &status) != 0 || status & SID_CMD_STATUS_FAILURE) {
-			log_error(LOG_PREFIX, "Command failed");
+		if (sid_ifc_result_status_get(res, &status) != 0 || status & SID_IFC_CMD_STATUS_FAILURE) {
+			sid_log_error(LOG_PREFIX, "Command failed");
 			r = -1;
 		}
 	}
 
-	sid_result_free(res);
+	sid_ifc_result_free(res);
 	return r;
 }
 
 static int _sid_cmd_version(uint16_t format)
 {
-	struct sid_buffer *outbuf = NULL;
-	int                r;
+	struct sid_buf *outbuf = NULL;
+	int             r;
 
-	outbuf = sid_buffer_create(&((struct sid_buffer_spec) {.backend = SID_BUFFER_BACKEND_MALLOC,
-	                                                       .type    = SID_BUFFER_TYPE_LINEAR,
-	                                                       .mode    = SID_BUFFER_MODE_PLAIN}),
-	                           &((struct sid_buffer_init) {.size = 4096, .alloc_step = 1, .limit = 0}),
-	                           NULL);
+	outbuf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
+	                                                 .type    = SID_BUF_TYPE_LINEAR,
+	                                                 .mode    = SID_BUF_MODE_PLAIN}),
+	                        &((struct sid_buf_init) {.size = 4096, .alloc_step = 1, .limit = 0}),
+	                        NULL);
 	if (!outbuf)
 		return -1;
 
@@ -85,25 +85,25 @@ static int _sid_cmd_version(uint16_t format)
 
 	print_elem_name(format, outbuf, 0, "SIDCTL_VERSION", false);
 	print_start_elem(format, outbuf, 0, false);
-	print_uint_field(format, outbuf, 1, KEY_SIDCTL_PROTOCOL, SID_PROTOCOL, false);
+	print_uint_field(format, outbuf, 1, KEY_SIDCTL_PROTOCOL, SID_IFC_PROTOCOL, false);
 	print_uint_field(format, outbuf, 1, KEY_SIDCTL_MAJOR, SID_VERSION_MAJOR, true);
 	print_uint_field(format, outbuf, 1, KEY_SIDCTL_MINOR, SID_VERSION_MINOR, true);
 	print_uint_field(format, outbuf, 1, KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, true);
 	print_end_elem(format, outbuf, 0);
 	print_elem_name(format, outbuf, 0, "SID_VERSION", true);
-	if ((r = sid_buffer_write_all(outbuf, fileno(stdout))) < 0)
-		log_error_errno(LOG_PREFIX, r, "failed to write version information");
-	sid_buffer_reset(outbuf);
-	if (_sid_cmd(SID_CMD_VERSION, format) < 0) {
+	if ((r = sid_buf_write_all(outbuf, fileno(stdout))) < 0)
+		sid_log_error_errno(LOG_PREFIX, r, "failed to write version information");
+	sid_buf_reset(outbuf);
+	if (_sid_cmd(SID_IFC_CMD_VERSION, format) < 0) {
 		print_start_document(format, outbuf, 0);
 		print_end_document(format, outbuf, 0);
 	} else
 		fflush(stdout);
 	print_end_document(format, outbuf, 0);
 
-	if ((r = sid_buffer_write_all(outbuf, fileno(stdout))) < 0)
-		log_error_errno(LOG_PREFIX, r, "failed to write output ending");
-	sid_buffer_destroy(outbuf);
+	if ((r = sid_buf_write_all(outbuf, fileno(stdout))) < 0)
+		sid_log_error_errno(LOG_PREFIX, r, "failed to write output ending");
+	sid_buf_destroy(outbuf);
 	return r;
 }
 
@@ -125,8 +125,8 @@ static void _help(FILE *f)
 	        "    version\n"
 	        "      Get SIDCTL and SID daemon version.\n"
 	        "      Input:  None.\n"
-	        "      Output: SID_PROTOCOL/MAJOR/MINOR/RELEASE for SIDCTL version.\n"
-	        "              SID_PROTOCOL/MAJOR/MINOR/RELEASE for SID version.\n"
+	        "      Output: SID_IFC_PROTOCOL/MAJOR/MINOR/RELEASE for SIDCTL version.\n"
+	        "              SID_IFC_PROTOCOL/MAJOR/MINOR/RELEASE for SID version.\n"
 	        "\n"
 	        "    dbdump\n"
 	        "      Dump the SID daemon database.\n"
@@ -162,21 +162,21 @@ static int _get_format(char *format)
 	if (format == NULL)
 		return -1;
 	if (!strcasecmp(format, "json"))
-		return SID_CMD_FLAGS_FMT_JSON;
+		return SID_IFC_CMD_FL_FMT_JSON;
 	if (!strcasecmp(format, "env"))
-		return SID_CMD_FLAGS_FMT_ENV;
+		return SID_IFC_CMD_FL_FMT_ENV;
 	if (!strcasecmp(format, "table"))
-		return SID_CMD_FLAGS_FMT_TABLE;
+		return SID_IFC_CMD_FL_FMT_TABLE;
 	return -1;
 }
 
 int main(int argc, char *argv[])
 {
-	int       opt;
-	int       verbose = 0;
-	int       r       = -1;
-	int       format  = SID_CMD_FLAGS_FMT_TABLE;
-	sid_cmd_t cmd;
+	int           opt;
+	int           verbose = 0;
+	int           r       = -1;
+	int           format  = SID_IFC_CMD_FL_FMT_TABLE;
+	sid_ifc_cmd_t cmd;
 
 	struct option longopts[] = {
 		{"format", required_argument, NULL, 'f'},
@@ -214,16 +214,16 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	log_init(LOG_TARGET_STANDARD, verbose);
+	sid_log_init(SID_LOG_TGT_STANDARD, verbose);
 
-	switch ((cmd = sid_cmd_name_to_type(argv[optind]))) {
-		case SID_CMD_VERSION:
+	switch ((cmd = sid_ifc_cmd_name_to_type(argv[optind]))) {
+		case SID_IFC_CMD_VERSION:
 			r = _sid_cmd_version(format);
 			break;
-		case SID_CMD_DBDUMP:
-		case SID_CMD_DBSTATS:
-		case SID_CMD_RESOURCES:
-		case SID_CMD_DEVICES:
+		case SID_IFC_CMD_DBDUMP:
+		case SID_IFC_CMD_DBSTATS:
+		case SID_IFC_CMD_RESOURCES:
+		case SID_IFC_CMD_DEVICES:
 			r = _sid_cmd(cmd, format);
 			break;
 		default:

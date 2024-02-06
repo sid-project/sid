@@ -48,12 +48,12 @@ static void _log_syslog_close(void)
 	closelog();
 }
 
-static void _log_syslog_output(const log_req_t *req, const char *format, va_list ap)
+static void _log_syslog_output(const sid_log_req_t *req, const char *format, va_list ap)
 {
-	char       msg[LINE_MAX];
-	log_pfx_t *pfx;
-	size_t     printed, remaining;
-	int        r;
+	char           msg[LINE_MAX];
+	sid_log_pfx_t *pfx;
+	size_t         printed, remaining;
+	int            r;
 
 	if (req->ctx->level_id > _max_level_id)
 		return;
@@ -62,7 +62,7 @@ static void _log_syslog_output(const log_req_t *req, const char *format, va_list
 		r = snprintf(msg, sizeof(msg), "<%s> ", pfx->s ?: "");
 
 		if (r >= remaining) {
-			syslog(req->ctx->level_id, INTERNAL_ERROR "%s: (log prefix too long)", __func__);
+			syslog(req->ctx->level_id, SID_INTERNAL_ERROR "%s: (log prefix too long)", __func__);
 			vsyslog(req->ctx->level_id, format, ap);
 			return;
 		}
@@ -74,13 +74,13 @@ static void _log_syslog_output(const log_req_t *req, const char *format, va_list
 	r = vsnprintf(msg + printed, remaining, format, ap);
 
 	if (r < 0 || r >= remaining)
-		syslog(req->ctx->level_id, INTERNAL_ERROR "%s: (log message truncated)", __func__);
+		syslog(req->ctx->level_id, SID_INTERNAL_ERROR "%s: (log message truncated)", __func__);
 
 	if (r > 0)
 		syslog(req->ctx->level_id, "%s", msg);
 }
 
-const struct log_target log_target_syslog = {.name   = "syslog",
-                                             .open   = _log_syslog_open,
-                                             .close  = _log_syslog_close,
-                                             .output = _log_syslog_output};
+const struct sid_log_tgt log_target_syslog = {.name   = "syslog",
+                                              .open   = _log_syslog_open,
+                                              .close  = _log_syslog_close,
+                                              .output = _log_syslog_output};

@@ -22,24 +22,23 @@
 
 #include <signal.h>
 
-static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct signalfd_siginfo *si, void *arg)
+static int _on_sid_signal_event(sid_res_ev_src_t *es, const struct signalfd_siginfo *si, void *arg)
 {
-	sid_resource_t *res = arg;
-	sid_resource_t *ubridge_res;
+	sid_res_t *res = arg;
+	sid_res_t *ubridge_res;
 
 	switch (si->ssi_signo) {
 		case SIGTERM:
 		case SIGINT:
-			sid_resource_exit_event_loop(res);
+			sid_res_ev_loop_exit(res);
 			break;
 		case SIGPIPE:
 			break;
 		case SIGHUP: /* TODO: Reload config on SIGHUP? */
 			break;
 		case SIGUSR1:
-			if ((ubridge_res =
-			             sid_resource_search(res, SID_RESOURCE_SEARCH_IMM_DESC, &sid_resource_type_ubridge, NULL)))
-				(void) ubridge_cmd_dbdump(ubridge_res, NULL);
+			if ((ubridge_res = sid_res_search(res, SID_RES_SEARCH_IMM_DESC, &sid_res_type_ubr, NULL)))
+				(void) sid_ubr_cmd_dbdump(ubridge_res, NULL);
 		default:
 			break;
 	};
@@ -47,14 +46,14 @@ static int _on_sid_signal_event(sid_resource_event_source_t *es, const struct si
 	return 0;
 }
 
-static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **data)
+static int _init_sid(sid_res_t *res, const void *kickstart_data, void **data)
 {
 	sigset_t mask;
 
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGCHLD);
 	if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
-		sid_resource_log_error(res, "Failed to block SIGCHLD signal.");
+		sid_res_log_error(res, "Failed to block SIGCHLD signal.");
 		goto fail;
 	}
 
@@ -65,19 +64,19 @@ static int _init_sid(sid_resource_t *res, const void *kickstart_data, void **dat
 	sigaddset(&mask, SIGHUP);
 	sigaddset(&mask, SIGUSR1);
 
-	if (sid_resource_create_signal_event_source(res, NULL, mask, _on_sid_signal_event, 0, "signal_handler", res) < 0) {
-		sid_resource_log_error(res, "Failed to create signal handlers.");
+	if (sid_res_ev_signal_create(res, NULL, mask, _on_sid_signal_event, 0, "signal_handler", res) < 0) {
+		sid_res_log_error(res, "Failed to create signal handlers.");
 		goto fail;
 	}
 
-	if (!sid_resource_create(res,
-	                         &sid_resource_type_ubridge,
-	                         SID_RESOURCE_NO_FLAGS,
-	                         SID_RESOURCE_NO_CUSTOM_ID,
-	                         SID_RESOURCE_NO_PARAMS,
-	                         SID_RESOURCE_PRIO_NORMAL,
-	                         SID_RESOURCE_NO_SERVICE_LINKS)) {
-		sid_resource_log_error(res, "Failed to create udev bridge interface.");
+	if (!sid_res_create(res,
+	                    &sid_res_type_ubr,
+	                    SID_RES_FL_NONE,
+	                    SID_RES_NO_CUSTOM_ID,
+	                    SID_RES_NO_PARAMS,
+	                    SID_RES_PRIO_NORMAL,
+	                    SID_RES_NO_SERVICE_LINKS)) {
+		sid_res_log_error(res, "Failed to create udev bridge interface.");
 		goto fail;
 	}
 
@@ -86,7 +85,7 @@ fail:
 	return -1;
 }
 
-const sid_resource_type_t sid_resource_type_sid = {
+const sid_res_type_t sid_res_type_sid = {
 	.name            = "Storage Instantiation Daemon",
 	.short_name      = "sid",
 	.description     = "Top level resource representing Storage Instantiation Daemon.",

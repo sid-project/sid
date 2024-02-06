@@ -31,87 +31,87 @@
 extern "C" {
 #endif
 
-typedef struct log log_t;
+typedef struct sid_log sid_log_t;
 
 typedef enum {
-	LOG_TARGET_NONE,
-	LOG_TARGET_STANDARD,
-	LOG_TARGET_SYSLOG,
-	LOG_TARGET_JOURNAL,
-	_LOG_TARGET_COUNT
-} log_target_t;
+	SID_LOG_TGT_NONE,
+	SID_LOG_TGT_STANDARD,
+	SID_LOG_TGT_SYSLOG,
+	SID_LOG_TGT_JOURNAL,
+	_SID_LOG_TGT_COUNT
+} sid_log_tgt_t;
 
-typedef struct log_pfx log_pfx_t;
+typedef struct sid_log_pfx sid_log_pfx_t;
 
-typedef struct log_pfx {
-	const char *s;
-	log_pfx_t  *n;
-} log_pfx_t;
+typedef struct sid_log_pfx {
+	const char    *s;
+	sid_log_pfx_t *n;
+} sid_log_pfx_t;
 
-typedef struct log_ctx {
+typedef struct sid_log_ctx {
 	int         level_id;
 	int         errno_id;
 	const char *src_file;
 	int         src_line;
 	const char *src_func;
-} log_ctx_t;
+} sid_log_ctx_t;
 
-typedef struct log_req {
-	log_pfx_t *pfx;
-	log_ctx_t *ctx;
-} log_req_t;
+typedef struct sid_log_req {
+	sid_log_pfx_t *pfx;
+	sid_log_ctx_t *ctx;
+} sid_log_req_t;
 
-struct log_target {
+struct sid_log_tgt {
 	const char *name;
 	void (*open)(int verbose_mode);
 	void (*close)(void);
-	void (*output)(const log_req_t *req, const char *format, va_list ap);
+	void (*output)(const sid_log_req_t *req, const char *format, va_list ap);
 };
 
-extern const struct log_target log_target_standard;
-extern const struct log_target log_target_syslog;
-extern const struct log_target log_target_journal;
+extern const struct sid_log_tgt log_target_standard;
+extern const struct sid_log_tgt log_target_syslog;
+extern const struct sid_log_tgt log_target_journal;
 
-void   log_init(log_target_t target, int verbose_mode);
-log_t *log_init_with_handle(log_target_t target, int verbose_mode);
-void   log_close(log_t *log);
-void   log_change_target(log_t *log, log_target_t new_target);
-void   log_set_prefix(log_t *log, const char *prefix);
+void       sid_log_init(sid_log_tgt_t target, int verbose_mode);
+sid_log_t *sid_log_init_with_handle(sid_log_tgt_t target, int verbose_mode);
+void       sid_log_close(sid_log_t *log);
+void       sid_log_tgt_change(sid_log_t *log, sid_log_tgt_t new_target);
+void       sid_log_pfx_set(sid_log_t *log, const char *prefix);
 
-__format_printf(3, 4) void log_output(log_t *log, log_req_t *req, const char *format, ...);
-void log_voutput(log_t *log, log_req_t *req, const char *format, va_list ap);
+__format_printf(3, 4) void sid_log_output(sid_log_t *log, sid_log_req_t *req, const char *format, ...);
+void sid_log_voutput(sid_log_t *log, sid_log_req_t *req, const char *format, va_list ap);
 
-#define LOG_PRINT LOG_LOCAL0
+#define SID_LOG_PRINT LOG_LOCAL0
 
-#define LOG_LINE(h, l, p, e, ...)                                                                                                  \
-	log_output(h,                                                                                                              \
-	           &(struct log_req) {.pfx = p ? &(log_pfx_t) {.s = p, .n = NULL} : NULL,                                          \
-	                              .ctx = &((log_ctx_t) {.level_id = l,                                                         \
-	                                                    .errno_id = e,                                                         \
-	                                                    .src_file = __FILE__,                                                  \
-	                                                    .src_line = __LINE__,                                                  \
-	                                                    .src_func = __func__})},                                               \
-	           __VA_ARGS__)
+#define SID_LOG_LINE(h, l, p, e, ...)                                                                                              \
+	sid_log_output(h,                                                                                                          \
+	               &(struct sid_log_req) {.pfx = p ? &(sid_log_pfx_t) {.s = p, .n = NULL} : NULL,                              \
+	                                      .ctx = &((sid_log_ctx_t) {.level_id = l,                                             \
+	                                                                .errno_id = e,                                             \
+	                                                                .src_file = __FILE__,                                      \
+	                                                                .src_line = __LINE__,                                      \
+	                                                                .src_func = __func__})},                                   \
+	               __VA_ARGS__)
 
-#define log_debug(p, ...)              LOG_LINE(NULL, LOG_DEBUG, p, 0, __VA_ARGS__)
-#define log_info(p, ...)               LOG_LINE(NULL, LOG_INFO, p, 0, __VA_ARGS__)
-#define log_notice(p, ...)             LOG_LINE(NULL, LOG_NOTICE, p, 0, __VA_ARGS__)
-#define log_warning(p, ...)            LOG_LINE(NULL, LOG_WARNING, p, 0, __VA_ARGS__)
-#define log_error(p, ...)              LOG_LINE(NULL, LOG_ERR, p, 0, __VA_ARGS__)
-#define log_print(p, ...)              LOG_LINE(NULL, LOG_PRINT, p, 0, __VA_ARGS__)
-#define log_error_errno(p, e, ...)     LOG_LINE(NULL, LOG_ERR, p, e, __VA_ARGS__)
-#define log_sys_error(p, x, y)         log_error_errno(p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
+#define sid_log_debug(p, ...)              SID_LOG_LINE(NULL, LOG_DEBUG, p, 0, __VA_ARGS__)
+#define sid_log_info(p, ...)               SID_LOG_LINE(NULL, LOG_INFO, p, 0, __VA_ARGS__)
+#define sid_log_notice(p, ...)             SID_LOG_LINE(NULL, LOG_NOTICE, p, 0, __VA_ARGS__)
+#define sid_log_warning(p, ...)            SID_LOG_LINE(NULL, LOG_WARNING, p, 0, __VA_ARGS__)
+#define sid_log_error(p, ...)              SID_LOG_LINE(NULL, LOG_ERR, p, 0, __VA_ARGS__)
+#define sid_log_print(p, ...)              SID_LOG_LINE(NULL, SID_LOG_PRINT, p, 0, __VA_ARGS__)
+#define sid_log_error_errno(p, e, ...)     SID_LOG_LINE(NULL, LOG_ERR, p, e, __VA_ARGS__)
+#define sid_log_sys_error(p, x, y)         log_error_errno(p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
 
-#define log_hdebug(h, p, ...)          LOG_LINE(h, LOG_DEBUG, p, 0, __VA_ARGS__)
-#define log_hinfo(h, p, ...)           LOG_LINE(h, LOG_INFO, p, 0, __VA_ARGS__)
-#define log_hnotice(h, p, ...)         LOG_LINE(h, LOG_NOTICE, p, 0, __VA_ARGS__)
-#define log_hwarning(h, p, ...)        LOG_LINE(h, LOG_WARNING, p, 0, __VA_ARGS__)
-#define log_herror(h, p, ...)          LOG_LINE(h, LOG_ERR, p, 0, __VA_ARGS__)
-#define log_hprint(h, p, ...)          LOG_LINE(h, LOG_PRINT, p, 0, __VA_ARGS__)
-#define log_herror_errno(h, p, e, ...) LOG_LINE(h, LOG_ERR, p, e, __VA_ARGS__)
-#define log_hsys_error(h, p, x, y)     log_herror_errno(h, p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
+#define sid_log_hdebug(h, p, ...)          SID_LOG_LINE(h, LOG_DEBUG, p, 0, __VA_ARGS__)
+#define sid_log_hinfo(h, p, ...)           SID_LOG_LINE(h, LOG_INFO, p, 0, __VA_ARGS__)
+#define sid_log_hnotice(h, p, ...)         SID_LOG_LINE(h, LOG_NOTICE, p, 0, __VA_ARGS__)
+#define sid_log_hwarning(h, p, ...)        SID_LOG_LINE(h, LOG_WARNING, p, 0, __VA_ARGS__)
+#define sid_log_herror(h, p, ...)          SID_LOG_LINE(h, LOG_ERR, p, 0, __VA_ARGS__)
+#define sid_log_hprint(h, p, ...)          SID_LOG_LINE(h, SID_LOG_PRINT, p, 0, __VA_ARGS__)
+#define sid_log_herror_errno(h, p, e, ...) SID_LOG_LINE(h, LOG_ERR, p, e, __VA_ARGS__)
+#define sid_log_hsys_error(h, p, x, y)     sid_log_herror_errno(h, p, errno, "%s%s%s failed", y, *y ? ": " : "", x)
 
-#define INTERNAL_ERROR                 "Internal error: "
+#define SID_INTERNAL_ERROR                 "Internal error: "
 
 #ifdef __cplusplus
 }

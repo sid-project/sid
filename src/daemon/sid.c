@@ -39,7 +39,7 @@
 
 #define KEY_VERBOSE       "VERBOSE"
 
-static log_t *_log = NULL;
+static sid_log_t *_log = NULL;
 
 static void _help(FILE *f)
 {
@@ -67,7 +67,7 @@ static void _become_daemon()
 
 	switch (fork()) {
 		case -1:
-			log_herror_errno(_log, LOG_PREFIX, errno, "Failed to fork daemon");
+			sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to fork daemon");
 			exit(EXIT_FAILURE);
 		case 0:
 			break;
@@ -76,22 +76,22 @@ static void _become_daemon()
 	}
 
 	if (!setsid()) {
-		log_herror_errno(_log, LOG_PREFIX, errno, "Failed to set session ID");
+		sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to set session ID");
 		exit(EXIT_FAILURE);
 	}
 
 	if (chdir("/")) {
-		log_herror_errno(_log, LOG_PREFIX, errno, "Failed to change working directory");
+		sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to change working directory");
 		exit(EXIT_FAILURE);
 	}
 
 	if ((fd = open("/dev/null", O_RDWR)) == -1) {
-		log_herror_errno(_log, LOG_PREFIX, errno, "Failed to open /dev/null");
+		sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to open /dev/null");
 		exit(EXIT_FAILURE);
 	}
 
 	if ((dup2(fd, STDIN_FILENO) < 0) || (dup2(fd, STDOUT_FILENO) < 0) || (dup2(fd, STDERR_FILENO) < 0)) {
-		log_herror_errno(_log, LOG_PREFIX, errno, "Failed to duplicate standard IO streams");
+		sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to duplicate standard IO streams");
 		(void) close(fd);
 		exit(EXIT_FAILURE);
 	}
@@ -102,7 +102,7 @@ static void _become_daemon()
 		if (close(fd)) {
 			if (errno == EBADF)
 				continue;
-			log_herror_errno(_log, LOG_PREFIX, errno, "Failed to close FD %d", fd);
+			sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to close FD %d", fd);
 		}
 	}
 
@@ -111,7 +111,7 @@ static void _become_daemon()
 
 static void _close_log()
 {
-	log_close(_log);
+	sid_log_close(_log);
 }
 
 static void _set_log_prefix()
@@ -121,7 +121,7 @@ static void _set_log_prefix()
 	if (util_process_pid_to_str(getpid(), buf + 2, sizeof(buf) - 2) < 0)
 		return;
 
-	log_set_prefix(_log, buf);
+	sid_log_pfx_set(_log, buf);
 }
 
 int main(int argc, char *argv[])
@@ -131,7 +131,7 @@ int main(int argc, char *argv[])
 	int                verbose    = 0;
 	int                foreground = 0;
 	int                journal    = 0;
-	sid_resource_t    *sid_res    = NULL;
+	sid_res_t         *sid_res    = NULL;
 	int                r          = -1;
 
 	struct option longopts[]      = {{"foreground", 0, NULL, 'f'},
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (sid_util_env_get_ull(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
+	if (sid_util_env_ull_get(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
 		verbose = val;
 
 	if (atexit(_close_log) < 0)
@@ -172,78 +172,78 @@ int main(int argc, char *argv[])
 
 	if (foreground) {
 		if (journal)
-			_log = log_init_with_handle(LOG_TARGET_JOURNAL, verbose);
+			_log = sid_log_init_with_handle(SID_LOG_TGT_JOURNAL, verbose);
 		else
-			_log = log_init_with_handle(LOG_TARGET_STANDARD, verbose);
+			_log = sid_log_init_with_handle(SID_LOG_TGT_STANDARD, verbose);
 	} else {
 		if (journal)
-			_log = log_init_with_handle(LOG_TARGET_JOURNAL, verbose);
+			_log = sid_log_init_with_handle(SID_LOG_TGT_JOURNAL, verbose);
 		else
-			_log = log_init_with_handle(LOG_TARGET_SYSLOG, verbose);
+			_log = sid_log_init_with_handle(SID_LOG_TGT_SYSLOG, verbose);
 		_become_daemon();
 	}
 
 	if (pthread_atfork(NULL, NULL, _set_log_prefix) < 0) {
-		log_herror(_log, LOG_PREFIX, "Failed to register fork handler.");
+		sid_log_herror(_log, LOG_PREFIX, "Failed to register fork handler.");
 		return EXIT_FAILURE;
 	}
 
-	sid_res = sid_resource_create(SID_RESOURCE_NO_PARENT,
-	                              &sid_resource_type_sid,
-	                              SID_RESOURCE_NO_FLAGS,
-	                              SID_RESOURCE_NO_CUSTOM_ID,
-	                              SID_RESOURCE_NO_PARAMS,
-	                              SID_RESOURCE_PRIO_NORMAL,
-	                              (sid_resource_service_link_def_t[]) {
-					      {
-						      .name         = "systemd",
-						      .type         = SERVICE_TYPE_SYSTEMD,
-						      .notification = SERVICE_NOTIFICATION_READY,
-						      .flags        = SERVICE_FLAG_NONE,
-						      .data         = NULL,
-					      },
-					      {
-						      .name         = "logger",
-						      .type         = SERVICE_TYPE_LOGGER,
-						      .notification = SERVICE_NOTIFICATION_READY | SERVICE_NOTIFICATION_MESSAGE,
-						      .flags        = SERVICE_FLAG_CLONEABLE,
-						      .data         = _log,
-					      },
-					      NULL_SERVICE_LINK});
+	sid_res = sid_res_create(
+		SID_RES_NO_PARENT,
+		&sid_res_type_sid,
+		SID_RES_FL_NONE,
+		SID_RES_NO_CUSTOM_ID,
+		SID_RES_NO_PARAMS,
+		SID_RES_PRIO_NORMAL,
+		(sid_res_srv_lnk_def_t[]) {{
+						   .name         = "systemd",
+						   .type         = SID_SRV_LNK_TYPE_SYSTEMD,
+						   .notification = SID_SRV_LNK_NOTIF_READY,
+						   .flags        = SID_SRV_LNK_FL_NONE,
+						   .data         = NULL,
+					   },
+	                                   {
+						   .name         = "logger",
+						   .type         = SID_SRV_LNK_TYPE_LOGGER,
+						   .notification = SID_SRV_LNK_NOTIF_READY | SID_SRV_LNK_NOTIF_MESSAGE,
+						   .flags        = SID_SRV_LNK_FL_CLONEABLE,
+						   .data         = _log,
+					   },
+	                                   SID_NULL_SRV_LNK});
 
 	if (!sid_res)
 		goto out;
 
-	sid_resource_ref(sid_res);
+	sid_res_ref(sid_res);
 
-	r = sid_resource_run_event_loop(sid_res);
+	r = sid_res_ev_loop_run(sid_res);
 	if (r == -ECHILD) {
-		sid_resource_t *worker_control_res;
+		sid_res_t *worker_control_res;
 
-		if (!(worker_control_res = sid_resource_search(sid_res,
-		                                               SID_RESOURCE_SEARCH_WIDE_DFS,
-		                                               &sid_resource_type_worker_control,
-		                                               NULL))) {
-			log_herror(_log, LOG_PREFIX, INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
+		if (!(worker_control_res = sid_res_search(sid_res, SID_RES_SEARCH_WIDE_DFS, &sid_res_type_wrk_ctl, NULL))) {
+			sid_log_herror(_log,
+			               LOG_PREFIX,
+			               SID_INTERNAL_ERROR "%s: Failed to find worker control resource.",
+			               __func__);
 			goto out;
 		}
 		sid_res = NULL;
-		r       = worker_control_run_worker(worker_control_res,
-                                              (sid_resource_service_link_def_t[]) {
-                                                      {
-								    .name         = "worker-logger",
-								    .type         = SERVICE_TYPE_LOGGER,
-								    .notification = SERVICE_NOTIFICATION_MESSAGE,
-								    .flags        = SERVICE_FLAG_CLONEABLE,
-								    .data         = _log,
-                                                      },
-                                                      NULL_SERVICE_LINK,
-                                              });
+		r       = sid_wrk_ctl_wrk_run(worker_control_res,
+                                        (sid_res_srv_lnk_def_t[]) {
+                                                {
+							      .name         = "worker-logger",
+							      .type         = SID_SRV_LNK_TYPE_LOGGER,
+							      .notification = SID_SRV_LNK_NOTIF_MESSAGE,
+							      .flags        = SID_SRV_LNK_FL_CLONEABLE,
+							      .data         = _log,
+                                                },
+                                                SID_NULL_SRV_LNK,
+                                        });
 	}
 
 out:
 	if (sid_res)
-		sid_resource_unref(sid_res);
+		sid_res_unref(sid_res);
 
 	return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
