@@ -125,7 +125,7 @@ struct sid_ucmd_mod_fns {
 #define SID_UCMD_SCAN_POST_NEXT(fn)         SID_UCMD_FN(scan_post_next, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_TRIGGER_ACTION_CURRENT(fn) SID_UCMD_FN(trigger_action_current, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_TRIGGER_ACTION_NEXT(fn)    SID_UCMD_FN(trigger_action_next, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_SCAN_REMOVE(fn)            SID_UCMD_FN(scan_emove, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_REMOVE(fn)            SID_UCMD_FN(scan_remove, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_ERROR(fn)                  SID_UCMD_FN(error, _SID_UCMD_FN_CHECK_TYPE(fn))
 
 /*
