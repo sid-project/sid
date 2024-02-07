@@ -1332,7 +1332,7 @@ int sid_wrk_ctl_chan_close(sid_res_t *current_res, const char *channel_id)
 	return 0;
 }
 
-int sid_wrk_ctl_get_wrk_yield(sid_res_t *res)
+int sid_wrk_ctl_wrk_yield(sid_res_t *res)
 {
 	sid_res_t           *worker_res;
 	struct worker       *worker;

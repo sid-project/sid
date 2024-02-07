@@ -3502,7 +3502,7 @@ static int _connection_cleanup(sid_res_t *conn_res)
 	// 	 then check if this is the last connection.
 	// 	 If it's not the last one, then do not yield the worker.
 
-	(void) sid_wrk_ctl_get_wrk_yield(worker_res);
+	(void) sid_wrk_ctl_wrk_yield(worker_res);
 
 	return 0;
 }
@@ -4941,7 +4941,7 @@ out:
 	 */
 	if (ucmd_ctx->req_cat == MSG_CATEGORY_SELF) {
 		if (ucmd_ctx->state == CMD_OK || ucmd_ctx->state == CMD_ERROR)
-			(void) sid_wrk_ctl_get_wrk_yield(sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, NULL, NULL));
+			(void) sid_wrk_ctl_wrk_yield(sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, NULL, NULL));
 	}
 
 	return r;

@@ -167,7 +167,7 @@ const char     *sid_wrk_ctl_wrk_id_get(sid_res_t *res);
 void           *sid_wrk_ctl_wrk_arg_get(sid_res_t *res);
 
 /* Yield current worker and make it available for others to use. */
-int sid_wrk_ctl_get_wrk_yield(sid_res_t *res);
+int sid_wrk_ctl_wrk_yield(sid_res_t *res);
 
 #ifdef __cplusplus
 }
