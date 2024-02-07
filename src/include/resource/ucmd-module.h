@@ -51,9 +51,8 @@ struct sid_ucmd_common_ctx;
 struct sid_ucmd_ctx;
 typedef struct sid_resource sid_resource_t;
 
-typedef module_prio_t sid_ucmd_mod_prio_t;
-typedef int           sid_ucmd_mod_fn_t(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx);
-typedef int           sid_ucmd_fn_t(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx);
+typedef int sid_ucmd_mod_fn_t(sid_resource_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx);
+typedef int sid_ucmd_fn_t(sid_resource_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx);
 
 struct sid_ucmd_mod_fns {
 	sid_ucmd_fn_t *ident;
