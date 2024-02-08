@@ -34,8 +34,8 @@ void           bitmap_destroy(struct bitmap *bitmap);
 int            bitmap_bit_set(struct bitmap *bitmap, size_t bit_pos);
 int            bitmap_bit_unset(struct bitmap *bitmap, size_t bit_pos);
 bool           bitmap_bit_is_set(struct bitmap *bitmap, size_t bit_pos, int *ret_code);
-size_t         bitmap_get_bit_count(struct bitmap *bitmap);
-size_t         bitmap_get_bit_set_count(struct bitmap *bitmap);
+size_t         bitmap_bit_count_get(struct bitmap *bitmap);
+size_t         bitmap_bit_set_count_get(struct bitmap *bitmap);
 
 #ifdef __cplusplus
 }

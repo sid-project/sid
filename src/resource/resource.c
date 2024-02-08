@@ -1334,56 +1334,56 @@ void sid_res_log_output(sid_res_t *res, const sid_log_req_t *log_req, const char
 	va_end(ap);
 }
 
-static void _write_event_source_elem_fields(sid_res_ev_src_t *es, output_format_t format, struct sid_buf *outbuf, int level)
+static void _write_event_source_elem_fields(sid_res_ev_src_t *es, fmt_output_t format, struct sid_buf *outbuf, int level)
 {
-	print_str_field(format, outbuf, level, "name", (char *) es->name, false);
-	print_uint64_field(format, outbuf, level, "events_max", es->events_max, true);
-	print_uint64_field(format, outbuf, level, "events_fired", es->events_fired, true);
+	fmt_fld_str_print(format, outbuf, level, "name", (char *) es->name, false);
+	fmt_fld_uint64_print(format, outbuf, level, "events_max", es->events_max, true);
+	fmt_fld_uint64_print(format, outbuf, level, "events_fired", es->events_fired, true);
 }
 
-static void _write_res_eleme_fields(sid_res_t *res, output_format_t format, struct sid_buf *outbuf, int level)
+static void _write_res_eleme_fields(sid_res_t *res, fmt_output_t format, struct sid_buf *outbuf, int level)
 {
 	sid_res_ev_src_t *es, *tmp_es;
 	int               es_count, item = 0;
 
-	print_str_field(format, outbuf, level, "ID", res->id, false);
+	fmt_fld_str_print(format, outbuf, level, "ID", res->id, false);
 	if (res->type != NULL && res->type->name != NULL)
-		print_str_field(format, outbuf, level, "type", (char *) res->type->name, true);
+		fmt_fld_str_print(format, outbuf, level, "type", (char *) res->type->name, true);
 	es_count = list_size(&res->event_sources);
 	if (es_count != 0) {
-		print_start_array(format, outbuf, level, "event-sources", true);
+		fmt_arr_start_print(format, outbuf, level, "event-sources", true);
 		list_iterate_items_safe_back (es, tmp_es, &res->event_sources) {
 			item++;
-			print_start_elem(format, outbuf, level + 1, item > 1);
+			fmt_elm_start_print(format, outbuf, level + 1, item > 1);
 			_write_event_source_elem_fields(es, format, outbuf, level + 2);
-			print_end_elem(format, outbuf, level + 1);
+			fmt_elm_end_print(format, outbuf, level + 1);
 		}
-		print_end_array(format, outbuf, level);
+		fmt_arr_end_print(format, outbuf, level);
 	}
-	print_uint_field(format, outbuf, level, "pid-created", res->pid_created, true);
-	print_uint_field(format, outbuf, level, "flags", res->flags, true);
-	print_int64_field(format, outbuf, level, "prio", res->prio, true);
-	print_uint_field(format, outbuf, level, "ref-count", res->ref_count, true);
+	fmt_fld_uint_print(format, outbuf, level, "pid-created", res->pid_created, true);
+	fmt_fld_uint_print(format, outbuf, level, "flags", res->flags, true);
+	fmt_fld_int64_print(format, outbuf, level, "prio", res->prio, true);
+	fmt_fld_uint_print(format, outbuf, level, "ref-count", res->ref_count, true);
 }
 
-int sid_res_tree_write(sid_res_t *res, output_format_t format, struct sid_buf *outbuf, int level, bool with_comma)
+int sid_res_tree_write(sid_res_t *res, fmt_output_t format, struct sid_buf *outbuf, int level, bool with_comma)
 {
 	sid_res_t *child_res;
 	int        count, item = 0;
 
 	count = list_size(&res->children);
 
-	print_start_elem(format, outbuf, level, with_comma);
+	fmt_elm_start_print(format, outbuf, level, with_comma);
 	_write_res_eleme_fields(res, format, outbuf, level + 1);
 	if (count > 0) {
-		print_start_array(format, outbuf, level + 1, "children", true);
+		fmt_arr_start_print(format, outbuf, level + 1, "children", true);
 		list_iterate_items (child_res, &res->children) {
 			sid_res_tree_write(child_res, format, outbuf, level + 2, item > 0);
 			item++;
 		}
-		print_end_array(format, outbuf, level + 1);
+		fmt_arr_end_print(format, outbuf, level + 1);
 	}
-	print_end_elem(format, outbuf, level);
+	fmt_elm_end_print(format, outbuf, level);
 
 	return 0;
 }

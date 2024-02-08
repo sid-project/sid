@@ -73,37 +73,37 @@ void sid_ifc_result_free(struct sid_ifc_result *res)
 
 int sid_ifc_result_status_get(struct sid_ifc_result *res, uint64_t *status)
 {
-	size_t                       size;
-	const struct sid_msg_header *hdr_p;
-	struct sid_msg_header        hdr;
+	size_t                           size;
+	const struct sid_ifc_msg_header *hdr_p;
+	struct sid_ifc_msg_header        hdr;
 
 	if (!res || !status)
 		return -EINVAL;
 	sid_buf_data_get(res->buf, (const void **) &hdr_p, &size);
-	memcpy(&hdr, hdr_p, sizeof(struct sid_msg_header));
+	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	*status = hdr.status;
 	return 0;
 }
 
 int sid_ifc_result_protocol_get(struct sid_ifc_result *res, uint8_t *prot)
 {
-	size_t                       size;
-	const struct sid_msg_header *hdr_p;
-	struct sid_msg_header        hdr;
+	size_t                           size;
+	const struct sid_ifc_msg_header *hdr_p;
+	struct sid_ifc_msg_header        hdr;
 
 	if (!res || !prot)
 		return -EINVAL;
 	sid_buf_data_get(res->buf, (const void **) &hdr_p, &size);
-	memcpy(&hdr, hdr_p, sizeof(struct sid_msg_header));
+	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	*prot = hdr.prot;
 	return 0;
 }
 
 const char *sid_ifc_result_data_get(struct sid_ifc_result *res, size_t *size_p)
 {
-	size_t                       size;
-	const struct sid_msg_header *hdr_p;
-	struct sid_msg_header        hdr;
+	size_t                           size;
+	const struct sid_ifc_msg_header *hdr_p;
+	struct sid_ifc_msg_header        hdr;
 
 	if (size_p)
 		*size_p = 0;
@@ -112,17 +112,17 @@ const char *sid_ifc_result_data_get(struct sid_ifc_result *res, size_t *size_p)
 		return NULL;
 
 	sid_buf_data_get(res->buf, (const void **) &hdr_p, &size);
-	memcpy(&hdr, hdr_p, sizeof(struct sid_msg_header));
+	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	if (hdr.status & SID_IFC_CMD_STATUS_FAILURE)
 		return NULL;
 	else if (res->shm != MAP_FAILED) {
 		if (size_p)
 			*size_p = res->shm_len - SID_BUF_SIZE_PREFIX_LEN;
 		return res->shm + SID_BUF_SIZE_PREFIX_LEN;
-	} else if (size > SID_MSG_HEADER_SIZE) {
+	} else if (size > SID_IFC_MSG_HEADER_SIZE) {
 		if (size_p)
-			*size_p = size - SID_MSG_HEADER_SIZE;
-		return (const char *) hdr_p + SID_MSG_HEADER_SIZE;
+			*size_p = size - SID_IFC_MSG_HEADER_SIZE;
+		return (const char *) hdr_p + SID_IFC_MSG_HEADER_SIZE;
 	}
 	return NULL;
 }
@@ -246,11 +246,11 @@ int sid_ifc_req(struct sid_ifc_request *req, struct sid_ifc_result **res_p)
 	res->buf = buf;
 
 	if ((r = sid_buf_add(buf,
-	                     &((struct sid_msg_header) {.status = req->seqnum,
-	                                                .prot   = SID_IFC_PROTOCOL,
-	                                                .cmd    = req->cmd,
-	                                                .flags  = req->flags}),
-	                     SID_MSG_HEADER_SIZE,
+	                     &((struct sid_ifc_msg_header) {.status = req->seqnum,
+	                                                    .prot   = SID_IFC_PROTOCOL,
+	                                                    .cmd    = req->cmd,
+	                                                    .flags  = req->flags}),
+	                     SID_IFC_MSG_HEADER_SIZE,
 	                     NULL,
 	                     NULL)) < 0)
 		goto out;
@@ -279,7 +279,7 @@ int sid_ifc_req(struct sid_ifc_request *req, struct sid_ifc_result **res_p)
 		}
 	}
 
-	if ((socket_fd = sid_comms_unix_init(SID_SOCKET_PATH, SID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
+	if ((socket_fd = sid_comms_unix_init(SID_IFC_SOCKET_PATH, SID_IFC_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_CLOEXEC)) < 0) {
 		r = socket_fd;
 		goto out;
 	}
@@ -311,7 +311,7 @@ int sid_ifc_req(struct sid_ifc_request *req, struct sid_ifc_result **res_p)
 			break;
 		}
 	}
-	if (sid_buf_count(buf) < SID_MSG_HEADER_SIZE) {
+	if (sid_buf_count(buf) < SID_IFC_MSG_HEADER_SIZE) {
 		r = -EBADMSG;
 		goto out;
 	}

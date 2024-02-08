@@ -327,7 +327,7 @@ void *hash_lookup_with_count(struct hash_table *t, const char *key, uint32_t key
 	return NULL;
 }
 
-unsigned hash_get_num_entries(struct hash_table *t)
+unsigned hash_entry_count_get(struct hash_table *t)
 {
 	return t->num_nodes;
 }
@@ -351,7 +351,7 @@ void hash_wipe(struct hash_table *t)
 	t->num_nodes = 0u;
 }
 
-char *hash_get_key(struct hash_table *t __unused, struct hash_node *n, uint32_t *key_len)
+char *hash_key_get(struct hash_table *t __unused, struct hash_node *n, uint32_t *key_len)
 {
 	if (key_len)
 		*key_len = n->key_len;
@@ -359,7 +359,7 @@ char *hash_get_key(struct hash_table *t __unused, struct hash_node *n, uint32_t 
 	return n->key;
 }
 
-void *hash_get_data(struct hash_table *t __unused, struct hash_node *n, size_t *data_len)
+void *hash_data_get(struct hash_table *t __unused, struct hash_node *n, size_t *data_len)
 {
 	if (data_len)
 		*data_len = n->data_len;
@@ -378,12 +378,12 @@ static struct hash_node *_next_slot(struct hash_table *t, unsigned s)
 	return c;
 }
 
-struct hash_node *hash_get_first(struct hash_table *t)
+struct hash_node *hash_first_get(struct hash_table *t)
 {
 	return _next_slot(t, 0);
 }
 
-struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n)
+struct hash_node *hash_next_get(struct hash_table *t, struct hash_node *n)
 {
 	unsigned h = _hash(n->key, n->key_len) & (t->num_slots - 1);
 
@@ -437,7 +437,7 @@ int hash_update(struct hash_table  *t,
 	return r;
 }
 
-size_t hash_get_size(struct hash_table *t, size_t *meta_size, size_t *data_size)
+size_t hash_size_get(struct hash_table *t, size_t *meta_size, size_t *data_size)
 {
 	struct hash_node *n;
 	unsigned          i;

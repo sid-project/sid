@@ -243,8 +243,8 @@ static const char * const dev_reserved_str[] = {
 
 struct sid_ucmd_ctx {
 	/* request */
-	msg_category_t        req_cat; /* request category */
-	struct sid_msg_header req_hdr; /* request header */
+	msg_category_t            req_cat; /* request category */
+	struct sid_ifc_msg_header req_hdr; /* request header */
 
 	/* request environment */
 	union {
@@ -281,10 +281,10 @@ struct sid_ucmd_ctx {
 	sid_res_ev_src_t *cmd_handler_es; /* event source for deferred execution of _cmd_handler */
 
 	/* response */
-	struct sid_msg_header res_hdr; /* response header */
-	struct sid_buf       *prn_buf; /* print buffer */
-	struct sid_buf       *res_buf; /* response buffer */
-	struct sid_buf       *exp_buf; /* export buffer */
+	struct sid_ifc_msg_header res_hdr; /* response header */
+	struct sid_buf           *prn_buf; /* print buffer */
+	struct sid_buf           *res_buf; /* response buffer */
+	struct sid_buf           *exp_buf; /* export buffer */
 };
 
 struct cmd_reg {
@@ -440,14 +440,15 @@ typedef enum {
 } system_cmd_t;
 
 struct sid_msg {
-	msg_category_t         cat;  /* keep this first so we can decide how to read the rest */
-	size_t                 size; /* header + data */
-	struct sid_msg_header *header;
+	msg_category_t             cat;  /* keep this first so we can decide how to read the rest */
+	size_t                     size; /* header + data */
+	struct sid_ifc_msg_header *header;
 };
 
 struct internal_msg_header {
-	msg_category_t        cat;    /* keep this first so we can decide how to read the rest */
-	struct sid_msg_header header; /* reusing sid_msg_header here to avoid defining a new struct with subset of fields we need */
+	msg_category_t cat; /* keep this first so we can decide how to read the rest */
+	struct sid_ifc_msg_header
+		header; /* reusing sid_ifc_msg_header here to avoid defining a new struct with subset of fields we need */
 } __packed;
 
 #define INTERNAL_MSG_HEADER_SIZE      sizeof(struct internal_msg_header)
@@ -1109,7 +1110,7 @@ static void _print_vvalue(kv_vector_t    *vvalue,
                           bool            vector,
                           size_t          size,
                           const char     *name,
-                          output_format_t format,
+                          fmt_output_t    format,
                           struct sid_buf *buf,
                           int             level)
 {
@@ -1117,48 +1118,48 @@ static void _print_vvalue(kv_vector_t    *vvalue,
 	int    i;
 
 	if (vector) {
-		print_start_array(format, buf, level, name, true);
+		fmt_arr_start_print(format, buf, level, name, true);
 		for (i = start_idx; i < size; i++) {
 			if (vvalue[i].iov_len) {
 				if (_is_string_data(vvalue[i].iov_base, vvalue[i].iov_len))
-					print_str_array_elem(format, buf, level + 1, vvalue[i].iov_base, i > start_idx);
+					fmt_arr_fld_str_print(format, buf, level + 1, vvalue[i].iov_base, i > start_idx);
 				else
-					print_binary_array_elem(format,
-					                        buf,
-					                        level + 1,
-					                        vvalue[i].iov_base,
-					                        vvalue[i].iov_len,
-					                        i + start_idx);
+					fmt_arr_fld_bin_print(format,
+					                      buf,
+					                      level + 1,
+					                      vvalue[i].iov_base,
+					                      vvalue[i].iov_len,
+					                      i + start_idx);
 			} else
-				print_str_array_elem(format, buf, level + 1, "", false);
+				fmt_arr_fld_str_print(format, buf, level + 1, "", false);
 		}
-		print_end_array(format, buf, level);
+		fmt_arr_end_print(format, buf, level);
 	} else if (vvalue[start_idx].iov_len) {
 		if (_is_string_data(vvalue[start_idx].iov_base, vvalue[start_idx].iov_len))
-			print_str_field(format, buf, level, name, vvalue[start_idx].iov_base, true);
+			fmt_fld_str_print(format, buf, level, name, vvalue[start_idx].iov_base, true);
 		else
-			print_binary_field(format, buf, level, name, vvalue[start_idx].iov_base, vvalue[start_idx].iov_len, true);
+			fmt_fld_bin_print(format, buf, level, name, vvalue[start_idx].iov_base, vvalue[start_idx].iov_len, true);
 	} else
-		print_str_field(format, buf, level, name, "", true);
+		fmt_fld_str_print(format, buf, level, name, "", true);
 }
 
-static output_format_t flags_to_format(uint16_t flags)
+static fmt_output_t flags_to_format(uint16_t flags)
 {
 	switch (flags & SID_IFC_CMD_FL_FMT_MASK) {
 		case SID_IFC_CMD_FL_FMT_TABLE:
-			return TABLE;
+			return FMT_TABLE;
 		case SID_IFC_CMD_FL_FMT_JSON:
-			return JSON;
+			return FMT_JSON;
 		case SID_IFC_CMD_FL_FMT_ENV:
-			return ENV;
+			return FMT_ENV;
 	}
-	return TABLE; /* default to TABLE on invalid format */
+	return FMT_TABLE; /* default to TABLE on invalid format */
 }
 
 static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_reg)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
-	output_format_t      format;
+	fmt_output_t         format;
 	struct sid_buf_spec  buf_spec;
 	kv_scalar_t         *svalue;
 	sid_kvs_iter_t      *iter;
@@ -1221,13 +1222,13 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 	 * For external clients, we export in format which is requested.
 	 */
 	if ((ucmd_ctx->req_cat == MSG_CATEGORY_SELF) || (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN))
-		format = NO_FORMAT;
+		format = FMT_NONE;
 	else
 		format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
-	if (format != NO_FORMAT) {
-		print_start_document(format, export_buf, 0);
-		print_start_array(format, export_buf, 1, "siddb", false);
+	if (format != FMT_NONE) {
+		fmt_doc_start_print(format, export_buf, 0);
+		fmt_arr_start_print(format, export_buf, 1, "siddb", false);
 	}
 
 	while ((raw_value = sid_kvs_iter_next(iter, &size, &key, &kv_store_value_flags))) {
@@ -1313,7 +1314,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 			}
 		}
 
-		if (format == NO_FORMAT) {
+		if (format == FMT_NONE) {
 			/*
 			 * Export keys with data to main process.
 			 *
@@ -1365,37 +1366,37 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 				goto fail;
 			}
 		} else {
-			print_start_elem(format, export_buf, 2, needs_comma);
-			print_uint_field(format, export_buf, 3, "RECORD", records, false);
-			print_str_field(format, export_buf, 3, "key", key, true);
+			fmt_elm_start_print(format, export_buf, 2, needs_comma);
+			fmt_fld_uint_print(format, export_buf, 3, "RECORD", records, false);
+			fmt_fld_str_print(format, export_buf, 3, "key", key, true);
 			vvalue = _get_vvalue(kv_store_value_flags, raw_value, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
-			print_uint_field(format, export_buf, 3, "gennum", VVALUE_GENNUM(vvalue), true);
-			print_uint64_field(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
-			print_start_array(format, export_buf, 3, "flags", true);
-			print_bool_array_elem(format, export_buf, 4, "AL", VVALUE_FLAGS(vvalue) & SID_KV_FL_ALIGN, false);
-			print_bool_array_elem(format, export_buf, 4, "SC", VVALUE_FLAGS(vvalue) & SID_KV_FL_SYNC, true);
-			print_bool_array_elem(format, export_buf, 4, "PS", VVALUE_FLAGS(vvalue) & SID_KV_FL_PERSIST, true);
-			print_bool_array_elem(format, export_buf, 4, "AR", VVALUE_FLAGS(vvalue) & SID_KV_FL_AR, true);
-			print_bool_array_elem(format, export_buf, 4, "RS", VVALUE_FLAGS(vvalue) & SID_KV_FL_RS, true);
-			print_bool_array_elem(format, export_buf, 4, "FR_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_RD, true);
-			print_bool_array_elem(format, export_buf, 4, "SB_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_RD, true);
-			print_bool_array_elem(format, export_buf, 4, "SP_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_RD, true);
-			print_bool_array_elem(format, export_buf, 4, "FR_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_WR, true);
-			print_bool_array_elem(format, export_buf, 4, "SB_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_WR, true);
-			print_bool_array_elem(format, export_buf, 4, "SP_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_WR, true);
-			print_end_array(format, export_buf, 3);
-			print_str_field(format, export_buf, 3, "owner", VVALUE_OWNER(vvalue), true);
+			fmt_fld_uint_print(format, export_buf, 3, "gennum", VVALUE_GENNUM(vvalue), true);
+			fmt_fld_uint64_print(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
+			fmt_arr_start_print(format, export_buf, 3, "flags", true);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "AL", VVALUE_FLAGS(vvalue) & SID_KV_FL_ALIGN, false);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "SC", VVALUE_FLAGS(vvalue) & SID_KV_FL_SYNC, true);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "PS", VVALUE_FLAGS(vvalue) & SID_KV_FL_PERSIST, true);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "AR", VVALUE_FLAGS(vvalue) & SID_KV_FL_AR, true);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "RS", VVALUE_FLAGS(vvalue) & SID_KV_FL_RS, true);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "FR_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_RD, true);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "SB_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_RD, true);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "SP_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_RD, true);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "FR_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_WR, true);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "SB_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_WR, true);
+			fmt_arr_fld_bool_print(format, export_buf, 4, "SP_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_WR, true);
+			fmt_arr_end_print(format, export_buf, 3);
+			fmt_fld_str_print(format, export_buf, 3, "owner", VVALUE_OWNER(vvalue), true);
 			_print_vvalue(vvalue, vector, size, vector ? "values" : "value", format, export_buf, 3);
-			print_end_elem(format, export_buf, 2);
+			fmt_elm_end_print(format, export_buf, 2);
 			needs_comma = true;
 		}
 		records++;
 	}
 
-	if (format != NO_FORMAT) {
-		print_end_array(format, export_buf, 1);
-		print_end_document(format, export_buf, 0);
-		print_null_byte(export_buf);
+	if (format != FMT_NONE) {
+		fmt_arr_end_print(format, export_buf, 1);
+		fmt_doc_end_print(format, export_buf, 0);
+		fmt_byte_null_print(export_buf);
 	}
 
 	ucmd_ctx->exp_buf = export_buf;
@@ -1910,13 +1911,13 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	 * plus  <---+---> plus
 	 * minus <---+---> minus
 	 */
-	abs_minus_vsize = ((cross2.old_bmp ? bitmap_get_bit_set_count(cross2.old_bmp) : 0) +
-	                   (cross1.new_bmp ? bitmap_get_bit_set_count(cross1.new_bmp) : 0));
+	abs_minus_vsize = ((cross2.old_bmp ? bitmap_bit_set_count_get(cross2.old_bmp) : 0) +
+	                   (cross1.new_bmp ? bitmap_bit_set_count_get(cross1.new_bmp) : 0));
 	if (cross2.old_bmp && cross1.new_bmp)
 		abs_minus_vsize -= VVALUE_HEADER_CNT;
 
-	abs_plus_vsize = ((cross1.old_bmp ? bitmap_get_bit_set_count(cross1.old_bmp) : 0) +
-	                  (cross2.new_bmp ? bitmap_get_bit_set_count(cross2.new_bmp) : 0));
+	abs_plus_vsize = ((cross1.old_bmp ? bitmap_bit_set_count_get(cross1.old_bmp) : 0) +
+	                  (cross2.new_bmp ? bitmap_bit_set_count_get(cross2.new_bmp) : 0));
 	if (cross1.old_bmp && cross2.new_bmp)
 		abs_plus_vsize -= VVALUE_HEADER_CNT;
 
@@ -3521,15 +3522,15 @@ static int _cmd_exec_version(sid_res_t *cmd_res)
 	struct sid_buf      *prn_buf  = ucmd_ctx->prn_buf;
 	char                *version_data;
 	size_t               size;
-	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
+	fmt_output_t         format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
-	print_start_document(format, prn_buf, 0);
-	print_uint_field(format, prn_buf, 1, "SID_IFC_PROTOCOL", SID_IFC_PROTOCOL, false);
-	print_uint_field(format, prn_buf, 1, "SID_MAJOR", SID_VERSION_MAJOR, true);
-	print_uint_field(format, prn_buf, 1, "SID_MINOR", SID_VERSION_MINOR, true);
-	print_uint_field(format, prn_buf, 1, "SID_RELEASE", SID_VERSION_RELEASE, true);
-	print_end_document(format, prn_buf, 0);
-	print_null_byte(prn_buf);
+	fmt_doc_start_print(format, prn_buf, 0);
+	fmt_fld_uint_print(format, prn_buf, 1, "SID_IFC_PROTOCOL", SID_IFC_PROTOCOL, false);
+	fmt_fld_uint_print(format, prn_buf, 1, "SID_MAJOR", SID_VERSION_MAJOR, true);
+	fmt_fld_uint_print(format, prn_buf, 1, "SID_MINOR", SID_VERSION_MINOR, true);
+	fmt_fld_uint_print(format, prn_buf, 1, "SID_RELEASE", SID_VERSION_RELEASE, true);
+	fmt_doc_end_print(format, prn_buf, 0);
+	fmt_byte_null_print(prn_buf);
 
 	sid_buf_data_get(prn_buf, (const void **) &version_data, &size);
 
@@ -3541,7 +3542,7 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	struct sid_buf      *gen_buf  = ucmd_ctx->common->gen_buf;
 	struct sid_buf      *prn_buf  = ucmd_ctx->prn_buf;
-	output_format_t      format;
+	fmt_output_t         format;
 	const char          *id;
 	size_t               buf_pos0, buf_pos1, buf_pos2;
 	char                *data;
@@ -3573,7 +3574,7 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 		sid_buf_add(gen_buf,
 		            &(struct internal_msg_header) {.cat = MSG_CATEGORY_SYSTEM,
 		                                           .header =
-		                                                   (struct sid_msg_header) {
+		                                                   (struct sid_ifc_msg_header) {
 									   .status = 0,
 									   .prot   = 0,
 									   .cmd    = SYSTEM_CMD_RESOURCES,
@@ -3617,15 +3618,15 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 	format   = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	buf_pos0 = sid_buf_count(prn_buf);
-	print_start_elem(format, prn_buf, 0, false);
-	print_start_array(format, prn_buf, 1, "sidresources", false);
+	fmt_elm_start_print(format, prn_buf, 0, false);
+	fmt_arr_start_print(format, prn_buf, 1, "sidresources", false);
 	buf_pos1 = sid_buf_count(prn_buf);
 
 	sid_res_tree_write(sid_res_search(cmd_res, SID_RES_SEARCH_TOP, NULL, NULL), format, prn_buf, 2, true);
 
-	print_end_array(format, prn_buf, 1);
-	print_end_elem(format, prn_buf, 0);
-	print_null_byte(prn_buf);
+	fmt_arr_end_print(format, prn_buf, 1);
+	fmt_elm_end_print(format, prn_buf, 0);
+	fmt_byte_null_print(prn_buf);
 	buf_pos2 = sid_buf_count(prn_buf);
 
 	sid_buf_data_get(prn_buf, (const void **) &data, &size);
@@ -3667,7 +3668,7 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 	char                 uuid_buf1[UTIL_UUID_STR_SIZE];
 	char                 uuid_buf2[UTIL_UUID_STR_SIZE];
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
-	output_format_t      format   = flags_to_format(ucmd_ctx->req_hdr.flags);
+	fmt_output_t         format   = flags_to_format(ucmd_ctx->req_hdr.flags);
 	struct sid_buf      *prn_buf  = ucmd_ctx->prn_buf;
 	kv_vector_t          tmp_vvalue[VVALUE_SINGLE_CNT];
 	sid_kvs_iter_t      *iter;
@@ -3686,8 +3687,8 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 	if (!(iter = sid_kvs_iter_create(ucmd_ctx->common->kv_store_res, "::D:", "::E:")))
 		goto out;
 
-	print_start_document(format, prn_buf, 0);
-	print_start_array(format, prn_buf, 1, "siddevices", false);
+	fmt_doc_start_print(format, prn_buf, 0);
+	fmt_arr_start_print(format, prn_buf, 1, "siddevices", false);
 
 	prev_uuid[0] = 0;
 
@@ -3700,18 +3701,18 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 
 		if (strcmp(prev_uuid, uuid)) {
 			if (prev_uuid[0] != 0)
-				print_end_elem(format, prn_buf, 2);
-			print_start_elem(format, prn_buf, 2, with_comma);
-			print_str_field(format, prn_buf, 3, "DEVID", uuid, false);
+				fmt_elm_end_print(format, prn_buf, 2);
+			fmt_elm_start_print(format, prn_buf, 2, with_comma);
+			fmt_fld_str_print(format, prn_buf, 3, "DEVID", uuid, false);
 		}
 
 		if (!strcmp(key_core, KV_KEY_GEN_GROUP_IN) || !strcmp(key_core, KV_KEY_GEN_GROUP_MEMBERS)) {
 			vvalue = _get_vvalue(kv_store_value_flags, data, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
 			_print_vvalue(vvalue, kv_store_value_flags & SID_KVS_VAL_FL_VECTOR, size, key_core, format, prn_buf, 3);
 		} else if (!strcmp(key_core, KV_KEY_DEV_READY)) {
-			print_str_field(format, prn_buf, 3, KV_KEY_DEV_READY, _sval_to_dev_ready_str(data), with_comma);
+			fmt_fld_str_print(format, prn_buf, 3, KV_KEY_DEV_READY, _sval_to_dev_ready_str(data), with_comma);
 		} else if (!strcmp(key_core, KV_KEY_DEV_RESERVED)) {
-			print_str_field(format, prn_buf, 3, KV_KEY_DEV_RESERVED, _sval_to_dev_reserved_str(data), with_comma);
+			fmt_fld_str_print(format, prn_buf, 3, KV_KEY_DEV_RESERVED, _sval_to_dev_reserved_str(data), with_comma);
 		}
 
 		UTIL_SWAP(uuid, prev_uuid);
@@ -3719,11 +3720,11 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 	}
 
 	if (prev_uuid[0] != 0)
-		print_end_elem(format, prn_buf, 2);
+		fmt_elm_end_print(format, prn_buf, 2);
 
-	print_end_array(format, prn_buf, 1);
-	print_end_document(format, prn_buf, 0);
-	print_null_byte(prn_buf);
+	fmt_arr_end_print(format, prn_buf, 1);
+	fmt_doc_end_print(format, prn_buf, 0);
+	fmt_byte_null_print(prn_buf);
 
 	sid_buf_data_get(prn_buf, (const void **) &data, &size);
 	r = sid_buf_add(ucmd_ctx->res_buf, data, size, NULL, NULL);
@@ -3742,21 +3743,21 @@ static int _cmd_exec_dbstats(sid_res_t *cmd_res)
 	struct sid_dbstats   stats;
 	char                *stats_data;
 	size_t               size;
-	output_format_t      format = flags_to_format(ucmd_ctx->req_hdr.flags);
+	fmt_output_t         format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->common->kv_store_res)) == 0) {
-		print_start_document(format, prn_buf, 0);
+		fmt_doc_start_print(format, prn_buf, 0);
 
-		print_uint64_field(format, prn_buf, 1, "KEYS_SIZE", stats.key_size, false);
-		print_uint64_field(format, prn_buf, 1, "VALUES_INTERNAL_SIZE", stats.value_int_size, true);
-		print_uint64_field(format, prn_buf, 1, "VALUES_INTERNAL_DATA_SIZE", stats.value_int_data_size, true);
-		print_uint64_field(format, prn_buf, 1, "VALUES_EXTERNAL_SIZE", stats.value_ext_size, true);
-		print_uint64_field(format, prn_buf, 1, "VALUES_EXTERNAL_DATA_SIZE", stats.value_ext_data_size, true);
-		print_uint64_field(format, prn_buf, 1, "METADATA_SIZE", stats.meta_size, true);
-		print_uint_field(format, prn_buf, 1, "NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, true);
+		fmt_fld_uint64_print(format, prn_buf, 1, "KEYS_SIZE", stats.key_size, false);
+		fmt_fld_uint64_print(format, prn_buf, 1, "VALUES_INTERNAL_SIZE", stats.value_int_size, true);
+		fmt_fld_uint64_print(format, prn_buf, 1, "VALUES_INTERNAL_DATA_SIZE", stats.value_int_data_size, true);
+		fmt_fld_uint64_print(format, prn_buf, 1, "VALUES_EXTERNAL_SIZE", stats.value_ext_size, true);
+		fmt_fld_uint64_print(format, prn_buf, 1, "VALUES_EXTERNAL_DATA_SIZE", stats.value_ext_data_size, true);
+		fmt_fld_uint64_print(format, prn_buf, 1, "METADATA_SIZE", stats.meta_size, true);
+		fmt_fld_uint_print(format, prn_buf, 1, "NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, true);
 
-		print_end_document(format, prn_buf, 0);
-		print_null_byte(prn_buf);
+		fmt_doc_end_print(format, prn_buf, 0);
+		fmt_byte_null_print(prn_buf);
 
 		sid_buf_data_get(prn_buf, (const void **) &stats_data, &size);
 		r = sid_buf_add(ucmd_ctx->res_buf, stats_data, size, NULL, NULL);
@@ -3966,7 +3967,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 				if (!(rel_spec.rel_key_spec->ns_part =
 				              _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
 					mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
-					if (!util_uuid_gen_str(&mem)) {
+					if (!util_uuid_str_gen(&mem)) {
 						sid_res_log_error(cmd_res,
 						                  "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
 						                  CMD_DEV_PRINT(ucmd_ctx));
@@ -4093,7 +4094,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 
 		if (!(rel_spec.rel_key_spec->ns_part = _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
 			mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
-			if (!util_uuid_gen_str(&mem)) {
+			if (!util_uuid_str_gen(&mem)) {
 				sid_res_log_error(cmd_res,
 				                  "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
 				                  CMD_DEV_PRINT(ucmd_ctx));
@@ -4338,7 +4339,7 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 		/* if not in udev, check if we have set UUID for this device already */
 		if (!(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
 			/* if we haven't set the UUID for this device yet, do it now */
-			if (!util_uuid_gen_str(&mem)) {
+			if (!util_uuid_str_gen(&mem)) {
 				sid_res_log_error(cmd_res,
 				                  "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
 				                  CMD_DEV_PRINT(ucmd_ctx));
@@ -4797,7 +4798,7 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 			sid_buf_add(buf,
 			            &(struct internal_msg_header) {.cat = MSG_CATEGORY_SYSTEM,
 			                                           .header =
-			                                                   (struct sid_msg_header) {
+			                                                   (struct sid_ifc_msg_header) {
 										   .status = 0,
 										   .prot   = 0,
 										   .cmd    = SYSTEM_CMD_SYNC,
@@ -4949,11 +4950,11 @@ out:
 
 static int _reply_failure(sid_res_t *conn_res)
 {
-	struct connection    *conn = sid_res_data_get(conn_res);
-	void                 *data;
-	struct sid_msg_header header;
-	uint8_t               prot;
-	struct sid_msg_header response_header = {
+	struct connection        *conn = sid_res_data_get(conn_res);
+	void                     *data;
+	struct sid_ifc_msg_header header;
+	uint8_t                   prot;
+	struct sid_ifc_msg_header response_header = {
 		.status = SID_IFC_CMD_STATUS_FAILURE,
 	};
 	int r = -1;
@@ -4985,9 +4986,9 @@ static bool _socket_client_is_capable(int fd, sid_ifc_cmd_t cmd)
 
 static int _check_msg(sid_res_t *res, struct sid_msg *msg)
 {
-	struct sid_msg_header header;
+	struct sid_ifc_msg_header header;
 
-	if (msg->size < sizeof(struct sid_msg_header)) {
+	if (msg->size < sizeof(struct sid_ifc_msg_header)) {
 		sid_res_log_error(res, "Incorrect message header size.");
 		return -1;
 	}
@@ -5029,7 +5030,7 @@ static int _check_msg(sid_res_t *res, struct sid_msg *msg)
 
 static int _create_cmd_res(sid_res_t *parent_res, struct sid_msg *msg)
 {
-	struct sid_msg_header header;
+	struct sid_ifc_msg_header header;
 
 	if (_check_msg(parent_res, msg) < 0)
 		return -1;
@@ -5150,13 +5151,13 @@ static int _destroy_connection(sid_res_t *res)
 
 static int _init_command(sid_res_t *res, const void *kickstart_data, void **data)
 {
-	const struct sid_msg *msg      = kickstart_data;
-	struct sid_ucmd_ctx  *ucmd_ctx = NULL;
-	const struct cmd_reg *cmd_reg  = NULL;
-	const char           *worker_id;
-	sid_res_t            *common_res;
-	int                   r;
-	struct sid_msg_header header;
+	const struct sid_msg     *msg      = kickstart_data;
+	struct sid_ucmd_ctx      *ucmd_ctx = NULL;
+	const struct cmd_reg     *cmd_reg  = NULL;
+	const char               *worker_id;
+	sid_res_t                *common_res;
+	int                       r;
+	struct sid_ifc_msg_header header;
 
 	memcpy(&header, msg->header, sizeof(header));
 
@@ -5201,8 +5202,9 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 		goto fail;
 	}
 
-	ucmd_ctx->res_hdr =
-		(struct sid_msg_header) {.status = SID_IFC_CMD_STATUS_SUCCESS, .prot = SID_IFC_PROTOCOL, .cmd = SID_IFC_CMD_REPLY};
+	ucmd_ctx->res_hdr = (struct sid_ifc_msg_header) {.status = SID_IFC_CMD_STATUS_SUCCESS,
+	                                                 .prot   = SID_IFC_PROTOCOL,
+	                                                 .cmd    = SID_IFC_CMD_REPLY};
 	if ((r = sid_buf_add(ucmd_ctx->res_buf, &ucmd_ctx->res_hdr, sizeof(ucmd_ctx->res_hdr), NULL, NULL)) < 0)
 		goto fail;
 
@@ -5215,8 +5217,8 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 	if (cmd_reg->flags & CMD_KV_IMPORT_UDEV) {
 		/* currently, we only parse udev environment for the SCAN command */
 		if ((r = _parse_cmd_udev_env(ucmd_ctx,
-		                             (const char *) msg->header + SID_MSG_HEADER_SIZE,
-		                             msg->size - SID_MSG_HEADER_SIZE)) < 0) {
+		                             (const char *) msg->header + SID_IFC_MSG_HEADER_SIZE,
+		                             msg->size - SID_IFC_MSG_HEADER_SIZE)) < 0) {
 			sid_res_log_error_errno(res, r, "Failed to parse udev environment variables");
 			goto fail;
 		}
@@ -5893,8 +5895,9 @@ static int
 			if (_create_cmd_res(worker_res,
 			                    &((struct sid_msg) {.cat    = MSG_CATEGORY_SELF,
 			                                        .size   = data_spec->data_size - sizeof(int_msg.cat),
-			                                        .header = (struct sid_msg_header *) (data_spec->data +
-			                                                                             sizeof(int_msg.cat))})) < 0)
+			                                        .header = (struct sid_ifc_msg_header *) (data_spec->data +
+			                                                                                 sizeof(int_msg.cat))})) <
+			    0)
 				return -1;
 			break;
 	}
@@ -5936,7 +5939,7 @@ static int _get_worker(sid_res_t *ubridge_res, sid_res_t **res_p)
 	else {
 		sid_res_log_debug(ubridge_res, "Idle worker not found, creating a new one.");
 
-		if (!util_uuid_gen_str(&mem)) {
+		if (!util_uuid_str_gen(&mem)) {
 			sid_res_log_error(ubridge_res, "Failed to generate UUID for new worker.");
 			return -1;
 		}
@@ -5967,7 +5970,7 @@ static int _on_ubridge_interface_event(sid_res_ev_src_t *es, int fd, uint32_t re
 		return 0;
 
 	int_msg.cat         = MSG_CATEGORY_CLIENT;
-	int_msg.header      = (struct sid_msg_header) {0};
+	int_msg.header      = (struct sid_ifc_msg_header) {0};
 
 	data_spec.data      = &int_msg;
 	data_spec.data_size = INTERNAL_MSG_HEADER_SIZE;
@@ -6007,7 +6010,7 @@ int sid_ubr_cmd_dbdump(sid_res_t *ubridge_res, const char *file_path)
 
 	int_msg         = (struct internal_msg_header *) buf;
 	int_msg->cat    = MSG_CATEGORY_SELF;
-	int_msg->header = (struct sid_msg_header) {.status = 0, .prot = SID_IFC_PROTOCOL, .cmd = SELF_CMD_DBDUMP, .flags = 0};
+	int_msg->header = (struct sid_ifc_msg_header) {.status = 0, .prot = SID_IFC_PROTOCOL, .cmd = SELF_CMD_DBDUMP, .flags = 0};
 
 	if (!file_path || !*file_path)
 		file_path_size = 0;
@@ -6123,14 +6126,15 @@ static int _set_up_ubridge_socket(sid_res_t *ubridge_res, int *ubridge_socket_fd
 		/* The very first FD passed in is the one we are interested in. */
 		fd = SID_SRV_LNK_FD_ACTIVATION_FDS_START;
 
-		if (!(sid_srv_lnk_fd_is_socket_unix(fd, SOCK_STREAM, 1, SID_SOCKET_PATH, SID_SOCKET_PATH_LEN))) {
+		if (!(sid_srv_lnk_fd_is_socket_unix(fd, SOCK_STREAM, 1, SID_IFC_SOCKET_PATH, SID_IFC_SOCKET_PATH_LEN))) {
 			sid_res_log_error(ubridge_res, "Passed file descriptor is of incorrect type.");
 			return -EINVAL;
 		}
 	} else {
 		/* No systemd autoactivation - create new socket FD. */
-		if ((fd = sid_comms_unix_create(SID_SOCKET_PATH, SID_SOCKET_PATH_LEN, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) <
-		    0) {
+		if ((fd = sid_comms_unix_create(SID_IFC_SOCKET_PATH,
+		                                SID_IFC_SOCKET_PATH_LEN,
+		                                SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
 			sid_res_log_error_errno(ubridge_res, fd, "Failed to create local server socket");
 			return fd;
 		}
@@ -6207,7 +6211,7 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 	else
 		old_boot_id = NULL;
 
-	if (!(util_uuid_get_boot_id(&(util_mem_t) {.base = boot_id, .size = sizeof(boot_id)}, &r)))
+	if (!(util_uuid_boot_id_get(&(util_mem_t) {.base = boot_id, .size = sizeof(boot_id)}, &r)))
 		return r;
 
 	if (old_boot_id)

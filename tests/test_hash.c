@@ -32,10 +32,10 @@ static void test_hash_add()
 		assert_int_equal(hash_insert(t, test_array[i], strlen(test_array[i]) + 1, test_array[i], strlen(test_array[i]) + 1),
 		                 0);
 
-	assert_int_equal(hash_get_num_entries(t), KEY_COUNT);
+	assert_int_equal(hash_entry_count_get(t), KEY_COUNT);
 
 	hash_wipe(t);
-	assert_int_equal(hash_get_num_entries(t), 0);
+	assert_int_equal(hash_entry_count_get(t), 0);
 
 	for (int i = 0; i < KEY_COUNT; i++)
 		assert_int_equal(hash_insert(t, test_array[i], strlen(test_array[i]) + 1, test_array[i], strlen(test_array[i]) + 1),
@@ -55,7 +55,7 @@ static void test_hash_add()
 		assert_int_equal(count, 2);
 	}
 
-	assert_int_equal(hash_get_num_entries(t), KEY_COUNT * 2);
+	assert_int_equal(hash_entry_count_get(t), KEY_COUNT * 2);
 
 	hash_destroy(t);
 }

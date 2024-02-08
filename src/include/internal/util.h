@@ -90,7 +90,7 @@ char *util_str_rstr(const char *haystack, const char *needle);
 char *util_str_combstr(const char *haystack, const char *prefix, const char *needle, const char *suffix, bool ignorecase);
 
 typedef int (*util_str_token_fn_t)(const char *token, size_t len, bool merge_back, void *data);
-int util_str_iterate_tokens(const char         *str,
+int util_str_tokens_iterate(const char         *str,
                             const char         *delims,
                             const char         *quotes,
                             util_str_token_fn_t token_fn,
@@ -106,20 +106,20 @@ char **util_str_comb_to_strv(util_mem_t *mem,
                              const char *quotes);
 char **util_str_vec_copy(util_mem_t *mem, const char **strv);
 
-char *util_str_copy_substr(util_mem_t *mem, const char *str, size_t start, size_t len);
+char *util_str_substr_copy(util_mem_t *mem, const char *str, size_t start, size_t len);
 
 /*
  * Time-related utilities.
  */
-uint64_t util_time_get_now_usec(clockid_t clock_id);
+uint64_t util_time_now_usec_get(clockid_t clock_id);
 
 /*
  * UUID-related utilities.
  */
 #define UTIL_UUID_STR_SIZE UUID_STR_LEN
 
-char *util_uuid_gen_str(util_mem_t *mem);
-char *util_uuid_get_boot_id(util_mem_t *mem, int *ret_code);
+char *util_uuid_str_gen(util_mem_t *mem);
+char *util_uuid_boot_id_get(util_mem_t *mem, int *ret_code);
 
 #ifdef __cplusplus
 }

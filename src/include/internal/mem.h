@@ -35,7 +35,6 @@ extern "C" {
 #define MEM_ALIGN_UP_PAD(p, a) (-((uintptr_t) (p)) & ((a) -1))
 
 void *mem_zalloc(size_t size) __malloc;
-void *mem_alloc_copy(void *mem, size_t size) __malloc;
 void *mem_freen(void *mem);
 
 #ifdef __cplusplus

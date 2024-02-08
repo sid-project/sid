@@ -283,9 +283,9 @@ static void test_sid_ifc_req_fail_write(void **state)
 
 static void test_sid_ifc_req_fail_read1(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION};
-	struct sid_ifc_result *res;
-	struct sid_msg_header  hdr = {.prot = SID_IFC_PROTOCOL, .cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_request    req = {.cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_result    *res;
+	struct sid_ifc_msg_header hdr = {.prot = SID_IFC_PROTOCOL, .cmd = SID_IFC_CMD_VERSION};
 
 	will_return(__wrap_sid_buf_write_all, 0);
 	will_return(__wrap_sid_buf_write_all, sizeof(hdr));
@@ -297,9 +297,9 @@ static void test_sid_ifc_req_fail_read1(void **state)
 
 static void test_sid_ifc_req_fail_read2(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION};
-	struct sid_ifc_result *res;
-	struct sid_msg_header  hdr = {.prot = SID_IFC_PROTOCOL, .cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_request    req = {.cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_result    *res;
+	struct sid_ifc_msg_header hdr = {.prot = SID_IFC_PROTOCOL, .cmd = SID_IFC_CMD_VERSION};
 
 	will_return(__wrap_sid_buf_write_all, 0);
 	will_return(__wrap_sid_buf_write_all, sizeof(hdr));
@@ -319,8 +319,8 @@ static struct sid_ifc_result *__do_sid_ifc_req(struct sid_ifc_request *req,
                                                ssize_t                 res_data_size,
                                                int                     ret)
 {
-	struct sid_msg_header *res_hdr, *req_hdr;
-	struct sid_ifc_result *res;
+	struct sid_ifc_msg_header *res_hdr, *req_hdr;
+	struct sid_ifc_result     *res;
 
 	req_hdr = calloc(1, sizeof(*req_hdr) + req_data_size);
 	assert_non_null(req_hdr);
@@ -330,7 +330,7 @@ static struct sid_ifc_result *__do_sid_ifc_req(struct sid_ifc_request *req,
 	req_hdr->flags  = req->flags;
 	if (req_data) {
 		assert_true(req_data_size > 0);
-		memcpy((char *) req_hdr + SID_MSG_HEADER_SIZE, req_data, req_data_size);
+		memcpy((char *) req_hdr + SID_IFC_MSG_HEADER_SIZE, req_data, req_data_size);
 	}
 	res_hdr = calloc(1, sizeof(*res_hdr) + res_data_size);
 	assert_non_null(res_hdr);
@@ -340,7 +340,7 @@ static struct sid_ifc_result *__do_sid_ifc_req(struct sid_ifc_request *req,
 	res_hdr->flags  = req->flags;
 	if (res_data) {
 		assert_true(res_data_size > 0);
-		memcpy((char *) res_hdr + SID_MSG_HEADER_SIZE, res_data, res_data_size);
+		memcpy((char *) res_hdr + SID_IFC_MSG_HEADER_SIZE, res_data, res_data_size);
 	}
 	will_return(__wrap_sid_buf_write_all, 0);
 	will_return(__wrap_sid_buf_write_all, sizeof(*req_hdr) + req_data_size);

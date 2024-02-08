@@ -55,7 +55,7 @@ typedef void (
 
 bptree_t *bptree_create(int order);
 int       bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_size);
-int       bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bool force);
+int       bptree_alias_insert(bptree_t *bptree, const char *key, const char *alias, bool force);
 int       bptree_update(bptree_t             *bptree,
                         const char           *key,
                         void                **data,
@@ -64,9 +64,9 @@ int       bptree_update(bptree_t             *bptree,
                         void                 *bptree_update_fn_arg);
 int       bptree_remove(bptree_t *bptree, const char *key);
 void     *bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size, unsigned *data_ref_count);
-int       bptree_get_height(bptree_t *bptree);
-size_t    bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size);
-size_t    bptree_get_num_entries(bptree_t *bptree);
+int       bptree_height_get(bptree_t *bptree);
+size_t    bptree_size_get(bptree_t *bptree, size_t *meta_size, size_t *data_size);
+size_t    bptree_entry_count_get(bptree_t *bptree);
 int       bptree_destroy(bptree_t *bptree);
 int       bptree_destroy_with_fn(bptree_t *bptree, bptree_iterate_fn_t fn, void *fn_arg);
 

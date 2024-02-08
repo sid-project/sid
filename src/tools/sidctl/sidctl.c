@@ -81,25 +81,25 @@ static int _sid_cmd_version(uint16_t format)
 	if (!outbuf)
 		return -1;
 
-	print_start_document(format, outbuf, 0);
+	fmt_doc_start_print(format, outbuf, 0);
 
-	print_elem_name(format, outbuf, 0, "SIDCTL_VERSION", false);
-	print_start_elem(format, outbuf, 0, false);
-	print_uint_field(format, outbuf, 1, KEY_SIDCTL_PROTOCOL, SID_IFC_PROTOCOL, false);
-	print_uint_field(format, outbuf, 1, KEY_SIDCTL_MAJOR, SID_VERSION_MAJOR, true);
-	print_uint_field(format, outbuf, 1, KEY_SIDCTL_MINOR, SID_VERSION_MINOR, true);
-	print_uint_field(format, outbuf, 1, KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, true);
-	print_end_elem(format, outbuf, 0);
-	print_elem_name(format, outbuf, 0, "SID_VERSION", true);
+	fmt_elm_name_print(format, outbuf, 0, "SIDCTL_VERSION", false);
+	fmt_elm_start_print(format, outbuf, 0, false);
+	fmt_fld_uint_print(format, outbuf, 1, KEY_SIDCTL_PROTOCOL, SID_IFC_PROTOCOL, false);
+	fmt_fld_uint_print(format, outbuf, 1, KEY_SIDCTL_MAJOR, SID_VERSION_MAJOR, true);
+	fmt_fld_uint_print(format, outbuf, 1, KEY_SIDCTL_MINOR, SID_VERSION_MINOR, true);
+	fmt_fld_uint_print(format, outbuf, 1, KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, true);
+	fmt_elm_end_print(format, outbuf, 0);
+	fmt_elm_name_print(format, outbuf, 0, "SID_VERSION", true);
 	if ((r = sid_buf_write_all(outbuf, fileno(stdout))) < 0)
 		sid_log_error_errno(LOG_PREFIX, r, "failed to write version information");
 	sid_buf_reset(outbuf);
 	if (_sid_cmd(SID_IFC_CMD_VERSION, format) < 0) {
-		print_start_document(format, outbuf, 0);
-		print_end_document(format, outbuf, 0);
+		fmt_doc_start_print(format, outbuf, 0);
+		fmt_doc_end_print(format, outbuf, 0);
 	} else
 		fflush(stdout);
-	print_end_document(format, outbuf, 0);
+	fmt_doc_end_print(format, outbuf, 0);
 
 	if ((r = sid_buf_write_all(outbuf, fileno(stdout))) < 0)
 		sid_log_error_errno(LOG_PREFIX, r, "failed to write output ending");

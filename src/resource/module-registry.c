@@ -325,7 +325,7 @@ static int _load_modules(sid_res_t *mod_registry_res)
 		    util_str_combstr(dirent[i]->d_name, registry->module_prefix, NULL, registry->module_suffix, 1)) {
 			found++;
 
-			if (!(name = util_str_copy_substr(&mem,
+			if (!(name = util_str_substr_copy(&mem,
 			                                  dirent[i]->d_name,
 			                                  prefix_len,
 			                                  strlen(dirent[i]->d_name) - prefix_len - suffix_len))) {

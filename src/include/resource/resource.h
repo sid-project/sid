@@ -270,7 +270,7 @@ void sid_res_log_output(sid_res_t *res, const sid_log_req_t *log_req, const char
 /*
  * miscellanous functions
  */
-int sid_res_tree_write(sid_res_t *res, output_format_t format, struct sid_buf *outbuf, int level, bool add_comma);
+int sid_res_tree_write(sid_res_t *res, fmt_output_t format, struct sid_buf *outbuf, int level, bool add_comma);
 
 #ifdef __cplusplus
 }

@@ -28,17 +28,17 @@ extern "C" {
 
 #include "iface/iface.h"
 
-struct sid_msg_header {
+struct sid_ifc_msg_header {
 	uint64_t status;
 	uint8_t  prot;
 	uint8_t  cmd;
 	uint16_t flags;
 } __packed;
 
-#define SID_MSG_HEADER_SIZE sizeof(struct sid_msg_header)
+#define SID_IFC_MSG_HEADER_SIZE sizeof(struct sid_ifc_msg_header)
 
-#define SID_SOCKET_PATH     "\0sid-ubridge.socket"
-#define SID_SOCKET_PATH_LEN (sizeof(SID_SOCKET_PATH) - 1)
+#define SID_IFC_SOCKET_PATH     "\0sid-ubridge.socket"
+#define SID_IFC_SOCKET_PATH_LEN (sizeof(SID_IFC_SOCKET_PATH) - 1)
 
 #ifdef __cplusplus
 }

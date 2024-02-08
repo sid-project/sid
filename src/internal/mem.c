@@ -31,16 +31,6 @@ void *mem_zalloc(size_t size)
 	return p;
 }
 
-void *mem_alloc_copy(void *mem, size_t size)
-{
-	void *p;
-
-	if ((p = malloc(size)))
-		memcpy(p, mem, size);
-
-	return p;
-}
-
 void *mem_freen(void *mem)
 {
 	free(mem);

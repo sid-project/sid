@@ -45,15 +45,15 @@ int   hash_insert(struct hash_table *t, const void *key, uint32_t key_len, void 
 void *hash_lookup(struct hash_table *t, const void *key, uint32_t key_len, size_t *data_len);
 void  hash_remove(struct hash_table *t, const void *key, uint32_t key_len);
 
-unsigned hash_get_num_entries(struct hash_table *t);
-size_t   hash_get_size(struct hash_table *t, size_t *meta_size, size_t *data_size);
+unsigned hash_entry_count_get(struct hash_table *t);
+size_t   hash_size_get(struct hash_table *t, size_t *meta_size, size_t *data_size);
 void     hash_iter(struct hash_table *t, hash_iterate_fn_t f);
 
-struct hash_node *hash_get_first(struct hash_table *t);
-struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n);
+struct hash_node *hash_first_get(struct hash_table *t);
+struct hash_node *hash_next_get(struct hash_table *t, struct hash_node *n);
 
-char *hash_get_key(struct hash_table *t, struct hash_node *n, uint32_t *key_len);
-void *hash_get_data(struct hash_table *t, struct hash_node *n, size_t *data_len);
+char *hash_key_get(struct hash_table *t, struct hash_node *n, uint32_t *key_len);
+void *hash_data_get(struct hash_table *t, struct hash_node *n, size_t *data_len);
 
 /*
  * hash_insert() replaces the data of an existing

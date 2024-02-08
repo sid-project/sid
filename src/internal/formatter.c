@@ -31,7 +31,7 @@
 #define JSON_END_ARRAY   "]"
 #define JSON_INDENT      "    "
 
-#define JOIN_STR(format) ((format == TABLE) ? ": " : "=")
+#define JOIN_STR(format) ((format == FMT_TABLE) ? ": " : "=")
 
 static int _print_fmt(struct sid_buf *buf, const char *fmt, ...)
 {
@@ -87,14 +87,14 @@ static int _print_indent(struct sid_buf *buf, int level)
 	return r;
 }
 
-int print_start_document(output_format_t format, struct sid_buf *buf, int level)
+int fmt_doc_start_print(fmt_output_t format, struct sid_buf *buf, int level)
 {
 	int r = 0;
 
 	if (!buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_indent(buf, level);
 		if (!r)
 			r = _print_fmt(buf, JSON_START_ELEM);
@@ -103,14 +103,14 @@ int print_start_document(output_format_t format, struct sid_buf *buf, int level)
 	return r;
 }
 
-int print_end_document(output_format_t format, struct sid_buf *buf, int level)
+int fmt_doc_end_print(fmt_output_t format, struct sid_buf *buf, int level)
 {
 	int r = 0;
 
 	if (!buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "\n");
 		if (!r)
 			r = _print_indent(buf, level);
@@ -121,33 +121,33 @@ int print_end_document(output_format_t format, struct sid_buf *buf, int level)
 	return r;
 }
 
-int print_start_array(output_format_t format, struct sid_buf *buf, int level, const char *array_name, bool with_comma)
+int fmt_arr_start_print(fmt_output_t format, struct sid_buf *buf, int level, const char *array_name, bool with_comma)
 {
 	int r = 0;
 
 	if (!array_name || !buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
 		if (!r)
 			r = _print_fmt(buf, "\"%s\": %s", array_name, JSON_START_ARRAY);
-	} else if (format == TABLE)
+	} else if (format == FMT_TABLE)
 		r = _print_fmt(buf, "%s:\n", array_name);
 
 	return r;
 }
 
-int print_end_array(output_format_t format, struct sid_buf *buf, int level)
+int fmt_arr_end_print(fmt_output_t format, struct sid_buf *buf, int level)
 {
 	int r = 0;
 
 	if (!buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "\n");
 		if (!r)
 			r = _print_indent(buf, level);
@@ -158,33 +158,33 @@ int print_end_array(output_format_t format, struct sid_buf *buf, int level)
 	return r;
 }
 
-int print_start_elem(output_format_t format, struct sid_buf *buf, int level, bool with_comma)
+int fmt_elm_start_print(fmt_output_t format, struct sid_buf *buf, int level, bool with_comma)
 {
 	int r = 0;
 
 	if (!buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
 		if (!r)
 			r = _print_fmt(buf, JSON_START_ELEM);
-	} else if (format == TABLE && with_comma)
+	} else if (format == FMT_TABLE && with_comma)
 		r = _print_fmt(buf, "\n");
 
 	return r;
 }
 
-int print_end_elem(output_format_t format, struct sid_buf *buf, int level)
+int fmt_elm_end_print(fmt_output_t format, struct sid_buf *buf, int level)
 {
 	int r = 0;
 
 	if (!buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "\n");
 		if (!r)
 			r = _print_indent(buf, level);
@@ -195,38 +195,38 @@ int print_end_elem(output_format_t format, struct sid_buf *buf, int level)
 	return r;
 }
 
-int print_elem_name(output_format_t format, struct sid_buf *buf, int level, const char *elem_name, bool with_comma)
+int fmt_elm_name_print(fmt_output_t format, struct sid_buf *buf, int level, const char *elem_name, bool with_comma)
 {
 	int r = 0;
 
 	if (!elem_name || !buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
 		if (!r)
 			r = _print_fmt(buf, "\"%s\":\n", elem_name);
-	} else if (format == TABLE)
+	} else if (format == FMT_TABLE)
 		r = _print_fmt(buf, "%s%s:\n", with_comma ? "\n" : "", elem_name);
 
 	return r;
 }
 
-int print_str_field(output_format_t format,
-                    struct sid_buf *buf,
-                    int             level,
-                    const char     *field_name,
-                    const char     *value,
-                    bool            with_comma)
+int fmt_fld_str_print(fmt_output_t    format,
+                      struct sid_buf *buf,
+                      int             level,
+                      const char     *field_name,
+                      const char     *value,
+                      bool            with_comma)
 {
 	int r = 0;
 
 	if (!field_name || !value || !buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
@@ -238,20 +238,20 @@ int print_str_field(output_format_t format,
 	return r;
 }
 
-int print_binary_field(output_format_t format,
-                       struct sid_buf *buf,
-                       int             level,
-                       const char     *field_name,
-                       const char     *value,
-                       size_t          len,
-                       bool            with_comma)
+int fmt_fld_bin_print(fmt_output_t    format,
+                      struct sid_buf *buf,
+                      int             level,
+                      const char     *field_name,
+                      const char     *value,
+                      size_t          len,
+                      bool            with_comma)
 {
 	int r = 0;
 
 	if (!field_name || !value || !buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
@@ -270,14 +270,14 @@ int print_binary_field(output_format_t format,
 	return r;
 }
 
-int print_uint_field(output_format_t format, struct sid_buf *buf, int level, const char *field_name, uint value, bool with_comma)
+int fmt_fld_uint_print(fmt_output_t format, struct sid_buf *buf, int level, const char *field_name, uint value, bool with_comma)
 {
 	int r = 0;
 
 	if (!field_name || !buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
@@ -289,19 +289,19 @@ int print_uint_field(output_format_t format, struct sid_buf *buf, int level, con
 	return r;
 }
 
-int print_uint64_field(output_format_t format,
-                       struct sid_buf *buf,
-                       int             level,
-                       const char     *field_name,
-                       uint64_t        value,
-                       bool            with_comma)
+int fmt_fld_uint64_print(fmt_output_t    format,
+                         struct sid_buf *buf,
+                         int             level,
+                         const char     *field_name,
+                         uint64_t        value,
+                         bool            with_comma)
 {
 	int r = 0;
 
 	if (!field_name || !buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
@@ -313,19 +313,14 @@ int print_uint64_field(output_format_t format,
 	return r;
 }
 
-int print_int64_field(output_format_t format,
-                      struct sid_buf *buf,
-                      int             level,
-                      const char     *field_name,
-                      int64_t         value,
-                      bool            with_comma)
+int fmt_fld_int64_print(fmt_output_t format, struct sid_buf *buf, int level, const char *field_name, int64_t value, bool with_comma)
 {
 	int r = 0;
 
 	if (!field_name || !buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
@@ -337,25 +332,20 @@ int print_int64_field(output_format_t format,
 	return r;
 }
 
-int print_bool_array_elem(output_format_t format,
-                          struct sid_buf *buf,
-                          int             level,
-                          const char     *field_name,
-                          bool            value,
-                          bool            with_comma)
+int fmt_arr_fld_bool_print(fmt_output_t format, struct sid_buf *buf, int level, const char *field_name, bool value, bool with_comma)
 {
 	int r = 0;
 
 	if (!field_name || !buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
 		if (!r)
 			r = _print_fmt(buf, "{\"%s\": %s}", field_name, value ? "true" : "false");
-	} else if (format == ENV) {
+	} else if (format == FMT_ENV) {
 		r = _print_fmt(buf, "%s=%d\n", field_name, value);
 	} else if (value)
 		r = _print_fmt(buf, "%s\n", field_name);
@@ -363,52 +353,52 @@ int print_bool_array_elem(output_format_t format,
 	return r;
 }
 
-int print_uint_array_elem(output_format_t format, struct sid_buf *buf, int level, uint value, bool with_comma)
+int fmt_arr_fld_uint_print(fmt_output_t format, struct sid_buf *buf, int level, uint value, bool with_comma)
 {
 	int r = 0;
 
 	if (!buf)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
 		if (!r)
 			r = _print_fmt(buf, "%u", value);
-	} else if (format == TABLE)
+	} else if (format == FMT_TABLE)
 		r = _print_fmt(buf, "%u\n", value);
 
 	return r;
 }
 
-int print_str_array_elem(output_format_t format, struct sid_buf *buf, int level, const char *value, bool with_comma)
+int fmt_arr_fld_str_print(fmt_output_t format, struct sid_buf *buf, int level, const char *value, bool with_comma)
 {
 	int r = 0;
 
 	if (!buf || !value)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
 		if (!r)
 			r = _print_fmt(buf, "\"%s\"", value);
-	} else if (format == TABLE)
+	} else if (format == FMT_TABLE)
 		r = _print_fmt(buf, "%s\n", value);
 
 	return r;
 }
 
-int print_binary_array_elem(output_format_t format, struct sid_buf *buf, int level, const char *value, size_t len, bool with_comma)
+int fmt_arr_fld_bin_print(fmt_output_t format, struct sid_buf *buf, int level, const char *value, size_t len, bool with_comma)
 {
 	int r = 0;
 
 	if (!buf || !value)
 		return -EINVAL;
 
-	if (format == JSON) {
+	if (format == FMT_JSON) {
 		r = _print_fmt(buf, "%s\n", with_comma ? "," : "");
 		if (!r)
 			r = _print_indent(buf, level);
@@ -418,7 +408,7 @@ int print_binary_array_elem(output_format_t format, struct sid_buf *buf, int lev
 			r = _print_binary((const unsigned char *) value, len, buf);
 		if (!r)
 			r = _print_fmt(buf, "\"");
-	} else if (format == TABLE) {
+	} else if (format == FMT_TABLE) {
 		r = _print_binary((const unsigned char *) value, len, buf);
 		if (!r)
 			r = _print_fmt(buf, "\n");
@@ -427,7 +417,7 @@ int print_binary_array_elem(output_format_t format, struct sid_buf *buf, int lev
 	return r;
 }
 
-int print_null_byte(struct sid_buf *buf)
+int fmt_byte_null_print(struct sid_buf *buf)
 {
 	return sid_buf_fmt_add(buf, NULL, NULL, "");
 }

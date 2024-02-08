@@ -170,7 +170,7 @@ bptree_t *bptree_create(int order)
  * Utility function to give the height of the tree, which is the
  * number of edges of the path from the root to any leaf.
  */
-int bptree_get_height(bptree_t *bptree)
+int bptree_height_get(bptree_t *bptree)
 {
 	int            h = 0;
 	bptree_node_t *c = bptree->root;
@@ -186,7 +186,7 @@ int bptree_get_height(bptree_t *bptree)
 	return h;
 }
 
-size_t bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size)
+size_t bptree_size_get(bptree_t *bptree, size_t *meta_size, size_t *data_size)
 {
 	if (meta_size)
 		*meta_size = bptree->meta_size;
@@ -197,7 +197,7 @@ size_t bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size)
 	return bptree->meta_size + bptree->data_size;
 }
 
-size_t bptree_get_num_entries(bptree_t *bptree)
+size_t bptree_entry_count_get(bptree_t *bptree)
 {
 	return bptree->num_entries;
 }
@@ -860,7 +860,7 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	return 0;
 }
 
-int bptree_insert_alias(bptree_t *bptree, const char *key, const char *alias, bool force)
+int bptree_alias_insert(bptree_t *bptree, const char *key, const char *alias, bool force)
 {
 	bptree_record_t *rec;
 	bptree_record_t *rec_alias;

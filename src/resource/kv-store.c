@@ -673,7 +673,7 @@ int sid_kvs_alias_add(sid_res_t *kv_store_res, const char *key, const char *alia
 
 	switch (kv_store->backend) {
 		case SID_KVS_BACKEND_BPTREE:
-			return bptree_insert_alias(kv_store->bpt, key, alias, force);
+			return bptree_alias_insert(kv_store->bpt, key, alias, force);
 
 		default:
 			return -ENOTSUP;
@@ -1154,7 +1154,7 @@ void *sid_kvs_iter_current(sid_kvs_iter_t *iter, size_t *size, sid_kvs_val_fl_t 
 
 	switch (iter->store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL;
+			value = iter->ht.current ? hash_data_get(iter->store->ht, iter->ht.current, NULL) : NULL;
 			break;
 
 		case SID_KVS_BACKEND_BPTREE:
@@ -1190,7 +1190,7 @@ int sid_kvs_iter_current_size(sid_kvs_iter_t *iter,
 
 	switch (iter->store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL;
+			value = iter->ht.current ? hash_data_get(iter->store->ht, iter->ht.current, NULL) : NULL;
 			break;
 
 		case SID_KVS_BACKEND_BPTREE:
@@ -1240,7 +1240,7 @@ const char *sid_kvs_iter_current_key(sid_kvs_iter_t *iter)
 
 	switch (iter->store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			return iter->ht.current ? hash_get_key(iter->store->ht, iter->ht.current, NULL) : NULL;
+			return iter->ht.current ? hash_key_get(iter->store->ht, iter->ht.current, NULL) : NULL;
 
 		case SID_KVS_BACKEND_BPTREE:
 			return bptree_iter_current(iter->bpt.iter, &key, NULL, NULL) ? key : NULL;
@@ -1257,8 +1257,8 @@ void *sid_kvs_iter_next(sid_kvs_iter_t *iter, size_t *size, const char **return_
 
 	switch (iter->store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			iter->ht.current = iter->ht.current ? hash_get_next(iter->store->ht, iter->ht.current)
-			                                    : hash_get_first(iter->store->ht);
+			iter->ht.current = iter->ht.current ? hash_next_get(iter->store->ht, iter->ht.current)
+			                                    : hash_first_get(iter->store->ht);
 			break;
 
 		case SID_KVS_BACKEND_BPTREE:
@@ -1312,10 +1312,10 @@ size_t kv_store_num_entries(sid_res_t *kv_store_res)
 
 	switch (kv_store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			return hash_get_num_entries(kv_store->ht);
+			return hash_entry_count_get(kv_store->ht);
 
 		case SID_KVS_BACKEND_BPTREE:
-			return bptree_get_num_entries(kv_store->bpt);
+			return bptree_entry_count_get(kv_store->bpt);
 
 		default:
 			return 0;
@@ -1328,10 +1328,10 @@ size_t sid_kvs_size_get(sid_res_t *kv_store_res, size_t *meta_size, size_t *data
 
 	switch (kv_store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			return hash_get_size(kv_store->ht, meta_size, data_size);
+			return hash_size_get(kv_store->ht, meta_size, data_size);
 
 		case SID_KVS_BACKEND_BPTREE:
-			return bptree_get_size(kv_store->bpt, meta_size, data_size);
+			return bptree_size_get(kv_store->bpt, meta_size, data_size);
 
 		default:
 			return 0;
