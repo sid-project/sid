@@ -17,4 +17,4 @@
 # along with SID.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-AM_CPPFLAGS = -include $(CONFIG_HEADER)
+AM_CPPFLAGS = -I$(top_srcdir)/src/include -include $(CONFIG_HEADER)

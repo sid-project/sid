@@ -30,12 +30,12 @@ libsidbase_la_SOURCES = buffer-type-linear.c \
 
 basedir = $(pkgincludedir)/base
 
-base_HEADERS = $(top_builddir)/src/include/base/buffer-common.h \
-	       $(top_builddir)/src/include/base/buffer-type.h \
-	       $(top_builddir)/src/include/base/buffer.h \
-	       $(top_builddir)/src/include/base/comms.h \
-	       $(top_builddir)/src/include/base/util.h \
-	       $(top_builddir)/src/include/base/binary.h
+base_HEADERS = $(top_srcdir)/src/include/base/buffer-common.h \
+	       $(top_srcdir)/src/include/base/buffer-type.h \
+	       $(top_srcdir)/src/include/base/buffer.h \
+	       $(top_srcdir)/src/include/base/comms.h \
+	       $(top_srcdir)/src/include/base/util.h \
+	       $(top_srcdir)/src/include/base/binary.h
 
 libsidbase_la_LDFLAGS = -version-info 0:0:0
 

@@ -23,7 +23,7 @@ test_hash_SOURCES = test_hash.c
 test_hash_LDADD = $(top_builddir)/src/internal/libsidinternal.la \
 		  $(top_builddir)/src/base/libsidbase.la -lcmocka
 test_kv_store_SOURCES = test_kv_store.c
-test_kv_store_CFLAGS = -I$(top_builddir)/src/include/resource
+test_kv_store_CFLAGS = -I$(top_srcdir)/src/include/resource
 test_kv_store_LDADD = \
 	$(top_builddir)/src/base/libsidbase.la \
 	$(top_builddir)/src/resource/libsidresource.la -lcmocka
@@ -47,7 +47,7 @@ test_bptree_SOURCES = test_bptree.c
 test_bptree_LDADD = $(top_builddir)/src/internal/libsidinternal.la \
 		    $(top_builddir)/src/base/libsidbase.la -lcmocka
 test_db_sync_SOURCES = test_db_sync.c
-test_db_sync_CFLAGS = -I$(top_builddir)/src/include/resource
+test_db_sync_CFLAGS = -I$(top_srcdir)/src/include/resource
 test_db_sync_LDADD = \
 	$(top_builddir)/src/base/libsidbase.la \
 	$(top_builddir)/src/resource/libsidresource.la -lcmocka

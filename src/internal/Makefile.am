@@ -31,15 +31,15 @@ libsidinternal_la_SOURCES = mem.c \
 
 internaldir = $(pkgincludedir)/internal
 
-internal_HEADERS = $(top_builddir)/src/include/internal/common.h \
-		   $(top_builddir)/src/include/internal/comp-attrs.h \
-		   $(top_builddir)/src/include/internal/mem.h \
-		   $(top_builddir)/src/include/internal/bitmap.h \
-		   $(top_builddir)/src/include/internal/list.h \
-		   $(top_builddir)/src/include/internal/util.h \
-		   $(top_builddir)/src/include/internal/formatter.h \
-		   $(top_builddir)/src/include/internal/hash.h \
-		   $(top_builddir)/src/include/internal/bptree.h
+internal_HEADERS = $(top_srcdir)/src/include/internal/common.h \
+		   $(top_srcdir)/src/include/internal/comp-attrs.h \
+		   $(top_srcdir)/src/include/internal/mem.h \
+		   $(top_srcdir)/src/include/internal/bitmap.h \
+		   $(top_srcdir)/src/include/internal/list.h \
+		   $(top_srcdir)/src/include/internal/util.h \
+		   $(top_srcdir)/src/include/internal/formatter.h \
+		   $(top_srcdir)/src/include/internal/hash.h \
+		   $(top_srcdir)/src/include/internal/bptree.h
 
 libsidinternal_la_CFLAGS = $(UUID_CFLAGS)
 

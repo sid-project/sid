@@ -28,7 +28,7 @@ libsidlog_la_SOURCES = log-target-standard.c \
 
 logdir = $(pkgincludedir)/log
 
-log_HEADERS = $(top_builddir)/src/include/log/log.h
+log_HEADERS = $(top_srcdir)/src/include/log/log.h
 
 libsidlog_la_LIBADD = $(SYSTEMD_LIBS)
 
