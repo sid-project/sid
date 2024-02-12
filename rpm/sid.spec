@@ -199,6 +199,7 @@ functions.
 %package internal-libs-devel
 Summary: Development files for Storage Instantiation Daemon (SID) internal
 License: GPL-2.0-or-later AND BSD-3-Clause
+Requires: %{name}-internal-libs%{?_isa} = %{?epoch}:%{version}-%{release}
 %description internal-libs-devel
 This package contains development files for Storage Instantiation Daemon (SID)
 internal libraries.
