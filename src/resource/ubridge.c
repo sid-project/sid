@@ -55,6 +55,7 @@
 #define MODULES_TYPE_ID                             "type"
 
 #define UDEV_TAG_SID                                "sid"
+#define KV_KEY_UDEV_SID_TAGS                        ".SID_TAGS" /* starts with '.' as we don't want this to store in udev db! */
 #define KV_KEY_UDEV_SID_SESSION_ID                  "SID_SESSION_ID"
 #define KV_KEY_UDEV_SID_DEV_ID                      "SID_DEV_ID"
 
@@ -137,15 +138,15 @@ struct sid_ucmd_common_ctx {
 	struct sid_buf *gen_buf;                /* generic buffer */
 };
 
-struct umonitor {
+struct ulink {
 	struct udev         *udev;
 	struct udev_monitor *mon;
 };
 
 struct ubridge {
-	sid_res_t      *internal_res;
-	int             socket_fd;
-	struct umonitor umonitor;
+	sid_res_t   *internal_res;
+	int          socket_fd;
+	struct ulink ulink;
 };
 
 typedef enum {
@@ -3792,7 +3793,19 @@ const void *sid_ucmd_kv_disk_part_get(sid_res_t           *mod_res,
 	return _cmd_get_key_spec_value(mod_res, ucmd_ctx, &key_spec, value_size, flags);
 }
 
-static const char *_devno_to_devid(struct sid_ucmd_ctx *ucmd_ctx, const char *devno, char *devid_buf, size_t devid_buf_size)
+static const char *
+	_devno_to_devid_with_udev(struct sid_ucmd_ctx *ucmd_ctx, const char *devno, char *devid_buf, size_t devid_buf_size)
+{
+	const char *devid = NULL;
+
+	return devid;
+}
+
+static const char *_devno_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
+                                   const char          *devno,
+                                   bool                 udev_fallback,
+                                   char                *devid_buf,
+                                   size_t               devid_buf_size)
 {
 	const char        *devid = NULL;
 	const char        *key;
@@ -3810,18 +3823,19 @@ static const char *_devno_to_devid(struct sid_ucmd_ctx *ucmd_ctx, const char *de
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
 		goto out;
 
-	if (!(vvalue = sid_kvs_get(ucmd_ctx->common->kv_store_res, key, &value_size, NULL)))
-		goto out;
+	if ((vvalue = sid_kvs_get(ucmd_ctx->common->kv_store_res, key, &value_size, NULL))) {
+		/* It must be a single value! */
+		if (value_size != VVALUE_SINGLE_CNT)
+			goto out;
 
-	/* It must be a single value! */
-	if (value_size != VVALUE_SINGLE_CNT)
-		goto out;
+		/* It must be current generation record! */
+		if (VVALUE_GENNUM(vvalue) != ucmd_ctx->common->gennum)
+			goto out;
 
-	/* It must be current generation record! */
-	if (VVALUE_GENNUM(vvalue) != ucmd_ctx->common->gennum)
-		goto out;
+		devid = _copy_ns_part_from_key(VVALUE_DATA(vvalue), devid_buf, devid_buf_size);
+	} else
+		devid = _devno_to_devid_with_udev(ucmd_ctx, key, devid_buf, devid_buf_size);
 
-	devid = _copy_ns_part_from_key(VVALUE_DATA(vvalue), devid_buf, devid_buf_size);
 out:
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 	return devid;
@@ -3965,7 +3979,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 
 				_canonicalize_kv_key(devno_buf);
 				if (!(rel_spec.rel_key_spec->ns_part =
-				              _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
+				              _devno_to_devid(ucmd_ctx, devno_buf, true, devid_buf, sizeof(devid_buf)))) {
 					mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
 					if (!util_uuid_str_gen(&mem)) {
 						sid_res_log_error(cmd_res,
@@ -4092,7 +4106,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 
 		_canonicalize_kv_key(devno_buf);
 
-		if (!(rel_spec.rel_key_spec->ns_part = _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
+		if (!(rel_spec.rel_key_spec->ns_part = _devno_to_devid(ucmd_ctx, devno_buf, true, devid_buf, sizeof(devid_buf)))) {
 			mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
 			if (!util_uuid_str_gen(&mem)) {
 				sid_res_log_error(cmd_res,
@@ -4317,7 +4331,7 @@ static int _get_device_uuid(sid_res_t *cmd_res)
 	const char          *uuid_p;
 
 	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, SID_KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL, 0)) &&
-	    !(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
+	    !(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, false, buf, sizeof(buf)))) {
 		/* SID doesn't appera to have a record of this device */
 		sid_res_log_error(cmd_res, "Couldn't find UUID for device " CMD_DEV_PRINT_FMT ".", CMD_DEV_PRINT(ucmd_ctx));
 		return -1;
@@ -4337,7 +4351,7 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 	/* try to get current device's UUID from udev first */
 	if (!(uuid_p = _do_sid_ucmd_get_kv(NULL, ucmd_ctx, NULL, SID_KV_NS_UDEV, KV_KEY_UDEV_SID_DEV_ID, NULL, NULL, 0))) {
 		/* if not in udev, check if we have set UUID for this device already */
-		if (!(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
+		if (!(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, false, buf, sizeof(buf)))) {
 			/* if we haven't set the UUID for this device yet, do it now */
 			if (!util_uuid_str_gen(&mem)) {
 				sid_res_log_error(cmd_res,
@@ -4357,6 +4371,18 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 		                         uuid_p,
 		                         strlen(uuid_p) + 1)) {
 			sid_res_log_error(cmd_res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_DEV_ID);
+			return -1;
+		}
+
+		if (!_do_sid_ucmd_set_kv(NULL,
+		                         ucmd_ctx,
+		                         NULL,
+		                         SID_KV_NS_UDEV,
+		                         KV_KEY_UDEV_SID_TAGS,
+		                         SID_KV_FL_SYNC,
+		                         UDEV_TAG_SID,
+		                         sizeof(UDEV_TAG_SID) + 1)) {
+			sid_res_log_error(cmd_res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_TAGS);
 			return -1;
 		}
 	}
@@ -6074,7 +6100,7 @@ static int _on_ubridge_udev_monitor_event(sid_res_ev_src_t *es, int fd, uint32_t
 	const char         *worker_id;
 	int                 r = -1;
 
-	if (!(udev_dev = udev_monitor_receive_device(ubridge->umonitor.mon)))
+	if (!(udev_dev = udev_monitor_receive_device(ubridge->ulink.mon)))
 		goto out;
 
 	if (!(worker_id = udev_device_get_property_value(udev_dev, KV_KEY_UDEV_SID_SESSION_ID)))
@@ -6093,18 +6119,18 @@ out:
 	return r;
 }
 
-static void _destroy_udev_monitor(sid_res_t *ubridge_res, struct umonitor *umonitor)
+static void _destroy_ulink(sid_res_t *ubridge_res, struct ulink *ulink)
 {
-	if (!umonitor->udev)
+	if (!ulink->udev)
 		return;
 
-	if (umonitor->mon) {
-		udev_monitor_unref(umonitor->mon);
-		umonitor->mon = NULL;
+	if (ulink->mon) {
+		udev_monitor_unref(ulink->mon);
+		ulink->mon = NULL;
 	}
 
-	udev_unref(umonitor->udev);
-	umonitor->udev = NULL;
+	udev_unref(ulink->udev);
+	ulink->udev = NULL;
 }
 
 static int _set_up_ubridge_socket(sid_res_t *ubridge_res, int *ubridge_socket_fd)
@@ -6228,26 +6254,130 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 	return 0;
 }
 
-static int _set_up_udev_monitor(sid_res_t *ubridge_res, struct umonitor *umonitor)
+static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *common_ctx, struct ulink *ulink)
+{
+	struct sid_ucmd_ctx     ucmd_ctx = {0}; /* dummy context so we can still use _handle_dev_for_group */
+	struct udev_enumerate  *udev_enum;
+	struct udev_list_entry *udev_entry;
+	const char             *udev_name;
+	struct udev_device     *udev_dev;
+	const char             *dev_id, *dev_seq, *dev_name;
+	dev_t                   dev_num;
+	char                    devno_buf[16];
+
+	ucmd_ctx.common = common_ctx;
+
+	if (!(udev_enum = udev_enumerate_new(ulink->udev))) {
+		sid_res_log_error(ubridge_res, "Failed to create udev device enumerator.");
+		return -1;
+	}
+
+	if ((udev_enumerate_add_match_tag(udev_enum, UDEV_TAG_SID) < 0) || (udev_enumerate_scan_devices(udev_enum) < 0)) {
+		sid_res_log_error(ubridge_res, "Failed to create udev device enumerator filter.");
+		return -1;
+	}
+
+	udev_list_entry_foreach(udev_entry, udev_enumerate_get_list_entry(udev_enum))
+	{
+		udev_name = udev_list_entry_get_name(udev_entry);
+
+		if (!(udev_dev = udev_device_new_from_syspath(ulink->udev, udev_name))) {
+			sid_res_log_error(ubridge_res, "Failed to get udev device structure for %s.", udev_name);
+			continue;
+		}
+
+		if (!(dev_id = udev_device_get_property_value(udev_dev, KV_KEY_UDEV_SID_DEV_ID)) ||
+		    !(dev_seq = udev_device_get_property_value(udev_dev, UDEV_KEY_DISKSEQ)) ||
+		    !(dev_name = udev_device_get_sysname(udev_dev))) {
+			sid_res_log_error(ubridge_res, "Failed to get udev property values for %s.", udev_name);
+			udev_device_unref(udev_dev);
+			continue;
+		}
+
+		dev_num = udev_device_get_devnum(udev_dev);
+
+		if (snprintf(devno_buf, sizeof(devno_buf), "%u_%u", major(dev_num), minor(dev_num)) < 0) {
+			sid_res_log_error(ubridge_res, "Failed to construct device number string for %s.", udev_name);
+			udev_device_unref(udev_dev);
+			continue;
+		}
+
+		ucmd_ctx.req_env.dev.num_s = devno_buf;
+		ucmd_ctx.req_env.dev.uid_s = (char *) dev_id;
+		ucmd_ctx.scan.dev_ready    = SID_DEV_RDY_UNDEFINED;
+		ucmd_ctx.scan.dev_reserved = SID_DEV_RES_UNDEFINED;
+
+		sid_res_log_debug(ubridge_res,
+		                  "Found udev db record tagged with " UDEV_TAG_SID ". Importing id=%s, dseq=%s, devno=%s, name=%s.",
+		                  dev_id,
+		                  dev_seq,
+		                  devno_buf,
+		                  dev_name);
+
+		if (_do_sid_ucmd_dev_set_ready(NULL, &ucmd_ctx, SID_DEV_RDY_UNPROCESSED) < 0 ||
+		    _do_sid_ucmd_dev_set_reserved(NULL, &ucmd_ctx, SID_DEV_RES_UNPROCESSED) < 0) {
+			sid_res_log_debug(ubridge_res,
+			                  "Failed to set device ready and reserved state when importing udev device %s.",
+			                  udev_name);
+			udev_device_unref(udev_dev);
+			continue;
+		}
+
+		if (_handle_dev_for_group(NULL,
+		                          &ucmd_ctx,
+		                          dev_id,
+		                          KV_KEY_DOM_ALIAS,
+		                          SID_KV_NS_MODULE,
+		                          "dseq",
+		                          dev_seq,
+		                          KV_OP_PLUS) < 0 ||
+		    _handle_dev_for_group(NULL,
+		                          &ucmd_ctx,
+		                          dev_id,
+		                          KV_KEY_DOM_ALIAS,
+		                          SID_KV_NS_MODULE,
+		                          "devno",
+		                          devno_buf,
+		                          KV_OP_PLUS) < 0 ||
+		    _handle_dev_for_group(NULL,
+		                          &ucmd_ctx,
+		                          dev_id,
+		                          KV_KEY_DOM_ALIAS,
+		                          SID_KV_NS_MODULE,
+		                          "name",
+		                          dev_name,
+		                          KV_OP_PLUS) < 0)
+			sid_res_log_error(ubridge_res,
+			                  "Failed to import dseq/devno/name device alias for udev device %s.",
+			                  udev_name);
+
+		udev_device_unref(udev_dev);
+	}
+
+	udev_enumerate_unref(udev_enum);
+	return 0;
+}
+
+static int _set_up_ulink(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *common_ctx, struct ulink *ulink)
 {
 	int umonitor_fd = -1;
 
-	if (!(umonitor->udev = udev_new())) {
+	if (!(ulink->udev = udev_new())) {
 		sid_res_log_error(ubridge_res, "Failed to create udev handle.");
 		goto fail;
 	}
 
-	if (!(umonitor->mon = udev_monitor_new_from_netlink(umonitor->udev, "udev"))) {
+	if (!(ulink->mon = udev_monitor_new_from_netlink(ulink->udev, "udev"))) {
 		sid_res_log_error(ubridge_res, "Failed to create udev monitor.");
 		goto fail;
 	}
 
-	if (udev_monitor_filter_add_match_tag(umonitor->mon, UDEV_TAG_SID) < 0) {
+	if (udev_monitor_filter_add_match_tag(ulink->mon, UDEV_TAG_SID) < 0) {
 		sid_res_log_error(ubridge_res, "Failed to create tag filter.");
 		goto fail;
 	}
 
-	umonitor_fd = udev_monitor_get_fd(umonitor->mon);
+	umonitor_fd = udev_monitor_get_fd(ulink->mon);
 
 	if (sid_res_ev_io_create(ubridge_res, NULL, umonitor_fd, _on_ubridge_udev_monitor_event, 0, "udev monitor", ubridge_res) <
 	    0) {
@@ -6255,14 +6385,19 @@ static int _set_up_udev_monitor(sid_res_t *ubridge_res, struct umonitor *umonito
 		goto fail;
 	}
 
-	if (udev_monitor_enable_receiving(umonitor->mon) < 0) {
+	if (_ulink_import(ubridge_res, common_ctx, ulink) < 0) {
+		sid_res_log_error(ubridge_res, "Failed to import records from udev database.");
+		goto fail;
+	}
+
+	if (udev_monitor_enable_receiving(ulink->mon) < 0) {
 		sid_res_log_error(ubridge_res, "Failed to enable udev monitoring.");
 		goto fail;
 	}
 
 	return 0;
 fail:
-	_destroy_udev_monitor(ubridge_res, umonitor);
+	_destroy_ulink(ubridge_res, ulink);
 	return -1;
 }
 
@@ -6565,8 +6700,8 @@ static int _init_ubridge(sid_res_t *res, const void *kickstart_data, void **data
 		goto fail;
 	}
 
-	if (_set_up_udev_monitor(res, &ubridge->umonitor) < 0) {
-		sid_res_log_error(res, "Failed to set up udev monitor.");
+	if (_set_up_ulink(res, common_ctx, &ubridge->ulink) < 0) {
+		sid_res_log_error(res, "Failed to set up udev link.");
 		goto fail;
 	}
 
@@ -6605,7 +6740,7 @@ static int _destroy_ubridge(sid_res_t *res)
 {
 	struct ubridge *ubridge = sid_res_data_get(res);
 
-	_destroy_udev_monitor(res, &ubridge->umonitor);
+	_destroy_ulink(res, &ubridge->ulink);
 
 	if (ubridge->socket_fd != -1)
 		(void) close(ubridge->socket_fd);
