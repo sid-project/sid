@@ -3,5 +3,6 @@ ACTION!="add|change|remove", GOTO="sid_end"
 
 IMPORT{db}="SID_DEV_ID"
 IMPORT{program}="usid scan"
+ENV{.SID_TAGS}=="?*", TAG+="$env{.SID_TAGS}"
 
 LABEL="sid_end"
