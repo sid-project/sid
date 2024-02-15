@@ -341,6 +341,7 @@ struct kv_unset_nfo {
 struct kv_update_arg {
 	sid_res_t      *res;
 	struct sid_buf *gen_buf;
+	bool            is_sync;
 	void           *custom;   /* in/out */
 	int             ret_code; /* out */
 };
@@ -2024,44 +2025,58 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 	int                 r = -1;
 
 	if (op == KV_OP_PLUS) {
-		if (!rel_spec->abs_delta->plus)
+		if (!update_arg->is_sync) {
+			if (!rel_spec->abs_delta->plus)
+				return 0;
+			sid_buf_data_get(rel_spec->abs_delta->plus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
+		}
+
+		if (!rel_spec->delta->plus)
 			return 0;
 
-		sid_buf_data_get(rel_spec->abs_delta->plus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
 		sid_buf_data_get(rel_spec->delta->plus, (const void **) &delta_vvalue, &delta_vsize);
 	} else if (op == KV_OP_MINUS) {
-		if (!rel_spec->abs_delta->minus)
+		if (!update_arg->is_sync) {
+			if (!rel_spec->abs_delta->minus)
+				return 0;
+			sid_buf_data_get(rel_spec->abs_delta->minus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
+		}
+
+		if (!rel_spec->delta->minus)
 			return 0;
 
-		sid_buf_data_get(rel_spec->abs_delta->minus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
 		sid_buf_data_get(rel_spec->delta->minus, (const void **) &delta_vvalue, &delta_vsize);
 	} else {
 		sid_res_log_error(update_arg->res, SID_INTERNAL_ERROR "%s: incorrect delta operation requested.", __func__);
 		return -1;
 	}
 
-	/* store absolute delta for current item - persistent */
-	rel_spec->cur_key_spec->op = op;
-	key                        = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
-	rel_spec->cur_key_spec->op = orig_op;
-	if (!key)
-		return -1;
-	_value_vector_mark_sync(abs_delta_vvalue, 1);
+	if (!update_arg->is_sync) {
+		/* store absolute delta for current item - persistent */
+		rel_spec->cur_key_spec->op = op;
+		key                        = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec);
+		rel_spec->cur_key_spec->op = orig_op;
+		if (!key)
+			return -1;
 
-	sid_kvs_set(update_arg->res,
-	            key,
-	            abs_delta_vvalue,
-	            abs_delta_vsize,
-	            SID_KVS_VAL_FL_VECTOR,
-	            SID_KVS_VAL_OP_NONE,
-	            _kv_cb_write,
-	            update_arg);
+		_value_vector_mark_sync(abs_delta_vvalue, 1);
 
-	if (index)
-		(void) _manage_kv_index(update_arg, key);
+		sid_kvs_set(update_arg->res,
+		            key,
+		            abs_delta_vvalue,
+		            abs_delta_vsize,
+		            SID_KVS_VAL_FL_VECTOR,
+		            SID_KVS_VAL_OP_NONE,
+		            _kv_cb_write,
+		            update_arg);
 
-	_value_vector_mark_sync(abs_delta_vvalue, 0);
-	_destroy_key(update_arg->gen_buf, key);
+		_value_vector_mark_sync(abs_delta_vvalue, 0);
+
+		if (index)
+			(void) _manage_kv_index(update_arg, key);
+
+		_destroy_key(update_arg->gen_buf, key);
+	}
 
 	/* the other way round now - store final and absolute delta for each relative */
 	if (delta_vsize && rel_spec->delta->flags & DELTA_WITH_REL) {
@@ -2124,14 +2139,14 @@ out:
 	return r;
 }
 
-static int _do_kv_cb_delta_step(struct sid_kvs_update_spec *spec, bool is_sync)
+static int _do_kv_cb_delta_step(struct sid_kvs_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct kv_rel_spec   *rel_spec   = update_arg->custom;
 	int                   r;
 
 	if ((r = _check_kv_wr_allowed(update_arg, spec->key, spec->old_data, spec->new_data)) < 0) {
-		update_arg->ret_code = is_sync ? 0 : r;
+		update_arg->ret_code = update_arg->is_sync ? 0 : r;
 		return 0;
 	}
 
@@ -2149,7 +2164,7 @@ static int _do_kv_cb_delta_step(struct sid_kvs_update_spec *spec, bool is_sync)
 
 static int _kv_cb_delta_step(struct sid_kvs_update_spec *spec)
 {
-	return _do_kv_cb_delta_step(spec, false);
+	return _do_kv_cb_delta_step(spec);
 }
 
 static int _kv_cb_main_delta_step(struct sid_kvs_update_spec *spec)
@@ -2157,7 +2172,7 @@ static int _kv_cb_main_delta_step(struct sid_kvs_update_spec *spec)
 	struct kv_update_arg *update_arg = spec->arg;
 	int                   r;
 
-	r = _do_kv_cb_delta_step(spec, true);
+	r = _do_kv_cb_delta_step(spec);
 
 	if (r) {
 		sid_res_log_debug(update_arg->res,
@@ -2241,8 +2256,10 @@ static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct
 	 *      B: new vvalue = {K} (newly stored record in db)
 	 */
 	if (rel_spec->delta->flags & (DELTA_WITH_DIFF | DELTA_WITH_REL)) {
-		if (_delta_abs_calc(vvalue, update_arg) < 0)
-			goto out;
+		if (!update_arg->is_sync) {
+			if (_delta_abs_calc(vvalue, update_arg) < 0)
+				goto out;
+		}
 
 		if (_delta_update(vvalue, KV_OP_PLUS, update_arg, index) < 0)
 			goto out;
@@ -2818,7 +2835,8 @@ sid_ucmd_dev_ready_t sid_ucmd_dev_ready_get(sid_res_t *mod_res, struct sid_ucmd_
 	return _do_sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, archive);
 }
 
-static int _do_sid_ucmd_dev_set_reserved(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved, bool is_sync)
+static int
+	_do_sid_ucmd_dev_set_reserved(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved, bool is_sync)
 {
 	sid_ucmd_dev_reserved_t old_reserved = ucmd_ctx->scan.dev_reserved;
 	int                     r;
@@ -2939,7 +2957,8 @@ static int _handle_dev_for_group(sid_res_t              *mod_res,
                                  sid_ucmd_kv_namespace_t group_ns,
                                  const char             *group_cat,
                                  const char             *group_id,
-                                 kv_op_t                 op)
+                                 kv_op_t                 op,
+                                 bool                    is_sync)
 {
 	char       *key            = NULL;
 	const char *rel_key_prefix = NULL;
@@ -2971,6 +2990,7 @@ static int _handle_dev_for_group(sid_res_t              *mod_res,
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
+	                                   .is_sync = is_sync,
 	                                   .custom  = &rel_spec};
 
 	// TODO: check return values / maybe also pass flags / use proper owner
@@ -3004,7 +3024,15 @@ int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_cat) || UTIL_STR_EMPTY(alias_id))
 		return -EINVAL;
 
-	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, SID_KV_NS_MODULE, alias_cat, alias_id, KV_OP_PLUS);
+	return _handle_dev_for_group(mod_res,
+	                             ucmd_ctx,
+	                             NULL,
+	                             KV_KEY_DOM_ALIAS,
+	                             SID_KV_NS_MODULE,
+	                             alias_cat,
+	                             alias_id,
+	                             KV_OP_PLUS,
+	                             false);
 }
 
 int sid_ucmd_dev_alias_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
@@ -3012,7 +3040,15 @@ int sid_ucmd_dev_alias_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx,
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_cat) || UTIL_STR_EMPTY(alias_id))
 		return -EINVAL;
 
-	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, SID_KV_NS_MODULE, alias_cat, alias_id, KV_OP_MINUS);
+	return _handle_dev_for_group(mod_res,
+	                             ucmd_ctx,
+	                             NULL,
+	                             KV_KEY_DOM_ALIAS,
+	                             SID_KV_NS_MODULE,
+	                             alias_cat,
+	                             alias_id,
+	                             KV_OP_MINUS,
+	                             false);
 }
 
 static int _kv_cb_write_new_only(struct sid_kvs_update_spec *spec)
@@ -3102,7 +3138,7 @@ int sid_ucmd_grp_dev_current_add(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_cat) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
-	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_PLUS);
+	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_PLUS, false);
 }
 
 int sid_ucmd_grp_dev_current_remove(sid_res_t              *mod_res,
@@ -3114,7 +3150,7 @@ int sid_ucmd_grp_dev_current_remove(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_cat) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
-	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_MINUS);
+	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_MINUS, false);
 }
 
 static int _do_sid_ucmd_group_destroy(sid_res_t              *mod_res,
@@ -3154,6 +3190,7 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *mod_res,
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
+	                                   .is_sync = false,
 	                                   .custom  = &rel_spec};
 
 	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_cb_delta wrapper
@@ -3881,6 +3918,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
+	                                   .is_sync = false,
 	                                   .custom  = &rel_spec};
 
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
@@ -3996,7 +4034,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 					                          SID_KV_NS_MODULE,
 					                          "devno",
 					                          devno_buf,
-					                          KV_OP_PLUS) < 0) {
+					                          KV_OP_PLUS,
+					                          false) < 0) {
 						sid_res_log_error(cmd_res,
 						                  "Failed to add devno alias for device " CMD_DEV_PRINT_FMT,
 						                  CMD_DEV_PRINT(ucmd_ctx));
@@ -4090,6 +4129,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
+	                                   .is_sync = false,
 	                                   .custom  = &rel_spec};
 
 	count = (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE) ? VVALUE_HEADER_CNT : VVALUE_SINGLE_CNT;
@@ -4123,7 +4163,8 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 			                      SID_KV_NS_MODULE,
 			                      "devno",
 			                      devno_buf,
-			                      KV_OP_PLUS);
+			                      KV_OP_PLUS,
+			                      false);
 		}
 
 		if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
@@ -4394,7 +4435,7 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 		return -1;
 	}
 
-	if (_handle_dev_for_group(NULL, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, SID_KV_NS_MODULE, "dseq", buf, KV_OP_PLUS) < 0 ||
+	if (_handle_dev_for_group(NULL, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, SID_KV_NS_MODULE, "dseq", buf, KV_OP_PLUS, false) < 0 ||
 	    _handle_dev_for_group(NULL,
 	                          ucmd_ctx,
 	                          NULL,
@@ -4402,7 +4443,8 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 	                          SID_KV_NS_MODULE,
 	                          "devno",
 	                          ucmd_ctx->req_env.dev.num_s,
-	                          KV_OP_PLUS) < 0 ||
+	                          KV_OP_PLUS,
+	                          false) < 0 ||
 	    _handle_dev_for_group(NULL,
 	                          ucmd_ctx,
 	                          NULL,
@@ -4410,7 +4452,8 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 	                          SID_KV_NS_MODULE,
 	                          "name",
 	                          ucmd_ctx->req_env.dev.udev.name,
-	                          KV_OP_PLUS) < 0) {
+	                          KV_OP_PLUS,
+	                          false) < 0) {
 		sid_res_log_error(cmd_res, "Failed to add dseq/devno/name device alias.");
 		return -1;
 	}
@@ -5444,7 +5487,7 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 	const char              *vvalue_str;
 	void                    *value_to_store;
 	struct kv_rel_spec       rel_spec   = {.delta = &((struct kv_delta) {0}), .abs_delta = &((struct kv_delta) {0})};
-	struct kv_update_arg     update_arg = {.gen_buf = common_ctx->gen_buf, .custom = &rel_spec};
+	struct kv_update_arg     update_arg = {.gen_buf = common_ctx->gen_buf, .is_sync = true, .custom = &rel_spec};
 	struct kv_unset_nfo      unset_nfo;
 	bool                     unset, archive;
 	int                      r = -1;
@@ -6330,7 +6373,8 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 		                          SID_KV_NS_MODULE,
 		                          "dseq",
 		                          dev_seq,
-		                          KV_OP_PLUS) < 0 ||
+		                          KV_OP_PLUS,
+		                          true) < 0 ||
 		    _handle_dev_for_group(NULL,
 		                          &ucmd_ctx,
 		                          dev_id,
@@ -6338,7 +6382,8 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 		                          SID_KV_NS_MODULE,
 		                          "devno",
 		                          devno_buf,
-		                          KV_OP_PLUS) < 0 ||
+		                          KV_OP_PLUS,
+		                          true) < 0 ||
 		    _handle_dev_for_group(NULL,
 		                          &ucmd_ctx,
 		                          dev_id,
@@ -6346,7 +6391,8 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 		                          SID_KV_NS_MODULE,
 		                          "name",
 		                          dev_name,
-		                          KV_OP_PLUS) < 0)
+		                          KV_OP_PLUS,
+		                          true) < 0)
 			sid_res_log_error(ubridge_res,
 			                  "Failed to import dseq/devno/name device alias for udev device %s.",
 			                  udev_name);
