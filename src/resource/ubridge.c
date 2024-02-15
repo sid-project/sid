@@ -2696,7 +2696,7 @@ const char *sid_ucmd_dev_reserved_to_str(sid_ucmd_dev_reserved_t reserved)
 	return dev_reserved_str[reserved];
 }
 
-static int _do_sid_ucmd_dev_set_ready(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_ready_t ready)
+static int _do_sid_ucmd_dev_set_ready(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_ready_t ready, bool is_sync)
 {
 	sid_ucmd_dev_ready_t old_ready = ucmd_ctx->scan.dev_ready;
 	int                  r;
@@ -2754,7 +2754,7 @@ static int _do_sid_ucmd_dev_set_ready(sid_res_t *res, struct sid_ucmd_ctx *ucmd_
 	                         NULL,
 	                         SID_KV_NS_DEVICE,
 	                         KV_KEY_DEV_READY,
-	                         SID_KV_FL_SYNC | SID_KV_FL_AR | SID_KV_FL_RD | SID_KV_FL_SUB_WR | SID_KV_FL_SUP_WR,
+	                         (is_sync ? 0 : SID_KV_FL_SYNC) | SID_KV_FL_AR | SID_KV_FL_RD | SID_KV_FL_SUB_WR | SID_KV_FL_SUP_WR,
 	                         &ready,
 	                         sizeof(ready)))
 		r = -1;
@@ -2785,7 +2785,7 @@ int sid_ucmd_dev_ready_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, si
 	if (!mod_res || !ucmd_ctx)
 		return -EINVAL;
 
-	return _do_sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, ready);
+	return _do_sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, ready, false);
 }
 
 static sid_ucmd_dev_ready_t _do_sid_ucmd_dev_get_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
@@ -2818,7 +2818,7 @@ sid_ucmd_dev_ready_t sid_ucmd_dev_ready_get(sid_res_t *mod_res, struct sid_ucmd_
 	return _do_sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, archive);
 }
 
-static int _do_sid_ucmd_dev_set_reserved(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved)
+static int _do_sid_ucmd_dev_set_reserved(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved, bool is_sync)
 {
 	sid_ucmd_dev_reserved_t old_reserved = ucmd_ctx->scan.dev_reserved;
 	int                     r;
@@ -2860,7 +2860,7 @@ static int _do_sid_ucmd_dev_set_reserved(sid_res_t *res, struct sid_ucmd_ctx *uc
 	                         NULL,
 	                         SID_KV_NS_DEVICE,
 	                         KV_KEY_DEV_RESERVED,
-	                         SID_KV_FL_SYNC | SID_KV_FL_AR | SID_KV_FL_RD | SID_KV_FL_SUB_WR | SID_KV_FL_SUP_WR,
+	                         (is_sync ? 0 : SID_KV_FL_SYNC) | SID_KV_FL_AR | SID_KV_FL_RD | SID_KV_FL_SUB_WR | SID_KV_FL_SUP_WR,
 	                         &reserved,
 	                         sizeof(reserved)))
 		r = -1;
@@ -2891,7 +2891,7 @@ int sid_ucmd_dev_reserved_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx,
 	if (!mod_res || !ucmd_ctx)
 		return -EINVAL;
 
-	return _do_sid_ucmd_dev_set_reserved(mod_res, ucmd_ctx, reserved);
+	return _do_sid_ucmd_dev_set_reserved(mod_res, ucmd_ctx, reserved, false);
 }
 
 static sid_ucmd_dev_reserved_t
@@ -4416,10 +4416,10 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 	}
 
 	if (_do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == SID_DEV_RDY_UNDEFINED)
-		_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, SID_DEV_RDY_UNPROCESSED);
+		_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, SID_DEV_RDY_UNPROCESSED, false);
 
 	if (_do_sid_ucmd_dev_get_reserved(NULL, ucmd_ctx, 0) == SID_DEV_RES_UNDEFINED)
-		_do_sid_ucmd_dev_set_reserved(cmd_res, ucmd_ctx, SID_DEV_RES_UNPROCESSED);
+		_do_sid_ucmd_dev_set_reserved(cmd_res, ucmd_ctx, SID_DEV_RES_UNPROCESSED, false);
 
 	return _refresh_device_hierarchy_from_sysfs(cmd_res);
 }
@@ -4573,11 +4573,11 @@ static int _cmd_exec_scan_exit(sid_res_t *cmd_res)
 	int                  r        = 0;
 
 	if (_do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == SID_DEV_RDY_UNPROCESSED)
-		if (_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, SID_DEV_RDY_PUBLIC) < 0)
+		if (_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, SID_DEV_RDY_PUBLIC, false) < 0)
 			r = -1;
 
 	if (_do_sid_ucmd_dev_get_reserved(NULL, ucmd_ctx, 0) == SID_DEV_RES_UNPROCESSED)
-		if (_do_sid_ucmd_dev_set_reserved(cmd_res, ucmd_ctx, SID_DEV_RES_FREE) < 0)
+		if (_do_sid_ucmd_dev_set_reserved(cmd_res, ucmd_ctx, SID_DEV_RES_FREE, false) < 0)
 			r = -1;
 
 	return r;
@@ -6314,8 +6314,8 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 		                  devno_buf,
 		                  dev_name);
 
-		if (_do_sid_ucmd_dev_set_ready(NULL, &ucmd_ctx, SID_DEV_RDY_UNPROCESSED) < 0 ||
-		    _do_sid_ucmd_dev_set_reserved(NULL, &ucmd_ctx, SID_DEV_RES_UNPROCESSED) < 0) {
+		if (_do_sid_ucmd_dev_set_ready(NULL, &ucmd_ctx, SID_DEV_RDY_UNPROCESSED, true) < 0 ||
+		    _do_sid_ucmd_dev_set_reserved(NULL, &ucmd_ctx, SID_DEV_RES_UNPROCESSED, true) < 0) {
 			sid_res_log_debug(ubridge_res,
 			                  "Failed to set device ready and reserved state when importing udev device %s.",
 			                  udev_name);
