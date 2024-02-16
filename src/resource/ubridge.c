@@ -2628,8 +2628,6 @@ static int _do_sid_ucmd_mod_reserve_kv(sid_res_t                  *mod_res,
 	if (!(common->kv_store_res))
 		goto out;
 
-	update_arg = (struct kv_update_arg) {.res = common->kv_store_res, .gen_buf = NULL, .custom = NULL, .ret_code = -EREMOTEIO};
-
 	/*
 	 * FIXME: If possible, try to find out a way without calling worker_control_is_worker here.
 	 *        Otherwise, this code assumes that we always have main process with main KV store
@@ -2637,6 +2635,8 @@ static int _do_sid_ucmd_mod_reserve_kv(sid_res_t                  *mod_res,
 	 *        be true in all cases in the future!
 	 */
 	is_worker  = sid_wrk_ctl_wrk_detect(common->kv_store_res);
+
+	update_arg = (struct kv_update_arg) {.res = common->kv_store_res, .gen_buf = NULL, .is_sync = !is_worker, .custom = NULL, .ret_code = -EREMOTEIO};
 
 	if (!unset)
 		flags |= SID_KV_FL_RS | SID_KV_FL_SYNC_P;
