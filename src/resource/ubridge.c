@@ -498,7 +498,7 @@ static sid_ucmd_kv_flags_t value_flags_sync    = DEFAULT_VALUE_FLAGS_CORE;
 static char               *core_owner          = OWNER_CORE;
 static uint64_t            null_int            = 0;
 
-static int        _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index);
+static int        _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg);
 static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_PRINT_FMT ".";
 
 udev_action_t sid_ucmd_ev_dev_action_get(struct sid_ucmd_ctx *ucmd_ctx)
@@ -860,9 +860,12 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_res_t *kv_store_
 	return 0;
 }
 
-static int _check_kv_index_needed(kv_vector_t *vvalue_old, kv_vector_t *vvalue_new)
+static int _check_kv_index_needed(struct kv_update_arg *update_arg, kv_vector_t *vvalue_old, kv_vector_t *vvalue_new)
 {
 	int old_indexed, new_indexed;
+
+	if (update_arg->is_sync)
+		return KV_INDEX_NOOP;
 
 	old_indexed = vvalue_old ? VVALUE_FLAGS(vvalue_old) & SID_KV_FL_SYNC : 0;
 	new_indexed = vvalue_new ? VVALUE_FLAGS(vvalue_new) & SID_KV_FL_SYNC : 0;
@@ -880,18 +883,20 @@ static int _manage_kv_index(struct kv_update_arg *update_arg, char *key)
 {
 	int r;
 
-	key[0] = KV_PREFIX_OP_SYNC_C[0];
 	switch (update_arg->ret_code) {
 		case KV_INDEX_ADD:
-			r = sid_kvs_alias_add(update_arg->res, key + 1, key, false);
+			key[0] = KV_PREFIX_OP_SYNC_C[0];
+			r      = sid_kvs_alias_add(update_arg->res, key + 1, key, false);
+			key[0] = ' ';
 			break;
 		case KV_INDEX_REMOVE:
-			r = sid_kvs_unset(update_arg->res, key, NULL, NULL);
+			key[0] = KV_PREFIX_OP_SYNC_C[0];
+			r      = sid_kvs_unset(update_arg->res, key, NULL, NULL);
+			key[0] = ' ';
 			break;
 		default:
 			r = 0;
 	}
-	key[0] = ' ';
 
 	return r;
 }
@@ -1031,7 +1036,7 @@ static int _kv_cb_write(struct sid_kvs_update_spec *spec)
 	if ((update_arg->ret_code = _check_kv_wr_allowed(update_arg, spec->key, vvalue_old, vvalue_new)) < 0)
 		return 0;
 
-	update_arg->ret_code = _check_kv_index_needed(vvalue_old, vvalue_new);
+	update_arg->ret_code = _check_kv_index_needed(update_arg, vvalue_old, vvalue_new);
 	return 1;
 }
 
@@ -1077,7 +1082,7 @@ static int _kv_cb_reserve(struct sid_kvs_update_spec *spec)
 		}
 	}
 
-	update_arg->ret_code = _check_kv_index_needed(vvalue_old, vvalue_new);
+	update_arg->ret_code = _check_kv_index_needed(update_arg, vvalue_old, vvalue_new);
 	return 1;
 }
 
@@ -2012,7 +2017,7 @@ static void _value_vector_mark_sync(kv_vector_t *vvalue, int sync)
 		vvalue[VVALUE_IDX_FLAGS] = (kv_vector_t) {&value_flags_no_sync, sizeof(value_flags_no_sync)};
 }
 
-static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg *update_arg, bool index)
+static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg *update_arg)
 {
 	struct kv_rel_spec *rel_spec = update_arg->custom;
 	kv_op_t             orig_op  = rel_spec->cur_key_spec->op;
@@ -2072,8 +2077,7 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 
 		_value_vector_mark_sync(abs_delta_vvalue, 0);
 
-		if (index)
-			(void) _manage_kv_index(update_arg, key);
+		(void) _manage_kv_index(update_arg, key);
 
 		_destroy_key(update_arg->gen_buf, key);
 	}
@@ -2120,7 +2124,7 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 				goto out;
 			}
 
-			_do_kv_delta_set(key, rel_vvalue, VVALUE_SINGLE_CNT, update_arg, index);
+			_do_kv_delta_set(key, rel_vvalue, VVALUE_SINGLE_CNT, update_arg);
 
 			rel_spec->cur_key_spec->ns_part = NULL;
 			_destroy_key(NULL, key);
@@ -2182,7 +2186,7 @@ out:
 	return r;
 }
 
-static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index)
+static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg)
 {
 	struct kv_rel_spec *rel_spec = update_arg->custom;
 	int                 r        = -1;
@@ -2213,8 +2217,7 @@ static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct
 	    update_arg->ret_code < 0)
 		goto out;
 
-	if (index)
-		(void) _manage_kv_index(update_arg, key);
+	(void) _manage_kv_index(update_arg, key);
 
 	/*
 	 * Next, depending on further requested handling based on rel_spec->delta->flags,
@@ -2252,10 +2255,10 @@ static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct
 				goto out;
 		}
 
-		if (_delta_update(vvalue, KV_OP_PLUS, update_arg, index) < 0)
+		if (_delta_update(vvalue, KV_OP_PLUS, update_arg) < 0)
 			goto out;
 
-		if (_delta_update(vvalue, KV_OP_MINUS, update_arg, index) < 0)
+		if (_delta_update(vvalue, KV_OP_MINUS, update_arg) < 0)
 			goto out;
 	}
 
@@ -2266,7 +2269,7 @@ out:
 	return r;
 }
 
-static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg, bool index)
+static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg)
 {
 	int r;
 
@@ -2275,7 +2278,7 @@ static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv
 			sid_res_log_error(update_arg->res, SID_INTERNAL_ERROR "%s: kv_store already in a transaction", __func__);
 		return r;
 	}
-	r = _do_kv_delta_set(key, vvalue, vsize, update_arg, index);
+	r = _do_kv_delta_set(key, vvalue, vsize, update_arg);
 	sid_kvs_transaction_end(update_arg->res, false);
 
 	return r;
@@ -3000,7 +3003,7 @@ static int _handle_dev_for_group(sid_res_t              *mod_res,
 	                    core_owner);
 	_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, (void *) rel_key_prefix, strlen(rel_key_prefix) + 1);
 
-	if (_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg, true) < 0)
+	if (_kv_delta_set(key, vvalue, VVALUE_SINGLE_CNT, &update_arg) < 0)
 		goto out;
 
 	r = 0;
@@ -3205,7 +3208,7 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *mod_res,
 	                    &ucmd_ctx->common->gennum,
 	                    core_owner);
 
-	if ((r = _kv_delta_set(key, vvalue, VVALUE_HEADER_CNT, &update_arg, true)) < 0)
+	if ((r = _kv_delta_set(key, vvalue, VVALUE_HEADER_CNT, &update_arg)) < 0)
 		goto out;
 
 	r = 0;
@@ -4061,7 +4064,7 @@ next:
 		goto out;
 	}
 
-	_kv_delta_set(s, vvalue, vsize, &update_arg, true);
+	_kv_delta_set(s, vvalue, vsize, &update_arg);
 
 	_destroy_key(NULL, s);
 	r = 0;
@@ -4179,7 +4182,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	 * The delta.final is computed inside _kv_cb_delta out of vec_buf.
 	 * The _kv_cb_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
 	 */
-	_kv_delta_set(key, vvalue, count, &update_arg, true);
+	_kv_delta_set(key, vvalue, count, &update_arg);
 
 	r = 0;
 out:
