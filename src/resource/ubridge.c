@@ -2139,7 +2139,7 @@ out:
 	return r;
 }
 
-static int _do_kv_cb_delta_step(struct sid_kvs_update_spec *spec)
+static int _kv_cb_delta_step(struct sid_kvs_update_spec *spec)
 {
 	struct kv_update_arg *update_arg = spec->arg;
 	struct kv_rel_spec   *rel_spec   = update_arg->custom;
@@ -2147,46 +2147,37 @@ static int _do_kv_cb_delta_step(struct sid_kvs_update_spec *spec)
 
 	if ((r = _check_kv_wr_allowed(update_arg, spec->key, spec->old_data, spec->new_data)) < 0) {
 		update_arg->ret_code = update_arg->is_sync ? 0 : r;
-		return 0;
+		r                    = 0;
+		goto out;
 	}
 
-	if ((update_arg->ret_code = _delta_step_calc(spec)) < 0)
-		return 0;
+	if ((update_arg->ret_code = _delta_step_calc(spec)) < 0) {
+		r = 0;
+		goto out;
+	}
 
 	if (rel_spec->delta->final) {
 		sid_buf_data_get(rel_spec->delta->final, (const void **) &spec->new_data, &spec->new_data_size);
 		spec->new_flags &= ~SID_KVS_VAL_FL_REF;
-		return 1;
+		r                = 1;
+		goto out;
 	}
-
-	return 0;
-}
-
-static int _kv_cb_delta_step(struct sid_kvs_update_spec *spec)
-{
-	return _do_kv_cb_delta_step(spec);
-}
-
-static int _kv_cb_main_delta_step(struct sid_kvs_update_spec *spec)
-{
-	struct kv_update_arg *update_arg = spec->arg;
-	int                   r;
-
-	r = _do_kv_cb_delta_step(spec);
-
-	if (r) {
-		sid_res_log_debug(update_arg->res,
-		                  "%s value for key %s (old seqnum %" PRIu64 ", new seqnum %" PRIu64 ").",
-		                  spec->old_data ? "Updating" : "Adding",
-		                  spec->key,
-		                  spec->old_data ? VVALUE_SEQNUM(spec->old_data) : 0,
-		                  VVALUE_SEQNUM(spec->new_data));
-	} else
-		sid_res_log_debug(update_arg->res,
-		                  "Keeping old value for key %s (old seqnum %" PRIu64 ", new seqnum %" PRIu64 ").",
-		                  spec->key,
-		                  spec->old_data ? VVALUE_SEQNUM(spec->old_data) : 0,
-		                  VVALUE_SEQNUM(spec->new_data));
+out:
+	if (update_arg->is_sync) {
+		if (r) {
+			sid_res_log_debug(update_arg->res,
+			                  "%s value for key %s (old seqnum %" PRIu64 ", new seqnum %" PRIu64 ").",
+			                  spec->old_data ? "Updating" : "Adding",
+			                  spec->key,
+			                  spec->old_data ? VVALUE_SEQNUM(spec->old_data) : 0,
+			                  VVALUE_SEQNUM(spec->new_data));
+		} else
+			sid_res_log_debug(update_arg->res,
+			                  "Keeping old value for key %s (old seqnum %" PRIu64 ", new seqnum %" PRIu64 ").",
+			                  spec->key,
+			                  spec->old_data ? VVALUE_SEQNUM(spec->old_data) : 0,
+			                  VVALUE_SEQNUM(spec->new_data));
+	}
 
 	return r;
 }
@@ -5692,7 +5683,7 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 				                             value_size,
 				                             SID_KVS_VAL_FL_VECTOR | SID_KVS_VAL_FL_REF,
 				                             SID_KVS_VAL_OP_NONE,
-				                             _kv_cb_main_delta_step,
+				                             _kv_cb_delta_step,
 				                             &update_arg);
 				_destroy_delta_buffers(rel_spec.delta);
 				if (!value_to_store || update_arg.ret_code < 0)
