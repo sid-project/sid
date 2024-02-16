@@ -2352,6 +2352,7 @@ static void *_do_sid_ucmd_set_kv(sid_res_t              *mod_res,
 
 	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->common->kv_store_res,
 	                                     .gen_buf  = ucmd_ctx->common->gen_buf,
+					     .is_sync  = false,
 	                                     .custom   = NULL,
 	                                     .ret_code = -EREMOTEIO};
 
