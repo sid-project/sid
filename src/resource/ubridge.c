@@ -4373,6 +4373,71 @@ static int _get_device_uuid(sid_res_t *cmd_res)
 	return 0;
 }
 
+static int _set_new_device_kv_records(sid_res_t           *res,
+                                      struct sid_ucmd_ctx *ucmd_ctx,
+                                      const char          *devid,
+                                      const char          *devseq,
+                                      const char          *devno,
+                                      const char          *devname,
+                                      bool                 is_sync)
+{
+	static const char failed_msg[] = "Failed to set %s for new device %s (%s/%s).";
+	const char       *rec_name;
+	int               r;
+
+	if ((r = _do_sid_ucmd_dev_set_ready(NULL, ucmd_ctx, SID_DEV_RDY_UNPROCESSED, is_sync)) < 0) {
+		rec_name = "ready state";
+		goto out;
+	}
+
+	if ((r = _do_sid_ucmd_dev_set_reserved(NULL, ucmd_ctx, SID_DEV_RES_UNPROCESSED, is_sync)) < 0) {
+		rec_name = "reserved state";
+		goto out;
+	}
+
+	if ((r = _handle_dev_for_group(NULL,
+	                               ucmd_ctx,
+	                               devid,
+	                               KV_KEY_DOM_ALIAS,
+	                               SID_KV_NS_MODULE,
+	                               "dseq",
+	                               devseq,
+	                               KV_OP_PLUS,
+	                               is_sync)) < 0) {
+		rec_name = "device sequence number";
+		goto out;
+	}
+
+	if ((r = _handle_dev_for_group(NULL,
+	                               ucmd_ctx,
+	                               devid,
+	                               KV_KEY_DOM_ALIAS,
+	                               SID_KV_NS_MODULE,
+	                               "devno",
+	                               devno,
+	                               KV_OP_PLUS,
+	                               is_sync)) < 0) {
+		rec_name = "device number";
+		goto out;
+	}
+
+	if ((r = _handle_dev_for_group(NULL,
+	                               ucmd_ctx,
+	                               devid,
+	                               KV_KEY_DOM_ALIAS,
+	                               SID_KV_NS_MODULE,
+	                               "name",
+	                               devname,
+	                               KV_OP_PLUS,
+	                               is_sync)) < 0) {
+		rec_name = "device name";
+		goto out;
+	}
+out:
+	sid_res_log_error_errno(res, r, failed_msg, rec_name, devname, devno, devseq);
+	return r;
+}
+
 static int _set_device_kv_records(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
