@@ -4003,50 +4003,51 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 				                        "device " CMD_DEV_PRINT_FMT,
 				                        dirent[i]->d_name,
 				                        CMD_DEV_PRINT(ucmd_ctx));
-			} else {
-				if ((r = sid_util_sysfs_get(s, devno_buf, sizeof(devno_buf))) < 0 || !*devno_buf) {
-					sid_res_log_error_errno(cmd_res,
-					                        r,
-					                        "Failed to read related disk device number from sysfs file %s.",
-					                        s);
-					sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+				goto next;
+			}
+
+			if ((r = sid_util_sysfs_get(s, devno_buf, sizeof(devno_buf))) < 0 || !*devno_buf) {
+				sid_res_log_error_errno(cmd_res,
+				                        r,
+				                        "Failed to read related disk device number from sysfs file %s.",
+				                        s);
+				sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+				goto next;
+			}
+			sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+
+			_canonicalize_kv_key(devno_buf);
+			if (!(rel_spec.rel_key_spec->ns_part =
+			              _devno_to_devid(ucmd_ctx, devno_buf, true, devid_buf, sizeof(devid_buf)))) {
+				mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
+				if (!util_uuid_str_gen(&mem)) {
+					sid_res_log_error(cmd_res,
+					                  "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
+					                  CMD_DEV_PRINT(ucmd_ctx));
 					goto next;
 				}
-				sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+				rel_spec.rel_key_spec->ns_part = mem.base;
 
-				_canonicalize_kv_key(devno_buf);
-				if (!(rel_spec.rel_key_spec->ns_part =
-				              _devno_to_devid(ucmd_ctx, devno_buf, true, devid_buf, sizeof(devid_buf)))) {
-					mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
-					if (!util_uuid_str_gen(&mem)) {
-						sid_res_log_error(cmd_res,
-						                  "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
-						                  CMD_DEV_PRINT(ucmd_ctx));
-						goto next;
-					}
-					rel_spec.rel_key_spec->ns_part = mem.base;
-
-					if (_handle_dev_for_group(NULL,
-					                          ucmd_ctx,
-					                          mem.base,
-					                          KV_KEY_DOM_ALIAS,
-					                          SID_KV_NS_MODULE,
-					                          "devno",
-					                          devno_buf,
-					                          KV_OP_PLUS,
-					                          false) < 0) {
-						sid_res_log_error(cmd_res,
-						                  "Failed to add devno alias for device " CMD_DEV_PRINT_FMT,
-						                  CMD_DEV_PRINT(ucmd_ctx));
-						goto next;
-					}
+				if (_handle_dev_for_group(NULL,
+				                          ucmd_ctx,
+				                          mem.base,
+				                          KV_KEY_DOM_ALIAS,
+				                          SID_KV_NS_MODULE,
+				                          "devno",
+				                          devno_buf,
+				                          KV_OP_PLUS,
+				                          false) < 0) {
+					sid_res_log_error(cmd_res,
+					                  "Failed to add devno alias for device " CMD_DEV_PRINT_FMT,
+					                  CMD_DEV_PRINT(ucmd_ctx));
+					goto next;
 				}
+			}
 
-				s = _compose_key_prefix(NULL, rel_spec.rel_key_spec);
-				if (!s || ((r = sid_buf_add(vec_buf, (void *) s, strlen(s) + 1, NULL, NULL)) < 0)) {
-					_destroy_key(NULL, s);
-					goto out;
-				}
+			s = _compose_key_prefix(NULL, rel_spec.rel_key_spec);
+			if (!s || ((r = sid_buf_add(vec_buf, (void *) s, strlen(s) + 1, NULL, NULL)) < 0)) {
+				_destroy_key(NULL, s);
+				goto out;
 			}
 next:
 			free(dirent[i]);
