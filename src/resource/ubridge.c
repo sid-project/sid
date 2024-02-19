@@ -4491,34 +4491,14 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 		return -1;
 	}
 
-	if (_handle_dev_for_group(NULL, ucmd_ctx, NULL, KV_KEY_DOM_ALIAS, SID_KV_NS_MODULE, "dseq", buf, KV_OP_PLUS, false) < 0 ||
-	    _handle_dev_for_group(NULL,
-	                          ucmd_ctx,
-	                          NULL,
-	                          KV_KEY_DOM_ALIAS,
-	                          SID_KV_NS_MODULE,
-	                          "devno",
-	                          ucmd_ctx->req_env.dev.num_s,
-	                          KV_OP_PLUS,
-	                          false) < 0 ||
-	    _handle_dev_for_group(NULL,
-	                          ucmd_ctx,
-	                          NULL,
-	                          KV_KEY_DOM_ALIAS,
-	                          SID_KV_NS_MODULE,
-	                          "name",
-	                          ucmd_ctx->req_env.dev.udev.name,
-	                          KV_OP_PLUS,
-	                          false) < 0) {
-		sid_res_log_error(cmd_res, "Failed to add dseq/devno/name device alias.");
+	if (_set_new_device_kv_records(NULL,
+	                               ucmd_ctx,
+	                               ucmd_ctx->req_env.dev.uid_s,
+	                               buf,
+	                               ucmd_ctx->req_env.dev.num_s,
+	                               ucmd_ctx->req_env.dev.udev.name,
+	                               false) < 0)
 		return -1;
-	}
-
-	if (_do_sid_ucmd_dev_get_ready(NULL, ucmd_ctx, 0) == SID_DEV_RDY_UNDEFINED)
-		_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, SID_DEV_RDY_UNPROCESSED, false);
-
-	if (_do_sid_ucmd_dev_get_reserved(NULL, ucmd_ctx, 0) == SID_DEV_RES_UNDEFINED)
-		_do_sid_ucmd_dev_set_reserved(cmd_res, ucmd_ctx, SID_DEV_RES_UNPROCESSED, false);
 
 	return _refresh_device_hierarchy_from_sysfs(cmd_res);
 }
@@ -6363,6 +6343,7 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 	const char             *dev_id, *dev_seq, *dev_name;
 	dev_t                   dev_num;
 	char                    devno_buf[16];
+	int                     r;
 
 	ucmd_ctx.common = common_ctx;
 
@@ -6376,6 +6357,7 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 		return -1;
 	}
 
+	r = 0;
 	udev_list_entry_foreach(udev_entry, udev_enumerate_get_list_entry(udev_enum))
 	{
 		udev_name = udev_list_entry_get_name(udev_entry);
@@ -6413,51 +6395,15 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 		                  devno_buf,
 		                  dev_name);
 
-		if (_do_sid_ucmd_dev_set_ready(NULL, &ucmd_ctx, SID_DEV_RDY_UNPROCESSED, true) < 0 ||
-		    _do_sid_ucmd_dev_set_reserved(NULL, &ucmd_ctx, SID_DEV_RES_UNPROCESSED, true) < 0) {
-			sid_res_log_debug(ubridge_res,
-			                  "Failed to set device ready and reserved state when importing udev device %s.",
-			                  udev_name);
-			udev_device_unref(udev_dev);
-			continue;
-		}
-
-		if (_handle_dev_for_group(NULL,
-		                          &ucmd_ctx,
-		                          dev_id,
-		                          KV_KEY_DOM_ALIAS,
-		                          SID_KV_NS_MODULE,
-		                          "dseq",
-		                          dev_seq,
-		                          KV_OP_PLUS,
-		                          true) < 0 ||
-		    _handle_dev_for_group(NULL,
-		                          &ucmd_ctx,
-		                          dev_id,
-		                          KV_KEY_DOM_ALIAS,
-		                          SID_KV_NS_MODULE,
-		                          "devno",
-		                          devno_buf,
-		                          KV_OP_PLUS,
-		                          true) < 0 ||
-		    _handle_dev_for_group(NULL,
-		                          &ucmd_ctx,
-		                          dev_id,
-		                          KV_KEY_DOM_ALIAS,
-		                          SID_KV_NS_MODULE,
-		                          "name",
-		                          dev_name,
-		                          KV_OP_PLUS,
-		                          true) < 0)
-			sid_res_log_error(ubridge_res,
-			                  "Failed to import dseq/devno/name device alias for udev device %s.",
-			                  udev_name);
-
+		r = _set_new_device_kv_records(NULL, &ucmd_ctx, dev_id, dev_seq, devno_buf, dev_name, true);
 		udev_device_unref(udev_dev);
+
+		if (r < 0)
+			break;
 	}
 
 	udev_enumerate_unref(udev_enum);
-	return 0;
+	return r;
 }
 
 static int _set_up_ulink(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *common_ctx, struct ulink *ulink)
