@@ -2352,7 +2352,7 @@ static void *_do_sid_ucmd_set_kv(sid_res_t              *mod_res,
 
 	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->common->kv_store_res,
 	                                     .gen_buf  = ucmd_ctx->common->gen_buf,
-					     .is_sync  = false,
+	                                     .is_sync  = false,
 	                                     .custom   = NULL,
 	                                     .ret_code = -EREMOTEIO};
 
@@ -2637,7 +2637,11 @@ static int _do_sid_ucmd_mod_reserve_kv(sid_res_t                  *mod_res,
 	 */
 	is_worker  = sid_wrk_ctl_wrk_detect(common->kv_store_res);
 
-	update_arg = (struct kv_update_arg) {.res = common->kv_store_res, .gen_buf = NULL, .is_sync = !is_worker, .custom = NULL, .ret_code = -EREMOTEIO};
+	update_arg = (struct kv_update_arg) {.res      = common->kv_store_res,
+	                                     .gen_buf  = NULL,
+	                                     .is_sync  = !is_worker,
+	                                     .custom   = NULL,
+	                                     .ret_code = -EREMOTEIO};
 
 	if (!unset)
 		flags |= SID_KV_FL_RS | SID_KV_FL_SYNC_P;
