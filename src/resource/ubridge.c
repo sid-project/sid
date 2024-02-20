@@ -3354,7 +3354,7 @@ static int _part_get_whole_disk(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ct
 		return r;
 	}
 
-	if ((r = sid_util_sysfs_get(s, devno_buf, devno_buf_size)) < 0 || !*devno_buf)
+	if ((r = sid_util_sysfs_get(s, devno_buf, devno_buf_size, NULL)) < 0 || !*devno_buf)
 		sid_res_log_error_errno(mod_res, r, "Failed to read whole disk device number from sysfs file %s.", s);
 
 	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
@@ -3997,7 +3997,7 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 				goto next;
 			}
 
-			if ((r = sid_util_sysfs_get(s, devno_buf, sizeof(devno_buf))) < 0 || !*devno_buf) {
+			if ((r = sid_util_sysfs_get(s, devno_buf, sizeof(devno_buf), NULL)) < 0 || !*devno_buf) {
 				sid_res_log_error_errno(cmd_res,
 				                        r,
 				                        "Failed to read related disk device number from sysfs file %s.",

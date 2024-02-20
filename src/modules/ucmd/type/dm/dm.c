@@ -176,7 +176,7 @@ static int _dm_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	sid_res_log_debug(mod_res, "ident");
 
 	snprintf(path, sizeof(path), "%s%s/dm/uuid", SYSTEM_SYSFS_PATH, sid_ucmd_ev_dev_path_get(ucmd_ctx));
-	if (sid_util_sysfs_get(path, uuid, sizeof(uuid)) < 0) {
+	if (sid_util_sysfs_get(path, uuid, sizeof(uuid), NULL) < 0) {
 		sid_res_log_error(mod_res, "Failed to get DM uuid.");
 		return -1;
 	}
@@ -184,7 +184,7 @@ static int _dm_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, "uuid", uuid, strlen(uuid) + 1, SID_KV_FL_SYNC | SID_KV_FL_SUB_RD);
 
 	snprintf(path, sizeof(path), "%s%s/dm/name", SYSTEM_SYSFS_PATH, sid_ucmd_ev_dev_path_get(ucmd_ctx));
-	if (sid_util_sysfs_get(path, name, sizeof(name)) < 0) {
+	if (sid_util_sysfs_get(path, name, sizeof(name), NULL) < 0) {
 		sid_res_log_error(mod_res, "Failed to get DM name.");
 		return -1;
 	}

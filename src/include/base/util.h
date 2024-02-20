@@ -49,7 +49,7 @@ bool sid_util_kernel_cmdline_arg_get(const char *arg, char **value, int *ret_cod
  * sysfs-related utilities.
  */
 
-int sid_util_sysfs_get(const char *path, char *buf, size_t buf_size);
+int sid_util_sysfs_get(const char *path, char *buf, size_t buf_size, size_t *char_count);
 
 #ifdef __cplusplus
 }

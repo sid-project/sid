@@ -171,7 +171,7 @@ out:
  * sysfs-related utilities
  */
 
-int sid_util_sysfs_get(const char *path, char *buf, size_t buf_size)
+int sid_util_sysfs_get(const char *path, char *buf, size_t buf_size, size_t *char_count)
 {
 	FILE  *fp;
 	size_t len;
@@ -189,6 +189,9 @@ int sid_util_sysfs_get(const char *path, char *buf, size_t buf_size)
 
 	if ((len = strlen(buf)) && buf[len - 1] == '\n')
 		buf[--len] = '\0';
+
+	if (char_count)
+		*char_count = len + 1;
 
 	r = 0;
 out:
