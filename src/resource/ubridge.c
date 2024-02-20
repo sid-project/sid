@@ -4382,7 +4382,7 @@ static int _set_new_device_kv_records(sid_res_t           *res,
                                       bool                 is_sync)
 {
 	static const char failed_msg[] = "Failed to set %s for new device %s (%s/%s).";
-	const char       *rec_name;
+	const char       *rec_name     = NULL;
 	int               r;
 
 	if ((r = _do_sid_ucmd_dev_set_ready(NULL, ucmd_ctx, SID_DEV_RDY_UNPROCESSED, is_sync)) < 0) {
