@@ -250,8 +250,8 @@ struct sid_ucmd_ctx {
 	/* request environment */
 	union {
 		struct {
-			char          *uid_s; /* device identifier string */
-			char          *num_s; /* device number string (in "major_minor" format) */
+			const char    *uid_s; /* device identifier string */
+			const char    *num_s; /* device number string (in "major_minor" format) */
 			struct udevice udev;
 		} dev;
 
@@ -3361,8 +3361,10 @@ static int _parse_cmd_udev_env(struct sid_ucmd_ctx *ucmd_ctx, const char *env, s
 	ucmd_ctx->req_env.dev.udev.major = major(devno);
 	ucmd_ctx->req_env.dev.udev.minor = minor(devno);
 
-	if (asprintf(&ucmd_ctx->req_env.dev.num_s, "%d_%d", ucmd_ctx->req_env.dev.udev.major, ucmd_ctx->req_env.dev.udev.minor) <
-	    0) {
+	if (asprintf((char **) &ucmd_ctx->req_env.dev.num_s,
+	             "%d_%d",
+	             ucmd_ctx->req_env.dev.udev.major,
+	             ucmd_ctx->req_env.dev.udev.minor) < 0) {
 		r = -ENOMEM;
 		goto out;
 	}
@@ -5449,10 +5451,10 @@ fail:
 			sid_buf_destroy(ucmd_ctx->res_buf);
 
 		if (ucmd_ctx->req_env.dev.num_s)
-			free(ucmd_ctx->req_env.dev.num_s);
+			free((char *) ucmd_ctx->req_env.dev.num_s);
 
 		if (ucmd_ctx->req_env.dev.uid_s)
-			free(ucmd_ctx->req_env.dev.uid_s);
+			free((char *) ucmd_ctx->req_env.dev.uid_s);
 
 		free(ucmd_ctx);
 	}
@@ -5480,8 +5482,8 @@ static int _destroy_command(sid_res_t *res)
 	if ((cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE))
 		free((void *) ucmd_ctx->req_env.exp_path);
 	else {
-		free(ucmd_ctx->req_env.dev.num_s);
-		free(ucmd_ctx->req_env.dev.uid_s);
+		free((char *) ucmd_ctx->req_env.dev.num_s);
+		free((char *) ucmd_ctx->req_env.dev.uid_s);
 	}
 
 	free(ucmd_ctx);
