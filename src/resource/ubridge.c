@@ -252,6 +252,7 @@ struct sid_ucmd_ctx {
 		struct {
 			const char    *uid_s; /* device identifier string */
 			const char    *num_s; /* device number string (in "major_minor" format) */
+			const char    *dsq_s; /* device sequence number string */
 			struct udevice udev;
 		} dev;
 
@@ -3369,6 +3370,11 @@ static int _parse_cmd_udev_env(struct sid_ucmd_ctx *ucmd_ctx, const char *env, s
 		goto out;
 	}
 
+	if (asprintf((char **) &ucmd_ctx->req_env.dev.dsq_s, "%" PRIu64, ucmd_ctx->req_env.dev.udev.diskseq) < 0) {
+		r = -ENOMEM;
+		goto out;
+	}
+
 	/*
 	 * We have this on input ('devno' prefix is already processed so skip it):
 	 *
@@ -5456,6 +5462,9 @@ fail:
 		if (ucmd_ctx->req_env.dev.uid_s)
 			free((char *) ucmd_ctx->req_env.dev.uid_s);
 
+		if (ucmd_ctx->req_env.dev.dsq_s)
+			free((char *) ucmd_ctx->req_env.dev.dsq_s);
+
 		free(ucmd_ctx);
 	}
 	return -1;
@@ -5484,6 +5493,7 @@ static int _destroy_command(sid_res_t *res)
 	else {
 		free((char *) ucmd_ctx->req_env.dev.num_s);
 		free((char *) ucmd_ctx->req_env.dev.uid_s);
+		free((char *) ucmd_ctx->req_env.dev.dsq_s);
 	}
 
 	free(ucmd_ctx);
