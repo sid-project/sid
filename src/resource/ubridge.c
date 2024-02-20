@@ -3829,14 +3829,6 @@ const void *sid_ucmd_kv_disk_part_get(sid_res_t           *mod_res,
 	return _cmd_get_key_spec_value(mod_res, ucmd_ctx, &key_spec, value_size, flags);
 }
 
-static const char *
-	_devno_to_devid_with_udev(struct sid_ucmd_ctx *ucmd_ctx, const char *devno, char *devid_buf, size_t devid_buf_size)
-{
-	const char *devid = NULL;
-
-	return devid;
-}
-
 static const char *_devno_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
                                    const char          *devno,
                                    bool                 udev_fallback,
@@ -3859,19 +3851,18 @@ static const char *_devno_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
 		goto out;
 
-	if ((vvalue = sid_kvs_get(ucmd_ctx->common->kv_store_res, key, &value_size, NULL))) {
-		/* It must be a single value! */
-		if (value_size != VVALUE_SINGLE_CNT)
-			goto out;
+	if (!(vvalue = sid_kvs_get(ucmd_ctx->common->kv_store_res, key, &value_size, NULL)))
+		goto out;
 
-		/* It must be current generation record! */
-		if (VVALUE_GENNUM(vvalue) != ucmd_ctx->common->gennum)
-			goto out;
+	/* It must be a single value! */
+	if (value_size != VVALUE_SINGLE_CNT)
+		goto out;
 
-		devid = _copy_ns_part_from_key(VVALUE_DATA(vvalue), devid_buf, devid_buf_size);
-	} else
-		devid = _devno_to_devid_with_udev(ucmd_ctx, key, devid_buf, devid_buf_size);
+	/* It must be current generation record! */
+	if (VVALUE_GENNUM(vvalue) != ucmd_ctx->common->gennum)
+		goto out;
 
+	devid = _copy_ns_part_from_key(VVALUE_DATA(vvalue), devid_buf, devid_buf_size);
 out:
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 	return devid;
