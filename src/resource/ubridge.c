@@ -3944,13 +3944,7 @@ out:
 	return devid;
 }
 
-static int _set_new_device_kv_records(sid_res_t           *res,
-                                      struct sid_ucmd_ctx *ucmd_ctx,
-                                      const char          *devid,
-                                      const char          *devseq,
-                                      const char          *devno,
-                                      const char          *devname,
-                                      bool                 is_sync)
+static int _set_new_device_kv_records(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, bool is_sync)
 {
 	static const char failed_msg[] = "Failed to set %s for new device %s (%s/%s).";
 	const char       *rec_name     = NULL;
@@ -3968,11 +3962,11 @@ static int _set_new_device_kv_records(sid_res_t           *res,
 
 	if ((r = _handle_dev_for_group(NULL,
 	                               ucmd_ctx,
-	                               devid,
+	                               ucmd_ctx->req_env.dev.uid_s,
 	                               KV_KEY_DOM_ALIAS,
 	                               SID_KV_NS_MODULE,
 	                               "dseq",
-	                               devseq,
+	                               ucmd_ctx->req_env.dev.dsq_s,
 	                               KV_OP_PLUS,
 	                               is_sync)) < 0) {
 		rec_name = "device sequence number";
@@ -3981,11 +3975,11 @@ static int _set_new_device_kv_records(sid_res_t           *res,
 
 	if ((r = _handle_dev_for_group(NULL,
 	                               ucmd_ctx,
-	                               devid,
+	                               ucmd_ctx->req_env.dev.uid_s,
 	                               KV_KEY_DOM_ALIAS,
 	                               SID_KV_NS_MODULE,
 	                               "devno",
-	                               devno,
+	                               ucmd_ctx->req_env.dev.num_s,
 	                               KV_OP_PLUS,
 	                               is_sync)) < 0) {
 		rec_name = "device number";
@@ -3994,18 +3988,24 @@ static int _set_new_device_kv_records(sid_res_t           *res,
 
 	if ((r = _handle_dev_for_group(NULL,
 	                               ucmd_ctx,
-	                               devid,
+	                               ucmd_ctx->req_env.dev.uid_s,
 	                               KV_KEY_DOM_ALIAS,
 	                               SID_KV_NS_MODULE,
 	                               "name",
-	                               devname,
+	                               ucmd_ctx->req_env.dev.udev.name,
 	                               KV_OP_PLUS,
 	                               is_sync)) < 0) {
 		rec_name = "device name";
 		goto out;
 	}
 out:
-	sid_res_log_error_errno(res, r, failed_msg, rec_name, devname, devno, devseq);
+	sid_res_log_error_errno(res,
+	                        r,
+	                        failed_msg,
+	                        rec_name,
+	                        ucmd_ctx->req_env.dev.udev.name,
+	                        ucmd_ctx->req_env.dev.num_s,
+	                        ucmd_ctx->req_env.dev.dsq_s);
 	return r;
 }
 
@@ -4562,18 +4562,7 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 
 	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
 
-	if (snprintf(buf, sizeof(buf), "%" PRIu64, ucmd_ctx->req_env.dev.udev.diskseq) < 0) {
-		sid_res_log_error(cmd_res, "Failed to convert DISKSEQ to string.");
-		return -1;
-	}
-
-	if (_set_new_device_kv_records(cmd_res,
-	                               ucmd_ctx,
-	                               ucmd_ctx->req_env.dev.uid_s,
-	                               buf,
-	                               ucmd_ctx->req_env.dev.num_s,
-	                               ucmd_ctx->req_env.dev.udev.name,
-	                               false) < 0)
+	if (_set_new_device_kv_records(cmd_res, ucmd_ctx, false) < 0)
 		return -1;
 
 	return _refresh_device_hierarchy_from_sysfs(cmd_res);
@@ -6463,10 +6452,12 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 			continue;
 		}
 
-		ucmd_ctx.req_env.dev.num_s = devno_buf;
-		ucmd_ctx.req_env.dev.uid_s = (char *) dev_id;
-		ucmd_ctx.scan.dev_ready    = SID_DEV_RDY_UNDEFINED;
-		ucmd_ctx.scan.dev_reserved = SID_DEV_RES_UNDEFINED;
+		ucmd_ctx.req_env.dev.num_s     = devno_buf;
+		ucmd_ctx.req_env.dev.uid_s     = (char *) dev_id;
+		ucmd_ctx.req_env.dev.dsq_s     = (char *) dev_seq;
+		ucmd_ctx.req_env.dev.udev.name = dev_name;
+		ucmd_ctx.scan.dev_ready        = SID_DEV_RDY_UNDEFINED;
+		ucmd_ctx.scan.dev_reserved     = SID_DEV_RES_UNDEFINED;
 
 		sid_res_log_debug(ubridge_res,
 		                  "Found udev db record tagged with " UDEV_TAG_SID ". Importing id=%s, dseq=%s, devno=%s, name=%s.",
@@ -6475,7 +6466,7 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 		                  devno_buf,
 		                  dev_name);
 
-		r = _set_new_device_kv_records(ubridge_res, &ucmd_ctx, dev_id, dev_seq, devno_buf, dev_name, true);
+		r = _set_new_device_kv_records(ubridge_res, &ucmd_ctx, true);
 		udev_device_unref(udev_dev);
 
 		if (r < 0)
