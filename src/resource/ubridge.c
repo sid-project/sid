@@ -4491,7 +4491,7 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 		return -1;
 	}
 
-	if (_set_new_device_kv_records(NULL,
+	if (_set_new_device_kv_records(cmd_res,
 	                               ucmd_ctx,
 	                               ucmd_ctx->req_env.dev.uid_s,
 	                               buf,
@@ -6395,7 +6395,7 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 		                  devno_buf,
 		                  dev_name);
 
-		r = _set_new_device_kv_records(NULL, &ucmd_ctx, dev_id, dev_seq, devno_buf, dev_name, true);
+		r = _set_new_device_kv_records(ubridge_res, &ucmd_ctx, dev_id, dev_seq, devno_buf, dev_name, true);
 		udev_device_unref(udev_dev);
 
 		if (r < 0)
