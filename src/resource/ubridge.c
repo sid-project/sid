@@ -4007,19 +4007,112 @@ out:
 	return r;
 }
 
+static const char *_devname_to_devid_with_update(sid_res_t           *res,
+                                                 struct sid_ucmd_ctx *ucmd_ctx,
+                                                 const char          *dev_name,
+                                                 char                *dev_id_buf,
+                                                 size_t               dev_id_buf_size)
+{
+	/*
+	 * FIXME: This function calls sid_buf_fmt_add followed by sid_util_sysfs_get several times.
+	 *        Factor these out to a helper fn so we the code is more cleaner and easier to read.
+	 */
+	struct sid_ucmd_ctx tmp_ucmd_ctx = {0};
+	char                devno_buf[16];   /* enough to hold major_minor pair */
+	char                dev_seq_buf[20]; /* enough to hold 64 bit number */
+	const char         *s;
+	const char         *msg;
+	int                 r;
+
+	if ((r = sid_buf_fmt_add(ucmd_ctx->common->gen_buf,
+	                         (const void **) &s,
+	                         NULL,
+	                         "%s%s/%s/%s/dev",
+	                         SYSTEM_SYSFS_PATH,
+	                         ucmd_ctx->req_env.dev.udev.path,
+	                         SYSTEM_SYSFS_SLAVES,
+	                         dev_name)) < 0) {
+		msg = "Failed to compose sysfs 'dev' attribute path";
+		goto fail;
+	}
+
+	if ((r = sid_util_sysfs_get(s, devno_buf, sizeof(devno_buf), NULL)) < 0) {
+		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+		msg = "Failed to read device number from sysfs file";
+		goto fail;
+	}
+	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+	_canonicalize_kv_key(devno_buf);
+
+	if ((s = _devno_to_devid(ucmd_ctx, devno_buf, true, dev_id_buf, dev_id_buf_size)))
+		return s;
+
+	if (!util_uuid_str_gen(&((util_mem_t) {.base = dev_id_buf, .size = dev_id_buf_size}))) {
+		msg = "Failed to generate UUID";
+		goto fail;
+	}
+
+	if (sid_buf_fmt_add(ucmd_ctx->common->gen_buf,
+	                    (const void **) &s,
+	                    NULL,
+	                    "%s%s/%s/%s/diskseq",
+	                    SYSTEM_SYSFS_PATH,
+	                    ucmd_ctx->req_env.dev.udev.path,
+	                    SYSTEM_SYSFS_SLAVES,
+	                    dev_name) < 0) {
+		msg = "Failed to compose sysfs 'diskseq' attribute path";
+		goto fail;
+	}
+
+	if ((r = sid_util_sysfs_get(s, dev_seq_buf, sizeof(dev_seq_buf), NULL)) < 0) {
+		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+		msg = "Failed to read diskseq number from sysfs file";
+		goto fail;
+	}
+	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+
+	tmp_ucmd_ctx.common                = ucmd_ctx->common;
+	tmp_ucmd_ctx.req_env.dev.num_s     = devno_buf;
+	tmp_ucmd_ctx.req_env.dev.uid_s     = dev_id_buf;
+	tmp_ucmd_ctx.req_env.dev.dsq_s     = dev_seq_buf;
+	tmp_ucmd_ctx.req_env.dev.udev.name = dev_name;
+	tmp_ucmd_ctx.scan.dev_ready        = SID_DEV_RDY_UNDEFINED;
+	tmp_ucmd_ctx.scan.dev_reserved     = SID_DEV_RES_UNDEFINED;
+
+	if (_set_new_device_kv_records(res, &tmp_ucmd_ctx, false) < 0)
+		return NULL;
+
+	return dev_id_buf;
+fail:
+	if (r)
+		sid_res_log_error_errno(res,
+		                        r,
+		                        "%s for device %s while processing related device " CMD_DEV_PRINT_FMT,
+		                        msg,
+		                        dev_name,
+		                        CMD_DEV_PRINT(ucmd_ctx));
+	else
+		sid_res_log_error(res,
+		                  "%s for device %s while processing related device " CMD_DEV_PRINT_FMT,
+		                  msg,
+		                  dev_name,
+		                  CMD_DEV_PRINT(ucmd_ctx));
+	return NULL;
+}
+
 static int _refresh_device_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 {
-	/* FIXME: ...fail completely here, discarding any changes made to DB so far if any of the steps below fail? */
+	/*
+	 * FIXME: Fail completely here, discarding any changes made to DB so far if any of the steps below fail?
+	 */
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	char                *s;
 	struct dirent      **dirent  = NULL;
 	struct sid_buf      *vec_buf = NULL;
-	char                 devno_buf[16];
-	char                 devid_buf[UTIL_UUID_STR_SIZE];
 	kv_vector_t         *vvalue;
 	size_t               vsize = 0;
 	int                  count = 0, i = 0;
-	util_mem_t           mem;
+	char                 dev_id_buf[UTIL_UUID_STR_SIZE];
 	int                  r      = -1;
 
 	struct kv_rel_spec rel_spec = {.delta = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
@@ -4119,60 +4212,12 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 			if (dirent[i]->d_name[0] == '.')
 				goto next;
 
-			if (sid_buf_fmt_add(ucmd_ctx->common->gen_buf,
-			                    (const void **) &s,
-			                    NULL,
-			                    "%s%s/%s/%s/dev",
-			                    SYSTEM_SYSFS_PATH,
-			                    ucmd_ctx->req_env.dev.udev.path,
-			                    SYSTEM_SYSFS_SLAVES,
-			                    dirent[i]->d_name) < 0) {
-				sid_res_log_error_errno(cmd_res,
-				                        r,
-				                        "Failed to compose sysfs path for device %s which is relative of "
-				                        "device " CMD_DEV_PRINT_FMT,
-				                        dirent[i]->d_name,
-				                        CMD_DEV_PRINT(ucmd_ctx));
+			if (!(rel_spec.rel_key_spec->ns_part = _devname_to_devid_with_update(cmd_res,
+			                                                                     ucmd_ctx,
+			                                                                     dirent[i]->d_name,
+			                                                                     dev_id_buf,
+			                                                                     sizeof(dev_id_buf))))
 				goto next;
-			}
-
-			if ((r = sid_util_sysfs_get(s, devno_buf, sizeof(devno_buf), NULL)) < 0 || !*devno_buf) {
-				sid_res_log_error_errno(cmd_res,
-				                        r,
-				                        "Failed to read related disk device number from sysfs file %s.",
-				                        s);
-				sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
-				goto next;
-			}
-			sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
-
-			_canonicalize_kv_key(devno_buf);
-			if (!(rel_spec.rel_key_spec->ns_part =
-			              _devno_to_devid(ucmd_ctx, devno_buf, true, devid_buf, sizeof(devid_buf)))) {
-				mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
-				if (!util_uuid_str_gen(&mem)) {
-					sid_res_log_error(cmd_res,
-					                  "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
-					                  CMD_DEV_PRINT(ucmd_ctx));
-					goto next;
-				}
-				rel_spec.rel_key_spec->ns_part = mem.base;
-
-				if (_handle_dev_for_group(NULL,
-				                          ucmd_ctx,
-				                          mem.base,
-				                          KV_KEY_DOM_ALIAS,
-				                          SID_KV_NS_MODULE,
-				                          "devno",
-				                          devno_buf,
-				                          KV_OP_PLUS,
-				                          false) < 0) {
-					sid_res_log_error(cmd_res,
-					                  "Failed to add devno alias for device " CMD_DEV_PRINT_FMT,
-					                  CMD_DEV_PRINT(ucmd_ctx));
-					goto next;
-				}
-			}
 
 			s = _compose_key_prefix(NULL, rel_spec.rel_key_spec);
 			if (!s || ((r = sid_buf_add(vec_buf, (void *) s, strlen(s) + 1, NULL, NULL)) < 0)) {
