@@ -1097,11 +1097,15 @@ static sid_res_t *_search_up(sid_res_t            *res,
 		} while ((res = res->parent));
 	} else if (method == SID_RES_SEARCH_TOP) {
 		do {
-			if (!res->parent && _res_match(res, type, id, match_res))
-				return res;
-
-			if (!_can_walk_up(res, ign_res, match_res))
-				break;
+			if (res->parent) {
+				if (!_can_walk_up(res, ign_res, match_res))
+					break;
+			} else {
+				if (_res_match(res, type, id, match_res))
+					return res;
+				else
+					break;
+			}
 		} while ((res = res->parent));
 	}
 
