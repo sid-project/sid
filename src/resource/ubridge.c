@@ -4453,12 +4453,12 @@ static int _set_new_device_kv_records(sid_res_t           *res,
 	const char       *rec_name     = NULL;
 	int               r;
 
-	if ((r = _do_sid_ucmd_dev_set_ready(NULL, ucmd_ctx, SID_DEV_RDY_UNPROCESSED, is_sync)) < 0) {
+	if ((r = _do_sid_ucmd_dev_set_ready(res, ucmd_ctx, SID_DEV_RDY_UNPROCESSED, is_sync)) < 0) {
 		rec_name = "ready state";
 		goto out;
 	}
 
-	if ((r = _do_sid_ucmd_dev_set_reserved(NULL, ucmd_ctx, SID_DEV_RES_UNPROCESSED, is_sync)) < 0) {
+	if ((r = _do_sid_ucmd_dev_set_reserved(res, ucmd_ctx, SID_DEV_RES_UNPROCESSED, is_sync)) < 0) {
 		rec_name = "reserved state";
 		goto out;
 	}
