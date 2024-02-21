@@ -257,7 +257,7 @@ int sid_mod_reg_mod_subreg_add(sid_res_t *mod_res, sid_res_t *mod_subregistry_re
 	 * Check subregistry does not have any existing parent,
 	 * because we need to make the module as subregistry's parent here.
 	 */
-	if (sid_res_parent_exists(mod_subregistry_res))
+	if (sid_res_search_match(mod_subregistry_res, SID_RES_SEARCH_IMM_ANC, NULL, NULL))
 		return -EINVAL;
 
 	module         = sid_res_data_get(mod_res);
