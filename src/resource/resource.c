@@ -1162,11 +1162,6 @@ bool sid_res_search_match_res(sid_res_t *start_res, sid_res_search_t method, sid
 	return _do_sid_res_search(start_res, method, NULL, NULL, match_res) != NULL;
 }
 
-bool sid_res_parent_exists(sid_res_t *res)
-{
-	return res->parent != NULL;
-}
-
 int sid_res_child_add(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags)
 {
 	if (child->parent)

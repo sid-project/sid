@@ -152,8 +152,6 @@ sid_res_t *sid_res_search(sid_res_t *start_res, sid_res_search_t method, const s
 bool       sid_res_search_match(sid_res_t *start_res, sid_res_search_t method, const sid_res_type_t *type, const char *id);
 bool       sid_res_search_match_res(sid_res_t *start_res, sid_res_search_t method, sid_res_t *res);
 
-bool sid_res_parent_exists(sid_res_t *res);
-
 /*
  * structure/tree modification functions
  */
