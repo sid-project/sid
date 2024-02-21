@@ -120,8 +120,6 @@ sid_res_t      *sid_res_iter_previous(sid_res_iter_t *iter);
 void            sid_res_iter_reset(sid_res_iter_t *iter);
 void            sid_res_iter_destroy(sid_res_iter_t *iter);
 
-bool sid_res_match(sid_res_t *res, const sid_res_type_t *type, const char *id);
-
 typedef enum {
 	/* Descendant search methods */
 
@@ -149,7 +147,10 @@ typedef enum {
 
 } sid_res_search_t;
 
+bool       sid_res_match(sid_res_t *res, const sid_res_type_t *type, const char *id);
 sid_res_t *sid_res_search(sid_res_t *start_res, sid_res_search_t method, const sid_res_type_t *type, const char *id);
+bool       sid_res_search_match(sid_res_t *start_res, sid_res_search_t method, const sid_res_type_t *type, const char *id);
+bool       sid_res_search_match_res(sid_res_t *start_res, sid_res_search_t method, sid_res_t *res);
 
 bool sid_res_parent_exists(sid_res_t *res);
 
