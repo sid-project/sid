@@ -2403,6 +2403,10 @@ void *sid_ucmd_kv_set(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+		return NULL;
+
 	if (ns == SID_KV_NS_UDEV) {
 		dom    = NULL;
 		flags |= SID_KV_FL_SYNC_P;
@@ -2498,6 +2502,10 @@ const void *sid_ucmd_kv_get(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+		return NULL;
+
 	if (ns == SID_KV_NS_UDEV)
 		dom = NULL;
 	else
@@ -2544,6 +2552,10 @@ const void *sid_ucmd_kv_foreign_mod_get(sid_res_t              *mod_res,
 	    UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+		return NULL;
+
 	dom = ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
 	return _do_sid_ucmd_get_foreign_kv(mod_res, ucmd_ctx, foreign_mod_name, NULL, dom, ns, key, value_size, flags, archive);
@@ -2562,6 +2574,10 @@ const void *sid_ucmd_kv_foreign_dev_get(sid_res_t              *mod_res,
 
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_dev_id) || (ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) ||
 	    (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+		return NULL;
+
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return NULL;
 
 	dom = ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2583,6 +2599,10 @@ const void *sid_ucmd_kv_foreign_dev_mod_get(sid_res_t              *mod_res,
 
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_dev_id) || UTIL_STR_EMPTY(foreign_mod_name) ||
 	    (ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+		return NULL;
+
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return NULL;
 
 	dom = ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2685,6 +2705,10 @@ int sid_ucmd_kv_reserve(sid_res_t                  *mod_res,
 	if (!mod_res || !common || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
+	if (!sid_mod_reg_dep_match(mod_res, common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, common->type_mod_registry_res))
+		return -EINVAL;
+
 	dom = ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
 	return _do_sid_ucmd_mod_reserve_kv(mod_res, common, dom, ns, key, flags, 0);
@@ -2695,6 +2719,10 @@ int sid_ucmd_kv_unreserve(sid_res_t *mod_res, struct sid_ucmd_common_ctx *common
 	const char *dom;
 
 	if (!mod_res || !common || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
+		return -EINVAL;
+
+	if (!sid_mod_reg_dep_match(mod_res, common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, common->type_mod_registry_res))
 		return -EINVAL;
 
 	dom = ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2801,6 +2829,10 @@ int sid_ucmd_dev_ready_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, si
 	if (!mod_res || !ucmd_ctx)
 		return -EINVAL;
 
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+		return -EINVAL;
+
 	return _do_sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, ready, false);
 }
 
@@ -2829,6 +2861,10 @@ static sid_ucmd_dev_ready_t _do_sid_ucmd_dev_get_ready(sid_res_t *mod_res, struc
 sid_ucmd_dev_ready_t sid_ucmd_dev_ready_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
 	if (!mod_res || !ucmd_ctx)
+		return SID_DEV_RDY_UNDEFINED;
+
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return SID_DEV_RDY_UNDEFINED;
 
 	return _do_sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, archive);
@@ -2908,6 +2944,10 @@ int sid_ucmd_dev_reserved_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx,
 	if (!mod_res || !ucmd_ctx)
 		return -EINVAL;
 
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+		return -EINVAL;
+
 	return _do_sid_ucmd_dev_set_reserved(mod_res, ucmd_ctx, reserved, false);
 }
 
@@ -2944,6 +2984,10 @@ static sid_ucmd_dev_reserved_t
 sid_ucmd_dev_reserved_t sid_ucmd_dev_reserved_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
 	if (!mod_res || !ucmd_ctx)
+		return SID_DEV_RES_UNDEFINED;
+
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return SID_DEV_RES_UNDEFINED;
 
 	return _do_sid_ucmd_dev_get_reserved(mod_res, ucmd_ctx, archive);
@@ -3023,6 +3067,10 @@ int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_cat) || UTIL_STR_EMPTY(alias_id))
 		return -EINVAL;
 
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+		return -EINVAL;
+
 	return _handle_dev_for_group(mod_res,
 	                             ucmd_ctx,
 	                             NULL,
@@ -3037,6 +3085,10 @@ int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 int sid_ucmd_dev_alias_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
 {
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_cat) || UTIL_STR_EMPTY(alias_id))
+		return -EINVAL;
+
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	return _handle_dev_for_group(mod_res,
@@ -3123,6 +3175,10 @@ int sid_ucmd_grp_create(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+		return -EINVAL;
+
 	group_flags &= ~SID_KV_FL_ALIGN;
 
 	return _do_sid_ucmd_group_create(mod_res, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_flags, group_cat, group_id);
@@ -3137,6 +3193,10 @@ int sid_ucmd_grp_dev_current_add(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_cat) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+		return -EINVAL;
+
 	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_PLUS, false);
 }
 
@@ -3147,6 +3207,10 @@ int sid_ucmd_grp_dev_current_remove(sid_res_t              *mod_res,
                                     const char             *group_id)
 {
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_cat) || UTIL_STR_EMPTY(group_id))
+		return -EINVAL;
+
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	return _handle_dev_for_group(mod_res, ucmd_ctx, NULL, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, KV_OP_MINUS, false);
@@ -3230,6 +3294,10 @@ int sid_ucmd_grp_destroy(sid_res_t              *mod_res,
                          int                     force)
 {
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_id))
+		return -EINVAL;
+
+	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	return _do_sid_ucmd_group_destroy(mod_res, ucmd_ctx, KV_KEY_DOM_GROUP, group_ns, group_cat, group_id, force);
