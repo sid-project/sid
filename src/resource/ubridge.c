@@ -119,10 +119,8 @@
 #define OWNER_CORE                                  MOD_NAME_CORE
 #define DEFAULT_VALUE_FLAGS_CORE                    SID_KV_FL_SYNC_P | SID_KV_FL_RS
 
-#define CMD_DEV_PRINT_FMT                           "%s (%d:%d/%" PRIu64 ")"
-#define CMD_DEV_PRINT(ucmd_ctx)                                                                                                    \
-	ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.udev.major, ucmd_ctx->req_env.dev.udev.minor,                       \
-		ucmd_ctx->req_env.dev.udev.diskseq
+#define CMD_DEV_PRINT_FMT                           "%s (%s/%s)"
+#define CMD_DEV_PRINT(ucmd_ctx)                     ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.num_s, ucmd_ctx->req_env.dev.dsq_s
 
 const sid_res_type_t sid_res_type_ubr;
 const sid_res_type_t sid_res_type_ubr_cmn;
