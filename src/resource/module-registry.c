@@ -393,7 +393,7 @@ out:
 #define MODULE_ALIASES_NAME "sid_mod_aliases"
 #define MODULE_INIT_NAME    "sid_mod_init"
 #define MODULE_EXIT_NAME    "sid_mod_exit"
-#define mod_resET_NAME      "sid_mod_reset"
+#define MODULE_RESET_NAME   "sid_mod_reset"
 
 static int _init_module(sid_res_t *mod_res, const void *kickstart_data, void **data)
 {
@@ -460,7 +460,7 @@ static int _init_module(sid_res_t *mod_res, const void *kickstart_data, void **d
 	/* function symbols are indirect symbols */
 	symbol_params.flags = SID_MOD_SYM_FL_INDIRECT;
 
-	symbol_params.name  = mod_resET_NAME;
+	symbol_params.name  = MODULE_RESET_NAME;
 	if (_load_module_symbol(mod_res, module->handle, &symbol_params, (void **) &module->reset_fn) < 0)
 		goto fail;
 
