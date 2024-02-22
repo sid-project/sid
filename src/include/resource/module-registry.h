@@ -62,6 +62,8 @@ int sid_mod_reg_mod_reset(sid_res_t *mod_res);
 
 int sid_mod_reg_mod_subreg_add(sid_res_t *mod_res, sid_res_t *mod_subregistry_res);
 
+bool sid_mod_reg_dep_match(sid_res_t *res1, sid_res_t *res2);
+
 #ifdef __cplusplus
 }
 #endif

@@ -30,6 +30,7 @@
 const sid_res_type_t sid_res_type_mod;
 
 struct module_registry {
+	void                      *top_registry;
 	const char                *directory;
 	char                      *base_name;
 	const char                *module_prefix;
@@ -276,6 +277,8 @@ int sid_mod_reg_mod_subreg_add(sid_res_t *mod_res, sid_res_t *mod_subregistry_re
 		return -ENOMEM;
 	}
 
+	subregistry->top_registry = module->registry->top_registry;
+
 	/*
 	 * Reset any modules that the subregistry might have already loaded to account
 	 * for the new base name and finally attach the subregistry to the module.
@@ -285,13 +288,38 @@ int sid_mod_reg_mod_subreg_add(sid_res_t *mod_res, sid_res_t *mod_subregistry_re
 	if (sid_mod_reg_mods_reset(mod_subregistry_res) < 0 ||
 	    sid_res_child_add(mod_res, mod_subregistry_res, SID_RES_FL_RESTRICT_WALK_UP | SID_RES_FL_DISALLOW_ISOLATION)) {
 		free(subregistry->base_name);
-		subregistry->base_name = orig_base_name;
+		subregistry->base_name    = orig_base_name;
+		subregistry->top_registry = subregistry;
 		(void) sid_mod_reg_mods_reset(mod_subregistry_res);
 		return -1;
 	}
 
 	free(orig_base_name);
 	return 0;
+}
+
+const void *_get_top_registry(sid_res_t *res)
+{
+	if (sid_res_match(res, &sid_res_type_mod, NULL)) {
+		return ((struct sid_mod *) (sid_res_data_get(res)))->registry->top_registry;
+	} else if (sid_res_match(res, &sid_res_type_mod_reg, NULL))
+		return ((struct module_registry *) (sid_res_data_get(res)))->top_registry;
+	else
+		return NULL;
+}
+
+bool sid_mod_reg_dep_match(sid_res_t *res1, sid_res_t *res2)
+{
+	const void *r1;
+	const void *r2;
+
+	if (!(r1 = _get_top_registry(res1)))
+		return false;
+
+	if (!(r2 = _get_top_registry(res2)))
+		return false;
+
+	return r1 == r2;
 }
 
 static int _load_modules(sid_res_t *mod_registry_res)
@@ -563,6 +591,8 @@ static int _init_module_registry(sid_res_t *mod_registry_res, const void *kickst
 		sid_res_log_debug(mod_registry_res, "Failed to allocate module reigistry structure.");
 		goto fail;
 	}
+
+	registry->top_registry = registry;
 
 	if (!(registry->base_name = util_str_comb_to_str(NULL, SID_MOD_NAME_DELIM, sid_res_id_get(mod_registry_res), NULL))) {
 		sid_res_log_debug(mod_registry_res, "Failed to set base name.");
