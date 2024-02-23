@@ -160,7 +160,7 @@ static void _check_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **da
 
 static void _set_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **data, size_t nr_data, kv_op_t op, bool vector)
 {
-	const char          *owner    = _get_mod_name(NULL);
+	const char          *owner    = _owner_name(NULL);
 	struct kv_key_spec   key_spec = base_spec;
 	char                *key;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT + nr_data];
@@ -199,7 +199,7 @@ static void _set_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **data
 
 static void _set_broken_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 {
-	const char          *owner    = _get_mod_name(NULL);
+	const char          *owner    = _owner_name(NULL);
 	struct kv_key_spec   key_spec = base_spec;
 	char                *key;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT];
