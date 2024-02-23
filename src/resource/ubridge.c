@@ -3490,7 +3490,7 @@ static char *_canonicalize_kv_key(char *id)
 	return id;
 }
 
-static int _part_get_whole_disk(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, char *devno_buf, size_t devno_buf_size)
+static int _part_get_whole_disk(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, char *devno_buf, size_t devno_buf_size)
 {
 	const char *s;
 	int         r;
@@ -3501,7 +3501,7 @@ static int _part_get_whole_disk(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ct
 	                         "%s%s/../dev",
 	                         SYSTEM_SYSFS_PATH,
 	                         ucmd_ctx->req_env.dev.udev.path)) < 0) {
-		sid_res_log_error_errno(mod_res,
+		sid_res_log_error_errno(res,
 		                        r,
 		                        "Failed to compose sysfs path for whole device of partition device " CMD_DEV_PRINT_FMT,
 		                        CMD_DEV_PRINT(ucmd_ctx));
@@ -3509,7 +3509,7 @@ static int _part_get_whole_disk(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ct
 	}
 
 	if ((r = sid_util_sysfs_get(s, devno_buf, devno_buf_size, NULL)) < 0 || !*devno_buf)
-		sid_res_log_error_errno(mod_res, r, "Failed to read whole disk device number from sysfs file %s.", s);
+		sid_res_log_error_errno(res, r, "Failed to read whole disk device number from sysfs file %s.", s);
 
 	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
 	return r;
@@ -3546,7 +3546,7 @@ static char *_owner_name_from_blkext(sid_res_t *cmd_res, char *buf, size_t buf_s
 				return MOD_NAME_NVME;
 
 			/* Otherwise, get whole disk device and then lookup its module name. */
-			if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
+			if (_part_get_whole_disk(cmd_res, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 				return NULL;
 
 			if (!(p = index(devno_buf, ':')))
@@ -4400,7 +4400,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	                    core_owner);
 
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
-		if (_part_get_whole_disk(NULL, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
+		if (_part_get_whole_disk(cmd_res, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
 			goto out;
 
 		_canonicalize_kv_key(devno_buf);
