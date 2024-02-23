@@ -4080,13 +4080,14 @@ static int _set_new_device_kv_records(sid_res_t *res, struct sid_ucmd_ctx *ucmd_
 		goto out;
 	}
 out:
-	sid_res_log_error_errno(res,
-	                        r,
-	                        failed_msg,
-	                        rec_name,
-	                        ucmd_ctx->req_env.dev.udev.name,
-	                        ucmd_ctx->req_env.dev.num_s,
-	                        ucmd_ctx->req_env.dev.dsq_s);
+	if (r < 0)
+		sid_res_log_error_errno(res,
+		                        r,
+		                        failed_msg,
+		                        rec_name,
+		                        ucmd_ctx->req_env.dev.udev.name,
+		                        ucmd_ctx->req_env.dev.num_s,
+		                        ucmd_ctx->req_env.dev.dsq_s);
 	return r;
 }
 
