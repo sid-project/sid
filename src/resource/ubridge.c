@@ -116,6 +116,10 @@
 
 #define DEV_NAME_PREFIX_NVME                        "nvme"
 
+#define DEV_ALIAS_DEVNO                             "devno"
+#define DEV_ALIAS_DSEQ                              "dseq"
+#define DEV_ALIAS_NAME                              "name"
+
 #define OWNER_CORE                                  MOD_NAME_CORE
 #define DEFAULT_VALUE_FLAGS_CORE                    SID_KV_FL_SYNC_P | SID_KV_FL_RS
 
@@ -330,7 +334,6 @@ typedef struct iovec kv_vector_t;
 #define VVALUE_FLAGS(vvalue)  (*((sid_ucmd_kv_flags_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_FLAGS].iov_base))
 #define VVALUE_GENNUM(vvalue) (*((uint16_t *) ((kv_vector_t *) vvalue)[VVALUE_IDX_GENNUM].iov_base))
 #define VVALUE_OWNER(vvalue)  ((char *) ((kv_vector_t *) vvalue)[VVALUE_IDX_OWNER].iov_base)
-#define VVALUE_DATA(vvalue)   (((kv_vector_t *) vvalue)[VVALUE_IDX_DATA].iov_base)
 
 struct kv_unset_nfo {
 	uint64_t    seqnum;
@@ -3983,39 +3986,63 @@ const void *sid_ucmd_kv_disk_part_get(sid_res_t           *mod_res,
 	return _cmd_get_key_spec_value(mod_res, ucmd_ctx, _owner_name(mod_res), &key_spec, value_size, flags);
 }
 
-static const char *_devno_to_devid(struct sid_ucmd_ctx *ucmd_ctx, const char *devno, char *devid_buf, size_t devid_buf_size)
+static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
+                               const char          *alias_name,
+                               const char          *alias_value,
+                               uint16_t            *gennum,
+                               size_t              *count,
+                               char                *buf,
+                               size_t               buf_size)
 {
-	const char        *devid = NULL;
-	const char        *key;
-	kv_vector_t       *vvalue;
-	size_t             value_size;
-	struct kv_key_spec key_spec = {.extra_op = NULL,
-	                               .op       = KV_OP_SET,
-	                               .dom      = KV_KEY_DOM_ALIAS,
-	                               .ns       = SID_KV_NS_MODULE,
-	                               .ns_part  = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
-	                               .id_cat   = "devno",
-	                               .id       = devno,
-	                               .core     = KV_KEY_GEN_GROUP_MEMBERS};
+	const char  *key;
+	char        *p;
+	kv_vector_t *vvalue;
+	size_t       vvalue_size;
+	int          i, r;
 
-	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
+	if (!(key = _compose_key(ucmd_ctx->common->gen_buf,
+	                         &((struct kv_key_spec) {.extra_op = NULL,
+	                                                 .op       = KV_OP_SET,
+	                                                 .dom      = KV_KEY_DOM_ALIAS,
+	                                                 .ns       = SID_KV_NS_MODULE,
+	                                                 .ns_part  = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
+	                                                 .id_cat   = alias_name,
+	                                                 .id       = alias_value,
+	                                                 .core     = KV_KEY_GEN_GROUP_MEMBERS})))) {
+		r = -ENOMEM;
 		goto out;
+	}
 
-	if (!(vvalue = sid_kvs_get(ucmd_ctx->common->kv_store_res, key, &value_size, NULL)))
+	if (!(vvalue = sid_kvs_get(ucmd_ctx->common->kv_store_res, key, &vvalue_size, NULL))) {
+		r = -ENODATA;
 		goto out;
+	}
 
-	/* It must be a single value! */
-	if (value_size != VVALUE_SINGLE_CNT)
+	vvalue_size -= VVALUE_HEADER_CNT;
+
+	if (buf_size < (vvalue_size * UTIL_UUID_STR_SIZE)) {
+		r = -ENOBUFS;
 		goto out;
+	}
 
-	/* It must be current generation record! */
-	if (VVALUE_GENNUM(vvalue) != ucmd_ctx->common->gennum)
-		goto out;
+	if (gennum)
+		*gennum = VVALUE_GENNUM(vvalue);
 
-	devid = _copy_ns_part_from_key(VVALUE_DATA(vvalue), devid_buf, devid_buf_size);
+	if (count)
+		*count = vvalue_size;
+
+	for (i = 0, p = buf; i < vvalue_size; i++) {
+		if (!_copy_ns_part_from_key(vvalue[VVALUE_IDX_DATA + i].iov_base, p, buf_size)) {
+			r = -ENOBUFS;
+			goto out;
+		}
+		buf_size -= vvalue[VVALUE_IDX_DATA + i].iov_len;
+	}
+
+	r = 0;
 out:
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
-	return devid;
+	return r;
 }
 
 static int _set_new_device_kv_records(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, bool is_sync)
@@ -4040,7 +4067,7 @@ static int _set_new_device_kv_records(sid_res_t *res, struct sid_ucmd_ctx *ucmd_
 	                               ucmd_ctx->req_env.dev.uid_s,
 	                               KV_KEY_DOM_ALIAS,
 	                               SID_KV_NS_MODULE,
-	                               "dseq",
+	                               DEV_ALIAS_DSEQ,
 	                               ucmd_ctx->req_env.dev.dsq_s,
 	                               KV_OP_PLUS,
 	                               is_sync)) < 0) {
@@ -4054,7 +4081,7 @@ static int _set_new_device_kv_records(sid_res_t *res, struct sid_ucmd_ctx *ucmd_
 	                               ucmd_ctx->req_env.dev.uid_s,
 	                               KV_KEY_DOM_ALIAS,
 	                               SID_KV_NS_MODULE,
-	                               "devno",
+	                               DEV_ALIAS_DEVNO,
 	                               ucmd_ctx->req_env.dev.num_s,
 	                               KV_OP_PLUS,
 	                               is_sync)) < 0) {
@@ -4068,7 +4095,7 @@ static int _set_new_device_kv_records(sid_res_t *res, struct sid_ucmd_ctx *ucmd_
 	                               ucmd_ctx->req_env.dev.uid_s,
 	                               KV_KEY_DOM_ALIAS,
 	                               SID_KV_NS_MODULE,
-	                               "name",
+	                               DEV_ALIAS_NAME,
 	                               ucmd_ctx->req_env.dev.udev.name,
 	                               KV_OP_PLUS,
 	                               is_sync)) < 0) {
@@ -4124,8 +4151,16 @@ static const char *_devname_to_devid_with_update(sid_res_t           *res,
 	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
 	_canonicalize_kv_key(devno_buf);
 
-	if ((s = _devno_to_devid(ucmd_ctx, devno_buf, dev_id_buf, dev_id_buf_size)))
-		return s;
+	r = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, devno_buf, NULL, NULL, dev_id_buf, dev_id_buf_size);
+
+	if (r == 0)
+		return dev_id_buf;
+
+	if (r != -ENODATA) {
+		msg = "Failed to lookup device ID";
+		goto fail;
+	}
+	r = 0;
 
 	if (!util_uuid_str_gen(&((util_mem_t) {.base = dev_id_buf, .size = dev_id_buf_size}))) {
 		msg = "Failed to generate UUID";
@@ -4356,7 +4391,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	const char          *s   = NULL;
 	char                *key = NULL;
 	util_mem_t           mem;
-	int                  r = -1;
+	int                  r, ret = -1;
 	size_t               count;
 
 	struct kv_rel_spec rel_spec = {
@@ -4401,7 +4436,11 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 
 		_canonicalize_kv_key(devno_buf);
 
-		if (!(rel_spec.rel_key_spec->ns_part = _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
+		r = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, devno_buf, NULL, NULL, devid_buf, sizeof(devid_buf));
+
+		if (r == 0)
+			rel_spec.rel_key_spec->ns_part = devid_buf;
+		else if (r == -ENODATA) {
 			mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
 			if (!util_uuid_str_gen(&mem)) {
 				sid_res_log_error(cmd_res,
@@ -4417,10 +4456,16 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 			                      mem.base,
 			                      KV_KEY_DOM_ALIAS,
 			                      SID_KV_NS_MODULE,
-			                      "devno",
+			                      DEV_ALIAS_DEVNO,
 			                      devno_buf,
 			                      KV_OP_PLUS,
 			                      false);
+		} else {
+			sid_res_log_error_errno(cmd_res,
+			                        r,
+			                        "Failed to lookup device ID for device " CMD_DEV_PRINT_FMT,
+			                        CMD_DEV_PRINT(ucmd_ctx));
+			goto out;
 		}
 
 		if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
@@ -4446,11 +4491,11 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	 */
 	_kv_delta_set(key, vvalue, count, &update_arg);
 
-	r = 0;
+	ret = 0;
 out:
 	_destroy_key(NULL, key);
 	_destroy_key(NULL, s);
-	return r;
+	return ret;
 }
 
 static int _refresh_device_hierarchy_from_sysfs(sid_res_t *cmd_res)
@@ -4626,6 +4671,7 @@ static int _get_device_uuid(sid_res_t *cmd_res)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	char                 buf[UTIL_UUID_STR_SIZE]; /* used for both uuid and diskseq */
 	const char          *uuid_p;
+	int                  r;
 
 	if (!(uuid_p = _do_sid_ucmd_get_kv(cmd_res,
 	                                   ucmd_ctx,
@@ -4635,14 +4681,19 @@ static int _get_device_uuid(sid_res_t *cmd_res)
 	                                   KV_KEY_UDEV_SID_DEV_ID,
 	                                   NULL,
 	                                   NULL,
-	                                   0)) &&
-	    !(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
-		/* SID doesn't appera to have a record of this device */
-		sid_res_log_error(cmd_res, "Couldn't find UUID for device " CMD_DEV_PRINT_FMT ".", CMD_DEV_PRINT(ucmd_ctx));
-		return -1;
-	}
-	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
+	                                   0))) {
+		r = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, ucmd_ctx->req_env.dev.num_s, NULL, NULL, buf, sizeof(buf));
 
+		if (r == 0)
+			uuid_p = buf;
+		else {
+			/* SID doesn't appera to have a record of this device */
+			sid_res_log_error(cmd_res, "Couldn't find UUID for device " CMD_DEV_PRINT_FMT ".", CMD_DEV_PRINT(ucmd_ctx));
+			return -1;
+		}
+	}
+
+	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
 	return 0;
 }
 
@@ -4652,6 +4703,7 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 	const char          *uuid_p;
 	char                 buf[UTIL_UUID_STR_SIZE]; /* used for both uuid and diskseq */
 	util_mem_t           mem = {.base = buf, .size = sizeof(buf)};
+	int                  r;
 
 	/* try to get current device's UUID from udev first */
 	if (!(uuid_p = _do_sid_ucmd_get_kv(cmd_res,
@@ -4664,7 +4716,11 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 	                                   NULL,
 	                                   0))) {
 		/* if not in udev, check if we have set UUID for this device already */
-		if (!(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
+		r = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, ucmd_ctx->req_env.dev.num_s, NULL, NULL, buf, sizeof(buf));
+
+		if (r == 0)
+			uuid_p = buf;
+		else if (r == -ENODATA) {
 			/* if we haven't set the UUID for this device yet, do it now */
 			if (!util_uuid_str_gen(&mem)) {
 				sid_res_log_error(cmd_res,
@@ -4673,6 +4729,12 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 				return -1;
 			}
 			uuid_p = mem.base;
+		} else {
+			sid_res_log_error_errno(cmd_res,
+			                        r,
+			                        "Failed to lookup device ID for device " CMD_DEV_PRINT_FMT,
+			                        CMD_DEV_PRINT(ucmd_ctx));
+			return -1;
 		}
 
 		if (!_do_sid_ucmd_set_kv(cmd_res,
