@@ -5840,13 +5840,10 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 			update_arg.res      = common_ctx->kv_store_res;
 			update_arg.ret_code = 0;
 
-			if (unset) {
-				unset_nfo.owner   = VVALUE_OWNER(vvalue);
-				unset_nfo.seqnum  = VVALUE_SEQNUM(vvalue);
-				update_arg.custom = &unset_nfo;
-			}
+			unset_nfo.owner     = VVALUE_OWNER(vvalue);
+			unset_nfo.seqnum    = VVALUE_SEQNUM(vvalue);
 
-			vvalue_str = _buffer_get_vvalue_str(common_ctx->gen_buf, unset, vvalue, value_size);
+			vvalue_str          = _buffer_get_vvalue_str(common_ctx->gen_buf, unset, vvalue, value_size);
 			sid_res_log_debug(res, syncing_msg, key, vvalue_str ?: "NULL", VVALUE_SEQNUM(vvalue));
 			if (vvalue_str)
 				sid_buf_mem_rewind(common_ctx->gen_buf, vvalue_str);
@@ -5893,11 +5890,8 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 			update_arg.res = common_ctx->kv_store_res;
 			update_arg.ret_code = 0;
 
-			if (unset) {
-				unset_nfo.owner   = svalue->data;
-				unset_nfo.seqnum  = svalue->seqnum;
-				update_arg.custom = &unset_nfo;
-			}
+			unset_nfo.owner     = svalue->data;
+			unset_nfo.seqnum    = svalue->seqnum;
 
 			sid_res_log_debug(res, syncing_msg, key, unset ? "NULL" : svalue->data + ext_data_offset, svalue->seqnum);
 
@@ -5910,6 +5904,8 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 		if (unset) {
 			if (!(archive_key = _compose_archive_key(res, key, key_size)))
 				goto out;
+
+			update_arg.custom = &unset_nfo;
 
 			if (archive) {
 				if (sid_kvs_unset_with_archive(common_ctx->kv_store_res,
@@ -5951,6 +5947,8 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 					                 _kv_cb_main_set,
 					                 &update_arg))
 						goto out;
+
+					update_arg.custom = &unset_nfo;
 
 					if (sid_kvs_unset(common_ctx->kv_store_res, archive_key, _kv_cb_main_unset, &update_arg) <
 					    0)
