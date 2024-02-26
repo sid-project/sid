@@ -4050,7 +4050,7 @@ out:
 	return r;
 }
 
-static int _set_new_device_kv_records(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, bool is_sync)
+static int _set_new_dev_kvs(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, bool is_sync)
 {
 	static const char failed_msg[] = "Failed to set %s for new device %s (%s/%s).";
 	const char       *rec_name     = NULL;
@@ -4199,7 +4199,7 @@ static const char *_devname_to_devid_with_update(sid_res_t           *res,
 	tmp_ucmd_ctx.scan.dev_ready        = SID_DEV_RDY_UNDEFINED;
 	tmp_ucmd_ctx.scan.dev_reserved     = SID_DEV_RES_UNDEFINED;
 
-	if (_set_new_device_kv_records(res, &tmp_ucmd_ctx, false) < 0)
+	if (_set_new_dev_kvs(res, &tmp_ucmd_ctx, false) < 0)
 		return NULL;
 
 	return dev_id_buf;
@@ -4702,46 +4702,82 @@ static int _get_device_uuid(sid_res_t *cmd_res)
 	return 0;
 }
 
-static int _set_device_kv_records(sid_res_t *cmd_res)
+static bool _dev_matches_udev(sid_res_t *cmd_res, const char *devid)
+{
+	// TODO: implement this
+	return true;
+}
+
+static int _set_dev_kvs(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
-	const char          *uuid_p;
-	char                 buf[UTIL_UUID_STR_SIZE]; /* used for both uuid and diskseq */
+	char                 buf[UTIL_UUID_STR_SIZE];
 	util_mem_t           mem = {.base = buf, .size = sizeof(buf)};
+	const char          *devid, *devid_udev, *devid_to_use, *devid_msg;
+	size_t               count;
 	int                  r;
 
-	/* try to get current device's UUID from udev first */
-	if (!(uuid_p = _do_sid_ucmd_get_kv(cmd_res,
-	                                   ucmd_ctx,
-	                                   _owner_name(NULL),
-	                                   NULL,
-	                                   SID_KV_NS_UDEV,
-	                                   KV_KEY_UDEV_SID_DEV_ID,
-	                                   NULL,
-	                                   NULL,
-	                                   0))) {
-		/* if not in udev, check if we have set UUID for this device already */
-		r = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, ucmd_ctx->req_env.dev.num_s, NULL, NULL, buf, sizeof(buf));
+	devid_udev = _do_sid_ucmd_get_kv(cmd_res,
+	                                 ucmd_ctx,
+	                                 _owner_name(NULL),
+	                                 NULL,
+	                                 SID_KV_NS_UDEV,
+	                                 KV_KEY_UDEV_SID_DEV_ID,
+	                                 NULL,
+	                                 NULL,
+	                                 0);
 
-		if (r == 0)
-			uuid_p = buf;
-		else if (r == -ENODATA) {
-			/* if we haven't set the UUID for this device yet, do it now */
-			if (!util_uuid_str_gen(&mem)) {
-				sid_res_log_error(cmd_res,
-				                  "Failed to generate device ID for " CMD_DEV_PRINT_FMT ".",
-				                  CMD_DEV_PRINT(ucmd_ctx));
-				return -1;
-			}
-			uuid_p = mem.base;
-		} else {
-			sid_res_log_error_errno(cmd_res,
-			                        r,
-			                        "Failed to lookup device ID for " CMD_DEV_PRINT_FMT,
-			                        CMD_DEV_PRINT(ucmd_ctx));
+	// TODO: check we have only a single devid returned and that the generation is correct
+	r          = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, ucmd_ctx->req_env.dev.num_s, NULL, &count, buf, sizeof(buf));
+
+	if (r == 0)
+		devid = buf;
+	else if (r == -ENODATA)
+		devid = NULL;
+	else {
+		sid_res_log_error_errno(cmd_res, r, "Failed to lookup device ID for " CMD_DEV_PRINT_FMT, CMD_DEV_PRINT(ucmd_ctx));
+		return -1;
+	}
+
+	if (!devid && devid_udev) {
+		devid_to_use = devid_udev;
+		devid_msg    = "(pulling ID from udev)";
+	} else if (devid && !devid_udev) {
+		devid_to_use = devid;
+		devid_msg    = "(pushing ID to udev)";
+	} else if (!devid && !devid_udev) {
+		if (!util_uuid_str_gen(&mem)) {
+			sid_res_log_error(cmd_res,
+			                  "Failed to generate new device ID for " CMD_DEV_PRINT_FMT ".",
+			                  CMD_DEV_PRINT(ucmd_ctx));
 			return -1;
 		}
 
+		devid_to_use = mem.base;
+		devid_msg    = "(ID newly generated)";
+	} else {
+		devid_to_use = devid;
+	}
+
+	if (!(ucmd_ctx->req_env.dev.uid_s = strdup(devid_to_use)))
+		return -1;
+
+	sid_res_log_debug(cmd_res,
+	                  "Using device ID %s for " CMD_DEV_PRINT_FMT " %s",
+	                  devid_to_use,
+	                  CMD_DEV_PRINT(ucmd_ctx),
+	                  devid_msg);
+
+	if (!devid) {
+		if (_set_new_dev_kvs(cmd_res, ucmd_ctx, false) < 0)
+			return -1;
+	} else {
+		if (!_dev_matches_udev(cmd_res, devid)) {
+			// TODO: handle scenario where udev db and sid kvs is out of sync
+		}
+	}
+
+	if (!devid_udev) {
 		if (!_do_sid_ucmd_set_kv(cmd_res,
 		                         ucmd_ctx,
 		                         _owner_name(NULL),
@@ -4749,30 +4785,25 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 		                         SID_KV_NS_UDEV,
 		                         KV_KEY_UDEV_SID_DEV_ID,
 		                         SID_KV_FL_SYNC,
-		                         uuid_p,
-		                         strlen(uuid_p) + 1)) {
+		                         ucmd_ctx->req_env.dev.uid_s,
+		                         strlen(ucmd_ctx->req_env.dev.uid_s) + 1)) {
 			sid_res_log_error(cmd_res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_DEV_ID);
-			return -1;
-		}
-
-		if (!_do_sid_ucmd_set_kv(cmd_res,
-		                         ucmd_ctx,
-		                         _owner_name(NULL),
-		                         NULL,
-		                         SID_KV_NS_UDEV,
-		                         KV_KEY_UDEV_SID_TAGS,
-		                         SID_KV_FL_SYNC,
-		                         UDEV_TAG_SID,
-		                         sizeof(UDEV_TAG_SID) + 1)) {
-			sid_res_log_error(cmd_res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_TAGS);
 			return -1;
 		}
 	}
 
-	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
-
-	if (_set_new_device_kv_records(cmd_res, ucmd_ctx, false) < 0)
+	if (!_do_sid_ucmd_set_kv(cmd_res,
+	                         ucmd_ctx,
+	                         _owner_name(NULL),
+	                         NULL,
+	                         SID_KV_NS_UDEV,
+	                         KV_KEY_UDEV_SID_TAGS,
+	                         SID_KV_FL_SYNC,
+	                         UDEV_TAG_SID,
+	                         sizeof(UDEV_TAG_SID) + 1)) {
+		sid_res_log_error(cmd_res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_TAGS);
 		return -1;
+	}
 
 	return _refresh_device_hierarchy_from_sysfs(cmd_res);
 }
@@ -4789,7 +4820,7 @@ static int _cmd_exec_scan_init(sid_res_t *cmd_res)
 	if (ucmd_ctx->scan.phase == CMD_SCAN_PHASE_REMOVE_INIT) {
 		if (_get_device_uuid(cmd_res) < 0)
 			goto fail;
-	} else if (_set_device_kv_records(cmd_res) < 0)
+	} else if (_set_dev_kvs(cmd_res) < 0)
 		goto fail;
 
 	return 0;
@@ -6693,7 +6724,7 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 		                  devno_buf,
 		                  dev_name);
 
-		r = _set_new_device_kv_records(ubridge_res, &ucmd_ctx, true);
+		r = _set_new_dev_kvs(ubridge_res, &ucmd_ctx, true);
 		udev_device_unref(udev_dev);
 
 		if (r < 0)
