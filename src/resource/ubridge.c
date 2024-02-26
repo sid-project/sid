@@ -3983,11 +3983,7 @@ const void *sid_ucmd_kv_disk_part_get(sid_res_t           *mod_res,
 	return _cmd_get_key_spec_value(mod_res, ucmd_ctx, _owner_name(mod_res), &key_spec, value_size, flags);
 }
 
-static const char *_devno_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
-                                   const char          *devno,
-                                   bool                 udev_fallback,
-                                   char                *devid_buf,
-                                   size_t               devid_buf_size)
+static const char *_devno_to_devid(struct sid_ucmd_ctx *ucmd_ctx, const char *devno, char *devid_buf, size_t devid_buf_size)
 {
 	const char        *devid = NULL;
 	const char        *key;
@@ -4128,7 +4124,7 @@ static const char *_devname_to_devid_with_update(sid_res_t           *res,
 	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
 	_canonicalize_kv_key(devno_buf);
 
-	if ((s = _devno_to_devid(ucmd_ctx, devno_buf, true, dev_id_buf, dev_id_buf_size)))
+	if ((s = _devno_to_devid(ucmd_ctx, devno_buf, dev_id_buf, dev_id_buf_size)))
 		return s;
 
 	if (!util_uuid_str_gen(&((util_mem_t) {.base = dev_id_buf, .size = dev_id_buf_size}))) {
@@ -4405,7 +4401,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 
 		_canonicalize_kv_key(devno_buf);
 
-		if (!(rel_spec.rel_key_spec->ns_part = _devno_to_devid(ucmd_ctx, devno_buf, true, devid_buf, sizeof(devid_buf)))) {
+		if (!(rel_spec.rel_key_spec->ns_part = _devno_to_devid(ucmd_ctx, devno_buf, devid_buf, sizeof(devid_buf)))) {
 			mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
 			if (!util_uuid_str_gen(&mem)) {
 				sid_res_log_error(cmd_res,
@@ -4640,7 +4636,7 @@ static int _get_device_uuid(sid_res_t *cmd_res)
 	                                   NULL,
 	                                   NULL,
 	                                   0)) &&
-	    !(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, false, buf, sizeof(buf)))) {
+	    !(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
 		/* SID doesn't appera to have a record of this device */
 		sid_res_log_error(cmd_res, "Couldn't find UUID for device " CMD_DEV_PRINT_FMT ".", CMD_DEV_PRINT(ucmd_ctx));
 		return -1;
@@ -4668,7 +4664,7 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 	                                   NULL,
 	                                   0))) {
 		/* if not in udev, check if we have set UUID for this device already */
-		if (!(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, false, buf, sizeof(buf)))) {
+		if (!(uuid_p = _devno_to_devid(ucmd_ctx, ucmd_ctx->req_env.dev.num_s, buf, sizeof(buf)))) {
 			/* if we haven't set the UUID for this device yet, do it now */
 			if (!util_uuid_str_gen(&mem)) {
 				sid_res_log_error(cmd_res,
