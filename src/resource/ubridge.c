@@ -4163,7 +4163,7 @@ static const char *_devname_to_devid_with_update(sid_res_t           *res,
 	r = 0;
 
 	if (!util_uuid_str_gen(&((util_mem_t) {.base = dev_id_buf, .size = dev_id_buf_size}))) {
-		msg = "Failed to generate UUID";
+		msg = "Failed to generate device ID";
 		goto fail;
 	}
 
@@ -4202,13 +4202,13 @@ fail:
 	if (r)
 		sid_res_log_error_errno(res,
 		                        r,
-		                        "%s for device %s while processing related device " CMD_DEV_PRINT_FMT,
+		                        "%s for %s while processing related device " CMD_DEV_PRINT_FMT,
 		                        msg,
 		                        dev_name,
 		                        CMD_DEV_PRINT(ucmd_ctx));
 	else
 		sid_res_log_error(res,
-		                  "%s for device %s while processing related device " CMD_DEV_PRINT_FMT,
+		                  "%s for %s while processing related device " CMD_DEV_PRINT_FMT,
 		                  msg,
 		                  dev_name,
 		                  CMD_DEV_PRINT(ucmd_ctx));
@@ -4444,7 +4444,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 			mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
 			if (!util_uuid_str_gen(&mem)) {
 				sid_res_log_error(cmd_res,
-				                  "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
+				                  "Failed to generate device ID for " CMD_DEV_PRINT_FMT ".",
 				                  CMD_DEV_PRINT(ucmd_ctx));
 				goto out;
 			}
@@ -4688,7 +4688,7 @@ static int _get_device_uuid(sid_res_t *cmd_res)
 			uuid_p = buf;
 		else {
 			/* SID doesn't appera to have a record of this device */
-			sid_res_log_error(cmd_res, "Couldn't find UUID for device " CMD_DEV_PRINT_FMT ".", CMD_DEV_PRINT(ucmd_ctx));
+			sid_res_log_error(cmd_res, "Couldn't find device ID for " CMD_DEV_PRINT_FMT ".", CMD_DEV_PRINT(ucmd_ctx));
 			return -1;
 		}
 	}
@@ -4724,7 +4724,7 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 			/* if we haven't set the UUID for this device yet, do it now */
 			if (!util_uuid_str_gen(&mem)) {
 				sid_res_log_error(cmd_res,
-				                  "Failed to generate UUID for device " CMD_DEV_PRINT_FMT ".",
+				                  "Failed to generate device ID for " CMD_DEV_PRINT_FMT ".",
 				                  CMD_DEV_PRINT(ucmd_ctx));
 				return -1;
 			}
