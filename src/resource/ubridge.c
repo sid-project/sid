@@ -4463,7 +4463,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 		} else {
 			sid_res_log_error_errno(cmd_res,
 			                        r,
-			                        "Failed to lookup device ID for device " CMD_DEV_PRINT_FMT,
+			                        "Failed to lookup device ID for " CMD_DEV_PRINT_FMT,
 			                        CMD_DEV_PRINT(ucmd_ctx));
 			goto out;
 		}
@@ -4732,7 +4732,7 @@ static int _set_device_kv_records(sid_res_t *cmd_res)
 		} else {
 			sid_res_log_error_errno(cmd_res,
 			                        r,
-			                        "Failed to lookup device ID for device " CMD_DEV_PRINT_FMT,
+			                        "Failed to lookup device ID for " CMD_DEV_PRINT_FMT,
 			                        CMD_DEV_PRINT(ucmd_ctx));
 			return -1;
 		}
