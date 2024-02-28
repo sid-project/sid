@@ -3998,7 +3998,7 @@ static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 	char        *p;
 	kv_vector_t *vvalue;
 	size_t       vvalue_size;
-	int          i, r;
+	int          r;
 
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf,
 	                         &((struct kv_key_spec) {.extra_op = NULL,
@@ -4018,25 +4018,23 @@ static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 		goto out;
 	}
 
-	vvalue_size -= VVALUE_HEADER_CNT;
-
-	if (buf_size < (vvalue_size * UTIL_UUID_STR_SIZE)) {
-		r = -ENOBUFS;
-		goto out;
-	}
-
 	if (gennum)
 		*gennum = VVALUE_GENNUM(vvalue);
 
 	if (count)
 		*count = vvalue_size;
 
-	for (i = 0, p = buf; i < vvalue_size; i++) {
-		if (!_copy_ns_part_from_key(vvalue[VVALUE_IDX_DATA + i].iov_base, p, buf_size)) {
+	vvalue      += VVALUE_HEADER_CNT;
+	vvalue_size -= VVALUE_HEADER_CNT;
+
+	for (p = buf; vvalue_size; vvalue_size--, vvalue++) {
+		if (!_copy_ns_part_from_key(vvalue->iov_base, p, buf_size)) {
 			r = -ENOBUFS;
 			goto out;
 		}
-		buf_size -= vvalue[VVALUE_IDX_DATA + i].iov_len;
+
+		p        += vvalue->iov_len;
+		buf_size -= vvalue->iov_len;
 	}
 
 	r = 0;
