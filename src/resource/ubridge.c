@@ -3458,11 +3458,6 @@ static int _parse_cmd_udev_env(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, co
 		goto out;
 	}
 
-	if (asprintf((char **) &ucmd_ctx->req_env.dev.dsq_s, "%" PRIu64, ucmd_ctx->req_env.dev.udev.diskseq) < 0) {
-		r = -ENOMEM;
-		goto out;
-	}
-
 	/*
 	 * We have this on input ('devno' prefix is already processed so skip it):
 	 *
@@ -3471,6 +3466,11 @@ static int _parse_cmd_udev_env(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, co
 	for (end = env + env_size, env += sizeof(devno); env < end; env += strlen(env) + 1) {
 		if ((r = _device_add_field(res, ucmd_ctx, env) < 0))
 			goto out;
+	}
+
+	if (asprintf((char **) &ucmd_ctx->req_env.dev.dsq_s, "%" PRIu64, ucmd_ctx->req_env.dev.udev.diskseq) < 0) {
+		r = -ENOMEM;
+		goto out;
 	}
 out:
 	return r;
