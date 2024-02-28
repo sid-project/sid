@@ -42,6 +42,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <libudev.h>
+#include <limits.h>
 #include <sys/mman.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
@@ -716,9 +717,15 @@ static const char *_copy_ns_part_from_key(const char *key, char *buf, size_t buf
 	if (!(str = _get_key_part(key, KEY_PART_NS_PART, &len)))
 		return NULL;
 
-	// FIXME: check '(int) len' cast is safe
+	/* We need to typecast 'size_t len' to int for the print formatter, check it fits! */
+	if (len > INT_MAX)
+		return NULL;
 
 	if (buf) {
+		/* Check we can fit 'len' bytes into buf, including the '\0' at the end! */
+		if (!buf_size || (len > (buf_size - 1)))
+			return NULL;
+
 		if (snprintf(buf, buf_size, "%.*s", (int) len, str) < 0)
 			ns = NULL;
 		else
