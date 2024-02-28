@@ -4028,11 +4028,11 @@ static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 	if (gennum)
 		*gennum = VVALUE_GENNUM(vvalue);
 
-	if (count)
-		*count = vvalue_size;
-
 	vvalue      += VVALUE_HEADER_CNT;
 	vvalue_size -= VVALUE_HEADER_CNT;
+
+	if (count)
+		*count = vvalue_size;
 
 	for (p = buf; vvalue_size; vvalue_size--, vvalue++) {
 		if (!_copy_ns_part_from_key(vvalue->iov_base, p, buf_size)) {
