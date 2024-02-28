@@ -41,6 +41,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <libgen.h>
 #include <libudev.h>
 #include <limits.h>
 #include <sys/mman.h>
@@ -4119,75 +4120,85 @@ out:
 	return r;
 }
 
-static const char *_devname_to_devid_with_update(sid_res_t           *res,
-                                                 struct sid_ucmd_ctx *ucmd_ctx,
-                                                 const char          *dev_name,
-                                                 char                *dev_id_buf,
-                                                 size_t               dev_id_buf_size)
+static const char *_set_slave_dev_kvs(sid_res_t           *res,
+                                      struct sid_ucmd_ctx *ucmd_ctx,
+                                      const char          *slave_name,
+                                      char                *dev_id_buf,
+                                      size_t               dev_id_buf_size)
 {
-	/*
-	 * FIXME: This function calls sid_buf_fmt_add followed by sid_util_sysfs_get several times.
-	 *        Factor these out to a helper fn so we the code is more cleaner and easier to read.
-	 */
+	static const char   err_msg[]    = "%s for %s while processing related device " CMD_DEV_PRINT_FMT;
 	struct sid_ucmd_ctx tmp_ucmd_ctx = {0};
 	char                devno_buf[16];   /* enough to hold major_minor pair */
 	char                dev_seq_buf[20]; /* enough to hold 64 bit number */
-	const char         *s;
-	const char         *msg;
-	int                 r;
+	char               *slave_path = NULL;
+	const char         *msg, *s;
+	int                 r = 0, ret = -1;
 
-	if ((r = sid_buf_fmt_add(ucmd_ctx->common->gen_buf,
-	                         (const void **) &s,
-	                         NULL,
-	                         "%s%s/%s/%s/dev",
-	                         SYSTEM_SYSFS_PATH,
-	                         ucmd_ctx->req_env.dev.udev.path,
-	                         SYSTEM_SYSFS_SLAVES,
-	                         dev_name)) < 0) {
+	if (slave_name) {
+		/* handling a whole device: slave device is under the SYSTEM_SYSFS_SLAVES directory */
+		if (asprintf(&slave_path,
+		             "%s%s/%s/%s",
+		             SYSTEM_SYSFS_PATH,
+		             ucmd_ctx->req_env.dev.udev.path,
+		             SYSTEM_SYSFS_SLAVES,
+		             slave_name) < 0) {
+			msg = "Failed to compose slave sysfs path";
+			goto out;
+		}
+
+	} else {
+		/* handling a partition device: slave device == whole device */
+		if (asprintf(&slave_path, "%s%s", SYSTEM_SYSFS_PATH, ucmd_ctx->req_env.dev.udev.path) < 0) {
+			msg = "Failed to compose partition sysfs path";
+			goto out;
+		}
+
+		/* we also set the actual slave path here by using the dirname which cuts off the partition suffix */
+		slave_name = basename(dirname(slave_path));
+	}
+
+	if ((r = sid_buf_fmt_add(ucmd_ctx->common->gen_buf, (const void **) &s, NULL, "%s/dev", slave_path)) < 0) {
 		msg = "Failed to compose sysfs 'dev' attribute path";
-		goto fail;
+		goto out;
 	}
 
 	if ((r = sid_util_sysfs_get(s, devno_buf, sizeof(devno_buf), NULL)) < 0) {
 		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
 		msg = "Failed to read device number from sysfs file";
-		goto fail;
+		goto out;
 	}
+
 	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
 	_canonicalize_kv_key(devno_buf);
 
 	r = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, devno_buf, NULL, NULL, dev_id_buf, dev_id_buf_size);
 
 	if (r == 0)
+		/* we already have records about the slave device */
 		return dev_id_buf;
 
 	if (r != -ENODATA) {
 		msg = "Failed to lookup device ID";
-		goto fail;
+		goto out;
 	}
 	r = 0;
 
+	/* we don't have any records about the slave device, store it now... */
+
 	if (!util_uuid_str_gen(&((util_mem_t) {.base = dev_id_buf, .size = dev_id_buf_size}))) {
 		msg = "Failed to generate device ID";
-		goto fail;
+		goto out;
 	}
 
-	if (sid_buf_fmt_add(ucmd_ctx->common->gen_buf,
-	                    (const void **) &s,
-	                    NULL,
-	                    "%s%s/%s/%s/diskseq",
-	                    SYSTEM_SYSFS_PATH,
-	                    ucmd_ctx->req_env.dev.udev.path,
-	                    SYSTEM_SYSFS_SLAVES,
-	                    dev_name) < 0) {
+	if (sid_buf_fmt_add(ucmd_ctx->common->gen_buf, (const void **) &s, NULL, "%s/diskseq", slave_path) < 0) {
 		msg = "Failed to compose sysfs 'diskseq' attribute path";
-		goto fail;
+		goto out;
 	}
 
 	if ((r = sid_util_sysfs_get(s, dev_seq_buf, sizeof(dev_seq_buf), NULL)) < 0) {
 		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
 		msg = "Failed to read diskseq number from sysfs file";
-		goto fail;
+		goto out;
 	}
 	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
 
@@ -4195,32 +4206,30 @@ static const char *_devname_to_devid_with_update(sid_res_t           *res,
 	tmp_ucmd_ctx.req_env.dev.num_s     = devno_buf;
 	tmp_ucmd_ctx.req_env.dev.uid_s     = dev_id_buf;
 	tmp_ucmd_ctx.req_env.dev.dsq_s     = dev_seq_buf;
-	tmp_ucmd_ctx.req_env.dev.udev.name = dev_name;
+	tmp_ucmd_ctx.req_env.dev.udev.name = slave_name;
 	tmp_ucmd_ctx.scan.dev_ready        = SID_DEV_RDY_UNDEFINED;
 	tmp_ucmd_ctx.scan.dev_reserved     = SID_DEV_RES_UNDEFINED;
 
 	if (_set_new_dev_kvs(res, &tmp_ucmd_ctx, false) < 0)
+		goto out;
+
+	ret = 0;
+out:
+	free(slave_path);
+
+	if (ret < 0) {
+		if (r < 0)
+			sid_res_log_error_errno(res, r, err_msg, msg, slave_name, CMD_DEV_PRINT(ucmd_ctx));
+		else
+			sid_res_log_error(res, err_msg, msg, slave_name, CMD_DEV_PRINT(ucmd_ctx));
+
 		return NULL;
+	}
 
 	return dev_id_buf;
-fail:
-	if (r)
-		sid_res_log_error_errno(res,
-		                        r,
-		                        "%s for %s while processing related device " CMD_DEV_PRINT_FMT,
-		                        msg,
-		                        dev_name,
-		                        CMD_DEV_PRINT(ucmd_ctx));
-	else
-		sid_res_log_error(res,
-		                  "%s for %s while processing related device " CMD_DEV_PRINT_FMT,
-		                  msg,
-		                  dev_name,
-		                  CMD_DEV_PRINT(ucmd_ctx));
-	return NULL;
 }
 
-static int _refresh_device_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
+static int _refresh_dev_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 {
 	/*
 	 * FIXME: Fail completely here, discarding any changes made to DB so far if any of the steps below fail?
@@ -4332,11 +4341,8 @@ static int _refresh_device_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 			if (dirent[i]->d_name[0] == '.')
 				goto next;
 
-			if (!(rel_spec.rel_key_spec->ns_part = _devname_to_devid_with_update(cmd_res,
-			                                                                     ucmd_ctx,
-			                                                                     dirent[i]->d_name,
-			                                                                     dev_id_buf,
-			                                                                     sizeof(dev_id_buf))))
+			if (!(rel_spec.rel_key_spec->ns_part =
+			              _set_slave_dev_kvs(cmd_res, ucmd_ctx, dirent[i]->d_name, dev_id_buf, sizeof(dev_id_buf))))
 				goto next;
 
 			s = _compose_key_prefix(NULL, rel_spec.rel_key_spec);
@@ -4387,16 +4393,14 @@ out:
 	return r;
 }
 
-static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
+static int _refresh_dev_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	kv_vector_t          vvalue[VVALUE_SINGLE_CNT];
-	char                 devno_buf[16];
 	char                 devid_buf[UTIL_UUID_STR_SIZE];
 	const char          *s   = NULL;
 	char                *key = NULL;
-	util_mem_t           mem;
-	int                  r, ret = -1;
+	int                  r   = -1;
 	size_t               count;
 
 	struct kv_rel_spec rel_spec = {
@@ -4436,42 +4440,7 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	                    core_owner);
 
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
-		if (_part_get_whole_disk(cmd_res, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
-			goto out;
-
-		_canonicalize_kv_key(devno_buf);
-
-		r = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, devno_buf, NULL, NULL, devid_buf, sizeof(devid_buf));
-
-		if (r == 0)
-			rel_spec.rel_key_spec->ns_part = devid_buf;
-		else if (r == -ENODATA) {
-			mem = (util_mem_t) {.base = devid_buf, .size = sizeof(devid_buf)};
-			if (!util_uuid_str_gen(&mem)) {
-				sid_res_log_error(cmd_res,
-				                  "Failed to generate device ID for " CMD_DEV_PRINT_FMT ".",
-				                  CMD_DEV_PRINT(ucmd_ctx));
-				goto out;
-			}
-			rel_spec.rel_key_spec->ns_part = mem.base;
-
-			_handle_dev_for_group(cmd_res,
-			                      ucmd_ctx,
-			                      _owner_name(NULL),
-			                      mem.base,
-			                      KV_KEY_DOM_ALIAS,
-			                      SID_KV_NS_MODULE,
-			                      DEV_ALIAS_DEVNO,
-			                      devno_buf,
-			                      KV_OP_PLUS,
-			                      false);
-		} else {
-			sid_res_log_error_errno(cmd_res,
-			                        r,
-			                        "Failed to lookup device ID for " CMD_DEV_PRINT_FMT,
-			                        CMD_DEV_PRINT(ucmd_ctx));
-			goto out;
-		}
+		rel_spec.rel_key_spec->ns_part = _set_slave_dev_kvs(cmd_res, ucmd_ctx, NULL, devid_buf, sizeof(devid_buf));
 
 		if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 			goto out;
@@ -4496,24 +4465,24 @@ static int _refresh_device_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	 */
 	_kv_delta_set(key, vvalue, count, &update_arg);
 
-	ret = 0;
+	r = 0;
 out:
 	_destroy_key(NULL, key);
 	_destroy_key(NULL, s);
-	return ret;
+	return r;
 }
 
-static int _refresh_device_hierarchy_from_sysfs(sid_res_t *cmd_res)
+static int _refresh_dev_hierarchy_from_sysfs(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 
 	switch (ucmd_ctx->req_env.dev.udev.type) {
 		case UDEV_DEVTYPE_DISK:
-			if ((_refresh_device_disk_hierarchy_from_sysfs(cmd_res) < 0))
+			if ((_refresh_dev_disk_hierarchy_from_sysfs(cmd_res) < 0))
 				return -1;
 			break;
 		case UDEV_DEVTYPE_PARTITION:
-			if ((_refresh_device_partition_hierarchy_from_sysfs(cmd_res) < 0))
+			if ((_refresh_dev_partition_hierarchy_from_sysfs(cmd_res) < 0))
 				return -1;
 			break;
 		case UDEV_DEVTYPE_UNKNOWN:
@@ -4805,7 +4774,7 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 		return -1;
 	}
 
-	return _refresh_device_hierarchy_from_sysfs(cmd_res);
+	return _refresh_dev_hierarchy_from_sysfs(cmd_res);
 }
 
 static int _cmd_exec_scan_init(sid_res_t *cmd_res)
@@ -5029,7 +4998,7 @@ static int _cmd_exec_scan_remove_mods(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_remove_core(sid_res_t *cmd_res)
 {
-	return _refresh_device_hierarchy_from_sysfs(cmd_res);
+	return _refresh_dev_hierarchy_from_sysfs(cmd_res);
 }
 
 static int _cmd_exec_scan_error(sid_res_t *cmd_res)
