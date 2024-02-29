@@ -4210,8 +4210,10 @@ static const char *_set_slave_dev_kvs(sid_res_t           *res,
 	tmp_ucmd_ctx.scan.dev_ready        = SID_DEV_RDY_UNDEFINED;
 	tmp_ucmd_ctx.scan.dev_reserved     = SID_DEV_RES_UNDEFINED;
 
-	if (_set_new_dev_kvs(res, &tmp_ucmd_ctx, false) < 0)
+	if (_set_new_dev_kvs(res, &tmp_ucmd_ctx, false) < 0) {
+		msg = "Failed to update records";
 		goto out;
+	}
 
 	ret = 0;
 out:
