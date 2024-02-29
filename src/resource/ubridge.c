@@ -4712,10 +4712,10 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 
 	if (!devid && devid_udev) {
 		devid_to_use = devid_udev;
-		devid_msg    = "(pulling ID from udev)";
+		devid_msg    = " (pulling ID from udev)";
 	} else if (devid && !devid_udev) {
 		devid_to_use = devid;
-		devid_msg    = "(pushing ID to udev)";
+		devid_msg    = " (pushing ID to udev)";
 	} else if (!devid && !devid_udev) {
 		if (!util_uuid_str_gen(&mem)) {
 			sid_res_log_error(cmd_res,
@@ -4725,16 +4725,17 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 		}
 
 		devid_to_use = mem.base;
-		devid_msg    = "(ID newly generated)";
+		devid_msg    = " (ID newly generated)";
 	} else {
 		devid_to_use = devid;
+		devid_msg    = "";
 	}
 
 	if (!(ucmd_ctx->req_env.dev.uid_s = strdup(devid_to_use)))
 		return -1;
 
 	sid_res_log_debug(cmd_res,
-	                  "Using device ID %s for " CMD_DEV_PRINT_FMT " %s",
+	                  "Using device ID %s for " CMD_DEV_PRINT_FMT "%s",
 	                  devid_to_use,
 	                  CMD_DEV_PRINT(ucmd_ctx),
 	                  devid_msg);
