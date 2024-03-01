@@ -6474,6 +6474,7 @@ static int _on_ubridge_udev_monitor_event(sid_res_ev_src_t *es, int fd, uint32_t
 	sid_res_t          *ubridge_res = data;
 	struct ubridge     *ubridge     = sid_res_data_get(ubridge_res);
 	sid_res_t          *worker_control_res;
+	sid_res_t          *worker_proxy_res;
 	struct udev_device *udev_dev;
 	const char         *worker_id;
 	int                 r = -1;
@@ -6484,11 +6485,13 @@ static int _on_ubridge_udev_monitor_event(sid_res_ev_src_t *es, int fd, uint32_t
 	if (!(worker_id = udev_device_get_property_value(udev_dev, KV_KEY_UDEV_SID_SESSION_ID)))
 		goto out;
 
-	if (!(worker_control_res = sid_res_search(ubridge_res, SID_RES_SEARCH_IMM_DESC, &sid_res_type_wrk_ctl, NULL)))
+	if (!(worker_control_res = sid_res_search(ubridge->internal_res, SID_RES_SEARCH_IMM_DESC, &sid_res_type_wrk_ctl, NULL)))
 		goto out;
 
-	if (!sid_wrk_ctl_wrk_find(worker_control_res, worker_id))
+	if (!(worker_proxy_res = sid_wrk_ctl_wrk_find(worker_control_res, worker_id)))
 		goto out;
+
+	// TODO: send internal command to the worker here to start the trigger-action phase
 
 	r = 0;
 out:
