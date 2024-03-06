@@ -6473,6 +6473,7 @@ static int _on_ubridge_udev_monitor_event(sid_res_ev_src_t *es, int fd, uint32_t
 {
 	sid_res_t          *ubridge_res = data;
 	struct ubridge     *ubridge     = sid_res_data_get(ubridge_res);
+	unsigned long long  seqnum;
 	sid_res_t          *worker_control_res;
 	sid_res_t          *worker_proxy_res;
 	struct udev_device *udev_dev;
@@ -6482,14 +6483,28 @@ static int _on_ubridge_udev_monitor_event(sid_res_ev_src_t *es, int fd, uint32_t
 	if (!(udev_dev = udev_monitor_receive_device(ubridge->ulink.mon)))
 		goto out;
 
-	if (!(worker_id = udev_device_get_property_value(udev_dev, KV_KEY_UDEV_SID_SESSION_ID)))
-		goto out;
+	seqnum = udev_device_get_seqnum(udev_dev);
+	sid_res_log_debug(ubridge_res, "Received event on udev monitor with seqno %" PRIu64, seqnum);
 
-	if (!(worker_control_res = sid_res_search(ubridge->internal_res, SID_RES_SEARCH_IMM_DESC, &sid_res_type_wrk_ctl, NULL)))
+	if (!(worker_id = udev_device_get_property_value(udev_dev, KV_KEY_UDEV_SID_SESSION_ID))) {
+		sid_res_log_error(ubridge_res,
+		                  "Failed to get value of %s variable in received uevent with seqno %" PRIu64,
+		                  KV_KEY_UDEV_SID_SESSION_ID,
+		                  udev_device_get_seqnum(udev_dev));
 		goto out;
+	}
 
-	if (!(worker_proxy_res = sid_wrk_ctl_wrk_find(worker_control_res, worker_id)))
+	if (!(worker_control_res = sid_res_search(ubridge->internal_res, SID_RES_SEARCH_IMM_DESC, &sid_res_type_wrk_ctl, NULL))) {
+		sid_res_log_error(ubridge_res, SID_INTERNAL_ERROR "Failed to find worker control resource.");
 		goto out;
+	}
+
+	if (!(worker_proxy_res = sid_wrk_ctl_wrk_find(worker_control_res, worker_id))) {
+		sid_res_log_error(ubridge_res, SID_INTERNAL_ERROR "Failed to find worker with id %s.", worker_id);
+		goto out;
+	}
+
+	sid_res_log_debug(worker_proxy_res, "Matched worker for event with seqno %" PRIu64, seqnum);
 
 	// TODO: send internal command to the worker here to start the trigger-action phase
 
