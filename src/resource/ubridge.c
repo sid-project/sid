@@ -3697,17 +3697,7 @@ out:
 
 static int _connection_cleanup(sid_res_t *conn_res)
 {
-	sid_res_t *worker_res = sid_res_search(conn_res, SID_RES_SEARCH_IMM_ANC, NULL, NULL);
-
-	sid_res_unref(conn_res);
-
-	// TODO: If there are more connections per worker used,
-	// 	 then check if this is the last connection.
-	// 	 If it's not the last one, then do not yield the worker.
-
-	(void) sid_wrk_ctl_wrk_yield(worker_res);
-
-	return 0;
+	return sid_res_isolate(conn_res) == 0 && sid_res_unref(conn_res) == 0;
 }
 
 static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
