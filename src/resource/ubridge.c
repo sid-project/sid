@@ -5482,6 +5482,7 @@ static int _init_connection(sid_res_t *res, const void *kickstart_data, void **d
 {
 	const struct sid_wrk_data_spec *data_spec = kickstart_data;
 	struct connection              *conn;
+	sid_res_ev_src_t               *conn_es;
 	int                             r;
 
 	if (!(conn = mem_zalloc(sizeof(*conn)))) {
@@ -5491,7 +5492,8 @@ static int _init_connection(sid_res_t *res, const void *kickstart_data, void **d
 
 	conn->fd = data_spec->ext.socket.fd_pass;
 
-	if (sid_res_ev_io_create(res, NULL, conn->fd, _on_connection_event, 0, "client connection", res) < 0) {
+	if (sid_res_ev_io_create(res, &conn_es, conn->fd, _on_connection_event, 0, "client connection", res) < 0 ||
+	    sid_res_ev_exit_on_failure_set(conn_es, true) < 0) {
 		sid_res_log_error(res, "Failed to register connection event handler.");
 		goto fail;
 	}
@@ -5640,7 +5642,8 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 		}
 	}
 
-	if (sid_res_ev_deferred_create(res, &ucmd_ctx->cmd_handler_es, _cmd_handler, 0, "command handler", res) < 0) {
+	if (sid_res_ev_deferred_create(res, &ucmd_ctx->cmd_handler_es, _cmd_handler, 0, "command handler", res) < 0 ||
+	    sid_res_ev_exit_on_failure_set(ucmd_ctx->cmd_handler_es, true) < 0) {
 		sid_res_log_error(res, "Failed to register command handler.");
 		goto fail;
 	}
@@ -6709,7 +6712,8 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 
 static int _set_up_ulink(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *common_ctx, struct ulink *ulink)
 {
-	int umonitor_fd = -1;
+	int               umonitor_fd = -1;
+	sid_res_ev_src_t *umonitor_es;
 
 	if (!(ulink->udev = udev_new())) {
 		sid_res_log_error(ubridge_res, "Failed to create udev handle.");
@@ -6728,8 +6732,13 @@ static int _set_up_ulink(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 
 	umonitor_fd = udev_monitor_get_fd(ulink->mon);
 
-	if (sid_res_ev_io_create(ubridge_res, NULL, umonitor_fd, _on_ubridge_udev_monitor_event, 0, "udev monitor", ubridge_res) <
-	    0) {
+	if (sid_res_ev_io_create(ubridge_res,
+	                         &umonitor_es,
+	                         umonitor_fd,
+	                         _on_ubridge_udev_monitor_event,
+	                         0,
+	                         "udev monitor",
+	                         ubridge_res) < 0) {
 		sid_res_log_error(ubridge_res, "Failed to register udev monitoring.");
 		goto fail;
 	}
@@ -6962,6 +6971,7 @@ static int _destroy_common(sid_res_t *res)
 static int _init_ubridge(sid_res_t *res, const void *kickstart_data, void **data)
 {
 	struct ubridge             *ubridge = NULL;
+	sid_res_ev_src_t           *ubridge_es;
 	sid_res_t                  *common_res;
 	struct sid_ucmd_common_ctx *common_ctx = NULL;
 
@@ -7044,7 +7054,13 @@ static int _init_ubridge(sid_res_t *res, const void *kickstart_data, void **data
 		goto fail;
 	}
 
-	if (sid_res_ev_io_create(res, NULL, ubridge->socket_fd, _on_ubridge_interface_event, 0, sid_res_type_ubr.name, res) < 0) {
+	if (sid_res_ev_io_create(res,
+	                         &ubridge_es,
+	                         ubridge->socket_fd,
+	                         _on_ubridge_interface_event,
+	                         0,
+	                         sid_res_type_ubr.name,
+	                         res)) {
 		sid_res_log_error(res, "Failed to register interface with event loop.");
 		goto fail;
 	}
