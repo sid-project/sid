@@ -237,6 +237,9 @@ int sid_res_ev_exit_create(sid_res_t                 *res,
 int sid_res_ev_counter_set(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint64_t events_max);
 int sid_res_ev_counter_get(sid_res_ev_src_t *es, uint64_t *events_fired, uint64_t *events_max);
 
+int sid_res_ev_exit_on_failure_set(sid_res_ev_src_t *es, bool exit_on_failure);
+int sid_res_ev_exit_on_failure_get(sid_res_ev_src_t *es);
+
 int sid_res_ev_destroy(sid_res_ev_src_t **es);
 
 int sid_res_ev_loop_run(sid_res_t *res);

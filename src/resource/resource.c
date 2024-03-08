@@ -1015,6 +1015,16 @@ int sid_res_ev_counter_get(sid_res_ev_src_t *es, uint64_t *events_fired, uint64_
 	return 0;
 }
 
+int sid_res_ev_exit_on_failure_set(sid_res_ev_src_t *es, bool exit_on_failure)
+{
+	return sd_event_source_set_exit_on_failure(es->sd_es, exit_on_failure);
+}
+
+int sid_res_ev_exit_on_failure_get(sid_res_ev_src_t *es)
+{
+	return sd_event_source_get_exit_on_failure(es->sd_es);
+}
+
 int sid_res_ev_destroy(sid_res_ev_src_t **es)
 {
 	_destroy_event_source(*es);
