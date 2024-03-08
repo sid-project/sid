@@ -161,7 +161,6 @@ typedef enum {
 	CMD_SCAN_PHASE_A_SCAN_NEXT,         /* module */
 	CMD_SCAN_PHASE_A_SCAN_POST_CURRENT, /* module */
 	CMD_SCAN_PHASE_A_SCAN_POST_NEXT,    /* module */
-	CMD_SCAN_PHASE_A_WAITING,           /* core waits for confirmation */
 	CMD_SCAN_PHASE_A_EXIT,              /* core finishes phase "A" */
 	CMD_SCAN_PHASE_A_CLEANUP,           /* core exits phase "A" */
 
@@ -4918,11 +4917,6 @@ static int _cmd_exec_scan_post_next(sid_res_t *cmd_res)
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
 }
 
-static int _cmd_exec_scan_wait(sid_res_t *cmd_res)
-{
-	return 0;
-}
-
 static int _cmd_exec_scan_exit(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
@@ -5021,8 +5015,6 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 	[CMD_SCAN_PHASE_A_SCAN_POST_CURRENT] = {.name = "scan-post-current", .flags = 0, .exec = _cmd_exec_scan_post_current},
 
 	[CMD_SCAN_PHASE_A_SCAN_POST_NEXT]    = {.name = "scan-post-next", .flags = 0, .exec = _cmd_exec_scan_post_next},
-
-	[CMD_SCAN_PHASE_A_WAITING]           = {.name = "waiting", .flags = 0, .exec = _cmd_exec_scan_wait},
 
 	[CMD_SCAN_PHASE_A_EXIT]              = {.name = "exit", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_exit},
 
