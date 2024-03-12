@@ -3703,6 +3703,14 @@ static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 
+	if (ucmd_ctx->state == state) {
+		sid_res_log_error(cmd_res,
+		                  SID_INTERNAL_ERROR "%s: Command already in requested state %s.",
+		                  __func__,
+		                  cmd_state_str[state]);
+		return;
+	}
+
 	sid_res_log_debug(cmd_res, "Command state changed: %s --> %s.", cmd_state_str[ucmd_ctx->state], cmd_state_str[state]);
 	ucmd_ctx->state = state;
 }
