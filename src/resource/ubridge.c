@@ -471,8 +471,7 @@ struct internal_msg_header {
 #define CMD_KV_EXPORT_PERSISTENT      UINT32_C(0x00000040) /* export only KV records marked with persistent flag */
 #define CMD_KV_EXPBUF_TO_FILE         UINT32_C(0x00000080) /* export KV records from export buffer to a file */
 #define CMD_KV_EXPBUF_TO_MAIN         UINT32_C(0x00000100) /* export KV records from export buffer to main process */
-#define CMD_KV_EXPECT_EXPBUF_ACK      UINT32_C(0x00000200) /* expect acknowledgment of expbuf reception */
-#define CMD_SESSION_ID                UINT32_C(0x00000400) /* generate session ID */
+#define CMD_SESSION_ID                UINT32_C(0x00000200) /* generate session ID */
 
 /*
  * Capability flags for 'scan' command phases (phases are represented as subcommands).
@@ -5116,7 +5115,7 @@ static struct cmd_reg _client_cmd_regs[] = {
 	[SID_IFC_CMD_REPLY]      = {.name = "c-reply", .flags = 0, .exec = NULL},
 	[SID_IFC_CMD_SCAN]       = {.name  = "c-scan",
                                     .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF |
-                                             CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_KV_EXPECT_EXPBUF_ACK | CMD_SESSION_ID,
+                                             CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_SESSION_ID,
                                     .exec = _cmd_exec_scan},
 	[SID_IFC_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
 	[SID_IFC_CMD_DBDUMP]     = {.name  = "c-dbdump",
@@ -5305,7 +5304,7 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 		}
 
 		// TODO: check returned error code from _send_out_cmd_* fns
-		if (cmd_reg->flags & CMD_KV_EXPECT_EXPBUF_ACK) {
+		if (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN) {
 			r = _send_out_cmd_expbuf(cmd_res);
 			_change_cmd_state(cmd_res, CMD_EXPECTING_EXPBUF_ACK);
 		} else {
