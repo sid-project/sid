@@ -202,28 +202,32 @@ typedef enum {
 } msg_category_t;
 
 typedef enum {
-	CMD_UNDEFINED,            /* not defined yet */
-	CMD_INITIALIZING,         /* initializing context for cmd */
-	CMD_EXEC_SCHEDULED,       /* cmd handler execution scheduled */
-	CMD_EXECUTING,            /* executing cmd handler */
-	CMD_EXPECTING_DATA,       /* expecting more data for further cmd processing */
-	CMD_EXEC_FINISHED,        /* cmd finished and ready for building and sending out results */
-	CMD_EXPECTING_EXPBUF_ACK, /* expecting ack of export buffer reception */
-	CMD_EXPBUF_ACKED,         /* export buffer ack received (cmd handler also scheduled) */
-	CMD_OK,                   /* cmd completely executed and results successfully sent (and ackowledged) */
-	CMD_ERROR,                /* cmd error */
+	CMD_STATE_UNDEFINED,           /* not defined yet */
+	CMD_STATE_INI,                 /* initializing context for cmd */
+	CMD_STATE_STG_WAIT,            /* wait for event and/or data to schedule new cmd stage execution  */
+	CMD_STATE_EXE_SCHED,           /* cmd execution scheduled */
+	CMD_STATE_EXE_RUN,             /* cmd execution running */
+	CMD_STATE_EXE_WAIT,            /* wait for event and/or data to resume cmd execution */
+	CMD_STATE_RES_BUILD,           /* build cmd stage results */
+	CMD_STATE_RES_EXPBUF_SEND,     /* send cmd stage export buffer */
+	CMD_STATE_RES_EXPBUF_WAIT_ACK, /* wait for cmd stage export buffer reception ack */
+	CMD_STATE_RES_RESBUF_SEND,     /* send cmd stage result buffer */
+	CMD_STATE_FIN,                 /* all cmd stages done, all results successfully sent */
+	CMD_STATE_ERR,                 /* cmd error */
 } cmd_state_t;
 
-static const char *cmd_state_str[]        = {[CMD_UNDEFINED]            = "CMD_UNDEFINED",
-                                             [CMD_INITIALIZING]         = "CMD_INITIALIZING",
-                                             [CMD_EXEC_SCHEDULED]       = "CMD_EXEC_SCHEDULED",
-                                             [CMD_EXECUTING]            = "CMD_EXECUTING",
-                                             [CMD_EXPECTING_DATA]       = "CMD_EXPECTING_DATA",
-                                             [CMD_EXEC_FINISHED]        = "CMD_EXEC_FINISHED",
-                                             [CMD_EXPECTING_EXPBUF_ACK] = "CMD_EXPECTING_EXPBUF_ACK",
-                                             [CMD_EXPBUF_ACKED]         = "CMD_EXPBUF_ACKED",
-                                             [CMD_OK]                   = "CMD_OK",
-                                             [CMD_ERROR]                = "CMD_ERROR"};
+static const char *cmd_state_str[]        = {[CMD_STATE_UNDEFINED]           = "CMD_UNDEFINED",
+                                             [CMD_STATE_INI]                 = "CMD_INI",
+                                             [CMD_STATE_STG_WAIT]            = "CMD_STG_WAIT",
+                                             [CMD_STATE_EXE_SCHED]           = "CMD_EXE_SCHED",
+                                             [CMD_STATE_EXE_RUN]             = "CMD_EXE_RUN",
+                                             [CMD_STATE_EXE_WAIT]            = "CMD_EXE_WAIT",
+                                             [CMD_STATE_RES_BUILD]           = "CMD_RES_BUILD",
+                                             [CMD_STATE_RES_EXPBUF_SEND]     = "CMD_RES_EXPBUF_SEND",
+                                             [CMD_STATE_RES_EXPBUF_WAIT_ACK] = "CMD_RES_EXPBUF_WAIT_ACK",
+                                             [CMD_STATE_RES_RESBUF_SEND]     = "CMD_RES_RESBUF_SEND",
+                                             [CMD_STATE_FIN]                 = "CMD_FIN",
+                                             [CMD_STATE_ERR]                 = "CMD_ERR"};
 
 static const char * const dev_ready_str[] = {
 	[SID_DEV_RDY_UNDEFINED]     = "RDY_UNDEFINED",
@@ -282,6 +286,7 @@ struct sid_ucmd_ctx {
 		} resources;
 	};
 
+	cmd_state_t       prev_state;     /* previous command state */
 	cmd_state_t       state;          /* current command state */
 	sid_res_ev_src_t *cmd_handler_es; /* event source for deferred execution of _cmd_handler */
 
@@ -3710,8 +3715,13 @@ static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 		return;
 	}
 
+	if ((ucmd_ctx->state != CMD_STATE_INI) && (state == CMD_STATE_EXE_SCHED))
+		(void) sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
+
 	sid_res_log_debug(cmd_res, "Command state changed: %s --> %s.", cmd_state_str[ucmd_ctx->state], cmd_state_str[state]);
-	ucmd_ctx->state = state;
+
+	ucmd_ctx->prev_state = ucmd_ctx->state;
+	ucmd_ctx->state      = state;
 }
 
 static int _cmd_exec_version(sid_res_t *cmd_res)
@@ -3794,7 +3804,7 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 			sid_res_log_error_errno(cmd_res, r, "Failed to sent request to main process to write its resource tree.");
 			r = -1;
 		} else
-			_change_cmd_state(cmd_res, CMD_EXPECTING_DATA);
+			_change_cmd_state(cmd_res, CMD_STATE_EXE_WAIT);
 
 		sid_buf_rewind(gen_buf, buf_pos0, SID_BUF_POS_ABS);
 		return r;
@@ -3841,7 +3851,6 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 out:
 	ucmd_ctx->resources.main_res_mem      = NULL;
 	ucmd_ctx->resources.main_res_mem_size = 0;
-	_change_cmd_state(cmd_res, CMD_EXEC_FINISHED);
 	return r;
 }
 
@@ -5276,61 +5285,77 @@ out:
 
 static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 {
-	sid_res_t            *cmd_res  = data;
-	struct sid_ucmd_ctx  *ucmd_ctx = sid_res_data_get(cmd_res);
-	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
-	int                   r        = -1;
+	sid_res_t            *cmd_res      = data;
+	struct sid_ucmd_ctx  *ucmd_ctx     = sid_res_data_get(cmd_res);
+	const struct cmd_reg *cmd_reg      = _get_cmd_reg(ucmd_ctx);
+	bool                  expbuf_first = cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN;
+	int                   r            = -1;
 
-	if (ucmd_ctx->state == CMD_EXEC_SCHEDULED) {
-		_change_cmd_state(cmd_res, CMD_EXECUTING);
+	if (UTIL_IN_SET(ucmd_ctx->prev_state, CMD_STATE_INI, CMD_STATE_EXE_WAIT, CMD_STATE_STG_WAIT)) {
+		/*
+		 * If prev_state is:
+		 *   - CMD_STATE_INI, we are running this handler for the very first time,
+		 *   - CMD_STATE_EXE_WAIT, we are resuming handler from previous run where we needed more data,
+		 *   - CMD_STATE_FIN, we have run the handler before and finished (sent the results), now we need to run it afresh.
+		 */
+		_change_cmd_state(cmd_res, CMD_STATE_EXE_RUN);
 
 		if (cmd_reg->exec && ((r = cmd_reg->exec(cmd_res)) < 0)) {
 			sid_res_log_error(cmd_res, "Failed to execute command");
 			goto out;
 		}
 
-		/*
-		 * The cmd_reg->exec might have changed the state to CMD_EXPECTING_DATA,
-		 * so check if we're still in CMD_EXECUTING - if yes, change state to CMD_EXEC_FINISHED.
-		 */
-		if (ucmd_ctx->state == CMD_EXECUTING)
-			_change_cmd_state(cmd_res, CMD_EXEC_FINISHED);
-	}
+		if (ucmd_ctx->state == CMD_STATE_EXE_RUN)
+			_change_cmd_state(cmd_res, CMD_STATE_RES_BUILD);
+	} else if (ucmd_ctx->prev_state == CMD_STATE_RES_EXPBUF_WAIT_ACK)
+		/* The export buffer reception is acked, now we can send the response buffer. */
+		_change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
 
-	if (ucmd_ctx->state == CMD_EXEC_FINISHED) {
+	if (ucmd_ctx->state == CMD_STATE_RES_BUILD) {
 		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
 			sid_res_log_error(cmd_res, "Failed to export KV store.");
 			goto out;
 		}
 
-		// TODO: check returned error code from _send_out_cmd_* fns
-		if (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN) {
-			r = _send_out_cmd_expbuf(cmd_res);
-			_change_cmd_state(cmd_res, CMD_EXPECTING_EXPBUF_ACK);
-		} else {
-			if ((r = _send_out_cmd_resbuf(cmd_res) == 0))
-				r = _send_out_cmd_expbuf(cmd_res);
-		}
-	} else if (ucmd_ctx->state == CMD_EXPBUF_ACKED) {
-		r = _send_out_cmd_resbuf(cmd_res);
+		if (expbuf_first)
+			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND);
+		else
+			_change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
+	}
+
+	if (ucmd_ctx->state == CMD_STATE_RES_RESBUF_SEND) {
+		if ((r = _send_out_cmd_resbuf(cmd_res)) < 0)
+			goto out;
+
+		if (expbuf_first)
+			_change_cmd_state(cmd_res, CMD_STATE_FIN);
+		else
+			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND);
+	}
+
+	if (ucmd_ctx->state == CMD_STATE_RES_EXPBUF_SEND) {
+		if ((r = _send_out_cmd_expbuf(cmd_res)) < 0)
+			goto out;
+
+		if (expbuf_first)
+			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK);
+		else
+			_change_cmd_state(cmd_res, CMD_STATE_FIN);
 	}
 out:
 	if (r < 0) {
 		// TODO: res_hdr.status needs to be set before _send_out_cmd_kv_buffers so it's transmitted
 		//       and also any results collected after the res_hdr must be discarded
 		ucmd_ctx->res_hdr.status |= SID_IFC_CMD_STATUS_FAILURE;
-		_change_cmd_state(cmd_res, CMD_ERROR);
-	} else {
-		if (ucmd_ctx->state == CMD_EXEC_FINISHED || ucmd_ctx->state == CMD_EXPBUF_ACKED)
-			_change_cmd_state(cmd_res, CMD_OK);
+		_change_cmd_state(cmd_res, CMD_STATE_ERR);
 	}
 
 	/*
-	 * At the end of processing a 'SELF' request, there's no other external entity or event
-	 * that would cause the worker to yield itself so do it now before we resume the event loop.
+	 * At the end of processing a 'SELF' request, there's no other external entity or event that
+	 * would cause the worker to yield itself so do it now before we enter the event loop again.
 	 */
 	if (ucmd_ctx->req_cat == MSG_CATEGORY_SELF) {
-		if (ucmd_ctx->state == CMD_OK || ucmd_ctx->state == CMD_ERROR)
+		if (ucmd_ctx->state == CMD_STATE_FIN || ucmd_ctx->state == CMD_STATE_ERR)
 			(void) sid_wrk_ctl_wrk_yield(sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, NULL, NULL));
 	}
 
@@ -5559,7 +5584,7 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 	}
 
 	*data = ucmd_ctx;
-	_change_cmd_state(res, CMD_INITIALIZING);
+	_change_cmd_state(res, CMD_STATE_INI);
 
 	ucmd_ctx->req_cat = msg->cat;
 	ucmd_ctx->req_hdr = header;
@@ -5656,7 +5681,7 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 		goto fail;
 	}
 
-	_change_cmd_state(res, CMD_EXEC_SCHEDULED);
+	_change_cmd_state(res, CMD_STATE_EXE_SCHED);
 	return 0;
 fail:
 	if (ucmd_ctx) {
@@ -6202,9 +6227,7 @@ static int _worker_recv_system_cmd_resources(sid_res_t *worker_res, struct sid_w
 	ucmd_ctx->resources.main_res_mem =
 		mmap(NULL, ucmd_ctx->resources.main_res_mem_size, PROT_READ, MAP_SHARED, data_spec->ext.socket.fd_pass, 0);
 
-	sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
-	_change_cmd_state(cmd_res, CMD_EXEC_SCHEDULED);
-
+	_change_cmd_state(cmd_res, CMD_STATE_EXE_SCHED);
 	r = 0;
 out:
 	close(data_spec->ext.socket.fd_pass);
@@ -6213,10 +6236,9 @@ out:
 
 static int _worker_recv_system_cmd_sync(sid_res_t *worker_res, struct sid_wrk_data_spec *data_spec)
 {
-	static const char    _msg_prologue[] = "Received sync ack from main process, but";
-	const char          *cmd_id;
-	sid_res_t           *cmd_res;
-	struct sid_ucmd_ctx *ucmd_ctx;
+	static const char _msg_prologue[] = "Received sync ack from main process, but";
+	const char       *cmd_id;
+	sid_res_t        *cmd_res;
 
 	/* cmd_id needs at least 1 character with '\0' at the end - so 2 characters at least! */
 	if ((data_spec->data_size - INTERNAL_MSG_HEADER_SIZE) < 2) {
@@ -6235,11 +6257,7 @@ static int _worker_recv_system_cmd_sync(sid_res_t *worker_res, struct sid_wrk_da
 		return -1;
 	}
 
-	ucmd_ctx = sid_res_data_get(cmd_res);
-
-	sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
-	_change_cmd_state(cmd_res, CMD_EXPBUF_ACKED);
-
+	_change_cmd_state(cmd_res, CMD_STATE_EXE_SCHED);
 	return 0;
 }
 
