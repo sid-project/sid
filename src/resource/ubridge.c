@@ -1294,7 +1294,6 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 				                  SID_INTERNAL_ERROR "%s: Unsupported vector value for key %s in udev namespace.",
 				                  __func__,
 				                  key);
-				r = -ENOTSUP;
 				goto fail;
 			}
 
@@ -1313,8 +1312,13 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 					                      strlen(svalue->data + ext_data_offset),
 					                      NULL,
 					                      NULL)) < 0) ||
-					    ((r = sid_buf_add(ucmd_ctx->res_buf, KV_END_C, 1, NULL, NULL)) < 0))
+					    ((r = sid_buf_add(ucmd_ctx->res_buf, KV_END_C, 1, NULL, NULL)) < 0)) {
+						sid_res_log_error(cmd_res,
+						                  "Failed to add udev property %s=%s to response buffer.",
+						                  key,
+						                  svalue->data + ext_data_offset);
 						goto fail;
+					}
 
 					sid_res_log_debug(ucmd_ctx->common->kv_store_res,
 					                  "Exported udev property %s=%s",
@@ -5312,10 +5316,8 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 		_change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
 
 	if (ucmd_ctx->state == CMD_STATE_RES_BUILD) {
-		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0) {
-			sid_res_log_error(cmd_res, "Failed to export KV store.");
+		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0)
 			goto out;
-		}
 
 		if (expbuf_first)
 			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND);
