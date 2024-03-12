@@ -396,7 +396,8 @@ static int _on_worker_proxy_channel_event(sid_res_ev_src_t *es, int fd, uint32_t
 				break;
 			default:
 				sid_res_log_error(chan->owner,
-				                  SID_INTERNAL_ERROR "%s %s",
+				                  SID_INTERNAL_ERROR "%s: %s %s",
+				                  __func__,
 				                  worker_channel_cmd_str[chan_cmd],
 				                  _unexpected_internal_command_msg);
 		}
@@ -442,7 +443,8 @@ static int _on_worker_channel_event(sid_res_ev_src_t *es, int fd, uint32_t reven
 				break;
 			default:
 				sid_res_log_error(chan->owner,
-				                  SID_INTERNAL_ERROR "%s %s",
+				                  SID_INTERNAL_ERROR "%s: %s %s",
+				                  __func__,
 				                  worker_channel_cmd_str[chan_cmd],
 				                  _unexpected_internal_command_msg);
 		}
