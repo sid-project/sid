@@ -5401,7 +5401,8 @@ static int _check_msg(sid_res_t *res, struct sid_msg *msg)
 
 			if (!sid_res_match(res, &sid_res_type_ubr_con, NULL)) {
 				sid_res_log_error(res,
-				                  SID_INTERNAL_ERROR "Connection resource missing for client command %s.",
+				                  SID_INTERNAL_ERROR "%s: Connection resource missing for client command %s.",
+				                  __func__,
 				                  sid_ifc_cmd_type_to_name(header.cmd));
 				return -1;
 			}
@@ -5920,7 +5921,8 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 					sid_res_log_error(
 						res,
 						SID_INTERNAL_ERROR
-						"Illegal operator found for key %s while trying to sync main key-value store.",
+						"%s: Illegal operator found for key %s while trying to sync main key-value store.",
+						__func__,
 						key);
 					goto out;
 			}
@@ -6057,7 +6059,8 @@ static int _worker_proxy_recv_system_cmd_sync(sid_res_t *worker_proxy_res, struc
 
 	if (!data_spec->ext.used) {
 		sid_res_log_error(worker_proxy_res,
-		                  SID_INTERNAL_ERROR "Received KV store sync request, but KV store sync data missing.");
+		                  SID_INTERNAL_ERROR "%s: Received KV store sync request, but KV store sync data missing.",
+		                  __func__);
 		return -1;
 	}
 
@@ -6120,14 +6123,14 @@ static int _worker_proxy_recv_fn(sid_res_t                *worker_proxy_res,
 	struct internal_msg_header int_msg;
 
 	if (data_spec->data_size < INTERNAL_MSG_HEADER_SIZE) {
-		sid_res_log_error(worker_proxy_res, SID_INTERNAL_ERROR "Incorrect internal message header size.");
+		sid_res_log_error(worker_proxy_res, SID_INTERNAL_ERROR "%s: Incorrect internal message header size.", __func__);
 		return -1;
 	}
 
 	memcpy(&int_msg, data_spec->data, INTERNAL_MSG_HEADER_SIZE);
 
 	if (int_msg.cat != MSG_CATEGORY_SYSTEM) {
-		sid_res_log_error(worker_proxy_res, SID_INTERNAL_ERROR "Received unexpected message category.");
+		sid_res_log_error(worker_proxy_res, SID_INTERNAL_ERROR "%s: Received unexpected message category.", __func__);
 		return -1;
 	}
 
@@ -6237,7 +6240,7 @@ static int
 	struct internal_msg_header int_msg;
 
 	if (data_spec->data_size < INTERNAL_MSG_HEADER_SIZE) {
-		sid_res_log_error(worker_res, SID_INTERNAL_ERROR "Incorrect internal message header size.");
+		sid_res_log_error(worker_res, SID_INTERNAL_ERROR "%s: Incorrect internal message header size.", __func__);
 		return -1;
 	}
 
@@ -6257,7 +6260,9 @@ static int
 					break;
 
 				default:
-					sid_res_log_error(worker_res, SID_INTERNAL_ERROR "Received unexpected system command.");
+					sid_res_log_error(worker_res,
+					                  SID_INTERNAL_ERROR "%s: Received unexpected system command.",
+					                  __func__);
 					return -1;
 			}
 			break;
@@ -6488,12 +6493,12 @@ static int _on_ubridge_udev_monitor_event(sid_res_ev_src_t *es, int fd, uint32_t
 	}
 
 	if (!(worker_control_res = sid_res_search(ubridge->internal_res, SID_RES_SEARCH_IMM_DESC, &sid_res_type_wrk_ctl, NULL))) {
-		sid_res_log_error(ubridge_res, SID_INTERNAL_ERROR "Failed to find worker control resource.");
+		sid_res_log_error(ubridge_res, SID_INTERNAL_ERROR "%s: Failed to find worker control resource.", __func__);
 		goto out;
 	}
 
 	if (!(worker_proxy_res = sid_wrk_ctl_wrk_find(worker_control_res, worker_id))) {
-		sid_res_log_error(ubridge_res, SID_INTERNAL_ERROR "Failed to find worker with id %s.", worker_id);
+		sid_res_log_error(ubridge_res, SID_INTERNAL_ERROR "%s: Failed to find worker with id %s.", __func__, worker_id);
 		goto out;
 	}
 
