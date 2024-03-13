@@ -445,6 +445,7 @@ typedef enum {
 	SYSTEM_CMD_UNDEFINED = _SYSTEM_CMD_START,
 	SYSTEM_CMD_UNKNOWN,
 	SYSTEM_CMD_SYNC,
+	SYSTEM_CMD_UMONITOR,
 	SYSTEM_CMD_RESOURCES,
 	_SYSTEM_CMD_END = SYSTEM_CMD_RESOURCES,
 } system_cmd_t;
@@ -6236,6 +6237,23 @@ out:
 	return r;
 }
 
+static int _worker_recv_system_cmd_umonitor(sid_res_t *worker_res, struct sid_wrk_data_spec *data_spec)
+{
+	static const char cmd_id[] = "c-scan";
+	sid_res_t        *cmd_res;
+
+	if (!(cmd_res = sid_res_search(worker_res, SID_RES_SEARCH_DFS, &sid_res_type_ubr_cmd, cmd_id))) {
+		sid_res_log_error(worker_res,
+		                  SID_INTERNAL_ERROR "%s: Failed to find command resource with id %s.",
+		                  __func__,
+		                  cmd_id);
+		return -1;
+	}
+
+	_change_cmd_state(cmd_res, CMD_STATE_EXE_SCHED);
+	return 0;
+}
+
 static int _worker_recv_system_cmd_sync(sid_res_t *worker_res, struct sid_wrk_data_spec *data_spec)
 {
 	static const char _msg_prologue[] = "Received sync ack from main process, but";
@@ -6280,6 +6298,11 @@ static int
 			switch (int_msg.header.cmd) {
 				case SYSTEM_CMD_SYNC:
 					if (_worker_recv_system_cmd_sync(worker_res, data_spec) < 0)
+						return -1;
+					break;
+
+				case SYSTEM_CMD_UMONITOR:
+					if (_worker_recv_system_cmd_umonitor(worker_res, data_spec) < 0)
 						return -1;
 					break;
 
@@ -6498,14 +6521,16 @@ static int _load_kv_store(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *co
 
 static int _on_ubridge_umonitor_event(sid_res_ev_src_t *es, int fd, uint32_t revents, void *data)
 {
-	sid_res_t          *ubridge_res = data;
-	struct ubridge     *ubridge     = sid_res_data_get(ubridge_res);
-	unsigned long long  seqnum;
-	sid_res_t          *worker_control_res;
-	sid_res_t          *worker_proxy_res;
-	struct udev_device *udev_dev;
-	const char         *worker_id;
-	int                 r = -1;
+	sid_res_t                 *ubridge_res = data;
+	struct ubridge            *ubridge     = sid_res_data_get(ubridge_res);
+	unsigned long long         seqnum;
+	sid_res_t                 *worker_control_res;
+	sid_res_t                 *worker_proxy_res;
+	struct udev_device        *udev_dev;
+	const char                *worker_id;
+	struct internal_msg_header int_msg;
+	struct sid_wrk_data_spec   data_spec;
+	int                        r = -1;
 
 	if (!(udev_dev = udev_monitor_receive_device(ubridge->ulink.mon)))
 		goto out;
@@ -6533,9 +6558,16 @@ static int _on_ubridge_umonitor_event(sid_res_ev_src_t *es, int fd, uint32_t rev
 
 	sid_res_log_debug(worker_proxy_res, "Matched worker for event with seqno %" PRIu64, seqnum);
 
-	// TODO: send internal command to the worker here to start the trigger-action phase
+	int_msg = (struct internal_msg_header) {
+		.cat    = MSG_CATEGORY_SYSTEM,
+		.header = (struct sid_ifc_msg_header) {.status = 0, .prot = 0, .cmd = SYSTEM_CMD_UMONITOR, .flags = 0}};
 
-	r = 0;
+	data_spec.data      = &int_msg;
+	data_spec.data_size = INTERNAL_MSG_HEADER_SIZE;
+	data_spec.ext.used  = false;
+
+	if ((r = sid_wrk_ctl_chan_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec)) < 0)
+		sid_res_log_error_errno(ubridge_res, r, "Failed to notify worker about UDEV event with seqno %" PRIu64, seqnum);
 out:
 	if (udev_dev)
 		udev_device_unref(udev_dev);
