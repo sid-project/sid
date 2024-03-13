@@ -94,9 +94,8 @@ int _do_build_buffers(sid_res_t *cmd_res)
 {
 	int                  fd;
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
-	struct cmd_reg       cmd_reg  = {.flags = CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SID_TO_EXPBUF};
 
-	assert_int_equal(_build_cmd_kv_buffers(cmd_res, &cmd_reg), 0);
+	assert_int_equal(_build_cmd_kv_buffers(cmd_res, CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SID_TO_EXPBUF), 0);
 	fd = sid_buf_fd_get(ucmd_ctx->exp_buf);
 	assert_true(fd >= 0);
 	return fd;
