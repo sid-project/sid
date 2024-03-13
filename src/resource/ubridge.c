@@ -1176,7 +1176,7 @@ static fmt_output_t flags_to_format(uint16_t flags)
 	return FMT_TABLE; /* default to TABLE on invalid format */
 }
 
-static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_reg)
+static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	fmt_output_t         format;
@@ -1195,8 +1195,8 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 	bool                 needs_comma = false;
 	kv_vector_t          tmp_vvalue[VVALUE_SINGLE_ALIGNED_CNT];
 
-	if (!(cmd_reg->flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_RESBUF |
-	                        CMD_KV_EXPORT_SID_TO_EXPBUF)))
+	if (!(flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_RESBUF |
+	               CMD_KV_EXPORT_SID_TO_EXPBUF)))
 		/* nothing to export for this command */
 		return 0;
 
@@ -1209,7 +1209,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 	 * the extra memory usage caused by creating the index keys.
 	 */
 
-	if (cmd_reg->flags & CMD_KV_EXPORT_SYNC)
+	if (flags & CMD_KV_EXPORT_SYNC)
 		iter = sid_kvs_iter_create(ucmd_ctx->common->kv_store_res, KV_PREFIX_OP_SYNC_C, KV_PREFIX_OP_SYNC_END_C);
 	else
 		iter = sid_kvs_iter_create(ucmd_ctx->common->kv_store_res, NULL, NULL);
@@ -1220,7 +1220,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 		goto fail;
 	}
 
-	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE)
+	if (flags & CMD_KV_EXPBUF_TO_FILE)
 		buf_spec = (struct sid_buf_spec) {.backend  = SID_BUF_BACKEND_FILE,
 		                                  .type     = SID_BUF_TYPE_LINEAR,
 		                                  .mode     = SID_BUF_MODE_SIZE_PREFIX,
@@ -1241,7 +1241,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 	 * commands exporting buffer to main process, we always use the raw NO_FORMAT.
 	 * For external clients, we export in format which is requested.
 	 */
-	if ((ucmd_ctx->req_cat == MSG_CATEGORY_SELF) || (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN))
+	if ((ucmd_ctx->req_cat == MSG_CATEGORY_SELF) || (flags & CMD_KV_EXPBUF_TO_MAIN))
 		format = FMT_NONE;
 	else
 		format = flags_to_format(ucmd_ctx->req_hdr.flags);
@@ -1259,7 +1259,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 			vvalue_size           = size;
 			svalue                = NULL;
 			VVALUE_FLAGS(vvalue) &= ~SID_KV_FL_SYNC;
-			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
+			if (flags & CMD_KV_EXPORT_PERSISTENT) {
 				if (!(VVALUE_FLAGS(vvalue) & SID_KV_FL_PERSIST))
 					continue;
 			}
@@ -1268,7 +1268,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 			vvalue_size    = 0;
 			svalue         = raw_value;
 			svalue->flags &= ~SID_KV_FL_SYNC;
-			if (cmd_reg->flags & CMD_KV_EXPORT_PERSISTENT) {
+			if (flags & CMD_KV_EXPORT_PERSISTENT) {
 				if (!(svalue->flags & SID_KV_FL_PERSIST))
 					continue;
 			}
@@ -1284,7 +1284,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == SID_KV_NS_UDEV) {
-			if (!(cmd_reg->flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF))) {
+			if (!(flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF))) {
 				sid_res_log_debug(cmd_res, "Ignoring request to export record with key %s to udev.", key);
 				continue;
 			}
@@ -1297,7 +1297,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 				goto fail;
 			}
 
-			if (cmd_reg->flags & CMD_KV_EXPORT_UDEV_TO_RESBUF) {
+			if (flags & CMD_KV_EXPORT_UDEV_TO_RESBUF) {
 				ext_data_offset = _svalue_ext_data_offset(svalue);
 
 				/* only export if there's a value assigned and the value is not an empty string */
@@ -1327,10 +1327,10 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, const struct cmd_reg *cmd_r
 				}
 			}
 
-			if (!(cmd_reg->flags & CMD_KV_EXPORT_UDEV_TO_EXPBUF))
+			if (!(flags & CMD_KV_EXPORT_UDEV_TO_EXPBUF))
 				continue;
 		} else { /* _get_ns_from_key(key) != KV_NS_UDEV */
-			if (!(cmd_reg->flags & (CMD_KV_EXPORT_SID_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF))) {
+			if (!(flags & (CMD_KV_EXPORT_SID_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF))) {
 				sid_res_log_debug(cmd_res,
 				                  "Ignoring request to export record with key %s to SID main KV store.",
 				                  key);
@@ -5316,7 +5316,7 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 		_change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
 
 	if (ucmd_ctx->state == CMD_STATE_RES_BUILD) {
-		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg)) < 0)
+		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg->flags)) < 0)
 			goto out;
 
 		if (expbuf_first)
