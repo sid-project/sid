@@ -7158,7 +7158,7 @@ static int _destroy_ubridge(sid_res_t *res)
 
 const sid_res_type_t sid_res_type_ubr_cmd = {
 	.name        = "command",
-	.short_name  = "com",
+	.short_name  = "cmd",
 	.description = "Internal resource representing single request (command) on ubridge interface.",
 	.init        = _init_command,
 	.destroy     = _destroy_command,
