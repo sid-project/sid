@@ -58,7 +58,7 @@
 
 #define UDEV_TAG_SID                                "sid"
 #define KV_KEY_UDEV_SID_TAGS                        ".SID_TAGS" /* starts with '.' as we don't want this to store in udev db! */
-#define KV_KEY_UDEV_SID_SESSION_ID                  "SID_SESSION_ID"
+#define KV_KEY_UDEV_SID_SESSION_ID                  ".SID_SESSION_ID"
 #define KV_KEY_UDEV_SID_DEV_ID                      "SID_DEV_ID"
 
 // TODO: once trigger-action is settled down, move this to ucmd-module.h
