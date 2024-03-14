@@ -5285,6 +5285,8 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 		}
 	}
 
+	sid_buf_destroy(ucmd_ctx->exp_buf);
+	ucmd_ctx->exp_buf = NULL;
 	return r;
 }
 
