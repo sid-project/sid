@@ -5297,6 +5297,9 @@ static int _send_out_cmd_resbuf(sid_res_t *cmd_res)
 	struct connection   *conn     = NULL;
 	int                  r        = -1;
 
+	if (!ucmd_ctx->res_buf)
+		return 0;
+
 	/* Send out response buffer. */
 	switch (ucmd_ctx->req_cat) {
 		case MSG_CATEGORY_SYSTEM:
@@ -5320,6 +5323,8 @@ static int _send_out_cmd_resbuf(sid_res_t *cmd_res)
 
 	r = 0;
 out:
+	sid_buf_destroy(ucmd_ctx->res_buf);
+	ucmd_ctx->res_buf = NULL;
 	return r;
 }
 
