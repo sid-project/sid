@@ -302,6 +302,8 @@ struct cmd_reg {
 	const char *name;
 	uint32_t    flags;
 	int (*exec)(sid_res_t *cmd_res);
+	unsigned     stages;
+	const char **stage_names;
 };
 
 typedef struct {
@@ -3709,9 +3711,13 @@ static int _connection_cleanup(sid_res_t *conn_res)
 	return sid_res_isolate(conn_res) == 0 && sid_res_unref(conn_res) == 0;
 }
 
+static const struct cmd_reg *_get_cmd_reg(struct sid_ucmd_ctx *ucmd_ctx);
+
 static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	static const char     cmd_stage_msg[] = "Command stage: ";
+	struct sid_ucmd_ctx  *ucmd_ctx        = sid_res_data_get(cmd_res);
+	const struct cmd_reg *cmd_reg;
 
 	if (ucmd_ctx->state == state) {
 		sid_res_log_error(cmd_res,
@@ -3722,12 +3728,21 @@ static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 	}
 
 	if (state == CMD_STATE_EXE_SCHED) {
+		cmd_reg = _get_cmd_reg(ucmd_ctx);
+
 		if ((ucmd_ctx->state != CMD_STATE_INI))
 			(void) sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
 
 		if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_INI, CMD_STATE_STG_WAIT)) {
 			ucmd_ctx->stage_counter++;
-			sid_res_log_debug(cmd_res, "Command stage: %u.", ucmd_ctx->stage_counter);
+
+			if (cmd_reg->stage_names)
+				sid_res_log_debug(cmd_res,
+				                  "%s%s",
+				                  cmd_stage_msg,
+				                  cmd_reg->stage_names[ucmd_ctx->stage_counter - 1]);
+			else
+				sid_res_log_debug(cmd_res, "%s%u", cmd_stage_msg, ucmd_ctx->stage_counter);
 		}
 	}
 
@@ -5138,7 +5153,9 @@ static struct cmd_reg _client_cmd_regs[] = {
 	[SID_IFC_CMD_SCAN]       = {.name  = "c-scan",
                                     .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF |
                                              CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_SESSION_ID,
-                                    .exec = _cmd_exec_scan},
+                                    .exec        = _cmd_exec_scan,
+                                    .stages      = 2,
+                                    .stage_names = ((const char *[]) {"SCAN_A", "SCAN_B"})},
 	[SID_IFC_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
 	[SID_IFC_CMD_DBDUMP]     = {.name  = "c-dbdump",
                                     .flags = CMD_KV_EXPORT_UDEV_TO_EXPBUF | CMD_KV_EXPORT_SID_TO_EXPBUF,
