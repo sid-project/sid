@@ -5355,9 +5355,12 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 		if ((r = _send_out_cmd_resbuf(cmd_res)) < 0)
 			goto out;
 
-		if (expbuf_first)
-			_change_cmd_state(cmd_res, CMD_STATE_FIN);
-		else
+		if (expbuf_first) {
+			if (ucmd_ctx->stage_counter == cmd_reg->stages)
+				_change_cmd_state(cmd_res, CMD_STATE_FIN);
+			else
+				_change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
+		} else
 			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND);
 	}
 
@@ -5367,8 +5370,12 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 
 		if (expbuf_first)
 			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK);
-		else
-			_change_cmd_state(cmd_res, CMD_STATE_FIN);
+		else {
+			if (ucmd_ctx->stage_counter == cmd_reg->stages)
+				_change_cmd_state(cmd_res, CMD_STATE_FIN);
+			else
+				_change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
+		}
 	}
 out:
 	if (r < 0) {
@@ -5378,14 +5385,8 @@ out:
 		_change_cmd_state(cmd_res, CMD_STATE_ERR);
 	}
 
-	/*
-	 * At the end of processing a 'SELF' request, there's no other external entity or event that
-	 * would cause the worker to yield itself so do it now before we enter the event loop again.
-	 */
-	if (ucmd_ctx->req_cat == MSG_CATEGORY_SELF) {
-		if (ucmd_ctx->state == CMD_STATE_FIN || ucmd_ctx->state == CMD_STATE_ERR)
-			(void) sid_wrk_ctl_wrk_yield(sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, NULL, NULL));
-	}
+	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_FIN, CMD_STATE_ERR))
+		(void) sid_wrk_ctl_wrk_yield(cmd_res);
 
 	return r;
 }
