@@ -5087,12 +5087,23 @@ static int _cmd_exec_scan(sid_res_t *cmd_res)
 	cmd_scan_phase_t     phase, phase_start, phase_end;
 	const char          *phase_name;
 
-	if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE) {
-		phase_start = CMD_SCAN_PHASE_REMOVE_INIT;
-		phase_end   = CMD_SCAN_PHASE_REMOVE_CLEANUP;
-	} else {
-		phase_start = CMD_SCAN_PHASE_A_INIT;
-		phase_end   = CMD_SCAN_PHASE_A_CLEANUP;
+	switch (ucmd_ctx->stage_counter) {
+		case 1:
+			if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE) {
+				phase_start = CMD_SCAN_PHASE_REMOVE_INIT;
+				phase_end   = CMD_SCAN_PHASE_REMOVE_CLEANUP;
+			} else {
+				phase_start = CMD_SCAN_PHASE_A_INIT;
+				phase_end   = CMD_SCAN_PHASE_A_CLEANUP;
+			}
+			break;
+		case 2:
+			phase_start = CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT;
+			phase_end   = CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT;
+			break;
+		default:
+			sid_res_log_error(cmd_res, SID_INTERNAL_ERROR "%s: Incorrect stage %u.", __func__, ucmd_ctx->stage_counter);
+			return -1;
 	}
 
 	for (phase = phase_start; phase <= phase_end; phase++) {
