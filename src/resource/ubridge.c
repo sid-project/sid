@@ -6496,7 +6496,7 @@ static int _load_kv_store(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *co
 	return r;
 }
 
-static int _on_ubridge_udev_monitor_event(sid_res_ev_src_t *es, int fd, uint32_t revents, void *data)
+static int _on_ubridge_umonitor_event(sid_res_ev_src_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_res_t          *ubridge_res = data;
 	struct ubridge     *ubridge     = sid_res_data_get(ubridge_res);
@@ -6777,7 +6777,7 @@ static int _set_up_ulink(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 	if (sid_res_ev_io_create(ubridge_res,
 	                         &umonitor_es,
 	                         umonitor_fd,
-	                         _on_ubridge_udev_monitor_event,
+	                         _on_ubridge_umonitor_event,
 	                         0,
 	                         "udev monitor",
 	                         ubridge_res) < 0) {
