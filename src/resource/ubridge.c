@@ -5270,7 +5270,7 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 				break;
 
 			case MSG_CATEGORY_CLIENT:
-				conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, NULL, NULL);
+				conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, &sid_res_type_ubr_con, NULL);
 				conn     = sid_res_data_get(conn_res);
 
 				if ((r = _send_fd_over_unix_comms(sid_buf_fd_get(ucmd_ctx->exp_buf), conn->fd)) < 0) {
@@ -5301,7 +5301,7 @@ static int _send_out_cmd_resbuf(sid_res_t *cmd_res)
 			break;
 
 		case MSG_CATEGORY_CLIENT:
-			conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, NULL, NULL);
+			conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, &sid_res_type_ubr_con, NULL);
 			conn     = sid_res_data_get(conn_res);
 
 			if (sid_buf_write_all(ucmd_ctx->res_buf, conn->fd) < 0) {
