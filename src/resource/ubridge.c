@@ -286,6 +286,7 @@ struct sid_ucmd_ctx {
 		} resources;
 	};
 
+	unsigned int      stage_counter;
 	cmd_state_t       prev_state;     /* previous command state */
 	cmd_state_t       state;          /* current command state */
 	sid_res_ev_src_t *cmd_handler_es; /* event source for deferred execution of _cmd_handler */
@@ -3720,8 +3721,15 @@ static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 		return;
 	}
 
-	if ((ucmd_ctx->state != CMD_STATE_INI) && (state == CMD_STATE_EXE_SCHED))
-		(void) sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
+	if (state == CMD_STATE_EXE_SCHED) {
+		if ((ucmd_ctx->state != CMD_STATE_INI))
+			(void) sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
+
+		if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_INI, CMD_STATE_STG_WAIT)) {
+			ucmd_ctx->stage_counter++;
+			sid_res_log_debug(cmd_res, "Command stage: %u.", ucmd_ctx->stage_counter);
+		}
+	}
 
 	sid_res_log_debug(cmd_res, "Command state changed: %s --> %s.", cmd_state_str[ucmd_ctx->state], cmd_state_str[state]);
 
