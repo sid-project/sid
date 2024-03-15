@@ -6163,28 +6163,36 @@ static int _worker_recv_system_cmd_resources(sid_res_t *worker_res, struct sid_w
 	}
 
 	if (read(data_spec->ext.socket.fd_pass, &msg_size, SID_BUF_SIZE_PREFIX_LEN) != SID_BUF_SIZE_PREFIX_LEN) {
-		sid_res_log_error_errno(worker_res, errno, "%s failed to read shared memory size", _msg_prologue);
+		sid_res_log_error_errno(worker_res,
+		                        errno,
+		                        SID_INTERNAL_ERROR "%s: %s failed to read shared memory size",
+		                        __func__,
+		                        _msg_prologue);
 		goto out;
 	}
 
 	if (msg_size <= SID_BUF_SIZE_PREFIX_LEN) {
-		sid_res_log_error(worker_res, "%s no data received.", _msg_prologue);
+		sid_res_log_error(worker_res, SID_INTERNAL_ERROR "%s: %s no data received.", __func__, _msg_prologue);
 		goto out;
 	} else if (msg_size > INTERNAL_MSG_MAX_FD_DATA_SIZE) {
-		sid_res_log_error(worker_res, "Maximum internal messages size exceeded.");
+		sid_res_log_error(worker_res, SID_INTERNAL_ERROR "%s: Maximum internal messages size exceeded.", __func__);
 		goto out;
 	}
 
 	/* cmd id needs at least 1 character with '0' at the end - so 2 characters at least! */
 	if ((data_spec->data_size - INTERNAL_MSG_HEADER_SIZE) < 2) {
-		sid_res_log_error(worker_res, "%s missing command id to match.", _msg_prologue);
+		sid_res_log_error(worker_res, SID_INTERNAL_ERROR "%s: %s missing command id to match.", __func__, _msg_prologue);
 		goto out;
 	}
 
 	cmd_id = data_spec->data + INTERNAL_MSG_HEADER_SIZE;
 
 	if (!(cmd_res = sid_res_search(worker_res, SID_RES_SEARCH_DFS, &sid_res_type_ubr_cmd, cmd_id))) {
-		sid_res_log_error(worker_res, "%s failed to find command resource with id %s.", _msg_prologue, cmd_id);
+		sid_res_log_error(worker_res,
+		                  SID_INTERNAL_ERROR "%s: %s failed to find command resource with id %s.",
+		                  __func__,
+		                  _msg_prologue,
+		                  cmd_id);
 		goto out;
 	}
 
@@ -6212,16 +6220,18 @@ static int _worker_recv_system_cmd_sync(sid_res_t *worker_res, struct sid_wrk_da
 
 	/* cmd_id needs at least 1 character with '\0' at the end - so 2 characters at least! */
 	if ((data_spec->data_size - INTERNAL_MSG_HEADER_SIZE) < 2) {
-		sid_res_log_error(worker_res, "%s missing command id to match.", _msg_prologue);
-		_change_cmd_state(worker_res, CMD_ERROR);
+		sid_res_log_error(worker_res, SID_INTERNAL_ERROR "%s: %s missing command id to match.", __func__, _msg_prologue);
 		return -1;
 	}
 
 	cmd_id = data_spec->data + INTERNAL_MSG_HEADER_SIZE;
 
 	if (!(cmd_res = sid_res_search(worker_res, SID_RES_SEARCH_DFS, &sid_res_type_ubr_cmd, cmd_id))) {
-		sid_res_log_error(worker_res, "%s failed to find command resource with id %s.", _msg_prologue, cmd_id);
-		_change_cmd_state(worker_res, CMD_ERROR);
+		sid_res_log_error(worker_res,
+		                  SID_INTERNAL_ERROR "%s: %s failed to find command resource with id %s.",
+		                  __func__,
+		                  _msg_prologue,
+		                  cmd_id);
 		return -1;
 	}
 
