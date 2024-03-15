@@ -293,6 +293,7 @@ struct sid_ucmd_ctx {
 	struct sid_buf           *prn_buf; /* print buffer */
 	struct sid_buf           *res_buf; /* response buffer */
 	struct sid_buf           *exp_buf; /* export buffer */
+	struct sid_buf           *uns_buf; /* unset buffer */
 };
 
 struct cmd_reg {
@@ -1179,20 +1180,21 @@ static fmt_output_t flags_to_format(uint16_t flags)
 
 static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	static const char    failed_unset_buf_msg[] = "Failed to add record to unset buffer while building KV buffers.";
+	struct sid_ucmd_ctx *ucmd_ctx               = sid_res_data_get(cmd_res);
 	fmt_output_t         format;
 	struct sid_buf_spec  buf_spec;
 	kv_scalar_t         *svalue;
 	sid_kvs_iter_t      *iter;
-	const char          *key;
+	const char          *key, *index_key;
 	void                *raw_value;
 	bool                 vector, is_sync;
 	size_t               size, vvalue_size, key_size, ext_data_offset;
 	sid_kvs_val_fl_t     kv_store_value_flags;
 	kv_vector_t         *vvalue;
 	unsigned             i, records = 0;
-	int                  r           = -1;
-	struct sid_buf      *export_buf  = NULL;
+	int                  r          = -1;
+	struct sid_buf      *export_buf = NULL, *unset_buf = NULL;
 	bool                 needs_comma = false;
 	kv_vector_t          tmp_vvalue[VVALUE_SINGLE_ALIGNED_CNT];
 
@@ -1234,6 +1236,15 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 	if (!(export_buf =
 	              sid_buf_create(&buf_spec, &((struct sid_buf_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}), &r))) {
 		sid_res_log_error(cmd_res, "Failed to create export buffer.");
+		goto fail;
+	}
+
+	if (!(unset_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
+	                                                          .type    = SID_BUF_TYPE_LINEAR,
+	                                                          .mode    = SID_BUF_MODE_PLAIN}),
+	                                 &((struct sid_buf_init) {.size = 256, .alloc_step = 256, .limit = 0}),
+	                                 &r))) {
+		sid_res_log_error(cmd_res, "Failed to create unset buffer.");
 		goto fail;
 	}
 
@@ -1283,19 +1294,20 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 			}
 		}
 
-		key_size = strlen(key) + 1;
-
 		/* remove leading KV_PREFIX_OP_SYNC_C if present */
 		if (*key == KV_PREFIX_OP_SYNC_C[0]) {
-			key      += 1;
-			key_size -= 1;
-		}
+			index_key  = key;
+			key       += 1;
+		} else
+			index_key = NULL;
+
+		key_size = strlen(key) + 1;
 
 		// TODO: Also deal with situation if the udev namespace values are defined as vectors by chance.
 		if (_get_ns_from_key(key) == SID_KV_NS_UDEV) {
 			if (!(flags & (CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_UDEV_TO_EXPBUF))) {
 				sid_res_log_debug(cmd_res, "Ignoring request to export record with key %s to udev.", key);
-				continue;
+				goto next;
 			}
 
 			if (vector) {
@@ -1337,13 +1349,13 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 			}
 
 			if (!(flags & CMD_KV_EXPORT_UDEV_TO_EXPBUF))
-				continue;
+				goto next;
 		} else { /* _get_ns_from_key(key) != KV_NS_UDEV */
 			if (!(flags & (CMD_KV_EXPORT_SID_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF))) {
 				sid_res_log_debug(cmd_res,
 				                  "Ignoring request to export record with key %s to SID main KV store.",
 				                  key);
-				continue;
+				goto next;
 			}
 		}
 
@@ -1424,6 +1436,29 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 			needs_comma = true;
 		}
 		records++;
+next:
+		switch (_get_op_from_key(key)) {
+			case KV_OP_PLUS:
+			case KV_OP_MINUS:
+				/* schedule removal of any delta record */
+				if (sid_buf_add(unset_buf, (void *) &key, sizeof(uintptr_t), NULL, NULL) < 0) {
+					sid_res_log_error(cmd_res, failed_unset_buf_msg);
+					goto fail;
+				}
+				break;
+			case KV_OP_SET:
+			case KV_OP_ILLEGAL:
+				/* keep */
+				break;
+		}
+
+		if (index_key) {
+			/* schedule removal of the index key (the alias with KV_PREFIX_OP_SYNC) */
+			if (sid_buf_add(unset_buf, (void *) &index_key, sizeof(uintptr_t), NULL, NULL) < 0) {
+				sid_res_log_error(cmd_res, failed_unset_buf_msg);
+				goto fail;
+			}
+		}
 	}
 
 	if (format != FMT_NONE) {
@@ -1432,8 +1467,10 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 		fmt_byte_null_print(export_buf);
 	}
 
-	ucmd_ctx->exp_buf = export_buf;
 	sid_kvs_iter_destroy(iter);
+
+	ucmd_ctx->exp_buf = export_buf;
+	ucmd_ctx->uns_buf = unset_buf;
 	return 0;
 
 fail:
@@ -1441,7 +1478,39 @@ fail:
 		sid_kvs_iter_destroy(iter);
 	if (export_buf)
 		sid_buf_destroy(export_buf);
+	if (unset_buf)
+		sid_buf_destroy(unset_buf);
 
+	return r;
+}
+
+static int _process_cmd_unsbuf(sid_res_t *cmd_res)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	void                *raw_value;
+	size_t               i, size;
+	const char          *key;
+	int                  r = -1;
+
+	if (!ucmd_ctx->uns_buf)
+		return 0;
+
+	sid_buf_data_get(ucmd_ctx->uns_buf, (const void **) &raw_value, &size);
+	size /= sizeof(uintptr_t);
+
+	for (i = 0; i < size; i++) {
+		key = (const char *) ((uintptr_t *) raw_value)[i];
+
+		if (sid_kvs_unset(ucmd_ctx->common->kv_store_res, key, NULL, NULL) < 0) {
+			sid_res_log_error(cmd_res, "Failed to unset key %s.", key);
+			goto out;
+		}
+	}
+
+	r = 0;
+out:
+	sid_buf_destroy(ucmd_ctx->uns_buf);
+	ucmd_ctx->uns_buf = NULL;
 	return r;
 }
 
@@ -5407,6 +5476,9 @@ out:
 		ucmd_ctx->res_hdr.status |= SID_IFC_CMD_STATUS_FAILURE;
 		_change_cmd_state(cmd_res, CMD_STATE_ERR);
 	}
+
+	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_STG_WAIT, CMD_STATE_FIN))
+		(void) _process_cmd_unsbuf(cmd_res);
 
 	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_FIN, CMD_STATE_ERR))
 		(void) sid_wrk_ctl_wrk_yield(cmd_res);
