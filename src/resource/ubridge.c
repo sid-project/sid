@@ -1186,7 +1186,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 	sid_kvs_iter_t      *iter;
 	const char          *key;
 	void                *raw_value;
-	bool                 vector;
+	bool                 vector, is_sync;
 	size_t               size, vvalue_size, key_size, ext_data_offset;
 	sid_kvs_val_fl_t     kv_store_value_flags;
 	kv_vector_t         *vvalue;
@@ -1210,7 +1210,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 	 * the extra memory usage caused by creating the index keys.
 	 */
 
-	if (flags & CMD_KV_EXPORT_SYNC)
+	if ((is_sync = flags & CMD_KV_EXPORT_SYNC))
 		iter = sid_kvs_iter_create(ucmd_ctx->common->kv_store_res, KV_PREFIX_OP_SYNC_C, KV_PREFIX_OP_SYNC_END_C);
 	else
 		iter = sid_kvs_iter_create(ucmd_ctx->common->kv_store_res, NULL, NULL);
@@ -1256,19 +1256,27 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 		vector = kv_store_value_flags & SID_KVS_VAL_FL_VECTOR;
 
 		if (vector) {
-			vvalue                = raw_value;
-			vvalue_size           = size;
-			svalue                = NULL;
-			VVALUE_FLAGS(vvalue) &= ~SID_KV_FL_SYNC;
+			vvalue      = raw_value;
+			vvalue_size = size;
+			svalue      = NULL;
+			if (is_sync) {
+				if (!(VVALUE_FLAGS(vvalue) & SID_KV_FL_SYNC))
+					continue;
+				VVALUE_FLAGS(vvalue) &= ~SID_KV_FL_SYNC;
+			}
 			if (flags & CMD_KV_EXPORT_PERSISTENT) {
 				if (!(VVALUE_FLAGS(vvalue) & SID_KV_FL_PERSIST))
 					continue;
 			}
 		} else {
-			vvalue         = NULL;
-			vvalue_size    = 0;
-			svalue         = raw_value;
-			svalue->flags &= ~SID_KV_FL_SYNC;
+			vvalue      = NULL;
+			vvalue_size = 0;
+			svalue      = raw_value;
+			if (is_sync) {
+				if (!(svalue->flags & SID_KV_FL_SYNC))
+					continue;
+				svalue->flags &= ~SID_KV_FL_SYNC;
+			}
 			if (flags & CMD_KV_EXPORT_PERSISTENT) {
 				if (!(svalue->flags & SID_KV_FL_PERSIST))
 					continue;
