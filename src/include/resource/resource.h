@@ -262,7 +262,7 @@ void sid_res_log_output(sid_res_t *res, const sid_log_req_t *log_req, const char
 #define sid_res_log_notice(res, ...)          SID_RES_LOG_LINE(res, LOG_NOTICE, 0, __VA_ARGS__)
 #define sid_res_log_warning(res, ...)         SID_RES_LOG_LINE(res, LOG_WARNING, 0, __VA_ARGS__)
 #define sid_res_log_error(res, ...)           SID_RES_LOG_LINE(res, LOG_ERR, 0, __VA_ARGS__)
-#define sid_res_log_print(res, ...)           SID_RES_LOG_LINE(res, LOG_PRINT, 0, __VA_ARGS__)
+#define sid_res_log_print(res, ...)           SID_RES_LOG_LINE(res, SID_LOG_PRINT, 0, __VA_ARGS__)
 #define sid_res_log_error_errno(res, e, ...)  SID_RES_LOG_LINE(res, LOG_DEBUG, e, __VA_ARGS__)
 #define sid_res_log_sys_error(res, x, y, ...) sid_res_log_error_errno(res, errno, "%s%s%s failed", y, *y ? ": " : "", x)
 
