@@ -5840,7 +5840,8 @@ static int _destroy_command(sid_res_t *res)
 	struct sid_ucmd_ctx  *ucmd_ctx = sid_res_data_get(res);
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 
-	sid_buf_destroy(ucmd_ctx->res_buf);
+	if (ucmd_ctx->res_buf)
+		sid_buf_destroy(ucmd_ctx->res_buf);
 
 	if (ucmd_ctx->prn_buf)
 		sid_buf_destroy(ucmd_ctx->prn_buf);
