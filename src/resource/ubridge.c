@@ -5335,7 +5335,8 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 			}
 
 			sid_buf_rewind(buf, buf_pos, SID_BUF_POS_ABS);
-		} // TODO: if sid_buf_count returns 0, then set the cmd state as if the buffer was acked
+		} else
+			r = -ENODATA;
 	} else if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
 		if ((r = fsync(sid_buf_fd_get(ucmd_ctx->exp_buf))) < 0) {
 			sid_res_log_error_errno(cmd_res, r, "Failed to fsync command exports to a file.");
@@ -5457,12 +5458,13 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 	}
 
 	if (ucmd_ctx->state == CMD_STATE_RES_EXPBUF_SEND) {
-		if ((r = _send_out_cmd_expbuf(cmd_res)) < 0)
+		if (((r = _send_out_cmd_expbuf(cmd_res)) < 0) && (r != -ENODATA))
 			goto out;
 
-		if (expbuf_first)
+		if (expbuf_first && (r != -ENODATA))
 			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK);
 		else {
+			r = 0;
 			if (ucmd_ctx->stage_counter == cmd_reg->stages)
 				_change_cmd_state(cmd_res, CMD_STATE_FIN);
 			else
