@@ -283,7 +283,7 @@ struct sid_ucmd_ctx {
 		} resources;
 	};
 
-	unsigned int      stage_counter;
+	unsigned int      stage;          /* current command stage */
 	cmd_state_t       prev_state;     /* previous command state */
 	cmd_state_t       state;          /* current command state */
 	sid_res_ev_src_t *cmd_handler_es; /* event source for deferred execution of _cmd_handler */
@@ -300,7 +300,7 @@ struct cmd_reg {
 	const char *name;
 	uint32_t    flags;
 	int (*exec)(sid_res_t *cmd_res);
-	unsigned     stages;
+	unsigned     stage_count;
 	const char **stage_names;
 };
 
@@ -3808,15 +3808,12 @@ static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 			(void) sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
 
 		if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_INI, CMD_STATE_STG_WAIT)) {
-			ucmd_ctx->stage_counter++;
+			ucmd_ctx->stage++;
 
 			if (cmd_reg->stage_names)
-				sid_res_log_debug(cmd_res,
-				                  "%s%s",
-				                  cmd_stage_msg,
-				                  cmd_reg->stage_names[ucmd_ctx->stage_counter - 1]);
+				sid_res_log_debug(cmd_res, "%s%s", cmd_stage_msg, cmd_reg->stage_names[ucmd_ctx->stage - 1]);
 			else
-				sid_res_log_debug(cmd_res, "%s%u", cmd_stage_msg, ucmd_ctx->stage_counter);
+				sid_res_log_debug(cmd_res, "%s%u", cmd_stage_msg, ucmd_ctx->stage);
 		}
 	}
 
@@ -5161,7 +5158,7 @@ static int _cmd_exec_scan(sid_res_t *cmd_res)
 	cmd_scan_phase_t     phase, phase_start, phase_end;
 	const char          *phase_name;
 
-	switch (ucmd_ctx->stage_counter) {
+	switch (ucmd_ctx->stage) {
 		case 1:
 			if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE) {
 				phase_start = CMD_SCAN_PHASE_REMOVE_INIT;
@@ -5176,7 +5173,7 @@ static int _cmd_exec_scan(sid_res_t *cmd_res)
 			phase_end   = CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT;
 			break;
 		default:
-			sid_res_log_error(cmd_res, SID_INTERNAL_ERROR "%s: Incorrect stage %u.", __func__, ucmd_ctx->stage_counter);
+			sid_res_log_error(cmd_res, SID_INTERNAL_ERROR "%s: Incorrect stage %u.", __func__, ucmd_ctx->stage);
 			return -1;
 	}
 
@@ -5239,7 +5236,7 @@ static struct cmd_reg _client_cmd_regs[] = {
                                     .flags = CMD_KV_IMPORT_UDEV | CMD_KV_EXPORT_UDEV_TO_RESBUF | CMD_KV_EXPORT_SID_TO_EXPBUF |
                                              CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SYNC | CMD_SESSION_ID,
                                     .exec        = _cmd_exec_scan,
-                                    .stages      = 2,
+                                    .stage_count = 2,
                                     .stage_names = ((const char *[]) {"SCAN_A", "SCAN_B"})},
 	[SID_IFC_CMD_VERSION]    = {.name = "c-version", .flags = 0, .exec = _cmd_exec_version},
 	[SID_IFC_CMD_DBDUMP]     = {.name  = "c-dbdump",
@@ -5449,7 +5446,7 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 			goto out;
 
 		if (expbuf_first) {
-			if (ucmd_ctx->stage_counter == cmd_reg->stages)
+			if (ucmd_ctx->stage == cmd_reg->stage_count)
 				_change_cmd_state(cmd_res, CMD_STATE_FIN);
 			else
 				_change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
@@ -5465,7 +5462,7 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK);
 		else {
 			r = 0;
-			if (ucmd_ctx->stage_counter == cmd_reg->stages)
+			if (ucmd_ctx->stage == cmd_reg->stage_count)
 				_change_cmd_state(cmd_res, CMD_STATE_FIN);
 			else
 				_change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
