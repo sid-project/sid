@@ -5441,9 +5441,11 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 		if (ucmd_ctx->state == CMD_STATE_EXE_RUN)
 			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_BUILD)) < 0)
 				goto out;
-	} else if (ucmd_ctx->prev_state == CMD_STATE_RES_EXPBUF_WAIT_ACK)
+	} else if (ucmd_ctx->prev_state == CMD_STATE_RES_EXPBUF_WAIT_ACK) {
 		/* The export buffer reception is acked, now we can send the response buffer. */
-		_change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
+		if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND)) < 0)
+			goto out;
+	}
 
 	if (ucmd_ctx->state == CMD_STATE_RES_BUILD) {
 		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg->flags)) < 0)
