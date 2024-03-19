@@ -125,6 +125,8 @@
 #define OWNER_CORE                                  MOD_NAME_CORE
 #define DEFAULT_VALUE_FLAGS_CORE                    SID_KV_FL_SYNC_P | SID_KV_FL_RS
 
+#define DEFAULT_CMD_TIM_OUT_USEC                    180000000
+
 #define CMD_DEV_PRINT_FMT                           "%s (%s/%s)"
 #define CMD_DEV_PRINT(ucmd_ctx)                     ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.num_s, ucmd_ctx->req_env.dev.dsq_s
 
@@ -209,8 +211,10 @@ typedef enum {
 	CMD_STATE_RES_EXPBUF_SEND,     /* send cmd stage export buffer */
 	CMD_STATE_RES_EXPBUF_WAIT_ACK, /* wait for cmd stage export buffer reception ack */
 	CMD_STATE_RES_RESBUF_SEND,     /* send cmd stage result buffer */
-	CMD_STATE_FIN,                 /* all cmd stages done, all results successfully sent */
+	CMD_STATE_TIM_OUT,             /* cmd timeout */
 	CMD_STATE_ERR,                 /* cmd error */
+	CMD_STATE_FIN,                 /* all cmd stages done, all results successfully sent */
+
 } cmd_state_t;
 
 static const char *cmd_state_str[]        = {[CMD_STATE_UNDEFINED]           = "CMD_UNDEFINED",
@@ -223,8 +227,9 @@ static const char *cmd_state_str[]        = {[CMD_STATE_UNDEFINED]           = "
                                              [CMD_STATE_RES_EXPBUF_SEND]     = "CMD_RES_EXPBUF_SEND",
                                              [CMD_STATE_RES_EXPBUF_WAIT_ACK] = "CMD_RES_EXPBUF_WAIT_ACK",
                                              [CMD_STATE_RES_RESBUF_SEND]     = "CMD_RES_RESBUF_SEND",
-                                             [CMD_STATE_FIN]                 = "CMD_FIN",
-                                             [CMD_STATE_ERR]                 = "CMD_ERR"};
+                                             [CMD_STATE_TIM_OUT]             = "CMD_TIM_OUT",
+                                             [CMD_STATE_ERR]                 = "CMD_ERR",
+                                             [CMD_STATE_FIN]                 = "CMD_FIN"};
 
 static const char * const dev_ready_str[] = {
 	[SID_DEV_RDY_UNDEFINED]     = "RDY_UNDEFINED",
@@ -290,6 +295,7 @@ struct sid_ucmd_ctx {
 
 	/* event sources */
 	sid_res_ev_src_t *cmd_handler_es; /* event source for deferred execution of _cmd_handler */
+	sid_res_ev_src_t *tim_out_es;     /* event source for timeout event */
 
 	/* response */
 	struct sid_ifc_msg_header res_hdr; /* response header */
@@ -3790,7 +3796,19 @@ static int _connection_cleanup(sid_res_t *conn_res)
 	return sid_res_isolate(conn_res) == 0 && sid_res_unref(conn_res) == 0;
 }
 
+static int                   _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state);
 static const struct cmd_reg *_get_cmd_reg(struct sid_ucmd_ctx *ucmd_ctx);
+
+static int _on_cmd_tim_out_event(sid_res_ev_src_t *es, uint64_t usec, void *data)
+{
+	return _change_cmd_state((sid_res_t *) data, CMD_STATE_TIM_OUT);
+}
+
+static void _destroy_tim_out_es(struct sid_ucmd_ctx *ucmd_ctx)
+{
+	(void) sid_res_ev_destroy(&ucmd_ctx->tim_out_es);
+	ucmd_ctx->tim_out_es = 0;
+}
 
 static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 {
@@ -3812,6 +3830,9 @@ static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 		if ((ucmd_ctx->state != CMD_STATE_INI))
 			(void) sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
 
+		if (ucmd_ctx->tim_out_es)
+			_destroy_tim_out_es(ucmd_ctx);
+
 		if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_INI, CMD_STATE_STG_WAIT)) {
 			ucmd_ctx->stage++;
 
@@ -3830,6 +3851,31 @@ static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 			                  __func__);
 			return -1;
 		}
+
+		/* FIXME: Make the timeout configurable per each stage. Make defaults a part of struct cmd_reg. */
+		if (sid_res_ev_time_create(cmd_res,
+		                           &ucmd_ctx->tim_out_es,
+		                           CLOCK_MONOTONIC,
+		                           SID_RES_POS_REL,
+		                           DEFAULT_CMD_TIM_OUT_USEC,
+		                           0,
+		                           _on_cmd_tim_out_event,
+		                           0,
+		                           "stg_tim_out",
+		                           cmd_res) < 0) {
+			sid_res_log_error(cmd_res, "Failed to create timeout event for waiting for next command stage.");
+			return -1;
+		}
+	} else if (state == CMD_STATE_TIM_OUT) {
+		if (ucmd_ctx->state != CMD_STATE_STG_WAIT) {
+			sid_res_log_error(cmd_res, SID_INTERNAL_ERROR "Timeout while command not in wait state.");
+			return -1;
+		}
+
+		if (ucmd_ctx->tim_out_es)
+			_destroy_tim_out_es(ucmd_ctx);
+
+		(void) sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
 	}
 
 	sid_res_log_debug(cmd_res, "Command state changed: %s --> %s.", cmd_state_str[ucmd_ctx->state], cmd_state_str[state]);
@@ -5427,6 +5473,11 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 	const struct cmd_reg *cmd_reg      = _get_cmd_reg(ucmd_ctx);
 	bool                  expbuf_first = cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN;
 	int                   r            = -1;
+
+	if (ucmd_ctx->state == CMD_STATE_TIM_OUT) {
+		/* TODO: add timeout handling, calling out to module code */
+		goto out;
+	}
 
 	if (UTIL_IN_SET(ucmd_ctx->prev_state, CMD_STATE_INI, CMD_STATE_EXE_WAIT, CMD_STATE_STG_WAIT)) {
 		/*
