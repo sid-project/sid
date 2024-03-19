@@ -3815,6 +3815,16 @@ static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 			else
 				sid_res_log_debug(cmd_res, "%s%u", cmd_stage_msg, ucmd_ctx->stage);
 		}
+	} else if (state == CMD_STATE_STG_WAIT) {
+		cmd_reg = _get_cmd_reg(ucmd_ctx);
+
+		if (ucmd_ctx->stage == cmd_reg->stage_count) {
+			sid_res_log_error(cmd_res,
+			                  SID_INTERNAL_ERROR
+			                  "%s: Requested to wait for next stage while command already in last stage.",
+			                  __func__);
+			return;
+		}
 	}
 
 	sid_res_log_debug(cmd_res, "Command state changed: %s --> %s.", cmd_state_str[ucmd_ctx->state], cmd_state_str[state]);
