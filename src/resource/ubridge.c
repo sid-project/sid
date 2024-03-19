@@ -283,9 +283,12 @@ struct sid_ucmd_ctx {
 		} resources;
 	};
 
-	unsigned int      stage;          /* current command stage */
-	cmd_state_t       prev_state;     /* previous command state */
-	cmd_state_t       state;          /* current command state */
+	/* cmd stage and state tracking */
+	unsigned int stage;      /* current command stage */
+	cmd_state_t  prev_state; /* previous command state */
+	cmd_state_t  state;      /* current command state */
+
+	/* event sources */
 	sid_res_ev_src_t *cmd_handler_es; /* event source for deferred execution of _cmd_handler */
 
 	/* response */
@@ -293,7 +296,9 @@ struct sid_ucmd_ctx {
 	struct sid_buf           *prn_buf; /* print buffer */
 	struct sid_buf           *res_buf; /* response buffer */
 	struct sid_buf           *exp_buf; /* export buffer */
-	struct sid_buf           *uns_buf; /* unset buffer */
+
+	/* cleanup */
+	struct sid_buf *uns_buf; /* unset buffer */
 };
 
 struct cmd_reg {
