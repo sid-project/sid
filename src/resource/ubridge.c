@@ -5449,13 +5449,13 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg->flags)) < 0)
 			goto out;
 
-		if (expbuf_first) {
-			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND)) < 0)
-				goto out;
-		} else {
-			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND)) < 0)
-				goto out;
-		}
+		if (expbuf_first)
+			r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND);
+		else
+			r = _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
+
+		if (r < 0)
+			goto out;
 	}
 
 	if (ucmd_ctx->state == CMD_STATE_RES_RESBUF_SEND) {
@@ -5463,13 +5463,13 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 			goto out;
 
 		if (expbuf_first) {
-			if (ucmd_ctx->stage == cmd_reg->stage_count) {
-				if ((r = _change_cmd_state(cmd_res, CMD_STATE_FIN)) < 0)
-					goto out;
-			} else {
-				if ((r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT)) < 0)
-					goto out;
-			}
+			if (ucmd_ctx->stage == cmd_reg->stage_count)
+				r = _change_cmd_state(cmd_res, CMD_STATE_FIN);
+			else
+				r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
+
+			if (r < 0)
+				goto out;
 		} else {
 			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND)) < 0)
 				goto out;
@@ -5484,14 +5484,13 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK)) < 0)
 				goto out;
 		} else {
-			r = 0;
-			if (ucmd_ctx->stage == cmd_reg->stage_count) {
-				if ((r = _change_cmd_state(cmd_res, CMD_STATE_FIN)) < 0)
-					goto out;
-			} else {
-				if ((r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT)) < 0)
-					goto out;
-			}
+			if (ucmd_ctx->stage == cmd_reg->stage_count)
+				r = _change_cmd_state(cmd_res, CMD_STATE_FIN);
+			else
+				r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
+
+			if (r < 0)
+				goto out;
 		}
 	}
 out:
