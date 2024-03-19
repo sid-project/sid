@@ -3787,7 +3787,7 @@ static int _connection_cleanup(sid_res_t *conn_res)
 
 static const struct cmd_reg *_get_cmd_reg(struct sid_ucmd_ctx *ucmd_ctx);
 
-static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
+static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 {
 	static const char     cmd_stage_msg[] = "Command stage: ";
 	struct sid_ucmd_ctx  *ucmd_ctx        = sid_res_data_get(cmd_res);
@@ -3798,7 +3798,7 @@ static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 		                  SID_INTERNAL_ERROR "%s: Command already in requested state %s.",
 		                  __func__,
 		                  cmd_state_str[state]);
-		return;
+		return -1;
 	}
 
 	if (state == CMD_STATE_EXE_SCHED) {
@@ -3823,7 +3823,7 @@ static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 			                  SID_INTERNAL_ERROR
 			                  "%s: Requested to wait for next stage while command already in last stage.",
 			                  __func__);
-			return;
+			return -1;
 		}
 	}
 
@@ -3831,6 +3831,8 @@ static void _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 
 	ucmd_ctx->prev_state = ucmd_ctx->state;
 	ucmd_ctx->state      = state;
+
+	return 0;
 }
 
 static int _cmd_exec_version(sid_res_t *cmd_res)
@@ -3913,7 +3915,7 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 			sid_res_log_error_errno(cmd_res, r, "Failed to sent request to main process to write its resource tree.");
 			r = -1;
 		} else
-			_change_cmd_state(cmd_res, CMD_STATE_EXE_WAIT);
+			r = _change_cmd_state(cmd_res, CMD_STATE_EXE_WAIT);
 
 		sid_buf_rewind(gen_buf, buf_pos0, SID_BUF_POS_ABS);
 		return r;
@@ -5428,7 +5430,8 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 		 *   - CMD_STATE_EXE_WAIT, we are resuming handler from previous run where we needed more data,
 		 *   - CMD_STATE_FIN, we have run the handler before and finished (sent the results), now we need to run it afresh.
 		 */
-		_change_cmd_state(cmd_res, CMD_STATE_EXE_RUN);
+		if ((r = _change_cmd_state(cmd_res, CMD_STATE_EXE_RUN)) < 0)
+			goto out;
 
 		if (cmd_reg->exec && ((r = cmd_reg->exec(cmd_res)) < 0)) {
 			sid_res_log_error(cmd_res, "Failed to execute command");
@@ -5436,7 +5439,8 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 		}
 
 		if (ucmd_ctx->state == CMD_STATE_EXE_RUN)
-			_change_cmd_state(cmd_res, CMD_STATE_RES_BUILD);
+			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_BUILD)) < 0)
+				goto out;
 	} else if (ucmd_ctx->prev_state == CMD_STATE_RES_EXPBUF_WAIT_ACK)
 		/* The export buffer reception is acked, now we can send the response buffer. */
 		_change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
@@ -5445,10 +5449,13 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg->flags)) < 0)
 			goto out;
 
-		if (expbuf_first)
-			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND);
-		else
-			_change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
+		if (expbuf_first) {
+			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND)) < 0)
+				goto out;
+		} else {
+			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND)) < 0)
+				goto out;
+		}
 	}
 
 	if (ucmd_ctx->state == CMD_STATE_RES_RESBUF_SEND) {
@@ -5456,26 +5463,35 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 			goto out;
 
 		if (expbuf_first) {
-			if (ucmd_ctx->stage == cmd_reg->stage_count)
-				_change_cmd_state(cmd_res, CMD_STATE_FIN);
-			else
-				_change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
-		} else
-			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND);
+			if (ucmd_ctx->stage == cmd_reg->stage_count) {
+				if ((r = _change_cmd_state(cmd_res, CMD_STATE_FIN)) < 0)
+					goto out;
+			} else {
+				if ((r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT)) < 0)
+					goto out;
+			}
+		} else {
+			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND)) < 0)
+				goto out;
+		}
 	}
 
 	if (ucmd_ctx->state == CMD_STATE_RES_EXPBUF_SEND) {
 		if (((r = _send_out_cmd_expbuf(cmd_res)) < 0) && (r != -ENODATA))
 			goto out;
 
-		if (expbuf_first && (r != -ENODATA))
-			_change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK);
-		else {
+		if (expbuf_first && (r != -ENODATA)) {
+			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK)) < 0)
+				goto out;
+		} else {
 			r = 0;
-			if (ucmd_ctx->stage == cmd_reg->stage_count)
-				_change_cmd_state(cmd_res, CMD_STATE_FIN);
-			else
-				_change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
+			if (ucmd_ctx->stage == cmd_reg->stage_count) {
+				if ((r = _change_cmd_state(cmd_res, CMD_STATE_FIN)) < 0)
+					goto out;
+			} else {
+				if ((r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT)) < 0)
+					goto out;
+			}
 		}
 	}
 out:
@@ -5483,7 +5499,8 @@ out:
 		// TODO: res_hdr.status needs to be set before _send_out_cmd_kv_buffers so it's transmitted
 		//       and also any results collected after the res_hdr must be discarded
 		ucmd_ctx->res_hdr.status |= SID_IFC_CMD_STATUS_FAILURE;
-		_change_cmd_state(cmd_res, CMD_STATE_ERR);
+		(void) _change_cmd_state(cmd_res, CMD_STATE_ERR);
+		return r;
 	}
 
 	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_STG_WAIT, CMD_STATE_FIN))
@@ -5492,7 +5509,7 @@ out:
 	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_FIN, CMD_STATE_ERR))
 		(void) sid_wrk_ctl_wrk_yield(cmd_res);
 
-	return r;
+	return 0;
 }
 
 static int _reply_failure(sid_res_t *conn_res)
@@ -5717,7 +5734,8 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 	}
 
 	*data = ucmd_ctx;
-	_change_cmd_state(res, CMD_STATE_INI);
+	if ((r = _change_cmd_state(res, CMD_STATE_INI)) < 0)
+		goto fail;
 
 	ucmd_ctx->req_cat = msg->cat;
 	ucmd_ctx->req_hdr = header;
@@ -5814,7 +5832,9 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 		goto fail;
 	}
 
-	_change_cmd_state(res, CMD_STATE_EXE_SCHED);
+	if ((r = _change_cmd_state(res, CMD_STATE_EXE_SCHED)) < 0)
+		goto fail;
+
 	return 0;
 fail:
 	if (ucmd_ctx) {
@@ -6361,8 +6381,7 @@ static int _worker_recv_system_cmd_resources(sid_res_t *worker_res, struct sid_w
 	ucmd_ctx->resources.main_res_mem =
 		mmap(NULL, ucmd_ctx->resources.main_res_mem_size, PROT_READ, MAP_SHARED, data_spec->ext.socket.fd_pass, 0);
 
-	_change_cmd_state(cmd_res, CMD_STATE_EXE_SCHED);
-	r = 0;
+	r = _change_cmd_state(cmd_res, CMD_STATE_EXE_SCHED);
 out:
 	close(data_spec->ext.socket.fd_pass);
 	return r;
@@ -6381,8 +6400,7 @@ static int _worker_recv_system_cmd_umonitor(sid_res_t *worker_res, struct sid_wr
 		return -1;
 	}
 
-	_change_cmd_state(cmd_res, CMD_STATE_EXE_SCHED);
-	return 0;
+	return _change_cmd_state(cmd_res, CMD_STATE_EXE_SCHED);
 }
 
 static int _worker_recv_system_cmd_sync(sid_res_t *worker_res, struct sid_wrk_data_spec *data_spec)
@@ -6408,8 +6426,7 @@ static int _worker_recv_system_cmd_sync(sid_res_t *worker_res, struct sid_wrk_da
 		return -1;
 	}
 
-	_change_cmd_state(cmd_res, CMD_STATE_EXE_SCHED);
-	return 0;
+	return _change_cmd_state(cmd_res, CMD_STATE_EXE_SCHED);
 }
 
 static int
