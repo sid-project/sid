@@ -5034,6 +5034,17 @@ static int _cmd_exec_scan_current(sid_res_t *cmd_res)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, sid_res_data_get(cmd_res), _owner_name(NULL), 0);
 
+	if (ready == SID_DEV_RDY_UNPROCESSED && !ucmd_ctx->scan.type_mod_res_current) {
+		/*
+		 * If there is no specific module to process this device type
+		 * and the 'ready' state is still 'unprocessed', then assume
+		 * device is SID_DEV_RDY_PUBLIC by default.
+		 */
+		if (_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, _owner_name(NULL), SID_DEV_RDY_PUBLIC, 0) < 0)
+			return -1;
+		ready = SID_DEV_RDY_PUBLIC;
+	}
+
 	if (!UTIL_IN_SET(ready, SID_DEV_RDY_PRIVATE, SID_DEV_RDY_FLAT, SID_DEV_RDY_PUBLIC))
 		return 1;
 
