@@ -168,6 +168,7 @@ typedef enum {
 
 	CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT,
 	CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT,
+	CMD_SCAN_PHASE_B_CLEANUP,
 
 	CMD_SCAN_PHASE_REMOVE_INIT,
 	CMD_SCAN_PHASE_REMOVE_MODS,
@@ -5111,15 +5112,8 @@ static int _cmd_exec_scan_exit(sid_res_t *cmd_res)
 	return r;
 }
 
-static int _cmd_exec_scan_cleanup(sid_res_t *cmd_res)
+static int _cmd_exec_scan_a_cleanup(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
-
-	if (ucmd_ctx->scan.block_mod_iter) {
-		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
-		ucmd_ctx->scan.block_mod_iter = NULL;
-	}
-
 	return 0;
 }
 
@@ -5137,6 +5131,18 @@ static int _cmd_exec_trigger_action_next(sid_res_t *cmd_res)
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
+}
+
+static int _cmd_exec_scan_b_cleanup(sid_res_t *cmd_res)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+
+	if (ucmd_ctx->scan.block_mod_iter) {
+		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
+		ucmd_ctx->scan.block_mod_iter = NULL;
+	}
+
+	return 0;
 }
 
 static int _cmd_exec_scan_remove_mods(sid_res_t *cmd_res)
@@ -5202,7 +5208,7 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 
 	[CMD_SCAN_PHASE_A_EXIT]              = {.name = "exit", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_exit},
 
-	[CMD_SCAN_PHASE_A_CLEANUP]           = {.name = "cleanup", .flags = 0, .exec = _cmd_exec_scan_cleanup},
+	[CMD_SCAN_PHASE_A_CLEANUP]           = {.name = "cleanup-a", .flags = 0, .exec = _cmd_exec_scan_a_cleanup},
 
 	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT] = {.name  = "trigger-action-current",
                                                      .flags = 0,
@@ -5210,13 +5216,15 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 
 	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT] = {.name = "trigger-action-next", .flags = 0, .exec = _cmd_exec_trigger_action_next},
 
+	[CMD_SCAN_PHASE_B_CLEANUP]             = {.name = "cleanup-b", .flags = 0, .exec = _cmd_exec_scan_b_cleanup},
+
 	[CMD_SCAN_PHASE_REMOVE_INIT]           = {.name = "remove-init", .flags = 0, .exec = _cmd_exec_scan_init},
 
 	[CMD_SCAN_PHASE_REMOVE_MODS]           = {.name = "remove-mods", .flags = 0, .exec = _cmd_exec_scan_remove_mods},
 
 	[CMD_SCAN_PHASE_REMOVE_CORE]           = {.name = "remove-core", .flags = 0, .exec = _cmd_exec_scan_remove_core},
 
-	[CMD_SCAN_PHASE_REMOVE_CLEANUP]        = {.name = "remove-cleanup", .flags = 0, .exec = _cmd_exec_scan_cleanup},
+	[CMD_SCAN_PHASE_REMOVE_CLEANUP]        = {.name = "remove-cleanup", .flags = 0, .exec = _cmd_exec_scan_a_cleanup},
 
 	[CMD_SCAN_PHASE_ERROR]                 = {.name = "error", .flags = 0, .exec = _cmd_exec_scan_error},
 };
@@ -5239,7 +5247,7 @@ static int _cmd_exec_scan(sid_res_t *cmd_res)
 			break;
 		case 2:
 			phase_start = CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT;
-			phase_end   = CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT;
+			phase_end   = CMD_SCAN_PHASE_B_CLEANUP;
 			break;
 		default:
 			sid_res_log_error(cmd_res, SID_INTERNAL_ERROR "%s: Incorrect stage %u.", __func__, ucmd_ctx->stage);
