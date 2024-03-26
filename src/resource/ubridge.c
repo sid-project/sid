@@ -5125,12 +5125,18 @@ static int _cmd_exec_scan_cleanup(sid_res_t *cmd_res)
 
 static int _cmd_exec_trigger_action_current(sid_res_t *cmd_res)
 {
-	return 0;
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+
+	_exec_block_mods(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
 static int _cmd_exec_trigger_action_next(sid_res_t *cmd_res)
 {
-	return 0;
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+
+	_exec_block_mods(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
 }
 
 static int _cmd_exec_scan_remove_mods(sid_res_t *cmd_res)
