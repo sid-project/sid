@@ -18,6 +18,7 @@
  */
 
 #include "../dm.h"
+#include "internal/util.h"
 #include "resource/ucmd-module.h"
 #include "resource/worker-control.h"
 
@@ -290,7 +291,36 @@ SID_UCMD_SCAN_CURRENT(_lvm_scan_current)
 
 static int _lvm_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	sid_res_t            *runner_res = sid_mod_data_get(mod_res);
+	char                 *cmd_line;
+	int                   r;
+	struct sid_wrk_params wrk_pvscan;
+
 	sid_res_log_debug(mod_res, "scan-next");
+
+	if (!(cmd_line = util_str_comb_to_str(NULL,
+	                                      NULL,
+	                                      "pvscan --cache --listvg --checkcomplete --vgonline --autoactivation event "
+	                                      "--udevoutput --journal=output /dev/",
+	                                      sid_ucmd_ev_dev_name_get(ucmd_ctx))))
+		return -1;
+
+	wrk_pvscan = (struct sid_wrk_params) {.id                 = "pvscan",
+	                                      .external.exec_file = "/usr/sbin/lvm",
+	                                      .external.args      = cmd_line,
+	                                      .worker_proxy_arg   = ucmd_ctx,
+	                                      .timeout_spec       = (struct sid_wrk_timeout_spec) {
+							    .usec   = 20000000,
+							    .signum = SIGKILL,
+                                              }};
+
+	if ((r = sid_wrk_ctl_wrk_new_run(runner_res, &wrk_pvscan, SID_RES_NO_SERVICE_LINKS)) < 0) {
+		sid_res_log_error_errno(mod_res, r, "Failed to run %s", wrk_pvscan.id);
+		free(cmd_line);
+		return -1;
+	}
+
+	free(cmd_line);
 	return 0;
 }
 SID_UCMD_SCAN_NEXT(_lvm_scan_next)
