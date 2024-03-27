@@ -19,6 +19,7 @@
 
 #include "../dm.h"
 #include "resource/ucmd-module.h"
+#include "resource/worker-control.h"
 
 #include <stdlib.h>
 
@@ -112,9 +113,83 @@ out:
 	return r;
 }
 
+static int _runner_stdout_recv_fn(sid_res_t *proxy_res, struct sid_wrk_chan *chan, struct sid_wrk_data_spec *data_spec, void *arg)
+{
+	return 0;
+}
+
+static int _runner_stderr_recv_fn(sid_res_t *proxy_res, struct sid_wrk_chan *chan, struct sid_wrk_data_spec *data_spec, void *arg)
+{
+	return 0;
+}
+
 static int _lvm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
+	sid_res_t *runner_res;
+
 	sid_res_log_debug(mod_res, "init");
+
+	struct sid_wrk_ctl_res_params runner_params = {
+		.worker_type = SID_WRK_TYPE_EXTERNAL,
+		.channel_specs =
+			(struct sid_wrk_chan_spec[]) {
+				{
+					.id = "stdout",
+					.wire =
+						(struct sid_wrk_wire_spec) {
+							.type              = SID_WRK_WIRE_PIPE_TO_PRX,
+							.ext.used          = true,
+							.ext.pipe.fd_redir = STDOUT_FILENO,
+						},
+					.proxy_rx =
+						(struct sid_wrk_lane_spec) {
+							.cb =
+								(struct sid_wrk_lane_cb_spec) {
+									.fn  = _runner_stdout_recv_fn,
+									.arg = mod_res,
+								},
+							.data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1},
+						},
+				},
+				{
+					.id = "stderr",
+					.wire =
+						(struct sid_wrk_wire_spec) {
+							.type              = SID_WRK_WIRE_PIPE_TO_PRX,
+							.ext.used          = true,
+							.ext.pipe.fd_redir = STDERR_FILENO,
+						},
+					.proxy_rx =
+						(struct sid_wrk_lane_spec) {
+							.cb =
+								(struct sid_wrk_lane_cb_spec) {
+									.fn  = _runner_stderr_recv_fn,
+									.arg = mod_res,
+								},
+							.data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1},
+						},
+				},
+				SID_WRK_NULL_CHAN_SPEC,
+			},
+		.timeout_spec =
+			(struct sid_wrk_timeout_spec) {
+				.usec   = 5000000,
+				.signum = SIGKILL,
+			},
+	};
+
+	if (!(runner_res = sid_res_create(mod_res,
+	                                  &sid_res_type_wrk_ctl,
+	                                  SID_RES_FL_NONE,
+	                                  "lvm runner",
+	                                  &runner_params,
+	                                  SID_RES_PRIO_NORMAL,
+	                                  SID_RES_NO_SERVICE_LINKS))) {
+		sid_res_log_error(mod_res, "Failed to create command runner.");
+		return -1;
+	}
+
+	sid_mod_data_set(mod_res, runner_res);
 	return 0;
 }
 SID_UCMD_MOD_INIT(_lvm_init)
