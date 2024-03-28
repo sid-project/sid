@@ -852,6 +852,10 @@ SID_UCMD_SCAN_CURRENT(_dm_scan_current)
 static int _dm_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "scan-next");
+
+	if (_exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_NEXT) < 0)
+		return -1;
+
 	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SCAN_NEXT);
 }
 SID_UCMD_SCAN_NEXT(_dm_scan_next)
