@@ -133,7 +133,7 @@ static int _lvm_reset(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_commo
 }
 SID_UCMD_MOD_RESET(_lvm_reset)
 
-static int _lvm_subsys_match(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _lvm_subsys_match_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	const char *uuid;
 
@@ -142,7 +142,7 @@ static int _lvm_subsys_match(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	return !strncmp(uuid, LVM_DM_UUID_PREFIX, sizeof(LVM_DM_UUID_PREFIX) - 1);
 }
-SID_UCMD_MOD_DM_SUBSYS_MATCH(_lvm_subsys_match)
+SID_UCMD_MOD_DM_SUBSYS_MATCH_CURRENT(_lvm_subsys_match_current)
 
 static int _lvm_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
