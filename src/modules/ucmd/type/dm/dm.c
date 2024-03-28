@@ -40,7 +40,7 @@ SID_UCMD_MOD_ALIASES("device_mapper")
 
 static struct sid_mod_sym_params dm_submod_sym_params[] = {
 	{
-		SID_UCMD_MOD_DM_FN_NAME_SUBSYS_MATCH,
+		SID_UCMD_MOD_DM_FN_NAME_SUBSYS_MATCH_CURRENT,
 		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
 	},
 	{
@@ -75,7 +75,7 @@ static struct sid_mod_sym_params dm_submod_sym_params[] = {
 };
 
 typedef enum {
-	DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH,
+	DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT,
 	DM_SUBMOD_SCAN_PHASE_IDENT,
 	DM_SUBMOD_SCAN_PHASE_SCAN_PRE,
 	DM_SUBMOD_SCAN_PHASE_SCAN_CURRENT,
@@ -86,7 +86,7 @@ typedef enum {
 } dm_submod_cmd_scan_phase_t;
 
 struct dm_submod_fns {
-	sid_ucmd_fn_t *subsys_match;
+	sid_ucmd_fn_t *subsys_match_current;
 	sid_ucmd_fn_t *ident;
 	sid_ucmd_fn_t *scan_pre;
 	sid_ucmd_fn_t *scan_current;
@@ -154,7 +154,7 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 	sid_res_iter_t       *iter;
 	sid_res_t            *submod_res;
 
-	if (phase != DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH) {
+	if (phase != DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT) {
 		if (!(submod_res = dm_mod->submod_res))
 			return 0;
 
@@ -168,7 +168,7 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 	}
 
 	switch (phase) {
-		case DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH:
+		case DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT:
 			if (!(iter = sid_res_iter_create(dm_mod->submod_registry))) {
 				sid_res_log_error(mod_res, "Failed to create submodule iterator.");
 				return -1;
@@ -180,8 +180,8 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 					continue;
 				}
 
-				if (submod_fns->subsys_match) {
-					if (submod_fns->subsys_match(submod_res, ucmd_ctx)) {
+				if (submod_fns->subsys_match_current) {
+					if (submod_fns->subsys_match_current(submod_res, ucmd_ctx)) {
 						dm_mod->submod_res_current = submod_res;
 						sid_res_log_debug(mod_res,
 						                  "%s submodule claimed this DM device.",
@@ -531,7 +531,7 @@ static int _dm_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 			}
 		}
 	} else {
-		if (_exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH) < 0)
+		if (_exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT) < 0)
 			return -1;
 
 		if (dm_mod->submod_res_current)
