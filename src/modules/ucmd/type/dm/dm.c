@@ -44,6 +44,10 @@ static struct sid_mod_sym_params dm_submod_sym_params[] = {
 		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
 	},
 	{
+		SID_UCMD_MOD_DM_FN_NAME_SUBSYS_MATCH_NEXT,
+		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
+	},
+	{
 		SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
 		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
 	},
@@ -76,6 +80,7 @@ static struct sid_mod_sym_params dm_submod_sym_params[] = {
 
 typedef enum {
 	DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT,
+	DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_NEXT,
 	DM_SUBMOD_SCAN_PHASE_IDENT,
 	DM_SUBMOD_SCAN_PHASE_SCAN_PRE,
 	DM_SUBMOD_SCAN_PHASE_SCAN_CURRENT,
@@ -87,6 +92,7 @@ typedef enum {
 
 struct dm_submod_fns {
 	sid_ucmd_fn_t *subsys_match_current;
+	sid_ucmd_fn_t *subsys_match_next;
 	sid_ucmd_fn_t *ident;
 	sid_ucmd_fn_t *scan_pre;
 	sid_ucmd_fn_t *scan_current;
@@ -147,6 +153,11 @@ static const char _failed_to_set_alias_msg[]            = "Failed to add alias f
 static const char _failed_to_get_sysfs_msg[]            = "Failed to get sysfs property for entry \"%s\"";
 static const char _failed_to_retrieve_submod_syms_msg[] = "Failed to retrieve symbols for submodule \"%s\"";
 
+#define DEV_PRINT_FMT "%s (%d_%d/%" PRIu64 ")"
+#define DEV_PRINT(ucmd_ctx)                                                                                                        \
+	sid_ucmd_ev_dev_name_get(ucmd_ctx), sid_ucmd_ev_dev_major_get(ucmd_ctx), sid_ucmd_ev_dev_minor_get(ucmd_ctx),              \
+		sid_ucmd_ev_dev_diskseq_get(ucmd_ctx)
+
 static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm_submod_cmd_scan_phase_t phase)
 {
 	struct dm_mod_ctx    *dm_mod = sid_mod_data_get(mod_res);
@@ -154,7 +165,7 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 	sid_res_iter_t       *iter;
 	sid_res_t            *submod_res;
 
-	if (phase != DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT) {
+	if ((phase != DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT) && (phase != DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_NEXT)) {
 		if (!(submod_res = dm_mod->submod_res))
 			return 0;
 
@@ -169,6 +180,7 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 
 	switch (phase) {
 		case DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT:
+		case DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_NEXT:
 			if (!(iter = sid_res_iter_create(dm_mod->submod_registry))) {
 				sid_res_log_error(mod_res, "Failed to create submodule iterator.");
 				return -1;
@@ -180,13 +192,28 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 					continue;
 				}
 
-				if (submod_fns->subsys_match_current) {
-					if (submod_fns->subsys_match_current(submod_res, ucmd_ctx)) {
-						dm_mod->submod_res_current = submod_res;
-						sid_res_log_debug(mod_res,
-						                  "%s submodule claimed this DM device.",
-						                  sid_res_id_get(submod_res));
-						break;
+				if (phase == DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT) {
+					if (submod_fns->subsys_match_current) {
+						if (submod_fns->subsys_match_current(submod_res, ucmd_ctx)) {
+							dm_mod->submod_res_current = submod_res;
+							sid_res_log_debug(mod_res,
+							                  "%s submodule claimed " DEV_PRINT_FMT
+							                  " for 'current' phases.",
+							                  sid_res_id_get(submod_res),
+							                  DEV_PRINT(ucmd_ctx));
+							break;
+						}
+					}
+				} else { /* DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_NEXT */
+					if (submod_fns->subsys_match_next) {
+						if (submod_fns->subsys_match_next(submod_res, ucmd_ctx)) {
+							dm_mod->submod_res_next = submod_res;
+							sid_res_log_debug(mod_res,
+							                  "%s submodule claimed " DEV_PRINT_FMT
+							                  " for 'next' phases.",
+							                  sid_res_id_get(submod_res),
+							                  DEV_PRINT(ucmd_ctx));
+						}
 					}
 				}
 			}
