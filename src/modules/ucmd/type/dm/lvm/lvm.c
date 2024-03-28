@@ -144,6 +144,17 @@ static int _lvm_subsys_match_current(sid_res_t *mod_res, struct sid_ucmd_ctx *uc
 }
 SID_UCMD_MOD_DM_SUBSYS_MATCH_CURRENT(_lvm_subsys_match_current)
 
+static int _lvm_subsys_match_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	const char *type;
+
+	if (!(type = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, "ID_FS_TYPE", NULL, NULL, 0)))
+		return 0;
+
+	return !strcmp(type, "LVM2_member");
+}
+SID_UCMD_MOD_DM_SUBSYS_MATCH_NEXT(_lvm_subsys_match_next)
+
 static int _lvm_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "ident");
