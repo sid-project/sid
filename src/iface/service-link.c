@@ -171,6 +171,20 @@ fail:
 	return NULL;
 }
 
+struct sid_srv_lnk_grp *sid_srv_lnk_grp_merge(struct sid_srv_lnk_grp *dest_slg, struct sid_srv_lnk_grp *src_slg)
+{
+	struct sid_srv_lnk *sl, *tmp_sl;
+
+	if (!src_slg || !dest_slg)
+		return NULL;
+
+	list_iterate_items_safe (sl, tmp_sl, &src_slg->members)
+		sid_srv_lnk_grp_member_add(dest_slg, sl);
+
+	sid_srv_lnk_grp_destroy(src_slg);
+	return dest_slg;
+}
+
 void sid_srv_lnk_grp_destroy(struct sid_srv_lnk_grp *slg)
 {
 	struct sid_srv_lnk *sl, *tmp_sl;

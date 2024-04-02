@@ -100,6 +100,7 @@ void sid_srv_lnk_notif_remove(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notifi
 
 struct sid_srv_lnk_grp *sid_srv_lnk_grp_create(const char *name);
 struct sid_srv_lnk_grp *sid_srv_lnk_grp_clone(struct sid_srv_lnk_grp *slg, const char *name);
+struct sid_srv_lnk_grp *sid_srv_lnk_grp_merge(struct sid_srv_lnk_grp *dest_slg, struct sid_srv_lnk_grp *src_slg);
 void                    sid_srv_lnk_grp_destroy(struct sid_srv_lnk_grp *slg);
 void                    sid_srv_lnk_grp_destroy_with_members(struct sid_srv_lnk_grp *slg);
 
