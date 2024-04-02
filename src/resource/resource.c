@@ -1176,10 +1176,41 @@ bool sid_res_search_match_res(sid_res_t *start_res, sid_res_search_t method, sid
 	return _do_sid_res_search(start_res, method, NULL, NULL, match_res) != NULL;
 }
 
+static int _res_clone_slgs(sid_res_t *res, sid_res_t *child)
+{
+	struct sid_srv_lnk_grp *slg;
+	sid_res_t              *child2;
+	int                     r;
+
+	if (res->slg) {
+		if (!(slg = sid_srv_lnk_grp_clone(res->slg, child->id))) {
+			res_log_error(res, "Failed to clone service link group while adding child %s.", child->id);
+			return -ENOMEM;
+		}
+
+		if (child->slg)
+			child->slg = sid_srv_lnk_grp_merge(slg, child->slg);
+		else
+			child->slg = slg;
+	}
+
+	list_iterate_items (child2, &child->children) {
+		if ((r = _res_clone_slgs(child, child2)) < 0)
+			return r;
+	}
+
+	return 0;
+}
+
 int sid_res_child_add(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags)
 {
+	int r;
+
 	if (child->parent)
 		return -EBUSY;
+
+	if ((r = _res_clone_slgs(res, child)) < 0)
+		return r;
 
 	child->flags = flags;
 	_add_res_to_parent_res(child, res);
