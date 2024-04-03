@@ -1188,6 +1188,22 @@ int sid_res_child_add(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags)
 	return 0;
 }
 
+void _destroy_res_slg(sid_res_t *res, bool recursive)
+{
+	sid_res_t *child_res;
+
+	if (!res->slg)
+		return;
+
+	if (recursive) {
+		list_iterate_items (child_res, &res->children)
+			_destroy_res_slg(child_res, recursive);
+	}
+
+	sid_srv_lnk_grp_destroy_with_members(res->slg);
+	res->slg = NULL;
+}
+
 int sid_res_isolate(sid_res_t *res, sid_res_isol_fl_t flags)
 {
 	sid_res_t *tmp_child_res, *child_res;
@@ -1199,6 +1215,8 @@ int sid_res_isolate(sid_res_t *res, sid_res_isol_fl_t flags)
 	if (flags & SID_RES_ISOL_FL_SUBTREE) {
 		/* Isolate whole subtree starting at 'res'. */
 		_remove_res_from_parent_res(res);
+		if (!(flags & SID_RES_ISOL_FL_KEEP_SERVICE_LINKS))
+			_destroy_res_slg(res, true);
 	} else {
 		/* Reparent 'res' children and then isolate 'res'. */
 		list_iterate_items_safe (child_res, tmp_child_res, &res->children) {
@@ -1206,6 +1224,9 @@ int sid_res_isolate(sid_res_t *res, sid_res_isol_fl_t flags)
 			_add_res_to_parent_res(child_res, res->parent);
 		}
 		_remove_res_from_parent_res(res);
+
+		if (!(flags & SID_RES_ISOL_FL_KEEP_SERVICE_LINKS))
+			_destroy_res_slg(res, false);
 	}
 
 	return 0;
