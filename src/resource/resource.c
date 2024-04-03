@@ -1188,7 +1188,7 @@ int sid_res_child_add(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags)
 	return 0;
 }
 
-int sid_res_isolate(sid_res_t *res)
+int sid_res_isolate(sid_res_t *res, sid_res_isol_fl_t flags)
 {
 	sid_res_t *tmp_child_res, *child_res;
 
@@ -1196,22 +1196,18 @@ int sid_res_isolate(sid_res_t *res)
 	if (res->event_loop.sd_event_loop || !res->parent || (res->flags & SID_RES_FL_DISALLOW_ISOLATION))
 		return -EPERM;
 
-	/* Reparent and isolate. */
-	list_iterate_items_safe (child_res, tmp_child_res, &res->children) {
-		_remove_res_from_parent_res(child_res);
-		_add_res_to_parent_res(child_res, res->parent);
+	if (flags & SID_RES_ISOL_FL_SUBTREE) {
+		/* Isolate whole subtree starting at 'res'. */
+		_remove_res_from_parent_res(res);
+	} else {
+		/* Reparent 'res' children and then isolate 'res'. */
+		list_iterate_items_safe (child_res, tmp_child_res, &res->children) {
+			_remove_res_from_parent_res(child_res);
+			_add_res_to_parent_res(child_res, res->parent);
+		}
+		_remove_res_from_parent_res(res);
 	}
 
-	_remove_res_from_parent_res(res);
-	return 0;
-}
-
-int sid_res_isolate_with_children(sid_res_t *res)
-{
-	if (res->event_loop.sd_event_loop || !res->parent || (res->flags & SID_RES_FL_DISALLOW_ISOLATION))
-		return -EPERM;
-
-	_remove_res_from_parent_res(res);
 	return 0;
 }
 

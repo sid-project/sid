@@ -155,9 +155,13 @@ bool       sid_res_search_match_res(sid_res_t *start_res, sid_res_search_t metho
 /*
  * structure/tree modification functions
  */
+typedef enum {
+	SID_RES_ISOL_FL_NONE          = UINT32_C(0x00000000),
+	SID_RES_ISOL_FL_SUBTREE       = UINT32_C(0x00000001),
+} sid_res_isol_fl_t;
+
 int sid_res_child_add(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags);
-int sid_res_isolate(sid_res_t *res);
-int sid_res_isolate_with_children(sid_res_t *res);
+int sid_res_isolate(sid_res_t *res, sid_res_isol_fl_t flags);
 
 /*
  * event loop and event handling functions and types
