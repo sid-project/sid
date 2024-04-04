@@ -350,9 +350,6 @@ fail:
 	if (res->event_loop.sd_event_loop)
 		sd_event_unref(res->event_loop.sd_event_loop);
 
-	if (res->slg)
-		sid_srv_lnk_grp_destroy_with_members(res->slg);
-
 	/* Drop the termporary reference! */
 	res->ref_count--;
 
@@ -363,6 +360,9 @@ fail:
 		              res->ref_count);
 
 	res_log_debug(res, "Resource NOT created.");
+
+	if (res->slg)
+		sid_srv_lnk_grp_destroy_with_members(res->slg);
 
 	free(res);
 	free(id);
