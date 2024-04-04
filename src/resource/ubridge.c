@@ -3794,7 +3794,7 @@ out:
 
 static int _connection_cleanup(sid_res_t *conn_res)
 {
-	return sid_res_isolate(conn_res) == 0 && sid_res_unref(conn_res) == 0;
+	return sid_res_isolate(conn_res, SID_RES_ISOL_FL_KEEP_SERVICE_LINKS) == 0 && sid_res_unref(conn_res) == 0;
 }
 
 static int                   _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state);
@@ -6595,7 +6595,7 @@ static int _worker_init_fn(sid_res_t *worker_res, void *arg)
 	sid_res_t                  *old_top_res = sid_res_search(common_ctx->res, SID_RES_SEARCH_TOP, NULL, NULL);
 
 	/* only take inherited common resource and attach it to the worker */
-	(void) sid_res_isolate_with_children(common_ctx->res);
+	(void) sid_res_isolate(common_ctx->res, SID_RES_ISOL_FL_SUBTREE);
 	(void) sid_res_child_add(worker_res, common_ctx->res, SID_RES_FL_NONE);
 
 	/* destroy remaining resources */
