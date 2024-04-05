@@ -762,6 +762,9 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 					// TODO: handle coldplug even in this case.
 					sid_res_log_warning(mod_res,
 					                    "Synthetic udev event received, but no previous records found.");
+
+					if ((r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC)) < 0)
+						goto out;
 				} else {
 					/* Tracking step 1) from activation sequence. */
 					if (action == UDEV_ACTION_ADD) {
