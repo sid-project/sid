@@ -114,6 +114,93 @@ const char *util_udev_devtype_to_str(udev_devtype_t devtype)
  * String-related utilities.
  */
 
+/*
+ * Parse input string 'str' and get key-value pair.
+ *
+ * The format is:
+ *     [<space>]key[<space>]=[<space>][<quote>]value[<quote>][<space>]
+ *
+ * The <space> is equal to UTIL_STR_DEFAULT_DELIMS.
+ * The <quote> is one of UTIL_STR_DEFAULT_QUOTES.
+ * The quotes are optional.
+ * All spaces are skipped unless they are inside quotes.
+ *
+ * The input string 'str' is modified in place (chars changed to '\0' as necessary).
+ *
+ * Returns:
+ *    0 on success ('key' and 'val' contain recognized key-value pair and
+ *                  they are pointers to the original input string 'str')
+ *   -ENODATA on empty string (spaces ignored)
+ *   -EINVAL  on invalid format
+ */
+int util_str_kv_get(char *str, char **key, char **val)
+{
+	char *p;
+
+	if (!str || !str[0])
+		return -ENODATA;
+
+	/* skip any spaces before key */
+	str += strspn(str, UTIL_STR_DEFAULT_DELIMS);
+	if (!str[0])
+		return -ENODATA;
+
+	/* get the key */
+	if (str[0] == '=')
+		/* no key */
+		return -EINVAL;
+	*key  = str;
+	str  += strcspn(str, UTIL_STR_DEFAULT_DELIMS "=");
+	p     = str;
+	if (str[0] != '=') {
+		/* skip any spaces between key and '=' */
+		str += strspn(str, UTIL_STR_DEFAULT_DELIMS);
+		if (str[0] != '=')
+			/* missing '=' */
+			return -EINVAL;
+	}
+	p[0] = '\0';
+	str++;
+
+	/* skip any spaces between '=' and value */
+	str += strspn(str, UTIL_STR_DEFAULT_DELIMS);
+
+	if ((p = strchr(UTIL_STR_DEFAULT_QUOTES, str[0]))) {
+		/* get quoted value */
+		*val = ++str;
+		if (!(str = strchr(str, p[0])))
+			/* missing end quote */
+			return -EINVAL;
+		str[0] = '\0';
+		str++;
+		if (str[0] == '\0')
+			/* finished - nothing else beyond the quoted value */
+			return 0;
+		/* skip any spaces beyond quoted value */
+		str += strspn(str, UTIL_STR_DEFAULT_DELIMS);
+	} else {
+		/* get unquoted value */
+		*val  = str;
+		str  += strcspn(str, UTIL_STR_DEFAULT_DELIMS UTIL_STR_DEFAULT_QUOTES);
+		if (str[0] == '\0')
+			/* finished - nothing else beyond the unquoted value */
+			return 0;
+		if (strchr(UTIL_STR_DEFAULT_QUOTES, str[0]))
+			/* a quote in the middle of the unquoted value */
+			return -EINVAL;
+		p     = str;
+		/* skip any spaces beyond unquoted value */
+		str  += strspn(str, UTIL_STR_DEFAULT_DELIMS);
+		p[0]  = '\0';
+	}
+
+	if (str[0] != '\0')
+		/* a garbage beyond the value */
+		return -EINVAL;
+
+	return 0;
+}
+
 char *util_str_rstr(const char *haystack, const char *needle)
 {
 	size_t haystack_len, needle_len, pos;

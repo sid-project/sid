@@ -86,6 +86,7 @@ const char    *util_udev_devtype_to_str(udev_devtype_t devtype);
 
 #define UTIL_STR_EMPTY(s)       (!s || s[0] == '\0')
 
+int   util_str_kv_get(char *str, char **key, char **val);
 char *util_str_rstr(const char *haystack, const char *needle);
 char *util_str_combstr(const char *haystack, const char *prefix, const char *needle, const char *suffix, bool ignorecase);
 
