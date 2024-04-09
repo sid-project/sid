@@ -198,7 +198,7 @@ int main(int argc, char *argv[])
 		(sid_res_srv_lnk_def_t[]) {{
 						   .name         = "systemd",
 						   .type         = SID_SRV_LNK_TYPE_SYSTEMD,
-						   .notification = SID_SRV_LNK_NOTIF_READY,
+						   .notification = SID_SRV_LNK_NOTIF_READY | SID_SRV_LNK_NOTIF_STATUS,
 						   .flags        = SID_SRV_LNK_FL_NONE,
 						   .data         = NULL,
 					   },
