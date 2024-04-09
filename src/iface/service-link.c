@@ -356,35 +356,28 @@ static int _notify_logger(struct sid_srv_lnk *sl,
                           const char         *fmt,
                           va_list             ap)
 {
-	switch (notification) {
-		case SID_SRV_LNK_NOTIF_MESSAGE:
-			sid_log_voutput((sid_log_t *) sl->data, log_req, fmt, ap);
-			break;
-		case SID_SRV_LNK_NOTIF_STATUS:
-			// TODO: add output
-			break;
-		case SID_SRV_LNK_NOTIF_ERRNO:
-			// TODO: add output
-			break;
-		case SID_SRV_LNK_NOTIF_READY:
-			sid_log_output((sid_log_t *) sl->data, log_req, "| READY |");
-			break;
-		case SID_SRV_LNK_NOTIF_RELOADING:
-			sid_log_output((sid_log_t *) sl->data, log_req, "| RELOADING |");
-			break;
-		case SID_SRV_LNK_NOTIF_STOPPING:
-			sid_log_output((sid_log_t *) sl->data, log_req, "| STOPPING |");
-			break;
-		case SID_SRV_LNK_NOTIF_WATCHDOG_REFRESH:
-			sid_log_output((sid_log_t *) sl->data, log_req, "| WATCHDOG_REFRESH |");
-			break;
-		case SID_SRV_LNK_NOTIF_WATCHDOG_TRIGGER:
-			sid_log_output((sid_log_t *) sl->data, log_req, "| WATCHDOG_TRIGGER |");
-			break;
-		case SID_SRV_LNK_NOTIF_NONE:
-		case SID_SRV_LNK_NOTIF_UNSET:
-			break;
-	}
+	if (notification & SID_SRV_LNK_NOTIF_MESSAGE)
+		sid_log_voutput((sid_log_t *) sl->data, log_req, fmt, ap);
+
+	if (notification & SID_SRV_LNK_NOTIF_STATUS)
+		sid_log_voutput((sid_log_t *) sl->data, log_req, fmt, ap);
+
+	// TODO: if (notification & SID_SRV_LNK_NOTIF_ERRNO)
+
+	if (notification & SID_SRV_LNK_NOTIF_READY)
+		sid_log_output((sid_log_t *) sl->data, log_req, "| READY |");
+
+	if (notification & SID_SRV_LNK_NOTIF_RELOADING)
+		sid_log_output((sid_log_t *) sl->data, log_req, "| RELOADING |");
+
+	if (notification & SID_SRV_LNK_NOTIF_STOPPING)
+		sid_log_output((sid_log_t *) sl->data, log_req, "| STOPPING |");
+
+	if (notification & SID_SRV_LNK_NOTIF_WATCHDOG_REFRESH)
+		sid_log_output((sid_log_t *) sl->data, log_req, "| WATCHDOG_REFRESH |");
+
+	if (notification & SID_SRV_LNK_NOTIF_WATCHDOG_TRIGGER)
+		sid_log_output((sid_log_t *) sl->data, log_req, "| WATCHDOG_TRIGGER |");
 
 	return 0;
 }
