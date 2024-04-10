@@ -22,6 +22,7 @@
 #include "resource/ucmd-module.h"
 #include "resource/worker-control.h"
 
+#include <limits.h>
 #include <stdlib.h>
 
 #define LVM_DM_UUID_PREFIX "LVM-"
@@ -114,14 +115,56 @@ out:
 	return r;
 }
 
+struct out_ctx {
+	sid_res_t           *mod_res;
+	struct sid_ucmd_ctx *ucmd_ctx;
+	bool                 store_kv;
+};
+
+static int _process_out_line(const char *line, size_t len, bool merge_back, void *data)
+{
+	sid_res_t      *proxy_res = data;
+	struct out_ctx *ctx       = sid_wrk_ctl_wrk_arg_get(proxy_res);
+	char            line_buf[LINE_MAX];
+	char           *key, *val;
+	int             r;
+
+	sid_res_log_debug(proxy_res, "OUT: %s", line);
+
+	if (!ctx->store_kv)
+		return 0;
+
+	if (len > LINE_MAX - 1)
+		return -ENOBUFS;
+
+	memcpy(line_buf, line, len);
+	line_buf[len] = '\0';
+
+	if ((r = util_str_kv_get(line_buf, &key, &val) < 0))
+		return r;
+
+	if (!(sid_ucmd_kv_set(ctx->mod_res, ctx->ucmd_ctx, SID_KV_NS_DEVMOD, key, val, strlen(val) + 1, SID_KV_FL_NONE)))
+		return -EREMOTEIO;
+
+	return 0;
+}
+
+static int _process_err_line(const char *line, size_t len, bool merge_back, void *data)
+{
+	struct out_ctx *ctx = sid_wrk_ctl_wrk_arg_get(data);
+	sid_res_log_debug(ctx->mod_res, "ERR: %s", line);
+
+	return 0;
+}
+
 static int _runner_stdout_recv_fn(sid_res_t *proxy_res, struct sid_wrk_chan *chan, struct sid_wrk_data_spec *data_spec, void *arg)
 {
-	return 0;
+	return util_str_tokens_iterate(data_spec->data, "\n", NULL, _process_out_line, proxy_res);
 }
 
 static int _runner_stderr_recv_fn(sid_res_t *proxy_res, struct sid_wrk_chan *chan, struct sid_wrk_data_spec *data_spec, void *arg)
 {
-	return 0;
+	return util_str_tokens_iterate(data_spec->data, "\n", NULL, _process_err_line, proxy_res);
 }
 
 static int _lvm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
@@ -146,8 +189,7 @@ static int _lvm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common
 						(struct sid_wrk_lane_spec) {
 							.cb =
 								(struct sid_wrk_lane_cb_spec) {
-									.fn  = _runner_stdout_recv_fn,
-									.arg = mod_res,
+									.fn = _runner_stdout_recv_fn,
 								},
 							.data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1},
 						},
@@ -164,8 +206,7 @@ static int _lvm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common
 						(struct sid_wrk_lane_spec) {
 							.cb =
 								(struct sid_wrk_lane_cb_spec) {
-									.fn  = _runner_stderr_recv_fn,
-									.arg = mod_res,
+									.fn = _runner_stderr_recv_fn,
 								},
 							.data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1},
 						},
@@ -305,14 +346,15 @@ static int _lvm_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	                                      sid_ucmd_ev_dev_name_get(ucmd_ctx))))
 		return -1;
 
-	wrk_pvscan = (struct sid_wrk_params) {.id                 = "pvscan",
-	                                      .external.exec_file = "/usr/sbin/lvm",
-	                                      .external.args      = cmd_line,
-	                                      .worker_proxy_arg   = ucmd_ctx,
-	                                      .timeout_spec       = (struct sid_wrk_timeout_spec) {
-							    .usec   = 20000000,
-							    .signum = SIGKILL,
-                                              }};
+	wrk_pvscan = (struct sid_wrk_params) {
+		.id                 = "pvscan",
+		.external.exec_file = "/usr/sbin/lvm",
+		.external.args      = cmd_line,
+		.worker_proxy_arg   = &((struct out_ctx) {.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = true}),
+		.timeout_spec       = (struct sid_wrk_timeout_spec) {
+			      .usec   = 20000000,
+			      .signum = SIGKILL,
+                }};
 
 	if ((r = sid_wrk_ctl_wrk_new_run(runner_res, &wrk_pvscan, SID_RES_NO_SERVICE_LINKS)) < 0) {
 		sid_res_log_error_errno(mod_res, r, "Failed to run %s", wrk_pvscan.id);
