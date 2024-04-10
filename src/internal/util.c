@@ -135,7 +135,7 @@ const char *util_udev_devtype_to_str(udev_devtype_t devtype)
  */
 int util_str_kv_get(char *str, char **key, char **val)
 {
-	char *p;
+	char *p, *k, *v;
 
 	if (!str || !str[0])
 		return -ENODATA;
@@ -149,9 +149,9 @@ int util_str_kv_get(char *str, char **key, char **val)
 	if (str[0] == '=')
 		/* no key */
 		return -EINVAL;
-	*key  = str;
-	str  += strcspn(str, UTIL_STR_DEFAULT_DELIMS "=");
-	p     = str;
+	k    = str;
+	str += strcspn(str, UTIL_STR_DEFAULT_DELIMS "=");
+	p    = str;
 	if (str[0] != '=') {
 		/* skip any spaces between key and '=' */
 		str += strspn(str, UTIL_STR_DEFAULT_DELIMS);
@@ -167,7 +167,7 @@ int util_str_kv_get(char *str, char **key, char **val)
 
 	if ((p = strchr(UTIL_STR_DEFAULT_QUOTES, str[0]))) {
 		/* get quoted value */
-		*val = ++str;
+		v = ++str;
 		if (!(str = strchr(str, p[0])))
 			/* missing end quote */
 			return -EINVAL;
@@ -180,8 +180,8 @@ int util_str_kv_get(char *str, char **key, char **val)
 		str += strspn(str, UTIL_STR_DEFAULT_DELIMS);
 	} else {
 		/* get unquoted value */
-		*val  = str;
-		str  += strcspn(str, UTIL_STR_DEFAULT_DELIMS UTIL_STR_DEFAULT_QUOTES);
+		v    = str;
+		str += strcspn(str, UTIL_STR_DEFAULT_DELIMS UTIL_STR_DEFAULT_QUOTES);
 		if (str[0] == '\0')
 			/* finished - nothing else beyond the unquoted value */
 			return 0;
@@ -198,6 +198,8 @@ int util_str_kv_get(char *str, char **key, char **val)
 		/* a garbage beyond the value */
 		return -EINVAL;
 
+	*key = k;
+	*val = v;
 	return 0;
 }
 
