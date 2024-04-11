@@ -129,7 +129,7 @@ sid_res_t *sid_mod_reg_mod_load(sid_res_t *mod_registry_res, const char *module_
 	                               &sid_res_type_mod,
 	                               SID_RES_FL_RESTRICT_WALK_UP | SID_RES_FL_DISALLOW_ISOLATION,
 	                               module_name,
-	                               NULL,
+	                               registry,
 	                               SID_RES_PRIO_NORMAL,
 	                               SID_RES_NO_SERVICE_LINKS))) {
 		sid_res_log_debug(mod_registry_res, "Failed to load module %s/%s.", registry->directory, module_name);
