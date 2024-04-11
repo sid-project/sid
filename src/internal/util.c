@@ -175,7 +175,7 @@ int util_str_kv_get(char *str, char **key, char **val)
 		str++;
 		if (UTIL_STR_END(str))
 			/* finished - nothing else beyond the quoted value */
-			return 0;
+			goto out;
 		/* skip any spaces beyond quoted value */
 		str += strspn(str, UTIL_STR_DEFAULT_DELIMS);
 	} else {
@@ -184,7 +184,7 @@ int util_str_kv_get(char *str, char **key, char **val)
 		str += strcspn(str, UTIL_STR_DEFAULT_DELIMS UTIL_STR_DEFAULT_QUOTES);
 		if (UTIL_STR_END(str))
 			/* finished - nothing else beyond the unquoted value */
-			return 0;
+			goto out;
 		if (strchr(UTIL_STR_DEFAULT_QUOTES, str[0]))
 			/* a quote in the middle of the unquoted value */
 			return -EINVAL;
@@ -197,7 +197,7 @@ int util_str_kv_get(char *str, char **key, char **val)
 	if (!(UTIL_STR_END(str)))
 		/* a garbage beyond the value */
 		return -EINVAL;
-
+out:
 	*key = k;
 	*val = v;
 	return 0;
