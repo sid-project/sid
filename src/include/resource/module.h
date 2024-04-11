@@ -40,7 +40,7 @@ typedef int     sid_mod_cb_fn_t(sid_res_t *mod_res, void *cb_arg);
 #define SID_MOD_FN(name, fn)   sid_mod_cb_fn_t *sid_mod_##name = fn;
 
 #define SID_MOD_PRIO(val)      sid_mod_prio_t sid_mod_prio = val;
-#define SID_MOD_ALIASES(val)   const char *sid_mod_aliases = val;
+#define SID_MOD_ALIASES(val)   const char *sid_mod_aliases = val "\0";
 #define SID_MOD_INIT(fn)       SID_MOD_FN(init, fn)
 #define SID_MOD_EXIT(fn)       SID_MOD_FN(exit, fn)
 #define SID_MOD_RESET(fn)      SID_MOD_FN(reset, fn)
