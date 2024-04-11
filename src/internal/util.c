@@ -137,12 +137,12 @@ int util_str_kv_get(char *str, char **key, char **val)
 {
 	char *p, *k, *v;
 
-	if (!str || !str[0])
+	if (UTIL_STR_EMPTY(str))
 		return -ENODATA;
 
 	/* skip any spaces before key */
 	str += strspn(str, UTIL_STR_DEFAULT_DELIMS);
-	if (!str[0])
+	if (UTIL_STR_END(str))
 		return -ENODATA;
 
 	/* get the key */
@@ -159,7 +159,7 @@ int util_str_kv_get(char *str, char **key, char **val)
 			/* missing '=' */
 			return -EINVAL;
 	}
-	p[0] = '\0';
+	UTIL_STR_END_PUT(p);
 	str++;
 
 	/* skip any spaces between '=' and value */
@@ -171,9 +171,9 @@ int util_str_kv_get(char *str, char **key, char **val)
 		if (!(str = strchr(str, p[0])))
 			/* missing end quote */
 			return -EINVAL;
-		str[0] = '\0';
+		UTIL_STR_END_PUT(str);
 		str++;
-		if (str[0] == '\0')
+		if (UTIL_STR_END(str))
 			/* finished - nothing else beyond the quoted value */
 			return 0;
 		/* skip any spaces beyond quoted value */
@@ -182,19 +182,19 @@ int util_str_kv_get(char *str, char **key, char **val)
 		/* get unquoted value */
 		v    = str;
 		str += strcspn(str, UTIL_STR_DEFAULT_DELIMS UTIL_STR_DEFAULT_QUOTES);
-		if (str[0] == '\0')
+		if (UTIL_STR_END(str))
 			/* finished - nothing else beyond the unquoted value */
 			return 0;
 		if (strchr(UTIL_STR_DEFAULT_QUOTES, str[0]))
 			/* a quote in the middle of the unquoted value */
 			return -EINVAL;
-		p     = str;
+		p    = str;
 		/* skip any spaces beyond unquoted value */
-		str  += strspn(str, UTIL_STR_DEFAULT_DELIMS);
-		p[0]  = '\0';
+		str += strspn(str, UTIL_STR_DEFAULT_DELIMS);
+		UTIL_STR_END_PUT(p);
 	}
 
-	if (str[0] != '\0')
+	if (!(UTIL_STR_END(str)))
 		/* a garbage beyond the value */
 		return -EINVAL;
 
@@ -280,9 +280,9 @@ int util_str_tokens_iterate(const char         *str,
 
 	snprintf(quote_or_delim, sizeof(quote_or_delim), "%s%s", quotes, delims);
 
-	while (str[0]) {
+	while (!UTIL_STR_END(str)) {
 		str += strspn(str, delims); /* ignore delims at start */
-		if (!str[0])
+		if (UTIL_STR_END(str))
 			break;
 
 		if (strchr(quotes, str[0])) {
@@ -341,7 +341,7 @@ char *util_str_comb_to_str(util_mem_t *mem, const char *prefix, const char *str,
 		p += suffix_len;
 	}
 
-	*p = '\0';
+	UTIL_STR_END_PUT(p);
 	return ret_str;
 }
 
@@ -378,8 +378,8 @@ static int _copy_token_to_strv(const char *token, size_t len, bool merge_back, v
 		copier->strv[copier->i] = copier->s;
 
 	memcpy(copier->s, token, len);
-	copier->s  += len;
-	*copier->s  = '\0';
+	copier->s += len;
+	UTIL_STR_END_PUT(copier->s);
 
 	copier->s++;
 	copier->i++;
@@ -495,7 +495,7 @@ char *util_str_substr_copy(util_mem_t *mem, const char *str, size_t offset, size
 		return NULL;
 
 	memcpy(mem->base, str + offset, len);
-	((char *) mem->base)[len] = '\0';
+	UTIL_STR_END_PUT((char *) mem->base + len);
 
 	return mem->base;
 }

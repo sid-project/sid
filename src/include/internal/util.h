@@ -84,7 +84,9 @@ const char    *util_udev_devtype_to_str(udev_devtype_t devtype);
 #define UTIL_STR_DEFAULT_DELIMS " \t\r\n\v\f"
 #define UTIL_STR_DEFAULT_QUOTES "\"\'"
 
-#define UTIL_STR_EMPTY(s)       (!s || s[0] == '\0')
+#define UTIL_STR_END(s)         ((s)[0] == '\0')
+#define UTIL_STR_END_PUT(s)     ((s)[0] = '\0')
+#define UTIL_STR_EMPTY(s)       (!(s) || UTIL_STR_END(s))
 
 int   util_str_kv_get(char *str, char **key, char **val);
 char *util_str_rstr(const char *haystack, const char *needle);
