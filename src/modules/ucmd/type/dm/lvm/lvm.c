@@ -29,6 +29,8 @@
 
 SID_UCMD_MOD_PRIO(0)
 
+#define LVM_VG_NAME_COMPLETE "LVM_VG_NAME_COMPLETE"
+
 /* _unquote from lvm2 source code: libdm/libdm-string */
 static char *_unquote(char *component)
 {
@@ -387,3 +389,47 @@ static int _lvm_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	return 0;
 }
 SID_UCMD_SCAN_REMOVE(_lvm_scan_remove)
+
+static int _lvm_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	const char           *val;
+	sid_res_t            *runner_res;
+	char                 *cmd_line = NULL;
+	struct sid_wrk_params wrk_vgchange;
+	int                   r = -1;
+
+	sid_res_log_debug(mod_res, "scan-action-next");
+
+	if ((val = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, LVM_VG_NAME_COMPLETE, NULL, NULL, 0))) {
+		runner_res = sid_mod_data_get(mod_res);
+
+		if (!(cmd_line = util_str_comb_to_str(NULL, NULL, "vgchange -aay --autoactivation event ", val)))
+			goto out;
+
+		wrk_vgchange = (struct sid_wrk_params) {
+			.id                 = "vgchange",
+			.external.exec_file = "/usr/sbin/lvm",
+			.external.args      = cmd_line,
+			.worker_proxy_arg   = &((struct out_ctx) {.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = false}),
+			.timeout_spec       = (struct sid_wrk_timeout_spec) {
+				      .usec   = 20000000,
+				      .signum = SIGKILL,
+                        }};
+
+		if ((r = sid_wrk_ctl_wrk_new_run(runner_res, &wrk_vgchange, SID_RES_NO_SERVICE_LINKS)) < 0) {
+			sid_res_log_error_errno(mod_res, r, "Failed to run %s", wrk_vgchange.id);
+			goto out;
+		}
+
+		if (!(sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, LVM_VG_NAME_COMPLETE, NULL, 0, SID_KV_FL_NONE))) {
+			sid_res_log_error(mod_res, "Failed to store value for key \"%s\"", LVM_VG_NAME_COMPLETE);
+			goto out;
+		}
+	}
+
+	r = 0;
+out:
+	free(cmd_line);
+	return r;
+}
+SID_UCMD_SCAN_ACTION_NEXT(_lvm_scan_action_next)
