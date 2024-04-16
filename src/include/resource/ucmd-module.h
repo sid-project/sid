@@ -36,16 +36,16 @@ extern "C" {
 #define SID_UCMD_BLOCK_MOD_DIR                 LIBDIR "/" PACKAGE "/modules/ucmd/block"
 #define SID_UCMD_TYPE_MOD_DIR                  LIBDIR "/" PACKAGE "/modules/ucmd/type"
 
-#define SID_UCMD_MOD_FN_NAME_SCAN_IDENT        "sid_ucmd_scan_ident"
-#define SID_UCMD_MOD_FN_NAME_SCAN_PRE          "sid_ucmd_scan_pre"
-#define SID_UCMD_MOD_FN_NAME_SCAN_CURRENT      "sid_ucmd_scan_current"
-#define SID_UCMD_MOD_FN_NAME_SCAN_NEXT         "sid_ucmd_scan_next"
-#define SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT "sid_ucmd_scan_post_current"
-#define SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT    "sid_ucmd_scan_post_next"
-
-#define SID_UCMD_MOD_FN_NAME_SCAN_REMOVE       "sid_ucmd_scan_remove"
-
-#define SID_UCMD_MOD_FN_NAME_ERROR             "sid_ucmd_error"
+#define SID_UCMD_MOD_FN_NAME_SCAN_IDENT          "sid_ucmd_scan_ident"
+#define SID_UCMD_MOD_FN_NAME_SCAN_PRE            "sid_ucmd_scan_pre"
+#define SID_UCMD_MOD_FN_NAME_SCAN_CURRENT        "sid_ucmd_scan_current"
+#define SID_UCMD_MOD_FN_NAME_SCAN_NEXT           "sid_ucmd_scan_next"
+#define SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT   "sid_ucmd_scan_post_current"
+#define SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT      "sid_ucmd_scan_post_next"
+#define SID_UCMD_MOD_FN_NAME_SCAN_REMOVE         "sid_ucmd_scan_remove"
+#define SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT "sid_ucmd_scan_action_current"
+#define SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT    "sid_ucmd_scan_action_next"
+#define SID_UCMD_MOD_FN_NAME_ERROR               "sid_ucmd_error"
 
 struct sid_ucmd_common_ctx;
 struct sid_ucmd_ctx;

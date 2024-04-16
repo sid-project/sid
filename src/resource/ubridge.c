@@ -61,12 +61,8 @@
 #define KV_KEY_UDEV_SID_SESSION_ID               ".SID_SESSION_ID"
 #define KV_KEY_UDEV_SID_DEV_ID                   "SID_DEV_ID"
 
-// TODO: once trigger-action is settled down, move this to ucmd-module.h
-#define SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT "sid_ucmd_scan_action_current"
-#define SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT    "sid_ucmd_scan_action_next"
-
-#define MAIN_KV_STORE_NAME                       "main"
-#define MAIN_WORKER_CHANNEL_ID                   "main"
+#define MAIN_KV_STORE_NAME                          "main"
+#define MAIN_WORKER_CHANNEL_ID                      "main"
 
 #define SYSTEM_PROC_DEVICES_PATH                 SYSTEM_PROC_PATH "/devices"
 #define MAIN_KV_STORE_FILE_PATH                  "/run/sid.db"
