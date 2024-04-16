@@ -33,8 +33,8 @@
 extern "C" {
 #endif
 
-#define SID_UCMD_BLOCK_MOD_DIR                 LIBDIR "/" PACKAGE "/modules/ucmd/block"
-#define SID_UCMD_TYPE_MOD_DIR                  LIBDIR "/" PACKAGE "/modules/ucmd/type"
+#define SID_UCMD_BLOCK_MOD_DIR                   LIBDIR "/" PACKAGE "/modules/ucmd/block"
+#define SID_UCMD_TYPE_MOD_DIR                    LIBDIR "/" PACKAGE "/modules/ucmd/type"
 
 #define SID_UCMD_MOD_FN_NAME_SCAN_IDENT          "sid_ucmd_scan_ident"
 #define SID_UCMD_MOD_FN_NAME_SCAN_PRE            "sid_ucmd_scan_pre"

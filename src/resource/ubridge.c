@@ -50,81 +50,81 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define INTERNAL_AGGREGATE_ID                    "ubr-int"
-#define COMMON_ID                                "common"
-#define MODULES_AGGREGATE_ID                     "mods"
-#define MODULES_BLOCK_ID                         "block"
-#define MODULES_TYPE_ID                          "type"
+#define INTERNAL_AGGREGATE_ID      "ubr-int"
+#define COMMON_ID                  "common"
+#define MODULES_AGGREGATE_ID       "mods"
+#define MODULES_BLOCK_ID           "block"
+#define MODULES_TYPE_ID            "type"
 
-#define UDEV_TAG_SID                             "sid"
-#define KV_KEY_UDEV_SID_TAGS                     ".SID_TAGS" /* starts with '.' as we don't want this to store in udev db! */
-#define KV_KEY_UDEV_SID_SESSION_ID               ".SID_SESSION_ID"
-#define KV_KEY_UDEV_SID_DEV_ID                   "SID_DEV_ID"
+#define UDEV_TAG_SID               "sid"
+#define KV_KEY_UDEV_SID_TAGS       ".SID_TAGS" /* starts with '.' as we don't want this to store in udev db! */
+#define KV_KEY_UDEV_SID_SESSION_ID ".SID_SESSION_ID"
+#define KV_KEY_UDEV_SID_DEV_ID     "SID_DEV_ID"
 
-#define MAIN_KV_STORE_NAME                          "main"
-#define MAIN_WORKER_CHANNEL_ID                      "main"
+#define MAIN_KV_STORE_NAME         "main"
+#define MAIN_WORKER_CHANNEL_ID     "main"
 
-#define SYSTEM_PROC_DEVICES_PATH                 SYSTEM_PROC_PATH "/devices"
-#define MAIN_KV_STORE_FILE_PATH                  "/run/sid.db"
+#define SYSTEM_PROC_DEVICES_PATH   SYSTEM_PROC_PATH "/devices"
+#define MAIN_KV_STORE_FILE_PATH    "/run/sid.db"
 
-#define KV_PAIR_C                                "="
-#define KV_END_C                                 ""
+#define KV_PAIR_C                  "="
+#define KV_END_C                   ""
 
-#define ID_NULL                                  ""
-#define KV_KEY_NULL                              ID_NULL
+#define ID_NULL                    ""
+#define KV_KEY_NULL                ID_NULL
 
-#define KV_INDEX_NOOP                            0
-#define KV_INDEX_ADD                             1
-#define KV_INDEX_REMOVE                          2
+#define KV_INDEX_NOOP              0
+#define KV_INDEX_ADD               1
+#define KV_INDEX_REMOVE            2
 
-#define KV_PREFIX_OP_SYNC_C                      ">"
-#define KV_PREFIX_OP_SYNC_END_C                  "?" /* right after '>' */
-#define KV_PREFIX_OP_ARCHIVE_C                   "~"
-#define KV_PREFIX_OP_BLANK_C                     " "
-#define KV_PREFIX_OP_ILLEGAL_C                   "X"
-#define KV_PREFIX_OP_SET_C                       ""
-#define KV_PREFIX_OP_PLUS_C                      "+"
-#define KV_PREFIX_OP_MINUS_C                     "-"
+#define KV_PREFIX_OP_SYNC_C        ">"
+#define KV_PREFIX_OP_SYNC_END_C    "?" /* right after '>' */
+#define KV_PREFIX_OP_ARCHIVE_C     "~"
+#define KV_PREFIX_OP_BLANK_C       " "
+#define KV_PREFIX_OP_ILLEGAL_C     "X"
+#define KV_PREFIX_OP_SET_C         ""
+#define KV_PREFIX_OP_PLUS_C        "+"
+#define KV_PREFIX_OP_MINUS_C       "-"
 
-#define KV_PREFIX_NS_UNDEFINED_C                 ""
-#define KV_PREFIX_NS_UDEV_C                      "U"
-#define KV_PREFIX_NS_DEVICE_C                    "D"
-#define KV_PREFIX_NS_MODULE_C                    "M"
-#define KV_PREFIX_NS_DEVMOD_C                    "X"
-#define KV_PREFIX_NS_GLOBAL_C                    "G"
+#define KV_PREFIX_NS_UNDEFINED_C   ""
+#define KV_PREFIX_NS_UDEV_C        "U"
+#define KV_PREFIX_NS_DEVICE_C      "D"
+#define KV_PREFIX_NS_MODULE_C      "M"
+#define KV_PREFIX_NS_DEVMOD_C      "X"
+#define KV_PREFIX_NS_GLOBAL_C      "G"
 
-#define KV_PREFIX_KEY_SYS_C                      "#"
+#define KV_PREFIX_KEY_SYS_C        "#"
 
-#define KV_KEY_DB_GENERATION                     KV_PREFIX_KEY_SYS_C "DBGEN"
-#define KV_KEY_BOOT_ID                           KV_PREFIX_KEY_SYS_C "BOOTID"
-#define KV_KEY_DEV_READY                         KV_PREFIX_KEY_SYS_C "RDY"
-#define KV_KEY_DEV_RESERVED                      KV_PREFIX_KEY_SYS_C "RES"
-#define KV_KEY_DEV_MOD                           KV_PREFIX_KEY_SYS_C "MOD"
+#define KV_KEY_DB_GENERATION       KV_PREFIX_KEY_SYS_C "DBGEN"
+#define KV_KEY_BOOT_ID             KV_PREFIX_KEY_SYS_C "BOOTID"
+#define KV_KEY_DEV_READY           KV_PREFIX_KEY_SYS_C "RDY"
+#define KV_KEY_DEV_RESERVED        KV_PREFIX_KEY_SYS_C "RES"
+#define KV_KEY_DEV_MOD             KV_PREFIX_KEY_SYS_C "MOD"
 
-#define KV_KEY_DOM_ALIAS                         "ALS"
-#define KV_KEY_DOM_GROUP                         "GRP"
-#define KV_KEY_DOM_USER                          "USR"
+#define KV_KEY_DOM_ALIAS           "ALS"
+#define KV_KEY_DOM_GROUP           "GRP"
+#define KV_KEY_DOM_USER            "USR"
 
-#define KV_KEY_GEN_GROUP_MEMBERS                 KV_PREFIX_KEY_SYS_C "GMB"
-#define KV_KEY_GEN_GROUP_IN                      KV_PREFIX_KEY_SYS_C "GIN"
+#define KV_KEY_GEN_GROUP_MEMBERS   KV_PREFIX_KEY_SYS_C "GMB"
+#define KV_KEY_GEN_GROUP_IN        KV_PREFIX_KEY_SYS_C "GIN"
 
-#define MOD_NAME_CORE                            SID_MOD_NAME_DELIM
-#define MOD_NAME_BLKEXT                          "blkext"
-#define MOD_NAME_NVME                            "nvme"
+#define MOD_NAME_CORE              SID_MOD_NAME_DELIM
+#define MOD_NAME_BLKEXT            "blkext"
+#define MOD_NAME_NVME              "nvme"
 
-#define DEV_NAME_PREFIX_NVME                     "nvme"
+#define DEV_NAME_PREFIX_NVME       "nvme"
 
-#define DEV_ALIAS_DEVNO                          "devno"
-#define DEV_ALIAS_DSEQ                           "dseq"
-#define DEV_ALIAS_NAME                           "name"
+#define DEV_ALIAS_DEVNO            "devno"
+#define DEV_ALIAS_DSEQ             "dseq"
+#define DEV_ALIAS_NAME             "name"
 
-#define OWNER_CORE                               MOD_NAME_CORE
-#define DEFAULT_VALUE_FLAGS_CORE                 SID_KV_FL_SYNC_P | SID_KV_FL_RS
+#define OWNER_CORE                 MOD_NAME_CORE
+#define DEFAULT_VALUE_FLAGS_CORE   SID_KV_FL_SYNC_P | SID_KV_FL_RS
 
-#define DEFAULT_CMD_TIM_OUT_USEC                 180000000
+#define DEFAULT_CMD_TIM_OUT_USEC   180000000
 
-#define CMD_DEV_PRINT_FMT                        "%s (%s/%s)"
-#define CMD_DEV_PRINT(ucmd_ctx)                  ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.num_s, ucmd_ctx->req_env.dev.dsq_s
+#define CMD_DEV_PRINT_FMT          "%s (%s/%s)"
+#define CMD_DEV_PRINT(ucmd_ctx)    ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.num_s, ucmd_ctx->req_env.dev.dsq_s
 
 const sid_res_type_t sid_res_type_ubr;
 const sid_res_type_t sid_res_type_ubr_cmn;
