@@ -7086,15 +7086,15 @@ static struct sid_mod_sym_params block_symbol_params[]          = {{
                                                                   SID_MOD_SYM_FL_INDIRECT,
                                                           },
                                                                    {
+                                                                  SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
+                                                                  SID_MOD_SYM_FL_INDIRECT,
+                                                          },
+                                                                   {
                                                                   SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
                                                                   SID_MOD_SYM_FL_INDIRECT,
                                                           },
                                                                    {
                                                                   SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
-                                                                  SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   {
-                                                                  SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
                                                                   SID_MOD_SYM_FL_INDIRECT,
                                                           },
                                                                    {
@@ -7128,15 +7128,15 @@ static struct sid_mod_sym_params type_symbol_params[]           = {{
                                                                  SID_MOD_SYM_FL_INDIRECT,
                                                          },
                                                                    {
+                                                                 SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
+                                                                 SID_MOD_SYM_FL_INDIRECT,
+                                                         },
+                                                                   {
                                                                  SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
                                                                  SID_MOD_SYM_FL_INDIRECT,
                                                          },
                                                                    {
                                                                  SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
-                                                                 SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   {
-                                                                 SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
                                                                  SID_MOD_SYM_FL_INDIRECT,
                                                          },
                                                                    {
