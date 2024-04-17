@@ -75,6 +75,14 @@ static struct sid_mod_sym_params dm_submod_sym_params[] = {
 		SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
 		SID_MOD_SYM_FL_INDIRECT,
 	},
+	{
+		SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
+		SID_MOD_SYM_FL_INDIRECT,
+	},
+	{
+		SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
+		SID_MOD_SYM_FL_INDIRECT,
+	},
 	SID_MOD_NULL_SYM_PARAMS,
 };
 
@@ -88,6 +96,8 @@ typedef enum {
 	DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT,
 	DM_SUBMOD_SCAN_PHASE_SCAN_POST_NEXT,
 	DM_SUBMOD_SCAN_PHASE_REMOVE,
+	DM_SUBMOD_TRIGGER_ACTION_CURRENT,
+	DM_SUBMOD_TRIGGER_ACTION_NEXT,
 } dm_submod_cmd_scan_phase_t;
 
 struct dm_submod_fns {
@@ -100,6 +110,8 @@ struct dm_submod_fns {
 	sid_ucmd_fn_t *scan_post_current;
 	sid_ucmd_fn_t *scan_post_next;
 	sid_ucmd_fn_t *scan_remove;
+	sid_ucmd_fn_t *scan_action_current;
+	sid_ucmd_fn_t *scan_action_next;
 } __packed;
 
 struct dm_mod_ctx {
@@ -271,6 +283,22 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 
 			if (submod_fns->scan_remove)
 				(void) submod_fns->scan_remove(dm_mod->submod_res, ucmd_ctx);
+			break;
+
+		case DM_SUBMOD_TRIGGER_ACTION_CURRENT:
+			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, &submod_fns) < 0)
+				return -1;
+
+			if (submod_fns->scan_action_current)
+				(void) submod_fns->scan_action_current(dm_mod->submod_res, ucmd_ctx);
+			break;
+
+		case DM_SUBMOD_TRIGGER_ACTION_NEXT:
+			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_next, &submod_fns) < 0)
+				return -1;
+
+			if (submod_fns->scan_action_next)
+				(void) submod_fns->scan_action_next(dm_mod->submod_res, ucmd_ctx);
 			break;
 	}
 
@@ -883,6 +911,20 @@ static int _dm_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_REMOVE);
 }
 SID_UCMD_SCAN_REMOVE(_dm_scan_remove)
+
+static int _dm_scan_action_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-action-current");
+	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_TRIGGER_ACTION_CURRENT);
+}
+SID_UCMD_SCAN_ACTION_CURRENT(_dm_scan_action_current)
+
+static int _dm_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-action-next");
+	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_TRIGGER_ACTION_NEXT);
+}
+SID_UCMD_SCAN_ACTION_NEXT(_dm_scan_action_next)
 
 static int _dm_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
