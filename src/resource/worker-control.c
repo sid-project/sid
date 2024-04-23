@@ -31,6 +31,10 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+#ifdef VALGRIND_SUPPORT
+	#include <valgrind/valgrind.h>
+#endif
+
 #define WORKER_EXT_NAME                  "ext-worker"
 
 #define DEFAULT_WORKER_IDLE_TIMEOUT_USEC 5000000
@@ -721,6 +725,11 @@ static int _close_non_channel_fds(sid_res_t *res, struct sid_wrk_chan *channels,
 	struct dirent     *dirent;
 	char              *p;
 	int                fd, i, r = -1;
+
+#ifdef VALGRIND_SUPPORT
+	if (RUNNING_ON_VALGRIND)
+		return 0;
+#endif
 
 	if (!(d = opendir(proc_self_fd_dir))) {
 		sid_res_log_sys_error(res, "opendir", proc_self_fd_dir);
