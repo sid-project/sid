@@ -102,6 +102,18 @@ PKG_CHECK_MODULES(UDEV, libudev >= 174) # support for device tagging added in li
 
 PKG_CHECK_MODULES(UUID, uuid)
 
+AC_MSG_CHECKING(whether to build with valgrind support)
+AC_ARG_ENABLE(valgrind,
+	      AS_HELP_STRING([--enable-valgrind], [enable valgrind support]),
+	      BUILD_VALGRIND_SUPPORT=$enableval,
+	      BUILD_VALGRIND_SUPPORT=no)
+AC_MSG_RESULT($BUILD_VALGRIND_SUPPORT)
+if test x$BUILD_VALGRIND_SUPPORT = xyes; then
+	PKG_CHECK_MODULES(VALGRIND, valgrind)
+	AC_DEFINE([VALGRIND_SUPPORT], 1, [Define to 1 to enable valgrind support])
+fi
+AM_CONDITIONAL([BUILD_VALGRIND_SUPPORT], [test x$BUILD_VALGRIND_SUPPORT = xyes])
+
 AC_MSG_CHECKING(for systemd system unit directory)
 PKG_CHECK_VAR(SYSTEMD_SYSTEM_UNIT_DIR, systemd, systemdsystemunitdir)
 AC_MSG_RESULT($SYSTEMD_SYSTEM_UNIT_DIR)
