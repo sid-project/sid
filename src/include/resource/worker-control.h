@@ -20,6 +20,7 @@
 #ifndef _SID_WORKER_CONTROL_H
 #define _SID_WORKER_CONTROL_H
 
+#include "base/buffer-common.h"
 #include "resource/resource.h"
 
 #ifdef __cplusplus
@@ -46,7 +47,7 @@ typedef enum {
 typedef int sid_wrk_init_cb_fn_t(sid_res_t *res, void *arg);
 
 struct sid_wrk_init_cb_spec {
-	sid_wrk_init_cb_fn_t *cb;
+	sid_wrk_init_cb_fn_t *fn;
 	void                 *arg;
 };
 
@@ -97,25 +98,30 @@ struct sid_wrk_data_spec {
 /* Channel specification */
 struct sid_wrk_chan;
 
-typedef int sid_wrk_chan_cb_fn_t(sid_res_t *res, struct sid_wrk_chan *channel, struct sid_wrk_data_spec *data_spec, void *arg);
+typedef int sid_wrk_lane_cb_fn_t(sid_res_t *res, struct sid_wrk_chan *channel, struct sid_wrk_data_spec *data_spec, void *arg);
 
-struct sid_wrk_chan_cb_spec {
-	sid_wrk_chan_cb_fn_t *cb;
+struct sid_wrk_lane_cb_spec {
+	sid_wrk_lane_cb_fn_t *fn;
 	void                 *arg;
 };
 
-#define SID_WRK_NULL_CHAN_CB_SPEC ((const struct sid_wrk_chan_cb_spec) {NULL})
-
-struct sid_wrk_chan_spec {
-	const char                 *id;           /* channel id */
-	struct sid_wrk_wire_spec    wire;         /* channel wire specification */
-	struct sid_wrk_chan_cb_spec worker_tx_cb; /* transmit callback specification on worker side */
-	struct sid_wrk_chan_cb_spec worker_rx_cb; /* receive callback specification on worker side */
-	struct sid_wrk_chan_cb_spec proxy_tx_cb;  /* transmit callback specification on proxy side */
-	struct sid_wrk_chan_cb_spec proxy_rx_cb;  /* receive callback specification on proxy side */
+struct sid_wrk_lane_spec {
+	struct sid_wrk_lane_cb_spec cb;       /* callback called on lane activity */
+	struct sid_buf_init         buf_init; /* lane buffer initialization parameters */
 };
 
-#define SID_WRK_NULL_CHAN_SPEC ((const struct sid_wrk_chan_spec) {NULL})
+struct sid_wrk_chan_spec {
+	const char              *id;
+	struct sid_wrk_wire_spec wire;
+	struct sid_wrk_lane_spec worker_tx;
+	struct sid_wrk_lane_spec worker_rx;
+	struct sid_wrk_lane_spec proxy_tx;
+	struct sid_wrk_lane_spec proxy_rx;
+};
+
+#define SID_WRK_NULL_LANE_CB_SPEC ((const struct sid_wrk_lane_cb_spec) {NULL})
+#define SID_WRK_NULL_LANE_SPEC    ((const struct sid_wrk_lane_spec) {NULL})
+#define SID_WRK_NULL_CHAN_SPEC    ((const struct sid_wrk_chan_spec) {NULL})
 
 /* Timeout specification */
 struct sid_wrk_timeout_spec {

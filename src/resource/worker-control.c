@@ -88,8 +88,8 @@ struct worker_control {
 struct sid_wrk_chan {
 	sid_res_t                      *owner; /* either worker_proxy or worker instance */
 	const struct sid_wrk_chan_spec *spec;
-	struct sid_buf                 *in_buf;
-	struct sid_buf                 *out_buf;
+	struct sid_buf                 *rx_buf;
+	struct sid_buf                 *tx_buf;
 	int                             fd;
 };
 
@@ -142,9 +142,9 @@ static int _create_channel(sid_res_t                      *worker_control_res,
 	int comms_fds[2];
 
 	proxy_chan->spec = chan->spec = spec;
-	proxy_chan->owner = chan->owner = NULL;     /* will be set later with _setup_channel */
-	proxy_chan->in_buf = chan->in_buf = NULL;   /* will be set later with _setup_channel */
-	proxy_chan->out_buf = chan->out_buf = NULL; /* will be set later with _setup_channel */
+	proxy_chan->owner = chan->owner = NULL;   /* will be set later with _setup_channel */
+	proxy_chan->rx_buf = chan->rx_buf = NULL; /* will be set later with _setup_channel */
+	proxy_chan->tx_buf = chan->tx_buf = NULL; /* will be set later with _setup_channel */
 
 	switch (spec->wire.type) {
 		case SID_WRK_WIRE_NONE:
@@ -267,17 +267,17 @@ static int _chan_buf_recv(const struct sid_wrk_chan *chan,
 		return -EPIPE;
 	}
 
-	n = sid_buf_read(chan->in_buf, chan->fd);
+	n = sid_buf_read(chan->rx_buf, chan->fd);
 
 	if (n > 0) {
 		/* For plain buffers, we are waiting for EOF to complete the message. */
-		if (sid_buf_stat(chan->in_buf).spec.mode == SID_BUF_MODE_PLAIN)
+		if (sid_buf_stat(chan->rx_buf).spec.mode == SID_BUF_MODE_PLAIN)
 			return 0;
 
-		if (!sid_buf_is_complete(chan->in_buf, NULL))
+		if (!sid_buf_is_complete(chan->rx_buf, NULL))
 			return 0;
 
-		(void) sid_buf_data_get(chan->in_buf, (const void **) &buf_data, &buf_data_size);
+		(void) sid_buf_data_get(chan->rx_buf, (const void **) &buf_data, &buf_data_size);
 
 		/*
 		 * Internal workers and associated proxies use SID_BUF_MODE_SIZE_PREFIX buffers and
@@ -330,8 +330,8 @@ static int _chan_buf_recv(const struct sid_wrk_chan *chan,
 		sid_res_log_error_errno(chan->owner, n, "Failed to read data on channel %s", chan->spec->id);
 		return n;
 	} else {
-		if (sid_buf_stat(chan->in_buf).spec.mode == SID_BUF_MODE_PLAIN) {
-			(void) sid_buf_data_get(chan->in_buf, (const void **) &buf_data, &buf_data_size);
+		if (sid_buf_stat(chan->rx_buf).spec.mode == SID_BUF_MODE_PLAIN) {
+			(void) sid_buf_data_get(chan->rx_buf, (const void **) &buf_data, &buf_data_size);
 
 			*chan_cmd            = WORKER_CHANNEL_CMD_DATA;
 			data_spec->data_size = buf_data_size;
@@ -372,8 +372,8 @@ static int _on_worker_proxy_channel_event(sid_res_ev_src_t *es, int fd, uint32_t
 		return 0;
 
 	if (r < 0) {
-		if (chan->in_buf)
-			sid_buf_reset(chan->in_buf);
+		if (chan->rx_buf)
+			sid_buf_reset(chan->rx_buf);
 		return r;
 	}
 
@@ -392,8 +392,8 @@ static int _on_worker_proxy_channel_event(sid_res_ev_src_t *es, int fd, uint32_t
 				break;
 			case WORKER_CHANNEL_CMD_DATA:
 			case WORKER_CHANNEL_CMD_DATA_EXT:
-				if (chan->spec->proxy_rx_cb.cb) {
-					if (chan->spec->proxy_rx_cb.cb(chan->owner, chan, &data_spec, chan->spec->proxy_rx_cb.arg) <
+				if (chan->spec->proxy_rx.cb.fn) {
+					if (chan->spec->proxy_rx.cb.fn(chan->owner, chan, &data_spec, chan->spec->proxy_rx.cb.arg) <
 					    0)
 						sid_res_log_warning(chan->owner, "%s", _custom_message_handling_failed_msg);
 				}
@@ -406,7 +406,7 @@ static int _on_worker_proxy_channel_event(sid_res_ev_src_t *es, int fd, uint32_t
 				                  _unexpected_internal_command_msg);
 		}
 
-		sid_buf_reset(chan->in_buf);
+		sid_buf_reset(chan->rx_buf);
 	}
 
 	if (r & CHAN_BUF_RECV_EOF)
@@ -428,8 +428,8 @@ static int _on_worker_channel_event(sid_res_ev_src_t *es, int fd, uint32_t reven
 		return 0;
 
 	if (r < 0) {
-		if (chan->in_buf)
-			sid_buf_reset(chan->in_buf);
+		if (chan->rx_buf)
+			sid_buf_reset(chan->rx_buf);
 		return r;
 	}
 
@@ -437,11 +437,11 @@ static int _on_worker_channel_event(sid_res_ev_src_t *es, int fd, uint32_t reven
 		switch (chan_cmd) {
 			case WORKER_CHANNEL_CMD_DATA:
 			case WORKER_CHANNEL_CMD_DATA_EXT:
-				if (chan->spec->worker_rx_cb.cb) {
-					if (chan->spec->worker_rx_cb.cb(chan->owner,
+				if (chan->spec->worker_rx.cb.fn) {
+					if (chan->spec->worker_rx.cb.fn(chan->owner,
 					                                chan,
 					                                &data_spec,
-					                                chan->spec->worker_rx_cb.arg) < 0)
+					                                chan->spec->worker_rx.cb.arg) < 0)
 						sid_res_log_warning(chan->owner, "%s", _custom_message_handling_failed_msg);
 				}
 				break;
@@ -453,7 +453,7 @@ static int _on_worker_channel_event(sid_res_ev_src_t *es, int fd, uint32_t reven
 				                  _unexpected_internal_command_msg);
 		}
 
-		sid_buf_reset(chan->in_buf);
+		sid_buf_reset(chan->rx_buf);
 	}
 
 	if (r & CHAN_BUF_RECV_EOF)
@@ -462,86 +462,90 @@ static int _on_worker_channel_event(sid_res_ev_src_t *es, int fd, uint32_t reven
 	return 0;
 }
 
+static struct sid_buf_init _default_int_wrk_lane_buf_init = {.size = WORKER_INT_CHANNEL_MIN_BUF_SIZE, .alloc_step = 1, .limit = 0};
+
+static struct sid_buf_init _default_ext_wrk_lane_buf_init = {.size       = WORKER_EXT_CHANNEL_MIN_BUF_SIZE,
+                                                             .alloc_step = WORKER_EXT_CHANNEL_MIN_BUF_SIZE,
+                                                             .limit      = 0};
+
+static const struct sid_buf_init *_get_lane_buf_init(const struct sid_buf_init *buf_init,
+                                                     const struct sid_buf_init *default_buf_init)
+{
+	if (buf_init && (buf_init->size || buf_init->alloc_step))
+		return buf_init;
+
+	return default_buf_init;
+}
+
 static int _setup_channel(sid_res_t *owner, bool is_worker, sid_wrk_type_t type, struct sid_wrk_chan *chan)
 {
-	struct sid_buf    **buf1, **buf2;
-	struct sid_buf_spec buf_spec = {.backend = SID_BUF_BACKEND_MALLOC, .type = SID_BUF_TYPE_LINEAR, .mode = 0};
-	struct sid_buf_init buf_init = {0};
-	int                 r;
+	struct sid_buf_spec        buf_spec = {.backend = SID_BUF_BACKEND_MALLOC, .type = SID_BUF_TYPE_LINEAR, .mode = 0};
+	struct sid_buf           **buf1, **buf2;
+	const struct sid_buf_init *buf1_init, *buf2_init;
+	int                        r;
 
-	if (chan->in_buf || chan->out_buf) {
+	if (chan->rx_buf || chan->tx_buf) {
 		sid_res_log_error(owner, SID_INTERNAL_ERROR "%s: Buffers already set.", __func__);
 		r = -EINVAL;
 		goto fail;
 	}
 
 	/*
-	 * Buffer wiring scheme:
+	 * Buffer wiring scheme, assigned buffer to buf1 and buf2 is enclosed with '[...]':
 	 *
 	 * WORKER:
-	 *   SID_WRK_TYPE_INTERNAL:
-	 *     (A)
-	 *     buf1: [ worker/out_buf ]  -> proxy/in_buf
-	 *     buf2: [ worker/in_buf  ] <-  proxy/out_buf
+	 *   SID_WRK_TYPE_INTERNAL (A):
+	 *     buf1: [ worker/tx_buf ] -> proxy/rx_buf
+	 *     buf2: [ worker/rx_buf ] <- proxy/tx_buf
 	 *
-	 *   SID_WRK_TYPE_EXTERNAL:
-	 *     (B)
+	 *   SID_WRK_TYPE_EXTERNAL (B):
 	 *     external worker - we have no control over buffers here
 	 *
 	 *
 	 * PROXY:
-	 *   SID_WRK_TYPE_INTERNAL:
-	 *     (C)
-	 *     buf1:   worker/out_buf    -> [ proxy/in_buf  ]
-	 *     buf2:   worker/in_buf    <-  [ proxy/out_buf ]
+	 *   SID_WRK_TYPE_INTERNAL (C):
+	 *   SID_WRK_TYPE_EXTERNAL (D):
+	 *     buf1:   worker/tx_buf -> [ proxy/rx_buf ]
+	 *     buf2:   worker/rx_buf <- [ proxy/tx_buf ]
 	 *
-	 *   SID_WRK_TYPE_EXTERNAL:
-	 *     (D)
-	 *     buf1:   worker/out_buf    -> [ proxy/in_buf  ]
-	 *     buf2:   worker/in_buf    <-  [ proxy/out_buf ]
+	 * For internal workers, we have complete control on how data are sent and so we mandate
+	 * use of data size prefixes on both sides of the channel so we always know how much data
+	 * to receive on the other side and we can preallocate proper buffer size for it.
+	 *
+	 * We can't use data size prefix for external workers - they simply send us plain data.
+	 * Since we don't know in advance how much data to accept, we use WORKER_EXT_CHANNEL_MIN_BUF_SIZE
+	 * and then we extend the buffer with WORKER_EXT_CHANNEL_MIN_BUF_SIZE each time it's filled up
+	 * and data are still incoming.
 	 */
-
 	if (is_worker) {
-		/* WORKER */
 		if (type == SID_WRK_TYPE_INTERNAL) {
 			/* (A) */
-			buf1 = &chan->out_buf;
-			buf2 = &chan->in_buf;
+			buf1          = &chan->tx_buf;
+			buf2          = &chan->rx_buf;
+
+			buf_spec.mode = SID_BUF_MODE_SIZE_PREFIX;
+			buf1_init     = _get_lane_buf_init(&chan->spec->worker_tx.buf_init, &_default_int_wrk_lane_buf_init);
+			buf2_init     = _get_lane_buf_init(&chan->spec->worker_rx.buf_init, &_default_int_wrk_lane_buf_init);
 		} else {
 			/* (B) */
 			buf1 = NULL;
 			buf2 = NULL;
 		}
 	} else {
-		/* PROXY */
-		/* (C) (D) */
-		buf1 = &chan->in_buf;
-		buf2 = &chan->out_buf;
-	}
+		/* (C), (D) */
+		buf1 = &chan->rx_buf;
+		buf2 = &chan->tx_buf;
 
-	if (buf1 || buf2) {
-		switch (type) {
-			case SID_WRK_TYPE_INTERNAL:
-				/*
-				 * For internal workers, we have complete control on how data are sent and so we mandate
-				 * use of data size prefixes on both sides of the channel so we always know how much data
-				 * to receive on the other side and we can preallocate proper buffer size for it.
-				 */
-				buf_spec.mode       = SID_BUF_MODE_SIZE_PREFIX;
-				buf_init.size       = WORKER_INT_CHANNEL_MIN_BUF_SIZE;
-				buf_init.alloc_step = 1;
-				break;
-			case SID_WRK_TYPE_EXTERNAL:
-				/*
-				 * We can't use data size prefix for external workers - they simply send us plain data.
-				 * Since we don't know in advance how much data to accept, we use WORKER_EXT_CHANNEL_MIN_BUF_SIZE
-				 * and then we extend the buffer with WORKER_EXT_CHANNEL_MIN_BUF_SIZE each time it's filled up
-				 * and data are still incoming.
-				 */
-				buf_spec.mode       = SID_BUF_MODE_PLAIN;
-				buf_init.size       = WORKER_EXT_CHANNEL_MIN_BUF_SIZE;
-				buf_init.alloc_step = WORKER_EXT_CHANNEL_MIN_BUF_SIZE;
-				break;
+		if (type == SID_WRK_TYPE_INTERNAL) {
+			/* (C) */
+			buf_spec.mode = SID_BUF_MODE_SIZE_PREFIX;
+			buf1_init     = _get_lane_buf_init(&chan->spec->proxy_rx.buf_init, &_default_int_wrk_lane_buf_init);
+			buf2_init     = _get_lane_buf_init(&chan->spec->proxy_tx.buf_init, &_default_int_wrk_lane_buf_init);
+		} else {
+			/* (D) */
+			buf_spec.mode = SID_BUF_MODE_PLAIN;
+			buf1_init     = _get_lane_buf_init(&chan->spec->proxy_rx.buf_init, &_default_ext_wrk_lane_buf_init);
+			buf2_init     = _get_lane_buf_init(&chan->spec->proxy_tx.buf_init, &_default_ext_wrk_lane_buf_init);
 		}
 	}
 
@@ -550,12 +554,14 @@ static int _setup_channel(sid_res_t *owner, bool is_worker, sid_wrk_type_t type,
 			break;
 
 		case SID_WRK_WIRE_PIPE_TO_WRK:
-			if (buf2 && !(*buf2 = sid_buf_create(&buf_spec, &buf_init, &r))) {
-				sid_res_log_error_errno(owner,
-				                        r,
-				                        "Failed to create buffer for channel with ID %s.",
-				                        chan->spec->id);
-				goto fail;
+			if (buf2) {
+				if (!(*buf2 = sid_buf_create(&buf_spec, buf2_init, &r))) {
+					sid_res_log_error_errno(owner,
+					                        r,
+					                        "Failed to create buffer for channel with ID %s.",
+					                        chan->spec->id);
+					goto fail;
+				}
 			}
 
 			if (is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
@@ -575,8 +581,10 @@ static int _setup_channel(sid_res_t *owner, bool is_worker, sid_wrk_type_t type,
 			break;
 
 		case SID_WRK_WIRE_PIPE_TO_PRX:
-			if (buf1 && !(*buf1 = sid_buf_create(&buf_spec, &buf_init, &r)))
-				goto fail;
+			if (buf1) {
+				if (!(*buf1 = sid_buf_create(&buf_spec, buf1_init, &r)))
+					goto fail;
+			}
 
 			if (is_worker && chan->spec->wire.ext.used && chan->spec->wire.ext.pipe.fd_redir >= 0) {
 				if (dup2(chan->fd, chan->spec->wire.ext.pipe.fd_redir) < 0) {
@@ -595,8 +603,8 @@ static int _setup_channel(sid_res_t *owner, bool is_worker, sid_wrk_type_t type,
 			break;
 
 		case SID_WRK_WIRE_SOCKET:
-			if ((buf1 && !(*buf1 = sid_buf_create(&buf_spec, &buf_init, &r))) ||
-			    (buf2 && !(*buf2 = sid_buf_create(&buf_spec, &buf_init, &r)))) {
+			if ((buf1 && !(*buf1 = sid_buf_create(&buf_spec, buf1_init, &r))) ||
+			    (buf2 && !(*buf2 = sid_buf_create(&buf_spec, buf2_init, &r)))) {
 				sid_res_log_error_errno(owner,
 				                        r,
 				                        "Failed to create buffer for channel with ID %s.",
@@ -637,14 +645,14 @@ static int _setup_channel(sid_res_t *owner, bool is_worker, sid_wrk_type_t type,
 
 	return 0;
 fail:
-	if (chan->in_buf) {
-		sid_buf_destroy(chan->in_buf);
-		chan->in_buf = NULL;
+	if (chan->rx_buf) {
+		sid_buf_destroy(chan->rx_buf);
+		chan->rx_buf = NULL;
 	}
 
-	if (chan->out_buf) {
-		sid_buf_destroy(chan->out_buf);
-		chan->out_buf = NULL;
+	if (chan->tx_buf) {
+		sid_buf_destroy(chan->tx_buf);
+		chan->tx_buf = NULL;
 	}
 
 	return r;
@@ -676,13 +684,13 @@ fail:
 	while (i > 0) {
 		i--;
 
-		if (chans[i].in_buf) {
-			sid_buf_destroy(chans[i].in_buf);
-			chans[i].in_buf = NULL;
+		if (chans[i].rx_buf) {
+			sid_buf_destroy(chans[i].rx_buf);
+			chans[i].rx_buf = NULL;
 		}
-		if (chans[i].out_buf) {
-			sid_buf_destroy(chans[i].out_buf);
-			chans[i].out_buf = NULL;
+		if (chans[i].tx_buf) {
+			sid_buf_destroy(chans[i].tx_buf);
+			chans[i].tx_buf = NULL;
 		}
 	}
 
@@ -708,11 +716,11 @@ static void _destroy_channels(struct sid_wrk_chan *channels, unsigned channel_co
 				break;
 		}
 
-		if (chan->in_buf)
-			sid_buf_destroy(chan->in_buf);
+		if (chan->rx_buf)
+			sid_buf_destroy(chan->rx_buf);
 
-		if (chan->out_buf)
-			sid_buf_destroy(chan->out_buf);
+		if (chan->tx_buf)
+			sid_buf_destroy(chan->tx_buf);
 	}
 
 	free(channels);
@@ -983,8 +991,8 @@ static int _run_internal_worker(sid_res_t *worker_control_res, sid_res_srv_lnk_d
 	worker_control->worker_init.channels = NULL;
 	worker_control->channel_specs        = NULL;
 
-	if (worker_control->init_cb_spec.cb)
-		(void) worker_control->init_cb_spec.cb(res, worker_control->init_cb_spec.arg);
+	if (worker_control->init_cb_spec.fn)
+		(void) worker_control->init_cb_spec.fn(res, worker_control->init_cb_spec.arg);
 
 	return sid_res_ev_loop_run(res);
 }
@@ -1027,7 +1035,7 @@ static int _run_external_worker(sid_res_t *worker_control_res)
 	if ((r = _setup_channels(worker_control_res, SID_WRK_TYPE_EXTERNAL, channels, channel_count)) < 0)
 		goto fail;
 
-	if (worker_control->init_cb_spec.cb && (r = worker_control->init_cb_spec.cb(NULL, worker_control->init_cb_spec.arg)) < 0)
+	if (worker_control->init_cb_spec.fn && (r = worker_control->init_cb_spec.fn(NULL, worker_control->init_cb_spec.arg)) < 0)
 		goto fail;
 
 	r = execve(argv[0], argv, envp);
@@ -1202,18 +1210,18 @@ static int _chan_buf_send(const struct sid_wrk_chan *chan, worker_channel_cmd_t 
 	 * they always transmit worker_channel_cmd_t as header before actual data.
 	 * FIXME: avoid using SID_BUF_MODE_SIZE_PREFIX for this detection
 	 */
-	if (sid_buf_stat(chan->out_buf).spec.mode == SID_BUF_MODE_SIZE_PREFIX &&
-	    (sid_buf_add(chan->out_buf, &chan_cmd, sizeof(chan_cmd), NULL, NULL)) < 0) {
+	if (sid_buf_stat(chan->tx_buf).spec.mode == SID_BUF_MODE_SIZE_PREFIX &&
+	    (sid_buf_add(chan->tx_buf, &chan_cmd, sizeof(chan_cmd), NULL, NULL)) < 0) {
 		r = -ENOMEM;
 		goto out;
 	}
 
-	if (has_data && (sid_buf_add(chan->out_buf, data_spec->data, data_spec->data_size, NULL, NULL) < 0)) {
+	if (has_data && (sid_buf_add(chan->tx_buf, data_spec->data, data_spec->data_size, NULL, NULL) < 0)) {
 		r = -ENOMEM;
 		goto out;
 	}
 
-	if ((r = sid_buf_write_all(chan->out_buf, chan->fd)) < 0) {
+	if ((r = sid_buf_write_all(chan->tx_buf, chan->fd)) < 0) {
 		sid_res_log_error_errno(chan->owner, r, "Failed to write data on channel %s", chan->spec->id);
 		goto out;
 	}
@@ -1247,7 +1255,7 @@ static int _chan_buf_send(const struct sid_wrk_chan *chan, worker_channel_cmd_t 
 		}
 	}
 out:
-	(void) sid_buf_reset(chan->out_buf);
+	(void) sid_buf_reset(chan->tx_buf);
 	return r;
 }
 
@@ -1296,8 +1304,8 @@ static int _channel_prepare_send(sid_res_t                *current_res,
 		if (worker_proxy->state != SID_WRK_STATE_ASSIGNED)
 			_change_worker_proxy_state(res, SID_WRK_STATE_ASSIGNED);
 
-		if (chan->spec->proxy_tx_cb.cb)
-			if (chan->spec->proxy_tx_cb.cb(res, chan, data_spec, chan->spec->proxy_tx_cb.arg) < 0)
+		if (chan->spec->proxy_tx.cb.fn)
+			if (chan->spec->proxy_tx.cb.fn(res, chan, data_spec, chan->spec->proxy_tx.cb.arg) < 0)
 				sid_res_log_warning(current_res, "%s", _custom_message_handling_failed_msg);
 
 	} else if ((res = sid_res_search(current_res, SID_RES_SEARCH_TOP, &sid_res_type_wrk, NULL))) {
@@ -1307,8 +1315,8 @@ static int _channel_prepare_send(sid_res_t                *current_res,
 		if (!(chan = _get_channel(worker->channels, worker->channel_count, channel_id)))
 			return -ECHRNG;
 
-		if (chan->spec->worker_tx_cb.cb)
-			if (chan->spec->worker_tx_cb.cb(res, chan, data_spec, chan->spec->worker_tx_cb.arg) < 0)
+		if (chan->spec->worker_tx.cb.fn)
+			if (chan->spec->worker_tx.cb.fn(res, chan, data_spec, chan->spec->worker_tx.cb.arg) < 0)
 				sid_res_log_warning(current_res, "%s", _custom_message_handling_failed_msg);
 
 	} else
