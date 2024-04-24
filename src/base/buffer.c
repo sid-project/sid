@@ -39,7 +39,7 @@ static bool _check_buf(struct sid_buf *buf)
 	        stat->init.limit % stat->init.alloc_step == 0);
 }
 
-struct sid_buf *sid_buf_create(struct sid_buf_spec *spec, struct sid_buf_init *init, int *ret_code)
+struct sid_buf *sid_buf_create(const struct sid_buf_spec *spec, const struct sid_buf_init *init, int *ret_code)
 {
 	struct sid_buf *buf;
 	int             r = 0;
@@ -83,7 +83,7 @@ void sid_buf_destroy(struct sid_buf *buf)
 	free(buf);
 }
 
-int sid_buf_reset_init(struct sid_buf *buf, struct sid_buf_init *init)
+int sid_buf_reset_init(struct sid_buf *buf, const struct sid_buf_init *init)
 {
 	struct sid_buf_stat orig_stat = buf->stat;
 
@@ -107,7 +107,7 @@ int sid_buf_reset(struct sid_buf *buf)
 	return _buffer_type_registry[buf->stat.spec.type]->reset(buf);
 }
 
-int sid_buf_add(struct sid_buf *buf, void *data, size_t len, const void **mem, size_t *pos)
+int sid_buf_add(struct sid_buf *buf, const void *data, size_t len, const void **mem, size_t *pos)
 {
 	size_t tmp_pos;
 	int    r;

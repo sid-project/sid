@@ -163,7 +163,7 @@ static int _buffer_linear_reset(struct sid_buf *buf)
 	return _buffer_linear_realloc(buf, needed, 1);
 }
 
-static int _buffer_linear_add(struct sid_buf *buf, void *data, size_t len, const void **mem, size_t *pos)
+static int _buffer_linear_add(struct sid_buf *buf, const void *data, size_t len, const void **mem, size_t *pos)
 {
 	size_t used      = buf->stat.usage.used;
 	void  *start     = NULL;

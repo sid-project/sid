@@ -40,7 +40,7 @@ struct sid_buf_type {
 	int (*create)(struct sid_buf *buf);
 	int (*destroy)(struct sid_buf *buf);
 	int (*reset)(struct sid_buf *buf);
-	int (*add)(struct sid_buf *buf, void *data, size_t len, const void **mem, size_t *pos);
+	int (*add)(struct sid_buf *buf, const void *data, size_t len, const void **mem, size_t *pos);
 	int (*fmt_add)(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
 	int (*release)(struct sid_buf *buf, size_t pos, bool rewind);
 	int (*mem_release)(struct sid_buf *buf, const void *mem, bool rewind);

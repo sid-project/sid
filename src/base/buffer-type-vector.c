@@ -190,7 +190,7 @@ static int _buffer_vector_reset(struct sid_buf *buf)
 	return _buffer_vector_realloc(buf, needed, 1);
 }
 
-static int _buffer_vector_add(struct sid_buf *buf, void *data, size_t len, const void **mem, size_t *pos)
+static int _buffer_vector_add(struct sid_buf *buf, const void *data, size_t len, const void **mem, size_t *pos)
 {
 	size_t        used = buf->stat.usage.used;
 	struct iovec *iov;
@@ -212,7 +212,7 @@ static int _buffer_vector_add(struct sid_buf *buf, void *data, size_t len, const
 		iov = buf->mem;
 
 		if (data) {
-			iov[used].iov_base = data;
+			iov[used].iov_base = (void *) data;
 			iov[used].iov_len  = len;
 		} else {
 			while (len) {
