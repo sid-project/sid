@@ -7308,39 +7308,44 @@ static int _init_ubridge(sid_res_t *res, const void *kickstart_data, void **data
 	}
 	common_ctx                                              = sid_res_data_get(common_res);
 
-	struct sid_wrk_ctl_res_params worker_control_res_params = {.worker_type = SID_WRK_TYPE_INTERNAL,
+	struct sid_wrk_ctl_res_params worker_control_res_params = {
+		.worker_type = SID_WRK_TYPE_INTERNAL,
 
-	                                                           .init_cb_spec =
-	                                                                   (struct sid_wrk_init_cb_spec) {
-										   .cb  = _worker_init_fn,
-										   .arg = common_ctx,
-									   },
+		.init_cb_spec =
+			(struct sid_wrk_init_cb_spec) {
+				.fn  = _worker_init_fn,
+				.arg = common_ctx,
+			},
 
-	                                                           .channel_specs = (struct sid_wrk_chan_spec[]) {
-									   {
-										   .id = MAIN_WORKER_CHANNEL_ID,
+		.channel_specs = (struct sid_wrk_chan_spec[]) {
+			{
+				.id = MAIN_WORKER_CHANNEL_ID,
 
-										   .wire =
-											   (struct sid_wrk_wire_spec) {
-												   .type = SID_WRK_WIRE_SOCKET,
-											   },
+				.wire =
+					(struct sid_wrk_wire_spec) {
+						.type = SID_WRK_WIRE_SOCKET,
+					},
 
-										   .worker_tx_cb = SID_WRK_NULL_CHAN_CB_SPEC,
-										   .worker_rx_cb =
-											   (struct sid_wrk_chan_cb_spec) {
-												   .cb  = _worker_recv_fn,
-												   .arg = common_ctx,
-											   },
+				.worker_rx =
+					(struct sid_wrk_lane_spec) {
+						.cb =
+							(struct sid_wrk_lane_cb_spec) {
+								.fn  = _worker_recv_fn,
+								.arg = common_ctx,
+							},
+					},
 
-										   .proxy_tx_cb = SID_WRK_NULL_CHAN_CB_SPEC,
-										   .proxy_rx_cb =
-											   (struct sid_wrk_chan_cb_spec) {
-												   .cb  = _worker_proxy_recv_fn,
-												   .arg = common_ctx,
-											   },
-									   },
-									   SID_WRK_NULL_CHAN_SPEC,
-								   }};
+				.proxy_rx =
+					(struct sid_wrk_lane_spec) {
+						.cb =
+							(struct sid_wrk_lane_cb_spec) {
+								.fn  = _worker_proxy_recv_fn,
+								.arg = common_ctx,
+							},
+					},
+			},
+			SID_WRK_NULL_CHAN_SPEC,
+		}};
 
 	if (!sid_res_create(ubridge->internal_res,
 	                    &sid_res_type_wrk_ctl,
