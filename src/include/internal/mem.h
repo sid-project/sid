@@ -29,10 +29,10 @@ extern "C" {
 #endif
 
 /* align memory pointer 'p' upwards to 'a' bytes */
-#define MEM_ALIGN_UP(p, a)     (((uintptr_t) (p) + (a) -1) & ~((a) -1))
+#define MEM_ALIGN_UP(p, a)     (((uintptr_t) (p) + (a) - 1) & ~((a) - 1))
 
 /* get padding in bytes needed to align memory pointer 'p' upwards to 'a' bytes */
-#define MEM_ALIGN_UP_PAD(p, a) (-((uintptr_t) (p)) & ((a) -1))
+#define MEM_ALIGN_UP_PAD(p, a) (-((uintptr_t) (p)) & ((a) - 1))
 
 void *mem_zalloc(size_t size) __malloc;
 void *mem_freen(void *mem);

@@ -40,7 +40,7 @@ struct list {
 
 #define list_iterate_back(v, head)   for (v = (head)->p; v != head; v = v->p)
 
-#define list_struct_base(v, t, head) ((t *) ((char *) (v) -offsetof(t, head)))
+#define list_struct_base(v, t, head) ((t *) ((char *) (v) - offsetof(t, head)))
 
 #define list_item(v, t)              list_struct_base((v), t, list)
 
