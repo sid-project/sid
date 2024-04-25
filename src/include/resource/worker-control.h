@@ -108,6 +108,7 @@ struct sid_wrk_lane_cb_spec {
 struct sid_wrk_lane_spec {
 	struct sid_wrk_lane_cb_spec cb;       /* callback called on lane activity */
 	struct sid_buf_init         buf_init; /* lane buffer initialization parameters */
+	struct iovec                data_suffix;
 };
 
 struct sid_wrk_chan_spec {

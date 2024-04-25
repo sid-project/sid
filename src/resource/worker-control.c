@@ -235,6 +235,17 @@ fail:
 	return -1;
 }
 
+static int _chan_add_rx_data_suffix(const struct sid_wrk_chan *chan)
+{
+	const struct iovec *suffix =
+		sid_wrk_ctl_wrk_detect(chan->owner) ? &chan->spec->worker_rx.data_suffix : &chan->spec->proxy_rx.data_suffix;
+
+	if (suffix->iov_base)
+		return sid_buf_add(chan->rx_buf, suffix->iov_base, suffix->iov_len, NULL, NULL);
+
+	return 0;
+}
+
 #define CHAN_BUF_RECV_MSG 0x1
 #define CHAN_BUF_RECV_EOF 0x2
 
@@ -276,6 +287,9 @@ static int _chan_buf_recv(const struct sid_wrk_chan *chan,
 
 		if (!sid_buf_is_complete(chan->rx_buf, NULL))
 			return 0;
+
+		if (_chan_add_rx_data_suffix(chan) < 0)
+			return -ENOMEM;
 
 		(void) sid_buf_data_get(chan->rx_buf, (const void **) &buf_data, &buf_data_size);
 
@@ -331,6 +345,9 @@ static int _chan_buf_recv(const struct sid_wrk_chan *chan,
 		return n;
 	} else {
 		if (sid_buf_stat(chan->rx_buf).spec.mode == SID_BUF_MODE_PLAIN) {
+			if (_chan_add_rx_data_suffix(chan) < 0)
+				return -ENOMEM;
+
 			(void) sid_buf_data_get(chan->rx_buf, (const void **) &buf_data, &buf_data_size);
 
 			*chan_cmd            = WORKER_CHANNEL_CMD_DATA;
