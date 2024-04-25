@@ -51,7 +51,7 @@ struct sid_wrk_init_cb_spec {
 	void                 *arg;
 };
 
-#define SID_WRK_NULL_INIT_CB_SPEC ((struct sid_wrk_init_cb_spec) {.cb = NULL, .arg = NULL})
+#define SID_WRK_NULL_INIT_CB_SPEC ((struct sid_wrk_init_cb_spec) {.fn = NULL, .arg = NULL})
 
 /* Wire specification */
 typedef enum {
