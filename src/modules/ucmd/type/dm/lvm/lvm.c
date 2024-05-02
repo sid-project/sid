@@ -29,6 +29,7 @@
 
 SID_UCMD_MOD_PRIO(0)
 
+#define LVM_EXEC_BIN_PATH    SBINDIR "/lvm"
 #define LVM_VG_NAME_COMPLETE "LVM_VG_NAME_COMPLETE"
 
 /* _unquote from lvm2 source code: libdm/libdm-string */
@@ -350,7 +351,7 @@ static int _lvm_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	wrk_pvscan = (struct sid_wrk_params) {
 		.id                 = "pvscan",
-		.external.exec_file = "/usr/sbin/lvm",
+		.external.exec_file = LVM_EXEC_BIN_PATH,
 		.external.args      = cmd_line,
 		.worker_proxy_arg   = &((struct out_ctx) {.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = true}),
 		.timeout_spec       = (struct sid_wrk_timeout_spec) {
@@ -408,7 +409,7 @@ static int _lvm_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_c
 
 		wrk_vgchange = (struct sid_wrk_params) {
 			.id                 = "vgchange",
-			.external.exec_file = "/usr/sbin/lvm",
+			.external.exec_file = LVM_EXEC_BIN_PATH,
 			.external.args      = cmd_line,
 			.worker_proxy_arg   = &((struct out_ctx) {.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = false}),
 			.timeout_spec       = (struct sid_wrk_timeout_spec) {
