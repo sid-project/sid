@@ -47,6 +47,8 @@ AC_DEFINE_UNQUOTED(SID_COMPILER, "$($CC --version | head -n 1)", [compiler used 
 
 AS_AC_EXPAND(LIBDIR, $libdir)
 AC_DEFINE_UNQUOTED(LIBDIR, "$LIBDIR", [library directory])
+AS_AC_EXPAND(SBINDIR, $sbindir)
+AC_DEFINE_UNQUOTED(SBINDIR, "$SBINDIR", [system admin executables directory])
 
 AC_CONFIG_FILES([Makefile
 		 src/Makefile
