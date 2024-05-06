@@ -36,7 +36,7 @@ extern "C" {
 #define SID_UCMD_BLOCK_MOD_DIR                 LIBDIR "/" PACKAGE "/modules/ucmd/block"
 #define SID_UCMD_TYPE_MOD_DIR                  LIBDIR "/" PACKAGE "/modules/ucmd/type"
 
-#define SID_UCMD_MOD_FN_NAME_IDENT             "sid_ucmd_ident"
+#define SID_UCMD_MOD_FN_NAME_SCAN_IDENT        "sid_ucmd_ident"
 #define SID_UCMD_MOD_FN_NAME_SCAN_PRE          "sid_ucmd_scan_pre"
 #define SID_UCMD_MOD_FN_NAME_SCAN_CURRENT      "sid_ucmd_scan_current"
 #define SID_UCMD_MOD_FN_NAME_SCAN_NEXT         "sid_ucmd_scan_next"
@@ -55,15 +55,15 @@ typedef int sid_ucmd_mod_fn_t(sid_res_t *mod_res, struct sid_ucmd_common_ctx *uc
 typedef int sid_ucmd_fn_t(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx);
 
 struct sid_ucmd_mod_fns {
-	sid_ucmd_fn_t *ident;
+	sid_ucmd_fn_t *scan_ident;
 	sid_ucmd_fn_t *scan_pre;
 	sid_ucmd_fn_t *scan_current;
 	sid_ucmd_fn_t *scan_next;
 	sid_ucmd_fn_t *scan_post_current;
 	sid_ucmd_fn_t *scan_post_next;
-	sid_ucmd_fn_t *trigger_action_current;
-	sid_ucmd_fn_t *trigger_action_next;
 	sid_ucmd_fn_t *scan_remove;
+	sid_ucmd_fn_t *scan_action_current;
+	sid_ucmd_fn_t *scan_action_next;
 	sid_ucmd_fn_t *error;
 } __packed;
 
@@ -117,16 +117,16 @@ struct sid_ucmd_mod_fns {
 
 #endif /* __GNUC__ */
 
-#define SID_UCMD_IDENT(fn)                  SID_UCMD_FN(ident, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_SCAN_PRE(fn)               SID_UCMD_FN(scan_pre, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_SCAN_CURRENT(fn)           SID_UCMD_FN(scan_current, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_SCAN_NEXT(fn)              SID_UCMD_FN(scan_next, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_SCAN_POST_CURRENT(fn)      SID_UCMD_FN(scan_post_current, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_SCAN_POST_NEXT(fn)         SID_UCMD_FN(scan_post_next, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_TRIGGER_ACTION_CURRENT(fn) SID_UCMD_FN(trigger_action_current, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_TRIGGER_ACTION_NEXT(fn)    SID_UCMD_FN(trigger_action_next, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_SCAN_REMOVE(fn)            SID_UCMD_FN(scan_remove, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_ERROR(fn)                  SID_UCMD_FN(error, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_IDENT(fn)          SID_UCMD_FN(ident, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_PRE(fn)            SID_UCMD_FN(scan_pre, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_CURRENT(fn)        SID_UCMD_FN(scan_current, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_NEXT(fn)           SID_UCMD_FN(scan_next, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_POST_CURRENT(fn)   SID_UCMD_FN(scan_post_current, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_POST_NEXT(fn)      SID_UCMD_FN(scan_post_next, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_REMOVE(fn)         SID_UCMD_FN(scan_remove, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_ACTION_CURRENT(fn) SID_UCMD_FN(action_current, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_ACTION_NEXT(fn)    SID_UCMD_FN(action_next, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_ERROR(fn)               SID_UCMD_FN(error, _SID_UCMD_FN_CHECK_TYPE(fn))
 
 /*
  * Functions to retrieve device properties associated with given command ctx.

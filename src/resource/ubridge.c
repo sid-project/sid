@@ -50,85 +50,85 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define INTERNAL_AGGREGATE_ID                       "ubr-int"
-#define COMMON_ID                                   "common"
-#define MODULES_AGGREGATE_ID                        "mods"
-#define MODULES_BLOCK_ID                            "block"
-#define MODULES_TYPE_ID                             "type"
+#define INTERNAL_AGGREGATE_ID                    "ubr-int"
+#define COMMON_ID                                "common"
+#define MODULES_AGGREGATE_ID                     "mods"
+#define MODULES_BLOCK_ID                         "block"
+#define MODULES_TYPE_ID                          "type"
 
-#define UDEV_TAG_SID                                "sid"
-#define KV_KEY_UDEV_SID_TAGS                        ".SID_TAGS" /* starts with '.' as we don't want this to store in udev db! */
-#define KV_KEY_UDEV_SID_SESSION_ID                  ".SID_SESSION_ID"
-#define KV_KEY_UDEV_SID_DEV_ID                      "SID_DEV_ID"
+#define UDEV_TAG_SID                             "sid"
+#define KV_KEY_UDEV_SID_TAGS                     ".SID_TAGS" /* starts with '.' as we don't want this to store in udev db! */
+#define KV_KEY_UDEV_SID_SESSION_ID               ".SID_SESSION_ID"
+#define KV_KEY_UDEV_SID_DEV_ID                   "SID_DEV_ID"
 
 // TODO: once trigger-action is settled down, move this to ucmd-module.h
-#define SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_CURRENT "sid_ucmd_trigger_action_current"
-#define SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_NEXT    "sid_ucmd_trigger_action_next"
+#define SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT "sid_ucmd_scan_action_current"
+#define SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT    "sid_ucmd_scan_action_next"
 
-#define MAIN_KV_STORE_NAME                          "main"
-#define MAIN_WORKER_CHANNEL_ID                      "main"
+#define MAIN_KV_STORE_NAME                       "main"
+#define MAIN_WORKER_CHANNEL_ID                   "main"
 
-#define SYSTEM_PROC_DEVICES_PATH                    SYSTEM_PROC_PATH "/devices"
-#define MAIN_KV_STORE_FILE_PATH                     "/run/sid.db"
+#define SYSTEM_PROC_DEVICES_PATH                 SYSTEM_PROC_PATH "/devices"
+#define MAIN_KV_STORE_FILE_PATH                  "/run/sid.db"
 
-#define KV_PAIR_C                                   "="
-#define KV_END_C                                    ""
+#define KV_PAIR_C                                "="
+#define KV_END_C                                 ""
 
-#define ID_NULL                                     ""
-#define KV_KEY_NULL                                 ID_NULL
+#define ID_NULL                                  ""
+#define KV_KEY_NULL                              ID_NULL
 
-#define KV_INDEX_NOOP                               0
-#define KV_INDEX_ADD                                1
-#define KV_INDEX_REMOVE                             2
+#define KV_INDEX_NOOP                            0
+#define KV_INDEX_ADD                             1
+#define KV_INDEX_REMOVE                          2
 
-#define KV_PREFIX_OP_SYNC_C                         ">"
-#define KV_PREFIX_OP_SYNC_END_C                     "?" /* right after '>' */
-#define KV_PREFIX_OP_ARCHIVE_C                      "~"
-#define KV_PREFIX_OP_BLANK_C                        " "
-#define KV_PREFIX_OP_ILLEGAL_C                      "X"
-#define KV_PREFIX_OP_SET_C                          ""
-#define KV_PREFIX_OP_PLUS_C                         "+"
-#define KV_PREFIX_OP_MINUS_C                        "-"
+#define KV_PREFIX_OP_SYNC_C                      ">"
+#define KV_PREFIX_OP_SYNC_END_C                  "?" /* right after '>' */
+#define KV_PREFIX_OP_ARCHIVE_C                   "~"
+#define KV_PREFIX_OP_BLANK_C                     " "
+#define KV_PREFIX_OP_ILLEGAL_C                   "X"
+#define KV_PREFIX_OP_SET_C                       ""
+#define KV_PREFIX_OP_PLUS_C                      "+"
+#define KV_PREFIX_OP_MINUS_C                     "-"
 
-#define KV_PREFIX_NS_UNDEFINED_C                    ""
-#define KV_PREFIX_NS_UDEV_C                         "U"
-#define KV_PREFIX_NS_DEVICE_C                       "D"
-#define KV_PREFIX_NS_MODULE_C                       "M"
-#define KV_PREFIX_NS_DEVMOD_C                       "X"
-#define KV_PREFIX_NS_GLOBAL_C                       "G"
+#define KV_PREFIX_NS_UNDEFINED_C                 ""
+#define KV_PREFIX_NS_UDEV_C                      "U"
+#define KV_PREFIX_NS_DEVICE_C                    "D"
+#define KV_PREFIX_NS_MODULE_C                    "M"
+#define KV_PREFIX_NS_DEVMOD_C                    "X"
+#define KV_PREFIX_NS_GLOBAL_C                    "G"
 
-#define KV_PREFIX_KEY_SYS_C                         "#"
+#define KV_PREFIX_KEY_SYS_C                      "#"
 
-#define KV_KEY_DB_GENERATION                        KV_PREFIX_KEY_SYS_C "DBGEN"
-#define KV_KEY_BOOT_ID                              KV_PREFIX_KEY_SYS_C "BOOTID"
-#define KV_KEY_DEV_READY                            KV_PREFIX_KEY_SYS_C "RDY"
-#define KV_KEY_DEV_RESERVED                         KV_PREFIX_KEY_SYS_C "RES"
-#define KV_KEY_DEV_MOD                              KV_PREFIX_KEY_SYS_C "MOD"
+#define KV_KEY_DB_GENERATION                     KV_PREFIX_KEY_SYS_C "DBGEN"
+#define KV_KEY_BOOT_ID                           KV_PREFIX_KEY_SYS_C "BOOTID"
+#define KV_KEY_DEV_READY                         KV_PREFIX_KEY_SYS_C "RDY"
+#define KV_KEY_DEV_RESERVED                      KV_PREFIX_KEY_SYS_C "RES"
+#define KV_KEY_DEV_MOD                           KV_PREFIX_KEY_SYS_C "MOD"
 
-#define KV_KEY_DOM_ALIAS                            "ALS"
-#define KV_KEY_DOM_GROUP                            "GRP"
-#define KV_KEY_DOM_USER                             "USR"
+#define KV_KEY_DOM_ALIAS                         "ALS"
+#define KV_KEY_DOM_GROUP                         "GRP"
+#define KV_KEY_DOM_USER                          "USR"
 
-#define KV_KEY_GEN_GROUP_MEMBERS                    KV_PREFIX_KEY_SYS_C "GMB"
-#define KV_KEY_GEN_GROUP_IN                         KV_PREFIX_KEY_SYS_C "GIN"
+#define KV_KEY_GEN_GROUP_MEMBERS                 KV_PREFIX_KEY_SYS_C "GMB"
+#define KV_KEY_GEN_GROUP_IN                      KV_PREFIX_KEY_SYS_C "GIN"
 
-#define MOD_NAME_CORE                               SID_MOD_NAME_DELIM
-#define MOD_NAME_BLKEXT                             "blkext"
-#define MOD_NAME_NVME                               "nvme"
+#define MOD_NAME_CORE                            SID_MOD_NAME_DELIM
+#define MOD_NAME_BLKEXT                          "blkext"
+#define MOD_NAME_NVME                            "nvme"
 
-#define DEV_NAME_PREFIX_NVME                        "nvme"
+#define DEV_NAME_PREFIX_NVME                     "nvme"
 
-#define DEV_ALIAS_DEVNO                             "devno"
-#define DEV_ALIAS_DSEQ                              "dseq"
-#define DEV_ALIAS_NAME                              "name"
+#define DEV_ALIAS_DEVNO                          "devno"
+#define DEV_ALIAS_DSEQ                           "dseq"
+#define DEV_ALIAS_NAME                           "name"
 
-#define OWNER_CORE                                  MOD_NAME_CORE
-#define DEFAULT_VALUE_FLAGS_CORE                    SID_KV_FL_SYNC_P | SID_KV_FL_RS
+#define OWNER_CORE                               MOD_NAME_CORE
+#define DEFAULT_VALUE_FLAGS_CORE                 SID_KV_FL_SYNC_P | SID_KV_FL_RS
 
-#define DEFAULT_CMD_TIM_OUT_USEC                    180000000
+#define DEFAULT_CMD_TIM_OUT_USEC                 180000000
 
-#define CMD_DEV_PRINT_FMT                           "%s (%s/%s)"
-#define CMD_DEV_PRINT(ucmd_ctx)                     ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.num_s, ucmd_ctx->req_env.dev.dsq_s
+#define CMD_DEV_PRINT_FMT                        "%s (%s/%s)"
+#define CMD_DEV_PRINT(ucmd_ctx)                  ucmd_ctx->req_env.dev.udev.name, ucmd_ctx->req_env.dev.num_s, ucmd_ctx->req_env.dev.dsq_s
 
 const sid_res_type_t sid_res_type_ubr;
 const sid_res_type_t sid_res_type_ubr_cmn;
@@ -164,16 +164,15 @@ typedef enum {
 	CMD_SCAN_PHASE_A_SCAN_POST_CURRENT, /* module */
 	CMD_SCAN_PHASE_A_SCAN_POST_NEXT,    /* module */
 	CMD_SCAN_PHASE_A_EXIT,              /* core finishes phase "A" */
-	CMD_SCAN_PHASE_A_CLEANUP,           /* core exits phase "A" */
-
-	CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT,
-	CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT,
-	CMD_SCAN_PHASE_B_CLEANUP,
 
 	CMD_SCAN_PHASE_REMOVE_INIT,
-	CMD_SCAN_PHASE_REMOVE_MODS,
-	CMD_SCAN_PHASE_REMOVE_CORE,
-	CMD_SCAN_PHASE_REMOVE_CLEANUP,
+	CMD_SCAN_PHASE_REMOVE_CURRENT,
+	CMD_SCAN_PHASE_REMOVE_EXIT,
+
+	CMD_SCAN_PHASE_B_INIT,
+	CMD_SCAN_PHASE_B_ACTION_CURRENT,
+	CMD_SCAN_PHASE_B_ACTION_NEXT,
+	CMD_SCAN_PHASE_B_EXIT,
 
 	CMD_SCAN_PHASE_ERROR,
 } cmd_scan_phase_t;
@@ -4679,7 +4678,7 @@ static int _exec_block_mods(sid_res_t *cmd_res)
 
 		switch (ucmd_ctx->scan.phase) {
 			case CMD_SCAN_PHASE_A_IDENT:
-				if (block_mod_fns->ident && block_mod_fns->ident(block_mod_res, ucmd_ctx) < 0)
+				if (block_mod_fns->scan_ident && block_mod_fns->scan_ident(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_A_SCAN_PRE:
@@ -4703,18 +4702,17 @@ static int _exec_block_mods(sid_res_t *cmd_res)
 				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
-			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT:
-				if (block_mod_fns->trigger_action_current &&
-				    block_mod_fns->trigger_action_current(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT:
-				if (block_mod_fns->trigger_action_next &&
-				    block_mod_fns->trigger_action_next(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_REMOVE_MODS:
+			case CMD_SCAN_PHASE_REMOVE_CURRENT:
 				if (block_mod_fns->scan_remove && block_mod_fns->scan_remove(block_mod_res, ucmd_ctx) < 0)
+					goto out;
+				break;
+			case CMD_SCAN_PHASE_B_ACTION_CURRENT:
+				if (block_mod_fns->scan_action_current &&
+				    block_mod_fns->scan_action_current(block_mod_res, ucmd_ctx) < 0)
+					goto out;
+				break;
+			case CMD_SCAN_PHASE_B_ACTION_NEXT:
+				if (block_mod_fns->scan_action_next && block_mod_fns->scan_action_next(block_mod_res, ucmd_ctx) < 0)
 					goto out;
 				break;
 			case CMD_SCAN_PHASE_ERROR:
@@ -4751,7 +4749,7 @@ static int _exec_type_mod(sid_res_t *cmd_res, sid_res_t *type_mod_res)
 
 	switch (ucmd_ctx->scan.phase) {
 		case CMD_SCAN_PHASE_A_IDENT:
-			if (type_mod_fns->ident && type_mod_fns->ident(type_mod_res, ucmd_ctx) < 0)
+			if (type_mod_fns->scan_ident && type_mod_fns->scan_ident(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
@@ -4780,19 +4778,18 @@ static int _exec_type_mod(sid_res_t *cmd_res, sid_res_t *type_mod_res)
 				goto out;
 			break;
 
-		case CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT:
-			if (type_mod_fns->trigger_action_current &&
-			    type_mod_fns->trigger_action_current(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT:
-			if (type_mod_fns->trigger_action_next && type_mod_fns->trigger_action_next(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_REMOVE_MODS:
+		case CMD_SCAN_PHASE_REMOVE_CURRENT:
 			if (type_mod_fns->scan_remove && type_mod_fns->scan_remove(type_mod_res, ucmd_ctx) < 0)
+				goto out;
+			break;
+
+		case CMD_SCAN_PHASE_B_ACTION_CURRENT:
+			if (type_mod_fns->scan_action_current && type_mod_fns->scan_action_current(type_mod_res, ucmd_ctx) < 0)
+				goto out;
+			break;
+
+		case CMD_SCAN_PHASE_B_ACTION_NEXT:
+			if (type_mod_fns->scan_action_next && type_mod_fns->scan_action_next(type_mod_res, ucmd_ctx) < 0)
 				goto out;
 			break;
 
@@ -4948,7 +4945,7 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 	return _refresh_dev_hierarchy_from_sysfs(cmd_res);
 }
 
-static int _cmd_exec_scan_init(sid_res_t *cmd_res)
+static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 
@@ -4957,10 +4954,7 @@ static int _cmd_exec_scan_init(sid_res_t *cmd_res)
 		goto fail;
 	}
 
-	if (ucmd_ctx->scan.phase == CMD_SCAN_PHASE_REMOVE_INIT) {
-		if (_get_device_uuid(cmd_res) < 0)
-			goto fail;
-	} else if (_set_dev_kvs(cmd_res) < 0)
+	if (_set_dev_kvs(cmd_res) < 0)
 		goto fail;
 
 	return 0;
@@ -4973,7 +4967,7 @@ fail:
 	return -1;
 }
 
-static int _cmd_exec_scan_ident(sid_res_t *cmd_res)
+static int _cmd_exec_scan_a_ident(sid_res_t *cmd_res)
 {
 	char                 buf[80];
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
@@ -5021,7 +5015,7 @@ static int _cmd_exec_scan_ident(sid_res_t *cmd_res)
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
-static int _cmd_exec_scan_pre(sid_res_t *cmd_res)
+static int _cmd_exec_scan_a_pre(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 
@@ -5029,7 +5023,7 @@ static int _cmd_exec_scan_pre(sid_res_t *cmd_res)
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
-static int _cmd_exec_scan_current(sid_res_t *cmd_res)
+static int _cmd_exec_scan_a_current(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, sid_res_data_get(cmd_res), _owner_name(NULL), 0);
@@ -5052,7 +5046,7 @@ static int _cmd_exec_scan_current(sid_res_t *cmd_res)
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
-static int _cmd_exec_scan_next(sid_res_t *cmd_res)
+static int _cmd_exec_scan_a_next(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	sid_ucmd_dev_ready_t ready;
@@ -5083,7 +5077,7 @@ static int _cmd_exec_scan_next(sid_res_t *cmd_res)
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
 }
 
-static int _cmd_exec_scan_post_current(sid_res_t *cmd_res)
+static int _cmd_exec_scan_a_post_current(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0);
@@ -5095,7 +5089,7 @@ static int _cmd_exec_scan_post_current(sid_res_t *cmd_res)
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
-static int _cmd_exec_scan_post_next(sid_res_t *cmd_res)
+static int _cmd_exec_scan_a_post_next(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0);
@@ -5107,7 +5101,7 @@ static int _cmd_exec_scan_post_next(sid_res_t *cmd_res)
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
 }
 
-static int _cmd_exec_scan_exit(sid_res_t *cmd_res)
+static int _cmd_exec_scan_a_exit(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	int                  r        = 0;
@@ -5123,40 +5117,34 @@ static int _cmd_exec_scan_exit(sid_res_t *cmd_res)
 	return r;
 }
 
-static int _cmd_exec_scan_a_cleanup(sid_res_t *cmd_res)
+static int _cmd_exec_scan_b_init(sid_res_t *cmd_res)
 {
 	return 0;
 }
 
-static int _cmd_exec_trigger_action_current(sid_res_t *cmd_res)
+static int _cmd_exec_scan_remove_init(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 
-	_exec_block_mods(cmd_res);
-	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
-}
+	if (!(ucmd_ctx->scan.block_mod_iter = sid_res_iter_create(ucmd_ctx->common->block_mod_registry_res))) {
+		sid_res_log_error(cmd_res, "Failed to create block module iterator.");
+		goto fail;
+	}
 
-static int _cmd_exec_trigger_action_next(sid_res_t *cmd_res)
-{
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	if (_get_device_uuid(cmd_res) < 0)
+		goto fail;
 
-	_exec_block_mods(cmd_res);
-	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
-}
-
-static int _cmd_exec_scan_b_cleanup(sid_res_t *cmd_res)
-{
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
-
+	return 0;
+fail:
 	if (ucmd_ctx->scan.block_mod_iter) {
 		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
 		ucmd_ctx->scan.block_mod_iter = NULL;
 	}
 
-	return 0;
+	return -1;
 }
 
-static int _cmd_exec_scan_remove_mods(sid_res_t *cmd_res)
+static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	const char          *mod_name;
@@ -5181,12 +5169,43 @@ static int _cmd_exec_scan_remove_mods(sid_res_t *cmd_res)
 		return 0;
 	}
 
+	if (_exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current) < 0)
+		return -1;
+
+	return _refresh_dev_hierarchy_from_sysfs(cmd_res);
+}
+
+static int _cmd_exec_scan_remove_exit(sid_res_t *cmd_res)
+{
+	return 0;
+}
+
+static int _cmd_exec_scan_b_action_current(sid_res_t *cmd_res)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+
+	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
-static int _cmd_exec_scan_remove_core(sid_res_t *cmd_res)
+static int _cmd_exec_scan_b_action_next(sid_res_t *cmd_res)
 {
-	return _refresh_dev_hierarchy_from_sysfs(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+
+	_exec_block_mods(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
+}
+
+static int _cmd_exec_scan_b_exit(sid_res_t *cmd_res)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+
+	if (ucmd_ctx->scan.block_mod_iter) {
+		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
+		ucmd_ctx->scan.block_mod_iter = NULL;
+	}
+
+	return 0;
 }
 
 static int _cmd_exec_scan_error(sid_res_t *cmd_res)
@@ -5203,41 +5222,37 @@ static int _cmd_exec_scan_error(sid_res_t *cmd_res)
 }
 
 static struct cmd_reg _cmd_scan_phase_regs[] = {
-	[CMD_SCAN_PHASE_A_INIT]              = {.name = "init", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_init},
+	[CMD_SCAN_PHASE_A_INIT]         = {.name = "a-init", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_a_init},
 
-	[CMD_SCAN_PHASE_A_IDENT]             = {.name = "ident", .flags = 0, .exec = _cmd_exec_scan_ident},
+	[CMD_SCAN_PHASE_A_IDENT]        = {.name = "a-ident", .flags = 0, .exec = _cmd_exec_scan_a_ident},
 
-	[CMD_SCAN_PHASE_A_SCAN_PRE]          = {.name = "scan-pre", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_pre},
+	[CMD_SCAN_PHASE_A_SCAN_PRE]     = {.name = "a-scan-pre", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_a_pre},
 
-	[CMD_SCAN_PHASE_A_SCAN_CURRENT]      = {.name = "scan-current", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_current},
+	[CMD_SCAN_PHASE_A_SCAN_CURRENT] = {.name = "a-scan-current", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_a_current},
 
-	[CMD_SCAN_PHASE_A_SCAN_NEXT]         = {.name = "scan-next", .flags = CMD_SCAN_CAP_RES, .exec = _cmd_exec_scan_next},
+	[CMD_SCAN_PHASE_A_SCAN_NEXT]    = {.name = "a-scan-next", .flags = CMD_SCAN_CAP_RES, .exec = _cmd_exec_scan_a_next},
 
-	[CMD_SCAN_PHASE_A_SCAN_POST_CURRENT] = {.name = "scan-post-current", .flags = 0, .exec = _cmd_exec_scan_post_current},
+	[CMD_SCAN_PHASE_A_SCAN_POST_CURRENT] = {.name = "a-scan-post-current", .flags = 0, .exec = _cmd_exec_scan_a_post_current},
 
-	[CMD_SCAN_PHASE_A_SCAN_POST_NEXT]    = {.name = "scan-post-next", .flags = 0, .exec = _cmd_exec_scan_post_next},
+	[CMD_SCAN_PHASE_A_SCAN_POST_NEXT]    = {.name = "a-scan-post-next", .flags = 0, .exec = _cmd_exec_scan_a_post_next},
 
-	[CMD_SCAN_PHASE_A_EXIT]              = {.name = "exit", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_exit},
+	[CMD_SCAN_PHASE_A_EXIT]              = {.name = "a-exit", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_a_exit},
 
-	[CMD_SCAN_PHASE_A_CLEANUP]           = {.name = "cleanup-a", .flags = 0, .exec = _cmd_exec_scan_a_cleanup},
+	[CMD_SCAN_PHASE_B_INIT]              = {.name = "b-init", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_b_init},
 
-	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT] = {.name  = "trigger-action-current",
-                                                     .flags = 0,
-                                                     .exec  = _cmd_exec_trigger_action_current},
+	[CMD_SCAN_PHASE_B_ACTION_CURRENT]    = {.name = "b-action-current", .flags = 0, .exec = _cmd_exec_scan_b_action_current},
 
-	[CMD_SCAN_PHASE_B_TRIGGER_ACTION_NEXT] = {.name = "trigger-action-next", .flags = 0, .exec = _cmd_exec_trigger_action_next},
+	[CMD_SCAN_PHASE_B_ACTION_NEXT]       = {.name = "b-action-next", .flags = 0, .exec = _cmd_exec_scan_b_action_next},
 
-	[CMD_SCAN_PHASE_B_CLEANUP]             = {.name = "cleanup-b", .flags = 0, .exec = _cmd_exec_scan_b_cleanup},
+	[CMD_SCAN_PHASE_B_EXIT]              = {.name = "b-exit", .flags = 0, .exec = _cmd_exec_scan_b_exit},
 
-	[CMD_SCAN_PHASE_REMOVE_INIT]           = {.name = "remove-init", .flags = 0, .exec = _cmd_exec_scan_init},
+	[CMD_SCAN_PHASE_REMOVE_INIT]         = {.name = "remove-init", .flags = 0, .exec = _cmd_exec_scan_remove_init},
 
-	[CMD_SCAN_PHASE_REMOVE_MODS]           = {.name = "remove-mods", .flags = 0, .exec = _cmd_exec_scan_remove_mods},
+	[CMD_SCAN_PHASE_REMOVE_CURRENT]      = {.name = "remove-current", .flags = 0, .exec = _cmd_exec_scan_remove_current},
 
-	[CMD_SCAN_PHASE_REMOVE_CORE]           = {.name = "remove-core", .flags = 0, .exec = _cmd_exec_scan_remove_core},
+	[CMD_SCAN_PHASE_REMOVE_EXIT]         = {.name = "remove-exit", .flags = 0, .exec = _cmd_exec_scan_remove_exit},
 
-	[CMD_SCAN_PHASE_REMOVE_CLEANUP]        = {.name = "remove-cleanup", .flags = 0, .exec = _cmd_exec_scan_a_cleanup},
-
-	[CMD_SCAN_PHASE_ERROR]                 = {.name = "error", .flags = 0, .exec = _cmd_exec_scan_error},
+	[CMD_SCAN_PHASE_ERROR]               = {.name = "error", .flags = 0, .exec = _cmd_exec_scan_error},
 };
 
 static int _cmd_exec_scan(sid_res_t *cmd_res)
@@ -5250,15 +5265,15 @@ static int _cmd_exec_scan(sid_res_t *cmd_res)
 		case 1:
 			if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE) {
 				phase_start = CMD_SCAN_PHASE_REMOVE_INIT;
-				phase_end   = CMD_SCAN_PHASE_REMOVE_CLEANUP;
+				phase_end   = CMD_SCAN_PHASE_REMOVE_EXIT;
 			} else {
 				phase_start = CMD_SCAN_PHASE_A_INIT;
-				phase_end   = CMD_SCAN_PHASE_A_CLEANUP;
+				phase_end   = CMD_SCAN_PHASE_A_EXIT;
 			}
 			break;
 		case 2:
-			phase_start = CMD_SCAN_PHASE_B_TRIGGER_ACTION_CURRENT;
-			phase_end   = CMD_SCAN_PHASE_B_CLEANUP;
+			phase_start = CMD_SCAN_PHASE_B_INIT;
+			phase_end   = CMD_SCAN_PHASE_B_EXIT;
 			break;
 		default:
 			sid_res_log_error(cmd_res, SID_INTERNAL_ERROR "%s: Incorrect stage %u.", __func__, ucmd_ctx->stage);
@@ -5286,8 +5301,14 @@ static int _cmd_exec_scan(sid_res_t *cmd_res)
 
 		/* Handle error case. */
 
-		/* if init or cleanup phase has failed, there's nothing else we can do - return. */
-		if (phase == CMD_SCAN_PHASE_A_INIT || phase == CMD_SCAN_PHASE_A_CLEANUP) {
+		/* if init or exit phase has failed, there's nothing else we can do - return. */
+		if (UTIL_IN_SET(phase,
+		                CMD_SCAN_PHASE_A_INIT,
+		                CMD_SCAN_PHASE_B_INIT,
+		                CMD_SCAN_PHASE_REMOVE_INIT,
+		                CMD_SCAN_PHASE_A_EXIT,
+		                CMD_SCAN_PHASE_B_EXIT,
+		                CMD_SCAN_PHASE_REMOVE_EXIT)) {
 			sid_res_log_error(cmd_res, "%s phase failed.", phase_name);
 			return -1;
 		}
@@ -5302,11 +5323,17 @@ static int _cmd_exec_scan(sid_res_t *cmd_res)
 		if (_cmd_scan_phase_regs[phase].exec(cmd_res) < 0)
 			sid_res_log_error(cmd_res, "%s phase failed.", phase_name);
 
-		/* Also, call out modules to cleanup after the error phase. */
-		if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE)
-			ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_REMOVE_CLEANUP;
-		else
-			ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_A_CLEANUP;
+		/* Also, exit/cleanup after the error phase. */
+		switch (ucmd_ctx->stage) {
+			case 1:
+				if (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE)
+					ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_REMOVE_EXIT;
+				else
+					ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_A_EXIT;
+				break;
+			case 2:
+				ucmd_ctx->scan.phase = phase = CMD_SCAN_PHASE_B_EXIT;
+		}
 
 		if (_cmd_scan_phase_regs[phase].exec(cmd_res))
 			sid_res_log_error(cmd_res, "%s phase failed.", phase_name);
@@ -7064,7 +7091,7 @@ fail:
 }
 
 static struct sid_mod_sym_params block_symbol_params[]          = {{
-                                                                  SID_UCMD_MOD_FN_NAME_IDENT,
+                                                                  SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
                                                                   SID_MOD_SYM_FL_INDIRECT,
                                                           },
                                                                    {
@@ -7088,11 +7115,11 @@ static struct sid_mod_sym_params block_symbol_params[]          = {{
                                                                   SID_MOD_SYM_FL_INDIRECT,
                                                           },
                                                                    {
-                                                                  SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_CURRENT,
+                                                                  SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
                                                                   SID_MOD_SYM_FL_INDIRECT,
                                                           },
                                                                    {
-                                                                  SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_NEXT,
+                                                                  SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
                                                                   SID_MOD_SYM_FL_INDIRECT,
                                                           },
                                                                    {
@@ -7106,7 +7133,7 @@ static struct sid_mod_sym_params block_symbol_params[]          = {{
                                                                    SID_MOD_NULL_SYM_PARAMS};
 
 static struct sid_mod_sym_params type_symbol_params[]           = {{
-                                                                 SID_UCMD_MOD_FN_NAME_IDENT,
+                                                                 SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
                                                                  SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
                                                          },
                                                                    {
@@ -7130,11 +7157,11 @@ static struct sid_mod_sym_params type_symbol_params[]           = {{
                                                                  SID_MOD_SYM_FL_INDIRECT,
                                                          },
                                                                    {
-                                                                 SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_CURRENT,
+                                                                 SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
                                                                  SID_MOD_SYM_FL_INDIRECT,
                                                          },
                                                                    {
-                                                                 SID_UCMD_MOD_FN_NAME_TRIGGER_ACTION_NEXT,
+                                                                 SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
                                                                  SID_MOD_SYM_FL_INDIRECT,
                                                          },
                                                                    {
