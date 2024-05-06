@@ -44,7 +44,7 @@ static struct sid_mod_sym_params dm_submod_symbol_params[] = {
 		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
 	},
 	{
-		SID_UCMD_MOD_FN_NAME_IDENT,
+		SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
 		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
 	},
 	{
@@ -162,7 +162,7 @@ static int _dm_reset(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common
 }
 SID_UCMD_MOD_RESET(_dm_reset)
 
-static int _dm_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	char                  path[PATH_MAX];
 	char                  name[DM_NAME_LEN];
@@ -248,7 +248,7 @@ static int _dm_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	return 0;
 }
-SID_UCMD_IDENT(_dm_ident)
+SID_UCMD_SCAN_IDENT(_dm_scan_ident)
 
 static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
