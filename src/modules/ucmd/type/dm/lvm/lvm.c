@@ -58,12 +58,12 @@ static int _lvm_subsys_match(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 }
 SID_UCMD_MOD_DM_SUBSYS_MATCH(_lvm_subsys_match)
 
-static int _lvm_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _lvm_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "ident");
 	return 0;
 }
-SID_UCMD_IDENT(_lvm_ident)
+SID_UCMD_SCAN_IDENT(_lvm_scan_ident)
 
 static int _lvm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
