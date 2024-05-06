@@ -42,12 +42,12 @@ static int _dummy_block_reset(sid_res_t *mod_res, struct sid_ucmd_common_ctx *uc
 }
 SID_UCMD_MOD_RESET(_dummy_block_reset)
 
-static int _dummy_block_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dummy_block_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "ident");
 	return 0;
 }
-SID_UCMD_IDENT(_dummy_block_ident)
+SID_UCMD_SCAN_IDENT(_dummy_block_scan_ident)
 
 static int _dummy_block_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
@@ -84,26 +84,26 @@ static int _dummy_block_scan_post_next(sid_res_t *mod_res, struct sid_ucmd_ctx *
 }
 SID_UCMD_SCAN_POST_NEXT(_dummy_block_scan_post_next)
 
-static int _dummy_block_trigger_action_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
-{
-	sid_res_log_debug(mod_res, "trigger-action-current");
-	return 0;
-}
-SID_UCMD_TRIGGER_ACTION_CURRENT(_dummy_block_trigger_action_current)
-
-static int _dummy_block_trigger_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
-{
-	sid_res_log_debug(mod_res, "trigger-action-next");
-	return 0;
-}
-SID_UCMD_TRIGGER_ACTION_NEXT(_dummy_block_trigger_action_next)
-
 static int _dummy_block_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "scan-remove");
 	return 0;
 }
 SID_UCMD_SCAN_REMOVE(_dummy_block_scan_remove)
+
+static int _dummy_block_scan_action_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-action-current");
+	return 0;
+}
+SID_UCMD_SCAN_ACTION_CURRENT(_dummy_block_scan_action_current)
+
+static int _dummy_block_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-action-next");
+	return 0;
+}
+SID_UCMD_SCAN_ACTION_NEXT(_dummy_block_scan_action_next)
 
 static int _dummy_block_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
