@@ -36,7 +36,7 @@ extern "C" {
 #define SID_UCMD_BLOCK_MOD_DIR                 LIBDIR "/" PACKAGE "/modules/ucmd/block"
 #define SID_UCMD_TYPE_MOD_DIR                  LIBDIR "/" PACKAGE "/modules/ucmd/type"
 
-#define SID_UCMD_MOD_FN_NAME_SCAN_IDENT        "sid_ucmd_ident"
+#define SID_UCMD_MOD_FN_NAME_SCAN_IDENT        "sid_ucmd_scan_ident"
 #define SID_UCMD_MOD_FN_NAME_SCAN_PRE          "sid_ucmd_scan_pre"
 #define SID_UCMD_MOD_FN_NAME_SCAN_CURRENT      "sid_ucmd_scan_current"
 #define SID_UCMD_MOD_FN_NAME_SCAN_NEXT         "sid_ucmd_scan_next"
@@ -117,15 +117,15 @@ struct sid_ucmd_mod_fns {
 
 #endif /* __GNUC__ */
 
-#define SID_UCMD_SCAN_IDENT(fn)          SID_UCMD_FN(ident, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_IDENT(fn)          SID_UCMD_FN(scan_ident, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_PRE(fn)            SID_UCMD_FN(scan_pre, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_CURRENT(fn)        SID_UCMD_FN(scan_current, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_NEXT(fn)           SID_UCMD_FN(scan_next, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_POST_CURRENT(fn)   SID_UCMD_FN(scan_post_current, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_POST_NEXT(fn)      SID_UCMD_FN(scan_post_next, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_REMOVE(fn)         SID_UCMD_FN(scan_remove, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_SCAN_ACTION_CURRENT(fn) SID_UCMD_FN(action_current, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_SCAN_ACTION_NEXT(fn)    SID_UCMD_FN(action_next, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_ACTION_CURRENT(fn) SID_UCMD_FN(scan_action_current, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_ACTION_NEXT(fn)    SID_UCMD_FN(scan_action_next, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_ERROR(fn)               SID_UCMD_FN(error, _SID_UCMD_FN_CHECK_TYPE(fn))
 
 /*
