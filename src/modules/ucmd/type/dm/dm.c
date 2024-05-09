@@ -913,6 +913,10 @@ SID_UCMD_SCAN_POST_NEXT(_dm_scan_post_next)
 static int _dm_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "scan-remove");
+
+	if (_dm_submod_ident(mod_res, ucmd_ctx) < 0)
+		return -1;
+
 	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_REMOVE);
 }
 SID_UCMD_SCAN_REMOVE(_dm_scan_remove)
