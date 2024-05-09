@@ -578,18 +578,13 @@ static int _dm_reset(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common
 }
 SID_UCMD_MOD_RESET(_dm_reset)
 
-static int _dm_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_submod_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	struct dm_mod_ctx *dm_mod;
 	const char        *submod_name = NULL;
 
-	sid_res_log_debug(mod_res, "ident");
-
-	if (_get_sysfs_props(mod_res, ucmd_ctx) < 0)
-		return -1;
-
-	dm_mod      = sid_mod_data_get(mod_res);
-	submod_name = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVICE, DM_SUBMODULES_ID, NULL, NULL, 0);
+	dm_mod                         = sid_mod_data_get(mod_res);
+	submod_name                    = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVICE, DM_SUBMODULES_ID, NULL, NULL, 0);
 
 	if (submod_name) {
 		if (strcmp(submod_name, DM_SUBMODULE_ID_NONE) != 0) {
@@ -621,6 +616,16 @@ static int _dm_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	dm_mod->submod_res = dm_mod->submod_res_current;
 	return 0;
+}
+
+static int _dm_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "ident");
+
+	if (_get_sysfs_props(mod_res, ucmd_ctx) < 0)
+		return -1;
+
+	return _dm_submod_ident(mod_res, ucmd_ctx);
 }
 SID_UCMD_SCAN_IDENT(_dm_scan_ident)
 
