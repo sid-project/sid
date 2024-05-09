@@ -3810,6 +3810,11 @@ static void _destroy_tim_out_es(struct sid_ucmd_ctx *ucmd_ctx)
 	ucmd_ctx->tim_out_es = 0;
 }
 
+static bool _is_last_stage(const struct cmd_reg *cmd_reg, const struct sid_ucmd_ctx *ucmd_ctx)
+{
+	return !cmd_reg->stage_count || (cmd_reg->stage_count == ucmd_ctx->stage);
+}
+
 static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 {
 	static const char     cmd_stage_msg[] = "Command stage: ";
@@ -3844,7 +3849,7 @@ static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 	} else if (state == CMD_STATE_STG_WAIT) {
 		cmd_reg = _get_cmd_reg(ucmd_ctx);
 
-		if (ucmd_ctx->stage == cmd_reg->stage_count) {
+		if (_is_last_stage(cmd_reg, ucmd_ctx)) {
 			sid_res_log_error(cmd_res,
 			                  SID_INTERNAL_ERROR
 			                  "%s: Requested to wait for next stage while command already in last stage.",
@@ -5573,7 +5578,7 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 			goto out;
 
 		if (expbuf_first) {
-			if (ucmd_ctx->stage == cmd_reg->stage_count)
+			if (_is_last_stage(cmd_reg, ucmd_ctx))
 				r = _change_cmd_state(cmd_res, CMD_STATE_FIN);
 			else
 				r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
@@ -5594,7 +5599,7 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK)) < 0)
 				goto out;
 		} else {
-			if (ucmd_ctx->stage == cmd_reg->stage_count)
+			if (_is_last_stage(cmd_reg, ucmd_ctx))
 				r = _change_cmd_state(cmd_res, CMD_STATE_FIN);
 			else
 				r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
