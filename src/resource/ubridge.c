@@ -2127,7 +2127,7 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 	struct kv_delta    *orig_delta, *orig_abs_delta;
 	kv_vector_t        *delta_vvalue, *abs_delta_vvalue;
 	size_t              delta_vsize, abs_delta_vsize, i;
-	const char         *key_prefix, *ns_part;
+	const char         *key_prefix, *key_part;
 	char               *key;
 	kv_vector_t         rel_vvalue[VVALUE_SINGLE_CNT];
 	int                 r = -1;
@@ -2217,21 +2217,39 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 		_vvalue_data_prep(rel_vvalue, VVALUE_CNT(rel_vvalue), 0, (void *) key_prefix, strlen(key_prefix) + 1);
 
 		for (i = VVALUE_IDX_DATA; i < delta_vsize; i++) {
-			if (!(ns_part = _copy_ns_part_from_key(delta_vvalue[i].iov_base, NULL, 0)))
+			/*
+			 * FIXME: This is a shortcut for now. Simplify whole kv_delta_set and related so we don't need
+			 * to test this condition (check for namespace and then copy the part of the key to reference).
+			 */
+			if (rel_spec->cur_key_spec->ns == SID_KV_NS_DEVICE) {
+				if (!(key_part = _copy_ns_part_from_key(delta_vvalue[i].iov_base, NULL, 0)))
+					goto out;
+				rel_spec->cur_key_spec->ns_part = key_part;
+			} else if (rel_spec->cur_key_spec->ns == SID_KV_NS_MODULE) {
+				if (!(key_part = _copy_id_from_key(delta_vvalue[i].iov_base, NULL, 0)))
+					goto out;
+				rel_spec->cur_key_spec->id = key_part;
+			} else {
+				sid_res_log_error(update_arg->res,
+				                  SID_INTERNAL_ERROR "%s: unsupported namespace '%s' found in rel spec",
+				                  __func__);
 				goto out;
-
-			rel_spec->cur_key_spec->ns_part = ns_part;
+			}
 
 			if (!(key = _compose_key(NULL, rel_spec->cur_key_spec))) {
-				_destroy_key(NULL, ns_part);
+				_destroy_key(NULL, key_part);
 				goto out;
 			}
 
 			_do_kv_delta_set(key, rel_vvalue, VVALUE_SINGLE_CNT, update_arg);
 
-			rel_spec->cur_key_spec->ns_part = NULL;
+			if (rel_spec->cur_key_spec->ns == SID_KV_NS_DEVICE)
+				rel_spec->cur_key_spec->ns_part = NULL;
+			else if (rel_spec->cur_key_spec->ns == SID_KV_NS_MODULE)
+				rel_spec->cur_key_spec->id = NULL;
+
 			_destroy_key(NULL, key);
-			_destroy_key(NULL, ns_part);
+			_destroy_key(NULL, key_part);
 		}
 
 		r = 0;
@@ -4289,115 +4307,66 @@ out:
 	return r;
 }
 
-static const char *_set_slave_dev_kvs(sid_res_t           *res,
-                                      struct sid_ucmd_ctx *ucmd_ctx,
-                                      const char          *slave_name,
-                                      char                *dev_id_buf,
-                                      size_t               dev_id_buf_size)
+/*
+ * Returns devid for already recorded device or disk sequence number (diskseq) otherwise.
+ */
+static const char *
+	_get_dep_dev_dseq(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, const char *dep_name, char *buf, size_t buf_size)
 {
-	static const char   err_msg[]    = "%s for %s while processing related device " CMD_DEV_PRINT_FMT;
-	struct sid_ucmd_ctx tmp_ucmd_ctx = {0};
-	char                devno_buf[16];   /* enough to hold major_minor pair */
-	char                dev_seq_buf[20]; /* enough to hold 64 bit number */
-	char               *slave_path = NULL;
-	const char         *msg, *s;
-	int                 r = 0, ret = -1;
+	static const char err_msg[] = "%s for %s while processing " CMD_DEV_PRINT_FMT;
+	char             *dep_path  = NULL;
+	const char       *msg, *s = NULL;
+	int               r = 0, ret = -1;
 
-	if (slave_name) {
-		/* handling a whole device: slave device is under the SYSTEM_SYSFS_SLAVES directory */
-		if (asprintf(&slave_path,
+	if (dep_name) {
+		/* handling a whole device: dep device is under the SYSTEM_SYSFS_SLAVES directory */
+		if (asprintf(&dep_path,
 		             "%s%s/%s/%s",
 		             SYSTEM_SYSFS_PATH,
 		             ucmd_ctx->req_env.dev.udev.path,
 		             SYSTEM_SYSFS_SLAVES,
-		             slave_name) < 0) {
-			msg = "Failed to compose slave sysfs path";
+		             dep_name) < 0) {
+			msg = "Failed to compose underlying device's sysfs path";
 			goto out;
 		}
 
 	} else {
-		/* handling a partition device: slave device == whole device */
-		if (asprintf(&slave_path, "%s%s", SYSTEM_SYSFS_PATH, ucmd_ctx->req_env.dev.udev.path) < 0) {
+		/* handling a partition device: dep device == whole device */
+		if (asprintf(&dep_path, "%s%s", SYSTEM_SYSFS_PATH, ucmd_ctx->req_env.dev.udev.path) < 0) {
 			msg = "Failed to compose partition sysfs path";
 			goto out;
 		}
 
-		/* we also set the actual slave path here by using the dirname which cuts off the partition suffix */
-		slave_name = basename(dirname(slave_path));
+		/* we also set the actual dep path here by using the dirname which cuts off the partition suffix */
+		dep_name = basename(dirname(dep_path));
 	}
 
-	if ((r = sid_buf_fmt_add(ucmd_ctx->common->gen_buf, (const void **) &s, NULL, "%s/dev", slave_path)) < 0) {
-		msg = "Failed to compose sysfs 'dev' attribute path";
+	if ((r = sid_buf_fmt_add(ucmd_ctx->common->gen_buf, (const void **) &s, NULL, "%s/diskseq", dep_path)) < 0) {
+		msg = "Failed to compose underlying device's sysfs 'dev' attribute path";
 		goto out;
 	}
 
-	if ((r = sid_util_sysfs_get(s, devno_buf, sizeof(devno_buf), NULL)) < 0) {
-		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
-		msg = "Failed to read device number from sysfs file";
-		goto out;
-	}
-
-	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
-	_canonicalize_kv_key(devno_buf);
-
-	r = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, devno_buf, NULL, NULL, dev_id_buf, dev_id_buf_size);
-
-	if (r == 0)
-		/* we already have records about the slave device */
-		return dev_id_buf;
-
-	if (r != -ENODATA) {
-		msg = "Failed to lookup device ID";
-		goto out;
-	}
-	r = 0;
-
-	/* we don't have any records about the slave device, store it now... */
-
-	if (!util_uuid_str_gen(&((util_mem_t) {.base = dev_id_buf, .size = dev_id_buf_size}))) {
-		msg = "Failed to generate device ID";
-		goto out;
-	}
-
-	if (sid_buf_fmt_add(ucmd_ctx->common->gen_buf, (const void **) &s, NULL, "%s/diskseq", slave_path) < 0) {
-		msg = "Failed to compose sysfs 'diskseq' attribute path";
-		goto out;
-	}
-
-	if ((r = sid_util_sysfs_get(s, dev_seq_buf, sizeof(dev_seq_buf), NULL)) < 0) {
-		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
-		msg = "Failed to read diskseq number from sysfs file";
-		goto out;
-	}
-	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
-
-	tmp_ucmd_ctx.common                = ucmd_ctx->common;
-	tmp_ucmd_ctx.req_env.dev.num_s     = devno_buf;
-	tmp_ucmd_ctx.req_env.dev.uid_s     = dev_id_buf;
-	tmp_ucmd_ctx.req_env.dev.dsq_s     = dev_seq_buf;
-	tmp_ucmd_ctx.req_env.dev.udev.name = slave_name;
-	tmp_ucmd_ctx.scan.dev_ready        = SID_DEV_RDY_UNDEFINED;
-	tmp_ucmd_ctx.scan.dev_reserved     = SID_DEV_RES_UNDEFINED;
-
-	if (_set_new_dev_kvs(res, &tmp_ucmd_ctx, false) < 0) {
-		msg = "Failed to update records";
+	if ((r = sid_util_sysfs_get(s, buf, buf_size, NULL)) < 0) {
+		msg = "Failed to read underlying device's 'dseq' sysfs attribute";
 		goto out;
 	}
 
 	ret = 0;
 out:
-	free(slave_path);
+	if (s)
+		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+	free(dep_path);
 
 	if (ret < 0) {
 		if (r < 0)
-			sid_res_log_error_errno(res, r, err_msg, msg, slave_name, CMD_DEV_PRINT(ucmd_ctx));
+			sid_res_log_error_errno(res, r, err_msg, msg, dep_name, CMD_DEV_PRINT(ucmd_ctx));
 		else
-			sid_res_log_error(res, err_msg, msg, slave_name, CMD_DEV_PRINT(ucmd_ctx));
+			sid_res_log_error(res, err_msg, msg, dep_name, CMD_DEV_PRINT(ucmd_ctx));
 
 		return NULL;
 	}
 
-	return dev_id_buf;
+	return buf;
 }
 
 static int _refresh_dev_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
@@ -4412,7 +4381,8 @@ static int _refresh_dev_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	kv_vector_t         *vvalue;
 	size_t               vsize = 0;
 	int                  count = 0, i = 0;
-	char                 dev_id_buf[UTIL_UUID_STR_SIZE];
+	char                 buf[UTIL_UUID_STR_SIZE];
+	const char          *dep_dseq;
 	int                  r      = -1;
 
 	struct kv_rel_spec rel_spec = {
@@ -4428,14 +4398,13 @@ static int _refresh_dev_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	                                                .id_cat   = ID_NULL,
 	                                                .id       = ID_NULL,
 	                                                .core     = KV_KEY_GEN_GROUP_MEMBERS}),
-
 		.rel_key_spec = &((struct kv_key_spec) {.extra_op = NULL,
 	                                                .op       = KV_OP_SET,
-	                                                .dom      = ID_NULL,
-	                                                .ns       = SID_KV_NS_DEVICE,
-	                                                .ns_part  = ID_NULL, /* will be calculated later */
-	                                                .id_cat   = ID_NULL,
-	                                                .id       = ID_NULL,
+	                                                .dom      = KV_KEY_DOM_ALIAS,
+	                                                .ns       = SID_KV_NS_MODULE,
+	                                                .ns_part  = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
+	                                                .id_cat   = DEV_ALIAS_DSEQ,
+	                                                .id       = ID_NULL, /* will be calculated later */
 	                                                .core     = KV_KEY_GEN_GROUP_IN})};
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
@@ -4512,11 +4481,12 @@ static int _refresh_dev_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 			if (dirent[i]->d_name[0] == '.')
 				goto next;
 
-			if (!(rel_spec.rel_key_spec->ns_part =
-			              _set_slave_dev_kvs(cmd_res, ucmd_ctx, dirent[i]->d_name, dev_id_buf, sizeof(dev_id_buf))))
+			if (!(dep_dseq = _get_dep_dev_dseq(cmd_res, ucmd_ctx, dirent[i]->d_name, buf, sizeof(buf))))
 				goto next;
 
-			s = _compose_key_prefix(NULL, rel_spec.rel_key_spec);
+			rel_spec.rel_key_spec->id = dep_dseq;
+
+			s                         = _compose_key_prefix(NULL, rel_spec.rel_key_spec);
 			if (!s || ((r = sid_buf_add(vec_buf, (void *) s, strlen(s) + 1, NULL, NULL)) < 0)) {
 				_destroy_key(NULL, s);
 				goto out;
@@ -4524,9 +4494,10 @@ static int _refresh_dev_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 next:
 			free(dirent[i]);
 		}
+
 		free(dirent);
-		dirent                         = NULL;
-		rel_spec.rel_key_spec->ns_part = ID_NULL;
+		dirent                    = NULL;
+		rel_spec.rel_key_spec->id = ID_NULL;
 	}
 
 	/* Get the actual vector with relatives and sort it. */
@@ -4568,7 +4539,8 @@ static int _refresh_dev_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	kv_vector_t          vvalue[VVALUE_SINGLE_CNT];
-	char                 devid_buf[UTIL_UUID_STR_SIZE];
+	char                 buf[UTIL_UUID_STR_SIZE];
+	const char          *dep_dseq;
 	const char          *s   = NULL;
 	char                *key = NULL;
 	int                  r   = -1;
@@ -4587,14 +4559,13 @@ static int _refresh_dev_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	                                                .id_cat   = ID_NULL,
 	                                                .id       = ID_NULL,
 	                                                .core     = KV_KEY_GEN_GROUP_MEMBERS}),
-
 		.rel_key_spec = &((struct kv_key_spec) {.extra_op = NULL,
 	                                                .op       = KV_OP_SET,
-	                                                .dom      = ID_NULL,
-	                                                .ns       = SID_KV_NS_DEVICE,
-	                                                .ns_part  = ID_NULL, /* will be calculated later */
-	                                                .id_cat   = ID_NULL,
-	                                                .id       = ID_NULL,
+	                                                .dom      = KV_KEY_DOM_ALIAS,
+	                                                .ns       = SID_KV_NS_MODULE,
+	                                                .ns_part  = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
+	                                                .id_cat   = DEV_ALIAS_DSEQ,
+	                                                .id       = ID_NULL, /* will be calculated later */
 	                                                .core     = KV_KEY_GEN_GROUP_IN})};
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kv_store_res,
@@ -4611,13 +4582,16 @@ static int _refresh_dev_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	                    core_owner);
 
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
-		rel_spec.rel_key_spec->ns_part = _set_slave_dev_kvs(cmd_res, ucmd_ctx, NULL, devid_buf, sizeof(devid_buf));
+		if (!(dep_dseq = _get_dep_dev_dseq(cmd_res, ucmd_ctx, NULL, buf, sizeof(buf))))
+			goto out;
+
+		rel_spec.rel_key_spec->id = dep_dseq;
 
 		if (!(s = _compose_key_prefix(NULL, rel_spec.rel_key_spec)))
 			goto out;
 
 		_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, (void *) s, strlen(s) + 1);
-		rel_spec.rel_key_spec->ns_part = ID_NULL;
+		rel_spec.rel_key_spec->id = ID_NULL;
 	}
 
 	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec))) {
