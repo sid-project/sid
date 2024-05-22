@@ -91,6 +91,7 @@ const char    *util_udev_devtype_to_str(udev_devtype_t devtype);
 int   util_str_kv_get(char *str, char **key, char **val);
 char *util_str_rstr(const char *haystack, const char *needle);
 char *util_str_combstr(const char *haystack, const char *prefix, const char *needle, const char *suffix, bool ignorecase);
+char *util_str_len_cpy(const char *str, size_t len, char *buf, size_t buf_size);
 
 typedef int (*util_str_token_fn_t)(const char *token, size_t len, bool merge_back, void *data);
 int util_str_tokens_iterate(const char         *str,

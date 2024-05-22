@@ -25,6 +25,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -253,6 +254,31 @@ char *util_str_combstr(const char *haystack, const char *prefix, const char *nee
 	}
 
 	return NULL;
+}
+
+char *util_str_len_cpy(const char *str, size_t len, char *buf, size_t buf_size)
+{
+	char *cpy;
+
+	/* We need to typecast 'size_t len' to int for the print formatter, check it fits! */
+	if (len > INT_MAX)
+		return NULL;
+
+	if (buf) {
+		/* Check we can fit 'len' bytes into buf, including the '\0' at the end! */
+		if (!buf_size || (len > (buf_size - 1)))
+			return NULL;
+
+		if (snprintf(buf, buf_size, "%.*s", (int) len, str) < 0)
+			cpy = NULL;
+		else
+			cpy = buf;
+	} else {
+		if (asprintf(&cpy, "%.*s", (int) len, str) < 0)
+			cpy = NULL;
+	}
+
+	return cpy;
 }
 
 int util_str_tokens_iterate(const char         *str,
