@@ -737,6 +737,21 @@ static const char *_copy_ns_part_from_key(const char *key, char *buf, size_t buf
 	return util_str_len_cpy(str, len, buf, buf_size);
 }
 
+static const char *_copy_id_from_key(const char *key, char *buf, size_t buf_size)
+{
+	const char *str;
+	size_t      len;
+
+	/*                                   |<>|
+	   <op>:<dom>:<ns>:<ns_part><id_cat>:<id>[:<core>]
+	*/
+
+	if (!(str = _get_key_part(key, KEY_PART_ID, &len)))
+		return NULL;
+
+	return util_str_len_cpy(str, len, buf, buf_size);
+}
+
 static void _vvalue_header_prep(kv_vector_t         *vvalue,
                                 size_t               vvalue_size,
                                 uint64_t            *seqnum,
