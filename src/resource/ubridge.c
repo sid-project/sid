@@ -574,8 +574,7 @@ static char *_do_compose_key(struct sid_buf *buf, struct kv_key_spec *key_spec, 
 				  "%s" SID_KVS_KEY_JOIN /* ns */
 				  "%s" SID_KVS_KEY_JOIN /* ns_part */
 				  "%s" SID_KVS_KEY_JOIN /* id_cat */
-				  "%s"
-				  "%s" /* id */
+				  "%s" SID_KVS_KEY_JOIN /* id */
 				  "%s";
 	char *key;
 
@@ -605,7 +604,6 @@ static char *_do_compose_key(struct sid_buf *buf, struct kv_key_spec *key_spec, 
 		                       key_spec->ns_part,
 		                       key_spec->id_cat,
 		                       key_spec->id,
-		                       prefix_only ? KV_KEY_NULL : SID_KVS_KEY_JOIN,
 		                       prefix_only ? KV_KEY_NULL : key_spec->core) < 0)
 			key = NULL;
 	} else {
@@ -618,7 +616,6 @@ static char *_do_compose_key(struct sid_buf *buf, struct kv_key_spec *key_spec, 
 		             key_spec->ns_part,
 		             key_spec->id_cat,
 		             key_spec->id,
-		             prefix_only ? KV_KEY_NULL : SID_KVS_KEY_JOIN,
 		             prefix_only ? KV_KEY_NULL : key_spec->core) < 0)
 			key = NULL;
 	}
