@@ -724,7 +724,7 @@ static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
 
 static const char *_copy_ns_part_from_key(const char *key, char *buf, size_t buf_size)
 {
-	const char *str, *ns;
+	const char *str;
 	size_t      len;
 
 	/*                 |<----->|
@@ -734,25 +734,7 @@ static const char *_copy_ns_part_from_key(const char *key, char *buf, size_t buf
 	if (!(str = _get_key_part(key, KEY_PART_NS_PART, &len)))
 		return NULL;
 
-	/* We need to typecast 'size_t len' to int for the print formatter, check it fits! */
-	if (len > INT_MAX)
-		return NULL;
-
-	if (buf) {
-		/* Check we can fit 'len' bytes into buf, including the '\0' at the end! */
-		if (!buf_size || (len > (buf_size - 1)))
-			return NULL;
-
-		if (snprintf(buf, buf_size, "%.*s", (int) len, str) < 0)
-			ns = NULL;
-		else
-			ns = buf;
-	} else {
-		if (asprintf((char **) &ns, "%.*s", (int) len, str) < 0)
-			ns = NULL;
-	}
-
-	return ns;
+	return util_str_len_cpy(str, len, buf, buf_size);
 }
 
 static void _vvalue_header_prep(kv_vector_t         *vvalue,
