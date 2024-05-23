@@ -518,8 +518,7 @@ static sid_ucmd_kv_flags_t value_flags_sync    = DEFAULT_VALUE_FLAGS_CORE;
 static char               *core_owner          = OWNER_CORE;
 static uint64_t            null_int            = 0;
 
-static int        _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg);
-static const char _key_prefix_err_msg[] = "Failed to get key prefix to store hierarchy records for device " CMD_DEV_PRINT_FMT ".";
+static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg);
 
 udev_action_t sid_ucmd_ev_dev_action_get(struct sid_ucmd_ctx *ucmd_ctx)
 {
@@ -4366,7 +4365,10 @@ out:
 	return buf;
 }
 
-static int _refresh_dev_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
+static const char _key_prefix_err_msg[] =
+	"Failed to compose key prefix to update device dependency records for " CMD_DEV_PRINT_FMT ".";
+
+static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 {
 	/*
 	 * FIXME: Fail completely here, discarding any changes made to DB so far if any of the steps below fail?
@@ -4455,7 +4457,7 @@ static int _refresh_dev_disk_hierarchy_from_sysfs(sid_res_t *cmd_res)
 	                               &r))) {
 		sid_res_log_error_errno(cmd_res,
 		                        r,
-		                        "Failed to create buffer to record hierarchy for device " CMD_DEV_PRINT_FMT,
+		                        "Failed to create buffer to record device dependencies from sysfs for " CMD_DEV_PRINT_FMT,
 		                        CMD_DEV_PRINT(ucmd_ctx));
 		goto out;
 	}
@@ -4532,7 +4534,7 @@ out:
 	return r;
 }
 
-static int _refresh_dev_partition_hierarchy_from_sysfs(sid_res_t *cmd_res)
+static int _update_part_deps_from_sysfs(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	kv_vector_t          vvalue[VVALUE_SINGLE_CNT];
@@ -4614,17 +4616,17 @@ out:
 	return r;
 }
 
-static int _refresh_dev_hierarchy_from_sysfs(sid_res_t *cmd_res)
+static int _update_dev_deps_from_sysfs(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 
 	switch (ucmd_ctx->req_env.dev.udev.type) {
 		case UDEV_DEVTYPE_DISK:
-			if ((_refresh_dev_disk_hierarchy_from_sysfs(cmd_res) < 0))
+			if ((_update_disk_deps_from_sysfs(cmd_res) < 0))
 				return -1;
 			break;
 		case UDEV_DEVTYPE_PARTITION:
-			if ((_refresh_dev_partition_hierarchy_from_sysfs(cmd_res) < 0))
+			if ((_update_part_deps_from_sysfs(cmd_res) < 0))
 				return -1;
 			break;
 		case UDEV_DEVTYPE_UNKNOWN:
@@ -4915,7 +4917,7 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 		return -1;
 	}
 
-	return _refresh_dev_hierarchy_from_sysfs(cmd_res);
+	return _update_dev_deps_from_sysfs(cmd_res);
 }
 
 static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
@@ -5145,7 +5147,7 @@ static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
 	if (_exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current) < 0)
 		return -1;
 
-	return _refresh_dev_hierarchy_from_sysfs(cmd_res);
+	return _update_dev_deps_from_sysfs(cmd_res);
 }
 
 static int _cmd_exec_scan_remove_exit(sid_res_t *cmd_res)
