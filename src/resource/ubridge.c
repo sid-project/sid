@@ -4427,7 +4427,10 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 			goto out;
 		}
 
-		if ((count = scandir(s, &dirent, NULL, NULL)) < 0) {
+		count = scandir(s, &dirent, NULL, NULL);
+		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+
+		if (count < 0) {
 			/*
 			 * FIXME: Add code to deal with/warn about: (errno == ENOENT) && (ucmd_ctx->req_env.dev.udev.action !=
 			 * UDEV_ACTION_REMOVE). That means we don't have REMOVE uevent, but at the same time, we don't have sysfs
@@ -4435,11 +4438,8 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 			 * after this uevent was triggered. For now, error out even in this case.
 			 */
 			sid_res_log_sys_error(cmd_res, "scandir", s);
-			sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
 			goto out;
 		}
-
-		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
 	}
 
 	/*
