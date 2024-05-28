@@ -28,59 +28,75 @@
 #include <stdlib.h>
 #include <sys/sysmacros.h>
 
-#define LOG_PREFIX                     "usid"
+#define LOG_PREFIX         "usid"
 
-#define KEY_ENV_SEQNUM                 "SEQNUM"
+#define KEY_ENV_SEQNUM     "SEQNUM"
 
-#define KEY_SID_UBR_STATUS          "SID_UBR_STATUS"
-#define SID_UBR_STATUS_ERROR        "error"
-#define SID_UBR_STATUS_ACTIVE       "active"
-#define SID_UBR_STATUS_INACTIVE     "inactive"
-#define SID_UBR_STATUS_INCOMPATIBLE "incompatible"
+#define KEY_SID_UBR_STATUS "SID_UBR_STATUS"
 
-#define KEY_SID_IFC_PROTOCOL           "SID_IFC_PROTOCOL"
-#define KEY_SID_MAJOR                  "SID_MAJOR"
-#define KEY_SID_MINOR                  "SID_MINOR"
-#define KEY_SID_RELEASE                "SID_RELEASE"
+typedef enum {
+	UBR_STATUS_ERROR,
+	UBR_STATUS_ACTIVE,
+	UBR_STATUS_INACTIVE,
+	UBR_STATUS_INCOMPATIBLE,
+} ubr_status_t;
 
-#define KEY_SID_IFC_PROTOCOL           "SID_IFC_PROTOCOL"
-#define KEY_SID_MAJOR                  "SID_MAJOR"
-#define KEY_SID_MINOR                  "SID_MINOR"
-#define KEY_SID_RELEASE                "SID_RELEASE"
+static const char *ubr_status_str[] = {
+	[UBR_STATUS_ERROR]        = "error",
+	[UBR_STATUS_ACTIVE]       = "active",
+	[UBR_STATUS_INACTIVE]     = "inactive",
+	[UBR_STATUS_INCOMPATIBLE] = "incompatible",
+};
+
+#define KEY_SID_IFC_PROTOCOL "SID_IFC_PROTOCOL"
+#define KEY_SID_MAJOR        "SID_MAJOR"
+#define KEY_SID_MINOR        "SID_MINOR"
+#define KEY_SID_RELEASE      "SID_RELEASE"
+
+#define KEY_SID_IFC_PROTOCOL "SID_IFC_PROTOCOL"
+#define KEY_SID_MAJOR        "SID_MAJOR"
+#define KEY_SID_MINOR        "SID_MINOR"
+#define KEY_SID_RELEASE      "SID_RELEASE"
 
 struct args {
 	int    argc;
 	char **argv;
 };
 
+static ubr_status_t _get_ubr_status(struct sid_ifc_result *res, int r)
+{
+	uint8_t prot;
+
+	if (r < 0) {
+		if (r == -ECONNREFUSED)
+			return UBR_STATUS_INACTIVE;
+		else if (r == -EBADMSG)
+			return UBR_STATUS_INCOMPATIBLE;
+		else
+			return UBR_STATUS_ERROR;
+	} else {
+		if (sid_ifc_result_data_get(res, NULL) && sid_ifc_result_protocol_get(res, &prot) == 0 && prot == SID_IFC_PROTOCOL)
+			return UBR_STATUS_ACTIVE;
+		else
+			return UBR_STATUS_INCOMPATIBLE;
+	}
+}
+
 static int _usid_cmd_active(void)
 {
 	unsigned long long     val;
-	uint8_t                prot;
-	const char            *status;
+	ubr_status_t           ubr_status;
 	struct sid_ifc_result *res;
 	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
 	int                    r;
 
 	req.seqnum = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
-
-	if ((r = sid_ifc_req(&req, &res)) < 0) {
-		if (r == -ECONNREFUSED) {
-			status = SID_UBR_STATUS_INACTIVE;
-			r      = 0;
-		} else if (r == -EBADMSG)
-			status = SID_UBR_STATUS_INCOMPATIBLE;
-		else
-			status = SID_UBR_STATUS_ERROR;
-	} else {
-		if (sid_ifc_result_data_get(res, NULL) && sid_ifc_result_protocol_get(res, &prot) == 0 && prot == SID_IFC_PROTOCOL)
-			status = SID_UBR_STATUS_ACTIVE;
-		else
-			status = SID_UBR_STATUS_INCOMPATIBLE;
+	r          = sid_ifc_req(&req, &res);
+	ubr_status = _get_ubr_status(res, r);
+	if (r == 0)
 		sid_ifc_result_free(res);
-	}
+	fprintf(stdout, KEY_SID_UBR_STATUS "=%s\n", ubr_status_str[ubr_status]);
 
-	fprintf(stdout, KEY_SID_UBR_STATUS "=%s\n", status);
 	return r;
 }
 
