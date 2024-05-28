@@ -48,15 +48,15 @@ static const char *ubr_status_str[] = {
 	[UBR_STATUS_INCOMPATIBLE] = "incompatible",
 };
 
-#define KEY_SID_IFC_PROTOCOL "SID_IFC_PROTOCOL"
-#define KEY_SID_MAJOR        "SID_MAJOR"
-#define KEY_SID_MINOR        "SID_MINOR"
-#define KEY_SID_RELEASE      "SID_RELEASE"
+#define KEY_USID_IFC_PROTOCOL "USID_IFC_PROTOCOL"
+#define KEY_USID_MAJOR        "USID_MAJOR"
+#define KEY_USID_MINOR        "USID_MINOR"
+#define KEY_USID_RELEASE      "USID_RELEASE"
 
-#define KEY_SID_IFC_PROTOCOL "SID_IFC_PROTOCOL"
-#define KEY_SID_MAJOR        "SID_MAJOR"
-#define KEY_SID_MINOR        "SID_MINOR"
-#define KEY_SID_RELEASE      "SID_RELEASE"
+#define KEY_SID_IFC_PROTOCOL  "SID_IFC_PROTOCOL"
+#define KEY_SID_MAJOR         "SID_MAJOR"
+#define KEY_SID_MINOR         "SID_MINOR"
+#define KEY_SID_RELEASE       "SID_RELEASE"
 
 struct args {
 	int    argc;
@@ -191,8 +191,8 @@ static int _usid_cmd_version(void)
 	req.seqnum = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	fprintf(stdout,
-	        KEY_SID_IFC_PROTOCOL "=%" PRIu8 "\n" KEY_SID_MAJOR "=%" PRIu16 "\n" KEY_SID_MINOR "=%" PRIu16 "\n" KEY_SID_RELEASE
-	                             "=%" PRIu16 "\n",
+	        KEY_USID_IFC_PROTOCOL "=%" PRIu8 "\n" KEY_USID_MAJOR "=%" PRIu16 "\n" KEY_USID_MINOR "=%" PRIu16
+	                              "\n" KEY_USID_RELEASE "=%" PRIu16 "\n",
 	        SID_IFC_PROTOCOL,
 	        SID_VERSION_MAJOR,
 	        SID_VERSION_MINOR,
