@@ -28,25 +28,25 @@
 #include <stdlib.h>
 #include <sys/sysmacros.h>
 
-#define LOG_PREFIX                      "usid"
+#define LOG_PREFIX                     "usid"
 
-#define KEY_ENV_SEQNUM                  "SEQNUM"
+#define KEY_ENV_SEQNUM                 "SEQNUM"
 
-#define KEY_USID_BRIDGE_STATUS          "USID_BRIDGE_STATUS"
-#define USID_BRIDGE_STATUS_ERROR        "error"
-#define USID_BRIDGE_STATUS_ACTIVE       "active"
-#define USID_BRIDGE_STATUS_INACTIVE     "inactive"
-#define USID_BRIDGE_STATUS_INCOMPATIBLE "incompatible"
+#define KEY_SID_UBR_STATUS          "SID_UBR_STATUS"
+#define SID_UBR_STATUS_ERROR        "error"
+#define SID_UBR_STATUS_ACTIVE       "active"
+#define SID_UBR_STATUS_INACTIVE     "inactive"
+#define SID_UBR_STATUS_INCOMPATIBLE "incompatible"
 
-#define KEY_SID_IFC_PROTOCOL            "SID_IFC_PROTOCOL"
-#define KEY_SID_MAJOR                   "SID_MAJOR"
-#define KEY_SID_MINOR                   "SID_MINOR"
-#define KEY_SID_RELEASE                 "SID_RELEASE"
+#define KEY_SID_IFC_PROTOCOL           "SID_IFC_PROTOCOL"
+#define KEY_SID_MAJOR                  "SID_MAJOR"
+#define KEY_SID_MINOR                  "SID_MINOR"
+#define KEY_SID_RELEASE                "SID_RELEASE"
 
-#define KEY_SID_IFC_PROTOCOL            "SID_IFC_PROTOCOL"
-#define KEY_SID_MAJOR                   "SID_MAJOR"
-#define KEY_SID_MINOR                   "SID_MINOR"
-#define KEY_SID_RELEASE                 "SID_RELEASE"
+#define KEY_SID_IFC_PROTOCOL           "SID_IFC_PROTOCOL"
+#define KEY_SID_MAJOR                  "SID_MAJOR"
+#define KEY_SID_MINOR                  "SID_MINOR"
+#define KEY_SID_RELEASE                "SID_RELEASE"
 
 struct args {
 	int    argc;
@@ -66,21 +66,21 @@ static int _usid_cmd_active(void)
 
 	if ((r = sid_ifc_req(&req, &res)) < 0) {
 		if (r == -ECONNREFUSED) {
-			status = USID_BRIDGE_STATUS_INACTIVE;
+			status = SID_UBR_STATUS_INACTIVE;
 			r      = 0;
 		} else if (r == -EBADMSG)
-			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
+			status = SID_UBR_STATUS_INCOMPATIBLE;
 		else
-			status = USID_BRIDGE_STATUS_ERROR;
+			status = SID_UBR_STATUS_ERROR;
 	} else {
 		if (sid_ifc_result_data_get(res, NULL) && sid_ifc_result_protocol_get(res, &prot) == 0 && prot == SID_IFC_PROTOCOL)
-			status = USID_BRIDGE_STATUS_ACTIVE;
+			status = SID_UBR_STATUS_ACTIVE;
 		else
-			status = USID_BRIDGE_STATUS_INCOMPATIBLE;
+			status = SID_UBR_STATUS_INCOMPATIBLE;
 		sid_ifc_result_free(res);
 	}
 
-	fprintf(stdout, KEY_USID_BRIDGE_STATUS "=%s\n", status);
+	fprintf(stdout, KEY_SID_UBR_STATUS "=%s\n", status);
 	return r;
 }
 
@@ -231,10 +231,10 @@ static void _help(FILE *f)
 	        "    active\n"
 	        "      Get SID daemon readiness and compatibility state.\n"
 	        "      Input:  None.\n"
-	        "      Output: USID_BRIDGE_STATUS=active if SID is active and compatible.\n"
-	        "              USID_BRIDGE_STATUS=incompatible if SID is active but incompatible.\n"
-	        "              USID_BRIDGE_STATUS=inactive if SID is not active.\n"
-	        "              USID_BRIDGE_STATUS=error on error.\n"
+	        "      Output: SID_UBR_STATUS=active if SID is active and compatible.\n"
+	        "              SID_UBR_STATUS=incompatible if SID is active but incompatible.\n"
+	        "              SID_UBR_STATUS=inactive if SID is not active.\n"
+	        "              SID_UBR_STATUS=error on error.\n"
 	        "\n"
 	        "    checkpoint <checkpoint_name> [key1 key2 ...]\n"
 	        "      Send information to SID about reached checkpoint with optional environment.\n"
