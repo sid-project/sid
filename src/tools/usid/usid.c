@@ -104,14 +104,12 @@ static int _print_env_from_res(struct sid_ifc_result *res)
 {
 	size_t      size;
 	const char *end, *kv;
+	uint64_t    status;
 
 	kv = sid_ifc_result_data_get(res, &size);
 	if (!kv) {
-		uint64_t status;
-		if (sid_ifc_result_status_get(res, &status) < 0 || status & SID_IFC_CMD_STATUS_FAILURE) {
-			sid_log_error(LOG_PREFIX, "Command failed");
+		if (sid_ifc_result_status_get(res, &status) < 0 || status & SID_IFC_CMD_STATUS_FAILURE)
 			return -EBADMSG;
-		}
 		return 0;
 	}
 	for (end = kv + size; kv < end; kv += strlen(kv) + 1)
@@ -123,22 +121,31 @@ static int _print_env_from_res(struct sid_ifc_result *res)
 static int _usid_cmd_print_env(struct sid_ifc_request *req)
 {
 	unsigned long long     val;
+	ubr_status_t           ubr_status;
 	struct sid_ifc_result *res;
 	int                    r;
 
 	if ((r = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
-		sid_log_error_errno(LOG_PREFIX, r, "Failed to get value for %s key from environment", KEY_ENV_SEQNUM);
-		return r;
+		ubr_status = UBR_STATUS_ERROR;
+		goto out;
 	}
+
 	req->seqnum = val;
-
-	if ((r = sid_ifc_req(req, &res)) < 0)
-		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
-	else {
-		r = _print_env_from_res(res);
-		sid_ifc_result_free(res);
+	r           = sid_ifc_req(req, &res);
+	ubr_status  = _get_ubr_status(res, r);
+	if (r < 0) {
+		if (ubr_status == UBR_STATUS_INACTIVE)
+			/* it's not an error if sid is inactive */
+			r = 0;
+		goto out;
 	}
 
+	r = _print_env_from_res(res);
+	sid_ifc_result_free(res);
+out:
+	fprintf(stdout, KEY_SID_UBR_STATUS "=%s\n", ubr_status_str[ubr_status]);
+	if (r < 0)
+		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
 	return r;
 }
 
@@ -155,27 +162,33 @@ static int _usid_cmd_checkpoint(int argc, char **argv)
 
 	if (argc < 2) {
 		/* we need at least checkpoint name */
+		fprintf(stdout, KEY_SID_UBR_STATUS "=%s\n", ubr_status_str[UBR_STATUS_ERROR]);
 		sid_log_error(LOG_PREFIX, "Missing checkpoint name.");
 		return -EINVAL;
 	}
+
 	req.data.checkpoint.name    = argv[1];
 	req.data.checkpoint.nr_keys = argc - 2;
+
 	if (argc > 2)
 		req.data.checkpoint.keys = &argv[2];
 	else
 		req.data.checkpoint.keys = NULL;
+
 	return _usid_cmd_print_env(&req);
 }
 
 static int _usid_cmd_version(void)
 {
-	unsigned long long     val;
-	const char            *data;
-	int                    r;
-	struct sid_ifc_result *res;
 	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
+	unsigned long long     val;
+	ubr_status_t           ubr_status;
+	const char            *data;
+	struct sid_ifc_result *res;
+	uint64_t               status;
+	int                    r;
 
-	req.seqnum                 = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
+	req.seqnum = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	fprintf(stdout,
 	        KEY_SID_IFC_PROTOCOL "=%" PRIu8 "\n" KEY_SID_MAJOR "=%" PRIu16 "\n" KEY_SID_MINOR "=%" PRIu16 "\n" KEY_SID_RELEASE
@@ -185,24 +198,30 @@ static int _usid_cmd_version(void)
 	        SID_VERSION_MINOR,
 	        SID_VERSION_RELEASE);
 
-	if ((r = sid_ifc_req(&req, &res)) < 0) {
-		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
-		return r;
+	r          = sid_ifc_req(&req, &res);
+	ubr_status = _get_ubr_status(res, r);
+	if (r < 0) {
+		if (ubr_status == UBR_STATUS_INACTIVE)
+			/* it's not an error if sid is inactive */
+			r = 0;
+		goto out;
 	}
 
 	if ((data = sid_ifc_result_data_get(res, NULL)) != NULL) {
 		fprintf(stdout, "%s", data);
 		r = 0;
 	} else {
-		uint64_t status;
 		if (sid_ifc_result_status_get(res, &status) == 0 && (status & SID_IFC_CMD_STATUS_FAILURE) == 0)
-			sid_log_error(LOG_PREFIX, "Missing reply data");
+			r = -ENODATA;
 		else
-			sid_log_error(LOG_PREFIX, "Command failed");
-		r = -1;
+			r = -EBADE;
 	}
 
 	sid_ifc_result_free(res);
+out:
+	fprintf(stdout, KEY_SID_UBR_STATUS "=%s\n", ubr_status_str[ubr_status]);
+	if (r < 0)
+		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
 	return r;
 }
 
