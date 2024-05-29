@@ -28,24 +28,24 @@
 #include <stdlib.h>
 #include <sys/sysmacros.h>
 
-#define LOG_PREFIX         "usid"
+#define LOG_PREFIX     "usid"
 
-#define KEY_ENV_SEQNUM     "SEQNUM"
+#define KEY_ENV_SEQNUM "SEQNUM"
 
-#define KEY_SID_UBR_STATUS "SID_UBR_STATUS"
+#define KEY_SID_STATUS "SID_STATUS"
 
 typedef enum {
-	UBR_STATUS_ERROR,
-	UBR_STATUS_ACTIVE,
-	UBR_STATUS_INACTIVE,
-	UBR_STATUS_INCOMPATIBLE,
-} ubr_status_t;
+	SID_STATUS_ERROR,
+	SID_STATUS_ACTIVE,
+	SID_STATUS_INACTIVE,
+	SID_STATUS_INCOMPATIBLE,
+} sid_status_t;
 
-static const char *ubr_status_str[] = {
-	[UBR_STATUS_ERROR]        = "error",
-	[UBR_STATUS_ACTIVE]       = "active",
-	[UBR_STATUS_INACTIVE]     = "inactive",
-	[UBR_STATUS_INCOMPATIBLE] = "incompatible",
+static const char *sid_status_str[] = {
+	[SID_STATUS_ERROR]        = "error",
+	[SID_STATUS_ACTIVE]       = "active",
+	[SID_STATUS_INACTIVE]     = "inactive",
+	[SID_STATUS_INCOMPATIBLE] = "incompatible",
 };
 
 #define KEY_USID_IFC_PROTOCOL "USID_IFC_PROTOCOL"
@@ -63,29 +63,29 @@ struct args {
 	char **argv;
 };
 
-static ubr_status_t _get_ubr_status(struct sid_ifc_result *res, int r)
+static sid_status_t _get_ubr_status(struct sid_ifc_result *res, int r)
 {
 	uint8_t prot;
 
 	if (r < 0) {
 		if (r == -ECONNREFUSED)
-			return UBR_STATUS_INACTIVE;
+			return SID_STATUS_INACTIVE;
 		else if (r == -EBADMSG)
-			return UBR_STATUS_INCOMPATIBLE;
+			return SID_STATUS_INCOMPATIBLE;
 		else
-			return UBR_STATUS_ERROR;
+			return SID_STATUS_ERROR;
 	} else {
 		if (sid_ifc_result_data_get(res, NULL) && sid_ifc_result_protocol_get(res, &prot) == 0 && prot == SID_IFC_PROTOCOL)
-			return UBR_STATUS_ACTIVE;
+			return SID_STATUS_ACTIVE;
 		else
-			return UBR_STATUS_INCOMPATIBLE;
+			return SID_STATUS_INCOMPATIBLE;
 	}
 }
 
 static int _usid_cmd_active(void)
 {
 	unsigned long long     val;
-	ubr_status_t           ubr_status;
+	sid_status_t           ubr_status;
 	struct sid_ifc_result *res;
 	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
 	int                    r;
@@ -95,7 +95,7 @@ static int _usid_cmd_active(void)
 	ubr_status = _get_ubr_status(res, r);
 	if (r == 0)
 		sid_ifc_result_free(res);
-	fprintf(stdout, KEY_SID_UBR_STATUS "=%s\n", ubr_status_str[ubr_status]);
+	fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[ubr_status]);
 
 	return r;
 }
@@ -121,12 +121,12 @@ static int _print_env_from_res(struct sid_ifc_result *res)
 static int _usid_cmd_print_env(struct sid_ifc_request *req)
 {
 	unsigned long long     val;
-	ubr_status_t           ubr_status;
+	sid_status_t           ubr_status;
 	struct sid_ifc_result *res;
 	int                    r;
 
 	if ((r = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
-		ubr_status = UBR_STATUS_ERROR;
+		ubr_status = SID_STATUS_ERROR;
 		goto out;
 	}
 
@@ -134,7 +134,7 @@ static int _usid_cmd_print_env(struct sid_ifc_request *req)
 	r           = sid_ifc_req(req, &res);
 	ubr_status  = _get_ubr_status(res, r);
 	if (r < 0) {
-		if (ubr_status == UBR_STATUS_INACTIVE)
+		if (ubr_status == SID_STATUS_INACTIVE)
 			/* it's not an error if sid is inactive */
 			r = 0;
 		goto out;
@@ -143,7 +143,7 @@ static int _usid_cmd_print_env(struct sid_ifc_request *req)
 	r = _print_env_from_res(res);
 	sid_ifc_result_free(res);
 out:
-	fprintf(stdout, KEY_SID_UBR_STATUS "=%s\n", ubr_status_str[ubr_status]);
+	fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[ubr_status]);
 	if (r < 0)
 		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
 	return r;
@@ -162,7 +162,7 @@ static int _usid_cmd_checkpoint(int argc, char **argv)
 
 	if (argc < 2) {
 		/* we need at least checkpoint name */
-		fprintf(stdout, KEY_SID_UBR_STATUS "=%s\n", ubr_status_str[UBR_STATUS_ERROR]);
+		fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[SID_STATUS_ERROR]);
 		sid_log_error(LOG_PREFIX, "Missing checkpoint name.");
 		return -EINVAL;
 	}
@@ -182,7 +182,7 @@ static int _usid_cmd_version(void)
 {
 	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
 	unsigned long long     val;
-	ubr_status_t           ubr_status;
+	sid_status_t           ubr_status;
 	const char            *data;
 	struct sid_ifc_result *res;
 	uint64_t               status;
@@ -201,7 +201,7 @@ static int _usid_cmd_version(void)
 	r          = sid_ifc_req(&req, &res);
 	ubr_status = _get_ubr_status(res, r);
 	if (r < 0) {
-		if (ubr_status == UBR_STATUS_INACTIVE)
+		if (ubr_status == SID_STATUS_INACTIVE)
 			/* it's not an error if sid is inactive */
 			r = 0;
 		goto out;
@@ -219,7 +219,7 @@ static int _usid_cmd_version(void)
 
 	sid_ifc_result_free(res);
 out:
-	fprintf(stdout, KEY_SID_UBR_STATUS "=%s\n", ubr_status_str[ubr_status]);
+	fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[ubr_status]);
 	if (r < 0)
 		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
 	return r;
@@ -266,10 +266,10 @@ static void _help(FILE *f)
 	        "    active\n"
 	        "      Get SID daemon readiness and compatibility state.\n"
 	        "      Input:  None.\n"
-	        "      Output: SID_UBR_STATUS=active if SID is active and compatible.\n"
-	        "              SID_UBR_STATUS=incompatible if SID is active but incompatible.\n"
-	        "              SID_UBR_STATUS=inactive if SID is not active.\n"
-	        "              SID_UBR_STATUS=error on error.\n"
+	        "      Output: SID_STATUS=active if SID is active and compatible.\n"
+	        "              SID_STATUS=incompatible if SID is active but incompatible.\n"
+	        "              SID_STATUS=inactive if SID is not active.\n"
+	        "              SID_STATUS=error on error.\n"
 	        "\n"
 	        "    checkpoint <checkpoint_name> [key1 key2 ...]\n"
 	        "      Send information to SID about reached checkpoint with optional environment.\n"
