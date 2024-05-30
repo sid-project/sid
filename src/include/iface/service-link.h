@@ -34,42 +34,33 @@ typedef enum {
 	SID_SRV_LNK_TYPE_LOGGER,
 } sid_srv_lnk_type_t;
 
-typedef enum {
-	/* no notification */
-	SID_SRV_LNK_NOTIF_NONE             = UINT64_C(0x0000000000000000),
+/* no notification */
+#define SID_SRV_LNK_NOTIF_NONE             UINT64_C(0x0000000000000000)
+/* discard any further service notifications; no arg */
+#define SID_SRV_LNK_NOTIF_UNSET            UINT64_C(0x0000000000000001)
+/* notify about service status; arg is STATUS=<message> */
+#define SID_SRV_LNK_NOTIF_STATUS           UINT64_C(0x0000000000000002)
+/* notify about service reaching an error with errno; arg is 'ERRNO=<errno>' or 'ERRNO=<errno_identifier>' */
+#define SID_SRV_LNK_NOTIF_ERRNO            UINT64_C(0x0000000000000004)
+/* notify about service being ready; no arg */
+#define SID_SRV_LNK_NOTIF_READY            UINT64_C(0x0000000000000008)
+/* notify about service being reloaded; no arg */
+#define SID_SRV_LNK_NOTIF_RELOADING        UINT64_C(0x0000000000000010)
+/* notify about service being stopped; no arg */
+#define SID_SRV_LNK_NOTIF_STOPPING         UINT64_C(0x0000000000000020)
+/* notify about service being still alive; no arg */
+#define SID_SRV_LNK_NOTIF_WATCHDOG_REFRESH UINT64_C(0x0000000000000040)
+/* notify about service reaching a point where watchdog action needs to be executed; no arg */
+#define SID_SRV_LNK_NOTIF_WATCHDOG_TRIGGER UINT64_C(0x0000000000000080)
+/* notify with a message */
+#define SID_SRV_LNK_NOTIF_MESSAGE          UINT64_C(0x0000000000000100)
 
-	/* discard any further service notifications; no arg */
-	SID_SRV_LNK_NOTIF_UNSET            = UINT64_C(0x0000000000000001),
+typedef uint64_t sid_srv_lnk_notif_t;
 
-	/* notify about service status; arg is STATUS=<message> */
-	SID_SRV_LNK_NOTIF_STATUS           = UINT64_C(0x0000000000000002),
+#define SID_SRV_LNK_FL_NONE      UINT64_C(0x0000000000000000)
+#define SID_SRV_LNK_FL_CLONEABLE UINT64_C(0x0000000000000001)
 
-	/* notify about service reaching an error with errno; arg is 'ERRNO=<errno>' or 'ERRNO=<errno_identifier>' */
-	SID_SRV_LNK_NOTIF_ERRNO            = UINT64_C(0x0000000000000004),
-
-	/* notify about service being ready; no arg */
-	SID_SRV_LNK_NOTIF_READY            = UINT64_C(0x0000000000000008),
-
-	/* notify about service being reloaded; no arg */
-	SID_SRV_LNK_NOTIF_RELOADING        = UINT64_C(0x0000000000000010),
-
-	/* notify about service being stopped; no arg */
-	SID_SRV_LNK_NOTIF_STOPPING         = UINT64_C(0x0000000000000020),
-
-	/* notify about service being still alive; no arg */
-	SID_SRV_LNK_NOTIF_WATCHDOG_REFRESH = UINT64_C(0x0000000000000040),
-
-	/* notify about service reaching a point where watchdog action needs to be executed; no arg */
-	SID_SRV_LNK_NOTIF_WATCHDOG_TRIGGER = UINT64_C(0x0000000000000080),
-
-	/* notify with a message */
-	SID_SRV_LNK_NOTIF_MESSAGE          = UINT64_C(0x0000000000000100),
-} sid_srv_lnk_notif_t;
-
-typedef enum {
-	SID_SRV_LNK_FL_NONE      = UINT64_C(0x0000000000000000),
-	SID_SRV_LNK_FL_CLONEABLE = UINT64_C(0x0000000000000001),
-} sid_srv_lnk_fl_t;
+typedef uint64_t sid_srv_lnk_fl_t;
 
 struct sid_srv_lnk;
 struct sid_srv_lnk_grp;
