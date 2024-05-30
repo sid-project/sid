@@ -53,13 +53,13 @@ typedef struct sid_res_type {
 /*
  * create/destroy functions and related types
  */
-typedef enum {
-	SID_RES_FL_NONE               = UINT64_C(0x0000000000000000),
-	SID_RES_FL_RESTRICT_WALK_UP   = UINT64_C(0x0000000000000001), /* restrict walk from child to parent */
-	SID_RES_FL_RESTRICT_WALK_DOWN = UINT64_C(0x0000000000000002), /* restrict walk from parent to child */
-	SID_RES_FL_RESTRICT_MASK      = UINT64_C(0x0000000000000003),
-	SID_RES_FL_DISALLOW_ISOLATION = UINT64_C(0x0000000000000004),
-} sid_res_flags_t;
+#define SID_RES_FL_NONE               UINT64_C(0x0000000000000000)
+#define SID_RES_FL_RESTRICT_WALK_UP   UINT64_C(0x0000000000000001) /* restrict walk from child to parent */
+#define SID_RES_FL_RESTRICT_WALK_DOWN UINT64_C(0x0000000000000002) /* restrict walk from parent to child */
+#define SID_RES_FL_RESTRICT_MASK      UINT64_C(0x0000000000000003)
+#define SID_RES_FL_DISALLOW_ISOLATION UINT64_C(0x0000000000000004)
+
+typedef uint64_t sid_res_flags_t;
 
 #define SID_RES_NO_PARENT          NULL
 #define SID_RES_NO_CUSTOM_ID       NULL
@@ -155,11 +155,11 @@ bool       sid_res_search_match_res(sid_res_t *start_res, sid_res_search_t metho
 /*
  * structure/tree modification functions
  */
-typedef enum {
-	SID_RES_ISOL_FL_NONE               = UINT32_C(0x00000000),
-	SID_RES_ISOL_FL_SUBTREE            = UINT32_C(0x00000001),
-	SID_RES_ISOL_FL_KEEP_SERVICE_LINKS = UINT32_C(0x00000002),
-} sid_res_isol_fl_t;
+#define SID_RES_ISOL_FL_NONE               UINT32_C(0x00000000)
+#define SID_RES_ISOL_FL_SUBTREE            UINT32_C(0x00000001)
+#define SID_RES_ISOL_FL_KEEP_SERVICE_LINKS UINT32_C(0x00000002)
+
+typedef uint32_t sid_res_isol_fl_t;
 
 int sid_res_child_add(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags);
 int sid_res_isolate(sid_res_t *res, sid_res_isol_fl_t flags);
