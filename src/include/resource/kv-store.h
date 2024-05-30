@@ -36,18 +36,17 @@ typedef enum {
 	SID_KVS_BACKEND_BPTREE,
 } sid_kvs_backend_t;
 
-typedef enum {
-	SID_KVS_VAL_FL_NONE       = UINT32_C(0x00000000),
-	SID_KVS_VAL_FL_VECTOR     = UINT32_C(0x00000001),
-	SID_KVS_VAL_FL_REF        = UINT32_C(0x00000002),
-	SID_KVS_VAL_FL_AUTOFREE   = UINT32_C(0x00000004),
-	_SID_KVS_VAL_FL_ENUM_SIZE = UINT32_C(0xFFFFFFFF),
-} sid_kvs_val_fl_t;
+#define SID_KVS_VAL_FL_NONE     UINT32_C(0x00000000)
+#define SID_KVS_VAL_FL_VECTOR   UINT32_C(0x00000001)
+#define SID_KVS_VAL_FL_REF      UINT32_C(0x00000002)
+#define SID_KVS_VAL_FL_AUTOFREE UINT32_C(0x00000004)
 
-typedef enum {
-	SID_KVS_VAL_OP_NONE  = UINT32_C(0x00000000),
-	SID_KVS_VAL_OP_MERGE = UINT32_C(0x00000001),
-} sid_kvs_val_op_fl_t;
+typedef uint32_t sid_kvs_val_fl_t;
+
+#define SID_KVS_VAL_OP_NONE  UINT32_C(0x00000000)
+#define SID_KVS_VAL_OP_MERGE UINT32_C(0x00000001)
+
+typedef uint32_t sid_kvs_val_op_fl_t;
 
 struct sid_kvs_hash_backend_params {
 	size_t initial_size;
