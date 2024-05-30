@@ -152,31 +152,28 @@ typedef enum {
 	SID_KV_NS_GLOBAL,    /* global ns with records visible for all modules and when processing any device */
 } sid_ucmd_kv_namespace_t;
 
-typedef enum {
-	SID_KV_FL_NONE       = UINT64_C(0x0000000000000000),
+#define SID_KV_FL_NONE    UINT64_C(0x0000000000000000)
+#define SID_KV_FL_ALIGN   UINT64_C(0x0000000000000001) /* make sure value's address is aligned to sizeof(void *) */
 
-	SID_KV_FL_ALIGN      = UINT64_C(0x0000000000000001), /* make sure value's address is aligned to sizeof(void *) */
+#define SID_KV_FL_SYNC    UINT64_C(0x0000000000000002) /* synchronize with main KV store */
+#define SID_KV_FL_PERSIST UINT64_C(0x0000000000000004) /* make record persistent */
+#define SID_KV_FL_SYNC_P  UINT64_C(0x0000000000000006) /* shortcut for KV_SYNC | KV_PERSISTENT */
 
-	SID_KV_FL_SYNC       = UINT64_C(0x0000000000000002), /* synchronize with main KV store */
-	SID_KV_FL_PERSIST    = UINT64_C(0x0000000000000004), /* make record persistent */
-	SID_KV_FL_SYNC_P     = UINT64_C(0x0000000000000006), /* shortcut for KV_SYNC | KV_PERSISTENT */
+#define SID_KV_FL_AR      UINT64_C(0x0000000000000008) /* create an archive of current value */
 
-	SID_KV_FL_AR         = UINT64_C(0x0000000000000008), /* create an archive of current value */
+#define SID_KV_FL_RS      UINT64_C(0x00000000000000010) /* reserve key */
 
-	SID_KV_FL_RS         = UINT64_C(0x00000000000000010), /* reserve key */
+#define SID_KV_FL_FRG_RD  UINT64_C(0x0000000000000020) /* foreign modules can read */
+#define SID_KV_FL_SUB_RD  UINT64_C(0x0000000000000040) /* subordinate modules can read */
+#define SID_KV_FL_SUP_RD  UINT64_C(0x0000000000000080) /* superior modules can read */
+#define SID_KV_FL_RD      UINT64_C(0x00000000000000E0) /* shortcut for KV_FRG_RD | KV_SUB_RD | KV_SUP_RD */
 
-	SID_KV_FL_FRG_RD     = UINT64_C(0x0000000000000020), /* foreign modules can read */
-	SID_KV_FL_SUB_RD     = UINT64_C(0x0000000000000040), /* subordinate modules can read */
-	SID_KV_FL_SUP_RD     = UINT64_C(0x0000000000000080), /* superior modules can read */
-	SID_KV_FL_RD         = UINT64_C(0x00000000000000E0), /* shortcut for KV_FRG_RD | KV_SUB_RD | KV_SUP_RD */
+#define SID_KV_FL_FRG_WR  UINT64_C(0x0000000000000100) /* foreign modules can write */
+#define SID_KV_FL_SUB_WR  UINT64_C(0x0000000000000200) /* subordinate modules can write */
+#define SID_KV_FL_SUP_WR  UINT64_C(0x0000000000000400) /* superior modules can write */
+#define SID_KV_FL_WR      UINT64_C(0x0000000000000700) /* shortcut for KV_FRG_WR | KV_SUB_WR | KV_SUP_WR */
 
-	SID_KV_FL_FRG_WR     = UINT64_C(0x0000000000000100), /* foreign modules can write */
-	SID_KV_FL_SUB_WR     = UINT64_C(0x0000000000000200), /* subordinate modules can write */
-	SID_KV_FL_SUP_WR     = UINT64_C(0x0000000000000400), /* superior modules can write */
-	SID_KV_FL_WR         = UINT64_C(0x0000000000000700), /* shortcut for KV_FRG_WR | KV_SUB_WR | KV_SUP_WR */
-
-	_SID_KV_FL_ENUM_SIZE = UINT64_C(0x7fffffffffffffff), /* used to force the enum to 64 bits */
-} sid_ucmd_kv_flags_t;
+typedef uint64_t sid_ucmd_kv_flags_t;
 
 #define SID_UCMD_KV_UNSET            ((void *) -1)
 #define SID_UCMD_KEY_DEVICE_NEXT_MOD "SID_NEXT_MOD"
