@@ -126,8 +126,7 @@ typedef enum {
 	_SID_RES_SEARCH_DESC_START, /* internal use */
 	SID_RES_SEARCH_IMM_DESC,    /* only immediate descendants - children */
 	SID_RES_SEARCH_DFS,         /* depth first search */
-	SID_RES_SEARCH_WIDE_DFS,    /* IMM_DESC + DFS hybrid (DFS, but process all immediate children first before going deeper)
-	                             */
+	SID_RES_SEARCH_WIDE_DFS,    /* IMM_DESC + DFS hybrid (DFS, but process all immediate children first before going deeper) */
 	_SID_RES_SEARCH_DESC_END,   /* internal use */
 
 	/* Ancestor search methods */

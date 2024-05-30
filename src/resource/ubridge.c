@@ -210,7 +210,6 @@ typedef enum {
 	CMD_STATE_TIM_OUT,             /* cmd timeout */
 	CMD_STATE_ERR,                 /* cmd error */
 	CMD_STATE_FIN,                 /* all cmd stages done, all results successfully sent */
-
 } cmd_state_t;
 
 static const char *cmd_state_str[]        = {[CMD_STATE_UNDEFINED]           = "CMD_UNDEFINED",
@@ -400,7 +399,7 @@ typedef enum {
 	KEY_PART_ID_CAT  = 0x4,
 	KEY_PART_ID      = 0x5,
 	KEY_PART_CORE    = 0x6,
-	__KEY_PART_COUNT,
+	_KEY_PART_COUNT,
 } key_part_t;
 
 struct kv_key_spec {
@@ -653,7 +652,7 @@ static const char *_get_key_part(const char *key, key_part_t req_part, size_t *l
 	}
 
 	if (len) {
-		if (req_part == __KEY_PART_COUNT - 1)
+		if (req_part == _KEY_PART_COUNT - 1)
 			*len = strlen(start);
 		else {
 			if (!(end = strstr(start, SID_KVS_KEY_JOIN)))

@@ -38,7 +38,6 @@ typedef enum {
 	SID_LOG_TGT_STANDARD,
 	SID_LOG_TGT_SYSLOG,
 	SID_LOG_TGT_JOURNAL,
-	_SID_LOG_TGT_COUNT
 } sid_log_tgt_t;
 
 typedef struct sid_log_pfx sid_log_pfx_t;
