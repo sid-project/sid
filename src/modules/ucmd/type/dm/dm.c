@@ -315,11 +315,6 @@ static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, 
 	int               i;
 
 	if (!(str = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, DM_U_COOKIE, NULL, NULL, 0))) {
-		if (sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, DM_X_COOKIE_FLAGS, NULL, 0, 0) != SID_UCMD_KV_UNSET) {
-			sid_res_log_error(mod_res, _failed_to_store_msg, DM_X_COOKIE_BASE);
-			return -1;
-		}
-
 		if (sid_ucmd_kv_set(mod_res,
 		                    ucmd_ctx,
 		                    SID_KV_NS_DEVMOD,
