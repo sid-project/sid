@@ -145,13 +145,13 @@ static const char *_udev_cookie_flag_names[] = {"DM_UDEV_DISABLE_DM_RULES_FLAG",
                                                 "DM_SUBSYSTEM_UDEV_FLAG7",
                                                 NULL};
 
-#define U_DM_COOKIE        "DM_COOKIE"
-#define U_DM_NAME          "DM_NAME"
-#define U_DM_UUID          "DM_UUID"
-#define U_DM_SUSPENDED     "DM_SUSPENDED"
-#define U_DM_ACTIVATION    "DM_ACTIVATION"
+#define DM_U_COOKIE        "DM_COOKIE"
+#define DM_U_NAME          "DM_NAME"
+#define DM_U_UUID          "DM_UUID"
+#define DM_U_SUSPENDED     "DM_SUSPENDED"
+#define DM_U_ACTIVATION    "DM_ACTIVATION"
 
-#define X_COOKIE_BASE      "cookie_base"
+#define DM_X_COOKIE_BASE   "cookie_base"
 
 #define ALS_NAME           "name"
 #define ALS_UUID           "uuid"
@@ -314,9 +314,9 @@ static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, 
 	char             *p;
 	int               i;
 
-	if (!(str = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, U_DM_COOKIE, NULL, NULL, 0))) {
+	if (!(str = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, DM_U_COOKIE, NULL, NULL, 0))) {
 		if (sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, DM_X_COOKIE_FLAGS, NULL, 0, 0) != SID_UCMD_KV_UNSET) {
-			sid_res_log_error(mod_res, _failed_to_store_msg, X_COOKIE_BASE);
+			sid_res_log_error(mod_res, _failed_to_store_msg, DM_X_COOKIE_BASE);
 			return -1;
 		}
 
@@ -375,8 +375,8 @@ static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, 
 	 * Cookie base is of interest in dm module only, the flags
 	 * may be of interest in dm module as well as its submodules.
 	 */
-	if (!(sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, X_COOKIE_BASE, &base, sizeof(base), SID_KV_FL_ALIGN))) {
-		sid_res_log_error(mod_res, _failed_to_store_msg, X_COOKIE_BASE);
+	if (!(sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, DM_X_COOKIE_BASE, &base, sizeof(base), SID_KV_FL_ALIGN))) {
+		sid_res_log_error(mod_res, _failed_to_store_msg, DM_X_COOKIE_BASE);
 		return -1;
 	}
 
@@ -466,24 +466,24 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 		return -1;
 	}
 
-	if (uuid[0] && !sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, U_DM_UUID, uuid, strlen(uuid) + 1, SID_KV_FL_SYNC_P)) {
-		sid_res_log_error(mod_res, _failed_to_store_msg, U_DM_UUID);
+	if (uuid[0] && !sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, DM_U_UUID, uuid, strlen(uuid) + 1, SID_KV_FL_SYNC_P)) {
+		sid_res_log_error(mod_res, _failed_to_store_msg, DM_U_UUID);
 		return -1;
 	}
 
-	if (!sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, U_DM_NAME, name, strlen(name) + 1, SID_KV_FL_SYNC_P)) {
-		sid_res_log_error(mod_res, _failed_to_store_msg, U_DM_NAME);
+	if (!sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, DM_U_NAME, name, strlen(name) + 1, SID_KV_FL_SYNC_P)) {
+		sid_res_log_error(mod_res, _failed_to_store_msg, DM_U_NAME);
 		return -1;
 	}
 
 	if (!sid_ucmd_kv_set(mod_res,
 	                     ucmd_ctx,
 	                     SID_KV_NS_UDEV,
-	                     U_DM_SUSPENDED,
+	                     DM_U_SUSPENDED,
 	                     suspended,
 	                     strlen(suspended) + 1,
 	                     SID_KV_FL_SYNC_P)) {
-		sid_res_log_error(mod_res, _failed_to_store_msg, U_DM_SUSPENDED);
+		sid_res_log_error(mod_res, _failed_to_store_msg, DM_U_SUSPENDED);
 		return -1;
 	}
 
@@ -735,7 +735,7 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 		goto out;
 	}
 
-	if (!(val = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, U_DM_SUSPENDED, NULL, NULL, 0))) {
+	if (!(val = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, DM_U_SUSPENDED, NULL, NULL, 0))) {
 		r = -1;
 		goto out;
 	}
