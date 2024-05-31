@@ -796,6 +796,11 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 					sid_res_log_warning(mod_res,
 					                    "Synthetic udev event received, but no previous records found.");
 
+					/*
+					 * FIXME: this is not that correct in case we have a device without any
+					 * active table yet. We cannot detect this case using only sysfs, but we'd
+					 * need to call dmsetup table (or issue a dm ioctl directly).
+					 */
 					if ((r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC)) < 0)
 						goto out;
 				} else {
