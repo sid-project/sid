@@ -49,7 +49,6 @@ extern "C" {
 
 struct sid_ucmd_common_ctx;
 struct sid_ucmd_ctx;
-typedef struct sid_res sid_res_t;
 
 typedef int sid_ucmd_mod_fn_t(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx);
 typedef int sid_ucmd_fn_t(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx);
