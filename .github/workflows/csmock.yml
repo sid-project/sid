@@ -54,7 +54,7 @@ jobs:
         run: podman exec -it ${{ env.CI_CONTAINER }} bash -c "rpmbuild -bs --define '_sourcedir .' rpm/sid.spec"
 
       - name: Run csmock
-        run: podman exec -it ${{ env.CI_CONTAINER }} bash -c "csmock --known-false-positives .csmock-kfp.js -o sid-csmock-results.tar.xz -r ${{ env.CSMOCK_CHROOTS }} --tools ${{ env.CSMOCK_TOOLS }} ~/rpmbuild/SRPMS/sid*.src.rpm"
+        run: podman exec -it ${{ env.CI_CONTAINER }} bash -c "csmock --known-false-positives .csmock-kfp.js --cppcheck-add-flag='--check-level=exhaustive' -o sid-csmock-results.tar.xz -r ${{ env.CSMOCK_CHROOTS }} --tools ${{ env.CSMOCK_TOOLS }} ~/rpmbuild/SRPMS/sid*.src.rpm"
 
       - name: Check csmock results
         run: podman exec -it ${{ env.CI_CONTAINER }} bash -c "tar -xf sid-csmock-results.tar.xz && test -s sid-csmock-results/scan-results-summary.txt && exit 1 || exit 0"
