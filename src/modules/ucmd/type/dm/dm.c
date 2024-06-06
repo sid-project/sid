@@ -145,20 +145,23 @@ static const char *_udev_cookie_flag_names[] = {"DM_UDEV_DISABLE_DM_RULES_FLAG",
                                                 "DM_SUBSYSTEM_UDEV_FLAG7",
                                                 NULL};
 
-#define DM_U_COOKIE        "DM_COOKIE"
-#define DM_U_NAME          "DM_NAME"
-#define DM_U_UUID          "DM_UUID"
-#define DM_U_SUSPENDED     "DM_SUSPENDED"
-#define DM_U_ACTIVATION    "DM_ACTIVATION"
+#define DM_UDEV_RULES_VSN   "3"
 
-#define DM_X_COOKIE_BASE   "cookie_base"
+#define DM_U_UDEV_RULES_VSN "DM_UDEV_RULES_VSN"
+#define DM_U_COOKIE         "DM_COOKIE"
+#define DM_U_NAME           "DM_NAME"
+#define DM_U_UUID           "DM_UUID"
+#define DM_U_SUSPENDED      "DM_SUSPENDED"
+#define DM_U_ACTIVATION     "DM_ACTIVATION"
 
-#define ALS_NAME           "name"
-#define ALS_UUID           "uuid"
+#define DM_X_COOKIE_BASE    "cookie_base"
 
-#define SYSFS_DM_UUID      "dm/uuid"
-#define SYSFS_DM_NAME      "dm/name"
-#define SYSFS_DM_SUSPENDED "dm/suspended"
+#define ALS_NAME            "name"
+#define ALS_UUID            "uuid"
+
+#define SYSFS_DM_UUID       "dm/uuid"
+#define SYSFS_DM_NAME       "dm/name"
+#define SYSFS_DM_SUSPENDED  "dm/suspended"
 
 static const char _failed_to_store_msg[]     = "Failed to store value for key \"%s\"";
 static const char _failed_to_set_alias_msg[] = "Failed to add alias for key \"%s\"";
@@ -906,7 +909,23 @@ SID_UCMD_SCAN_NEXT(_dm_scan_next)
 
 static int _dm_scan_post_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	sid_ucmd_dev_ready_t ready;
+
 	sid_res_log_debug(mod_res, "scan-post-current");
+
+	ready = sid_ucmd_dev_ready_get(mod_res, ucmd_ctx, 0);
+
+	if (ready >= _SID_DEV_RDY)
+		(void) sid_ucmd_kv_set(mod_res,
+		                       ucmd_ctx,
+		                       SID_KV_NS_UDEV,
+		                       DM_U_UDEV_RULES_VSN,
+		                       DM_UDEV_RULES_VSN,
+		                       sizeof(DM_UDEV_RULES_VSN),
+		                       SID_KV_FL_SYNC_P);
+
+	// TODO: also set DM_UDEV_DISABLE_* udev variables based on ready state for backwards compatibility
+
 	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT);
 }
 SID_UCMD_SCAN_POST_CURRENT(_dm_scan_post_current)
