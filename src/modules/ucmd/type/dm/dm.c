@@ -151,7 +151,7 @@ static const char *_udev_cookie_flag_names[] = {"DM_UDEV_DISABLE_DM_RULES_FLAG",
 #define DM_U_COOKIE         "DM_COOKIE"
 #define DM_U_NAME           "DM_NAME"
 #define DM_U_UUID           "DM_UUID"
-#define DM_U_SUSPENDED      "DM_SUSPENDED"
+#define DM_U_SUSPENDED      ".DM_SUSPENDED"
 #define DM_U_ACTIVATION     "DM_ACTIVATION"
 
 #define DM_X_COOKIE_BASE    "cookie_base"
