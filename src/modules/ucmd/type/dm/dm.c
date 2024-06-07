@@ -315,7 +315,6 @@ static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, 
 	dm_cookie_base_t  base;
 	dm_cookie_flags_t flags;
 	char             *p;
-	int               i;
 
 	if (!(str = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, DM_U_COOKIE, NULL, NULL, 0))) {
 		if (sid_ucmd_kv_set(mod_res,
@@ -340,33 +339,6 @@ static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, 
 
 	base  = (uint16_t) val;
 	flags = (uint16_t) (val >> COOKIE_FLAGS_SHIFT);
-
-	/* store decoded flags in SID_KV_NS_UDEV for backwards compatibility and for use in udev rules */
-	for (i = 0; i < COOKIE_FLAGS_SHIFT; i++) {
-		if (1 << i & flags) {
-			if (!(sid_ucmd_kv_set(mod_res,
-			                      ucmd_ctx,
-			                      SID_KV_NS_UDEV,
-			                      _udev_cookie_flag_names[i],
-			                      "1",
-			                      2,
-			                      SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD))) {
-				sid_res_log_error(mod_res, _failed_to_store_msg, _udev_cookie_flag_names[i]);
-				return -1;
-			}
-		} else {
-			if (sid_ucmd_kv_set(mod_res,
-			                    ucmd_ctx,
-			                    SID_KV_NS_UDEV,
-			                    _udev_cookie_flag_names[i],
-			                    NULL,
-			                    0,
-			                    SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) != SID_UCMD_KV_UNSET) {
-				sid_res_log_error(mod_res, _failed_to_store_msg, _udev_cookie_flag_names[i]);
-				return -1;
-			}
-		}
-	}
 
 	/*
 	 * Store cookie base and flags in SID_KV_NS_DEVMOD for use in SID.
@@ -737,7 +709,6 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 		r = -1;
 		goto out;
 	}
-
 	is_suspended = !strcmp(val, "1");
 
 	action       = sid_ucmd_ev_dev_action_get(ucmd_ctx);
@@ -910,11 +881,21 @@ SID_UCMD_SCAN_NEXT(_dm_scan_next)
 
 static int _dm_scan_post_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_ucmd_dev_ready_t ready;
+	sid_ucmd_dev_ready_t     ready;
+	const dm_cookie_flags_t *flags;
+	int                      i;
 
 	sid_res_log_debug(mod_res, "scan-post-current");
 
+	(void) _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT);
+
 	ready = sid_ucmd_dev_ready_get(mod_res, ucmd_ctx, 0);
+	flags = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, DM_X_COOKIE_FLAGS, NULL, NULL, 0);
+
+	/*
+	 *  Store DM_UDEV_RULES_VSN and all decoded flags to SID_KV_NS_UDEV
+	 *  for backwards compatibility and for use in udev rules
+	 */
 
 	if (ready >= _SID_DEV_RDY)
 		(void) sid_ucmd_kv_set(mod_res,
@@ -925,9 +906,38 @@ static int _dm_scan_post_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_c
 		                       sizeof(DM_UDEV_RULES_VSN),
 		                       SID_KV_FL_SYNC_P);
 
-	// TODO: also set DM_UDEV_DISABLE_* udev variables based on ready state for backwards compatibility
+	/*
+	 *  TODO: handle DM_UDEV_DISABLE_OTHER_RULES_FLAG which may be overriden after processing
+	 *        the modules and hence it may differ from original value from DM_UDEV_COOKIE var !!!
+	 */
 
-	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT);
+	for (i = 0; i < COOKIE_FLAGS_SHIFT; i++) {
+		if (1 << i & (*flags)) {
+			if (!(sid_ucmd_kv_set(mod_res,
+			                      ucmd_ctx,
+			                      SID_KV_NS_UDEV,
+			                      _udev_cookie_flag_names[i],
+			                      "1",
+			                      2,
+			                      SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD))) {
+				sid_res_log_error(mod_res, _failed_to_store_msg, _udev_cookie_flag_names[i]);
+				return -1;
+			}
+		} else {
+			if (sid_ucmd_kv_set(mod_res,
+			                    ucmd_ctx,
+			                    SID_KV_NS_UDEV,
+			                    _udev_cookie_flag_names[i],
+			                    NULL,
+			                    0,
+			                    SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) != SID_UCMD_KV_UNSET) {
+				sid_res_log_error(mod_res, _failed_to_store_msg, _udev_cookie_flag_names[i]);
+				return -1;
+			}
+		}
+	}
+
+	return 0;
 }
 SID_UCMD_SCAN_POST_CURRENT(_dm_scan_post_current)
 
