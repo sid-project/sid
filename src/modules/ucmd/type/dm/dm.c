@@ -337,8 +337,8 @@ static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, 
 		return -1;
 	}
 
-	base  = (uint16_t) val;
-	flags = (uint16_t) (val >> COOKIE_FLAGS_SHIFT);
+	base  = (dm_cookie_base_t) val;
+	flags = (dm_cookie_flags_t) (val >> COOKIE_FLAGS_SHIFT);
 
 	/*
 	 * Store cookie base and flags in SID_KV_NS_DEVMOD for use in SID.
