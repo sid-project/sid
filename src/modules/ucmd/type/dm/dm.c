@@ -30,6 +30,7 @@
 #include <linux/dm-ioctl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/sem.h>
 
 #define DM_ID                "dm"
 #define DM_SUBMODULES_ID     DM_ID "_sub"
@@ -964,9 +965,53 @@ static int _dm_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 }
 SID_UCMD_SCAN_REMOVE(_dm_scan_remove)
 
+static int _udevcomplete(sid_res_t *mod_res, dm_cookie_base_t cookie_base)
+{
+	key_t         semkey;
+	struct sembuf sb = {0, -1, IPC_NOWAIT};
+	int           semid, val;
+
+	semkey = (COOKIE_MAGIC << 16) | cookie_base;
+
+	if ((semid = semget(semkey, 1, 0)) < 0) {
+		sid_res_log_error_errno(mod_res, errno, "Failed to get semaphore id for cookie %" PRIx16, cookie_base);
+		return -1;
+	}
+
+	if ((val = semctl(semid, 0, GETVAL)) < 0) {
+		sid_res_log_error_errno(mod_res,
+		                        errno,
+		                        "Failed to perform semaphore control operation for cookie %" PRIx16 "(semid %d)",
+		                        cookie_base,
+		                        semid);
+		return -1;
+	}
+
+	if (semop(semid, &sb, 1) < 0) {
+		sid_res_log_error_errno(mod_res,
+		                        errno,
+		                        "Failed to perform semaphore operation for cookie %" PRIx16 "(semid %d)",
+		                        cookie_base,
+		                        semid);
+		return -1;
+	}
+
+	sid_res_log_debug(mod_res, "Cookie 0x%" PRIx16 " (semid %d) decremented to %d.", cookie_base, semid, val - 1);
+	return 0;
+}
+
 static int _dm_scan_action_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	dm_cookie_base_t *cookie_base_p;
+
 	sid_res_log_debug(mod_res, "scan-action-current");
+
+	if ((cookie_base_p =
+	             (dm_cookie_base_t *) sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, DM_X_COOKIE_BASE, NULL, NULL, 0))) {
+		if (_udevcomplete(mod_res, *cookie_base_p) < 0)
+			return -1;
+	}
+
 	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_TRIGGER_ACTION_CURRENT);
 }
 SID_UCMD_SCAN_ACTION_CURRENT(_dm_scan_action_current)
