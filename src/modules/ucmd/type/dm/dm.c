@@ -187,17 +187,39 @@ static int _get_dm_submod_syms(sid_res_t *mod_res, sid_res_t *submod_res, struct
 	return 0;
 }
 
+static int _do_exec_dm_submod(sid_res_t                 *mod_res,
+                              sid_res_t                 *submod_res,
+                              dm_submod_cmd_scan_phase_t phase,
+                              struct sid_ucmd_ctx       *ucmd_ctx)
+{
+	struct dm_submod_fns *submod_fns;
+	sid_ucmd_fn_t        *submod_fn;
+
+	if (!submod_res)
+		return 0;
+
+	if (sid_mod_reg_mod_syms_get(submod_res, (const void ***) &submod_fns) < 0) {
+		sid_res_log_error(mod_res, "Failed to get symbols for submodule %s.", sid_res_id_get(submod_res));
+		return -1;
+	}
+
+	if ((submod_fn = *(((sid_ucmd_fn_t **) submod_fns) + phase)))
+		return submod_fn(submod_res, ucmd_ctx);
+
+	return 0;
+}
+
 static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm_submod_cmd_scan_phase_t phase)
 {
-	struct dm_mod_ctx    *dm_mod = sid_mod_data_get(mod_res);
+	static const char     _failed_to_create_submod_iter_msg[] = "Failed to create submodule iterator.";
+	struct dm_mod_ctx    *dm_mod                              = sid_mod_data_get(mod_res);
 	struct dm_submod_fns *submod_fns;
 	sid_res_iter_t       *iter;
 
 	switch (phase) {
 		case DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT:
-		case DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_NEXT:
 			if (!(iter = sid_res_iter_create(dm_mod->submod_registry))) {
-				sid_res_log_error(mod_res, "Failed to create submodule iterator.");
+				sid_res_log_error(mod_res, _failed_to_create_submod_iter_msg);
 				return -1;
 			}
 
@@ -205,105 +227,60 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 				if (_get_dm_submod_syms(mod_res, dm_mod->submod_res, &submod_fns) < 0)
 					continue;
 
-				if (phase == DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT) {
-					if (submod_fns->subsys_match_current) {
-						if (submod_fns->subsys_match_current(dm_mod->submod_res, ucmd_ctx)) {
-							dm_mod->submod_res_current = dm_mod->submod_res;
-							sid_res_log_debug(mod_res,
-							                  "%s submodule claimed " DEV_PRINT_FMT
-							                  " for 'current' phases.",
-							                  sid_res_id_get(dm_mod->submod_res),
-							                  DEV_PRINT(ucmd_ctx));
-							break;
-						}
-					}
-				} else { /* DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_NEXT */
-					if (submod_fns->subsys_match_next) {
-						if (submod_fns->subsys_match_next(dm_mod->submod_res, ucmd_ctx)) {
-							dm_mod->submod_res_next = dm_mod->submod_res;
-							sid_res_log_debug(mod_res,
-							                  "%s submodule claimed " DEV_PRINT_FMT
-							                  " for 'next' phases.",
-							                  sid_res_id_get(dm_mod->submod_res),
-							                  DEV_PRINT(ucmd_ctx));
-						}
+				if (submod_fns->subsys_match_current) {
+					if (submod_fns->subsys_match_current(dm_mod->submod_res, ucmd_ctx)) {
+						dm_mod->submod_res_current = dm_mod->submod_res;
+						sid_res_log_debug(mod_res,
+						                  "%s submodule claimed " DEV_PRINT_FMT " for 'current' phases.",
+						                  sid_res_id_get(dm_mod->submod_res),
+						                  DEV_PRINT(ucmd_ctx));
+						break;
 					}
 				}
 			}
 
 			sid_res_iter_destroy(iter);
-			return 0;
+			break;
+
+		case DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_NEXT:
+			if (!(iter = sid_res_iter_create(dm_mod->submod_registry))) {
+				sid_res_log_error(mod_res, _failed_to_create_submod_iter_msg);
+				return -1;
+			}
+
+			while ((dm_mod->submod_res = sid_res_iter_next(iter))) {
+				if (_get_dm_submod_syms(mod_res, dm_mod->submod_res, &submod_fns) < 0)
+					continue;
+
+				if (submod_fns->subsys_match_next) {
+					if (submod_fns->subsys_match_next(dm_mod->submod_res, ucmd_ctx)) {
+						dm_mod->submod_res_next = dm_mod->submod_res;
+						sid_res_log_debug(mod_res,
+						                  "%s submodule claimed " DEV_PRINT_FMT " for 'next' phases.",
+						                  sid_res_id_get(dm_mod->submod_res),
+						                  DEV_PRINT(ucmd_ctx));
+					}
+				}
+			}
+
+			sid_res_iter_destroy(iter);
+			break;
 
 		case DM_SUBMOD_SCAN_PHASE_IDENT:
-			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, &submod_fns) < 0)
-				return -1;
-
-			if (submod_fns->ident)
-				(void) submod_fns->ident(dm_mod->submod_res, ucmd_ctx);
-			break;
-
 		case DM_SUBMOD_SCAN_PHASE_SCAN_PRE:
-			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, &submod_fns) < 0)
-				return -1;
-
-			if (submod_fns->scan_pre)
-				(void) submod_fns->scan_pre(dm_mod->submod_res, ucmd_ctx);
-			break;
-
 		case DM_SUBMOD_SCAN_PHASE_SCAN_CURRENT:
-			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, &submod_fns) < 0)
+		case DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT:
+		case DM_SUBMOD_SCAN_PHASE_REMOVE:
+		case DM_SUBMOD_TRIGGER_ACTION_CURRENT:
+			if (_do_exec_dm_submod(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, phase, ucmd_ctx) < 0)
 				return -1;
-
-			if (submod_fns->scan_current)
-				(void) submod_fns->scan_current(dm_mod->submod_res, ucmd_ctx);
 			break;
 
 		case DM_SUBMOD_SCAN_PHASE_SCAN_NEXT:
-			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_next, &submod_fns) < 0)
-				return -1;
-
-			if (submod_fns->scan_next)
-				(void) submod_fns->scan_next(dm_mod->submod_res, ucmd_ctx);
-			break;
-
-		case DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT:
-			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, &submod_fns) < 0)
-				return -1;
-
-			if (submod_fns->scan_post_current)
-				(void) submod_fns->scan_post_current(dm_mod->submod_res, ucmd_ctx);
-			break;
-
 		case DM_SUBMOD_SCAN_PHASE_SCAN_POST_NEXT:
-			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_next, &submod_fns) < 0)
-				return -1;
-
-			if (submod_fns->scan_post_next)
-				(void) submod_fns->scan_post_next(dm_mod->submod_res, ucmd_ctx);
-			break;
-
-		case DM_SUBMOD_SCAN_PHASE_REMOVE:
-			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, &submod_fns) < 0)
-				return -1;
-
-			if (submod_fns->scan_remove)
-				(void) submod_fns->scan_remove(dm_mod->submod_res, ucmd_ctx);
-			break;
-
-		case DM_SUBMOD_TRIGGER_ACTION_CURRENT:
-			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, &submod_fns) < 0)
-				return -1;
-
-			if (submod_fns->scan_action_current)
-				(void) submod_fns->scan_action_current(dm_mod->submod_res, ucmd_ctx);
-			break;
-
 		case DM_SUBMOD_TRIGGER_ACTION_NEXT:
-			if (_get_dm_submod_syms(mod_res, dm_mod->submod_res = dm_mod->submod_res_next, &submod_fns) < 0)
+			if (_do_exec_dm_submod(mod_res, dm_mod->submod_res = dm_mod->submod_res_next, phase, ucmd_ctx) < 0)
 				return -1;
-
-			if (submod_fns->scan_action_next)
-				(void) submod_fns->scan_action_next(dm_mod->submod_res, ucmd_ctx);
 			break;
 	}
 
