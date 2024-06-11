@@ -1409,9 +1409,9 @@ static int _on_worker_proxy_child_event(sid_res_ev_src_t *es, const siginfo_t *s
 		case CLD_KILLED:
 		case CLD_DUMPED:
 			sid_res_log_debug(worker_proxy_res,
-			                  "Worker terminated by signal %d (%s).",
+			                  "Worker terminated by signal %d (SIG%s).",
 			                  si->si_status,
-			                  strsignal(si->si_status));
+			                  sigabbrev_np(si->si_status));
 			break;
 		default:
 			sid_res_log_debug(worker_proxy_res, "Worker failed unexpectedly.");
@@ -1454,7 +1454,7 @@ static int _on_worker_signal_event(sid_res_ev_src_t *es, const struct signalfd_s
 	sid_res_t     *res = arg;
 	struct worker *worker;
 
-	sid_res_log_debug(res, "Received signal %d from %d.", si->ssi_signo, si->ssi_pid);
+	sid_res_log_debug(res, "Received signal %d (SIG%s) from %d.", si->ssi_signo, sigabbrev_np(si->ssi_signo), si->ssi_pid);
 
 	switch (si->ssi_signo) {
 		case SIGTERM:
