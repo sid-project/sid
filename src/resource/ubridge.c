@@ -5208,6 +5208,12 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 
 	[CMD_SCAN_PHASE_A_EXIT]              = {.name = "a-exit", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_a_exit},
 
+	[CMD_SCAN_PHASE_REMOVE_INIT]         = {.name = "remove-init", .flags = 0, .exec = _cmd_exec_scan_remove_init},
+
+	[CMD_SCAN_PHASE_REMOVE_CURRENT]      = {.name = "remove-current", .flags = 0, .exec = _cmd_exec_scan_remove_current},
+
+	[CMD_SCAN_PHASE_REMOVE_EXIT]         = {.name = "remove-exit", .flags = 0, .exec = _cmd_exec_scan_remove_exit},
+
 	[CMD_SCAN_PHASE_B_INIT]              = {.name = "b-init", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_b_init},
 
 	[CMD_SCAN_PHASE_B_ACTION_CURRENT]    = {.name = "b-action-current", .flags = 0, .exec = _cmd_exec_scan_b_action_current},
@@ -5215,12 +5221,6 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 	[CMD_SCAN_PHASE_B_ACTION_NEXT]       = {.name = "b-action-next", .flags = 0, .exec = _cmd_exec_scan_b_action_next},
 
 	[CMD_SCAN_PHASE_B_EXIT]              = {.name = "b-exit", .flags = 0, .exec = _cmd_exec_scan_b_exit},
-
-	[CMD_SCAN_PHASE_REMOVE_INIT]         = {.name = "remove-init", .flags = 0, .exec = _cmd_exec_scan_remove_init},
-
-	[CMD_SCAN_PHASE_REMOVE_CURRENT]      = {.name = "remove-current", .flags = 0, .exec = _cmd_exec_scan_remove_current},
-
-	[CMD_SCAN_PHASE_REMOVE_EXIT]         = {.name = "remove-exit", .flags = 0, .exec = _cmd_exec_scan_remove_exit},
 
 	[CMD_SCAN_PHASE_ERROR]               = {.name = "error", .flags = 0, .exec = _cmd_exec_scan_error},
 };
