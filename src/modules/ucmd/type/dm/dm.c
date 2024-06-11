@@ -851,10 +851,11 @@ handle_unconfigured:
 							goto out;
 					}
 				}
+			} else {
+				sid_res_log_warning(mod_res, "Unexpected udev event received.");
+				goto out;
 			}
-
-			sid_res_log_warning(mod_res, "Unexpected udev event received.");
-			goto out;
+			break;
 
 		case SID_DEV_RDY_UNINITIALIZED:
 			/*
