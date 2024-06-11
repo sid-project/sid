@@ -4636,71 +4636,23 @@ static int _exec_block_mods(sid_res_t *cmd_res)
 	struct sid_ucmd_ctx           *ucmd_ctx = sid_res_data_get(cmd_res);
 	sid_res_t                     *block_mod_res;
 	const struct sid_ucmd_mod_fns *block_mod_fns;
-	int                            r = -1;
+	sid_ucmd_fn_t                 *block_mod_fn;
 
 	sid_res_iter_reset(ucmd_ctx->scan.block_mod_iter);
 
 	while ((block_mod_res = sid_res_iter_next(ucmd_ctx->scan.block_mod_iter))) {
 		if (sid_mod_reg_mod_syms_get(block_mod_res, (const void ***) &block_mod_fns) < 0) {
 			sid_res_log_error(cmd_res, "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
-			goto out;
+			return -1;
 		}
 
-		switch (ucmd_ctx->scan.phase) {
-			case CMD_SCAN_PHASE_A_IDENT:
-				if (block_mod_fns->scan_ident && block_mod_fns->scan_ident(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_A_SCAN_PRE:
-				if (block_mod_fns->scan_pre && block_mod_fns->scan_pre(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_A_SCAN_CURRENT:
-				if (block_mod_fns->scan_current && block_mod_fns->scan_current(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_A_SCAN_NEXT:
-				if (block_mod_fns->scan_next && block_mod_fns->scan_next(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_A_SCAN_POST_CURRENT:
-				if (block_mod_fns->scan_post_current &&
-				    block_mod_fns->scan_post_current(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_A_SCAN_POST_NEXT:
-				if (block_mod_fns->scan_post_next && block_mod_fns->scan_post_next(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_REMOVE_CURRENT:
-				if (block_mod_fns->scan_remove && block_mod_fns->scan_remove(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_B_ACTION_CURRENT:
-				if (block_mod_fns->scan_action_current &&
-				    block_mod_fns->scan_action_current(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_B_ACTION_NEXT:
-				if (block_mod_fns->scan_action_next && block_mod_fns->scan_action_next(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			case CMD_SCAN_PHASE_ERROR:
-				if (block_mod_fns->error && block_mod_fns->error(block_mod_res, ucmd_ctx) < 0)
-					goto out;
-				break;
-			default:
-				sid_res_log_error(cmd_res,
-				                  SID_INTERNAL_ERROR "%s: Trying illegal execution of block modules in %s state.",
-				                  __func__,
-				                  _cmd_scan_phase_regs[ucmd_ctx->scan.phase].name);
-				break;
+		if ((block_mod_fn = *(((sid_ucmd_fn_t **) block_mod_fns) + ucmd_ctx->scan.phase))) {
+			if (block_mod_fn(block_mod_res, ucmd_ctx) < 0)
+				return -1;
 		}
 	}
 
-	r = 0;
-out:
-	return r;
+	return 0;
 }
 
 static int _exec_type_mod(sid_res_t *cmd_res, sid_res_t *type_mod_res)
