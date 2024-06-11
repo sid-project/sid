@@ -4707,74 +4707,22 @@ static int _exec_type_mod(sid_res_t *cmd_res, sid_res_t *type_mod_res)
 {
 	struct sid_ucmd_ctx           *ucmd_ctx = sid_res_data_get(cmd_res);
 	const struct sid_ucmd_mod_fns *type_mod_fns;
-	int                            r = -1;
+	sid_ucmd_fn_t                 *type_mod_fn;
 
 	if (!type_mod_res)
 		return 0;
 
 	if (sid_mod_reg_mod_syms_get(type_mod_res, (const void ***) &type_mod_fns) < 0) {
 		sid_res_log_error(cmd_res, "Failed to retrieve module symbols from module %s.", ID(type_mod_res));
-		goto out;
+		return -1;
 	}
 
-	switch (ucmd_ctx->scan.phase) {
-		case CMD_SCAN_PHASE_A_IDENT:
-			if (type_mod_fns->scan_ident && type_mod_fns->scan_ident(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_A_SCAN_PRE:
-			if (type_mod_fns->scan_pre && type_mod_fns->scan_pre(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_A_SCAN_CURRENT:
-			if (type_mod_fns->scan_current && type_mod_fns->scan_current(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_A_SCAN_NEXT:
-			if (type_mod_fns->scan_next && type_mod_fns->scan_next(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_A_SCAN_POST_CURRENT:
-			if (type_mod_fns->scan_post_current && type_mod_fns->scan_post_current(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_A_SCAN_POST_NEXT:
-			if (type_mod_fns->scan_post_next && type_mod_fns->scan_post_next(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_REMOVE_CURRENT:
-			if (type_mod_fns->scan_remove && type_mod_fns->scan_remove(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_B_ACTION_CURRENT:
-			if (type_mod_fns->scan_action_current && type_mod_fns->scan_action_current(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_B_ACTION_NEXT:
-			if (type_mod_fns->scan_action_next && type_mod_fns->scan_action_next(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		case CMD_SCAN_PHASE_ERROR:
-			if (type_mod_fns->error && type_mod_fns->error(type_mod_res, ucmd_ctx) < 0)
-				goto out;
-			break;
-
-		default:
-			break;
+	if ((type_mod_fn = *(((sid_ucmd_fn_t **) type_mod_fns) + ucmd_ctx->scan.phase))) {
+		if (type_mod_fn(type_mod_res, ucmd_ctx) < 0)
+			return -1;
 	}
 
-	r = 0;
-out:
-	return r;
+	return 0;
 }
 
 static int _get_device_uuid(sid_res_t *cmd_res)
