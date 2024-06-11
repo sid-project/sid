@@ -7060,89 +7060,143 @@ fail:
 	return -1;
 }
 
-static struct sid_mod_sym_params block_symbol_params[]          = {{
-                                                                  SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
-                                                                  SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   {
-                                                                  SID_UCMD_MOD_FN_NAME_SCAN_PRE,
-                                                                  SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   {
-                                                                  SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
-                                                                  SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   {
-                                                                  SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
-                                                                  SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   {
-                                                                  SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
-                                                                  SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   {
-                                                                  SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
-                                                                  SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   {
-                                                                  SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
-                                                                  SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   {
-                                                                  SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
-                                                                  SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   {
-                                                                  SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
-                                                                  SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   {
-                                                                  SID_UCMD_MOD_FN_NAME_ERROR,
-                                                                  SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
-                                                          },
-                                                                   SID_MOD_NULL_SYM_PARAMS};
+static struct sid_mod_sym_params block_symbol_params[] = {{
+								  SID_UCMD_MOD_FN_NAME_SCAN_A_INIT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_PRE,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_A_EXIT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_INIT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_EXIT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_B_INIT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_SCAN_B_EXIT,
+								  SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          {
+								  SID_UCMD_MOD_FN_NAME_ERROR,
+								  SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
+							  },
+                                                          SID_MOD_NULL_SYM_PARAMS};
 
-static struct sid_mod_sym_params type_symbol_params[]           = {{
-                                                                 SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
-                                                                 SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   {
-                                                                 SID_UCMD_MOD_FN_NAME_SCAN_PRE,
-                                                                 SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   {
-                                                                 SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
-                                                                 SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   {
-                                                                 SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
-                                                                 SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   {
-                                                                 SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
-                                                                 SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   {
-                                                                 SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
-                                                                 SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   {
-                                                                 SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
-                                                                 SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   {
-                                                                 SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
-                                                                 SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   {
-                                                                 SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
-                                                                 SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   {
-                                                                 SID_UCMD_MOD_FN_NAME_ERROR,
-                                                                 SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
-                                                         },
-                                                                   SID_MOD_NULL_SYM_PARAMS};
+static struct sid_mod_sym_params type_symbol_params[]  = {
+
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_A_INIT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
+                SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_PRE,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_A_EXIT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_INIT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_EXIT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_B_INIT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+        {
+                SID_UCMD_MOD_FN_NAME_SCAN_B_EXIT,
+                SID_MOD_SYM_FL_INDIRECT,
+        },
+
+        {
+                SID_UCMD_MOD_FN_NAME_ERROR,
+                SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
+        },
+        SID_MOD_NULL_SYM_PARAMS};
 
 static const struct sid_kvs_res_params main_kv_store_res_params = {.backend = SID_KVS_BACKEND_BPTREE, .bptree.order = 4};
 

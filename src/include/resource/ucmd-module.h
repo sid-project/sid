@@ -36,15 +36,21 @@ extern "C" {
 #define SID_UCMD_BLOCK_MOD_DIR                   LIBDIR "/" PACKAGE "/modules/ucmd/block"
 #define SID_UCMD_TYPE_MOD_DIR                    LIBDIR "/" PACKAGE "/modules/ucmd/type"
 
+#define SID_UCMD_MOD_FN_NAME_SCAN_A_INIT         "sid_ucmd_scan_a_init"
 #define SID_UCMD_MOD_FN_NAME_SCAN_IDENT          "sid_ucmd_scan_ident"
 #define SID_UCMD_MOD_FN_NAME_SCAN_PRE            "sid_ucmd_scan_pre"
 #define SID_UCMD_MOD_FN_NAME_SCAN_CURRENT        "sid_ucmd_scan_current"
 #define SID_UCMD_MOD_FN_NAME_SCAN_NEXT           "sid_ucmd_scan_next"
 #define SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT   "sid_ucmd_scan_post_current"
 #define SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT      "sid_ucmd_scan_post_next"
+#define SID_UCMD_MOD_FN_NAME_SCAN_A_EXIT         "sid_ucmd_scan_a_exit"
+#define SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_INIT    "sid_ucmd_scan_remove_init"
 #define SID_UCMD_MOD_FN_NAME_SCAN_REMOVE         "sid_ucmd_scan_remove"
+#define SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_EXIT    "sid_ucmd_scan_remove_exit"
+#define SID_UCMD_MOD_FN_NAME_SCAN_B_INIT         "sid_ucmd_scan_b_init"
 #define SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT "sid_ucmd_scan_action_current"
 #define SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT    "sid_ucmd_scan_action_next"
+#define SID_UCMD_MOD_FN_NAME_SCAN_B_EXIT         "sid_ucmd_scan_b_exit"
 #define SID_UCMD_MOD_FN_NAME_ERROR               "sid_ucmd_error"
 
 struct sid_ucmd_common_ctx;
@@ -54,15 +60,21 @@ typedef int sid_ucmd_mod_fn_t(sid_res_t *mod_res, struct sid_ucmd_common_ctx *uc
 typedef int sid_ucmd_fn_t(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx);
 
 struct sid_ucmd_mod_fns {
+	sid_ucmd_fn_t *scan_a_init;
 	sid_ucmd_fn_t *scan_ident;
 	sid_ucmd_fn_t *scan_pre;
 	sid_ucmd_fn_t *scan_current;
 	sid_ucmd_fn_t *scan_next;
 	sid_ucmd_fn_t *scan_post_current;
 	sid_ucmd_fn_t *scan_post_next;
+	sid_ucmd_fn_t *scan_a_exit;
+	sid_ucmd_fn_t *scan_remove_init;
 	sid_ucmd_fn_t *scan_remove;
+	sid_ucmd_fn_t *scan_remove_exit;
+	sid_ucmd_fn_t *scan_b_init;
 	sid_ucmd_fn_t *scan_action_current;
 	sid_ucmd_fn_t *scan_action_next;
+	sid_ucmd_fn_t *scan_b_exit;
 	sid_ucmd_fn_t *error;
 } __packed;
 
