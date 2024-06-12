@@ -59,25 +59,6 @@ struct sid_ucmd_ctx;
 typedef int sid_ucmd_mod_fn_t(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx);
 typedef int sid_ucmd_fn_t(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx);
 
-struct sid_ucmd_mod_fns {
-	sid_ucmd_fn_t *scan_a_init;
-	sid_ucmd_fn_t *scan_ident;
-	sid_ucmd_fn_t *scan_pre;
-	sid_ucmd_fn_t *scan_current;
-	sid_ucmd_fn_t *scan_next;
-	sid_ucmd_fn_t *scan_post_current;
-	sid_ucmd_fn_t *scan_post_next;
-	sid_ucmd_fn_t *scan_a_exit;
-	sid_ucmd_fn_t *scan_remove_init;
-	sid_ucmd_fn_t *scan_remove;
-	sid_ucmd_fn_t *scan_remove_exit;
-	sid_ucmd_fn_t *scan_b_init;
-	sid_ucmd_fn_t *scan_action_current;
-	sid_ucmd_fn_t *scan_action_next;
-	sid_ucmd_fn_t *scan_b_exit;
-	sid_ucmd_fn_t *error;
-} __packed;
-
 /*
  * Macros to register module's management functions.
  */

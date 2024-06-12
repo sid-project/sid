@@ -173,6 +173,25 @@ typedef enum {
 	CMD_SCAN_PHASE_ERROR,
 } cmd_scan_phase_t;
 
+struct scan_mod_fns {
+	sid_ucmd_fn_t *scan_a_init;
+	sid_ucmd_fn_t *scan_ident;
+	sid_ucmd_fn_t *scan_pre;
+	sid_ucmd_fn_t *scan_current;
+	sid_ucmd_fn_t *scan_next;
+	sid_ucmd_fn_t *scan_post_current;
+	sid_ucmd_fn_t *scan_post_next;
+	sid_ucmd_fn_t *scan_a_exit;
+	sid_ucmd_fn_t *scan_remove_init;
+	sid_ucmd_fn_t *scan_remove;
+	sid_ucmd_fn_t *scan_remove_exit;
+	sid_ucmd_fn_t *scan_b_init;
+	sid_ucmd_fn_t *scan_action_current;
+	sid_ucmd_fn_t *scan_action_next;
+	sid_ucmd_fn_t *scan_b_exit;
+	sid_ucmd_fn_t *error;
+} __packed;
+
 struct udevice {
 	udev_action_t  action;
 	udev_devtype_t type;
@@ -4633,10 +4652,10 @@ static int _update_dev_deps_from_sysfs(sid_res_t *cmd_res)
 
 static int _exec_block_mods(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx           *ucmd_ctx = sid_res_data_get(cmd_res);
-	sid_res_t                     *block_mod_res;
-	const struct sid_ucmd_mod_fns *block_mod_fns;
-	sid_ucmd_fn_t                 *block_mod_fn;
+	struct sid_ucmd_ctx       *ucmd_ctx = sid_res_data_get(cmd_res);
+	sid_res_t                 *block_mod_res;
+	const struct scan_mod_fns *block_mod_fns;
+	sid_ucmd_fn_t             *block_mod_fn;
 
 	sid_res_iter_reset(ucmd_ctx->scan.block_mod_iter);
 
@@ -4657,9 +4676,9 @@ static int _exec_block_mods(sid_res_t *cmd_res)
 
 static int _exec_type_mod(sid_res_t *cmd_res, sid_res_t *type_mod_res)
 {
-	struct sid_ucmd_ctx           *ucmd_ctx = sid_res_data_get(cmd_res);
-	const struct sid_ucmd_mod_fns *type_mod_fns;
-	sid_ucmd_fn_t                 *type_mod_fn;
+	struct sid_ucmd_ctx       *ucmd_ctx = sid_res_data_get(cmd_res);
+	const struct scan_mod_fns *type_mod_fns;
+	sid_ucmd_fn_t             *type_mod_fn;
 
 	if (!type_mod_res)
 		return 0;
