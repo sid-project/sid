@@ -172,7 +172,7 @@ typedef enum {
 
 #define SID_KV_FL_AR      UINT64_C(0x0000000000000008) /* create an archive of current value */
 
-#define SID_KV_FL_RS      UINT64_C(0x00000000000000010) /* reserve key */
+#define SID_KV_FL_RS      UINT64_C(0x0000000000000010) /* reserve key */
 
 #define SID_KV_FL_FRG_RD  UINT64_C(0x0000000000000020) /* foreign modules can read */
 #define SID_KV_FL_SUB_RD  UINT64_C(0x0000000000000040) /* subordinate modules can read */
