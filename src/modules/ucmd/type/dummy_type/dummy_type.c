@@ -42,12 +42,12 @@ static int _dummy_type_reset(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucm
 }
 SID_UCMD_MOD_RESET(_dummy_type_reset)
 
-static int _dummy_type_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dummy_type_scan_a_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_res_log_debug(mod_res, "ident");
+	sid_res_log_debug(mod_res, "scan-a-init");
 	return 0;
 }
-SID_UCMD_SCAN_IDENT(_dummy_type_scan_ident)
+SID_UCMD_SCAN_A_INIT(_dummy_type_scan_a_init)
 
 static int _dummy_type_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
@@ -105,9 +105,9 @@ static int _dummy_type_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx 
 }
 SID_UCMD_SCAN_ACTION_NEXT(_dummy_type_scan_action_next)
 
-static int _dummy_type_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dummy_type_scan_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_res_log_debug(mod_res, "error");
+	sid_res_log_debug(mod_res, "scan-error");
 	return 0;
 }
-SID_UCMD_ERROR(_dummy_type_error)
+SID_UCMD_SCAN_ERROR(_dummy_type_scan_error)
