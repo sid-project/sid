@@ -4986,6 +4986,9 @@ static int _cmd_exec_scan_a_exit(sid_res_t *cmd_res)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
 	int                  r        = 0;
 
+	(void) _exec_block_mods(cmd_res);
+	r = _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
+
 	if (_do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0) == SID_DEV_RDY_UNPROCESSED)
 		if (_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, _owner_name(NULL), SID_DEV_RDY_PUBLIC, false) < 0)
 			r = -1;
@@ -4997,39 +5000,15 @@ static int _cmd_exec_scan_a_exit(sid_res_t *cmd_res)
 	return r;
 }
 
-static int _cmd_exec_scan_b_init(sid_res_t *cmd_res)
-{
-	return 0;
-}
-
 static int _cmd_exec_scan_remove_init(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	const char          *mod_name;
 
 	if (!(ucmd_ctx->scan.block_mod_iter = sid_res_iter_create(ucmd_ctx->common->block_mod_registry_res))) {
 		sid_res_log_error(cmd_res, "Failed to create block module iterator.");
 		goto fail;
 	}
-
-	if (_get_device_uuid(cmd_res) < 0)
-		goto fail;
-
-	return 0;
-fail:
-	if (ucmd_ctx->scan.block_mod_iter) {
-		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
-		ucmd_ctx->scan.block_mod_iter = NULL;
-	}
-
-	return -1;
-}
-
-static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
-{
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
-	const char          *mod_name;
-
-	_exec_block_mods(cmd_res);
 
 	if (!(mod_name = _do_sid_ucmd_get_kv(cmd_res,
 	                                     ucmd_ctx,
@@ -5049,6 +5028,25 @@ static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
 		return 0;
 	}
 
+	if (_get_device_uuid(cmd_res) < 0)
+		goto fail;
+
+	_exec_block_mods(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
+fail:
+	if (ucmd_ctx->scan.block_mod_iter) {
+		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
+		ucmd_ctx->scan.block_mod_iter = NULL;
+	}
+
+	return -1;
+}
+
+static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+
+	_exec_block_mods(cmd_res);
 	if (_exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current) < 0)
 		return -1;
 
@@ -5057,7 +5055,18 @@ static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_remove_exit(sid_res_t *cmd_res)
 {
-	return 0;
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+
+	_exec_block_mods(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
+}
+
+static int _cmd_exec_scan_b_init(sid_res_t *cmd_res)
+{
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+
+	_exec_block_mods(cmd_res);
+	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
 static int _cmd_exec_scan_b_action_current(sid_res_t *cmd_res)
@@ -5079,13 +5088,17 @@ static int _cmd_exec_scan_b_action_next(sid_res_t *cmd_res)
 static int _cmd_exec_scan_b_exit(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	int                  r;
+
+	_exec_block_mods(cmd_res);
+	r = _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 
 	if (ucmd_ctx->scan.block_mod_iter) {
 		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
 		ucmd_ctx->scan.block_mod_iter = NULL;
 	}
 
-	return 0;
+	return r;
 }
 
 static int _cmd_exec_scan_error(sid_res_t *cmd_res)

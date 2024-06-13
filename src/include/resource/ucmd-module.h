@@ -114,9 +114,14 @@ typedef int sid_ucmd_fn_t(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx);
 #define SID_UCMD_SCAN_NEXT(fn)           SID_UCMD_FN(scan_next, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_POST_CURRENT(fn)   SID_UCMD_FN(scan_post_current, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_POST_NEXT(fn)      SID_UCMD_FN(scan_post_next, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_A_EXIT(fn)         SID_UCMD_FN(scan_a_exit, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_REMOVE_INIT(fn)    SID_UCMD_FN(scan_remove_init, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_REMOVE(fn)         SID_UCMD_FN(scan_remove, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_REMOVE_EXIT(fn)    SID_UCMD_FN(scan_remove_exit, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_B_INIT(fn)         SID_UCMD_FN(scan_b_init, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_ACTION_CURRENT(fn) SID_UCMD_FN(scan_action_current, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_ACTION_NEXT(fn)    SID_UCMD_FN(scan_action_next, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_B_EXIT(fn)         SID_UCMD_FN(scan_b_exit, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_ERROR(fn)          SID_UCMD_FN(scan_error, _SID_UCMD_FN_CHECK_TYPE(fn))
 
 /*
