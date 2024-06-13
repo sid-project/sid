@@ -111,6 +111,7 @@ static int _dm_mpath_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx
 	int   r;
 	char *wwid;
 	char  valid_str[2];
+
 	sid_res_log_debug(mod_res, "scan-next");
 
 	if (!_kernel_cmdline_allow()) // treat failure as allowed
@@ -181,16 +182,9 @@ static int _dm_mpath_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx
 }
 SID_UCMD_SCAN_NEXT(_dm_mpath_scan_next)
 
-static int _dm_mpath_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_mpath_scan_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_res_log_debug(mod_res, "scan-remove");
+	sid_res_log_debug(mod_res, "scan-error");
 	return 0;
 }
-SID_UCMD_SCAN_REMOVE(_dm_mpath_scan_remove)
-
-static int _dm_mpath_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
-{
-	sid_res_log_debug(mod_res, "error");
-	return 0;
-}
-SID_UCMD_ERROR(_dm_mpath_error)
+SID_UCMD_SCAN_ERROR(_dm_mpath_scan_error)
