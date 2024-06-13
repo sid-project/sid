@@ -189,7 +189,7 @@ struct scan_mod_fns {
 	sid_ucmd_fn_t *scan_action_current;
 	sid_ucmd_fn_t *scan_action_next;
 	sid_ucmd_fn_t *scan_b_exit;
-	sid_ucmd_fn_t *error;
+	sid_ucmd_fn_t *scan_error;
 } __packed;
 
 struct udevice {
@@ -7040,7 +7040,7 @@ static struct sid_mod_sym_params block_symbol_params[] = {{
 								  SID_MOD_SYM_FL_INDIRECT,
 							  },
                                                           {
-								  SID_UCMD_MOD_FN_NAME_ERROR,
+								  SID_UCMD_MOD_FN_NAME_SCAN_ERROR,
 								  SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
 							  },
                                                           SID_MOD_NULL_SYM_PARAMS};
@@ -7112,7 +7112,7 @@ static struct sid_mod_sym_params type_symbol_params[]  = {
         },
 
         {
-                SID_UCMD_MOD_FN_NAME_ERROR,
+                SID_UCMD_MOD_FN_NAME_SCAN_ERROR,
                 SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
         },
         SID_MOD_NULL_SYM_PARAMS};
