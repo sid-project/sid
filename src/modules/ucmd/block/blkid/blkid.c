@@ -250,7 +250,9 @@ static int _blkid_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	int         i;
 	int         r = -1;
 
-	pr            = blkid_new_probe();
+	sid_res_log_debug(mod_res, "scan-next");
+
+	pr = blkid_new_probe();
 	if (!pr)
 		goto out;
 
@@ -294,16 +296,9 @@ out:
 }
 SID_UCMD_SCAN_NEXT(_blkid_scan_next)
 
-static int _blkid_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _blkid_scan_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_res_log_debug(mod_res, "scan-remove");
+	sid_res_log_debug(mod_res, "scan-error");
 	return 0;
 }
-SID_UCMD_SCAN_REMOVE(_blkid_scan_remove)
-
-static int _blkid_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
-{
-	sid_res_log_debug(mod_res, "error");
-	return 0;
-}
-SID_UCMD_ERROR(_blkid_error)
+SID_UCMD_SCAN_ERROR(_blkid_scan_error)
