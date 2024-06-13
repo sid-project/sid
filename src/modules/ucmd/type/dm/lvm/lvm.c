@@ -257,34 +257,38 @@ static int _lvm_subsys_match_current(sid_res_t *mod_res, struct sid_ucmd_ctx *uc
 {
 	const char *uuid;
 
+	sid_res_log_debug(mod_res, "scan-dm-subsys-match");
+
 	if (!(uuid = sid_ucmd_kv_foreign_mod_get(mod_res, ucmd_ctx, "/type/dm", SID_KV_NS_DEVMOD, "uuid", NULL, NULL, 0)))
 		return 0;
 
 	return !strncmp(uuid, LVM_DM_UUID_PREFIX, sizeof(LVM_DM_UUID_PREFIX) - 1);
 }
-SID_UCMD_MOD_DM_SUBSYS_MATCH_CURRENT(_lvm_subsys_match_current)
+SID_UCMD_MOD_DM_SCAN_SUBSYS_MATCH_CURRENT(_lvm_subsys_match_current)
 
 static int _lvm_subsys_match_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	const char *type;
+
+	sid_res_log_debug(mod_res, "scan-dm-subsys-match-next");
 
 	if (!(type = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, "ID_FS_TYPE", NULL, NULL, 0)))
 		return 0;
 
 	return !strcmp(type, "LVM2_member");
 }
-SID_UCMD_MOD_DM_SUBSYS_MATCH_NEXT(_lvm_subsys_match_next)
+SID_UCMD_MOD_DM_SCAN_SUBSYS_MATCH_NEXT(_lvm_subsys_match_next)
 
-static int _lvm_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _lvm_scan_a_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_res_log_debug(mod_res, "ident");
+	sid_res_log_debug(mod_res, "scan-a-init");
 
 	if (_store_component_names(mod_res, ucmd_ctx) < 0)
 		return -1;
 
 	return 0;
 }
-SID_UCMD_SCAN_IDENT(_lvm_scan_ident)
+SID_UCMD_SCAN_A_INIT(_lvm_scan_a_init)
 
 static int _lvm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
@@ -326,13 +330,6 @@ static int _lvm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 }
 SID_UCMD_SCAN_PRE(_lvm_scan_pre)
 
-static int _lvm_scan_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
-{
-	sid_res_log_debug(mod_res, "scan-current");
-	return 0;
-}
-SID_UCMD_SCAN_CURRENT(_lvm_scan_current)
-
 static int _lvm_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_t            *runner_res = sid_mod_data_get(mod_res);
@@ -369,27 +366,6 @@ static int _lvm_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	return 0;
 }
 SID_UCMD_SCAN_NEXT(_lvm_scan_next)
-
-static int _lvm_scan_post_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
-{
-	sid_res_log_debug(mod_res, "scan-post-current");
-	return 0;
-}
-SID_UCMD_SCAN_POST_CURRENT(_lvm_scan_post_current)
-
-static int _lvm_scan_post_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
-{
-	sid_res_log_debug(mod_res, "scan-post-next");
-	return 0;
-}
-SID_UCMD_SCAN_POST_NEXT(_lvm_scan_post_next)
-
-static int _lvm_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
-{
-	sid_res_log_debug(mod_res, "scan-remove");
-	return 0;
-}
-SID_UCMD_SCAN_REMOVE(_lvm_scan_remove)
 
 static int _lvm_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
@@ -434,3 +410,10 @@ out:
 	return r;
 }
 SID_UCMD_SCAN_ACTION_NEXT(_lvm_scan_action_next)
+
+static int _lvm_scan_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-error");
+	return 0;
+}
+SID_UCMD_SCAN_ERROR(_lvm_scan_error)
