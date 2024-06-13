@@ -152,14 +152,13 @@ struct ubridge {
 };
 
 typedef enum {
-	CMD_SCAN_PHASE_A_INIT = 0,          /* core initializes phase "A" */
-	CMD_SCAN_PHASE_A_IDENT,             /* module */
-	CMD_SCAN_PHASE_A_SCAN_PRE,          /* module */
-	CMD_SCAN_PHASE_A_SCAN_CURRENT,      /* module */
-	CMD_SCAN_PHASE_A_SCAN_NEXT,         /* module */
-	CMD_SCAN_PHASE_A_SCAN_POST_CURRENT, /* module */
-	CMD_SCAN_PHASE_A_SCAN_POST_NEXT,    /* module */
-	CMD_SCAN_PHASE_A_EXIT,              /* core finishes phase "A" */
+	CMD_SCAN_PHASE_A_INIT = 0,          /* core only */
+	CMD_SCAN_PHASE_A_SCAN_PRE,          /* core + modules */
+	CMD_SCAN_PHASE_A_SCAN_CURRENT,      /* core + modules */
+	CMD_SCAN_PHASE_A_SCAN_NEXT,         /* core + modules */
+	CMD_SCAN_PHASE_A_SCAN_POST_CURRENT, /* core + modules */
+	CMD_SCAN_PHASE_A_SCAN_POST_NEXT,    /* core + modules */
+	CMD_SCAN_PHASE_A_EXIT,              /* core + modules */
 
 	CMD_SCAN_PHASE_REMOVE_INIT,
 	CMD_SCAN_PHASE_REMOVE_CURRENT,
@@ -175,7 +174,6 @@ typedef enum {
 
 struct scan_mod_fns {
 	sid_ucmd_fn_t *scan_a_init;
-	sid_ucmd_fn_t *scan_ident;
 	sid_ucmd_fn_t *scan_pre;
 	sid_ucmd_fn_t *scan_current;
 	sid_ucmd_fn_t *scan_next;
@@ -4836,7 +4834,9 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
 {
+	char                 buf[80];
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	const char          *mod_name;
 
 	if (!(ucmd_ctx->scan.block_mod_iter = sid_res_iter_create(ucmd_ctx->common->block_mod_registry_res))) {
 		sid_res_log_error(cmd_res, "Failed to create block module iterator.");
@@ -4845,22 +4845,6 @@ static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
 
 	if (_set_dev_kvs(cmd_res) < 0)
 		goto fail;
-
-	return 0;
-fail:
-	if (ucmd_ctx->scan.block_mod_iter) {
-		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
-		ucmd_ctx->scan.block_mod_iter = NULL;
-	}
-
-	return -1;
-}
-
-static int _cmd_exec_scan_a_ident(sid_res_t *cmd_res)
-{
-	char                 buf[80];
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
-	const char          *mod_name;
 
 	_exec_block_mods(cmd_res);
 
@@ -4879,7 +4863,7 @@ static int _cmd_exec_scan_a_ident(sid_res_t *cmd_res)
 		                                  buf,
 		                                  sizeof(buf)))) {
 			sid_res_log_error(cmd_res, "Module name lookup failed.");
-			return -1;
+			goto fail;
 		}
 
 		if (!_do_sid_ucmd_set_kv(cmd_res,
@@ -4894,7 +4878,7 @@ static int _cmd_exec_scan_a_ident(sid_res_t *cmd_res)
 			sid_res_log_error(cmd_res,
 			                  "Failed to store device " CMD_DEV_PRINT_FMT " module name",
 			                  CMD_DEV_PRINT(ucmd_ctx));
-			return -1;
+			goto fail;
 		}
 	}
 
@@ -4902,6 +4886,13 @@ static int _cmd_exec_scan_a_ident(sid_res_t *cmd_res)
 		sid_res_log_debug(cmd_res, "Module %s not loaded.", mod_name);
 
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
+fail:
+	if (ucmd_ctx->scan.block_mod_iter) {
+		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
+		ucmd_ctx->scan.block_mod_iter = NULL;
+	}
+
+	return -1;
 }
 
 static int _cmd_exec_scan_a_pre(sid_res_t *cmd_res)
@@ -5112,8 +5103,6 @@ static int _cmd_exec_scan_error(sid_res_t *cmd_res)
 
 static struct cmd_reg _cmd_scan_phase_regs[] = {
 	[CMD_SCAN_PHASE_A_INIT]         = {.name = "a-init", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_a_init},
-
-	[CMD_SCAN_PHASE_A_IDENT]        = {.name = "a-ident", .flags = 0, .exec = _cmd_exec_scan_a_ident},
 
 	[CMD_SCAN_PHASE_A_SCAN_PRE]     = {.name = "a-scan-pre", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_a_pre},
 
@@ -6984,10 +6973,6 @@ static struct sid_mod_sym_params block_symbol_params[] = {{
 								  SID_MOD_SYM_FL_INDIRECT,
 							  },
                                                           {
-								  SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
 								  SID_UCMD_MOD_FN_NAME_SCAN_PRE,
 								  SID_MOD_SYM_FL_INDIRECT,
 							  },
@@ -7049,10 +7034,6 @@ static struct sid_mod_sym_params type_symbol_params[]  = {
 
         {
                 SID_UCMD_MOD_FN_NAME_SCAN_A_INIT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
                 SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
         },
         {

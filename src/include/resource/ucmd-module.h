@@ -37,7 +37,6 @@ extern "C" {
 #define SID_UCMD_TYPE_MOD_DIR                    LIBDIR "/" PACKAGE "/modules/ucmd/type"
 
 #define SID_UCMD_MOD_FN_NAME_SCAN_A_INIT         "sid_ucmd_scan_a_init"
-#define SID_UCMD_MOD_FN_NAME_SCAN_IDENT          "sid_ucmd_scan_ident"
 #define SID_UCMD_MOD_FN_NAME_SCAN_PRE            "sid_ucmd_scan_pre"
 #define SID_UCMD_MOD_FN_NAME_SCAN_CURRENT        "sid_ucmd_scan_current"
 #define SID_UCMD_MOD_FN_NAME_SCAN_NEXT           "sid_ucmd_scan_next"
@@ -109,7 +108,7 @@ typedef int sid_ucmd_fn_t(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx);
 
 #endif /* __GNUC__ */
 
-#define SID_UCMD_SCAN_IDENT(fn)          SID_UCMD_FN(scan_ident, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_SCAN_A_INIT(fn)         SID_UCMD_FN(scan_a_init, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_PRE(fn)            SID_UCMD_FN(scan_pre, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_CURRENT(fn)        SID_UCMD_FN(scan_current, _SID_UCMD_FN_CHECK_TYPE(fn))
 #define SID_UCMD_SCAN_NEXT(fn)           SID_UCMD_FN(scan_next, _SID_UCMD_FN_CHECK_TYPE(fn))
