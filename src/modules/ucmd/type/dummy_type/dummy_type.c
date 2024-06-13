@@ -84,12 +84,40 @@ static int _dummy_type_scan_post_next(sid_res_t *mod_res, struct sid_ucmd_ctx *u
 }
 SID_UCMD_SCAN_POST_NEXT(_dummy_type_scan_post_next)
 
+static int _dummy_type_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-a-exit");
+	return 0;
+}
+SID_UCMD_SCAN_A_EXIT(_dummy_type_scan_a_exit)
+
+static int _dummy_type_scan_remove_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-remove-init");
+	return 0;
+}
+SID_UCMD_SCAN_REMOVE_INIT(_dummy_type_scan_remove_init)
+
 static int _dummy_type_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "scan-remove");
 	return 0;
 }
 SID_UCMD_SCAN_REMOVE(_dummy_type_scan_remove)
+
+static int _dummy_type_scan_remove_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-remove-exit");
+	return 0;
+}
+SID_UCMD_SCAN_REMOVE_EXIT(_dummy_type_scan_remove_exit)
+
+static int _dummy_type_scan_b_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-b-init");
+	return 0;
+}
+SID_UCMD_SCAN_B_INIT(_dummy_type_scan_b_init)
 
 static int _dummy_type_scan_action_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
@@ -104,6 +132,13 @@ static int _dummy_type_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx 
 	return 0;
 }
 SID_UCMD_SCAN_ACTION_NEXT(_dummy_type_scan_action_next)
+
+static int _dummy_type_scan_b_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-b-exit");
+	return 0;
+}
+SID_UCMD_SCAN_B_EXIT(_dummy_type_scan_b_exit)
 
 static int _dummy_type_scan_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
