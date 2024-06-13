@@ -866,33 +866,50 @@ SID_UCMD_SCAN_NEXT(_dm_scan_next)
 
 static int _dm_scan_post_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	sid_res_log_debug(mod_res, "scan-post-current");
+
+	(void) _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT);
+	return 0;
+}
+SID_UCMD_SCAN_POST_CURRENT(_dm_scan_post_current)
+
+static int _dm_scan_post_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-post-next");
+	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SCAN_POST_NEXT);
+}
+SID_UCMD_SCAN_POST_NEXT(_dm_scan_post_next)
+
+static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
 	sid_ucmd_dev_ready_t     ready;
 	const dm_cookie_flags_t *flags;
 	int                      i;
 
-	sid_res_log_debug(mod_res, "scan-post-current");
-
-	(void) _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT);
+	sid_res_log_debug(mod_res, "scan-a-exit");
 
 	ready = sid_ucmd_dev_ready_get(mod_res, ucmd_ctx, 0);
-	if (!(flags = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, DM_X_COOKIE_FLAGS, NULL, NULL, 0))) {
-		sid_res_log_error(mod_res, _failed_to_get_msg, DM_X_COOKIE_FLAGS);
-		return -1;
-	}
 
 	/*
 	 *  Store DM_UDEV_RULES_VSN and all decoded flags to SID_KV_NS_UDEV
 	 *  for backwards compatibility and for use in udev rules
 	 */
 
-	if (ready >= _SID_DEV_RDY)
-		(void) sid_ucmd_kv_set(mod_res,
-		                       ucmd_ctx,
-		                       SID_KV_NS_UDEV,
-		                       DM_U_UDEV_RULES_VSN,
-		                       DM_UDEV_RULES_VSN,
-		                       sizeof(DM_UDEV_RULES_VSN),
-		                       SID_KV_FL_SYNC_P);
+	if (ready >= _SID_DEV_RDY) {
+		if (sid_ucmd_kv_set(mod_res,
+		                    ucmd_ctx,
+		                    SID_KV_NS_UDEV,
+		                    DM_U_UDEV_RULES_VSN,
+		                    DM_UDEV_RULES_VSN,
+		                    sizeof(DM_UDEV_RULES_VSN),
+		                    SID_KV_FL_SYNC_P) < 0) {
+			sid_res_log_error(mod_res, _failed_to_set_msg, DM_U_UDEV_RULES_VSN);
+			return -1;
+		}
+	}
+
+	if (!(flags = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, DM_X_COOKIE_FLAGS, NULL, NULL, 0)))
+		return 0;
 
 	/*
 	 *  TODO: handle DM_UDEV_DISABLE_OTHER_RULES_FLAG which may be overriden after processing
@@ -927,14 +944,7 @@ static int _dm_scan_post_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_c
 
 	return 0;
 }
-SID_UCMD_SCAN_POST_CURRENT(_dm_scan_post_current)
-
-static int _dm_scan_post_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
-{
-	sid_res_log_debug(mod_res, "scan-post-next");
-	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_SCAN_POST_NEXT);
-}
-SID_UCMD_SCAN_POST_NEXT(_dm_scan_post_next)
+SID_UCMD_SCAN_A_EXIT(_dm_scan_a_exit)
 
 static int _dm_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
