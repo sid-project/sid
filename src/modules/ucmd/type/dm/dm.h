@@ -26,15 +26,15 @@
 extern "C" {
 #endif
 
-#define SID_UCMD_MOD_DM_FN_NAME_SUBSYS_MATCH_CURRENT "sid_ucmd_dm_subsys_match_current"
-#define SID_UCMD_MOD_DM_FN_NAME_SUBSYS_MATCH_NEXT    "sid_ucmd_dm_subsys_match_next"
+#define SID_UCMD_MOD_DM_FN_NAME_SCAN_SUBSYS_MATCH_CURRENT "sid_ucmd_dm_scan_subsys_match_current"
+#define SID_UCMD_MOD_DM_FN_NAME_SCAN_SUBSYS_MATCH_NEXT    "sid_ucmd_dm_scan_subsys_match_next"
 
-#define SID_UCMD_MOD_DM_SUBSYS_MATCH_CURRENT(fn)     SID_UCMD_FN(dm_subsys_match_current, _SID_UCMD_FN_CHECK_TYPE(fn))
-#define SID_UCMD_MOD_DM_SUBSYS_MATCH_NEXT(fn)        SID_UCMD_FN(dm_subsys_match_next, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_MOD_DM_SCAN_SUBSYS_MATCH_CURRENT(fn)     SID_UCMD_FN(dm_scan_subsys_match_current, _SID_UCMD_FN_CHECK_TYPE(fn))
+#define SID_UCMD_MOD_DM_SCAN_SUBSYS_MATCH_NEXT(fn)        SID_UCMD_FN(dm_scan_subsys_match_next, _SID_UCMD_FN_CHECK_TYPE(fn))
 
-#define DM_X_NAME                                    "name"
-#define DM_X_UUID                                    "uuid"
-#define DM_X_COOKIE_FLAGS                            "cookie_flags"
+#define DM_X_NAME                                         "name"
+#define DM_X_UUID                                         "uuid"
+#define DM_X_COOKIE_FLAGS                                 "cookie_flags"
 
 typedef uint16_t dm_cookie_flags_t;
 

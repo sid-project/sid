@@ -41,15 +41,15 @@ SID_UCMD_MOD_ALIASES("device_mapper")
 
 static struct sid_mod_sym_params dm_submod_sym_params[] = {
 	{
-		SID_UCMD_MOD_DM_FN_NAME_SUBSYS_MATCH_CURRENT,
+		SID_UCMD_MOD_DM_FN_NAME_SCAN_SUBSYS_MATCH_CURRENT,
 		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
 	},
 	{
-		SID_UCMD_MOD_DM_FN_NAME_SUBSYS_MATCH_NEXT,
+		SID_UCMD_MOD_DM_FN_NAME_SCAN_SUBSYS_MATCH_NEXT,
 		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
 	},
 	{
-		SID_UCMD_MOD_FN_NAME_SCAN_IDENT,
+		SID_UCMD_MOD_FN_NAME_SCAN_A_INIT,
 		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
 	},
 	{
@@ -84,27 +84,31 @@ static struct sid_mod_sym_params dm_submod_sym_params[] = {
 		SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
 		SID_MOD_SYM_FL_INDIRECT,
 	},
+	{
+		SID_UCMD_MOD_FN_NAME_SCAN_ERROR,
+		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
+	},
 	SID_MOD_NULL_SYM_PARAMS,
 };
 
 typedef enum {
 	DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT,
 	DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_NEXT,
-	DM_SUBMOD_SCAN_PHASE_IDENT,
+	DM_SUBMOD_SCAN_PHASE_A_INIT,
 	DM_SUBMOD_SCAN_PHASE_SCAN_PRE,
 	DM_SUBMOD_SCAN_PHASE_SCAN_CURRENT,
 	DM_SUBMOD_SCAN_PHASE_SCAN_NEXT,
 	DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT,
 	DM_SUBMOD_SCAN_PHASE_SCAN_POST_NEXT,
 	DM_SUBMOD_SCAN_PHASE_REMOVE,
-	DM_SUBMOD_TRIGGER_ACTION_CURRENT,
-	DM_SUBMOD_TRIGGER_ACTION_NEXT,
+	DM_SUBMOD_SCAN_PHASE_ACTION_CURRENT,
+	DM_SUBMOD_SCAN_PHASE_ACTION_NEXT,
 } dm_submod_cmd_scan_phase_t;
 
-struct dm_submod_fns {
-	sid_ucmd_fn_t *subsys_match_current;
-	sid_ucmd_fn_t *subsys_match_next;
-	sid_ucmd_fn_t *ident;
+struct scan_dm_submod_fns {
+	sid_ucmd_fn_t *scan_subsys_match_current;
+	sid_ucmd_fn_t *scan_subsys_match_next;
+	sid_ucmd_fn_t *scan_a_init;
 	sid_ucmd_fn_t *scan_pre;
 	sid_ucmd_fn_t *scan_current;
 	sid_ucmd_fn_t *scan_next;
@@ -113,6 +117,7 @@ struct dm_submod_fns {
 	sid_ucmd_fn_t *scan_remove;
 	sid_ucmd_fn_t *scan_action_current;
 	sid_ucmd_fn_t *scan_action_next;
+	sid_ucmd_fn_t *scan_error;
 } __packed;
 
 struct dm_mod_ctx {
@@ -174,7 +179,7 @@ static const char _failed_to_get_sysfs_msg[] = "Failed to get sysfs property for
 	sid_ucmd_ev_dev_name_get(ucmd_ctx), sid_ucmd_ev_dev_major_get(ucmd_ctx), sid_ucmd_ev_dev_minor_get(ucmd_ctx),              \
 		sid_ucmd_ev_dev_diskseq_get(ucmd_ctx)
 
-static int _get_dm_submod_syms(sid_res_t *mod_res, sid_res_t *submod_res, struct dm_submod_fns **submod_fns)
+static int _get_dm_submod_syms(sid_res_t *mod_res, sid_res_t *submod_res, struct scan_dm_submod_fns **submod_fns)
 {
 	if (!submod_res)
 		return -EINVAL;
@@ -192,8 +197,8 @@ static int _do_exec_dm_submod(sid_res_t                 *mod_res,
                               dm_submod_cmd_scan_phase_t phase,
                               struct sid_ucmd_ctx       *ucmd_ctx)
 {
-	struct dm_submod_fns *submod_fns;
-	sid_ucmd_fn_t        *submod_fn;
+	struct scan_dm_submod_fns *submod_fns;
+	sid_ucmd_fn_t             *submod_fn;
 
 	if (!submod_res)
 		return 0;
@@ -211,10 +216,10 @@ static int _do_exec_dm_submod(sid_res_t                 *mod_res,
 
 static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm_submod_cmd_scan_phase_t phase)
 {
-	static const char     _failed_to_create_submod_iter_msg[] = "Failed to create submodule iterator.";
-	struct dm_mod_ctx    *dm_mod                              = sid_mod_data_get(mod_res);
-	struct dm_submod_fns *submod_fns;
-	sid_res_iter_t       *iter;
+	static const char          _failed_to_create_submod_iter_msg[] = "Failed to create submodule iterator.";
+	struct dm_mod_ctx         *dm_mod                              = sid_mod_data_get(mod_res);
+	struct scan_dm_submod_fns *submod_fns;
+	sid_res_iter_t            *iter;
 
 	switch (phase) {
 		case DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT:
@@ -227,8 +232,8 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 				if (_get_dm_submod_syms(mod_res, dm_mod->submod_res, &submod_fns) < 0)
 					continue;
 
-				if (submod_fns->subsys_match_current) {
-					if (submod_fns->subsys_match_current(dm_mod->submod_res, ucmd_ctx)) {
+				if (submod_fns->scan_subsys_match_current) {
+					if (submod_fns->scan_subsys_match_current(dm_mod->submod_res, ucmd_ctx)) {
 						dm_mod->submod_res_current = dm_mod->submod_res;
 						sid_res_log_debug(mod_res,
 						                  "%s submodule claimed " DEV_PRINT_FMT " for 'current' phases.",
@@ -252,8 +257,8 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 				if (_get_dm_submod_syms(mod_res, dm_mod->submod_res, &submod_fns) < 0)
 					continue;
 
-				if (submod_fns->subsys_match_next) {
-					if (submod_fns->subsys_match_next(dm_mod->submod_res, ucmd_ctx)) {
+				if (submod_fns->scan_subsys_match_next) {
+					if (submod_fns->scan_subsys_match_next(dm_mod->submod_res, ucmd_ctx)) {
 						dm_mod->submod_res_next = dm_mod->submod_res;
 						sid_res_log_debug(mod_res,
 						                  "%s submodule claimed " DEV_PRINT_FMT " for 'next' phases.",
@@ -266,19 +271,19 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 			sid_res_iter_destroy(iter);
 			break;
 
-		case DM_SUBMOD_SCAN_PHASE_IDENT:
+		case DM_SUBMOD_SCAN_PHASE_A_INIT:
 		case DM_SUBMOD_SCAN_PHASE_SCAN_PRE:
 		case DM_SUBMOD_SCAN_PHASE_SCAN_CURRENT:
 		case DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT:
 		case DM_SUBMOD_SCAN_PHASE_REMOVE:
-		case DM_SUBMOD_TRIGGER_ACTION_CURRENT:
+		case DM_SUBMOD_SCAN_PHASE_ACTION_CURRENT:
 			if (_do_exec_dm_submod(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, phase, ucmd_ctx) < 0)
 				return -1;
 			break;
 
 		case DM_SUBMOD_SCAN_PHASE_SCAN_NEXT:
 		case DM_SUBMOD_SCAN_PHASE_SCAN_POST_NEXT:
-		case DM_SUBMOD_TRIGGER_ACTION_NEXT:
+		case DM_SUBMOD_SCAN_PHASE_ACTION_NEXT:
 			if (_do_exec_dm_submod(mod_res, dm_mod->submod_res = dm_mod->submod_res_next, phase, ucmd_ctx) < 0)
 				return -1;
 			break;
@@ -527,7 +532,7 @@ static int _dm_reset(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common
 }
 SID_UCMD_MOD_RESET(_dm_reset)
 
-static int _dm_submod_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_submod_scan_a_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	struct dm_mod_ctx *dm_mod;
 	const char        *submod_name = NULL;
@@ -567,16 +572,16 @@ static int _dm_submod_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	return 0;
 }
 
-static int _dm_scan_ident(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_scan_a_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_res_log_debug(mod_res, "ident");
+	sid_res_log_debug(mod_res, "scan-a-init");
 
 	if (_get_sysfs_props(mod_res, ucmd_ctx) < 0)
 		return -1;
 
-	return _dm_submod_ident(mod_res, ucmd_ctx);
+	return _dm_submod_scan_a_init(mod_res, ucmd_ctx);
 }
-SID_UCMD_SCAN_IDENT(_dm_scan_ident)
+SID_UCMD_SCAN_A_INIT(_dm_scan_a_init)
 
 /*
  * We expect this sequence for DM device activation:
@@ -935,7 +940,7 @@ static int _dm_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "scan-remove");
 
-	if (_dm_submod_ident(mod_res, ucmd_ctx) < 0)
+	if (_dm_submod_scan_a_init(mod_res, ucmd_ctx) < 0)
 		return -1;
 
 	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_REMOVE);
@@ -989,20 +994,20 @@ static int _dm_scan_action_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd
 			return -1;
 	}
 
-	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_TRIGGER_ACTION_CURRENT);
+	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_ACTION_CURRENT);
 }
 SID_UCMD_SCAN_ACTION_CURRENT(_dm_scan_action_current)
 
 static int _dm_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "scan-action-next");
-	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_TRIGGER_ACTION_NEXT);
+	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_ACTION_NEXT);
 }
 SID_UCMD_SCAN_ACTION_NEXT(_dm_scan_action_next)
 
-static int _dm_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_scan_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_res_log_debug(mod_res, "error");
+	sid_res_log_debug(mod_res, "scan-error");
 	return 0;
 }
-SID_UCMD_ERROR(_dm_error)
+SID_UCMD_SCAN_ERROR(_dm_scan_error)
