@@ -5115,19 +5115,19 @@ static int _cmd_exec_scan_error(sid_res_t *cmd_res)
 }
 
 static struct cmd_reg _cmd_scan_phase_regs[] = {
-	[CMD_SCAN_PHASE_A_INIT]         = {.name = "a-init", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_a_init},
+	[CMD_SCAN_PHASE_A_INIT]         = {.name = "scan-a-init", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_a_init},
 
-	[CMD_SCAN_PHASE_A_SCAN_PRE]     = {.name = "a-scan-pre", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_a_pre},
+	[CMD_SCAN_PHASE_A_SCAN_PRE]     = {.name = "scan-a-pre", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_a_pre},
 
-	[CMD_SCAN_PHASE_A_SCAN_CURRENT] = {.name = "a-scan-current", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_a_current},
+	[CMD_SCAN_PHASE_A_SCAN_CURRENT] = {.name = "scan-a-current", .flags = CMD_SCAN_CAP_RDY, .exec = _cmd_exec_scan_a_current},
 
-	[CMD_SCAN_PHASE_A_SCAN_NEXT]    = {.name = "a-scan-next", .flags = CMD_SCAN_CAP_RES, .exec = _cmd_exec_scan_a_next},
+	[CMD_SCAN_PHASE_A_SCAN_NEXT]    = {.name = "scan-a-next", .flags = CMD_SCAN_CAP_RES, .exec = _cmd_exec_scan_a_next},
 
-	[CMD_SCAN_PHASE_A_SCAN_POST_CURRENT] = {.name = "a-scan-post-current", .flags = 0, .exec = _cmd_exec_scan_a_post_current},
+	[CMD_SCAN_PHASE_A_SCAN_POST_CURRENT] = {.name = "scan-a-post-current", .flags = 0, .exec = _cmd_exec_scan_a_post_current},
 
-	[CMD_SCAN_PHASE_A_SCAN_POST_NEXT]    = {.name = "a-scan-post-next", .flags = 0, .exec = _cmd_exec_scan_a_post_next},
+	[CMD_SCAN_PHASE_A_SCAN_POST_NEXT]    = {.name = "scan-a-post-next", .flags = 0, .exec = _cmd_exec_scan_a_post_next},
 
-	[CMD_SCAN_PHASE_A_EXIT]              = {.name = "a-exit", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_a_exit},
+	[CMD_SCAN_PHASE_A_EXIT]              = {.name = "scan-a-exit", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_a_exit},
 
 	[CMD_SCAN_PHASE_REMOVE_INIT]         = {.name = "remove-init", .flags = 0, .exec = _cmd_exec_scan_remove_init},
 
@@ -5135,15 +5135,15 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 
 	[CMD_SCAN_PHASE_REMOVE_EXIT]         = {.name = "remove-exit", .flags = 0, .exec = _cmd_exec_scan_remove_exit},
 
-	[CMD_SCAN_PHASE_B_INIT]              = {.name = "b-init", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_b_init},
+	[CMD_SCAN_PHASE_B_INIT]              = {.name = "scan-b-init", .flags = CMD_SCAN_CAP_ALL, .exec = _cmd_exec_scan_b_init},
 
-	[CMD_SCAN_PHASE_B_ACTION_CURRENT]    = {.name = "b-action-current", .flags = 0, .exec = _cmd_exec_scan_b_action_current},
+	[CMD_SCAN_PHASE_B_ACTION_CURRENT] = {.name = "scan-b-action-current", .flags = 0, .exec = _cmd_exec_scan_b_action_current},
 
-	[CMD_SCAN_PHASE_B_ACTION_NEXT]       = {.name = "b-action-next", .flags = 0, .exec = _cmd_exec_scan_b_action_next},
+	[CMD_SCAN_PHASE_B_ACTION_NEXT]    = {.name = "scan-b-action-next", .flags = 0, .exec = _cmd_exec_scan_b_action_next},
 
-	[CMD_SCAN_PHASE_B_EXIT]              = {.name = "b-exit", .flags = 0, .exec = _cmd_exec_scan_b_exit},
+	[CMD_SCAN_PHASE_B_EXIT]           = {.name = "scan-b-exit", .flags = 0, .exec = _cmd_exec_scan_b_exit},
 
-	[CMD_SCAN_PHASE_ERROR]               = {.name = "error", .flags = 0, .exec = _cmd_exec_scan_error},
+	[CMD_SCAN_PHASE_ERROR]            = {.name = "scan-error", .flags = 0, .exec = _cmd_exec_scan_error},
 };
 
 static int _cmd_exec_scan(sid_res_t *cmd_res)
