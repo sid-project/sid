@@ -190,6 +190,7 @@ bool sid_kvs_transaction_active(sid_res_t *kv_store_res);
 typedef struct sid_kvs_iter sid_kvs_iter_t;
 
 sid_kvs_iter_t *sid_kvs_iter_create(sid_res_t *kv_store_res, const char *key_start, const char *key_end);
+sid_kvs_iter_t *sid_kvs_iter_prefix_create(sid_res_t *kv_store_res, const char *prefix);
 int             sid_kvs_iter_current_size(sid_kvs_iter_t *iter,
                                           size_t         *int_size,
                                           size_t         *int_data_size,

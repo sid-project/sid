@@ -88,6 +88,11 @@ struct kv_update_fn_relay {
 	int                    ret_code;
 };
 
+typedef enum {
+	ITER_EXACT,
+	ITER_PREFIX,
+} kvs_iter_method_t;
+
 struct sid_kvs_iter {
 	struct kv_store *store;
 
@@ -1113,7 +1118,8 @@ void sid_kvs_transaction_end(sid_res_t *kv_store_res, bool rollback)
 	kv_store->trans_rollback_buf = NULL;
 }
 
-sid_kvs_iter_t *sid_kvs_iter_create(sid_res_t *kv_store_res, const char *key_start, const char *key_end)
+static sid_kvs_iter_t *
+	_do_sid_kvs_iter_create(sid_res_t *kv_store_res, kvs_iter_method_t method, const char *key_start, const char *key_end)
 {
 	sid_kvs_iter_t *iter;
 
@@ -1132,7 +1138,16 @@ sid_kvs_iter_t *sid_kvs_iter_create(sid_res_t *kv_store_res, const char *key_sta
 			break;
 
 		case SID_KVS_BACKEND_BPTREE:
-			if (!(iter->bpt.iter = bptree_iter_create(iter->store->bpt, key_start, key_end))) {
+			switch (method) {
+				case ITER_EXACT:
+					iter->bpt.iter = bptree_iter_create(iter->store->bpt, key_start, key_end);
+					break;
+				case ITER_PREFIX:
+					iter->bpt.iter = bptree_iter_prefix_create(iter->store->bpt, key_start);
+					break;
+			}
+
+			if (!iter->bpt.iter) {
 				free(iter);
 				iter = NULL;
 			}
@@ -1140,6 +1155,16 @@ sid_kvs_iter_t *sid_kvs_iter_create(sid_res_t *kv_store_res, const char *key_sta
 	};
 
 	return iter;
+}
+
+sid_kvs_iter_t *sid_kvs_iter_create(sid_res_t *kv_store_res, const char *key_start, const char *key_end)
+{
+	return _do_sid_kvs_iter_create(kv_store_res, ITER_EXACT, key_start, key_end);
+}
+
+sid_kvs_iter_t *sid_kvs_iter_prefix_create(sid_res_t *kv_store_res, const char *prefix)
+{
+	return _do_sid_kvs_iter_create(kv_store_res, ITER_PREFIX, prefix, NULL);
 }
 
 void *sid_kvs_iter_current(sid_kvs_iter_t *iter, size_t *size, sid_kvs_val_fl_t *flags)
