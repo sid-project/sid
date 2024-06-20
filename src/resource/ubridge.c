@@ -78,7 +78,6 @@
 #define KV_INDEX_REMOVE            2
 
 #define KV_PREFIX_OP_SYNC_C        ">"
-#define KV_PREFIX_OP_SYNC_END_C    "?" /* right after '>' */
 #define KV_PREFIX_OP_ARCHIVE_C     "~"
 #define KV_PREFIX_OP_BLANK_C       " "
 #define KV_PREFIX_OP_ILLEGAL_C     "X"
@@ -1229,7 +1228,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 	 */
 
 	if ((is_sync = flags & CMD_KV_EXPORT_SYNC))
-		iter = sid_kvs_iter_create(ucmd_ctx->common->kv_store_res, KV_PREFIX_OP_SYNC_C, KV_PREFIX_OP_SYNC_END_C);
+		iter = sid_kvs_iter_prefix_create(ucmd_ctx->common->kv_store_res, KV_PREFIX_OP_SYNC_C);
 	else
 		iter = sid_kvs_iter_create(ucmd_ctx->common->kv_store_res, NULL, NULL);
 
@@ -4081,7 +4080,7 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 	prev_uuid                       = uuid_buf1;
 	uuid                            = uuid_buf2;
 
-	if (!(iter = sid_kvs_iter_create(ucmd_ctx->common->kv_store_res, "::D:", "::E:")))
+	if (!(iter = sid_kvs_iter_prefix_create(ucmd_ctx->common->kv_store_res, "::D:")))
 		goto out;
 
 	fmt_doc_start_print(format, prn_buf, 0);
