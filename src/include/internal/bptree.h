@@ -73,6 +73,7 @@ int       bptree_destroy_with_fn(bptree_t *bptree, bptree_iterate_fn_t fn, void 
 void bptree_iter(bptree_t *bptree, const char *key_start, const char *key_end, bptree_iterate_fn_t fn, void *fn_arg);
 
 bptree_iter_t *bptree_iter_create(bptree_t *bptree, const char *key_start, const char *key_end);
+bptree_iter_t *bptree_iter_prefix_create(bptree_t *bptree, const char *prefix);
 void          *bptree_iter_current(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);
 const char    *bptree_iter_current_key(bptree_iter_t *iter);
 void          *bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);

@@ -106,12 +106,19 @@ typedef struct bptree_node {
 	int                 num_keys;
 } bptree_node_t;
 
+typedef enum {
+	LOOKUP_EXACT,
+	LOOKUP_PREFIX,
+} bptree_lookup_method_t;
+
 typedef struct bptree_iter {
-	bptree_t      *bptree;
-	const char    *key_start;
-	const char    *key_end;
-	bptree_node_t *c;
-	int            i;
+	bptree_lookup_method_t method;
+	bptree_t              *bptree;
+	const char            *key_start;
+	const char            *key_end;
+	size_t                 key_start_len;
+	bptree_node_t         *c;
+	int                    i;
 } bptree_iter_t;
 
 /*
@@ -131,11 +138,6 @@ typedef struct bptree {
 	size_t         data_size;
 	size_t         num_entries;
 } bptree_t;
-
-typedef enum {
-	LOOKUP_EXACT,
-	LOOKUP_PREFIX,
-} bptree_lookup_method_t;
 
 static bptree_node_t *_insert_into_parent(bptree_t       *bptree,
                                           bptree_node_t **node_list,
@@ -1401,20 +1403,33 @@ static bptree_node_t *_get_first_leaf_node(bptree_t *bptree)
 	return c;
 }
 
-bptree_iter_t *bptree_iter_create(bptree_t *bptree, const char *key_start, const char *key_end)
+static bptree_iter_t *
+	_do_bptree_iter_create(bptree_t *bptree, bptree_lookup_method_t method, const char *key_start, const char *key_end)
 {
 	bptree_iter_t *iter;
 
 	if (!(iter = malloc(sizeof(bptree_iter_t))))
 		return NULL;
 
-	iter->bptree    = bptree;
-	iter->key_start = key_start;
-	iter->key_end   = key_end;
-	iter->c         = NULL;
-	iter->i         = 0;
+	iter->method        = method;
+	iter->bptree        = bptree;
+	iter->key_start     = key_start;
+	iter->key_end       = key_end;
+	iter->key_start_len = method == LOOKUP_PREFIX ? strlen(key_start) : 0;
+	iter->c             = NULL;
+	iter->i             = 0;
 
 	return iter;
+}
+
+bptree_iter_t *bptree_iter_create(bptree_t *bptree, const char *key_start, const char *key_end)
+{
+	return _do_bptree_iter_create(bptree, LOOKUP_EXACT, key_start, key_end);
+}
+
+bptree_iter_t *bptree_iter_prefix_create(bptree_t *bptree, const char *prefix)
+{
+	return _do_bptree_iter_create(bptree, LOOKUP_PREFIX, prefix, NULL);
 }
 
 void *bptree_iter_current(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count)
@@ -1463,16 +1478,32 @@ void *bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size,
 		}
 	} else {
 		if (iter->key_start)
-			(void) _find(iter->bptree, iter->key_start, LOOKUP_PREFIX, &iter->c, &iter->i, NULL);
+			(void) _find(iter->bptree, iter->key_start, iter->method, &iter->c, &iter->i, NULL);
 		else {
 			iter->c = _get_first_leaf_node(iter->bptree);
 			iter->i = 0;
 		}
 	}
 
-	if (iter->key_end && iter->c && strcmp(iter->c->bkeys[iter->i]->key, iter->key_end) > 0) {
-		iter->c = NULL;
-		iter->i = 0;
+	if (iter->c) {
+		switch (iter->method) {
+			case LOOKUP_EXACT:
+				if (iter->key_end) {
+					if (strcmp(iter->c->bkeys[iter->i]->key, iter->key_end) > 0) {
+						iter->c = NULL;
+						iter->i = 0;
+					}
+				}
+				break;
+			case LOOKUP_PREFIX:
+				if (iter->key_start) {
+					if (strncmp(iter->c->bkeys[iter->i]->key, iter->key_start, iter->key_start_len) != 0) {
+						iter->c = NULL;
+						iter->i = 0;
+					}
+				}
+				break;
+		}
 	}
 
 	return bptree_iter_current(iter, key, data_size, data_ref_count);
