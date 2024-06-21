@@ -3234,9 +3234,9 @@ out:
 	return r;
 }
 
-int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
+int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
 {
-	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_cat) || UTIL_STR_EMPTY(alias_id))
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_key) || UTIL_STR_EMPTY(alias))
 		return -EINVAL;
 
 	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
@@ -3249,15 +3249,15 @@ int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 	                             NULL,
 	                             KV_KEY_DOM_ALIAS,
 	                             SID_KV_NS_MODULE,
-	                             alias_cat,
-	                             alias_id,
+	                             alias_key,
+	                             alias,
 	                             KV_OP_PLUS,
 	                             false);
 }
 
-int sid_ucmd_dev_alias_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_cat, const char *alias_id)
+int sid_ucmd_dev_alias_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
 {
-	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_cat) || UTIL_STR_EMPTY(alias_id))
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_key) || UTIL_STR_EMPTY(alias))
 		return -EINVAL;
 
 	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
@@ -3270,8 +3270,8 @@ int sid_ucmd_dev_alias_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx,
 	                             NULL,
 	                             KV_KEY_DOM_ALIAS,
 	                             SID_KV_NS_MODULE,
-	                             alias_cat,
-	                             alias_id,
+	                             alias_key,
+	                             alias,
 	                             KV_OP_MINUS,
 	                             false);
 }
