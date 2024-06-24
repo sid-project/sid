@@ -21,6 +21,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -58,6 +59,9 @@ int sid_util_env_ull_get(const char *key, unsigned long long min, unsigned long 
 ssize_t sid_util_fd_read_all(int fd, void *buf, size_t len)
 {
 	ssize_t n, total = 0;
+
+	if (len > SSIZE_MAX)
+		return -ERANGE;
 
 	while (len) {
 		n = read(fd, buf, len);
