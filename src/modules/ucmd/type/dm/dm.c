@@ -793,7 +793,7 @@ handle_unconfigured:
 				 * Set ready state according to flags from the cookie.
 				 */
 				if (cookie_flags & DM_UDEV_DISABLE_OTHER_RULES_FLAG)
-					r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
+					r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
 				else if (cookie_flags & DM_UDEV_DISABLE_DISK_RULES_FLAG)
 					r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_FLAT);
 				else
