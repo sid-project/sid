@@ -54,26 +54,26 @@ typedef void (
 	*bptree_iterate_fn_t)(const char *key, void *data, size_t data_size, unsigned data_ref_count, void *bptree_iterate_fn_arg);
 
 bptree_t *bptree_create(int order);
-int       bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_size);
-int       bptree_alias_insert(bptree_t *bptree, const char *key, const char *alias, bool force);
+int       bptree_add(bptree_t *bptree, const char *key, void *data, size_t data_size);
+int       bptree_add_alias(bptree_t *bptree, const char *key, const char *alias, bool force);
 int       bptree_update(bptree_t             *bptree,
                         const char           *key,
                         void                **data,
                         size_t               *data_size,
                         bptree_update_cb_fn_t bptree_update_fn,
                         void                 *bptree_update_fn_arg);
-int       bptree_remove(bptree_t *bptree, const char *key);
+int       bptree_del(bptree_t *bptree, const char *key);
 void     *bptree_lookup(bptree_t *bptree, const char *key, size_t *data_size, unsigned *data_ref_count);
-int       bptree_height_get(bptree_t *bptree);
-size_t    bptree_size_get(bptree_t *bptree, size_t *meta_size, size_t *data_size);
-size_t    bptree_entry_count_get(bptree_t *bptree);
+int       bptree_get_height(bptree_t *bptree);
+size_t    bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size);
+size_t    bptree_get_entry_count(bptree_t *bptree);
 int       bptree_destroy(bptree_t *bptree);
 int       bptree_destroy_with_fn(bptree_t *bptree, bptree_iterate_fn_t fn, void *fn_arg);
 
 void bptree_iter(bptree_t *bptree, const char *key_start, const char *key_end, bptree_iterate_fn_t fn, void *fn_arg);
 
 bptree_iter_t *bptree_iter_create(bptree_t *bptree, const char *key_start, const char *key_end);
-bptree_iter_t *bptree_iter_prefix_create(bptree_t *bptree, const char *prefix);
+bptree_iter_t *bptree_iter_create_prefix(bptree_t *bptree, const char *prefix);
 void          *bptree_iter_current(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);
 const char    *bptree_iter_current_key(bptree_iter_t *iter);
 void          *bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);

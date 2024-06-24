@@ -95,7 +95,7 @@ static int _get_coord(struct bitmap *bitmap, size_t bit_pos, unsigned *block, un
 	return 0;
 }
 
-int bitmap_bit_set(struct bitmap *bitmap, size_t bit_pos)
+int bitmap_set_bit(struct bitmap *bitmap, size_t bit_pos)
 {
 	unsigned block, bit;
 	int      r;
@@ -111,7 +111,7 @@ int bitmap_bit_set(struct bitmap *bitmap, size_t bit_pos)
 	return 0;
 }
 
-int bitmap_bit_unset(struct bitmap *bitmap, size_t bit_pos)
+int bitmap_unset_bit(struct bitmap *bitmap, size_t bit_pos)
 {
 	unsigned block, bit;
 	int      r;
@@ -141,12 +141,12 @@ bool bitmap_bit_is_set(struct bitmap *bitmap, size_t bit_pos, int *ret_code)
 	return bitmap->mem[block] & bit;
 }
 
-size_t bitmap_bit_count_get(struct bitmap *bitmap)
+size_t bitmap_get_bit_count(struct bitmap *bitmap)
 {
 	return bitmap->bit_count;
 }
 
-size_t bitmap_bit_set_count_get(struct bitmap *bitmap)
+size_t bitmap_get_bit_set_count(struct bitmap *bitmap)
 {
 	return bitmap->bit_set_count;
 }

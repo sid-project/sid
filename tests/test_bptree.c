@@ -113,8 +113,8 @@ void verify_bptree(bptree_t *bptree)
 	assert_null(next_leaf);
 
 out:
-	assert_int_equal(bptree_entry_count_get(bptree), num_entries);
-	bptree_size_get(bptree, &check_meta_size, &check_data_size);
+	assert_int_equal(bptree_get_entry_count(bptree), num_entries);
+	bptree_get_size(bptree, &check_meta_size, &check_data_size);
 	assert_int_equal(check_meta_size, meta_size);
 	assert_int_equal(check_data_size, data_size);
 	return;
@@ -155,13 +155,13 @@ static void test_bptree_empty()
 	bptree_t *bptree = bptree_create(4);
 	verify_bptree(bptree);
 	print_bptree(bptree);
-	assert_int_equal(bptree_height_get(bptree), 0);
+	assert_int_equal(bptree_get_height(bptree), 0);
 	bptree_destroy(bptree);
 }
 
 static void insert_from_checker(bptree_t *bptree, checker_t *checker, int idx)
 {
-	assert_int_equal(bptree_insert(bptree, checker->keys[idx], checker->values[idx], checker->sizes[idx]), 0);
+	assert_int_equal(bptree_add(bptree, checker->keys[idx], checker->values[idx], checker->sizes[idx]), 0);
 	checker->skips[idx] = false;
 }
 
@@ -196,7 +196,7 @@ static void lookup_all_from_checker(bptree_t *bptree, checker_t *checker)
 
 static void remove_from_checker(bptree_t *bptree, checker_t *checker, int idx)
 {
-	assert_int_equal(bptree_remove(bptree, checker->keys[idx]), 0);
+	assert_int_equal(bptree_del(bptree, checker->keys[idx]), 0);
 	checker->skips[idx] = true;
 }
 
@@ -260,7 +260,7 @@ static void test_bptree_one_entry()
 	assert_non_null(bptree);
 	insert_from_checker(bptree, checker, 0);
 	verify_bptree(bptree);
-	assert_int_equal(bptree_height_get(bptree), 0);
+	assert_int_equal(bptree_get_height(bptree), 0);
 	lookup_from_checker(bptree, checker, 0);
 	bptree_destroy_with_fn(bptree, checker_fn, checker);
 	assert_checker_finished(checker);
@@ -286,7 +286,7 @@ static void do_test_bptree_actions(int *setup_ids, int setup_count, int *action_
 	if (!is_insert && setup_count == action_count)
 		assert_null(bptree->root);
 	if (height >= 0)
-		assert_int_equal(bptree_height_get(bptree), height);
+		assert_int_equal(bptree_get_height(bptree), height);
 	lookup_all_from_checker(bptree, checker);
 	bptree_iter(bptree, NULL, NULL, checker_fn, checker);
 	assert_checker_finished(checker);

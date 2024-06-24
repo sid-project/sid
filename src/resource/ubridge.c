@@ -531,47 +531,47 @@ static uint64_t            null_int            = 0;
 
 static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg);
 
-udev_action_t sid_ucmd_ev_dev_action_get(struct sid_ucmd_ctx *ucmd_ctx)
+udev_action_t sid_ucmd_ev_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.action;
 }
 
-int sid_ucmd_ev_dev_major_get(struct sid_ucmd_ctx *ucmd_ctx)
+int sid_ucmd_ev_dev_get_major(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.major;
 }
 
-int sid_ucmd_ev_dev_minor_get(struct sid_ucmd_ctx *ucmd_ctx)
+int sid_ucmd_ev_dev_get_minor(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.minor;
 }
 
-const char *sid_ucmd_ev_dev_path_get(struct sid_ucmd_ctx *ucmd_ctx)
+const char *sid_ucmd_ev_dev_get_path(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.path;
 }
 
-const char *sid_ucmd_ev_dev_name_get(struct sid_ucmd_ctx *ucmd_ctx)
+const char *sid_ucmd_ev_dev_get_name(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.name;
 }
 
-udev_devtype_t sid_ucmd_ev_dev_type_get(struct sid_ucmd_ctx *ucmd_ctx)
+udev_devtype_t sid_ucmd_ev_dev_get_type(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.type;
 }
 
-uint64_t sid_ucmd_ev_dev_seqnum_get(struct sid_ucmd_ctx *ucmd_ctx)
+uint64_t sid_ucmd_ev_dev_get_seqnum(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.seqnum;
 }
 
-uint64_t sid_ucmd_ev_dev_diskseq_get(struct sid_ucmd_ctx *ucmd_ctx)
+uint64_t sid_ucmd_ev_dev_get_diskseq(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.diskseq;
 }
 
-const char *sid_ucmd_ev_dev_synth_uuid_get(struct sid_ucmd_ctx *ucmd_ctx)
+const char *sid_ucmd_ev_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.synth_uuid;
 }
@@ -603,7 +603,7 @@ static char *_do_compose_key(struct sid_buf *buf, struct kv_key_spec *key_spec, 
 	/* <op>:<dom>:<ns>:<ns_part>:<id_cat>:<id>[:<core>] */
 
 	if (buf) {
-		if (sid_buf_fmt_add(buf,
+		if (sid_buf_add_fmt(buf,
 		                       (const void **) &key,
 		                       NULL,
 		                       fmt,
@@ -651,7 +651,7 @@ static void _destroy_key(struct sid_buf *buf, const char *key)
 		return;
 
 	if (buf)
-		sid_buf_mem_rewind(buf, key);
+		sid_buf_rewind_mem(buf, key);
 	else
 		free((void *) key);
 }
@@ -741,7 +741,7 @@ static const char *_copy_ns_part_from_key(const char *key, char *buf, size_t buf
 	if (!(str = _get_key_part(key, KEY_PART_NS_PART, &len)))
 		return NULL;
 
-	return util_str_len_cpy(str, len, buf, buf_size);
+	return util_str_copy_len(str, len, buf, buf_size);
 }
 
 static const char *_copy_id_from_key(const char *key, char *buf, size_t buf_size)
@@ -756,7 +756,7 @@ static const char *_copy_id_from_key(const char *key, char *buf, size_t buf_size
 	if (!(str = _get_key_part(key, KEY_PART_ID, &len)))
 		return NULL;
 
-	return util_str_len_cpy(str, len, buf, buf_size);
+	return util_str_copy_len(str, len, buf, buf_size);
 }
 
 static void _vvalue_header_prep(kv_vector_t         *vvalue,
@@ -833,7 +833,7 @@ static const char *_buffer_get_vvalue_str(struct sid_buf *buf, bool unset, kv_ve
 	const char *str;
 
 	if (unset) {
-		if (sid_buf_fmt_add(buf, (const void **) &str, NULL, "NULL") < 0)
+		if (sid_buf_add_fmt(buf, (const void **) &str, NULL, "NULL") < 0)
 			return NULL;
 		return str;
 	}
@@ -849,7 +849,7 @@ static const char *_buffer_get_vvalue_str(struct sid_buf *buf, bool unset, kv_ve
 
 	if (sid_buf_add(buf, "\0", 1, NULL, NULL) < 0)
 		goto fail;
-	sid_buf_data_get_from(buf, buf_offset, (const void **) &str, NULL);
+	sid_buf_get_data_from(buf, buf_offset, (const void **) &str, NULL);
 
 	return str;
 fail:
@@ -878,7 +878,7 @@ static int _write_kv_store_stats(struct sid_dbstats *stats, sid_res_t *kv_store_
 		stats->value_ext_size      += ext_size;
 		stats->value_ext_data_size += ext_data_size;
 	}
-	sid_kvs_size_get(kv_store_res, &meta_size, &int_size);
+	sid_kvs_get_size(kv_store_res, &meta_size, &int_size);
 	if (stats->value_int_size != int_size)
 		sid_res_log_error(kv_store_res,
 		                  SID_INTERNAL_ERROR "%s: kv-store size mismatch: %" PRIu64 " is not equal to %zu",
@@ -916,7 +916,7 @@ static int _manage_kv_index(struct kv_update_arg *update_arg, char *key)
 	switch (update_arg->ret_code) {
 		case KV_INDEX_ADD:
 			key[0] = KV_PREFIX_OP_SYNC_C[0];
-			r      = sid_kvs_alias_add(update_arg->res, key + 1, key, false);
+			r      = sid_kvs_add_alias(update_arg->res, key + 1, key, false);
 			key[0] = ' ';
 			break;
 		case KV_INDEX_REMOVE:
@@ -1118,7 +1118,7 @@ static int _kv_cb_reserve(struct sid_kvs_update_spec *spec)
 
 static const char *_owner_name(sid_res_t *res)
 {
-	return res ? sid_mod_name_full_get(res) : MOD_NAME_CORE;
+	return res ? sid_mod_get_full_name(res) : MOD_NAME_CORE;
 }
 
 static size_t _svalue_ext_data_offset(kv_scalar_t *svalue)
@@ -1155,29 +1155,29 @@ static void _print_vvalue(kv_vector_t    *vvalue,
 	int    i;
 
 	if (vector) {
-		fmt_arr_start_print(format, buf, level, name, true);
+		fmt_arr_start(format, buf, level, name, true);
 		for (i = start_idx; i < size; i++) {
 			if (vvalue[i].iov_len) {
 				if (_is_string_data(vvalue[i].iov_base, vvalue[i].iov_len))
-					fmt_arr_fld_str_print(format, buf, level + 1, vvalue[i].iov_base, i > start_idx);
+					fmt_arr_fld_str(format, buf, level + 1, vvalue[i].iov_base, i > start_idx);
 				else
-					fmt_arr_fld_bin_print(format,
-					                      buf,
-					                      level + 1,
-					                      vvalue[i].iov_base,
-					                      vvalue[i].iov_len,
-					                      i + start_idx);
+					fmt_arr_fld_bin(format,
+					                buf,
+					                level + 1,
+					                vvalue[i].iov_base,
+					                vvalue[i].iov_len,
+					                i + start_idx);
 			} else
-				fmt_arr_fld_str_print(format, buf, level + 1, "", false);
+				fmt_arr_fld_str(format, buf, level + 1, "", false);
 		}
-		fmt_arr_end_print(format, buf, level);
+		fmt_arr_end(format, buf, level);
 	} else if (vvalue[start_idx].iov_len) {
 		if (_is_string_data(vvalue[start_idx].iov_base, vvalue[start_idx].iov_len))
-			fmt_fld_str_print(format, buf, level, name, vvalue[start_idx].iov_base, true);
+			fmt_fld_str(format, buf, level, name, vvalue[start_idx].iov_base, true);
 		else
-			fmt_fld_bin_print(format, buf, level, name, vvalue[start_idx].iov_base, vvalue[start_idx].iov_len, true);
+			fmt_fld_bin(format, buf, level, name, vvalue[start_idx].iov_base, vvalue[start_idx].iov_len, true);
 	} else
-		fmt_fld_str_print(format, buf, level, name, "", true);
+		fmt_fld_str(format, buf, level, name, "", true);
 }
 
 static fmt_output_t flags_to_format(uint16_t flags)
@@ -1196,7 +1196,7 @@ static fmt_output_t flags_to_format(uint16_t flags)
 static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 {
 	static const char    failed_unset_buf_msg[] = "Failed to add record to unset buffer while building KV buffers.";
-	struct sid_ucmd_ctx *ucmd_ctx               = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx               = sid_res_get_data(cmd_res);
 	fmt_output_t         format;
 	struct sid_buf_spec  buf_spec;
 	kv_scalar_t         *svalue;
@@ -1228,7 +1228,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 	 */
 
 	if ((is_sync = flags & CMD_KV_EXPORT_SYNC))
-		iter = sid_kvs_iter_prefix_create(ucmd_ctx->common->kv_store_res, KV_PREFIX_OP_SYNC_C);
+		iter = sid_kvs_iter_create_prefix(ucmd_ctx->common->kv_store_res, KV_PREFIX_OP_SYNC_C);
 	else
 		iter = sid_kvs_iter_create(ucmd_ctx->common->kv_store_res, NULL, NULL);
 
@@ -1274,8 +1274,8 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 		format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	if (format != FMT_NONE) {
-		fmt_doc_start_print(format, export_buf, 0);
-		fmt_arr_start_print(format, export_buf, 1, "siddb", false);
+		fmt_doc_start(format, export_buf, 0);
+		fmt_arr_start(format, export_buf, 1, "siddb", false);
 	}
 
 	while ((raw_value = sid_kvs_iter_next(iter, &size, &key, &kv_store_value_flags))) {
@@ -1426,28 +1426,28 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 				goto fail;
 			}
 		} else {
-			fmt_elm_start_print(format, export_buf, 2, needs_comma);
-			fmt_fld_uint_print(format, export_buf, 3, "RECORD", records, false);
-			fmt_fld_str_print(format, export_buf, 3, "key", key, true);
+			fmt_elm_start(format, export_buf, 2, needs_comma);
+			fmt_fld_uint(format, export_buf, 3, "RECORD", records, false);
+			fmt_fld_str(format, export_buf, 3, "key", key, true);
 			vvalue = _get_vvalue(kv_store_value_flags, raw_value, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
-			fmt_fld_uint_print(format, export_buf, 3, "gennum", VVALUE_GENNUM(vvalue), true);
-			fmt_fld_uint64_print(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
-			fmt_arr_start_print(format, export_buf, 3, "flags", true);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "AL", VVALUE_FLAGS(vvalue) & SID_KV_FL_ALIGN, false);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "SC", VVALUE_FLAGS(vvalue) & SID_KV_FL_SYNC, true);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "PS", VVALUE_FLAGS(vvalue) & SID_KV_FL_PERSIST, true);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "AR", VVALUE_FLAGS(vvalue) & SID_KV_FL_AR, true);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "RS", VVALUE_FLAGS(vvalue) & SID_KV_FL_RS, true);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "FR_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_RD, true);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "SB_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_RD, true);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "SP_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_RD, true);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "FR_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_WR, true);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "SB_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_WR, true);
-			fmt_arr_fld_bool_print(format, export_buf, 4, "SP_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_WR, true);
-			fmt_arr_end_print(format, export_buf, 3);
-			fmt_fld_str_print(format, export_buf, 3, "owner", VVALUE_OWNER(vvalue), true);
+			fmt_fld_uint(format, export_buf, 3, "gennum", VVALUE_GENNUM(vvalue), true);
+			fmt_fld_uint64(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
+			fmt_arr_start(format, export_buf, 3, "flags", true);
+			fmt_fld_bool(format, export_buf, 4, "AL", VVALUE_FLAGS(vvalue) & SID_KV_FL_ALIGN, false);
+			fmt_fld_bool(format, export_buf, 4, "SC", VVALUE_FLAGS(vvalue) & SID_KV_FL_SYNC, true);
+			fmt_fld_bool(format, export_buf, 4, "PS", VVALUE_FLAGS(vvalue) & SID_KV_FL_PERSIST, true);
+			fmt_fld_bool(format, export_buf, 4, "AR", VVALUE_FLAGS(vvalue) & SID_KV_FL_AR, true);
+			fmt_fld_bool(format, export_buf, 4, "RS", VVALUE_FLAGS(vvalue) & SID_KV_FL_RS, true);
+			fmt_fld_bool(format, export_buf, 4, "FR_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_RD, true);
+			fmt_fld_bool(format, export_buf, 4, "SB_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_RD, true);
+			fmt_fld_bool(format, export_buf, 4, "SP_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_RD, true);
+			fmt_fld_bool(format, export_buf, 4, "FR_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_WR, true);
+			fmt_fld_bool(format, export_buf, 4, "SB_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_WR, true);
+			fmt_fld_bool(format, export_buf, 4, "SP_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_WR, true);
+			fmt_arr_end(format, export_buf, 3);
+			fmt_fld_str(format, export_buf, 3, "owner", VVALUE_OWNER(vvalue), true);
 			_print_vvalue(vvalue, vector, size, vector ? "values" : "value", format, export_buf, 3);
-			fmt_elm_end_print(format, export_buf, 2);
+			fmt_elm_end(format, export_buf, 2);
 			needs_comma = true;
 		}
 		records++;
@@ -1477,9 +1477,9 @@ next:
 	}
 
 	if (format != FMT_NONE) {
-		fmt_arr_end_print(format, export_buf, 1);
-		fmt_doc_end_print(format, export_buf, 0);
-		fmt_byte_null_print(export_buf);
+		fmt_arr_end(format, export_buf, 1);
+		fmt_doc_end(format, export_buf, 0);
+		fmt_null_byte(export_buf);
 	}
 
 	sid_kvs_iter_destroy(iter);
@@ -1501,7 +1501,7 @@ fail:
 
 static int _process_cmd_unsbuf(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	void                *raw_value;
 	size_t               i, size;
 	const char          *key;
@@ -1510,7 +1510,7 @@ static int _process_cmd_unsbuf(sid_res_t *cmd_res)
 	if (!ucmd_ctx->uns_buf)
 		return 0;
 
-	sid_buf_data_get(ucmd_ctx->uns_buf, (const void **) &raw_value, &size);
+	sid_buf_get_data(ucmd_ctx->uns_buf, (const void **) &raw_value, &size);
 	size /= sizeof(uintptr_t);
 
 	for (i = 0; i < size; i++) {
@@ -1931,8 +1931,8 @@ static void _delta_cross_bitmap_calc(struct cross_bitmap_calc_arg *cross)
 				i_new++;
 			} else {
 				/* both old and new has the item: we have found contradiction! */
-				bitmap_bit_unset(cross->old_bmp, i_old);
-				bitmap_bit_unset(cross->new_bmp, i_new);
+				bitmap_unset_bit(cross->old_bmp, i_old);
+				bitmap_unset_bit(cross->new_bmp, i_new);
 				i_old++;
 				i_new++;
 			}
@@ -1993,7 +1993,7 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	 * minus      |---> minus
 	 */
 	if (rel_spec->delta->minus) {
-		sid_buf_data_get(rel_spec->delta->minus, (const void **) &cross1.new_vvalue, &cross1.new_vsize);
+		sid_buf_get_data(rel_spec->delta->minus, (const void **) &cross1.new_vvalue, &cross1.new_vsize);
 
 		if (!(cross1.new_bmp = bitmap_create(cross1.new_vsize, true, NULL)))
 			goto out;
@@ -2011,7 +2011,7 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	 * minus <---|     minus
 	 */
 	if (rel_spec->delta->plus) {
-		sid_buf_data_get(rel_spec->delta->plus, (const void **) &cross2.new_vvalue, &cross2.new_vsize);
+		sid_buf_get_data(rel_spec->delta->plus, (const void **) &cross2.new_vvalue, &cross2.new_vsize);
 
 		if (!(cross2.new_bmp = bitmap_create(cross2.new_vsize, true, NULL)))
 			goto out;
@@ -2028,13 +2028,13 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	 * plus  <---+---> plus
 	 * minus <---+---> minus
 	 */
-	abs_minus_vsize = ((cross2.old_bmp ? bitmap_bit_set_count_get(cross2.old_bmp) : 0) +
-	                   (cross1.new_bmp ? bitmap_bit_set_count_get(cross1.new_bmp) : 0));
+	abs_minus_vsize = ((cross2.old_bmp ? bitmap_get_bit_set_count(cross2.old_bmp) : 0) +
+	                   (cross1.new_bmp ? bitmap_get_bit_set_count(cross1.new_bmp) : 0));
 	if (cross2.old_bmp && cross1.new_bmp)
 		abs_minus_vsize -= VVALUE_HEADER_CNT;
 
-	abs_plus_vsize = ((cross1.old_bmp ? bitmap_bit_set_count_get(cross1.old_bmp) : 0) +
-	                  (cross2.new_bmp ? bitmap_bit_set_count_get(cross2.new_bmp) : 0));
+	abs_plus_vsize = ((cross1.old_bmp ? bitmap_get_bit_set_count(cross1.old_bmp) : 0) +
+	                  (cross2.new_bmp ? bitmap_get_bit_set_count(cross2.new_bmp) : 0));
 	if (cross1.old_bmp && cross2.new_bmp)
 		abs_plus_vsize -= VVALUE_HEADER_CNT;
 
@@ -2090,12 +2090,12 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	}
 
 	if (rel_spec->abs_delta->plus) {
-		sid_buf_data_get(rel_spec->abs_delta->plus, (const void **) &abs_plus_v, &abs_plus_vsize);
+		sid_buf_get_data(rel_spec->abs_delta->plus, (const void **) &abs_plus_v, &abs_plus_vsize);
 		qsort(abs_plus_v + VVALUE_IDX_DATA, abs_plus_vsize - VVALUE_IDX_DATA, sizeof(kv_vector_t), _vvalue_str_cmp);
 	}
 
 	if (rel_spec->abs_delta->minus) {
-		sid_buf_data_get(rel_spec->abs_delta->minus, (const void **) &abs_minus_v, &abs_minus_vsize);
+		sid_buf_get_data(rel_spec->abs_delta->minus, (const void **) &abs_minus_v, &abs_minus_vsize);
 		qsort(abs_minus_v + VVALUE_IDX_DATA, abs_minus_vsize - VVALUE_IDX_DATA, sizeof(kv_vector_t), _vvalue_str_cmp);
 	}
 
@@ -2143,24 +2143,24 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 		if (!update_arg->is_sync) {
 			if (!rel_spec->abs_delta->plus)
 				return 0;
-			sid_buf_data_get(rel_spec->abs_delta->plus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
+			sid_buf_get_data(rel_spec->abs_delta->plus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
 		}
 
 		if (!rel_spec->delta->plus)
 			return 0;
 
-		sid_buf_data_get(rel_spec->delta->plus, (const void **) &delta_vvalue, &delta_vsize);
+		sid_buf_get_data(rel_spec->delta->plus, (const void **) &delta_vvalue, &delta_vsize);
 	} else if (op == KV_OP_MINUS) {
 		if (!update_arg->is_sync) {
 			if (!rel_spec->abs_delta->minus)
 				return 0;
-			sid_buf_data_get(rel_spec->abs_delta->minus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
+			sid_buf_get_data(rel_spec->abs_delta->minus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
 		}
 
 		if (!rel_spec->delta->minus)
 			return 0;
 
-		sid_buf_data_get(rel_spec->delta->minus, (const void **) &delta_vvalue, &delta_vsize);
+		sid_buf_get_data(rel_spec->delta->minus, (const void **) &delta_vvalue, &delta_vsize);
 	} else {
 		sid_res_log_error(update_arg->res, SID_INTERNAL_ERROR "%s: incorrect delta operation requested.", __func__);
 		return -1;
@@ -2289,7 +2289,7 @@ static int _kv_cb_delta_step(struct sid_kvs_update_spec *spec)
 	}
 
 	if (rel_spec->delta->final) {
-		sid_buf_data_get(rel_spec->delta->final, (const void **) &spec->new_data, &spec->new_data_size);
+		sid_buf_get_data(rel_spec->delta->final, (const void **) &spec->new_data, &spec->new_data_size);
 		spec->new_flags &= ~SID_KVS_VAL_FL_REF;
 		r                = 1;
 		goto out;
@@ -2531,8 +2531,8 @@ void *sid_ucmd_kv_set(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return NULL;
 
 	if (ns == SID_KV_NS_UDEV) {
@@ -2632,8 +2632,8 @@ const void *sid_ucmd_kv_get(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return NULL;
 
 	if (ns == SID_KV_NS_UDEV)
@@ -2668,7 +2668,7 @@ static const void *_do_sid_ucmd_get_foreign_kv(sid_res_t              *res,
 	return _cmd_get_key_spec_value(res, ucmd_ctx, owner, &key_spec, value_size, flags);
 }
 
-const void *sid_ucmd_kv_foreign_mod_get(sid_res_t              *mod_res,
+const void *sid_ucmd_kv_get_foreign_mod(sid_res_t              *mod_res,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
                                         const char             *foreign_mod_name,
                                         sid_ucmd_kv_namespace_t ns,
@@ -2683,8 +2683,8 @@ const void *sid_ucmd_kv_foreign_mod_get(sid_res_t              *mod_res,
 	    UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return NULL;
 
 	dom = ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2702,7 +2702,7 @@ const void *sid_ucmd_kv_foreign_mod_get(sid_res_t              *mod_res,
 	                                   archive);
 }
 
-const void *sid_ucmd_kv_foreign_dev_get(sid_res_t              *mod_res,
+const void *sid_ucmd_kv_get_foreign_dev(sid_res_t              *mod_res,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
                                         const char             *foreign_dev_id,
                                         sid_ucmd_kv_namespace_t ns,
@@ -2717,8 +2717,8 @@ const void *sid_ucmd_kv_foreign_dev_get(sid_res_t              *mod_res,
 	    (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return NULL;
 
 	dom = ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2736,7 +2736,7 @@ const void *sid_ucmd_kv_foreign_dev_get(sid_res_t              *mod_res,
 	                                   archive);
 }
 
-const void *sid_ucmd_kv_foreign_dev_mod_get(sid_res_t              *mod_res,
+const void *sid_ucmd_kv_get_foreign_dev_mod(sid_res_t              *mod_res,
                                             struct sid_ucmd_ctx    *ucmd_ctx,
                                             const char             *foreign_dev_id,
                                             const char             *foreign_mod_name,
@@ -2752,8 +2752,8 @@ const void *sid_ucmd_kv_foreign_dev_mod_get(sid_res_t              *mod_res,
 	    (ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return NULL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return NULL;
 
 	dom = ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2807,7 +2807,7 @@ static int _do_sid_ucmd_mod_reserve_kv(sid_res_t                  *res,
 	 *        and worker processes with snapshots to sync. This doesn't necessarily need to
 	 *        be true in all cases in the future!
 	 */
-	is_worker  = sid_wrk_ctl_wrk_detect(common->kv_store_res);
+	is_worker  = sid_wrk_ctl_detect_worker(common->kv_store_res);
 
 	update_arg = (struct kv_update_arg) {.res      = common->kv_store_res,
 	                                     .gen_buf  = NULL,
@@ -2857,8 +2857,8 @@ int sid_ucmd_kv_reserve(sid_res_t                  *mod_res,
 	if (!mod_res || !common || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
-	if (!sid_mod_reg_dep_match(mod_res, common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, common->type_mod_registry_res))
 		return -EINVAL;
 
 	dom = ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2873,8 +2873,8 @@ int sid_ucmd_kv_unreserve(sid_res_t *mod_res, struct sid_ucmd_common_ctx *common
 	if (!mod_res || !common || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
 		return -EINVAL;
 
-	if (!sid_mod_reg_dep_match(mod_res, common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, common->type_mod_registry_res))
 		return -EINVAL;
 
 	dom = ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
@@ -2981,13 +2981,13 @@ out:
 	return r;
 }
 
-int sid_ucmd_dev_ready_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_ready_t ready)
+int sid_ucmd_dev_set_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_ready_t ready)
 {
 	if (!mod_res || !ucmd_ctx)
 		return -EINVAL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	return _do_sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, _owner_name(mod_res), ready, false);
@@ -3024,13 +3024,13 @@ static sid_ucmd_dev_ready_t
 	return ucmd_ctx->scan.dev_ready;
 }
 
-sid_ucmd_dev_ready_t sid_ucmd_dev_ready_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
+sid_ucmd_dev_ready_t sid_ucmd_dev_get_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
 	if (!mod_res || !ucmd_ctx)
 		return SID_DEV_RDY_UNDEFINED;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return SID_DEV_RDY_UNDEFINED;
 
 	return _do_sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, _owner_name(mod_res), archive);
@@ -3109,13 +3109,13 @@ out:
 	return r;
 }
 
-int sid_ucmd_dev_reserved_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved)
+int sid_ucmd_dev_set_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved)
 {
 	if (!mod_res || !ucmd_ctx)
 		return -EINVAL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	return _do_sid_ucmd_dev_set_reserved(mod_res, ucmd_ctx, _owner_name(mod_res), reserved, false);
@@ -3152,13 +3152,13 @@ static sid_ucmd_dev_reserved_t
 	return ucmd_ctx->scan.dev_reserved;
 }
 
-sid_ucmd_dev_reserved_t sid_ucmd_dev_reserved_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
+sid_ucmd_dev_reserved_t sid_ucmd_dev_get_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
 	if (!mod_res || !ucmd_ctx)
 		return SID_DEV_RES_UNDEFINED;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return SID_DEV_RES_UNDEFINED;
 
 	return _do_sid_ucmd_dev_get_reserved(mod_res, ucmd_ctx, _owner_name(mod_res), archive);
@@ -3234,13 +3234,13 @@ out:
 	return r;
 }
 
-int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
+int sid_ucmd_dev_add_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
 {
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_key) || UTIL_STR_EMPTY(alias))
 		return -EINVAL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	return _handle_dev_for_group(mod_res,
@@ -3255,13 +3255,13 @@ int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 	                             false);
 }
 
-int sid_ucmd_dev_alias_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
+int sid_ucmd_dev_del_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
 {
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_key) || UTIL_STR_EMPTY(alias))
 		return -EINVAL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	return _handle_dev_for_group(mod_res,
@@ -3349,8 +3349,8 @@ int sid_ucmd_grp_create(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	group_flags &= ~SID_KV_FL_ALIGN;
@@ -3365,7 +3365,7 @@ int sid_ucmd_grp_create(sid_res_t              *mod_res,
 	                                 group_id);
 }
 
-int sid_ucmd_grp_dev_current_add(sid_res_t              *mod_res,
+int sid_ucmd_grp_add_current_dev(sid_res_t              *mod_res,
                                  struct sid_ucmd_ctx    *ucmd_ctx,
                                  sid_ucmd_kv_namespace_t group_ns,
                                  const char             *group_cat,
@@ -3374,8 +3374,8 @@ int sid_ucmd_grp_dev_current_add(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_cat) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	return _handle_dev_for_group(mod_res,
@@ -3390,17 +3390,17 @@ int sid_ucmd_grp_dev_current_add(sid_res_t              *mod_res,
 	                             false);
 }
 
-int sid_ucmd_grp_dev_current_remove(sid_res_t              *mod_res,
-                                    struct sid_ucmd_ctx    *ucmd_ctx,
-                                    sid_ucmd_kv_namespace_t group_ns,
-                                    const char             *group_cat,
-                                    const char             *group_id)
+int sid_ucmd_grp_del_current_dev(sid_res_t              *mod_res,
+                                 struct sid_ucmd_ctx    *ucmd_ctx,
+                                 sid_ucmd_kv_namespace_t group_ns,
+                                 const char             *group_cat,
+                                 const char             *group_id)
 {
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_cat) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	return _handle_dev_for_group(mod_res,
@@ -3496,8 +3496,8 @@ int sid_ucmd_grp_destroy(sid_res_t              *mod_res,
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
 
-	if (!sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
-	    !sid_mod_reg_dep_match(mod_res, ucmd_ctx->common->type_mod_registry_res))
+	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_registry_res) &&
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_registry_res))
 		return -EINVAL;
 
 	return _do_sid_ucmd_group_destroy(mod_res,
@@ -3536,13 +3536,13 @@ static int _device_add_field(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, cons
 
 	/* Common key=value pairs are also directly in the ucmd_ctx->udev_dev structure. */
 	if (!strcmp(key, UDEV_KEY_ACTION))
-		ucmd_ctx->req_env.dev.udev.action = util_udev_str_to_udev_action(value);
+		ucmd_ctx->req_env.dev.udev.action = util_udev_str_to_action(value);
 	else if (!strcmp(key, UDEV_KEY_DEVPATH)) {
 		ucmd_ctx->req_env.dev.udev.path = value;
 		ucmd_ctx->req_env.dev.udev.name = util_str_rstr(value, "/");
 		ucmd_ctx->req_env.dev.udev.name++;
 	} else if (!strcmp(key, UDEV_KEY_DEVTYPE))
-		ucmd_ctx->req_env.dev.udev.type = util_udev_str_to_udev_devtype(value);
+		ucmd_ctx->req_env.dev.udev.type = util_udev_str_to_devtyoe(value);
 	else if (!strcmp(key, UDEV_KEY_SEQNUM))
 		ucmd_ctx->req_env.dev.udev.seqnum = strtoull(value, NULL, 10);
 	else if (!strcmp(key, UDEV_KEY_DISKSEQ))
@@ -3624,7 +3624,7 @@ static int _part_get_whole_disk(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, c
 	const char *s;
 	int         r;
 
-	if ((r = sid_buf_fmt_add(ucmd_ctx->common->gen_buf,
+	if ((r = sid_buf_add_fmt(ucmd_ctx->common->gen_buf,
 	                         (const void **) &s,
 	                         NULL,
 	                         "%s%s/../dev",
@@ -3640,7 +3640,7 @@ static int _part_get_whole_disk(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, c
 	if ((r = sid_util_sysfs_get(s, devno_buf, devno_buf_size, NULL)) < 0 || !*devno_buf)
 		sid_res_log_error_errno(res, r, "Failed to read whole disk device number from sysfs file %s.", s);
 
-	sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+	sid_buf_rewind_mem(ucmd_ctx->common->gen_buf, s);
 	return r;
 }
 
@@ -3650,20 +3650,20 @@ static int _dev_is_nvme(struct sid_ucmd_ctx *ucmd_ctx)
 	 * FIXME: Is there any better and quick way of detecting we have
 	 * 	  an NVMe device than just looking at its kernel name?
 	 */
-	return !strncmp(sid_ucmd_ev_dev_name_get(ucmd_ctx), DEV_NAME_PREFIX_NVME, sizeof(DEV_NAME_PREFIX_NVME) - 1);
+	return !strncmp(sid_ucmd_ev_dev_get_name(ucmd_ctx), DEV_NAME_PREFIX_NVME, sizeof(DEV_NAME_PREFIX_NVME) - 1);
 }
 
 static char *_lookup_mod_name(sid_res_t *cmd_res, const int dev_major, const char *dev_name, char *buf, size_t buf_size);
 
 static char *_owner_name_from_blkext(sid_res_t *cmd_res, char *buf, size_t buf_size)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	char                 devno_buf[16];
 	int                  dev_major;
 	char                *p;
 	char                *mod_name;
 
-	switch (sid_ucmd_ev_dev_type_get(ucmd_ctx)) {
+	switch (sid_ucmd_ev_dev_get_type(ucmd_ctx)) {
 		case UDEV_DEVTYPE_PARTITION:
 			/*
 			 * First, check if this is a partition on top of an NVMe device.
@@ -3840,7 +3840,7 @@ static bool _is_last_stage(const struct cmd_reg *cmd_reg, const struct sid_ucmd_
 static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 {
 	static const char     cmd_stage_msg[] = "Command stage: ";
-	struct sid_ucmd_ctx  *ucmd_ctx        = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx  *ucmd_ctx        = sid_res_get_data(cmd_res);
 	const struct cmd_reg *cmd_reg;
 
 	if (ucmd_ctx->state == state) {
@@ -3855,7 +3855,7 @@ static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 		cmd_reg = _get_cmd_reg(ucmd_ctx);
 
 		if ((ucmd_ctx->state != CMD_STATE_INI))
-			(void) sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
+			(void) sid_res_ev_set_counter(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
 
 		if (ucmd_ctx->tim_out_es)
 			_destroy_tim_out_es(ucmd_ctx);
@@ -3880,7 +3880,7 @@ static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 		}
 
 		/* FIXME: Make the timeout configurable per each stage. Make defaults a part of struct cmd_reg. */
-		if (sid_res_ev_time_create(cmd_res,
+		if (sid_res_ev_create_time(cmd_res,
 		                           &ucmd_ctx->tim_out_es,
 		                           CLOCK_MONOTONIC,
 		                           SID_RES_POS_REL,
@@ -3902,7 +3902,7 @@ static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 		if (ucmd_ctx->tim_out_es)
 			_destroy_tim_out_es(ucmd_ctx);
 
-		(void) sid_res_ev_counter_set(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
+		(void) sid_res_ev_set_counter(ucmd_ctx->cmd_handler_es, SID_RES_POS_REL, 1);
 	}
 
 	sid_res_log_debug(cmd_res, "Command state changed: %s --> %s.", cmd_state_str[ucmd_ctx->state], cmd_state_str[state]);
@@ -3915,28 +3915,28 @@ static int _change_cmd_state(sid_res_t *cmd_res, cmd_state_t state)
 
 static int _cmd_exec_version(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	struct sid_buf      *prn_buf  = ucmd_ctx->prn_buf;
 	char                *version_data;
 	size_t               size;
 	fmt_output_t         format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
-	fmt_doc_start_print(format, prn_buf, 0);
-	fmt_fld_uint_print(format, prn_buf, 1, "SID_IFC_PROTOCOL", SID_IFC_PROTOCOL, false);
-	fmt_fld_uint_print(format, prn_buf, 1, "SID_MAJOR", SID_VERSION_MAJOR, true);
-	fmt_fld_uint_print(format, prn_buf, 1, "SID_MINOR", SID_VERSION_MINOR, true);
-	fmt_fld_uint_print(format, prn_buf, 1, "SID_RELEASE", SID_VERSION_RELEASE, true);
-	fmt_doc_end_print(format, prn_buf, 0);
-	fmt_byte_null_print(prn_buf);
+	fmt_doc_start(format, prn_buf, 0);
+	fmt_fld_uint(format, prn_buf, 1, "SID_IFC_PROTOCOL", SID_IFC_PROTOCOL, false);
+	fmt_fld_uint(format, prn_buf, 1, "SID_MAJOR", SID_VERSION_MAJOR, true);
+	fmt_fld_uint(format, prn_buf, 1, "SID_MINOR", SID_VERSION_MINOR, true);
+	fmt_fld_uint(format, prn_buf, 1, "SID_RELEASE", SID_VERSION_RELEASE, true);
+	fmt_doc_end(format, prn_buf, 0);
+	fmt_null_byte(prn_buf);
 
-	sid_buf_data_get(prn_buf, (const void **) &version_data, &size);
+	sid_buf_get_data(prn_buf, (const void **) &version_data, &size);
 
 	return sid_buf_add(ucmd_ctx->res_buf, version_data, size, NULL, NULL);
 }
 
 static int _cmd_exec_resources(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	struct sid_buf      *gen_buf  = ucmd_ctx->common->gen_buf;
 	struct sid_buf      *prn_buf  = ucmd_ctx->prn_buf;
 	fmt_output_t         format;
@@ -3966,7 +3966,7 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 		 * we also need to send this cmd resource's id withing the request - it is sent
 		 * right after the struct internal_msg_header.
 		 */
-		id = sid_res_id_get(cmd_res);
+		id = sid_res_get_id(cmd_res);
 
 		sid_buf_add(gen_buf,
 		            &(struct internal_msg_header) {.cat = MSG_CATEGORY_SYSTEM,
@@ -3981,7 +3981,7 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 		            NULL,
 		            &buf_pos0);
 		sid_buf_add(gen_buf, (void *) id, strlen(id) + 1, NULL, NULL);
-		sid_buf_data_get_from(gen_buf, buf_pos0, (const void **) &data, &size);
+		sid_buf_get_data_from(gen_buf, buf_pos0, (const void **) &data, &size);
 
 		if ((r = sid_wrk_ctl_chan_send(cmd_res,
 		                               MAIN_WORKER_CHANNEL_ID,
@@ -4015,18 +4015,18 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 	format   = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	buf_pos0 = sid_buf_count(prn_buf);
-	fmt_elm_start_print(format, prn_buf, 0, false);
-	fmt_arr_start_print(format, prn_buf, 1, "sidresources", false);
+	fmt_elm_start(format, prn_buf, 0, false);
+	fmt_arr_start(format, prn_buf, 1, "sidresources", false);
 	buf_pos1 = sid_buf_count(prn_buf);
 
 	sid_res_tree_write(sid_res_search(cmd_res, SID_RES_SEARCH_TOP, NULL, NULL), format, prn_buf, 2, true);
 
-	fmt_arr_end_print(format, prn_buf, 1);
-	fmt_elm_end_print(format, prn_buf, 0);
-	fmt_byte_null_print(prn_buf);
+	fmt_arr_end(format, prn_buf, 1);
+	fmt_elm_end(format, prn_buf, 0);
+	fmt_null_byte(prn_buf);
 	buf_pos2 = sid_buf_count(prn_buf);
 
-	sid_buf_data_get(prn_buf, (const void **) &data, &size);
+	sid_buf_get_data(prn_buf, (const void **) &data, &size);
 
 	sid_buf_add(ucmd_ctx->res_buf, data + buf_pos0, buf_pos1 - buf_pos0, NULL, NULL);
 	sid_buf_add(ucmd_ctx->res_buf,
@@ -4063,7 +4063,7 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 {
 	char                 uuid_buf1[UTIL_UUID_STR_SIZE];
 	char                 uuid_buf2[UTIL_UUID_STR_SIZE];
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	fmt_output_t         format   = flags_to_format(ucmd_ctx->req_hdr.flags);
 	struct sid_buf      *prn_buf  = ucmd_ctx->prn_buf;
 	kv_vector_t          tmp_vvalue[VVALUE_SINGLE_CNT];
@@ -4080,11 +4080,11 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 	prev_uuid                       = uuid_buf1;
 	uuid                            = uuid_buf2;
 
-	if (!(iter = sid_kvs_iter_prefix_create(ucmd_ctx->common->kv_store_res, "::D:")))
+	if (!(iter = sid_kvs_iter_create_prefix(ucmd_ctx->common->kv_store_res, "::D:")))
 		goto out;
 
-	fmt_doc_start_print(format, prn_buf, 0);
-	fmt_arr_start_print(format, prn_buf, 1, "siddevices", false);
+	fmt_doc_start(format, prn_buf, 0);
+	fmt_arr_start(format, prn_buf, 1, "siddevices", false);
 
 	prev_uuid[0] = 0;
 
@@ -4097,18 +4097,18 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 
 		if (strcmp(prev_uuid, uuid)) {
 			if (prev_uuid[0] != 0)
-				fmt_elm_end_print(format, prn_buf, 2);
-			fmt_elm_start_print(format, prn_buf, 2, with_comma);
-			fmt_fld_str_print(format, prn_buf, 3, "DEVID", uuid, false);
+				fmt_elm_end(format, prn_buf, 2);
+			fmt_elm_start(format, prn_buf, 2, with_comma);
+			fmt_fld_str(format, prn_buf, 3, "DEVID", uuid, false);
 		}
 
 		if (!strcmp(key_core, KV_KEY_GEN_GROUP_IN) || !strcmp(key_core, KV_KEY_GEN_GROUP_MEMBERS)) {
 			vvalue = _get_vvalue(kv_store_value_flags, data, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
 			_print_vvalue(vvalue, kv_store_value_flags & SID_KVS_VAL_FL_VECTOR, size, key_core, format, prn_buf, 3);
 		} else if (!strcmp(key_core, KV_KEY_DEV_READY)) {
-			fmt_fld_str_print(format, prn_buf, 3, KV_KEY_DEV_READY, _sval_to_dev_ready_str(data), with_comma);
+			fmt_fld_str(format, prn_buf, 3, KV_KEY_DEV_READY, _sval_to_dev_ready_str(data), with_comma);
 		} else if (!strcmp(key_core, KV_KEY_DEV_RESERVED)) {
-			fmt_fld_str_print(format, prn_buf, 3, KV_KEY_DEV_RESERVED, _sval_to_dev_reserved_str(data), with_comma);
+			fmt_fld_str(format, prn_buf, 3, KV_KEY_DEV_RESERVED, _sval_to_dev_reserved_str(data), with_comma);
 		}
 
 		UTIL_SWAP(uuid, prev_uuid);
@@ -4116,13 +4116,13 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 	}
 
 	if (prev_uuid[0] != 0)
-		fmt_elm_end_print(format, prn_buf, 2);
+		fmt_elm_end(format, prn_buf, 2);
 
-	fmt_arr_end_print(format, prn_buf, 1);
-	fmt_doc_end_print(format, prn_buf, 0);
-	fmt_byte_null_print(prn_buf);
+	fmt_arr_end(format, prn_buf, 1);
+	fmt_doc_end(format, prn_buf, 0);
+	fmt_null_byte(prn_buf);
 
-	sid_buf_data_get(prn_buf, (const void **) &data, &size);
+	sid_buf_get_data(prn_buf, (const void **) &data, &size);
 	r = sid_buf_add(ucmd_ctx->res_buf, data, size, NULL, NULL);
 out:
 	if (iter)
@@ -4134,7 +4134,7 @@ out:
 static int _cmd_exec_dbstats(sid_res_t *cmd_res)
 {
 	int                  r;
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	struct sid_buf      *prn_buf  = ucmd_ctx->prn_buf;
 	struct sid_dbstats   stats;
 	char                *stats_data;
@@ -4142,26 +4142,26 @@ static int _cmd_exec_dbstats(sid_res_t *cmd_res)
 	fmt_output_t         format = flags_to_format(ucmd_ctx->req_hdr.flags);
 
 	if ((r = _write_kv_store_stats(&stats, ucmd_ctx->common->kv_store_res)) == 0) {
-		fmt_doc_start_print(format, prn_buf, 0);
+		fmt_doc_start(format, prn_buf, 0);
 
-		fmt_fld_uint64_print(format, prn_buf, 1, "KEYS_SIZE", stats.key_size, false);
-		fmt_fld_uint64_print(format, prn_buf, 1, "VALUES_INTERNAL_SIZE", stats.value_int_size, true);
-		fmt_fld_uint64_print(format, prn_buf, 1, "VALUES_INTERNAL_DATA_SIZE", stats.value_int_data_size, true);
-		fmt_fld_uint64_print(format, prn_buf, 1, "VALUES_EXTERNAL_SIZE", stats.value_ext_size, true);
-		fmt_fld_uint64_print(format, prn_buf, 1, "VALUES_EXTERNAL_DATA_SIZE", stats.value_ext_data_size, true);
-		fmt_fld_uint64_print(format, prn_buf, 1, "METADATA_SIZE", stats.meta_size, true);
-		fmt_fld_uint_print(format, prn_buf, 1, "NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, true);
+		fmt_fld_uint64(format, prn_buf, 1, "KEYS_SIZE", stats.key_size, false);
+		fmt_fld_uint64(format, prn_buf, 1, "VALUES_INTERNAL_SIZE", stats.value_int_size, true);
+		fmt_fld_uint64(format, prn_buf, 1, "VALUES_INTERNAL_DATA_SIZE", stats.value_int_data_size, true);
+		fmt_fld_uint64(format, prn_buf, 1, "VALUES_EXTERNAL_SIZE", stats.value_ext_size, true);
+		fmt_fld_uint64(format, prn_buf, 1, "VALUES_EXTERNAL_DATA_SIZE", stats.value_ext_data_size, true);
+		fmt_fld_uint64(format, prn_buf, 1, "METADATA_SIZE", stats.meta_size, true);
+		fmt_fld_uint(format, prn_buf, 1, "NR_KEY_VALUE_PAIRS", stats.nr_kv_pairs, true);
 
-		fmt_doc_end_print(format, prn_buf, 0);
-		fmt_byte_null_print(prn_buf);
+		fmt_doc_end(format, prn_buf, 0);
+		fmt_null_byte(prn_buf);
 
-		sid_buf_data_get(prn_buf, (const void **) &stats_data, &size);
+		sid_buf_get_data(prn_buf, (const void **) &stats_data, &size);
 		r = sid_buf_add(ucmd_ctx->res_buf, stats_data, size, NULL, NULL);
 	}
 	return r;
 }
 
-const void *sid_ucmd_kv_disk_part_get(sid_res_t           *mod_res,
+const void *sid_ucmd_kv_get_disk_part(sid_res_t           *mod_res,
                                       struct sid_ucmd_ctx *ucmd_ctx,
                                       const char          *key_core,
                                       size_t              *value_size,
@@ -4348,7 +4348,7 @@ static const char *
 		dep_name = basename(dirname(dep_path));
 	}
 
-	if ((r = sid_buf_fmt_add(ucmd_ctx->common->gen_buf, (const void **) &s, NULL, "%s/diskseq", dep_path)) < 0) {
+	if ((r = sid_buf_add_fmt(ucmd_ctx->common->gen_buf, (const void **) &s, NULL, "%s/diskseq", dep_path)) < 0) {
 		msg = "Failed to compose underlying device's sysfs 'dev' attribute path";
 		goto out;
 	}
@@ -4361,7 +4361,7 @@ static const char *
 	ret = 0;
 out:
 	if (s)
-		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+		sid_buf_rewind_mem(ucmd_ctx->common->gen_buf, s);
 	free(dep_path);
 
 	if (ret < 0) {
@@ -4384,7 +4384,7 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 	/*
 	 * FIXME: Fail completely here, discarding any changes made to DB so far if any of the steps below fail?
 	 */
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	char                *s;
 	struct dirent      **dirent  = NULL;
 	struct sid_buf      *vec_buf = NULL;
@@ -4423,7 +4423,7 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 	                                   .custom  = &rel_spec};
 
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
-		if ((r = sid_buf_fmt_add(ucmd_ctx->common->gen_buf,
+		if ((r = sid_buf_add_fmt(ucmd_ctx->common->gen_buf,
 		                         (const void **) &s,
 		                         NULL,
 		                         "%s%s/%s",
@@ -4439,7 +4439,7 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 		}
 
 		count = scandir(s, &dirent, NULL, NULL);
-		sid_buf_mem_rewind(ucmd_ctx->common->gen_buf, s);
+		sid_buf_rewind_mem(ucmd_ctx->common->gen_buf, s);
 
 		if (count < 0) {
 			/*
@@ -4483,7 +4483,7 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 	                    &value_flags_no_sync,
 	                    &ucmd_ctx->common->gennum,
 	                    core_owner);
-	sid_buf_mem_unbind(vec_buf, vvalue);
+	sid_buf_unbind_mem(vec_buf, vvalue);
 
 	/* Read relatives from sysfs into vec_buf. */
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
@@ -4511,7 +4511,7 @@ next:
 	}
 
 	/* Get the actual vector with relatives and sort it. */
-	sid_buf_data_get(vec_buf, (const void **) (&vvalue), &vsize);
+	sid_buf_get_data(vec_buf, (const void **) (&vvalue), &vsize);
 	qsort(vvalue + VVALUE_HEADER_CNT, vsize - VVALUE_HEADER_CNT, sizeof(kv_vector_t), _vvalue_str_cmp);
 
 	if (!(s = _compose_key(NULL, rel_spec.cur_key_spec))) {
@@ -4535,7 +4535,7 @@ out:
 	}
 	if (vec_buf) {
 		if (!vsize)
-			sid_buf_data_get(vec_buf, (const void **) (&vvalue), &vsize);
+			sid_buf_get_data(vec_buf, (const void **) (&vvalue), &vsize);
 
 		for (i = VVALUE_HEADER_CNT; i < vsize; i++)
 			_destroy_key(NULL, vvalue[i].iov_base);
@@ -4547,7 +4547,7 @@ out:
 
 static int _update_part_deps_from_sysfs(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	kv_vector_t          vvalue[VVALUE_SINGLE_CNT];
 	char                 buf[UTIL_UUID_STR_SIZE];
 	const char          *dep_dseq;
@@ -4629,7 +4629,7 @@ out:
 
 static int _update_dev_deps_from_sysfs(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
 	switch (ucmd_ctx->req_env.dev.udev.type) {
 		case UDEV_DEVTYPE_DISK:
@@ -4649,7 +4649,7 @@ static int _update_dev_deps_from_sysfs(sid_res_t *cmd_res)
 
 static int _exec_block_mods(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx       *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx       *ucmd_ctx = sid_res_get_data(cmd_res);
 	sid_res_t                 *block_mod_res;
 	const struct scan_mod_fns *block_mod_fns;
 	sid_ucmd_fn_t             *block_mod_fn;
@@ -4657,7 +4657,7 @@ static int _exec_block_mods(sid_res_t *cmd_res)
 	sid_res_iter_reset(ucmd_ctx->scan.block_mod_iter);
 
 	while ((block_mod_res = sid_res_iter_next(ucmd_ctx->scan.block_mod_iter))) {
-		if (sid_mod_reg_mod_syms_get(block_mod_res, (const void ***) &block_mod_fns) < 0) {
+		if (sid_mod_reg_get_mod_syms(block_mod_res, (const void ***) &block_mod_fns) < 0) {
 			sid_res_log_error(cmd_res, "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
 			return -1;
 		}
@@ -4673,14 +4673,14 @@ static int _exec_block_mods(sid_res_t *cmd_res)
 
 static int _exec_type_mod(sid_res_t *cmd_res, sid_res_t *type_mod_res)
 {
-	struct sid_ucmd_ctx       *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx       *ucmd_ctx = sid_res_get_data(cmd_res);
 	const struct scan_mod_fns *type_mod_fns;
 	sid_ucmd_fn_t             *type_mod_fn;
 
 	if (!type_mod_res)
 		return 0;
 
-	if (sid_mod_reg_mod_syms_get(type_mod_res, (const void ***) &type_mod_fns) < 0) {
+	if (sid_mod_reg_get_mod_syms(type_mod_res, (const void ***) &type_mod_fns) < 0) {
 		sid_res_log_error(cmd_res, "Failed to retrieve module symbols from module %s.", ID(type_mod_res));
 		return -1;
 	}
@@ -4695,7 +4695,7 @@ static int _exec_type_mod(sid_res_t *cmd_res, sid_res_t *type_mod_res)
 
 static int _get_device_uuid(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	char                 buf[UTIL_UUID_STR_SIZE]; /* used for both uuid and diskseq */
 	const char          *uuid_p;
 	int                  r;
@@ -4732,7 +4732,7 @@ static bool _dev_matches_udev(sid_res_t *cmd_res, const char *devid)
 
 static int _set_dev_kvs(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	char                 buf[UTIL_UUID_STR_SIZE];
 	util_mem_t           mem = {.base = buf, .size = sizeof(buf)};
 	const char          *devid, *devid_udev, *devid_to_use, *devid_msg;
@@ -4768,7 +4768,7 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 		devid_to_use = devid;
 		devid_msg    = " (pushing ID to udev)";
 	} else if (!devid && !devid_udev) {
-		if (!util_uuid_str_gen(&mem)) {
+		if (!util_uuid_gen_str(&mem)) {
 			sid_res_log_error(cmd_res,
 			                  "Failed to generate new device ID for " CMD_DEV_PRINT_FMT ".",
 			                  CMD_DEV_PRINT(ucmd_ctx));
@@ -4834,7 +4834,7 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
 {
 	char                 buf[80];
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	const char          *mod_name;
 
 	if (!(ucmd_ctx->scan.block_mod_iter = sid_res_iter_create(ucmd_ctx->common->block_mod_registry_res))) {
@@ -4881,7 +4881,7 @@ static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
 		}
 	}
 
-	if (!(ucmd_ctx->scan.type_mod_res_current = sid_mod_reg_mod_get(ucmd_ctx->common->type_mod_registry_res, mod_name)))
+	if (!(ucmd_ctx->scan.type_mod_res_current = sid_mod_reg_get_mod(ucmd_ctx->common->type_mod_registry_res, mod_name)))
 		sid_res_log_debug(cmd_res, "Module %s not loaded.", mod_name);
 
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
@@ -4896,7 +4896,7 @@ fail:
 
 static int _cmd_exec_scan_a_pre(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
@@ -4904,8 +4904,8 @@ static int _cmd_exec_scan_a_pre(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_a_current(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
-	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, sid_res_data_get(cmd_res), _owner_name(NULL), 0);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
+	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, sid_res_get_data(cmd_res), _owner_name(NULL), 0);
 
 	if (ready == SID_DEV_RDY_UNPROCESSED && !ucmd_ctx->scan.type_mod_res_current) {
 		/*
@@ -4927,7 +4927,7 @@ static int _cmd_exec_scan_a_current(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_a_next(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	sid_ucmd_dev_ready_t ready;
 	const char          *next_mod_name;
 
@@ -4948,7 +4948,7 @@ static int _cmd_exec_scan_a_next(sid_res_t *cmd_res)
 	                                         NULL,
 	                                         0))) {
 		if (!(ucmd_ctx->scan.type_mod_res_next =
-		              sid_mod_reg_mod_get(ucmd_ctx->common->type_mod_registry_res, next_mod_name)))
+		              sid_mod_reg_get_mod(ucmd_ctx->common->type_mod_registry_res, next_mod_name)))
 			sid_res_log_debug(cmd_res, "Module %s not loaded.", next_mod_name);
 	} else
 		ucmd_ctx->scan.type_mod_res_next = NULL;
@@ -4958,7 +4958,7 @@ static int _cmd_exec_scan_a_next(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_a_post_current(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0);
 
 	if (!UTIL_IN_SET(ready, SID_DEV_RDY_PRIVATE, SID_DEV_RDY_FLAT, SID_DEV_RDY_PUBLIC))
@@ -4970,7 +4970,7 @@ static int _cmd_exec_scan_a_post_current(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_a_post_next(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0);
 
 	if (!UTIL_IN_SET(ready, SID_DEV_RDY_PUBLIC))
@@ -4982,7 +4982,7 @@ static int _cmd_exec_scan_a_post_next(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_a_exit(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	int                  r        = 0;
 
 	(void) _exec_block_mods(cmd_res);
@@ -5001,7 +5001,7 @@ static int _cmd_exec_scan_a_exit(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_remove_init(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	const char          *mod_name;
 
 	if (!(ucmd_ctx->scan.block_mod_iter = sid_res_iter_create(ucmd_ctx->common->block_mod_registry_res))) {
@@ -5022,7 +5022,7 @@ static int _cmd_exec_scan_remove_init(sid_res_t *cmd_res)
 		return -1;
 	}
 
-	if (!(ucmd_ctx->scan.type_mod_res_current = sid_mod_reg_mod_get(ucmd_ctx->common->type_mod_registry_res, mod_name))) {
+	if (!(ucmd_ctx->scan.type_mod_res_current = sid_mod_reg_get_mod(ucmd_ctx->common->type_mod_registry_res, mod_name))) {
 		sid_res_log_debug(cmd_res, "Module %s not loaded.", mod_name);
 		return 0;
 	}
@@ -5043,7 +5043,7 @@ fail:
 
 static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
 	_exec_block_mods(cmd_res);
 	if (_exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current) < 0)
@@ -5054,7 +5054,7 @@ static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_remove_exit(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
@@ -5062,7 +5062,7 @@ static int _cmd_exec_scan_remove_exit(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_b_init(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
@@ -5070,7 +5070,7 @@ static int _cmd_exec_scan_b_init(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_b_action_current(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
@@ -5078,7 +5078,7 @@ static int _cmd_exec_scan_b_action_current(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_b_action_next(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
 	_exec_block_mods(cmd_res);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
@@ -5086,7 +5086,7 @@ static int _cmd_exec_scan_b_action_next(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_b_exit(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	int                  r;
 
 	_exec_block_mods(cmd_res);
@@ -5102,7 +5102,7 @@ static int _cmd_exec_scan_b_exit(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_error(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	int                  r        = 0;
 
 	_exec_block_mods(cmd_res);
@@ -5147,7 +5147,7 @@ static struct cmd_reg _cmd_scan_phase_regs[] = {
 
 static int _cmd_exec_scan(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	cmd_scan_phase_t     phase, phase_start, phase_end;
 	const char          *phase_name;
 
@@ -5292,7 +5292,7 @@ static const struct cmd_reg *_get_cmd_reg(struct sid_ucmd_ctx *ucmd_ctx)
 
 static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx  *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx  *ucmd_ctx = sid_res_get_data(cmd_res);
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 	sid_res_t            *conn_res = NULL;
 	struct connection    *conn     = NULL;
@@ -5308,7 +5308,7 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 
 	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN) {
 		if (sid_buf_count(ucmd_ctx->exp_buf) > 0) {
-			id = sid_res_id_get(cmd_res);
+			id = sid_res_get_id(cmd_res);
 
 			sid_buf_add(buf,
 			            &(struct internal_msg_header) {.cat = MSG_CATEGORY_SYSTEM,
@@ -5323,7 +5323,7 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 			            NULL,
 			            &buf_pos);
 			sid_buf_add(buf, (void *) id, strlen(id) + 1, NULL, NULL);
-			sid_buf_data_get_from(buf, buf_pos, (const void **) &data, &size);
+			sid_buf_get_data_from(buf, buf_pos, (const void **) &data, &size);
 
 			if ((r = sid_wrk_ctl_chan_send(
 				     cmd_res,
@@ -5331,7 +5331,7 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 				     &(struct sid_wrk_data_spec) {.data               = data,
 			                                          .data_size          = size,
 			                                          .ext.used           = true,
-			                                          .ext.socket.fd_pass = sid_buf_fd_get(ucmd_ctx->exp_buf)})) < 0) {
+			                                          .ext.socket.fd_pass = sid_buf_get_fd(ucmd_ctx->exp_buf)})) < 0) {
 				sid_res_log_error_errno(cmd_res, r, "Failed to send command exports to main SID process.");
 				r = -1;
 			}
@@ -5340,7 +5340,7 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 		} else
 			r = -ENODATA;
 	} else if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
-		if ((r = fsync(sid_buf_fd_get(ucmd_ctx->exp_buf))) < 0) {
+		if ((r = fsync(sid_buf_get_fd(ucmd_ctx->exp_buf))) < 0) {
 			sid_res_log_error_errno(cmd_res, r, "Failed to fsync command exports to a file.");
 			r = -1;
 		}
@@ -5351,9 +5351,9 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 
 			case MSG_CATEGORY_CLIENT:
 				conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, &sid_res_type_ubr_con, NULL);
-				conn     = sid_res_data_get(conn_res);
+				conn     = sid_res_get_data(conn_res);
 
-				if ((r = _send_fd_over_unix_comms(sid_buf_fd_get(ucmd_ctx->exp_buf), conn->fd)) < 0) {
+				if ((r = _send_fd_over_unix_comms(sid_buf_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0) {
 					sid_res_log_error_errno(cmd_res, r, "Failed to send command exports to client.");
 					r = -1;
 				}
@@ -5372,7 +5372,7 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 
 static int _send_out_cmd_resbuf(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	sid_res_t           *conn_res = NULL;
 	struct connection   *conn     = NULL;
 	int                  r        = -1;
@@ -5387,7 +5387,7 @@ static int _send_out_cmd_resbuf(sid_res_t *cmd_res)
 
 		case MSG_CATEGORY_CLIENT:
 			conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, &sid_res_type_ubr_con, NULL);
-			conn     = sid_res_data_get(conn_res);
+			conn     = sid_res_get_data(conn_res);
 
 			if ((r = sid_buf_write_all(ucmd_ctx->res_buf, conn->fd)) < 0) {
 				sid_res_log_error_errno(cmd_res, r, "Failed to send command response to client");
@@ -5411,7 +5411,7 @@ out:
 static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 {
 	sid_res_t            *cmd_res      = data;
-	struct sid_ucmd_ctx  *ucmd_ctx     = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx  *ucmd_ctx     = sid_res_get_data(cmd_res);
 	const struct cmd_reg *cmd_reg      = _get_cmd_reg(ucmd_ctx);
 	bool                  expbuf_first = cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN;
 	int                   r            = -1;
@@ -5506,14 +5506,14 @@ out:
 		(void) _process_cmd_unsbuf(cmd_res);
 
 	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_FIN, CMD_STATE_ERR))
-		(void) sid_wrk_ctl_wrk_yield(cmd_res);
+		(void) sid_wrk_ctl_yield_worker(cmd_res);
 
 	return 0;
 }
 
 static int _reply_failure(sid_res_t *conn_res)
 {
-	struct connection        *conn = sid_res_data_get(conn_res);
+	struct connection        *conn = sid_res_get_data(conn_res);
 	void                     *data;
 	struct sid_ifc_msg_header header;
 	uint8_t                   prot;
@@ -5522,7 +5522,7 @@ static int _reply_failure(sid_res_t *conn_res)
 	};
 	int r = -1;
 
-	(void) sid_buf_data_get(conn->buf, (const void **) &data, NULL);
+	(void) sid_buf_get_data(conn->buf, (const void **) &data, NULL);
 	memcpy(&header, data, sizeof(header));
 	prot = header.prot;
 	(void) sid_buf_rewind(conn->buf, 0, SID_BUF_POS_ABS);
@@ -5580,7 +5580,7 @@ static int _check_msg(sid_res_t *res, struct sid_msg *msg)
 				return -1;
 			}
 
-			if (!_socket_client_is_capable(((struct connection *) sid_res_data_get(res))->fd, header.cmd)) {
+			if (!_socket_client_is_capable(((struct connection *) sid_res_get_data(res))->fd, header.cmd)) {
 				sid_res_log_error(res,
 				                  "Client does not have permission to run command %s.",
 				                  sid_ifc_cmd_type_to_name(header.cmd));
@@ -5618,7 +5618,7 @@ static int _create_cmd_res(sid_res_t *parent_res, struct sid_msg *msg)
 static int _on_connection_event(sid_res_ev_src_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_res_t         *conn_res = data;
-	struct connection *conn     = sid_res_data_get(conn_res);
+	struct connection *conn     = sid_res_get_data(conn_res);
 	struct sid_msg     msg;
 	ssize_t            n;
 
@@ -5635,7 +5635,7 @@ static int _on_connection_event(sid_res_ev_src_t *es, int fd, uint32_t revents, 
 	if (n > 0) {
 		if (sid_buf_is_complete(conn->buf, NULL)) {
 			msg.cat = MSG_CATEGORY_CLIENT;
-			(void) sid_buf_data_get(conn->buf, (const void **) &msg.header, &msg.size);
+			(void) sid_buf_get_data(conn->buf, (const void **) &msg.header, &msg.size);
 
 			if (_create_cmd_res(conn_res, &msg) < 0) {
 				if (_reply_failure(conn_res) < 0)
@@ -5674,8 +5674,8 @@ static int _init_connection(sid_res_t *res, const void *kickstart_data, void **d
 
 	conn->fd = data_spec->ext.socket.fd_pass;
 
-	if (sid_res_ev_io_create(res, &conn_es, conn->fd, _on_connection_event, 0, "client connection", res) < 0 ||
-	    sid_res_ev_exit_on_failure_set(conn_es, true) < 0) {
+	if (sid_res_ev_create_io(res, &conn_es, conn->fd, _on_connection_event, 0, "client connection", res) < 0 ||
+	    sid_res_ev_set_exit_on_failure(conn_es, true) < 0) {
 		sid_res_log_error(res, "Failed to register connection event handler.");
 		goto fail;
 	}
@@ -5703,7 +5703,7 @@ fail:
 
 static int _destroy_connection(sid_res_t *res)
 {
-	struct connection *conn = sid_res_data_get(res);
+	struct connection *conn = sid_res_get_data(res);
 
 	if (conn->fd != -1)
 		close(conn->fd);
@@ -5779,7 +5779,7 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 		sid_res_log_error(res, SID_INTERNAL_ERROR "%s: Failed to find common resource.", __func__);
 		goto fail;
 	}
-	ucmd_ctx->common = sid_res_data_get(common_res);
+	ucmd_ctx->common = sid_res_get_data(common_res);
 
 	if (cmd_reg->flags & CMD_KV_IMPORT_UDEV) {
 		/* currently, we only parse udev environment for the SCAN command */
@@ -5793,9 +5793,9 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 
 		sid_res_log_debug(res,
 		                  "Processing event: %s %s uevent with seqno %" PRIu64 " for device " CMD_DEV_PRINT_FMT,
-		                  sid_ucmd_ev_dev_synth_uuid_get(ucmd_ctx) == NULL ? "genuine" : "synthetic",
-		                  util_udev_action_to_str(sid_ucmd_ev_dev_action_get(ucmd_ctx)),
-		                  sid_ucmd_ev_dev_seqnum_get(ucmd_ctx),
+		                  sid_ucmd_ev_dev_get_synth_uuid(ucmd_ctx) == NULL ? "genuine" : "synthetic",
+		                  util_udev_action_to_str(sid_ucmd_ev_dev_get_action(ucmd_ctx)),
+		                  sid_ucmd_ev_dev_get_seqnum(ucmd_ctx),
 		                  CMD_DEV_PRINT(ucmd_ctx));
 	}
 
@@ -5806,7 +5806,7 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 	}
 
 	if (cmd_reg->flags & CMD_SESSION_ID) {
-		if (!(worker_id = sid_wrk_ctl_wrk_id_get(res))) {
+		if (!(worker_id = sid_wrk_ctl_get_worker_id(res))) {
 			sid_res_log_error(res, "Failed to get worker ID to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
 			goto fail;
 		}
@@ -5825,8 +5825,8 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 		}
 	}
 
-	if (sid_res_ev_deferred_create(res, &ucmd_ctx->cmd_handler_es, _cmd_handler, 0, "command handler", res) < 0 ||
-	    sid_res_ev_exit_on_failure_set(ucmd_ctx->cmd_handler_es, true) < 0) {
+	if (sid_res_ev_create_deferred(res, &ucmd_ctx->cmd_handler_es, _cmd_handler, 0, "command handler", res) < 0 ||
+	    sid_res_ev_set_exit_on_failure(ucmd_ctx->cmd_handler_es, true) < 0) {
 		sid_res_log_error(res, "Failed to register command handler.");
 		goto fail;
 	}
@@ -5863,7 +5863,7 @@ fail:
 
 static int _destroy_command(sid_res_t *res)
 {
-	struct sid_ucmd_ctx  *ucmd_ctx = sid_res_data_get(res);
+	struct sid_ucmd_ctx  *ucmd_ctx = sid_res_get_data(res);
 	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
 
 	if (ucmd_ctx->res_buf)
@@ -6083,7 +6083,7 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 			vvalue_str          = _buffer_get_vvalue_str(common_ctx->gen_buf, unset, vvalue, value_size);
 			sid_res_log_debug(res, syncing_msg, key, vvalue_str ?: "NULL", VVALUE_SEQNUM(vvalue));
 			if (vvalue_str)
-				sid_buf_mem_rewind(common_ctx->gen_buf, vvalue_str);
+				sid_buf_rewind_mem(common_ctx->gen_buf, vvalue_str);
 
 			switch (rel_spec.delta->op = _get_op_from_key(key)) {
 				case KV_OP_PLUS:
@@ -6286,7 +6286,7 @@ static int _worker_proxy_recv_system_cmd_resources(sid_res_t                *wor
 	                          &(struct sid_wrk_data_spec) {.data               = data_spec->data,
 	                                                       .data_size          = data_spec->data_size,
 	                                                       .ext.used           = true,
-	                                                       .ext.socket.fd_pass = sid_buf_fd_get(buf)});
+	                                                       .ext.socket.fd_pass = sid_buf_get_fd(buf)});
 out:
 	sid_buf_destroy(buf);
 	return r;
@@ -6374,7 +6374,7 @@ static int _worker_recv_system_cmd_resources(sid_res_t *worker_res, struct sid_w
 		goto out;
 	}
 
-	ucmd_ctx                              = sid_res_data_get(cmd_res);
+	ucmd_ctx                              = sid_res_get_data(cmd_res);
 
 	ucmd_ctx->resources.main_res_mem_size = msg_size;
 	ucmd_ctx->resources.main_res_mem =
@@ -6513,7 +6513,7 @@ static int _worker_init_fn(sid_res_t *worker_res, void *arg)
 
 	/* only take inherited common resource and attach it to the worker */
 	(void) sid_res_isolate(common_ctx->res, SID_RES_ISOL_FL_SUBTREE);
-	(void) sid_res_child_add(worker_res, common_ctx->res, SID_RES_FL_NONE);
+	(void) sid_res_add_child(worker_res, common_ctx->res, SID_RES_FL_NONE);
 
 	/* destroy remaining resources */
 	(void) sid_res_unref(old_top_res);
@@ -6524,7 +6524,7 @@ static int _worker_init_fn(sid_res_t *worker_res, void *arg)
 /* *res_p is set to the worker_proxy resource. If a new worker process is created, when it returns, *res_p will be NULL */
 static int _get_worker(sid_res_t *ubridge_res, sid_res_t **res_p)
 {
-	struct ubridge *ubridge = sid_res_data_get(ubridge_res);
+	struct ubridge *ubridge = sid_res_get_data(ubridge_res);
 	char            uuid[UTIL_UUID_STR_SIZE];
 	util_mem_t      mem = {.base = uuid, .size = sizeof(uuid)};
 	sid_res_t      *worker_control_res, *worker_proxy_res;
@@ -6535,17 +6535,17 @@ static int _get_worker(sid_res_t *ubridge_res, sid_res_t **res_p)
 		return -1;
 	}
 
-	if ((worker_proxy_res = sid_wrk_ctl_wrk_idle_get(worker_control_res)))
+	if ((worker_proxy_res = sid_wrk_ctl_get_idle_worker(worker_control_res)))
 		*res_p = worker_proxy_res;
 	else {
 		sid_res_log_debug(ubridge_res, "Idle worker not found, creating a new one.");
 
-		if (!util_uuid_str_gen(&mem)) {
+		if (!util_uuid_gen_str(&mem)) {
 			sid_res_log_error(ubridge_res, "Failed to generate UUID for new worker.");
 			return -1;
 		}
 
-		if (sid_wrk_ctl_wrk_new_get(worker_control_res, &((struct sid_wrk_params) {.id = uuid}), res_p) < 0)
+		if (sid_wrk_ctl_get_new_worker(worker_control_res, &((struct sid_wrk_params) {.id = uuid}), res_p) < 0)
 			return -1;
 	}
 
@@ -6555,7 +6555,7 @@ static int _get_worker(sid_res_t *ubridge_res, sid_res_t **res_p)
 static int _on_ubridge_interface_event(sid_res_ev_src_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_res_t                 *ubridge_res = data;
-	struct ubridge            *ubridge     = sid_res_data_get(ubridge_res);
+	struct ubridge            *ubridge     = sid_res_get_data(ubridge_res);
 	sid_res_t                 *worker_proxy_res;
 	struct sid_wrk_data_spec   data_spec;
 	struct internal_msg_header int_msg;
@@ -6669,7 +6669,7 @@ static int _load_kv_store(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *co
 static int _on_ubridge_umonitor_event(sid_res_ev_src_t *es, int fd, uint32_t revents, void *data)
 {
 	sid_res_t                 *ubridge_res = data;
-	struct ubridge            *ubridge     = sid_res_data_get(ubridge_res);
+	struct ubridge            *ubridge     = sid_res_get_data(ubridge_res);
 	unsigned long long         seqnum;
 	sid_res_t                 *worker_control_res;
 	sid_res_t                 *worker_proxy_res;
@@ -6698,7 +6698,7 @@ static int _on_ubridge_umonitor_event(sid_res_ev_src_t *es, int fd, uint32_t rev
 		goto out;
 	}
 
-	if (!(worker_proxy_res = sid_wrk_ctl_wrk_find(worker_control_res, worker_id))) {
+	if (!(worker_proxy_res = sid_wrk_ctl_find_worker(worker_control_res, worker_id))) {
 		sid_res_log_error(ubridge_res, SID_INTERNAL_ERROR "%s: Failed to find worker with id %s.", __func__, worker_id);
 		goto out;
 	}
@@ -6839,7 +6839,7 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 	else
 		old_boot_id = NULL;
 
-	if (!(util_uuid_boot_id_get(&(util_mem_t) {.base = boot_id, .size = sizeof(boot_id)}, &r)))
+	if (!(util_uuid_get_boot_id(&(util_mem_t) {.base = boot_id, .size = sizeof(boot_id)}, &r)))
 		return r;
 
 	if (old_boot_id)
@@ -6953,7 +6953,7 @@ static int _set_up_ulink(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 
 	umonitor_fd = udev_monitor_get_fd(ulink->mon);
 
-	if (sid_res_ev_io_create(ubridge_res,
+	if (sid_res_ev_create_io(ubridge_res,
 	                         &umonitor_es,
 	                         umonitor_fd,
 	                         _on_ubridge_umonitor_event,
@@ -7191,7 +7191,7 @@ static int _init_common(sid_res_t *res, const void *kickstart_data, void **data)
 		goto fail;
 	}
 
-	if ((r = sid_mod_reg_mods_load(common_ctx->block_mod_registry_res)) < 0) {
+	if ((r = sid_mod_reg_load_mods(common_ctx->block_mod_registry_res)) < 0) {
 		if (r == -ENOENT)
 			sid_res_log_debug(res, "Block module directory %s not present.", SID_UCMD_BLOCK_MOD_DIR);
 		else if (r == -ENOMEDIUM)
@@ -7202,7 +7202,7 @@ static int _init_common(sid_res_t *res, const void *kickstart_data, void **data)
 		}
 	}
 
-	if ((r = sid_mod_reg_mods_load(common_ctx->type_mod_registry_res)) < 0) {
+	if ((r = sid_mod_reg_load_mods(common_ctx->type_mod_registry_res)) < 0) {
 		if (r == -ENOENT)
 			sid_res_log_debug(res, "Type module directory %s not present.", SID_UCMD_TYPE_MOD_DIR);
 		else if (r == -ENOMEDIUM)
@@ -7227,7 +7227,7 @@ fail:
 
 static int _destroy_common(sid_res_t *res)
 {
-	struct sid_ucmd_common_ctx *common_ctx = sid_res_data_get(res);
+	struct sid_ucmd_common_ctx *common_ctx = sid_res_get_data(res);
 
 	sid_buf_destroy(common_ctx->gen_buf);
 	free(common_ctx);
@@ -7269,7 +7269,7 @@ static int _init_ubridge(sid_res_t *res, const void *kickstart_data, void **data
 		sid_res_log_error(res, "Failed to create ubridge common resource.");
 		goto fail;
 	}
-	common_ctx                                              = sid_res_data_get(common_res);
+	common_ctx                                              = sid_res_get_data(common_res);
 
 	struct sid_wrk_ctl_res_params worker_control_res_params = {
 		.worker_type = SID_WRK_TYPE_INTERNAL,
@@ -7326,7 +7326,7 @@ static int _init_ubridge(sid_res_t *res, const void *kickstart_data, void **data
 		goto fail;
 	}
 
-	if (sid_res_ev_io_create(res,
+	if (sid_res_ev_create_io(res,
 	                         &ubridge_es,
 	                         ubridge->socket_fd,
 	                         _on_ubridge_interface_event,
@@ -7359,7 +7359,7 @@ static int _init_ubridge(sid_res_t *res, const void *kickstart_data, void **data
 	 * Call sid_util_kernel_cmdline_arg_get here to only read the kernel command
 	 * line so we already have that preloaded for any possible workers.
 	 */
-	(void) sid_util_kernel_cmdline_arg_get("root", NULL, NULL);
+	(void) sid_util_kernel_get_arg("root", NULL, NULL);
 
 	*data = ubridge;
 	return 0;
@@ -7375,7 +7375,7 @@ fail:
 
 static int _destroy_ubridge(sid_res_t *res)
 {
-	struct ubridge *ubridge = sid_res_data_get(res);
+	struct ubridge *ubridge = sid_res_get_data(res);
 
 	_destroy_ulink(res, &ubridge->ulink);
 

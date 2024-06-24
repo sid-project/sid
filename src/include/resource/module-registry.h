@@ -51,18 +51,18 @@ struct sid_mod_reg_res_params {
 	const struct sid_mod_sym_params *symbol_params; /* NULL-terminated list of symbol params */
 };
 
-int        sid_mod_reg_mods_load(sid_res_t *mod_registry_res);
-sid_res_t *sid_mod_reg_mod_load(sid_res_t *mod_registry_res, const char *mod_name);
-sid_res_t *sid_mod_reg_mod_get(sid_res_t *mod_registry_res, const char *mod_name);
-int        sid_mod_reg_mod_unload(sid_res_t *mod_res);
-int        sid_mod_reg_mod_syms_get(sid_res_t *mod_res, const void ***ret);
+int        sid_mod_reg_load_mods(sid_res_t *mod_registry_res);
+sid_res_t *sid_mod_reg_load_mod(sid_res_t *mod_registry_res, const char *mod_name);
+sid_res_t *sid_mod_reg_get_mod(sid_res_t *mod_registry_res, const char *mod_name);
+int        sid_mod_reg_unload_mod(sid_res_t *mod_res);
+int        sid_mod_reg_get_mod_syms(sid_res_t *mod_res, const void ***ret);
 
-int sid_mod_reg_mods_reset(sid_res_t *mod_registry_res);
-int sid_mod_reg_mod_reset(sid_res_t *mod_res);
+int sid_mod_reg_reset_mods(sid_res_t *mod_registry_res);
+int sid_mod_reg_reset_mod(sid_res_t *mod_res);
 
-int sid_mod_reg_mod_subreg_add(sid_res_t *mod_res, sid_res_t *mod_subregistry_res);
+int sid_mod_reg_add_mod_subreg(sid_res_t *mod_res, sid_res_t *mod_subregistry_res);
 
-bool sid_mod_reg_dep_match(sid_res_t *res1, sid_res_t *res2);
+bool sid_mod_reg_match_dep(sid_res_t *res1, sid_res_t *res2);
 
 #ifdef __cplusplus
 }

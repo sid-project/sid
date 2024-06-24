@@ -127,15 +127,15 @@ typedef int sid_ucmd_fn_t(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx);
 /*
  * Functions to retrieve device properties associated with given command ctx.
  */
-udev_action_t  sid_ucmd_ev_dev_action_get(struct sid_ucmd_ctx *ucmd_ctx);
-udev_devtype_t sid_ucmd_ev_dev_type_get(struct sid_ucmd_ctx *ucmd_ctx);
-int            sid_ucmd_ev_dev_major_get(struct sid_ucmd_ctx *ucmd_ctx);
-int            sid_ucmd_ev_dev_minor_get(struct sid_ucmd_ctx *ucmd_ctx);
-const char    *sid_ucmd_ev_dev_path_get(struct sid_ucmd_ctx *ucmd_ctx);
-const char    *sid_ucmd_ev_dev_name_get(struct sid_ucmd_ctx *ucmd_ctx);
-uint64_t       sid_ucmd_ev_dev_seqnum_get(struct sid_ucmd_ctx *ucmd_ctx);
-uint64_t       sid_ucmd_ev_dev_diskseq_get(struct sid_ucmd_ctx *ucmd_ctx);
-const char    *sid_ucmd_ev_dev_synth_uuid_get(struct sid_ucmd_ctx *ucmd_ctx);
+udev_action_t  sid_ucmd_ev_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx);
+udev_devtype_t sid_ucmd_ev_dev_get_type(struct sid_ucmd_ctx *ucmd_ctx);
+int            sid_ucmd_ev_dev_get_major(struct sid_ucmd_ctx *ucmd_ctx);
+int            sid_ucmd_ev_dev_get_minor(struct sid_ucmd_ctx *ucmd_ctx);
+const char    *sid_ucmd_ev_dev_get_path(struct sid_ucmd_ctx *ucmd_ctx);
+const char    *sid_ucmd_ev_dev_get_name(struct sid_ucmd_ctx *ucmd_ctx);
+uint64_t       sid_ucmd_ev_dev_get_seqnum(struct sid_ucmd_ctx *ucmd_ctx);
+uint64_t       sid_ucmd_ev_dev_get_diskseq(struct sid_ucmd_ctx *ucmd_ctx);
+const char    *sid_ucmd_ev_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx);
 
 typedef enum {
 	SID_KV_NS_UNDEFINED, /* namespace not defined */
@@ -190,7 +190,7 @@ const void *sid_ucmd_kv_get(sid_res_t              *mod_res,
                             sid_ucmd_kv_flags_t    *flags,
                             unsigned int            archive);
 
-const void *sid_ucmd_kv_foreign_mod_get(sid_res_t              *mod_res,
+const void *sid_ucmd_kv_get_foreign_mod(sid_res_t              *mod_res,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
                                         const char             *foreign_mod_name,
                                         sid_ucmd_kv_namespace_t ns,
@@ -199,7 +199,7 @@ const void *sid_ucmd_kv_foreign_mod_get(sid_res_t              *mod_res,
                                         sid_ucmd_kv_flags_t    *flags,
                                         unsigned int            archive);
 
-const void *sid_ucmd_kv_foreign_dev_get(sid_res_t              *mod_res,
+const void *sid_ucmd_kv_get_foreign_dev(sid_res_t              *mod_res,
                                         struct sid_ucmd_ctx    *ucmd_ctx,
                                         const char             *foreign_dev_id,
                                         sid_ucmd_kv_namespace_t ns,
@@ -208,7 +208,7 @@ const void *sid_ucmd_kv_foreign_dev_get(sid_res_t              *mod_res,
                                         sid_ucmd_kv_flags_t    *flags,
                                         unsigned int            archive);
 
-const void *sid_ucmd_kv_foreign_dev_mod_get(sid_res_t              *mod_res,
+const void *sid_ucmd_kv_get_foreign_dev_mod(sid_res_t              *mod_res,
                                             struct sid_ucmd_ctx    *ucmd_ctx,
                                             const char             *foreign_dev_id,
                                             const char             *foreign_mod_name,
@@ -219,7 +219,7 @@ const void *sid_ucmd_kv_foreign_dev_mod_get(sid_res_t              *mod_res,
                                             unsigned int            archive);
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// TODO: The sid_ucmd_part_get_disk_kv doesn't work right now.
+// TODO: The sid_ucmd_kv_get_disk_part doesn't work right now.
 //
 // 	 Instead, we should be using sid_ucmd_get_foreign_dev_mod_kv with the
 // 	 dev ID of the parent disk and then remove this function.
@@ -231,7 +231,7 @@ const void *sid_ucmd_kv_foreign_dev_mod_get(sid_res_t              *mod_res,
 // 	 partitions and other devices which are not partitions, but layered
 // 	 devices in general.
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-const void *sid_ucmd_kv_disk_part_get(sid_res_t           *mod_res,
+const void *sid_ucmd_kv_get_disk_part(sid_res_t           *mod_res,
                                       struct sid_ucmd_ctx *ucmd_ctx,
                                       const char          *key,
                                       size_t              *value_size,
@@ -276,14 +276,14 @@ typedef enum {
 	SID_DEV_RES_FREE,        /* not yet reserved or used by a layer above */
 } sid_ucmd_dev_reserved_t;
 
-int                  sid_ucmd_dev_ready_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_ready_t ready);
-sid_ucmd_dev_ready_t sid_ucmd_dev_ready_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
+int                  sid_ucmd_dev_set_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_ready_t ready);
+sid_ucmd_dev_ready_t sid_ucmd_dev_get_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
 
-int sid_ucmd_dev_reserved_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved);
-sid_ucmd_dev_reserved_t sid_ucmd_dev_reserved_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
+int sid_ucmd_dev_set_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved);
+sid_ucmd_dev_reserved_t sid_ucmd_dev_get_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
 
-int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
-int sid_ucmd_dev_alias_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
+int sid_ucmd_dev_add_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
+int sid_ucmd_dev_del_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
 
 int sid_ucmd_grp_create(sid_res_t              *mod_res,
                         struct sid_ucmd_ctx    *ucmd_ctx,
@@ -292,17 +292,17 @@ int sid_ucmd_grp_create(sid_res_t              *mod_res,
                         const char             *group_cat,
                         const char             *group_id);
 
-int sid_ucmd_grp_dev_current_add(sid_res_t              *mod_res,
+int sid_ucmd_grp_add_current_dev(sid_res_t              *mod_res,
                                  struct sid_ucmd_ctx    *ucmd_ctx,
                                  sid_ucmd_kv_namespace_t group_ns,
                                  const char             *group_cat,
                                  const char             *group_id);
 
-int sid_ucmd_grp_dev_current_remove(sid_res_t              *mod_res,
-                                    struct sid_ucmd_ctx    *ucmd_ctx,
-                                    sid_ucmd_kv_namespace_t group_ns,
-                                    const char             *group_cat,
-                                    const char             *group_id);
+int sid_ucmd_grp_del_current_dev(sid_res_t              *mod_res,
+                                 struct sid_ucmd_ctx    *ucmd_ctx,
+                                 sid_ucmd_kv_namespace_t group_ns,
+                                 const char             *group_cat,
+                                 const char             *group_id);
 
 int sid_ucmd_grp_destroy(sid_res_t              *mod_res,
                          struct sid_ucmd_ctx    *ucmd_ctx,

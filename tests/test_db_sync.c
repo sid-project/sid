@@ -58,7 +58,7 @@ static int _init_fake_command(sid_res_t *res, const void *kickstart_data, void *
 
 static int _destroy_fake_command(sid_res_t *res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(res);
 
 	if (ucmd_ctx->exp_buf)
 		sid_buf_destroy(ucmd_ctx->exp_buf);
@@ -93,10 +93,10 @@ sid_res_t *_create_fake_cmd_res(void)
 int _do_build_buffers(sid_res_t *cmd_res)
 {
 	int                  fd;
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_data_get(cmd_res);
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
 	assert_int_equal(_build_cmd_kv_buffers(cmd_res, CMD_KV_EXPBUF_TO_MAIN | CMD_KV_EXPORT_SID_TO_EXPBUF), 0);
-	fd = sid_buf_fd_get(ucmd_ctx->exp_buf);
+	fd = sid_buf_get_fd(ucmd_ctx->exp_buf);
 	assert_true(fd >= 0);
 	return fd;
 }
@@ -248,7 +248,7 @@ static void dumper_fn(const char *key, void *value, size_t size, unsigned ref_co
 
 static struct sid_buf *dump_db(sid_res_t *kv_store_res)
 {
-	struct kv_store *kv_store = sid_res_data_get(kv_store_res);
+	struct kv_store *kv_store = sid_res_get_data(kv_store_res);
 	/* Could do this for hash as well but not sure if it's worth is */
 	assert_true(kv_store->backend == SID_KVS_BACKEND_BPTREE);
 	struct sid_buf *buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
@@ -266,8 +266,8 @@ static void compare_dumps(struct sid_buf *old_dump, struct sid_buf *new_dump)
 	kv_vector_t *new, *old;
 	size_t new_size, old_size, i;
 
-	assert_int_equal(sid_buf_data_get(old_dump, (const void **) &old, &old_size), 0);
-	assert_int_equal(sid_buf_data_get(new_dump, (const void **) &new, &new_size), 0);
+	assert_int_equal(sid_buf_get_data(old_dump, (const void **) &old, &old_size), 0);
+	assert_int_equal(sid_buf_get_data(new_dump, (const void **) &new, &new_size), 0);
 	assert_true(old_size == new_size);
 	assert_true(old_size % 2 == 0);
 	for (i = 0; i < old_size; i++) {
@@ -678,8 +678,8 @@ int setup(void **state)
 	assert_non_null(ts);
 	ts->work_res = _create_fake_cmd_res();
 	ts->main_res = _create_fake_cmd_res();
-	ts->work_ctx = sid_res_data_get(ts->work_res);
-	ts->main_ctx = sid_res_data_get(ts->main_res);
+	ts->work_ctx = sid_res_get_data(ts->work_res);
+	ts->main_ctx = sid_res_get_data(ts->main_res);
 	*state       = ts;
 	return 0;
 }

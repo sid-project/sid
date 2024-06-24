@@ -75,7 +75,7 @@ static sid_status_t _get_ubr_status(struct sid_ifc_result *res, int r)
 		else
 			return SID_STATUS_ERROR;
 	} else {
-		if (sid_ifc_result_data_get(res, NULL) && sid_ifc_result_protocol_get(res, &prot) == 0 && prot == SID_IFC_PROTOCOL)
+		if (sid_ifc_result_get_data(res, NULL) && sid_ifc_result_get_protocol(res, &prot) == 0 && prot == SID_IFC_PROTOCOL)
 			return SID_STATUS_ACTIVE;
 		else
 			return SID_STATUS_INCOMPATIBLE;
@@ -90,7 +90,7 @@ static int _usid_cmd_active(void)
 	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
 	int                    r;
 
-	req.seqnum = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
+	req.seqnum = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 	r          = sid_ifc_req(&req, &res);
 	ubr_status = _get_ubr_status(res, r);
 	if (r == 0)
@@ -106,9 +106,9 @@ static int _print_env_from_res(struct sid_ifc_result *res)
 	const char *end, *kv;
 	uint64_t    status;
 
-	kv = sid_ifc_result_data_get(res, &size);
+	kv = sid_ifc_result_get_data(res, &size);
 	if (!kv) {
-		if (sid_ifc_result_status_get(res, &status) < 0 || status & SID_IFC_CMD_STATUS_FAILURE)
+		if (sid_ifc_result_get_status(res, &status) < 0 || status & SID_IFC_CMD_STATUS_FAILURE)
 			return -EBADMSG;
 		return 0;
 	}
@@ -125,7 +125,7 @@ static int _usid_cmd_print_env(struct sid_ifc_request *req)
 	struct sid_ifc_result *res;
 	int                    r;
 
-	if ((r = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
+	if ((r = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
 		ubr_status = SID_STATUS_ERROR;
 		goto out;
 	}
@@ -188,7 +188,7 @@ static int _usid_cmd_version(void)
 	uint64_t               status;
 	int                    r;
 
-	req.seqnum = sid_util_env_ull_get(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
+	req.seqnum = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
 	fprintf(stdout,
 	        KEY_USID_IFC_PROTOCOL "=%" PRIu8 "\n" KEY_USID_MAJOR "=%" PRIu16 "\n" KEY_USID_MINOR "=%" PRIu16
@@ -207,11 +207,11 @@ static int _usid_cmd_version(void)
 		goto out;
 	}
 
-	if ((data = sid_ifc_result_data_get(res, NULL)) != NULL) {
+	if ((data = sid_ifc_result_get_data(res, NULL)) != NULL) {
 		fprintf(stdout, "%s", data);
 		r = 0;
 	} else {
-		if (sid_ifc_result_status_get(res, &status) == 0 && (status & SID_IFC_CMD_STATUS_FAILURE) == 0)
+		if (sid_ifc_result_get_status(res, &status) == 0 && (status & SID_IFC_CMD_STATUS_FAILURE) == 0)
 			r = -ENODATA;
 		else
 			r = -EBADE;

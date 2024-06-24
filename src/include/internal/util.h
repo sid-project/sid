@@ -68,14 +68,14 @@ typedef struct util_mem {
 /*
  * Process-related utilities.
  */
-int util_process_pid_to_str(pid_t pid, char *buf, size_t buf_size);
+int util_proc_pid_to_str(pid_t pid, char *buf, size_t buf_size);
 
 /*
  * Udev-related utilities.
  */
-udev_action_t  util_udev_str_to_udev_action(const char *str);
+udev_action_t  util_udev_str_to_action(const char *str);
 const char    *util_udev_action_to_str(const udev_action_t action);
-udev_devtype_t util_udev_str_to_udev_devtype(const char *str);
+udev_devtype_t util_udev_str_to_devtyoe(const char *str);
 const char    *util_udev_devtype_to_str(udev_devtype_t devtype);
 
 /*
@@ -88,13 +88,13 @@ const char    *util_udev_devtype_to_str(udev_devtype_t devtype);
 #define UTIL_STR_END_PUT(s)     ((s)[0] = '\0')
 #define UTIL_STR_EMPTY(s)       (!(s) || UTIL_STR_END(s))
 
-int   util_str_kv_get(char *str, char **key, char **val);
+int   util_str_get_kv(char *str, char **key, char **val);
 char *util_str_rstr(const char *haystack, const char *needle);
 char *util_str_combstr(const char *haystack, const char *prefix, const char *needle, const char *suffix, bool ignorecase);
-char *util_str_len_cpy(const char *str, size_t len, char *buf, size_t buf_size);
+char *util_str_copy_len(const char *str, size_t len, char *buf, size_t buf_size);
 
 typedef int (*util_str_token_fn_t)(const char *token, size_t len, bool merge_back, void *data);
-int util_str_tokens_iterate(const char         *str,
+int util_str_iterate_tokens(const char         *str,
                             const char         *delims,
                             const char         *quotes,
                             util_str_token_fn_t token_fn,
@@ -108,22 +108,22 @@ char **util_str_comb_to_strv(util_mem_t *mem,
                              const char *suffix,
                              const char *delims,
                              const char *quotes);
-char **util_str_vec_copy(util_mem_t *mem, const char **strv);
+char **util_strv_copy(util_mem_t *mem, const char **strv);
 
-char *util_str_substr_copy(util_mem_t *mem, const char *str, size_t start, size_t len);
+char *util_str_copy_substr(util_mem_t *mem, const char *str, size_t start, size_t len);
 
 /*
  * Time-related utilities.
  */
-uint64_t util_time_now_usec_get(clockid_t clock_id);
+uint64_t util_time_get_now_usec(clockid_t clock_id);
 
 /*
  * UUID-related utilities.
  */
 #define UTIL_UUID_STR_SIZE UUID_STR_LEN
 
-char *util_uuid_str_gen(util_mem_t *mem);
-char *util_uuid_boot_id_get(util_mem_t *mem, int *ret_code);
+char *util_uuid_gen_str(util_mem_t *mem);
+char *util_uuid_get_boot_id(util_mem_t *mem, int *ret_code);
 
 #ifdef __cplusplus
 }

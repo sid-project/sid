@@ -143,7 +143,7 @@ ssize_t sid_comms_unix_send(int socket_fd, void *buf, ssize_t buf_len, int fd_to
 	return _do_comms_unix_send(socket_fd, &iov, 1, fd_to_send);
 }
 
-ssize_t sid_comms_unix_iovec_send(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send)
+ssize_t sid_comms_unix_send_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int fd_to_send)
 {
 	return _do_comms_unix_send(socket_fd, iov, iov_len, fd_to_send);
 }
@@ -184,7 +184,7 @@ ssize_t sid_comms_unix_recv(int socket_fd, void *buf, ssize_t buf_len, int *fd_r
 	return _do_comms_unix_recv(socket_fd, &iov, 1, fd_received);
 }
 
-ssize_t sid_comms_unix_iovec_recv(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
+ssize_t sid_comms_unix_recv_iovec(int socket_fd, struct iovec *iov, size_t iov_len, int *fd_received)
 {
 	return _do_comms_unix_recv(socket_fd, iov, iov_len, fd_received);
 }

@@ -41,12 +41,12 @@ struct sid_buf_type {
 	int (*destroy)(struct sid_buf *buf);
 	int (*reset)(struct sid_buf *buf);
 	int (*add)(struct sid_buf *buf, const void *data, size_t len, const void **mem, size_t *pos);
-	int (*fmt_add)(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
+	int (*add_fmt)(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, va_list ap);
 	int (*release)(struct sid_buf *buf, size_t pos, bool rewind);
-	int (*mem_release)(struct sid_buf *buf, const void *mem, bool rewind);
+	int (*release_mem)(struct sid_buf *buf, const void *mem, bool rewind);
 	bool (*is_complete)(struct sid_buf *buf, int *ret_code);
-	int (*data_get)(struct sid_buf *buf, size_t pos, const void **data, size_t *data_size);
-	int (*fd_get)(struct sid_buf *buf);
+	int (*get_data)(struct sid_buf *buf, size_t pos, const void **data, size_t *data_size);
+	int (*get_fd)(struct sid_buf *buf);
 	size_t (*count)(struct sid_buf *buf);
 	ssize_t (*read)(struct sid_buf *buf, int fd);
 	ssize_t (*write)(struct sid_buf *buf, int fd, size_t pos);

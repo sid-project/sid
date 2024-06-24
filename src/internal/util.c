@@ -37,7 +37,7 @@
  * Process-related utilities.
  */
 
-int util_process_pid_to_str(pid_t pid, char *buf, size_t buf_size)
+int util_proc_pid_to_str(pid_t pid, char *buf, size_t buf_size)
 {
 	int size;
 
@@ -63,7 +63,7 @@ static const char *udev_action_str[] = {[UDEV_ACTION_ADD]     = "add",
                                         [UDEV_ACTION_UNBIND]  = "unbind",
                                         [UDEV_ACTION_UNKNOWN] = "unknown"};
 
-udev_action_t util_udev_str_to_udev_action(const char *str)
+udev_action_t util_udev_str_to_action(const char *str)
 {
 	if (!strcasecmp(str, udev_action_str[UDEV_ACTION_ADD]))
 		return UDEV_ACTION_ADD;
@@ -96,7 +96,7 @@ static const char *udev_devtype_str[] = {
 	[UDEV_DEVTYPE_UNKNOWN]   = UDEV_VALUE_DEVTYPE_UNKNOWN,
 };
 
-udev_devtype_t util_udev_str_to_udev_devtype(const char *str)
+udev_devtype_t util_udev_str_to_devtyoe(const char *str)
 {
 	if (!strcasecmp(str, udev_devtype_str[UDEV_DEVTYPE_DISK]))
 		return UDEV_DEVTYPE_DISK;
@@ -134,7 +134,7 @@ const char *util_udev_devtype_to_str(udev_devtype_t devtype)
  *   -ENODATA on empty string (spaces ignored)
  *   -EINVAL  on invalid format
  */
-int util_str_kv_get(char *str, char **key, char **val)
+int util_str_get_kv(char *str, char **key, char **val)
 {
 	char *p, *k, *v;
 
@@ -256,7 +256,7 @@ char *util_str_combstr(const char *haystack, const char *prefix, const char *nee
 	return NULL;
 }
 
-char *util_str_len_cpy(const char *str, size_t len, char *buf, size_t buf_size)
+char *util_str_copy_len(const char *str, size_t len, char *buf, size_t buf_size)
 {
 	char *cpy;
 
@@ -281,7 +281,7 @@ char *util_str_len_cpy(const char *str, size_t len, char *buf, size_t buf_size)
 	return cpy;
 }
 
-int util_str_tokens_iterate(const char         *str,
+int util_str_iterate_tokens(const char         *str,
                             const char         *delims,
                             const char         *quotes,
                             util_str_token_fn_t token_fn,
@@ -439,9 +439,9 @@ char **util_str_comb_to_strv(util_mem_t *mem,
 	struct token_counter counter = {0};
 	struct strv_iter     copier  = {0};
 
-	if (util_str_tokens_iterate(prefix, delims, quotes, _count_token, &counter) < 0 ||
-	    util_str_tokens_iterate(str, delims, quotes, _count_token, &counter) < 0 ||
-	    util_str_tokens_iterate(suffix, delims, quotes, _count_token, &counter) < 0)
+	if (util_str_iterate_tokens(prefix, delims, quotes, _count_token, &counter) < 0 ||
+	    util_str_iterate_tokens(str, delims, quotes, _count_token, &counter) < 0 ||
+	    util_str_iterate_tokens(suffix, delims, quotes, _count_token, &counter) < 0)
 		goto fail;
 
 	if (mem) {
@@ -456,9 +456,9 @@ char **util_str_comb_to_strv(util_mem_t *mem,
 
 	copier.s = (char *) copier.strv + _get_strv_header_size(&counter);
 
-	if (util_str_tokens_iterate(prefix, delims, quotes, _copy_token_to_strv, &copier) < 0 ||
-	    util_str_tokens_iterate(str, delims, quotes, _copy_token_to_strv, &copier) < 0 ||
-	    util_str_tokens_iterate(suffix, delims, quotes, _copy_token_to_strv, &copier) < 0)
+	if (util_str_iterate_tokens(prefix, delims, quotes, _copy_token_to_strv, &copier) < 0 ||
+	    util_str_iterate_tokens(str, delims, quotes, _copy_token_to_strv, &copier) < 0 ||
+	    util_str_iterate_tokens(suffix, delims, quotes, _copy_token_to_strv, &copier) < 0)
 		goto fail;
 
 	copier.strv[counter.tokens] = NULL;
@@ -470,7 +470,7 @@ fail:
 		return mem_freen(copier.strv);
 }
 
-char **util_str_vec_copy(util_mem_t *mem, const char **strv)
+char **util_strv_copy(util_mem_t *mem, const char **strv)
 {
 	const char         **p;
 	struct token_counter counter = {0};
@@ -507,7 +507,7 @@ char **util_str_vec_copy(util_mem_t *mem, const char **strv)
 	return copier.strv;
 }
 
-char *util_str_substr_copy(util_mem_t *mem, const char *str, size_t offset, size_t len)
+char *util_str_copy_substr(util_mem_t *mem, const char *str, size_t offset, size_t len)
 {
 	size_t str_len = strlen(str);
 
@@ -530,7 +530,7 @@ char *util_str_substr_copy(util_mem_t *mem, const char *str, size_t offset, size
  * Time-related utilities.
  */
 
-uint64_t util_time_now_usec_get(clockid_t clock_id)
+uint64_t util_time_get_now_usec(clockid_t clock_id)
 {
 	struct timespec ts;
 
@@ -553,7 +553,7 @@ static char *_get_uuid_mem(util_mem_t *mem)
 		return malloc(UUID_STR_LEN);
 }
 
-char *util_uuid_str_gen(util_mem_t *mem)
+char *util_uuid_gen_str(util_mem_t *mem)
 {
 	uuid_t uu;
 	char  *str;
@@ -567,7 +567,7 @@ char *util_uuid_str_gen(util_mem_t *mem)
 	return str;
 }
 
-char *util_uuid_boot_id_get(util_mem_t *mem, int *ret_code)
+char *util_uuid_get_boot_id(util_mem_t *mem, int *ret_code)
 {
 	char *buf;
 	FILE *f = NULL;

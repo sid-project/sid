@@ -28,7 +28,7 @@ test_kv_store_LDADD = \
 	$(top_builddir)/src/base/libsidbase.la \
 	$(top_builddir)/src/resource/libsidresource.la -lcmocka
 test_notify_SOURCES = test_notify.c
-test_notify_LDFLAGS = -Wl,--wrap=sd_notify -Wl,--wrap=sid_buf_data_get
+test_notify_LDFLAGS = -Wl,--wrap=sd_notify -Wl,--wrap=sid_buf_get_data
 test_notify_LDADD = \
 	$(top_builddir)/src/iface/libsidiface_servicelink.la -lcmocka
 test_bitmap_SOURCES = test_bitmap.c

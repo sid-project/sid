@@ -47,7 +47,7 @@ bool list_is_empty(const struct list *head)
 	return head->n == head;
 }
 
-unsigned int list_size(const struct list *head)
+unsigned int list_get_size(const struct list *head)
 {
 	unsigned int       i = 0;
 	const struct list *v;

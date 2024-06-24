@@ -27,8 +27,8 @@ int test_fmt_add(int buf_size)
 	                     &((struct sid_buf_init) {.size = buf_size, .alloc_step = 1, .limit = 0}),
 	                     NULL);
 	assert_non_null(buf);
-	assert_int_equal(sid_buf_fmt_add(buf, NULL, NULL, TEST_STR), 0);
-	assert_int_equal(sid_buf_data_get(buf, (const void **) &data, &data_size), 0);
+	assert_int_equal(sid_buf_add_fmt(buf, NULL, NULL, TEST_STR), 0);
+	assert_int_equal(sid_buf_get_data(buf, (const void **) &data, &data_size), 0);
 	assert_true(data_size == TEST_SIZE);
 	sid_buf_destroy(buf);
 	return r;
@@ -53,7 +53,7 @@ static const void *do_rewind_test(struct sid_buf *buf)
 	assert_int_equal(sid_buf_add(buf, TEST_STR2, TEST_SIZE2, &rewind_mem, NULL), 0);
 	assert_non_null(rewind_mem);
 	assert_int_equal(sid_buf_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), -EBUSY);
-	assert_int_equal(sid_buf_mem_rewind(buf, rewind_mem), 0);
+	assert_int_equal(sid_buf_rewind_mem(buf, rewind_mem), 0);
 	return rewind_mem;
 }
 
@@ -98,7 +98,7 @@ static void do_test_zero_add(sid_buf_backend_t backend, sid_buf_type_t type, sid
 	assert_int_equal(sid_buf_add(buf, "", 0, &tmp_mem_start, NULL), 0);
 	assert_ptr_equal(rewind_mem, tmp_mem_start);
 	assert_int_equal(sid_buf_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), -EBUSY);
-	assert_int_equal(sid_buf_mem_rewind(buf, tmp_mem_start), 0);
+	assert_int_equal(sid_buf_rewind_mem(buf, tmp_mem_start), 0);
 	sid_buf_destroy(buf);
 }
 
@@ -155,16 +155,16 @@ static void do_test_get_data_from(sid_buf_type_t type, sid_buf_mode_t mode)
 	assert_int_equal(sid_buf_add(buf, TEST_STR, TEST_SIZE, NULL, NULL), 0);
 	old_size = sid_buf_count(buf);
 	assert_int_equal(sid_buf_add(buf, TEST_STR2, TEST_SIZE2, NULL, &pos), 0);
-	assert_int_equal(sid_buf_data_get_from(buf, sid_buf_count(buf) + 1, (const void **) &data, &size), -ERANGE);
-	assert_int_equal(sid_buf_data_get_from(buf, sid_buf_count(buf), (const void **) &data, &size), 0);
+	assert_int_equal(sid_buf_get_data_from(buf, sid_buf_count(buf) + 1, (const void **) &data, &size), -ERANGE);
+	assert_int_equal(sid_buf_get_data_from(buf, sid_buf_count(buf), (const void **) &data, &size), 0);
 	assert_int_equal(size, 0);
 	assert_int_equal(sid_buf_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), -EBUSY);
 	assert_int_equal(sid_buf_unbind(buf, sid_buf_count(buf), SID_BUF_POS_ABS), 0);
 	assert_int_equal(sid_buf_add(buf, "", 0, NULL, NULL), 0);
-	assert_int_equal(sid_buf_data_get(buf, (const void **) &data, &size), 0);
+	assert_int_equal(sid_buf_get_data(buf, (const void **) &data, &size), 0);
 	assert_int_equal(size, sid_buf_count(buf));
 	assert_int_equal(sid_buf_add(buf, TEST_STR3, TEST_SIZE3, NULL, NULL), -EBUSY);
-	assert_int_equal(sid_buf_data_get_from(buf, pos, (const void **) &data, &size), 0);
+	assert_int_equal(sid_buf_get_data_from(buf, pos, (const void **) &data, &size), 0);
 	assert_int_equal(size, sid_buf_count(buf) - old_size);
 	assert_int_equal(sid_buf_rewind(buf, pos, SID_BUF_POS_ABS), 0);
 	assert_int_equal(sid_buf_count(buf), old_size);

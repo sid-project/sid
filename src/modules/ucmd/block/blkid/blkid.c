@@ -262,7 +262,7 @@ static int _blkid_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	// TODO: Also decide when to use offset (including exact value) and noraid options.
 
-	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ucmd_ev_dev_name_get(ucmd_ctx));
+	snprintf(dev_path, sizeof(dev_path), SYSTEM_DEV_PATH "/%s", sid_ucmd_ev_dev_get_name(ucmd_ctx));
 
 	if ((fd = open(dev_path, O_RDONLY | O_CLOEXEC)) < 0) {
 		sid_res_log_error_errno(mod_res, errno, "Failed to open device %s", dev_path);

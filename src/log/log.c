@@ -73,7 +73,7 @@ void sid_log_change_tgt(sid_log_t *log, sid_log_tgt_t new_target)
 	log->target = new_target;
 }
 
-void sid_log_pfx_set(sid_log_t *log, const char *prefix)
+void sid_log_set_pfx(sid_log_t *log, const char *prefix)
 {
 	if (!log)
 		return;

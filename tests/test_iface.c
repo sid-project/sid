@@ -64,7 +64,7 @@ int __wrap_sid_buf_write_all(struct sid_buf *buf, int fd)
 	ret = mock_type(int);
 	if (ret != 0)
 		return ret;
-	assert_int_equal(sid_buf_data_get(buf, (const void **) &hdr, &size), 0);
+	assert_int_equal(sid_buf_get_data(buf, (const void **) &hdr, &size), 0);
 	assert_int_equal(size, mock_type(size_t));
 	assert_int_equal(memcmp(hdr, mock_ptr_type(char *), size), 0);
 	return ret;
@@ -80,7 +80,7 @@ ssize_t __wrap_sid_buf_read(struct sid_buf *buf, int fd)
 	data = mock_ptr_type(void *);
 	assert_int_equal(sid_buf_add(buf, data, size, NULL, NULL), 0);
 	/* need to update size prefix */
-	sid_buf_fd_get(buf);
+	sid_buf_get_fd(buf);
 	return size;
 }
 
@@ -177,7 +177,7 @@ static void _test_checkpoint(char *name, char *keys[], char *values[], int nr_ke
 		sid_buf_destroy(buf);
 		return;
 	}
-	assert_int_equal(sid_buf_data_get(buf, (const void **) &data, &size), 0);
+	assert_int_equal(sid_buf_get_data(buf, (const void **) &data, &size), 0);
 	assert_true(devnum == *(dev_t *) data);
 	p = data + sizeof(dev_t);
 	assert_string_equal(p, name);
@@ -233,7 +233,7 @@ static void test_add_scan_env(void **state)
 	will_return(__wrap_getenv, "8");
 	will_return(__wrap_getenv, "0");
 	assert_int_equal(_add_scan_env_to_buf(buf), 0);
-	assert_int_equal(sid_buf_data_get(buf, (const void **) &data, &size), 0);
+	assert_int_equal(sid_buf_get_data(buf, (const void **) &data, &size), 0);
 	assert_true(devnum == *(dev_t *) data);
 	p = data + sizeof(dev_t);
 	for (kv = environ; *kv; kv++) {
@@ -368,11 +368,11 @@ static void __check_sid_ifc_req(struct sid_ifc_request *req,
 	struct sid_ifc_result *res = __do_sid_ifc_req(req, req_data, req_data_size, status, res_data, res_data_size, 0);
 
 	assert_non_null(res);
-	assert_int_equal(sid_ifc_result_status_get(res, &res_status), 0);
+	assert_int_equal(sid_ifc_result_get_status(res, &res_status), 0);
 	assert_int_equal(res_status, status);
-	assert_int_equal(sid_ifc_result_protocol_get(res, &res_prot), 0);
+	assert_int_equal(sid_ifc_result_get_protocol(res, &res_prot), 0);
 	assert_int_equal(res_prot, SID_IFC_PROTOCOL);
-	data = sid_ifc_result_data_get(res, &size);
+	data = sid_ifc_result_get_data(res, &size);
 	assert_int_equal(size, (status & SID_IFC_CMD_STATUS_FAILURE) ? 0 : res_data_size);
 	if (status & SID_IFC_CMD_STATUS_FAILURE || res_data_size == 0)
 		assert_null(data);
@@ -428,7 +428,7 @@ static void test_sid_ifc_req_scan(void **state)
 	will_return(__wrap_getenv, "8");
 	will_return(__wrap_getenv, "0");
 	assert_int_equal(_add_scan_env_to_buf(buf), 0);
-	assert_int_equal(sid_buf_data_get(buf, (const void **) &data, &size), 0);
+	assert_int_equal(sid_buf_get_data(buf, (const void **) &data, &size), 0);
 	will_return(__wrap_getenv, "8");
 	will_return(__wrap_getenv, "0");
 	__check_sid_ifc_req(&req, data, size, 0, RESULT_DATA, sizeof(RESULT_DATA));
@@ -459,7 +459,7 @@ static void test_sid_ifc_req_checkpoint(void **state)
 		will_return(__wrap_getenv, check_values[i]);
 	}
 	assert_int_equal(_add_checkpoint_env_to_buf(buf, data), 0);
-	assert_int_equal(sid_buf_data_get(buf, (const void **) &req_data, &size), 0);
+	assert_int_equal(sid_buf_get_data(buf, (const void **) &req_data, &size), 0);
 	will_return(__wrap_getenv, "8");
 	will_return(__wrap_getenv, "0");
 	for (i = 0; i < NR_KEYS; i++) {

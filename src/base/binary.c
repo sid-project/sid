@@ -23,7 +23,7 @@ static const unsigned char base64_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefg
  * padding and NULL bytes, or 0 if the buffer overflowed.
  */
 
-size_t sid_conv_bin_len_encode(size_t in_len)
+size_t sid_conv_bin_encode_len(size_t in_len)
 {
 	size_t out_len = 1; /* NULL termination */
 
@@ -51,7 +51,7 @@ int sid_conv_bin_encode(const unsigned char *src, size_t in_len, unsigned char *
 	const unsigned char *end, *in;
 	size_t               check_size;
 
-	check_size = sid_conv_bin_len_encode(in_len);
+	check_size = sid_conv_bin_encode_len(in_len);
 	if ((in_len && !src) || !dest || check_size == 0 || check_size > out_len)
 		return -EINVAL;
 

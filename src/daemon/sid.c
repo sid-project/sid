@@ -118,10 +118,10 @@ static void _set_log_prefix()
 {
 	static char buf[16] = "c ";
 
-	if (util_process_pid_to_str(getpid(), buf + 2, sizeof(buf) - 2) < 0)
+	if (util_proc_pid_to_str(getpid(), buf + 2, sizeof(buf) - 2) < 0)
 		return;
 
-	sid_log_pfx_set(_log, buf);
+	sid_log_set_pfx(_log, buf);
 }
 
 int main(int argc, char *argv[])
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (sid_util_env_ull_get(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
+	if (sid_util_env_get_ull(KEY_VERBOSE, 0, INT_MAX, &val) == 0)
 		verbose = val;
 
 	if (atexit(_close_log) < 0)
@@ -228,17 +228,17 @@ int main(int argc, char *argv[])
 			goto out;
 		}
 		sid_res = NULL;
-		r       = sid_wrk_ctl_wrk_run(worker_control_res,
-                                        (sid_res_srv_lnk_def_t[]) {
-                                                {
-							      .name         = "worker-logger",
-							      .type         = SID_SRV_LNK_TYPE_LOGGER,
-							      .notification = SID_SRV_LNK_NOTIF_MESSAGE,
-							      .flags        = SID_SRV_LNK_FL_CLONEABLE,
-							      .data         = _log,
-                                                },
-                                                SID_NULL_SRV_LNK,
-                                        });
+		r       = sid_wrk_ctl_run_worker(worker_control_res,
+                                           (sid_res_srv_lnk_def_t[]) {
+                                                   {
+								 .name         = "worker-logger",
+								 .type         = SID_SRV_LNK_TYPE_LOGGER,
+								 .notification = SID_SRV_LNK_NOTIF_MESSAGE,
+								 .flags        = SID_SRV_LNK_FL_CLONEABLE,
+								 .data         = _log,
+                                                   },
+                                                   SID_NULL_SRV_LNK,
+                                           });
 	}
 
 out:

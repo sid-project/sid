@@ -31,7 +31,7 @@ extern "C" {
 /*
  * Environment-related utilities.
  */
-int sid_util_env_ull_get(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val);
+int sid_util_env_get_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val);
 
 /*
  * fd-related utilities
@@ -39,11 +39,11 @@ int sid_util_env_ull_get(const char *key, unsigned long long min, unsigned long 
 ssize_t sid_util_fd_read_all(int fd, void *buf, size_t len);
 
 /*
- * Kernel cmdline-related utilities.
+ * Kernel-related utilities.
  */
 
-/* Note: sid_util_kernel_cmdline_arg_get reads kernel config line only once, then it is stored in internal static variable. */
-bool sid_util_kernel_cmdline_arg_get(const char *arg, char **value, int *ret_code);
+/* Note: sid_util_kernel_get_arg reads kernel config line only once, then it is stored in internal static variable. */
+bool sid_util_kernel_get_arg(const char *arg, char **value, int *ret_code);
 
 /*
  * sysfs-related utilities.

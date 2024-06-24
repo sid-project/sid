@@ -84,9 +84,9 @@ const char   *sid_ifc_cmd_type_to_name(sid_ifc_cmd_t cmd);
 sid_ifc_cmd_t sid_ifc_cmd_name_to_type(const char *cmd_name);
 int           sid_ifc_req(struct sid_ifc_request *req, struct sid_ifc_result **res);
 void          sid_ifc_result_free(struct sid_ifc_result *res);
-int           sid_ifc_result_status_get(struct sid_ifc_result *res, uint64_t *status);
-int           sid_ifc_result_protocol_get(struct sid_ifc_result *res, uint8_t *prot);
-const char   *sid_ifc_result_data_get(struct sid_ifc_result *res, size_t *size_p);
+int           sid_ifc_result_get_status(struct sid_ifc_result *res, uint64_t *status);
+int           sid_ifc_result_get_protocol(struct sid_ifc_result *res, uint8_t *prot);
+const char   *sid_ifc_result_get_data(struct sid_ifc_result *res, size_t *size_p);
 #ifdef __cplusplus
 }
 #endif

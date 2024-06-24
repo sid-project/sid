@@ -157,7 +157,7 @@ void *sid_kvs_set_with_archive(sid_res_t             *kv_store_res,
  *      0 if alias added
  *     -1 if alias not added
  */
-int sid_kvs_alias_add(sid_res_t *kv_store_res, const char *key, const char *alias, bool force);
+int sid_kvs_add_alias(sid_res_t *kv_store_res, const char *key, const char *alias, bool force);
 /*
  * Gets value for given key.
  *   - If value_size is not NULL, the function returns the size of the value through this output argument.
@@ -181,7 +181,7 @@ int sid_kvs_unset_with_archive(sid_res_t             *kv_store_res,
                                void                  *kv_unset_fn_arg,
                                const char            *archive_key);
 
-size_t sid_kvs_size_get(sid_res_t *kv_store_res, size_t *meta_size, size_t *data_size);
+size_t sid_kvs_get_size(sid_res_t *kv_store_res, size_t *meta_size, size_t *data_size);
 
 int  sid_kvs_transaction_begin(sid_res_t *kv_store_res);
 void sid_kvs_transaction_end(sid_res_t *kv_store_res, bool rollback);
@@ -190,7 +190,7 @@ bool sid_kvs_transaction_active(sid_res_t *kv_store_res);
 typedef struct sid_kvs_iter sid_kvs_iter_t;
 
 sid_kvs_iter_t *sid_kvs_iter_create(sid_res_t *kv_store_res, const char *key_start, const char *key_end);
-sid_kvs_iter_t *sid_kvs_iter_prefix_create(sid_res_t *kv_store_res, const char *prefix);
+sid_kvs_iter_t *sid_kvs_iter_create_prefix(sid_res_t *kv_store_res, const char *prefix);
 int             sid_kvs_iter_current_size(sid_kvs_iter_t *iter,
                                           size_t         *int_size,
                                           size_t         *int_data_size,

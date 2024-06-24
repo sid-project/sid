@@ -30,7 +30,7 @@
  * Environment-related utilities.
  */
 
-int sid_util_env_ull_get(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val)
+int sid_util_env_get_ull(const char *key, unsigned long long min, unsigned long long max, unsigned long long *val)
 {
 	unsigned long long ret;
 	char              *env_val;
@@ -117,7 +117,7 @@ out:
 
 #define DELIM " \t\n"
 
-bool sid_util_kernel_cmdline_arg_get(const char *arg, char **value, int *ret_code)
+bool sid_util_kernel_get_arg(const char *arg, char **value, int *ret_code)
 {
 	int         r = 0;
 	static char buf[4097];

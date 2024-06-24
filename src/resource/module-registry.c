@@ -77,7 +77,7 @@ static int _set_module_name(struct module_registry *registry, struct sid_mod *mo
 
 static sid_res_t *_find_module(sid_res_t *mod_registry_res, const char *module_name)
 {
-	struct module_registry *registry = sid_res_data_get(mod_registry_res);
+	struct module_registry *registry = sid_res_get_data(mod_registry_res);
 	sid_res_t              *res, *found = NULL;
 	struct sid_mod         *module;
 	char                   *alias;
@@ -86,7 +86,7 @@ static sid_res_t *_find_module(sid_res_t *mod_registry_res, const char *module_n
 	sid_res_iter_reset(registry->module_iter);
 	while ((res = sid_res_iter_next(registry->module_iter))) {
 		if (sid_res_match(res, &sid_res_type_mod, NULL)) {
-			module = sid_res_data_get(res);
+			module = sid_res_get_data(res);
 
 			if (!strcmp(module->name, module_name))
 				found = res;
@@ -107,7 +107,7 @@ static sid_res_t *_find_module(sid_res_t *mod_registry_res, const char *module_n
 	return found;
 }
 
-sid_res_t *sid_mod_reg_mod_load(sid_res_t *mod_registry_res, const char *module_name)
+sid_res_t *sid_mod_reg_load_mod(sid_res_t *mod_registry_res, const char *module_name)
 {
 	struct module_registry *registry;
 	sid_res_t              *mod_res;
@@ -115,7 +115,7 @@ sid_res_t *sid_mod_reg_mod_load(sid_res_t *mod_registry_res, const char *module_
 	if (!sid_res_match(mod_registry_res, &sid_res_type_mod_reg, NULL) || UTIL_STR_EMPTY(module_name))
 		return NULL;
 
-	registry = sid_res_data_get(mod_registry_res);
+	registry = sid_res_get_data(mod_registry_res);
 
 	if ((mod_res = _find_module(mod_registry_res, module_name))) {
 		sid_res_log_debug(mod_registry_res,
@@ -139,7 +139,7 @@ sid_res_t *sid_mod_reg_mod_load(sid_res_t *mod_registry_res, const char *module_
 	return mod_res;
 }
 
-sid_res_t *sid_mod_reg_mod_get(sid_res_t *mod_registry_res, const char *module_name)
+sid_res_t *sid_mod_reg_get_mod(sid_res_t *mod_registry_res, const char *module_name)
 {
 	if (!sid_res_match(mod_registry_res, &sid_res_type_mod_reg, NULL) || UTIL_STR_EMPTY(module_name))
 		return NULL;
@@ -147,7 +147,7 @@ sid_res_t *sid_mod_reg_mod_get(sid_res_t *mod_registry_res, const char *module_n
 	return _find_module(mod_registry_res, module_name);
 }
 
-int sid_mod_reg_mod_unload(sid_res_t *mod_res)
+int sid_mod_reg_unload_mod(sid_res_t *mod_res)
 {
 	if (!sid_res_match(mod_res, &sid_res_type_mod, NULL))
 		return -EINVAL;
@@ -155,14 +155,14 @@ int sid_mod_reg_mod_unload(sid_res_t *mod_res)
 	return sid_res_unref(mod_res);
 }
 
-int sid_mod_reg_mod_syms_get(sid_res_t *mod_res, const void ***ret)
+int sid_mod_reg_get_mod_syms(sid_res_t *mod_res, const void ***ret)
 {
 	struct sid_mod *module;
 
 	if (!sid_res_match(mod_res, &sid_res_type_mod, NULL) || !ret)
 		return -EINVAL;
 
-	module = sid_res_data_get(mod_res);
+	module = sid_res_get_data(mod_res);
 	*ret   = (const void **) module->symbols;
 
 	return 0;
@@ -170,7 +170,7 @@ int sid_mod_reg_mod_syms_get(sid_res_t *mod_res, const void ***ret)
 
 static const char mod_reset_failed_msg[] = "Module-specific reset failed.";
 
-int sid_mod_reg_mods_reset(sid_res_t *mod_registry_res)
+int sid_mod_reg_reset_mods(sid_res_t *mod_registry_res)
 {
 	struct module_registry *registry;
 	sid_res_t              *mod_res;
@@ -179,11 +179,11 @@ int sid_mod_reg_mods_reset(sid_res_t *mod_registry_res)
 	if (!sid_res_match(mod_registry_res, &sid_res_type_mod_reg, NULL))
 		return -EINVAL;
 
-	registry = sid_res_data_get(mod_registry_res);
+	registry = sid_res_get_data(mod_registry_res);
 	sid_res_iter_reset(registry->module_iter);
 
 	while ((mod_res = sid_res_iter_next(registry->module_iter))) {
-		module = sid_res_data_get(mod_res);
+		module = sid_res_get_data(mod_res);
 
 		/* detect changed registry base name and reset modules' full name if needed accordingly */
 		if (strncmp(module->full_name, registry->base_name, strlen(registry->base_name)))
@@ -196,14 +196,14 @@ int sid_mod_reg_mods_reset(sid_res_t *mod_registry_res)
 	return 0;
 }
 
-int sid_mod_reg_mod_reset(sid_res_t *mod_res)
+int sid_mod_reg_reset_mod(sid_res_t *mod_res)
 {
 	struct sid_mod *module;
 
 	if (!sid_res_match(mod_res, &sid_res_type_mod, NULL))
 		return -EINVAL;
 
-	module = sid_res_data_get(mod_res);
+	module = sid_res_get_data(mod_res);
 
 	if (module->reset_fn && module->reset_fn(mod_res, module->registry->cb_arg) < 0) {
 		sid_res_log_debug(mod_res, mod_reset_failed_msg);
@@ -213,39 +213,39 @@ int sid_mod_reg_mod_reset(sid_res_t *mod_res)
 	return 0;
 }
 
-const char *sid_mod_name_full_get(sid_res_t *mod_res)
+const char *sid_mod_get_full_name(sid_res_t *mod_res)
 {
 	if (!sid_res_match(mod_res, &sid_res_type_mod, NULL))
 		return NULL;
 
-	return ((struct sid_mod *) sid_res_data_get(mod_res))->full_name;
+	return ((struct sid_mod *) sid_res_get_data(mod_res))->full_name;
 }
 
-const char *sid_mod_name_get(sid_res_t *mod_res)
+const char *sid_mod_get_name(sid_res_t *mod_res)
 {
 	if (!sid_res_match(mod_res, &sid_res_type_mod, NULL))
 		return NULL;
 
-	return ((struct sid_mod *) sid_res_data_get(mod_res))->name;
+	return ((struct sid_mod *) sid_res_get_data(mod_res))->name;
 }
 
-void sid_mod_data_set(sid_res_t *mod_res, void *data)
+void sid_mod_set_data(sid_res_t *mod_res, void *data)
 {
 	if (!sid_res_match(mod_res, &sid_res_type_mod, NULL))
 		return;
 
-	((struct sid_mod *) sid_res_data_get(mod_res))->data = data;
+	((struct sid_mod *) sid_res_get_data(mod_res))->data = data;
 }
 
-void *sid_mod_data_get(sid_res_t *mod_res)
+void *sid_mod_get_data(sid_res_t *mod_res)
 {
 	if (!sid_res_match(mod_res, &sid_res_type_mod, NULL))
 		return NULL;
 
-	return ((struct sid_mod *) sid_res_data_get(mod_res))->data;
+	return ((struct sid_mod *) sid_res_get_data(mod_res))->data;
 }
 
-int sid_mod_reg_mod_subreg_add(sid_res_t *mod_res, sid_res_t *mod_subregistry_res)
+int sid_mod_reg_add_mod_subreg(sid_res_t *mod_res, sid_res_t *mod_subregistry_res)
 {
 	struct sid_mod         *module;
 	struct module_registry *subregistry;
@@ -261,8 +261,8 @@ int sid_mod_reg_mod_subreg_add(sid_res_t *mod_res, sid_res_t *mod_subregistry_re
 	if (sid_res_search_match(mod_subregistry_res, SID_RES_SEARCH_IMM_ANC, NULL, NULL))
 		return -EINVAL;
 
-	module         = sid_res_data_get(mod_res);
-	subregistry    = sid_res_data_get(mod_subregistry_res);
+	module         = sid_res_get_data(mod_res);
+	subregistry    = sid_res_get_data(mod_subregistry_res);
 
 	orig_base_name = subregistry->base_name;
 
@@ -285,12 +285,12 @@ int sid_mod_reg_mod_subreg_add(sid_res_t *mod_res, sid_res_t *mod_subregistry_re
 	 *
 	 * If anything fails, revert to the original base name and reset again.
 	 */
-	if (sid_mod_reg_mods_reset(mod_subregistry_res) < 0 ||
-	    sid_res_child_add(mod_res, mod_subregistry_res, SID_RES_FL_RESTRICT_WALK_UP | SID_RES_FL_DISALLOW_ISOLATION)) {
+	if (sid_mod_reg_reset_mods(mod_subregistry_res) < 0 ||
+	    sid_res_add_child(mod_res, mod_subregistry_res, SID_RES_FL_RESTRICT_WALK_UP | SID_RES_FL_DISALLOW_ISOLATION)) {
 		free(subregistry->base_name);
 		subregistry->base_name    = orig_base_name;
 		subregistry->top_registry = subregistry;
-		(void) sid_mod_reg_mods_reset(mod_subregistry_res);
+		(void) sid_mod_reg_reset_mods(mod_subregistry_res);
 		return -1;
 	}
 
@@ -301,14 +301,14 @@ int sid_mod_reg_mod_subreg_add(sid_res_t *mod_res, sid_res_t *mod_subregistry_re
 const void *_get_top_registry(sid_res_t *res)
 {
 	if (sid_res_match(res, &sid_res_type_mod, NULL)) {
-		return ((struct sid_mod *) (sid_res_data_get(res)))->registry->top_registry;
+		return ((struct sid_mod *) (sid_res_get_data(res)))->registry->top_registry;
 	} else if (sid_res_match(res, &sid_res_type_mod_reg, NULL))
-		return ((struct module_registry *) (sid_res_data_get(res)))->top_registry;
+		return ((struct module_registry *) (sid_res_get_data(res)))->top_registry;
 	else
 		return NULL;
 }
 
-bool sid_mod_reg_dep_match(sid_res_t *res1, sid_res_t *res2)
+bool sid_mod_reg_match_dep(sid_res_t *res1, sid_res_t *res2)
 {
 	const void *r1;
 	const void *r2;
@@ -324,7 +324,7 @@ bool sid_mod_reg_dep_match(sid_res_t *res1, sid_res_t *res2)
 
 static int _load_modules(sid_res_t *mod_registry_res)
 {
-	struct module_registry *registry = sid_res_data_get(mod_registry_res);
+	struct module_registry *registry = sid_res_get_data(mod_registry_res);
 	char                    name_buf[SID_MOD_NAME_MAX_LEN + 1];
 	util_mem_t              mem    = {.base = name_buf, .size = sizeof(name_buf)};
 	struct dirent         **dirent = NULL;
@@ -353,7 +353,7 @@ static int _load_modules(sid_res_t *mod_registry_res)
 		    util_str_combstr(dirent[i]->d_name, registry->module_prefix, NULL, registry->module_suffix, 1)) {
 			found++;
 
-			if (!(name = util_str_substr_copy(&mem,
+			if (!(name = util_str_copy_substr(&mem,
 			                                  dirent[i]->d_name,
 			                                  prefix_len,
 			                                  strlen(dirent[i]->d_name) - prefix_len - suffix_len))) {
@@ -385,7 +385,7 @@ out:
 	return r;
 }
 
-int sid_mod_reg_mods_load(sid_res_t *mod_registry_res)
+int sid_mod_reg_load_mods(sid_res_t *mod_registry_res)
 {
 	if (!sid_res_match(mod_registry_res, &sid_res_type_mod_reg, NULL))
 		return -EINVAL;
@@ -441,7 +441,7 @@ static int _init_module(sid_res_t *mod_res, const void *kickstart_data, void **d
 
 	module->registry = registry;
 
-	if ((r = _set_module_name(registry, module, sid_res_id_get(mod_res))) < 0) {
+	if ((r = _set_module_name(registry, module, sid_res_get_id(mod_res))) < 0) {
 		sid_res_log_error_errno(mod_res, r, "Failed to set module name");
 		goto fail;
 	}
@@ -472,7 +472,7 @@ static int _init_module(sid_res_t *mod_res, const void *kickstart_data, void **d
 	if (_load_module_symbol(mod_res, module->handle, &symbol_params, (void **) &p_prio) < 0)
 		goto fail;
 
-	if (p_prio && (sid_res_prio_set(mod_res, *p_prio) < 0))
+	if (p_prio && (sid_res_set_prio(mod_res, *p_prio) < 0))
 		goto fail;
 
 	/* module aliases value is direct symbol */
@@ -527,7 +527,7 @@ fail:
 
 static int _destroy_module(sid_res_t *mod_res)
 {
-	struct sid_mod *module = sid_res_data_get(mod_res);
+	struct sid_mod *module = sid_res_get_data(mod_res);
 
 	if (module->exit_fn(mod_res, module->registry->cb_arg) < 0)
 		sid_res_log_debug(mod_res, "Module-specific finalization failed.");
@@ -594,7 +594,7 @@ static int _init_module_registry(sid_res_t *mod_registry_res, const void *kickst
 
 	registry->top_registry = registry;
 
-	if (!(registry->base_name = util_str_comb_to_str(NULL, SID_MOD_NAME_DELIM, sid_res_id_get(mod_registry_res), NULL))) {
+	if (!(registry->base_name = util_str_comb_to_str(NULL, SID_MOD_NAME_DELIM, sid_res_get_id(mod_registry_res), NULL))) {
 		sid_res_log_debug(mod_registry_res, "Failed to set base name.");
 		goto fail;
 	}
@@ -652,7 +652,7 @@ fail:
 
 static int _destroy_module_registry(sid_res_t *mod_registry_res)
 {
-	_free_module_registry(sid_res_data_get(mod_registry_res));
+	_free_module_registry(sid_res_get_data(mod_registry_res));
 	return 0;
 }
 

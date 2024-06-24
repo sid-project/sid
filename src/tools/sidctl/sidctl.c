@@ -54,11 +54,11 @@ static int _sid_cmd(sid_ifc_cmd_t cmd, uint16_t format)
 		return -1;
 	}
 
-	if ((data = sid_ifc_result_data_get(res, &size)) != NULL)
+	if ((data = sid_ifc_result_get_data(res, &size)) != NULL)
 		printf("%s", data);
 	else {
 		uint64_t status;
-		if (sid_ifc_result_status_get(res, &status) != 0 || status & SID_IFC_CMD_STATUS_FAILURE) {
+		if (sid_ifc_result_get_status(res, &status) != 0 || status & SID_IFC_CMD_STATUS_FAILURE) {
 			sid_log_error(LOG_PREFIX, "Command failed");
 			r = -1;
 		}
@@ -81,25 +81,25 @@ static int _sid_cmd_version(uint16_t format)
 	if (!outbuf)
 		return -1;
 
-	fmt_doc_start_print(format, outbuf, 0);
+	fmt_doc_start(format, outbuf, 0);
 
-	fmt_elm_name_print(format, outbuf, 0, "SIDCTL_VERSION", false);
-	fmt_elm_start_print(format, outbuf, 0, false);
-	fmt_fld_uint_print(format, outbuf, 1, KEY_SIDCTL_PROTOCOL, SID_IFC_PROTOCOL, false);
-	fmt_fld_uint_print(format, outbuf, 1, KEY_SIDCTL_MAJOR, SID_VERSION_MAJOR, true);
-	fmt_fld_uint_print(format, outbuf, 1, KEY_SIDCTL_MINOR, SID_VERSION_MINOR, true);
-	fmt_fld_uint_print(format, outbuf, 1, KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, true);
-	fmt_elm_end_print(format, outbuf, 0);
-	fmt_elm_name_print(format, outbuf, 0, "SID_VERSION", true);
+	fmt_elm_name(format, outbuf, 0, "SIDCTL_VERSION", false);
+	fmt_elm_start(format, outbuf, 0, false);
+	fmt_fld_uint(format, outbuf, 1, KEY_SIDCTL_PROTOCOL, SID_IFC_PROTOCOL, false);
+	fmt_fld_uint(format, outbuf, 1, KEY_SIDCTL_MAJOR, SID_VERSION_MAJOR, true);
+	fmt_fld_uint(format, outbuf, 1, KEY_SIDCTL_MINOR, SID_VERSION_MINOR, true);
+	fmt_fld_uint(format, outbuf, 1, KEY_SIDCTL_RELEASE, SID_VERSION_RELEASE, true);
+	fmt_elm_end(format, outbuf, 0);
+	fmt_elm_name(format, outbuf, 0, "SID_VERSION", true);
 	if ((r = sid_buf_write_all(outbuf, fileno(stdout))) < 0)
 		sid_log_error_errno(LOG_PREFIX, r, "failed to write version information");
 	sid_buf_reset(outbuf);
 	if (_sid_cmd(SID_IFC_CMD_VERSION, format) < 0) {
-		fmt_doc_start_print(format, outbuf, 0);
-		fmt_doc_end_print(format, outbuf, 0);
+		fmt_doc_start(format, outbuf, 0);
+		fmt_doc_end(format, outbuf, 0);
 	} else
 		fflush(stdout);
-	fmt_doc_end_print(format, outbuf, 0);
+	fmt_doc_end(format, outbuf, 0);
 
 	if ((r = sid_buf_write_all(outbuf, fileno(stdout))) < 0)
 		sid_log_error_errno(LOG_PREFIX, r, "failed to write output ending");

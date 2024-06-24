@@ -12,7 +12,7 @@
 
 #include <stddef.h>
 
-size_t         sid_conv_bin_len_encode(size_t in_len);
+size_t         sid_conv_bin_encode_len(size_t in_len);
 int            sid_conv_bin_encode(const unsigned char *src, size_t len, unsigned char *dest, size_t out_len);
 unsigned char *sid_conv_bin_decode(const unsigned char *src, size_t len, size_t *out_len);
 

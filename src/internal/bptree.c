@@ -172,7 +172,7 @@ bptree_t *bptree_create(int order)
  * Utility function to give the height of the tree, which is the
  * number of edges of the path from the root to any leaf.
  */
-int bptree_height_get(bptree_t *bptree)
+int bptree_get_height(bptree_t *bptree)
 {
 	int            h = 0;
 	bptree_node_t *c = bptree->root;
@@ -188,7 +188,7 @@ int bptree_height_get(bptree_t *bptree)
 	return h;
 }
 
-size_t bptree_size_get(bptree_t *bptree, size_t *meta_size, size_t *data_size)
+size_t bptree_get_size(bptree_t *bptree, size_t *meta_size, size_t *data_size)
 {
 	if (meta_size)
 		*meta_size = bptree->meta_size;
@@ -199,7 +199,7 @@ size_t bptree_size_get(bptree_t *bptree, size_t *meta_size, size_t *data_size)
 	return bptree->meta_size + bptree->data_size;
 }
 
-size_t bptree_entry_count_get(bptree_t *bptree)
+size_t bptree_get_entry_count(bptree_t *bptree)
 {
 	return bptree->num_entries;
 }
@@ -810,7 +810,7 @@ static int _insert(bptree_t *bptree, bptree_key_t *bkey, bptree_record_t *rec)
  * Inserts a key and associated data into the B+ tree, causing the tree
  * to be adjusted however necessary to maintain the B+ tree properties.
  */
-int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_size)
+int bptree_add(bptree_t *bptree, const char *key, void *data, size_t data_size)
 {
 	bptree_record_t *rec;
 	bptree_key_t    *bkey;
@@ -862,7 +862,7 @@ int bptree_insert(bptree_t *bptree, const char *key, void *data, size_t data_siz
 	return 0;
 }
 
-int bptree_alias_insert(bptree_t *bptree, const char *key, const char *alias, bool force)
+int bptree_add_alias(bptree_t *bptree, const char *key, const char *alias, bool force)
 {
 	bptree_record_t *rec;
 	bptree_record_t *rec_alias;
@@ -944,7 +944,7 @@ int bptree_update(bptree_t             *bptree,
 				rec->data_size     = data_size ? *data_size : 0;
 				bptree->data_size += rec->data_size;
 			} else
-				r = bptree_insert(bptree, key, data ? *data : NULL, data_size ? *data_size : 0);
+				r = bptree_add(bptree, key, data ? *data : NULL, data_size ? *data_size : 0);
 			break;
 
 		case BPTREE_UPDATE_REMOVE:
@@ -1331,7 +1331,7 @@ static bptree_node_t *_delete_entry(bptree_t *bptree, bptree_node_t *n, bptree_k
 /*
  * Main deletion function.
  */
-int bptree_remove(bptree_t *bptree, const char *key)
+int bptree_del(bptree_t *bptree, const char *key)
 {
 	bptree_node_t   *key_leaf = NULL;
 	bptree_record_t *rec      = NULL;
@@ -1427,7 +1427,7 @@ bptree_iter_t *bptree_iter_create(bptree_t *bptree, const char *key_start, const
 	return _do_bptree_iter_create(bptree, LOOKUP_EXACT, key_start, key_end);
 }
 
-bptree_iter_t *bptree_iter_prefix_create(bptree_t *bptree, const char *prefix)
+bptree_iter_t *bptree_iter_create_prefix(bptree_t *bptree, const char *prefix)
 {
 	return _do_bptree_iter_create(bptree, LOOKUP_PREFIX, prefix, NULL);
 }

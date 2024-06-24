@@ -98,15 +98,15 @@ int        sid_res_unref(sid_res_t *res);
 /*
  * basic property get/set functions
  */
-void *sid_res_data_get(sid_res_t *res);
+void *sid_res_get_data(sid_res_t *res);
 
-const char *sid_res_full_id_get(sid_res_t *res);
-const char *sid_res_id_get(sid_res_t *res);
+const char *sid_res_get_full_id(sid_res_t *res);
+const char *sid_res_get_id(sid_res_t *res);
 
-int     sid_res_prio_set(sid_res_t *res, int64_t prio);
-int64_t sid_res_prio_get(sid_res_t *res);
+int     sid_res_set_prio(sid_res_t *res, int64_t prio);
+int64_t sid_res_get_prio(sid_res_t *res);
 
-#define ID(res) sid_res_full_id_get(res)
+#define ID(res) sid_res_get_full_id(res)
 
 /*
  * structure/tree iterator and 'get' functions and types
@@ -160,7 +160,7 @@ bool       sid_res_search_match_res(sid_res_t *start_res, sid_res_search_t metho
 
 typedef uint32_t sid_res_isol_fl_t;
 
-int sid_res_child_add(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags);
+int sid_res_add_child(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags);
 int sid_res_isolate(sid_res_t *res, sid_res_isol_fl_t flags);
 
 /*
@@ -179,7 +179,7 @@ typedef enum {
 	SID_RES_POS_REL,
 } sid_res_pos_t;
 
-int sid_res_ev_io_create(sid_res_t            *res,
+int sid_res_ev_create_io(sid_res_t            *res,
                          sid_res_ev_src_t    **es,
                          int                   fd,
                          sid_res_ev_io_handler handler,
@@ -187,7 +187,7 @@ int sid_res_ev_io_create(sid_res_t            *res,
                          const char           *name,
                          void                 *data);
 
-int sid_res_ev_signal_create(sid_res_t                *res,
+int sid_res_ev_create_signal(sid_res_t                *res,
                              sid_res_ev_src_t        **es,
                              sigset_t                  mask,
                              sid_res_ev_signal_handler handler,
@@ -195,7 +195,7 @@ int sid_res_ev_signal_create(sid_res_t                *res,
                              const char               *name,
                              void                     *data);
 
-int sid_res_ev_child_create(sid_res_t               *res,
+int sid_res_ev_create_child(sid_res_t               *res,
                             sid_res_ev_src_t       **es,
                             pid_t                    pid,
                             int                      options,
@@ -204,7 +204,7 @@ int sid_res_ev_child_create(sid_res_t               *res,
                             const char              *name,
                             void                    *data);
 
-int sid_res_ev_time_create(sid_res_t              *res,
+int sid_res_ev_create_time(sid_res_t              *res,
                            sid_res_ev_src_t      **es,
                            clockid_t               clock,
                            sid_res_pos_t           disposition,
@@ -215,34 +215,34 @@ int sid_res_ev_time_create(sid_res_t              *res,
                            const char             *name,
                            void                   *data);
 
-int sid_res_ev_time_rearm(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint64_t usec);
+int sid_res_ev_rearm_time(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint64_t usec);
 
-int sid_res_ev_deferred_create(sid_res_t                 *res,
+int sid_res_ev_create_deferred(sid_res_t                 *res,
                                sid_res_ev_src_t         **es,
                                sid_res_ev_generic_handler handler,
                                int64_t                    prio,
                                const char                *name,
                                void                      *data);
 
-int sid_res_ev_post_create(sid_res_t                 *res,
+int sid_res_ev_create_post(sid_res_t                 *res,
                            sid_res_ev_src_t         **es,
                            sid_res_ev_generic_handler handler,
                            int64_t                    prio,
                            const char                *name,
                            void                      *data);
 
-int sid_res_ev_exit_create(sid_res_t                 *res,
+int sid_res_ev_create_exit(sid_res_t                 *res,
                            sid_res_ev_src_t         **es,
                            sid_res_ev_generic_handler handler,
                            int64_t                    prio,
                            const char                *name,
                            void                      *data);
 
-int sid_res_ev_counter_set(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint64_t events_max);
-int sid_res_ev_counter_get(sid_res_ev_src_t *es, uint64_t *events_fired, uint64_t *events_max);
+int sid_res_ev_set_counter(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint64_t events_max);
+int sid_res_ev_get_counter(sid_res_ev_src_t *es, uint64_t *events_fired, uint64_t *events_max);
 
-int sid_res_ev_exit_on_failure_set(sid_res_ev_src_t *es, bool exit_on_failure);
-int sid_res_ev_exit_on_failure_get(sid_res_ev_src_t *es);
+int sid_res_ev_set_exit_on_failure(sid_res_ev_src_t *es, bool exit_on_failure);
+int sid_res_ev_get_exit_on_failure(sid_res_ev_src_t *es);
 
 int sid_res_ev_destroy(sid_res_ev_src_t **es);
 

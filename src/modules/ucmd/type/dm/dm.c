@@ -176,16 +176,16 @@ static const char _failed_to_get_sysfs_msg[] = "Failed to get sysfs property for
 
 #define DEV_PRINT_FMT "%s (%d_%d/%" PRIu64 ")"
 #define DEV_PRINT(ucmd_ctx)                                                                                                        \
-	sid_ucmd_ev_dev_name_get(ucmd_ctx), sid_ucmd_ev_dev_major_get(ucmd_ctx), sid_ucmd_ev_dev_minor_get(ucmd_ctx),              \
-		sid_ucmd_ev_dev_diskseq_get(ucmd_ctx)
+	sid_ucmd_ev_dev_get_name(ucmd_ctx), sid_ucmd_ev_dev_get_major(ucmd_ctx), sid_ucmd_ev_dev_get_minor(ucmd_ctx),              \
+		sid_ucmd_ev_dev_get_diskseq(ucmd_ctx)
 
 static int _get_dm_submod_syms(sid_res_t *mod_res, sid_res_t *submod_res, struct scan_dm_submod_fns **submod_fns)
 {
 	if (!submod_res)
 		return -EINVAL;
 
-	if (sid_mod_reg_mod_syms_get(submod_res, (const void ***) submod_fns) < 0) {
-		sid_res_log_error(mod_res, "Failed to retrieve symbols for submodule %s", sid_res_id_get(submod_res));
+	if (sid_mod_reg_get_mod_syms(submod_res, (const void ***) submod_fns) < 0) {
+		sid_res_log_error(mod_res, "Failed to retrieve symbols for submodule %s", sid_res_get_id(submod_res));
 		return -1;
 	}
 
@@ -203,8 +203,8 @@ static int _do_exec_dm_submod(sid_res_t                 *mod_res,
 	if (!submod_res)
 		return 0;
 
-	if (sid_mod_reg_mod_syms_get(submod_res, (const void ***) &submod_fns) < 0) {
-		sid_res_log_error(mod_res, "Failed to get symbols for submodule %s.", sid_res_id_get(submod_res));
+	if (sid_mod_reg_get_mod_syms(submod_res, (const void ***) &submod_fns) < 0) {
+		sid_res_log_error(mod_res, "Failed to get symbols for submodule %s.", sid_res_get_id(submod_res));
 		return -1;
 	}
 
@@ -217,7 +217,7 @@ static int _do_exec_dm_submod(sid_res_t                 *mod_res,
 static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm_submod_cmd_scan_phase_t phase)
 {
 	static const char          _failed_to_create_submod_iter_msg[] = "Failed to create submodule iterator.";
-	struct dm_mod_ctx         *dm_mod                              = sid_mod_data_get(mod_res);
+	struct dm_mod_ctx         *dm_mod                              = sid_mod_get_data(mod_res);
 	struct scan_dm_submod_fns *submod_fns;
 	sid_res_iter_t            *iter;
 
@@ -237,7 +237,7 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 						dm_mod->submod_res_current = dm_mod->submod_res;
 						sid_res_log_debug(mod_res,
 						                  "%s submodule claimed " DEV_PRINT_FMT " for 'current' phases.",
-						                  sid_res_id_get(dm_mod->submod_res),
+						                  sid_res_get_id(dm_mod->submod_res),
 						                  DEV_PRINT(ucmd_ctx));
 						break;
 					}
@@ -262,7 +262,7 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 						dm_mod->submod_res_next = dm_mod->submod_res;
 						sid_res_log_debug(mod_res,
 						                  "%s submodule claimed " DEV_PRINT_FMT " for 'next' phases.",
-						                  sid_res_id_get(dm_mod->submod_res),
+						                  sid_res_get_id(dm_mod->submod_res),
 						                  DEV_PRINT(ucmd_ctx));
 					}
 				}
@@ -377,7 +377,7 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	/* uuid may be blank, name and suspended property is always set  */
 
-	sysfs_dev_path = sid_ucmd_ev_dev_path_get(ucmd_ctx);
+	sysfs_dev_path = sid_ucmd_ev_dev_get_path(ucmd_ctx);
 
 	if (_get_sysfs_value(mod_res, sysfs_dev_path, SYSFS_DM_UUID, uuid, sizeof(uuid)) < 0)
 		return -1;
@@ -388,12 +388,12 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	if (_get_sysfs_value(mod_res, sysfs_dev_path, SYSFS_DM_SUSPENDED, suspended, sizeof(suspended)) < 0 || !suspended[0])
 		return -1;
 
-	if (uuid[0] && (r = sid_ucmd_dev_alias_add(mod_res, ucmd_ctx, ALS_UUID, uuid)) < 0) {
+	if (uuid[0] && (r = sid_ucmd_dev_add_alias(mod_res, ucmd_ctx, ALS_UUID, uuid)) < 0) {
 		sid_res_log_error_errno(mod_res, r, _failed_to_set_alias_msg, ALS_UUID);
 		return -1;
 	}
 
-	if ((r = sid_ucmd_dev_alias_add(mod_res, ucmd_ctx, ALS_NAME, name)) < 0) {
+	if ((r = sid_ucmd_dev_add_alias(mod_res, ucmd_ctx, ALS_NAME, name)) < 0) {
 		sid_res_log_error_errno(mod_res, r, _failed_to_set_alias_msg, ALS_NAME);
 		return -1;
 	}
@@ -476,7 +476,7 @@ static int _dm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_
 		goto fail;
 	}
 
-	if (sid_mod_reg_mod_subreg_add(mod_res, dm_mod->submod_registry) < 0) {
+	if (sid_mod_reg_add_mod_subreg(mod_res, dm_mod->submod_registry) < 0) {
 		sid_res_log_error(mod_res, "Failed to attach submodule registry.");
 		goto fail;
 	}
@@ -488,12 +488,12 @@ static int _dm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_
 		}
 	}
 
-	if (sid_mod_reg_mods_load(dm_mod->submod_registry) < 0) {
+	if (sid_mod_reg_load_mods(dm_mod->submod_registry) < 0) {
 		sid_res_log_error(mod_res, "Failed to load submodules.");
 		goto fail;
 	}
 
-	sid_mod_data_set(mod_res, dm_mod);
+	sid_mod_set_data(mod_res, dm_mod);
 	return 0;
 fail:
 	if (dm_mod->submod_registry)
@@ -518,7 +518,7 @@ static int _dm_exit(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_
 		}
 	}
 
-	dm_mod = sid_mod_data_get(mod_res);
+	dm_mod = sid_mod_get_data(mod_res);
 	free(dm_mod);
 
 	return r;
@@ -537,12 +537,12 @@ static int _dm_submod_scan_a_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 	struct dm_mod_ctx *dm_mod;
 	const char        *submod_name = NULL;
 
-	dm_mod                         = sid_mod_data_get(mod_res);
+	dm_mod                         = sid_mod_get_data(mod_res);
 	submod_name                    = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVICE, DM_SUBMODULES_ID, NULL, NULL, 0);
 
 	if (submod_name) {
 		if (strcmp(submod_name, DM_SUBMODULE_ID_NONE) != 0) {
-			if (!(dm_mod->submod_res_current = sid_mod_reg_mod_get(dm_mod->submod_registry, submod_name))) {
+			if (!(dm_mod->submod_res_current = sid_mod_reg_get_mod(dm_mod->submod_registry, submod_name))) {
 				sid_res_log_debug(mod_res, "Module %s not loaded.", submod_name);
 				return 0;
 			}
@@ -552,7 +552,7 @@ static int _dm_submod_scan_a_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 			return -1;
 
 		if (dm_mod->submod_res_current)
-			submod_name = sid_res_id_get(dm_mod->submod_res_current);
+			submod_name = sid_res_get_id(dm_mod->submod_res_current);
 		else
 			submod_name = DM_SUBMODULE_ID_NONE;
 
@@ -696,9 +696,9 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	}
 	is_suspended = !strcmp(val, "1");
 
-	action       = sid_ucmd_ev_dev_action_get(ucmd_ctx);
-	is_synth     = sid_ucmd_ev_dev_synth_uuid_get(ucmd_ctx) != NULL;
-	ready        = sid_ucmd_dev_ready_get(mod_res, ucmd_ctx, 0);
+	action       = sid_ucmd_ev_dev_get_action(ucmd_ctx);
+	is_synth     = sid_ucmd_ev_dev_get_synth_uuid(ucmd_ctx) != NULL;
+	ready        = sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, 0);
 
 	if (has_cookie && (is_synth || (action != UDEV_ACTION_CHANGE))) {
 		/* very unlikely, but just in case something fakes events incorrectly */
@@ -714,7 +714,7 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	if (is_suspended) {
 		/* whenever we find the device in suspended state, switch ready state to DEV_RDY_UNAVAILABLE */
-		r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_UNAVAILABLE);
+		r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_UNAVAILABLE);
 		goto out;
 	}
 
@@ -741,7 +741,7 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 				 */
 				sid_res_log_warning(mod_res, "Genuine udev event received, but no previous records found.");
 
-				if ((r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_UNCONFIGURED)) < 0)
+				if ((r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_UNCONFIGURED)) < 0)
 					goto out;
 
 				goto handle_unconfigured;
@@ -756,12 +756,12 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 					 * active table yet. We cannot detect this case using only sysfs, but we'd
 					 * need to call dmsetup table (or issue a dm ioctl directly) to get more info.
 					 */
-					if ((r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC)) < 0)
+					if ((r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC)) < 0)
 						goto out;
 				} else {
 					/* Tracking step 1) from activation sequence. */
 					if (action == UDEV_ACTION_ADD) {
-						if ((r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_UNCONFIGURED)) < 0)
+						if ((r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_UNCONFIGURED)) < 0)
 							goto out;
 					} else {
 						/*
@@ -797,11 +797,11 @@ handle_unconfigured:
 						 * for this device and change the ready state accordingly.
 						 */
 						if (cookie_flags & DM_UDEV_DISABLE_OTHER_RULES_FLAG)
-							r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
+							r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
 						else if (cookie_flags & DM_UDEV_DISABLE_DISK_RULES_FLAG)
-							r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_FLAT);
+							r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_FLAT);
 						else
-							r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC);
+							r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC);
 
 						if (r < 0)
 							goto out;
@@ -830,11 +830,11 @@ handle_unconfigured:
 			 */
 			if (action == UDEV_ACTION_CHANGE && has_cookie) {
 				if (cookie_flags & DM_UDEV_DISABLE_OTHER_RULES_FLAG)
-					r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
+					r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
 				else if (cookie_flags & DM_UDEV_DISABLE_DISK_RULES_FLAG)
-					r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_FLAT);
+					r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_FLAT);
 				else
-					r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC);
+					r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC);
 			}
 			break;
 	}
@@ -888,7 +888,7 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	sid_res_log_debug(mod_res, "scan-a-exit");
 
-	ready = sid_ucmd_dev_ready_get(mod_res, ucmd_ctx, 0);
+	ready = sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, 0);
 
 	/*
 	 *  Store DM_UDEV_RULES_VSN and all decoded flags to SID_KV_NS_UDEV

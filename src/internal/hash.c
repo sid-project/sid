@@ -181,7 +181,7 @@ static int
 	return 0;
 }
 
-int hash_insert(struct hash_table *t, const void *key, uint32_t key_len, void *data, size_t data_len)
+int hash_add(struct hash_table *t, const void *key, uint32_t key_len, void *data, size_t data_len)
 {
 	struct hash_node **c = _find(t, key, key_len);
 
@@ -193,7 +193,7 @@ int hash_insert(struct hash_table *t, const void *key, uint32_t key_len, void *d
 	return _do_hash_insert(t, c, key, key_len, data, data_len);
 }
 
-static void _do_hash_remove(struct hash_table *t, struct hash_node **c)
+static void _do_hash_del(struct hash_table *t, struct hash_node **c)
 {
 	struct hash_node *old = *c;
 
@@ -202,12 +202,12 @@ static void _do_hash_remove(struct hash_table *t, struct hash_node **c)
 	t->num_nodes--;
 }
 
-void hash_remove(struct hash_table *t, const void *key, uint32_t key_len)
+void hash_del(struct hash_table *t, const void *key, uint32_t key_len)
 {
 	struct hash_node **c = _find(t, key, key_len);
 
 	if (*c)
-		_do_hash_remove(t, c);
+		_do_hash_del(t, c);
 }
 
 static struct hash_node **
@@ -231,7 +231,7 @@ static struct hash_node **
 	return NULL;
 }
 
-int hash_insert_allow_multiple(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len)
+int hash_add_allow_multiple(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len)
 {
 	struct hash_node *n;
 	struct hash_node *first;
@@ -272,14 +272,14 @@ void *hash_lookup_with_data(struct hash_table *t, const char *key, uint32_t key_
  * Look through multiple entries with the same key for one that has a
  * matching data and remove that.
  */
-void hash_remove_with_data(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len)
+void hash_del_with_data(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len)
 {
 	struct hash_node **c;
 
 	c = _find_with_data(t, key, key_len, data, data_len);
 
 	if (c && *c)
-		_do_hash_remove(t, c);
+		_do_hash_del(t, c);
 }
 
 /*
@@ -327,7 +327,7 @@ void *hash_lookup_with_count(struct hash_table *t, const char *key, uint32_t key
 	return NULL;
 }
 
-unsigned hash_entry_count_get(struct hash_table *t)
+unsigned hash_get_entry_count(struct hash_table *t)
 {
 	return t->num_nodes;
 }
@@ -351,7 +351,7 @@ void hash_wipe(struct hash_table *t)
 	t->num_nodes = 0u;
 }
 
-char *hash_key_get(struct hash_table *t __unused, struct hash_node *n, uint32_t *key_len)
+char *hash_get_key(struct hash_table *t __unused, struct hash_node *n, uint32_t *key_len)
 {
 	if (key_len)
 		*key_len = n->key_len;
@@ -359,7 +359,7 @@ char *hash_key_get(struct hash_table *t __unused, struct hash_node *n, uint32_t 
 	return n->key;
 }
 
-void *hash_data_get(struct hash_table *t __unused, struct hash_node *n, size_t *data_len)
+void *hash_get_data(struct hash_table *t __unused, struct hash_node *n, size_t *data_len)
 {
 	if (data_len)
 		*data_len = n->data_len;
@@ -378,12 +378,12 @@ static struct hash_node *_next_slot(struct hash_table *t, unsigned s)
 	return c;
 }
 
-struct hash_node *hash_first_get(struct hash_table *t)
+struct hash_node *hash_get_first(struct hash_table *t)
 {
 	return _next_slot(t, 0);
 }
 
-struct hash_node *hash_next_get(struct hash_table *t, struct hash_node *n)
+struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n)
 {
 	unsigned h = _hash(n->key, n->key_len) & (t->num_slots - 1);
 
@@ -427,7 +427,7 @@ int hash_update(struct hash_table  *t,
 
 		case HASH_UPDATE_REMOVE:
 			if (*c)
-				_do_hash_remove(t, c);
+				_do_hash_del(t, c);
 			break;
 
 		case HASH_UPDATE_SKIP:
@@ -437,7 +437,7 @@ int hash_update(struct hash_table  *t,
 	return r;
 }
 
-size_t hash_size_get(struct hash_table *t, size_t *meta_size, size_t *data_size)
+size_t hash_get_size(struct hash_table *t, size_t *meta_size, size_t *data_size)
 {
 	struct hash_node *n;
 	unsigned          i;

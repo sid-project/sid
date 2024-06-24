@@ -74,7 +74,7 @@ void         list_init(struct list *head);
 void         list_add(struct list *head, struct list *elem);
 void         list_del(struct list *elem);
 bool         list_is_empty(const struct list *head);
-unsigned int list_size(const struct list *head);
+unsigned int list_get_size(const struct list *head);
 
 #ifdef __cplusplus
 }

@@ -125,7 +125,7 @@ struct worker {
 
 static void _change_worker_proxy_state(sid_res_t *worker_proxy_res, sid_wrk_state_t state)
 {
-	struct worker_proxy *worker_proxy = sid_res_data_get(worker_proxy_res);
+	struct worker_proxy *worker_proxy = sid_res_get_data(worker_proxy_res);
 
 	sid_res_log_debug(worker_proxy_res,
 	                  "Worker state changed: %s --> %s.",
@@ -194,7 +194,7 @@ static int _create_channels(sid_res_t            *worker_control_res,
                             struct sid_wrk_chan **worker_proxy_channels,
                             struct sid_wrk_chan **worker_channels)
 {
-	struct worker_control *worker_control = sid_res_data_get(worker_control_res);
+	struct worker_control *worker_control = sid_res_get_data(worker_control_res);
 	struct sid_wrk_chan   *proxy_chans = NULL, *chans = NULL;
 	unsigned               i = 0;
 
@@ -238,7 +238,7 @@ fail:
 static int _chan_add_rx_data_suffix(const struct sid_wrk_chan *chan)
 {
 	const struct iovec *suffix =
-		sid_wrk_ctl_wrk_detect(chan->owner) ? &chan->spec->worker_rx.data_suffix : &chan->spec->proxy_rx.data_suffix;
+		sid_wrk_ctl_detect_worker(chan->owner) ? &chan->spec->worker_rx.data_suffix : &chan->spec->proxy_rx.data_suffix;
 
 	if (suffix->iov_base)
 		return sid_buf_add(chan->rx_buf, suffix->iov_base, suffix->iov_len, NULL, NULL);
@@ -291,7 +291,7 @@ static int _chan_buf_recv(const struct sid_wrk_chan *chan,
 		if (_chan_add_rx_data_suffix(chan) < 0)
 			return -ENOMEM;
 
-		(void) sid_buf_data_get(chan->rx_buf, (const void **) &buf_data, &buf_data_size);
+		(void) sid_buf_get_data(chan->rx_buf, (const void **) &buf_data, &buf_data_size);
 
 		/*
 		 * Internal workers and associated proxies use SID_BUF_MODE_SIZE_PREFIX buffers and
@@ -348,7 +348,7 @@ static int _chan_buf_recv(const struct sid_wrk_chan *chan,
 			if (_chan_add_rx_data_suffix(chan) < 0)
 				return -ENOMEM;
 
-			(void) sid_buf_data_get(chan->rx_buf, (const void **) &buf_data, &buf_data_size);
+			(void) sid_buf_get_data(chan->rx_buf, (const void **) &buf_data, &buf_data_size);
 
 			*chan_cmd            = WORKER_CHANNEL_CMD_DATA;
 			data_spec->data_size = buf_data_size;
@@ -363,7 +363,7 @@ static int _chan_buf_recv(const struct sid_wrk_chan *chan,
 
 static int _make_worker_exit(sid_res_t *worker_proxy_res)
 {
-	struct worker_proxy *worker_proxy = sid_res_data_get(worker_proxy_res);
+	struct worker_proxy *worker_proxy = sid_res_get_data(worker_proxy_res);
 	int                  r;
 
 	if (!(r = kill(worker_proxy->pid, SIGTERM)))
@@ -645,7 +645,7 @@ static int _setup_channel(sid_res_t *owner, bool is_worker, sid_wrk_type_t type,
 	}
 
 	if (!(type == SID_WRK_TYPE_EXTERNAL && is_worker)) {
-		if (sid_res_ev_io_create(owner,
+		if (sid_res_ev_create_io(owner,
 		                         NULL,
 		                         chan->fd,
 		                         is_worker ? _on_worker_channel_event : _on_worker_proxy_channel_event,
@@ -683,7 +683,7 @@ static int _setup_channels(sid_res_t *owner, sid_wrk_type_t type, struct sid_wrk
 	if (sid_res_match(owner, &sid_res_type_wrk_ctl, NULL))
 		is_worker = true;
 	else
-		is_worker = sid_wrk_ctl_wrk_detect(owner);
+		is_worker = sid_wrk_ctl_detect_worker(owner);
 
 	while (i < chan_count) {
 		if (_setup_channel(owner, is_worker, type, &chans[i]) < 0)
@@ -802,7 +802,7 @@ static int _do_worker_control_get_new_worker(sid_res_t             *worker_contr
                                              sid_res_t            **res_p,
                                              bool                   with_event_loop)
 {
-	struct worker_control  *worker_control        = sid_res_data_get(worker_control_res);
+	struct worker_control  *worker_control        = sid_res_get_data(worker_control_res);
 	struct sid_wrk_chan    *worker_proxy_channels = NULL, *worker_channels = NULL;
 	struct worker_kickstart kickstart;
 	sigset_t                original_sigmask, new_sigmask;
@@ -931,7 +931,7 @@ static int _do_worker_control_get_new_worker(sid_res_t             *worker_contr
 		kickstart.timeout_spec = worker_control->timeout_spec;
 
 	if (!(id = params->id)) {
-		(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
+		(void) util_proc_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
 		id = gen_id;
 	}
 
@@ -961,7 +961,7 @@ out:
 	return res ? 0 : -1;
 }
 
-int sid_wrk_ctl_wrk_new_get(sid_res_t *worker_control_res, struct sid_wrk_params *params, sid_res_t **res_p)
+int sid_wrk_ctl_get_new_worker(sid_res_t *worker_control_res, struct sid_wrk_params *params, sid_res_t **res_p)
 {
 	if (!sid_res_match(worker_control_res, &sid_res_type_wrk_ctl, NULL) || !params || !res_p)
 		return -EINVAL;
@@ -971,7 +971,7 @@ int sid_wrk_ctl_wrk_new_get(sid_res_t *worker_control_res, struct sid_wrk_params
 
 static int _run_internal_worker(sid_res_t *worker_control_res, sid_res_srv_lnk_def_t service_link_defs[])
 {
-	struct worker_control  *worker_control = sid_res_data_get(worker_control_res);
+	struct worker_control  *worker_control = sid_res_get_data(worker_control_res);
 	struct worker_kickstart kickstart;
 	sid_res_t              *res;
 	const char             *id;
@@ -985,7 +985,7 @@ static int _run_internal_worker(sid_res_t *worker_control_res, sid_res_srv_lnk_d
 	kickstart.arg           = worker_control->worker_init.arg;
 
 	if (!(id = worker_control->worker_init.id)) {
-		(void) util_process_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
+		(void) util_proc_pid_to_str(kickstart.pid, gen_id, sizeof(gen_id));
 		id = gen_id;
 	}
 
@@ -1016,7 +1016,7 @@ static int _run_internal_worker(sid_res_t *worker_control_res, sid_res_srv_lnk_d
 
 static int _run_external_worker(sid_res_t *worker_control_res)
 {
-	struct worker_control    *worker_control = sid_res_data_get(worker_control_res);
+	struct worker_control    *worker_control = sid_res_get_data(worker_control_res);
 	struct sid_wrk_chan_spec *channel_specs;
 	struct sid_wrk_chan      *channels;
 	unsigned                  channel_count;
@@ -1068,14 +1068,14 @@ fail:
 	return r;
 }
 
-int sid_wrk_ctl_wrk_run(sid_res_t *worker_control_res, sid_res_srv_lnk_def_t service_link_defs[])
+int sid_wrk_ctl_run_worker(sid_res_t *worker_control_res, sid_res_srv_lnk_def_t service_link_defs[])
 {
 	struct worker_control *worker_control;
 
 	if (!sid_res_match(worker_control_res, &sid_res_type_wrk_ctl, NULL))
 		return -EINVAL;
 
-	worker_control = sid_res_data_get(worker_control_res);
+	worker_control = sid_res_get_data(worker_control_res);
 
 	if (!worker_control->worker_init.prepared)
 		return -ESRCH;
@@ -1092,7 +1092,9 @@ int sid_wrk_ctl_wrk_run(sid_res_t *worker_control_res, sid_res_srv_lnk_def_t ser
  * FIXME: Cleanup resources before running the external worker or do
  *        something to make valgrind happy, otherwise it will report memleaks.
  */
-int sid_wrk_ctl_wrk_new_run(sid_res_t *worker_control_res, struct sid_wrk_params *params, sid_res_srv_lnk_def_t service_link_defs[])
+int sid_wrk_ctl_run_new_worker(sid_res_t             *worker_control_res,
+                               struct sid_wrk_params *params,
+                               sid_res_srv_lnk_def_t  service_link_defs[])
 {
 	struct worker_control *worker_control;
 	sid_res_t             *proxy_res;
@@ -1101,7 +1103,7 @@ int sid_wrk_ctl_wrk_new_run(sid_res_t *worker_control_res, struct sid_wrk_params
 	if (!sid_res_match(worker_control_res, &sid_res_type_wrk_ctl, NULL) || !params)
 		return -EINVAL;
 
-	worker_control = sid_res_data_get(worker_control_res);
+	worker_control = sid_res_get_data(worker_control_res);
 
 	if (worker_control->worker_type != SID_WRK_TYPE_EXTERNAL)
 		return -ENOTSUP;
@@ -1121,10 +1123,10 @@ int sid_wrk_ctl_wrk_new_run(sid_res_t *worker_control_res, struct sid_wrk_params
 		/*
 		 * WORKER HERE
 		 */
-		return sid_wrk_ctl_wrk_run(worker_control_res, service_link_defs);
+		return sid_wrk_ctl_run_worker(worker_control_res, service_link_defs);
 }
 
-sid_res_t *sid_wrk_ctl_wrk_idle_get(sid_res_t *worker_control_res)
+sid_res_t *sid_wrk_ctl_get_idle_worker(sid_res_t *worker_control_res)
 {
 	sid_res_iter_t *iter;
 	sid_res_t      *res;
@@ -1136,7 +1138,7 @@ sid_res_t *sid_wrk_ctl_wrk_idle_get(sid_res_t *worker_control_res)
 		return NULL;
 
 	while ((res = sid_res_iter_next(iter))) {
-		if (((struct worker_proxy *) sid_res_data_get(res))->state == SID_WRK_STATE_IDLE)
+		if (((struct worker_proxy *) sid_res_get_data(res))->state == SID_WRK_STATE_IDLE)
 			break;
 	}
 
@@ -1144,7 +1146,7 @@ sid_res_t *sid_wrk_ctl_wrk_idle_get(sid_res_t *worker_control_res)
 	return res;
 }
 
-sid_res_t *sid_wrk_ctl_wrk_find(sid_res_t *worker_control_res, const char *id)
+sid_res_t *sid_wrk_ctl_find_worker(sid_res_t *worker_control_res, const char *id)
 {
 	if (!sid_res_match(worker_control_res, &sid_res_type_wrk_ctl, NULL) || UTIL_STR_EMPTY(id))
 		return NULL;
@@ -1152,7 +1154,7 @@ sid_res_t *sid_wrk_ctl_wrk_find(sid_res_t *worker_control_res, const char *id)
 	return sid_res_search(worker_control_res, SID_RES_SEARCH_IMM_DESC, &sid_res_type_wrk_prx, id);
 }
 
-bool sid_wrk_ctl_wrk_detect(sid_res_t *res)
+bool sid_wrk_ctl_detect_worker(sid_res_t *res)
 {
 	if (!res)
 		return NULL;
@@ -1166,7 +1168,7 @@ bool sid_wrk_ctl_wrk_detect(sid_res_t *res)
 		return sid_res_search(res, SID_RES_SEARCH_ANC, &sid_res_type_wrk, NULL) != NULL;
 }
 
-sid_wrk_state_t sid_wrk_ctl_wrk_state_get(sid_res_t *res)
+sid_wrk_state_t sid_wrk_ctl_get_worker_state(sid_res_t *res)
 {
 	struct worker_proxy *worker_proxy;
 
@@ -1176,7 +1178,7 @@ sid_wrk_state_t sid_wrk_ctl_wrk_state_get(sid_res_t *res)
 	do {
 		if (sid_res_match(res, &sid_res_type_wrk_prx, NULL) ||
 		    sid_res_match(res, &sid_res_type_wrk_prx_with_ev_loop, NULL)) {
-			worker_proxy = sid_res_data_get(res);
+			worker_proxy = sid_res_get_data(res);
 			return worker_proxy->state;
 		}
 	} while ((res = sid_res_search(res, SID_RES_SEARCH_IMM_ANC, NULL, NULL)));
@@ -1184,7 +1186,7 @@ sid_wrk_state_t sid_wrk_ctl_wrk_state_get(sid_res_t *res)
 	return SID_WRK_STATE_UNKNOWN;
 }
 
-const char *sid_wrk_ctl_wrk_id_get(sid_res_t *res)
+const char *sid_wrk_ctl_get_worker_id(sid_res_t *res)
 {
 	if (!res)
 		return NULL;
@@ -1192,23 +1194,23 @@ const char *sid_wrk_ctl_wrk_id_get(sid_res_t *res)
 	do {
 		if (sid_res_match(res, &sid_res_type_wrk, NULL) || sid_res_match(res, &sid_res_type_wrk_prx, NULL) ||
 		    sid_res_match(res, &sid_res_type_wrk_prx_with_ev_loop, NULL))
-			return sid_res_id_get(res);
+			return sid_res_get_id(res);
 	} while ((res = sid_res_search(res, SID_RES_SEARCH_IMM_ANC, NULL, NULL)));
 
 	return NULL;
 }
 
-void *sid_wrk_ctl_wrk_arg_get(sid_res_t *res)
+void *sid_wrk_ctl_get_worker_arg(sid_res_t *res)
 {
 	if (!res)
 		return NULL;
 
 	do {
 		if (sid_res_match(res, &sid_res_type_wrk, NULL))
-			return (((struct worker *) sid_res_data_get(res))->arg);
+			return (((struct worker *) sid_res_get_data(res))->arg);
 		else if (sid_res_match(res, &sid_res_type_wrk_prx, NULL) ||
 		         sid_res_match(res, &sid_res_type_wrk_prx_with_ev_loop, NULL))
-			return (((struct worker_proxy *) sid_res_data_get(res))->arg);
+			return (((struct worker_proxy *) sid_res_get_data(res))->arg);
 	} while ((res = sid_res_search(res, SID_RES_SEARCH_IMM_ANC, NULL, NULL)));
 
 	return NULL;
@@ -1311,7 +1313,7 @@ static int _channel_prepare_send(sid_res_t                *current_res,
 	if (sid_res_match(res, &sid_res_type_wrk_prx, NULL) ||
 	    (res = sid_res_search(current_res, SID_RES_SEARCH_ANC, &sid_res_type_wrk_prx, NULL))) {
 		/* sending from worker proxy to worker */
-		worker_proxy = sid_res_data_get(res);
+		worker_proxy = sid_res_get_data(res);
 
 		if (!(chan = _get_channel(worker_proxy->channels, worker_proxy->channel_count, channel_id)))
 			return -ECHRNG;
@@ -1327,7 +1329,7 @@ static int _channel_prepare_send(sid_res_t                *current_res,
 
 	} else if ((res = sid_res_search(current_res, SID_RES_SEARCH_TOP, &sid_res_type_wrk, NULL))) {
 		/* sending from worker to worker proxy */
-		worker = sid_res_data_get(res);
+		worker = sid_res_get_data(res);
 
 		if (!(chan = _get_channel(worker->channels, worker->channel_count, channel_id)))
 			return -ECHRNG;
@@ -1368,7 +1370,7 @@ int sid_wrk_ctl_chan_close(sid_res_t *current_res, const char *channel_id)
 	return 0;
 }
 
-int sid_wrk_ctl_wrk_yield(sid_res_t *res)
+int sid_wrk_ctl_yield_worker(sid_res_t *res)
 {
 	sid_res_t           *worker_res;
 	struct worker       *worker;
@@ -1383,7 +1385,7 @@ int sid_wrk_ctl_wrk_yield(sid_res_t *res)
 	else if (!(worker_res = sid_res_search(res, SID_RES_SEARCH_ANC, &sid_res_type_wrk, NULL)))
 		return -ENOMEDIUM;
 
-	worker = sid_res_data_get(worker_res);
+	worker = sid_res_get_data(worker_res);
 
 	for (i = 0; i < worker->channel_count; i++) {
 		chan = &worker->channels[i];
@@ -1462,7 +1464,7 @@ static int _on_worker_signal_event(sid_res_ev_src_t *es, const struct signalfd_s
 			sid_res_ev_loop_exit(res);
 			break;
 		case SIGUSR1:
-			worker = sid_res_data_get(res);
+			worker = sid_res_get_data(res);
 			if (worker != NULL)
 				worker->parent_exited = 1;
 			break;
@@ -1476,7 +1478,7 @@ static int _on_worker_signal_event(sid_res_ev_src_t *es, const struct signalfd_s
 static int _on_worker_proxy_timeout_event(sid_res_ev_src_t *es, uint64_t usec, void *data)
 {
 	sid_res_t           *worker_proxy_res = data;
-	struct worker_proxy *worker_proxy     = sid_res_data_get(worker_proxy_res);
+	struct worker_proxy *worker_proxy     = sid_res_get_data(worker_proxy_res);
 	int                  signum;
 	int                  r = 0;
 
@@ -1514,7 +1516,7 @@ static int _init_worker_proxy(sid_res_t *worker_proxy_res, const void *kickstart
 	worker_proxy->timeout_spec  = kickstart->timeout_spec;
 	worker_proxy->arg           = kickstart->arg;
 
-	if (sid_res_ev_child_create(worker_proxy_res,
+	if (sid_res_ev_create_child(worker_proxy_res,
 	                            NULL,
 	                            worker_proxy->pid,
 	                            WEXITED,
@@ -1529,7 +1531,7 @@ static int _init_worker_proxy(sid_res_t *worker_proxy_res, const void *kickstart
 	if (_setup_channels(worker_proxy_res, kickstart->type, kickstart->channels, kickstart->channel_count) < 0)
 		goto fail;
 
-	if (kickstart->timeout_spec.usec && sid_res_ev_time_create(worker_proxy_res,
+	if (kickstart->timeout_spec.usec && sid_res_ev_create_time(worker_proxy_res,
 	                                                           &worker_proxy->exec_timeout_es,
 	                                                           CLOCK_MONOTONIC,
 	                                                           SID_RES_POS_REL,
@@ -1552,7 +1554,7 @@ fail:
 
 static int _destroy_worker_proxy(sid_res_t *worker_proxy_res)
 {
-	struct worker_proxy *worker_proxy = sid_res_data_get(worker_proxy_res);
+	struct worker_proxy *worker_proxy = sid_res_get_data(worker_proxy_res);
 
 	_destroy_channels(worker_proxy->channels, worker_proxy->channel_count);
 	free(worker_proxy);
@@ -1582,7 +1584,7 @@ static int _init_worker(sid_res_t *worker_res, const void *kickstart_data, void 
 	worker->parent_exited = 0;
 	worker->arg           = kickstart->arg;
 
-	if (sid_res_ev_signal_create(worker_res, NULL, mask, _on_worker_signal_event, 0, "worker_signal_handler", worker_res) < 0) {
+	if (sid_res_ev_create_signal(worker_res, NULL, mask, _on_worker_signal_event, 0, "worker_signal_handler", worker_res) < 0) {
 		sid_res_log_error(worker_res, "Failed to create signal handlers.");
 		goto fail;
 	}
@@ -1599,7 +1601,7 @@ fail:
 
 static int _destroy_worker(sid_res_t *worker_res)
 {
-	struct worker *worker = sid_res_data_get(worker_res);
+	struct worker *worker = sid_res_get_data(worker_res);
 
 	_destroy_channels(worker->channels, worker->channel_count);
 	free(worker->channel_specs);
@@ -1676,7 +1678,7 @@ fail:
 
 static int _destroy_worker_control(sid_res_t *worker_control_res)
 {
-	struct worker_control *worker_control = sid_res_data_get(worker_control_res);
+	struct worker_control *worker_control = sid_res_get_data(worker_control_res);
 
 	if (worker_control->worker_init.channels)
 		_destroy_channels(worker_control->worker_init.channels, worker_control->channel_spec_count);

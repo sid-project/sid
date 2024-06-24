@@ -74,8 +74,8 @@ extern const struct sid_log_tgt log_target_journal;
 void       sid_log_init(sid_log_tgt_t target, int verbose_mode);
 sid_log_t *sid_log_init_with_handle(sid_log_tgt_t target, int verbose_mode);
 void       sid_log_close(sid_log_t *log);
-void       sid_log_tgt_change(sid_log_t *log, sid_log_tgt_t new_target);
-void       sid_log_pfx_set(sid_log_t *log, const char *prefix);
+void       sid_log_change_tgt(sid_log_t *log, sid_log_tgt_t new_target);
+void       sid_log_set_pfx(sid_log_t *log, const char *prefix);
 
 __format_printf(3, 4) void sid_log_output(sid_log_t *log, sid_log_req_t *req, const char *format, ...);
 void sid_log_voutput(sid_log_t *log, sid_log_req_t *req, const char *format, va_list ap);

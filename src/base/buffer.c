@@ -129,7 +129,7 @@ int sid_buf_add(struct sid_buf *buf, const void *data, size_t len, const void **
 	return 0;
 }
 
-int sid_buf_fmt_add(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, ...)
+int sid_buf_add_fmt(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, ...)
 {
 	size_t  tmp_pos;
 	va_list ap;
@@ -139,7 +139,7 @@ int sid_buf_fmt_add(struct sid_buf *buf, const void **mem, size_t *pos, const ch
 		return -EBUSY;
 
 	va_start(ap, fmt);
-	r = _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, mem, &tmp_pos, fmt, ap);
+	r = _buffer_type_registry[buf->stat.spec.type]->add_fmt(buf, mem, &tmp_pos, fmt, ap);
 	va_end(ap);
 
 	if (r < 0)
@@ -156,7 +156,7 @@ int sid_buf_fmt_add(struct sid_buf *buf, const void **mem, size_t *pos, const ch
 	return 0;
 }
 
-int sid_buf_vfmt_add(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, va_list ap)
+int sid_buf_add_vfmt(struct sid_buf *buf, const void **mem, size_t *pos, const char *fmt, va_list ap)
 {
 	size_t tmp_pos;
 	int    r;
@@ -164,7 +164,7 @@ int sid_buf_vfmt_add(struct sid_buf *buf, const void **mem, size_t *pos, const c
 	if (buf->mark.set)
 		return -EBUSY;
 
-	if ((r = _buffer_type_registry[buf->stat.spec.type]->fmt_add(buf, mem, &tmp_pos, fmt, ap)) < 0)
+	if ((r = _buffer_type_registry[buf->stat.spec.type]->add_fmt(buf, mem, &tmp_pos, fmt, ap)) < 0)
 		return r;
 
 	if (mem) {
@@ -209,15 +209,15 @@ static int _do_sid_buf_mem_release(struct sid_buf *buf, const void *mem, bool re
 	if (mem < buf->mem)
 		return -EINVAL;
 
-	return _buffer_type_registry[buf->stat.spec.type]->mem_release(buf, mem, rewind);
+	return _buffer_type_registry[buf->stat.spec.type]->release_mem(buf, mem, rewind);
 }
 
-int sid_buf_mem_unbind(struct sid_buf *buf, const void *mem)
+int sid_buf_unbind_mem(struct sid_buf *buf, const void *mem)
 {
 	return _do_sid_buf_mem_release(buf, mem, false);
 }
 
-int sid_buf_mem_rewind(struct sid_buf *buf, const void *mem)
+int sid_buf_rewind_mem(struct sid_buf *buf, const void *mem)
 {
 	return _do_sid_buf_mem_release(buf, mem, true);
 }
@@ -227,7 +227,7 @@ bool sid_buf_is_complete(struct sid_buf *buf, int *ret_code)
 	return _buffer_type_registry[buf->stat.spec.type]->is_complete(buf, ret_code);
 }
 
-int sid_buf_data_get_from(struct sid_buf *buf, size_t pos, const void **data, size_t *data_size)
+int sid_buf_get_data_from(struct sid_buf *buf, size_t pos, const void **data, size_t *data_size)
 {
 	if (pos > sid_buf_count(buf))
 		return -ERANGE;
@@ -237,17 +237,17 @@ int sid_buf_data_get_from(struct sid_buf *buf, size_t pos, const void **data, si
 		buf->mark.pos = pos;
 	}
 
-	return _buffer_type_registry[buf->stat.spec.type]->data_get(buf, pos, data, data_size);
+	return _buffer_type_registry[buf->stat.spec.type]->get_data(buf, pos, data, data_size);
 }
 
-int sid_buf_data_get(struct sid_buf *buf, const void **data, size_t *data_size)
+int sid_buf_get_data(struct sid_buf *buf, const void **data, size_t *data_size)
 {
-	return sid_buf_data_get_from(buf, 0, data, data_size);
+	return sid_buf_get_data_from(buf, 0, data, data_size);
 }
 
-int sid_buf_fd_get(struct sid_buf *buf)
+int sid_buf_get_fd(struct sid_buf *buf)
 {
-	return _buffer_type_registry[buf->stat.spec.type]->fd_get(buf);
+	return _buffer_type_registry[buf->stat.spec.type]->get_fd(buf);
 }
 
 ssize_t sid_buf_read(struct sid_buf *buf, int fd)

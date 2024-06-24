@@ -71,7 +71,7 @@ void sid_ifc_result_free(struct sid_ifc_result *res)
 	free(res);
 }
 
-int sid_ifc_result_status_get(struct sid_ifc_result *res, uint64_t *status)
+int sid_ifc_result_get_status(struct sid_ifc_result *res, uint64_t *status)
 {
 	size_t                           size;
 	const struct sid_ifc_msg_header *hdr_p;
@@ -79,13 +79,13 @@ int sid_ifc_result_status_get(struct sid_ifc_result *res, uint64_t *status)
 
 	if (!res || !status)
 		return -EINVAL;
-	sid_buf_data_get(res->buf, (const void **) &hdr_p, &size);
+	sid_buf_get_data(res->buf, (const void **) &hdr_p, &size);
 	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	*status = hdr.status;
 	return 0;
 }
 
-int sid_ifc_result_protocol_get(struct sid_ifc_result *res, uint8_t *prot)
+int sid_ifc_result_get_protocol(struct sid_ifc_result *res, uint8_t *prot)
 {
 	size_t                           size;
 	const struct sid_ifc_msg_header *hdr_p;
@@ -93,13 +93,13 @@ int sid_ifc_result_protocol_get(struct sid_ifc_result *res, uint8_t *prot)
 
 	if (!res || !prot)
 		return -EINVAL;
-	sid_buf_data_get(res->buf, (const void **) &hdr_p, &size);
+	sid_buf_get_data(res->buf, (const void **) &hdr_p, &size);
 	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	*prot = hdr.prot;
 	return 0;
 }
 
-const char *sid_ifc_result_data_get(struct sid_ifc_result *res, size_t *size_p)
+const char *sid_ifc_result_get_data(struct sid_ifc_result *res, size_t *size_p)
 {
 	size_t                           size;
 	const struct sid_ifc_msg_header *hdr_p;
@@ -111,7 +111,7 @@ const char *sid_ifc_result_data_get(struct sid_ifc_result *res, size_t *size_p)
 	if (!res)
 		return NULL;
 
-	sid_buf_data_get(res->buf, (const void **) &hdr_p, &size);
+	sid_buf_get_data(res->buf, (const void **) &hdr_p, &size);
 	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	if (hdr.status & SID_IFC_CMD_STATUS_FAILURE)
 		return NULL;
@@ -154,12 +154,12 @@ static int _add_devt_env_to_buffer(struct sid_buf *buf)
 	dev_t              devnum;
 	int                r;
 
-	if ((r = sid_util_env_ull_get(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0)
+	if ((r = sid_util_env_get_ull(KEY_ENV_MAJOR, 0, SYSTEM_MAX_MAJOR, &val)) < 0)
 		return r;
 
 	major = val;
 
-	if ((r = sid_util_env_ull_get(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0)
+	if ((r = sid_util_env_get_ull(KEY_ENV_MINOR, 0, SYSTEM_MAX_MINOR, &val)) < 0)
 		return r;
 
 	minor  = val;
@@ -189,7 +189,7 @@ static int _add_checkpoint_env_to_buf(struct sid_buf *buf, struct sid_ifc_checkp
 		if (!(val = getenv(key)))
 			continue;
 
-		if ((r = sid_buf_fmt_add(buf, NULL, NULL, "%s=%s", key, val)) < 0)
+		if ((r = sid_buf_add_fmt(buf, NULL, NULL, "%s=%s", key, val)) < 0)
 			goto out;
 	}
 

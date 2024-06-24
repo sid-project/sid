@@ -560,7 +560,7 @@ static void *_do_kv_store_set_value(sid_res_t             *kv_store_res,
                                     void                  *kv_update_fn_arg,
                                     const char            *archive_key)
 {
-	struct kv_store          *kv_store     = sid_res_data_get(kv_store_res);
+	struct kv_store          *kv_store     = sid_res_get_data(kv_store_res);
 	struct iovec              iov_internal = {.iov_base = value, .iov_len = value_size};
 	struct iovec             *iov;
 	int                       iov_cnt;
@@ -664,20 +664,20 @@ void *sid_kvs_set_with_archive(sid_res_t             *kv_store_res,
 	                              archive_key);
 }
 
-int sid_kvs_alias_add(sid_res_t *kv_store_res, const char *key, const char *alias, bool force)
+int sid_kvs_add_alias(sid_res_t *kv_store_res, const char *key, const char *alias, bool force)
 {
 	struct kv_store *kv_store;
 
 	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || UTIL_STR_EMPTY(key) || UTIL_STR_EMPTY(alias))
 		return -EINVAL;
 
-	kv_store = sid_res_data_get(kv_store_res);
+	kv_store = sid_res_get_data(kv_store_res);
 	key      = _canonicalize_key(key);
 	alias    = _canonicalize_key(alias);
 
 	switch (kv_store->backend) {
 		case SID_KVS_BACKEND_BPTREE:
-			return bptree_alias_insert(kv_store->bpt, key, alias, force);
+			return bptree_add_alias(kv_store->bpt, key, alias, force);
 
 		default:
 			return -ENOTSUP;
@@ -692,7 +692,7 @@ void *sid_kvs_get(sid_res_t *kv_store_res, const char *key, size_t *value_size, 
 	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || UTIL_STR_EMPTY(key))
 		return NULL;
 
-	kv_store = sid_res_data_get(kv_store_res);
+	kv_store = sid_res_get_data(kv_store_res);
 	key      = _canonicalize_key(key);
 	found    = NULL;
 
@@ -845,7 +845,7 @@ static int _do_kv_store_unset(sid_res_t             *kv_store_res,
                               void                  *kv_unset_fn_arg,
                               const char            *archive_key)
 {
-	struct kv_store          *kv_store = sid_res_data_get(kv_store_res);
+	struct kv_store          *kv_store = sid_res_get_data(kv_store_res);
 	struct kv_update_fn_relay relay;
 
 	key         = _canonicalize_key(key);
@@ -887,7 +887,7 @@ static int _do_kv_store_unset(sid_res_t             *kv_store_res,
 
 int sid_kvs_unset(sid_res_t *kv_store_res, const char *key, sid_kvs_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg)
 {
-	struct kv_store *kv_store = sid_res_data_get(kv_store_res);
+	struct kv_store *kv_store = sid_res_get_data(kv_store_res);
 
 	return _do_kv_store_unset(kv_store_res, key, kv_store->trans_unset_buf, kv_unset_fn, kv_unset_fn_arg, NULL);
 }
@@ -898,7 +898,7 @@ int sid_kvs_unset_with_archive(sid_res_t             *kv_store_res,
                                void                  *kv_unset_fn_arg,
                                const char            *archive_key)
 {
-	struct kv_store *kv_store = sid_res_data_get(kv_store_res);
+	struct kv_store *kv_store = sid_res_get_data(kv_store_res);
 
 	return _do_kv_store_unset(kv_store_res, key, kv_store->trans_unset_buf, kv_unset_fn, kv_unset_fn_arg, archive_key);
 }
@@ -980,7 +980,7 @@ static bptree_update_action_t _bptree_rollback_fn(const char                   *
 
 static void _kv_store_trans_rollback_value(sid_res_t *kv_store_res, struct kv_rollback_arg *rollback_arg)
 {
-	struct kv_store       *kv_store     = sid_res_data_get(kv_store_res);
+	struct kv_store       *kv_store     = sid_res_get_data(kv_store_res);
 	struct kv_trans_fn_arg trans_fn_arg = {.res         = kv_store_res,
 	                                       .has_archive = rollback_arg->has_archive,
 	                                       .is_archive  = rollback_arg->is_archive};
@@ -1009,7 +1009,7 @@ static void _kv_store_trans_rollback_value(sid_res_t *kv_store_res, struct kv_ro
 
 static void _kv_store_trans_unset_value(sid_res_t *kv_store_res, struct kv_unset_arg *unset_arg)
 {
-	struct kv_store          *kv_store = sid_res_data_get(kv_store_res);
+	struct kv_store          *kv_store = sid_res_get_data(kv_store_res);
 	struct kv_update_fn_relay relay    = {0};
 
 	relay.archive_arg.has_archive      = unset_arg->has_archive;
@@ -1024,7 +1024,7 @@ bool sid_kvs_transaction_active(sid_res_t *kv_store_res)
 	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL))
 		return false;
 
-	kv_store = sid_res_data_get(kv_store_res);
+	kv_store = sid_res_get_data(kv_store_res);
 
 	return (kv_store->trans_rollback_buf != NULL);
 }
@@ -1059,7 +1059,7 @@ int sid_kvs_transaction_begin(sid_res_t *kv_store_res)
 		return r;
 	}
 
-	kv_store                     = sid_res_data_get(kv_store_res);
+	kv_store                     = sid_res_get_data(kv_store_res);
 	kv_store->trans_rollback_buf = rollback_buf;
 	kv_store->trans_unset_buf    = unset_buf;
 
@@ -1081,12 +1081,12 @@ void sid_kvs_transaction_end(sid_res_t *kv_store_res, bool rollback)
 		return;
 	}
 
-	kv_store = sid_res_data_get(kv_store_res);
+	kv_store = sid_res_get_data(kv_store_res);
 
 	/*
 	 * Handle unset buffer.
 	 */
-	sid_buf_data_get(kv_store->trans_unset_buf, (const void **) &unset_args, &nr_args);
+	sid_buf_get_data(kv_store->trans_unset_buf, (const void **) &unset_args, &nr_args);
 	nr_args = nr_args / sizeof(struct kv_unset_arg);
 
 	for (i = 0; i < nr_args; i++) {
@@ -1102,7 +1102,7 @@ void sid_kvs_transaction_end(sid_res_t *kv_store_res, bool rollback)
 	/*
 	 * Handle rollback buffer.
 	 */
-	sid_buf_data_get(kv_store->trans_rollback_buf, (const void **) &rollback_args, &nr_args);
+	sid_buf_get_data(kv_store->trans_rollback_buf, (const void **) &rollback_args, &nr_args);
 	nr_args = nr_args / sizeof(struct kv_rollback_arg);
 
 	for (i = 0; i < nr_args; i++) {
@@ -1129,7 +1129,7 @@ static sid_kvs_iter_t *
 	if (!(iter = malloc(sizeof(*iter))))
 		return NULL;
 
-	iter->store = sid_res_data_get(kv_store_res);
+	iter->store = sid_res_get_data(kv_store_res);
 
 	switch (iter->store->backend) {
 		case SID_KVS_BACKEND_HASH:
@@ -1143,7 +1143,7 @@ static sid_kvs_iter_t *
 					iter->bpt.iter = bptree_iter_create(iter->store->bpt, key_start, key_end);
 					break;
 				case ITER_PREFIX:
-					iter->bpt.iter = bptree_iter_prefix_create(iter->store->bpt, key_start);
+					iter->bpt.iter = bptree_iter_create_prefix(iter->store->bpt, key_start);
 					break;
 			}
 
@@ -1162,7 +1162,7 @@ sid_kvs_iter_t *sid_kvs_iter_create(sid_res_t *kv_store_res, const char *key_sta
 	return _do_sid_kvs_iter_create(kv_store_res, ITER_EXACT, key_start, key_end);
 }
 
-sid_kvs_iter_t *sid_kvs_iter_prefix_create(sid_res_t *kv_store_res, const char *prefix)
+sid_kvs_iter_t *sid_kvs_iter_create_prefix(sid_res_t *kv_store_res, const char *prefix)
 {
 	return _do_sid_kvs_iter_create(kv_store_res, ITER_PREFIX, prefix, NULL);
 }
@@ -1178,7 +1178,7 @@ void *sid_kvs_iter_current(sid_kvs_iter_t *iter, size_t *size, sid_kvs_val_fl_t 
 
 	switch (iter->store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			value = iter->ht.current ? hash_data_get(iter->store->ht, iter->ht.current, NULL) : NULL;
+			value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL;
 			break;
 
 		case SID_KVS_BACKEND_BPTREE:
@@ -1214,7 +1214,7 @@ int sid_kvs_iter_current_size(sid_kvs_iter_t *iter,
 
 	switch (iter->store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			value = iter->ht.current ? hash_data_get(iter->store->ht, iter->ht.current, NULL) : NULL;
+			value = iter->ht.current ? hash_get_data(iter->store->ht, iter->ht.current, NULL) : NULL;
 			break;
 
 		case SID_KVS_BACKEND_BPTREE:
@@ -1264,7 +1264,7 @@ const char *sid_kvs_iter_current_key(sid_kvs_iter_t *iter)
 
 	switch (iter->store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			return iter->ht.current ? hash_key_get(iter->store->ht, iter->ht.current, NULL) : NULL;
+			return iter->ht.current ? hash_get_key(iter->store->ht, iter->ht.current, NULL) : NULL;
 
 		case SID_KVS_BACKEND_BPTREE:
 			return bptree_iter_current(iter->bpt.iter, &key, NULL, NULL) ? key : NULL;
@@ -1281,8 +1281,8 @@ void *sid_kvs_iter_next(sid_kvs_iter_t *iter, size_t *size, const char **return_
 
 	switch (iter->store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			iter->ht.current = iter->ht.current ? hash_next_get(iter->store->ht, iter->ht.current)
-			                                    : hash_first_get(iter->store->ht);
+			iter->ht.current = iter->ht.current ? hash_get_next(iter->store->ht, iter->ht.current)
+			                                    : hash_get_first(iter->store->ht);
 			break;
 
 		case SID_KVS_BACKEND_BPTREE:
@@ -1332,30 +1332,30 @@ void sid_kvs_iter_destroy(sid_kvs_iter_t *iter)
 
 size_t kv_store_num_entries(sid_res_t *kv_store_res)
 {
-	struct kv_store *kv_store = sid_res_data_get(kv_store_res);
+	struct kv_store *kv_store = sid_res_get_data(kv_store_res);
 
 	switch (kv_store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			return hash_entry_count_get(kv_store->ht);
+			return hash_get_entry_count(kv_store->ht);
 
 		case SID_KVS_BACKEND_BPTREE:
-			return bptree_entry_count_get(kv_store->bpt);
+			return bptree_get_entry_count(kv_store->bpt);
 
 		default:
 			return 0;
 	}
 }
 
-size_t sid_kvs_size_get(sid_res_t *kv_store_res, size_t *meta_size, size_t *data_size)
+size_t sid_kvs_get_size(sid_res_t *kv_store_res, size_t *meta_size, size_t *data_size)
 {
-	struct kv_store *kv_store = sid_res_data_get(kv_store_res);
+	struct kv_store *kv_store = sid_res_get_data(kv_store_res);
 
 	switch (kv_store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			return hash_size_get(kv_store->ht, meta_size, data_size);
+			return hash_get_size(kv_store->ht, meta_size, data_size);
 
 		case SID_KVS_BACKEND_BPTREE:
-			return bptree_size_get(kv_store->bpt, meta_size, data_size);
+			return bptree_get_size(kv_store->bpt, meta_size, data_size);
 
 		default:
 			return 0;
@@ -1398,7 +1398,7 @@ out:
 
 static int _destroy_kv_store(sid_res_t *kv_store_res)
 {
-	struct kv_store *kv_store = sid_res_data_get(kv_store_res);
+	struct kv_store *kv_store = sid_res_get_data(kv_store_res);
 
 	switch (kv_store->backend) {
 		case SID_KVS_BACKEND_HASH:

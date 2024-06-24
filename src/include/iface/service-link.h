@@ -17,8 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_SERVICE_LINK_IFACE_H
-#define _SID_SERVICE_LINK_IFACE_H
+#ifndef _SID_SERVICE_LINK_H
+#define _SID_SERVICE_LINK_H
 
 #include "log/log.h"
 
@@ -83,11 +83,11 @@ struct sid_srv_lnk *sid_srv_lnk_create(sid_srv_lnk_type_t type, const char *name
 struct sid_srv_lnk *sid_srv_lnk_clone(struct sid_srv_lnk *sl, const char *name);
 void                sid_srv_lnk_destroy(struct sid_srv_lnk *sl);
 
-void sid_srv_lnk_flags_set(struct sid_srv_lnk *sl, sid_srv_lnk_fl_t flags);
-void sid_srv_lnk_data_set(struct sid_srv_lnk *sl, void *data);
+void sid_srv_lnk_set_flags(struct sid_srv_lnk *sl, sid_srv_lnk_fl_t flags);
+void sid_srv_lnk_set_data(struct sid_srv_lnk *sl, void *data);
 
 void sid_srv_lnk_notif_add(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification);
-void sid_srv_lnk_notif_remove(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification);
+void sid_srv_lnk_notif_del(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification);
 
 struct sid_srv_lnk_grp *sid_srv_lnk_grp_create(const char *name);
 struct sid_srv_lnk_grp *sid_srv_lnk_grp_clone(struct sid_srv_lnk_grp *slg, const char *name);
@@ -95,8 +95,8 @@ struct sid_srv_lnk_grp *sid_srv_lnk_grp_merge(struct sid_srv_lnk_grp *dest_slg, 
 void                    sid_srv_lnk_grp_destroy(struct sid_srv_lnk_grp *slg);
 void                    sid_srv_lnk_grp_destroy_with_members(struct sid_srv_lnk_grp *slg);
 
-void sid_srv_lnk_grp_member_add(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl);
-int  sid_srv_lnk_grp_member_remove(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl);
+void sid_srv_lnk_grp_add(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl);
+int  sid_srv_lnk_grp_del(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl);
 
 /*
  * Send service notification.

@@ -216,10 +216,10 @@ static int _create_service_link_group(sid_res_t *parent_res, sid_res_t *res, sid
 				goto out;
 			}
 
-			sid_srv_lnk_flags_set(sl, def->flags);
-			sid_srv_lnk_data_set(sl, def->data);
+			sid_srv_lnk_set_flags(sl, def->flags);
+			sid_srv_lnk_set_data(sl, def->data);
 			sid_srv_lnk_notif_add(sl, def->notification);
-			sid_srv_lnk_grp_member_add(slg, sl);
+			sid_srv_lnk_grp_add(slg, sl);
 		}
 	}
 
@@ -488,12 +488,12 @@ sid_res_t *sid_res_ref(sid_res_t *res)
 	return res;
 }
 
-const char *sid_res_full_id_get(sid_res_t *res)
+const char *sid_res_get_full_id(sid_res_t *res)
 {
 	return res->id;
 }
 
-const char *sid_res_id_get(sid_res_t *res)
+const char *sid_res_get_id(sid_res_t *res)
 {
 	if (!res->type->short_name)
 		return res->id;
@@ -501,12 +501,12 @@ const char *sid_res_id_get(sid_res_t *res)
 	return res->id + strlen(res->type->short_name) + 1;
 }
 
-void *sid_res_data_get(sid_res_t *res)
+void *sid_res_get_data(sid_res_t *res)
 {
 	return res->data;
 }
 
-int sid_res_prio_set(sid_res_t *res, int64_t prio)
+int sid_res_set_prio(sid_res_t *res, int64_t prio)
 {
 	sid_res_t *parent_res;
 	int64_t    orig_prio;
@@ -528,7 +528,7 @@ int sid_res_prio_set(sid_res_t *res, int64_t prio)
 	return 0;
 }
 
-int64_t sid_res_prio_get(sid_res_t *res)
+int64_t sid_res_get_prio(sid_res_t *res)
 {
 	return res->prio;
 }
@@ -571,7 +571,7 @@ static int _sd_io_event_handler(sd_event_source *sd_es, int fd, uint32_t revents
 	return r;
 }
 
-int sid_res_ev_io_create(sid_res_t            *res,
+int sid_res_ev_create_io(sid_res_t            *res,
                          sid_res_ev_src_t    **es,
                          int                   fd,
                          sid_res_ev_io_handler handler,
@@ -634,7 +634,7 @@ static int _sd_signal_event_handler(sd_event_source *sd_es, int sfd, uint32_t re
 }
 
 /* This should not watch the SIGCHLD signal if sd_event_add_child() is also used */
-int sid_res_ev_signal_create(sid_res_t                *res,
+int sid_res_ev_create_signal(sid_res_t                *res,
                              sid_res_ev_src_t        **es,
                              sigset_t                  mask,
                              sid_res_ev_signal_handler handler,
@@ -708,7 +708,7 @@ static int _sd_child_event_handler(sd_event_source *sd_es, const siginfo_t *si, 
 	return r;
 }
 
-int sid_res_ev_child_create(sid_res_t               *res,
+int sid_res_ev_create_child(sid_res_t               *res,
                             sid_res_ev_src_t       **es,
                             pid_t                    pid,
                             int                      options,
@@ -762,7 +762,7 @@ static int _sd_time_event_handler(sd_event_source *sd_es, uint64_t usec, void *d
 	return r;
 }
 
-int sid_res_ev_time_create(sid_res_t              *res,
+int sid_res_ev_create_time(sid_res_t              *res,
                            sid_res_ev_src_t      **es,
                            clockid_t               clock,
                            sid_res_pos_t           disposition,
@@ -828,7 +828,7 @@ fail:
 	return r;
 }
 
-int sid_res_ev_time_rearm(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint64_t usec)
+int sid_res_ev_rearm_time(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint64_t usec)
 {
 	sid_res_t *res_event_loop;
 	clockid_t  clock;
@@ -859,7 +859,7 @@ int sid_res_ev_time_rearm(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint6
 			break;
 	}
 
-	return sid_res_ev_counter_set(es, SID_RES_POS_REL, 1);
+	return sid_res_ev_set_counter(es, SID_RES_POS_REL, 1);
 }
 
 static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
@@ -877,7 +877,7 @@ static int _sd_generic_event_handler(sd_event_source *sd_es, void *data)
 	return r;
 }
 
-int sid_res_ev_deferred_create(sid_res_t                 *res,
+int sid_res_ev_create_deferred(sid_res_t                 *res,
                                sid_res_ev_src_t         **es,
                                sid_res_ev_generic_handler handler,
                                int64_t                    prio,
@@ -909,7 +909,7 @@ fail:
 	return r;
 }
 
-int sid_res_ev_post_create(sid_res_t                 *res,
+int sid_res_ev_create_post(sid_res_t                 *res,
                            sid_res_ev_src_t         **es,
                            sid_res_ev_generic_handler handler,
                            int64_t                    prio,
@@ -941,7 +941,7 @@ fail:
 	return r;
 }
 
-int sid_res_ev_exit_create(sid_res_t                 *res,
+int sid_res_ev_create_exit(sid_res_t                 *res,
                            sid_res_ev_src_t         **es,
                            sid_res_ev_generic_handler handler,
                            int64_t                    prio,
@@ -973,7 +973,7 @@ fail:
 	return r;
 }
 
-int sid_res_ev_counter_set(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint64_t events_max)
+int sid_res_ev_set_counter(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint64_t events_max)
 {
 	if (events_max == SID_RES_UNLIMITED_EV_COUNT) {
 		es->events_max = events_max;
@@ -1004,7 +1004,7 @@ int sid_res_ev_counter_set(sid_res_ev_src_t *es, sid_res_pos_t disposition, uint
 	return 0;
 }
 
-int sid_res_ev_counter_get(sid_res_ev_src_t *es, uint64_t *events_fired, uint64_t *events_max)
+int sid_res_ev_get_counter(sid_res_ev_src_t *es, uint64_t *events_fired, uint64_t *events_max)
 {
 	if (events_fired)
 		*events_fired = es->events_fired;
@@ -1015,12 +1015,12 @@ int sid_res_ev_counter_get(sid_res_ev_src_t *es, uint64_t *events_fired, uint64_
 	return 0;
 }
 
-int sid_res_ev_exit_on_failure_set(sid_res_ev_src_t *es, bool exit_on_failure)
+int sid_res_ev_set_exit_on_failure(sid_res_ev_src_t *es, bool exit_on_failure)
 {
 	return sd_event_source_set_exit_on_failure(es->sd_es, exit_on_failure);
 }
 
-int sid_res_ev_exit_on_failure_get(sid_res_ev_src_t *es)
+int sid_res_ev_get_exit_on_failure(sid_res_ev_src_t *es)
 {
 	return sd_event_source_get_exit_on_failure(es->sd_es);
 }
@@ -1036,7 +1036,7 @@ int sid_res_ev_destroy(sid_res_ev_src_t **es)
 
 static bool _res_match(sid_res_t *res, const sid_res_type_t *type, const char *id, sid_res_t *match_res)
 {
-	return res && (type ? res->type == type : true) && (id ? !strcmp(sid_res_id_get(res), id) : true) &&
+	return res && (type ? res->type == type : true) && (id ? !strcmp(sid_res_get_id(res), id) : true) &&
 	       (match_res ? match_res == MATCH_RES_ANY || (res == match_res) : true);
 }
 
@@ -1202,7 +1202,7 @@ static int _res_clone_slgs(sid_res_t *res, sid_res_t *child)
 	return 0;
 }
 
-int sid_res_child_add(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags)
+int sid_res_add_child(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags)
 {
 	int r;
 
@@ -1431,9 +1431,9 @@ void sid_res_log_output(sid_res_t *res, const sid_log_req_t *log_req, const char
 
 static void _write_event_source_elem_fields(sid_res_ev_src_t *es, fmt_output_t format, struct sid_buf *outbuf, int level)
 {
-	fmt_fld_str_print(format, outbuf, level, "name", (char *) es->name, false);
-	fmt_fld_uint64_print(format, outbuf, level, "events_max", es->events_max, true);
-	fmt_fld_uint64_print(format, outbuf, level, "events_fired", es->events_fired, true);
+	fmt_fld_str(format, outbuf, level, "name", (char *) es->name, false);
+	fmt_fld_uint64(format, outbuf, level, "events_max", es->events_max, true);
+	fmt_fld_uint64(format, outbuf, level, "events_fired", es->events_fired, true);
 }
 
 static void _write_res_eleme_fields(sid_res_t *res, fmt_output_t format, struct sid_buf *outbuf, int level)
@@ -1441,24 +1441,24 @@ static void _write_res_eleme_fields(sid_res_t *res, fmt_output_t format, struct 
 	sid_res_ev_src_t *es, *tmp_es;
 	int               es_count, item = 0;
 
-	fmt_fld_str_print(format, outbuf, level, "ID", res->id, false);
+	fmt_fld_str(format, outbuf, level, "ID", res->id, false);
 	if (res->type != NULL && res->type->name != NULL)
-		fmt_fld_str_print(format, outbuf, level, "type", (char *) res->type->name, true);
-	es_count = list_size(&res->event_sources);
+		fmt_fld_str(format, outbuf, level, "type", (char *) res->type->name, true);
+	es_count = list_get_size(&res->event_sources);
 	if (es_count != 0) {
-		fmt_arr_start_print(format, outbuf, level, "event-sources", true);
+		fmt_arr_start(format, outbuf, level, "event-sources", true);
 		list_iterate_items_safe_back (es, tmp_es, &res->event_sources) {
 			item++;
-			fmt_elm_start_print(format, outbuf, level + 1, item > 1);
+			fmt_elm_start(format, outbuf, level + 1, item > 1);
 			_write_event_source_elem_fields(es, format, outbuf, level + 2);
-			fmt_elm_end_print(format, outbuf, level + 1);
+			fmt_elm_end(format, outbuf, level + 1);
 		}
-		fmt_arr_end_print(format, outbuf, level);
+		fmt_arr_end(format, outbuf, level);
 	}
-	fmt_fld_uint_print(format, outbuf, level, "pid-created", res->pid_created, true);
-	fmt_fld_uint_print(format, outbuf, level, "flags", res->flags, true);
-	fmt_fld_int64_print(format, outbuf, level, "prio", res->prio, true);
-	fmt_fld_uint_print(format, outbuf, level, "ref-count", res->ref_count, true);
+	fmt_fld_uint(format, outbuf, level, "pid-created", res->pid_created, true);
+	fmt_fld_uint(format, outbuf, level, "flags", res->flags, true);
+	fmt_fld_int64(format, outbuf, level, "prio", res->prio, true);
+	fmt_fld_uint(format, outbuf, level, "ref-count", res->ref_count, true);
 }
 
 int sid_res_tree_write(sid_res_t *res, fmt_output_t format, struct sid_buf *outbuf, int level, bool with_comma)
@@ -1466,19 +1466,19 @@ int sid_res_tree_write(sid_res_t *res, fmt_output_t format, struct sid_buf *outb
 	sid_res_t *child_res;
 	int        count, item = 0;
 
-	count = list_size(&res->children);
+	count = list_get_size(&res->children);
 
-	fmt_elm_start_print(format, outbuf, level, with_comma);
+	fmt_elm_start(format, outbuf, level, with_comma);
 	_write_res_eleme_fields(res, format, outbuf, level + 1);
 	if (count > 0) {
-		fmt_arr_start_print(format, outbuf, level + 1, "children", true);
+		fmt_arr_start(format, outbuf, level + 1, "children", true);
 		list_iterate_items (child_res, &res->children) {
 			sid_res_tree_write(child_res, format, outbuf, level + 2, item > 0);
 			item++;
 		}
-		fmt_arr_end_print(format, outbuf, level + 1);
+		fmt_arr_end(format, outbuf, level + 1);
 	}
-	fmt_elm_end_print(format, outbuf, level);
+	fmt_elm_end(format, outbuf, level);
 
 	return 0;
 }

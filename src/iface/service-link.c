@@ -98,18 +98,18 @@ struct sid_srv_lnk *sid_srv_lnk_clone(struct sid_srv_lnk *sl, const char *name)
 void sid_srv_lnk_destroy(struct sid_srv_lnk *sl)
 {
 	if (sl->group)
-		sid_srv_lnk_grp_member_remove(sl->group, sl);
+		sid_srv_lnk_grp_del(sl->group, sl);
 
 	free((void *) sl->name);
 	free(sl);
 }
 
-void sid_srv_lnk_flags_set(struct sid_srv_lnk *sl, sid_srv_lnk_fl_t flags)
+void sid_srv_lnk_set_flags(struct sid_srv_lnk *sl, sid_srv_lnk_fl_t flags)
 {
 	sl->flags = flags;
 }
 
-void sid_srv_lnk_data_set(struct sid_srv_lnk *sl, void *data)
+void sid_srv_lnk_set_data(struct sid_srv_lnk *sl, void *data)
 {
 	sl->data = data;
 }
@@ -119,7 +119,7 @@ void sid_srv_lnk_notif_add(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notificat
 	sl->notification |= notification;
 }
 
-void sid_srv_lnk_notif_remove(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification)
+void sid_srv_lnk_notif_del(struct sid_srv_lnk *sl, sid_srv_lnk_notif_t notification)
 {
 	sl->notification &= ~notification;
 }
@@ -162,7 +162,7 @@ struct sid_srv_lnk_grp *sid_srv_lnk_grp_clone(struct sid_srv_lnk_grp *slg, const
 		if (!(sl_clone = sid_srv_lnk_clone(sl, NULL)))
 			goto fail;
 
-		sid_srv_lnk_grp_member_add(slg_clone, sl_clone);
+		sid_srv_lnk_grp_add(slg_clone, sl_clone);
 	}
 
 	return slg_clone;
@@ -179,7 +179,7 @@ struct sid_srv_lnk_grp *sid_srv_lnk_grp_merge(struct sid_srv_lnk_grp *dest_slg, 
 		return NULL;
 
 	list_iterate_items_safe (sl, tmp_sl, &src_slg->members)
-		sid_srv_lnk_grp_member_add(dest_slg, sl);
+		sid_srv_lnk_grp_add(dest_slg, sl);
 
 	sid_srv_lnk_grp_destroy(src_slg);
 	return dest_slg;
@@ -209,13 +209,13 @@ void sid_srv_lnk_grp_destroy_with_members(struct sid_srv_lnk_grp *slg)
 	free(slg);
 }
 
-void sid_srv_lnk_grp_member_add(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl)
+void sid_srv_lnk_grp_add(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl)
 {
 	list_add(&slg->members, &sl->list);
 	sl->group = slg;
 }
 
-int sid_srv_lnk_grp_member_remove(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl)
+int sid_srv_lnk_grp_del(struct sid_srv_lnk_grp *slg, struct sid_srv_lnk *sl)
 {
 	if (sl->group != slg)
 		return -EINVAL;
@@ -278,7 +278,7 @@ static int _notify_systemd(struct sid_srv_lnk *sl,
 		                               &r)))
 			goto out;
 
-		if ((r = sid_buf_vfmt_add(fmt_buf, (const void **) &arg_str, NULL, fmt, ap)) < 0)
+		if ((r = sid_buf_add_vfmt(fmt_buf, (const void **) &arg_str, NULL, fmt, ap)) < 0)
 			goto out;
 	} else
 		arg_str = NULL;
@@ -288,7 +288,7 @@ static int _notify_systemd(struct sid_srv_lnk *sl,
 
 	if (notification & SID_SRV_LNK_NOTIF_STATUS) {
 		if ((arg_value = _get_arg_value(arg_str, SID_SRV_LNK_KEY_STATUS EQ, &size))) {
-			if ((r = sid_buf_fmt_add(buf, NULL, NULL, SID_SRV_LNK_KEY_STATUS EQ "%.*s\n", size, arg_value)) < 0)
+			if ((r = sid_buf_add_fmt(buf, NULL, NULL, SID_SRV_LNK_KEY_STATUS EQ "%.*s\n", size, arg_value)) < 0)
 				goto out;
 
 			if ((r = sid_buf_rewind(buf, 1, SID_BUF_POS_REL)) < 0)
@@ -298,7 +298,7 @@ static int _notify_systemd(struct sid_srv_lnk *sl,
 
 	if (notification & SID_SRV_LNK_NOTIF_ERRNO) {
 		if ((arg_value = _get_arg_value(arg_str, SID_SRV_LNK_KEY_ERRNO EQ, &size))) {
-			if ((r = sid_buf_fmt_add(buf, NULL, NULL, SID_SRV_LNK_KEY_ERRNO EQ "%.*s\n", size, arg_value)) < 0)
+			if ((r = sid_buf_add_fmt(buf, NULL, NULL, SID_SRV_LNK_KEY_ERRNO EQ "%.*s\n", size, arg_value)) < 0)
 				goto out;
 
 			if ((r = sid_buf_rewind(buf, 1, SID_BUF_POS_REL)) < 0)
@@ -338,7 +338,7 @@ static int _notify_systemd(struct sid_srv_lnk *sl,
 	if ((r = sid_buf_add(buf, (void *) "", 1, NULL, NULL)) < 0)
 		goto out;
 
-	sid_buf_data_get(buf, (const void **) &arg_str, &size);
+	sid_buf_get_data(buf, (const void **) &arg_str, &size);
 
 	r = sd_notify(unset, arg_str);
 out:

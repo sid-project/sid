@@ -41,19 +41,19 @@ struct hash_table *hash_create(unsigned size_hint);
 void               hash_wipe(struct hash_table *t);
 void               hash_destroy(struct hash_table *t);
 
-int   hash_insert(struct hash_table *t, const void *key, uint32_t key_len, void *data, size_t data_len);
+int   hash_add(struct hash_table *t, const void *key, uint32_t key_len, void *data, size_t data_len);
 void *hash_lookup(struct hash_table *t, const void *key, uint32_t key_len, size_t *data_len);
-void  hash_remove(struct hash_table *t, const void *key, uint32_t key_len);
+void  hash_del(struct hash_table *t, const void *key, uint32_t key_len);
 
-unsigned hash_entry_count_get(struct hash_table *t);
-size_t   hash_size_get(struct hash_table *t, size_t *meta_size, size_t *data_size);
+unsigned hash_get_entry_count(struct hash_table *t);
+size_t   hash_get_size(struct hash_table *t, size_t *meta_size, size_t *data_size);
 void     hash_iter(struct hash_table *t, hash_iterate_fn_t f);
 
-struct hash_node *hash_first_get(struct hash_table *t);
-struct hash_node *hash_next_get(struct hash_table *t, struct hash_node *n);
+struct hash_node *hash_get_first(struct hash_table *t);
+struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n);
 
-char *hash_key_get(struct hash_table *t, struct hash_node *n, uint32_t *key_len);
-void *hash_data_get(struct hash_table *t, struct hash_node *n, size_t *data_len);
+char *hash_get_key(struct hash_table *t, struct hash_node *n, uint32_t *key_len);
+void *hash_get_data(struct hash_table *t, struct hash_node *n, size_t *data_len);
 
 /*
  * hash_insert() replaces the data of an existing
@@ -69,16 +69,16 @@ void *hash_data_get(struct hash_table *t, struct hash_node *n, size_t *data_len)
  * . hash_lookup() returns the first one it finds, and
  *   hash_lookup_with_data() returns the one with a matching
  *   data_len/data.
- * . hash_remove() removes the first one it finds, and
- *   hash_remove_with_data() removes the one with a matching
+ * . hash_del() removes the first one it finds, and
+ *   hash_del_with_data() removes the one with a matching
  *   data_len/data.
  *
  * If a single entry with a given key exists, and it has
  * zero data_len, then:
  * . hash_lookup() returns it
  * . hash_lookup_with_data(data_len=0) returns it
- * . hash_remove() removes it
- * . hash_remove_with_data(data_len=0) removes it
+ * . hash_del() removes it
+ * . hash_del_with_data(data_len=0) removes it
  *
  * hash_lookup_with_count() is a single call that will
  * both lookup a key's data and check if there is more
@@ -99,10 +99,10 @@ void *hash_data_get(struct hash_table *t, struct hash_node *n, size_t *data_len)
  *   returned and count is set to N.
  */
 
-int   hash_insert_allow_multiple(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
+int   hash_add_allow_multiple(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
 void *hash_lookup_with_data(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
 void *hash_lookup_with_count(struct hash_table *t, const char *key, uint32_t key_len, size_t *data_len, unsigned *count);
-void  hash_remove_with_data(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
+void  hash_del_with_data(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
 
 #define hash_iterate(v, h) for (v = hash_get_first((h)); v; v = hash_get_next((h), v))
 

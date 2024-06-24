@@ -14,11 +14,11 @@ int __wrap_sd_notify(int unset_environment, const char *state)
 	return 0;
 }
 
-int __real_sid_buf_data_get(struct sid_buf *buf, const void **data, size_t *data_size);
+int __real_sid_buf_get_data(struct sid_buf *buf, const void **data, size_t *data_size);
 
-int __wrap_sid_buf_data_get(struct sid_buf *buf, const void **data, size_t *data_size)
+int __wrap_sid_buf_get_data(struct sid_buf *buf, const void **data, size_t *data_size)
 {
-	int r = __real_sid_buf_data_get(buf, data, data_size);
+	int r = __real_sid_buf_get_data(buf, data, data_size);
 	assert_true(!*data || *data_size);
 	return r;
 }

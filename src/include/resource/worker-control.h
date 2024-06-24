@@ -159,22 +159,22 @@ struct sid_wrk_params {
 	struct sid_wrk_timeout_spec timeout_spec;
 };
 
-int        sid_wrk_ctl_wrk_new_get(sid_res_t *worker_control_res, struct sid_wrk_params *params, sid_res_t **res_p);
-int        sid_wrk_ctl_wrk_new_run(sid_res_t             *worker_control_res,
-                                   struct sid_wrk_params *params,
-                                   sid_res_srv_lnk_def_t  service_link_defs[]);
-int        sid_wrk_ctl_wrk_run(sid_res_t *worker_control_res, sid_res_srv_lnk_def_t service_link_defs[]);
-sid_res_t *sid_wrk_ctl_wrk_idle_get(sid_res_t *worker_control_res);
-sid_res_t *sid_wrk_ctl_wrk_find(sid_res_t *worker_control_res, const char *id);
+int        sid_wrk_ctl_get_new_worker(sid_res_t *worker_control_res, struct sid_wrk_params *params, sid_res_t **res_p);
+int        sid_wrk_ctl_run_new_worker(sid_res_t             *worker_control_res,
+                                      struct sid_wrk_params *params,
+                                      sid_res_srv_lnk_def_t  service_link_defs[]);
+int        sid_wrk_ctl_run_worker(sid_res_t *worker_control_res, sid_res_srv_lnk_def_t service_link_defs[]);
+sid_res_t *sid_wrk_ctl_get_idle_worker(sid_res_t *worker_control_res);
+sid_res_t *sid_wrk_ctl_find_worker(sid_res_t *worker_control_res, const char *id);
 
 /* Worker utility functions. */
-bool            sid_wrk_ctl_wrk_detect(sid_res_t *res);
-sid_wrk_state_t sid_wrk_ctl_wrk_state_get(sid_res_t *res);
-const char     *sid_wrk_ctl_wrk_id_get(sid_res_t *res);
-void           *sid_wrk_ctl_wrk_arg_get(sid_res_t *res);
+bool            sid_wrk_ctl_detect_worker(sid_res_t *res);
+sid_wrk_state_t sid_wrk_ctl_get_worker_state(sid_res_t *res);
+const char     *sid_wrk_ctl_get_worker_id(sid_res_t *res);
+void           *sid_wrk_ctl_get_worker_arg(sid_res_t *res);
 
 /* Yield current worker and make it available for others to use. */
-int sid_wrk_ctl_wrk_yield(sid_res_t *res);
+int sid_wrk_ctl_yield_worker(sid_res_t *res);
 
 #ifdef __cplusplus
 }

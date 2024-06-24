@@ -45,10 +45,10 @@ typedef int     sid_mod_cb_fn_t(sid_res_t *mod_res, void *cb_arg);
 #define SID_MOD_EXIT(fn)       SID_MOD_FN(exit, fn)
 #define SID_MOD_RESET(fn)      SID_MOD_FN(reset, fn)
 
-const char *sid_mod_name_full_get(sid_res_t *mod_res);
-const char *sid_mod_name_get(sid_res_t *mod_res);
-void        sid_mod_data_set(sid_res_t *mod_res, void *data);
-void       *sid_mod_data_get(sid_res_t *mod_res);
+const char *sid_mod_get_full_name(sid_res_t *mod_res);
+const char *sid_mod_get_name(sid_res_t *mod_res);
+void        sid_mod_set_data(sid_res_t *mod_res, void *data);
+void       *sid_mod_get_data(sid_res_t *mod_res);
 
 #ifdef __cplusplus
 }
