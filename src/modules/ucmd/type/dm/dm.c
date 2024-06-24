@@ -700,6 +700,7 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	is_synth     = sid_ucmd_ev_dev_get_synth_uuid(ucmd_ctx) != NULL;
 	ready        = sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, 0);
 
+	/* Quick sanity check. */
 	if (has_cookie && (is_synth || (action != UDEV_ACTION_CHANGE))) {
 		/* very unlikely, but just in case something fakes events incorrectly */
 		sid_res_log_error(
@@ -782,25 +783,24 @@ handle_unconfigured:
 			if (has_cookie) {
 				/*
 				 * The device has already been created (step 1).
-				 * Now, we are expecting CHANGE event with DM cookie set that comes
+				 * Now, we are expecting CHANGE event with a DM cookie set that comes
 				 * right after the DM table load (step 2) + DM resume (step 3).
+				 *
+				 * We don't need to actually test whether this is a CHANGE event because
+				 * if it has a cookie, it can't be anything else - see the sanity check at
+				 * the beginning of this function.
+				 *
+				 * Set ready state according to flags from the cookie.
 				 */
-				if (action == UDEV_ACTION_CHANGE) {
-					/*
-					 * We have passed the activation sequence here.
-					 * Now, let's check which DM udev flags are set inside DM cookie
-					 * for this device and change the ready state accordingly.
-					 */
-					if (cookie_flags & DM_UDEV_DISABLE_OTHER_RULES_FLAG)
-						r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
-					else if (cookie_flags & DM_UDEV_DISABLE_DISK_RULES_FLAG)
-						r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_FLAT);
-					else
-						r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC);
+				if (cookie_flags & DM_UDEV_DISABLE_OTHER_RULES_FLAG)
+					r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
+				else if (cookie_flags & DM_UDEV_DISABLE_DISK_RULES_FLAG)
+					r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_FLAT);
+				else
+					r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC);
 
-					if (r < 0)
-						goto out;
-				}
+				if (r < 0)
+					goto out;
 			} else {
 				if (is_synth)
 					sid_res_log_warning(mod_res,
@@ -826,7 +826,7 @@ handle_unconfigured:
 			 * Device is fully activated at this stage.
 			 * Transition among ready states based on DM udev flags.
 			 */
-			if (action == UDEV_ACTION_CHANGE && has_cookie) {
+			if (has_cookie) {
 				if (cookie_flags & DM_UDEV_DISABLE_OTHER_RULES_FLAG)
 					r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
 				else if (cookie_flags & DM_UDEV_DISABLE_DISK_RULES_FLAG)
