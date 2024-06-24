@@ -785,30 +785,28 @@ handle_unconfigured:
 				 * Now, we are expecting CHANGE event with DM cookie set that comes
 				 * right after the DM table load (step 2) + DM resume (step 3).
 				 */
-				if (is_synth) {
-					sid_res_log_warning(mod_res,
-					                    "Synthetic udev event received, but device not yet configured.");
-					goto out;
-				} else {
-					if (action == UDEV_ACTION_CHANGE) {
-						/*
-						 * We have passed the activation sequence here.
-						 * Now, let's check which DM udev flags are set inside DM cookie
-						 * for this device and change the ready state accordingly.
-						 */
-						if (cookie_flags & DM_UDEV_DISABLE_OTHER_RULES_FLAG)
-							r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
-						else if (cookie_flags & DM_UDEV_DISABLE_DISK_RULES_FLAG)
-							r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_FLAT);
-						else
-							r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC);
+				if (action == UDEV_ACTION_CHANGE) {
+					/*
+					 * We have passed the activation sequence here.
+					 * Now, let's check which DM udev flags are set inside DM cookie
+					 * for this device and change the ready state accordingly.
+					 */
+					if (cookie_flags & DM_UDEV_DISABLE_OTHER_RULES_FLAG)
+						r = sid_ucmd_dev_ready_set(mod_res, ucmd_ctx, SID_DEV_RDY_PRIVATE);
+					else if (cookie_flags & DM_UDEV_DISABLE_DISK_RULES_FLAG)
+						r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_FLAT);
+					else
+						r = sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, SID_DEV_RDY_PUBLIC);
 
-						if (r < 0)
-							goto out;
-					}
+					if (r < 0)
+						goto out;
 				}
 			} else {
-				sid_res_log_warning(mod_res, "Unexpected udev event received.");
+				if (is_synth)
+					sid_res_log_warning(mod_res,
+					                    "Synthetic udev event received, but device not yet configured.");
+				else
+					sid_res_log_warning(mod_res, "Unexpected udev event received.");
 				goto out;
 			}
 			break;
