@@ -882,6 +882,7 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_ucmd_dev_ready_t     ready;
 	const dm_cookie_flags_t *flags;
+	const char              *flag_name;
 	int                      i;
 
 	sid_res_log_debug(mod_res, "scan-a-exit");
@@ -909,38 +910,61 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	if (!(flags = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, DM_X_COOKIE_FLAGS, NULL, NULL, 0)))
 		return 0;
 
-	/*
-	 *  TODO: handle DM_UDEV_DISABLE_OTHER_RULES_FLAG which may be overriden after processing
-	 *        the modules and hence it may differ from original value from DM_UDEV_COOKIE var !!!
-	 */
-
 	for (i = 0; i < COOKIE_FLAGS_SHIFT; i++) {
+		flag_name = _udev_cookie_flag_names[i];
+
 		if (1 << i & (*flags)) {
-			if (!(sid_ucmd_kv_set(mod_res,
-			                      ucmd_ctx,
-			                      SID_KV_NS_UDEV,
-			                      _udev_cookie_flag_names[i],
-			                      "1",
-			                      2,
-			                      SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD))) {
-				sid_res_log_error(mod_res, _failed_to_set_msg, _udev_cookie_flag_names[i]);
-				return -1;
-			}
+			if (!sid_ucmd_kv_set(mod_res,
+			                     ucmd_ctx,
+			                     SID_KV_NS_UDEV,
+			                     flag_name,
+			                     "1",
+			                     2,
+			                     SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD))
+				goto fail;
 		} else {
 			if (sid_ucmd_kv_set(mod_res,
 			                    ucmd_ctx,
 			                    SID_KV_NS_UDEV,
-			                    _udev_cookie_flag_names[i],
+			                    flag_name,
 			                    NULL,
 			                    0,
-			                    SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) != SID_UCMD_KV_UNSET) {
-				sid_res_log_error(mod_res, _failed_to_set_msg, _udev_cookie_flag_names[i]);
-				return -1;
-			}
+			                    SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) != SID_UCMD_KV_UNSET)
+				goto fail;
 		}
 	}
 
+	/* override the flags from cookie based on actual ready state */
+	switch (ready) {
+		case SID_DEV_RDY_UNINITIALIZED:
+		case SID_DEV_RDY_PRIVATE:
+		case SID_DEV_RDY_UNAVAILABLE:
+			if (!sid_ucmd_kv_set(mod_res,
+			                     ucmd_ctx,
+			                     SID_KV_NS_UDEV,
+			                     flag_name = _udev_cookie_flag_names[__builtin_ctz(DM_UDEV_DISABLE_OTHER_RULES_FLAG)],
+			                     "1",
+			                     2,
+			                     SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD))
+				goto fail;
+		case SID_DEV_RDY_FLAT:
+			if (!sid_ucmd_kv_set(mod_res,
+			                     ucmd_ctx,
+			                     SID_KV_NS_UDEV,
+			                     flag_name = _udev_cookie_flag_names[__builtin_ctz(DM_UDEV_DISABLE_DISK_RULES_FLAG)],
+			                     "1",
+			                     2,
+			                     SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD))
+				goto fail;
+			break;
+		default:
+			break;
+	}
+
 	return 0;
+fail:
+	sid_res_log_error(mod_res, _failed_to_set_msg, flag_name);
+	return -1;
 }
 SID_UCMD_SCAN_A_EXIT(_dm_scan_a_exit)
 
