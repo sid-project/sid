@@ -21,14 +21,14 @@ struct sid_ucmd_common_ctx *_create_common_ctx(void)
 	struct sid_ucmd_common_ctx *common_ctx;
 
 	assert_non_null(common_ctx = mem_zalloc(sizeof(struct sid_ucmd_common_ctx)));
-	common_ctx->kv_store_res = sid_res_create(SID_RES_NO_PARENT,
-	                                          &sid_res_type_kvs,
-	                                          SID_RES_FL_RESTRICT_WALK_UP,
-	                                          "testkvstore",
-	                                          &main_kv_store_res_params,
-	                                          SID_RES_PRIO_NORMAL,
-	                                          SID_RES_NO_SERVICE_LINKS);
-	assert_non_null(common_ctx->kv_store_res);
+	common_ctx->kvs_res = sid_res_create(SID_RES_NO_PARENT,
+	                                     &sid_res_type_kvs,
+	                                     SID_RES_FL_RESTRICT_WALK_UP,
+	                                     "testkvstore",
+	                                     &main_kv_store_res_params,
+	                                     SID_RES_PRIO_NORMAL,
+	                                     SID_RES_NO_SERVICE_LINKS);
+	assert_non_null(common_ctx->kvs_res);
 	common_ctx->gen_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
 	                                                              .type    = SID_BUF_TYPE_LINEAR,
 	                                                              .mode    = SID_BUF_MODE_PLAIN}),
@@ -41,7 +41,7 @@ struct sid_ucmd_common_ctx *_create_common_ctx(void)
 
 void _destroy_common_ctx(struct sid_ucmd_common_ctx *common_ctx)
 {
-	sid_res_unref(common_ctx->kv_store_res);
+	sid_res_unref(common_ctx->kvs_res);
 	sid_buf_destroy(common_ctx->gen_buf);
 	free(common_ctx);
 }
@@ -119,7 +119,7 @@ static void _check_missing_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 
 	key_spec.core = core;
 	assert_non_null(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec));
-	assert_null(sid_kvs_get(ucmd_ctx->common->kv_store_res, key, &size, &flags));
+	assert_null(sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, &flags));
 
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 }
@@ -137,7 +137,7 @@ static void _check_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **da
 	key_spec.core = core;
 	assert_non_null(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec));
 
-	assert_non_null(value = sid_kvs_get(ucmd_ctx->common->kv_store_res, key, &size, &flags));
+	assert_non_null(value = sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, &flags));
 	vvalue = _get_vvalue(flags, value, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
 	if (flags & SID_KVS_VAL_FL_VECTOR) {
 		assert_true(vector);
@@ -164,7 +164,7 @@ static void _set_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **data
 	char                *key;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT + nr_data];
 	sid_ucmd_kv_flags_t  flags      = SID_KV_FL_RD;
-	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kv_store_res,
+	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                   .custom   = NULL,
 	                                   .ret_code = -EREMOTEIO};
@@ -183,7 +183,7 @@ static void _set_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **data
 	for (i = 0; i < nr_data; i++)
 		_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), i, data[i], data[i] ? strlen(data[i]) + 1 : 0);
 
-	assert_non_null(sid_kvs_set(ucmd_ctx->common->kv_store_res,
+	assert_non_null(sid_kvs_set(ucmd_ctx->common->kvs_res,
 	                            key,
 	                            vvalue,
 	                            VVALUE_HEADER_CNT + nr_data,
@@ -203,7 +203,7 @@ static void _set_broken_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 	char                *key;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT];
 	sid_ucmd_kv_flags_t  flags      = SID_KV_FL_RD;
-	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kv_store_res,
+	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                   .custom   = NULL,
 	                                   .ret_code = -EREMOTEIO};
@@ -217,7 +217,7 @@ static void _set_broken_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 	                    &flags,
 	                    &ucmd_ctx->common->gennum,
 	                    (char *) owner);
-	assert_non_null(sid_kvs_set(ucmd_ctx->common->kv_store_res,
+	assert_non_null(sid_kvs_set(ucmd_ctx->common->kvs_res,
 	                            key,
 	                            vvalue,
 	                            VVALUE_HEADER_CNT - 1,
@@ -288,7 +288,7 @@ static void test_scalar(void **state)
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key", data, ARRAY_LEN(data), false);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 }
 
 static void test_vector(void **state)
@@ -301,7 +301,7 @@ static void test_vector(void **state)
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key", data, ARRAY_LEN(data), true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 }
 
 static void test_unset_scalar(void **state)
@@ -311,12 +311,12 @@ static void test_unset_scalar(void **state)
 	char              *data[] = {"value"};
 
 	_set_kv(ts->main_ctx, "key", data, ARRAY_LEN(data), KV_OP_SET, false);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 	_set_kv(ts->work_ctx, "key", NULL, 0, KV_OP_SET, false);
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_missing_kv(ts->main_ctx, "key");
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 0);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 0);
 }
 
 static void test_unset_vector(void **state)
@@ -326,12 +326,12 @@ static void test_unset_vector(void **state)
 	char              *data[] = {VALUE1, VALUE2};
 
 	_set_kv(ts->main_ctx, "key", data, ARRAY_LEN(data), KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 	_set_kv(ts->work_ctx, "key", NULL, 0, KV_OP_SET, true);
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_missing_kv(ts->main_ctx, "key");
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 0);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 0);
 }
 
 static void test_unset_missing(void **state)
@@ -343,7 +343,7 @@ static void test_unset_missing(void **state)
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_missing_kv(ts->main_ctx, "key");
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 0);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 0);
 }
 
 static void test_subtract_missing(void **state)
@@ -356,7 +356,7 @@ static void test_subtract_missing(void **state)
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key", NULL, 0, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 }
 
 static void test_add_missing(void **state)
@@ -369,7 +369,7 @@ static void test_add_missing(void **state)
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key", data, 1, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 }
 
 static void test_vector_subtract(void **state)
@@ -379,12 +379,12 @@ static void test_vector_subtract(void **state)
 	char              *data[] = {VALUE1, VALUE2, VALUE3};
 
 	_set_kv(ts->main_ctx, "key", data, ARRAY_LEN(data), KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 	_set_kv(ts->work_ctx, "key", data, 2, KV_OP_MINUS, true);
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key", &data[2], 1, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 }
 
 static void test_vector_add(void **state)
@@ -394,12 +394,12 @@ static void test_vector_add(void **state)
 	char              *data[] = {VALUE1, VALUE2};
 
 	_set_kv(ts->main_ctx, "key", data, 1, KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 	_set_kv(ts->work_ctx, "key", &data[1], 1, KV_OP_PLUS, true);
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key", data, ARRAY_LEN(data), true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 }
 
 static void test_vector_change(void **state)
@@ -409,12 +409,12 @@ static void test_vector_change(void **state)
 	char              *data[] = {VALUE1, VALUE2, VALUE3, VALUE4};
 
 	_set_kv(ts->main_ctx, "key", &data[1], 2, KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 	_set_kv(ts->work_ctx, "key", data, ARRAY_LEN(data), KV_OP_SET, true);
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key", data, ARRAY_LEN(data), true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 }
 
 static void test_scalar_change(void **state)
@@ -425,12 +425,12 @@ static void test_scalar_change(void **state)
 	char              *data2[] = {VALUE2};
 
 	_set_kv(ts->main_ctx, "key", data1, ARRAY_LEN(data1), KV_OP_SET, false);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 	_set_kv(ts->work_ctx, "key", data2, ARRAY_LEN(data2), KV_OP_SET, false);
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key", data2, ARRAY_LEN(data2), false);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 }
 
 static void test_type_change1(void **state)
@@ -440,12 +440,12 @@ static void test_type_change1(void **state)
 	char              *data[] = {VALUE1, VALUE2, VALUE3, VALUE4};
 
 	_set_kv(ts->main_ctx, "key", &data[2], 1, KV_OP_SET, false);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 	_set_kv(ts->work_ctx, "key", data, ARRAY_LEN(data), KV_OP_SET, true);
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key", data, ARRAY_LEN(data), true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 }
 
 static void test_type_change2(void **state)
@@ -455,12 +455,12 @@ static void test_type_change2(void **state)
 	char              *data[] = {VALUE1, VALUE2, VALUE3, VALUE4};
 
 	_set_kv(ts->main_ctx, "key", &data[1], 3, KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 	_set_kv(ts->work_ctx, "key", data, 1, KV_OP_SET, false);
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key", data, 1, false);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 }
 
 static void test_empty_broken(void **state)
@@ -471,7 +471,7 @@ static void test_empty_broken(void **state)
 	_set_broken_kv(ts->work_ctx, "key");
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), -1);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 0);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 0);
 }
 
 static void test_set_broken(void **state)
@@ -484,7 +484,7 @@ static void test_set_broken(void **state)
 	_set_broken_kv(ts->work_ctx, "key2");
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), -1);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 0);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 0);
 }
 
 static void test_unset_broken(void **state)
@@ -498,9 +498,9 @@ static void test_unset_broken(void **state)
 	_set_kv(ts->work_ctx, "key1", NULL, 0, KV_OP_SET, true);
 	_set_broken_kv(ts->work_ctx, "key2");
 	fd  = _do_build_buffers(ts->work_res);
-	old = dump_db(ts->main_ctx->common->kv_store_res);
+	old = dump_db(ts->main_ctx->common->kvs_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), -1);
-	new = dump_db(ts->main_ctx->common->kv_store_res);
+	new = dump_db(ts->main_ctx->common->kvs_res);
 	compare_dumps(old, new);
 }
 
@@ -515,9 +515,9 @@ static void test_change_broken(void **state)
 	_set_kv(ts->work_ctx, "key1", &data[1], 1, KV_OP_SET, false);
 	_set_broken_kv(ts->work_ctx, "key2");
 	fd  = _do_build_buffers(ts->work_res);
-	old = dump_db(ts->main_ctx->common->kv_store_res);
+	old = dump_db(ts->main_ctx->common->kvs_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), -1);
-	new = dump_db(ts->main_ctx->common->kv_store_res);
+	new = dump_db(ts->main_ctx->common->kvs_res);
 	compare_dumps(old, new);
 }
 
@@ -529,13 +529,13 @@ static void test_subtract_broken(void **state)
 	struct sid_buf    *old, *new;
 
 	_set_kv(ts->main_ctx, "key1", data, ARRAY_LEN(data), KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 	_set_kv(ts->work_ctx, "key1", data, 2, KV_OP_MINUS, true);
 	_set_broken_kv(ts->work_ctx, "key2");
 	fd  = _do_build_buffers(ts->work_res);
-	old = dump_db(ts->main_ctx->common->kv_store_res);
+	old = dump_db(ts->main_ctx->common->kvs_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), -1);
-	new = dump_db(ts->main_ctx->common->kv_store_res);
+	new = dump_db(ts->main_ctx->common->kvs_res);
 	compare_dumps(old, new);
 }
 
@@ -547,13 +547,13 @@ static void test_add_broken(void **state)
 	struct sid_buf    *old, *new;
 
 	_set_kv(ts->main_ctx, "key1", data, 1, KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 1);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
 	_set_kv(ts->work_ctx, "key1", &data[1], 1, KV_OP_PLUS, true);
 	_set_broken_kv(ts->work_ctx, "key2");
 	fd  = _do_build_buffers(ts->work_res);
-	old = dump_db(ts->main_ctx->common->kv_store_res);
+	old = dump_db(ts->main_ctx->common->kvs_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), -1);
-	new = dump_db(ts->main_ctx->common->kv_store_res);
+	new = dump_db(ts->main_ctx->common->kvs_res);
 	compare_dumps(old, new);
 }
 
@@ -566,7 +566,7 @@ static void test_multi_1(void **state)
 	_set_kv(ts->main_ctx, "key1", &data[1], 2, KV_OP_SET, true);
 	_set_kv(ts->main_ctx, "key2", &data[2], 1, KV_OP_SET, false);
 	_set_kv(ts->main_ctx, "key3", data, 3, KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 3);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 3);
 	_set_kv(ts->work_ctx, "key1", &data[2], 1, KV_OP_MINUS, true);
 	_set_kv(ts->work_ctx, "key3", &data[2], 2, KV_OP_PLUS, true);
 	_set_kv(ts->work_ctx, "key2", NULL, 0, KV_OP_SET, false);
@@ -574,7 +574,7 @@ static void test_multi_1(void **state)
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
 	_check_kv(ts->main_ctx, "key1", &data[1], 1, true);
 	_check_kv(ts->main_ctx, "key3", data, ARRAY_LEN(data), true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 2);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 2);
 }
 
 static void test_multi_broken_1(void **state)
@@ -587,15 +587,15 @@ static void test_multi_broken_1(void **state)
 	_set_kv(ts->main_ctx, "key1", &data[1], 2, KV_OP_SET, true);
 	_set_kv(ts->main_ctx, "key2", &data[2], 1, KV_OP_SET, false);
 	_set_kv(ts->main_ctx, "key3", data, 3, KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 3);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 3);
 	_set_kv(ts->work_ctx, "key1", &data[2], 1, KV_OP_MINUS, true);
 	_set_kv(ts->work_ctx, "key3", &data[2], 2, KV_OP_PLUS, true);
 	_set_kv(ts->work_ctx, "key2", NULL, 0, KV_OP_SET, false);
 	_set_broken_kv(ts->work_ctx, "key4");
 	fd  = _do_build_buffers(ts->work_res);
-	old = dump_db(ts->main_ctx->common->kv_store_res);
+	old = dump_db(ts->main_ctx->common->kvs_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), -1);
-	new = dump_db(ts->main_ctx->common->kv_store_res);
+	new = dump_db(ts->main_ctx->common->kvs_res);
 	compare_dumps(old, new);
 }
 
@@ -609,7 +609,7 @@ static void test_multi_2(void **state)
 	_set_kv(ts->main_ctx, "key2", &data[2], 1, KV_OP_SET, false);
 	_set_kv(ts->main_ctx, "key3", data, 4, KV_OP_SET, true);
 	_set_kv(ts->main_ctx, "key4", &data[3], 1, KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 4);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 4);
 	_set_kv(ts->work_ctx, "key1", &data[2], 1, KV_OP_SET, false);
 	_set_kv(ts->work_ctx, "key2", NULL, 0, KV_OP_SET, false);
 	_set_kv(ts->work_ctx, "key4", data, 1, KV_OP_MINUS, true);
@@ -620,7 +620,7 @@ static void test_multi_2(void **state)
 	_check_kv(ts->main_ctx, "key3", data, 4, true);
 	_check_kv(ts->main_ctx, "key4", &data[3], 1, true);
 	_check_kv(ts->main_ctx, "key5", &data[1], 3, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 4);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 4);
 }
 
 static void test_multi_broken_2(void **state)
@@ -634,16 +634,16 @@ static void test_multi_broken_2(void **state)
 	_set_kv(ts->main_ctx, "key2", &data[2], 1, KV_OP_SET, false);
 	_set_kv(ts->main_ctx, "key3", data, 4, KV_OP_SET, true);
 	_set_kv(ts->main_ctx, "key4", &data[3], 1, KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 4);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 4);
 	_set_kv(ts->work_ctx, "key1", &data[2], 1, KV_OP_SET, false);
 	_set_kv(ts->work_ctx, "key2", NULL, 0, KV_OP_SET, false);
 	_set_kv(ts->work_ctx, "key4", data, 1, KV_OP_MINUS, true);
 	_set_kv(ts->work_ctx, "key5", &data[1], 3, KV_OP_SET, true);
 	_set_broken_kv(ts->work_ctx, "key6");
 	fd  = _do_build_buffers(ts->work_res);
-	old = dump_db(ts->main_ctx->common->kv_store_res);
+	old = dump_db(ts->main_ctx->common->kvs_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), -1);
-	new = dump_db(ts->main_ctx->common->kv_store_res);
+	new = dump_db(ts->main_ctx->common->kvs_res);
 	compare_dumps(old, new);
 }
 
@@ -658,16 +658,16 @@ static void test_multi_broken_3(void **state)
 	_set_kv(ts->main_ctx, "key2", &data[2], 1, KV_OP_SET, false);
 	_set_kv(ts->main_ctx, "key4", data, 4, KV_OP_SET, true);
 	_set_kv(ts->main_ctx, "key5", &data[3], 1, KV_OP_SET, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kv_store_res), 4);
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 4);
 	_set_kv(ts->work_ctx, "key1", &data[2], 1, KV_OP_SET, false);
 	_set_kv(ts->work_ctx, "key2", NULL, 0, KV_OP_SET, false);
 	_set_broken_kv(ts->work_ctx, "key3");
 	_set_kv(ts->work_ctx, "key5", data, 1, KV_OP_MINUS, true);
 	_set_kv(ts->work_ctx, "key6", &data[1], 3, KV_OP_SET, true);
 	fd  = _do_build_buffers(ts->work_res);
-	old = dump_db(ts->main_ctx->common->kv_store_res);
+	old = dump_db(ts->main_ctx->common->kvs_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), -1);
-	new = dump_db(ts->main_ctx->common->kv_store_res);
+	new = dump_db(ts->main_ctx->common->kvs_res);
 	compare_dumps(old, new);
 }
 
