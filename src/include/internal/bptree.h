@@ -78,6 +78,7 @@ void          *bptree_iter_current(bptree_iter_t *iter, const char **key, size_t
 const char    *bptree_iter_current_key(bptree_iter_t *iter);
 void          *bptree_iter_next(bptree_iter_t *iter, const char **key, size_t *data_size, unsigned *data_ref_count);
 void           bptree_iter_reset(bptree_iter_t *iter, const char *key_start, const char *key_end);
+void           bptree_iter_reset_prefix(bptree_iter_t *iter, const char *prefix);
 void           bptree_iter_destroy(bptree_iter_t *iter);
 
 #ifdef __cplusplus

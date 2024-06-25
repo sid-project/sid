@@ -1513,8 +1513,19 @@ void bptree_iter_reset(bptree_iter_t *iter, const char *key_start, const char *k
 {
 	iter->c         = NULL;
 	iter->i         = 0;
+	iter->method    = LOOKUP_EXACT;
 	iter->key_start = key_start;
 	iter->key_end   = key_end;
+}
+
+void bptree_iter_reset_prefix(bptree_iter_t *iter, const char *prefix)
+{
+	iter->c             = NULL;
+	iter->i             = 0;
+	iter->method        = LOOKUP_PREFIX;
+	iter->key_start     = prefix;
+	iter->key_end       = NULL;
+	iter->key_start_len = strlen(prefix);
 }
 
 void bptree_iter(bptree_t *bptree, const char *key_start, const char *key_end, bptree_iterate_fn_t fn, void *fn_arg)
