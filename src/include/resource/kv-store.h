@@ -200,6 +200,7 @@ const char     *sid_kvs_iter_current_key(sid_kvs_iter_t *iter);
 void           *sid_kvs_iter_current(sid_kvs_iter_t *iter, size_t *size, sid_kvs_val_fl_t *flags);
 void           *sid_kvs_iter_next(sid_kvs_iter_t *iter, size_t *size, const char **return_key, sid_kvs_val_fl_t *flags);
 void            sid_kvs_iter_reset(sid_kvs_iter_t *iter, const char *key_start, const char *key_end);
+void            sid_kvs_iter_reset_prefix(sid_kvs_iter_t *kv_store_res, const char *prefix);
 void            sid_kvs_iter_destroy(sid_kvs_iter_t *iter);
 
 #ifdef __cplusplus

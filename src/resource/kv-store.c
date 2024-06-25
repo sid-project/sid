@@ -1296,7 +1296,7 @@ void *sid_kvs_iter_next(sid_kvs_iter_t *iter, size_t *size, const char **return_
 	return sid_kvs_iter_current(iter, size, flags);
 }
 
-void sid_kvs_iter_reset(sid_kvs_iter_t *iter, const char *key_start, const char *key_end)
+void _do_sid_kvs_iter_reset(sid_kvs_iter_t *iter, kvs_iter_method_t method, const char *key_start, const char *key_end)
 {
 	if (!iter)
 		return;
@@ -1308,9 +1308,26 @@ void sid_kvs_iter_reset(sid_kvs_iter_t *iter, const char *key_start, const char 
 			break;
 
 		case SID_KVS_BACKEND_BPTREE:
-			bptree_iter_reset(iter->bpt.iter, key_start, key_end);
+			switch (method) {
+				case ITER_EXACT:
+					bptree_iter_reset(iter->bpt.iter, key_start, key_end);
+					break;
+				case ITER_PREFIX:
+					bptree_iter_reset_prefix(iter->bpt.iter, key_start);
+					break;
+			}
 			break;
 	}
+}
+
+void sid_kvs_iter_reset(sid_kvs_iter_t *iter, const char *key_start, const char *key_end)
+{
+	_do_sid_kvs_iter_reset(iter, ITER_EXACT, key_start, key_end);
+}
+
+void sid_kvs_iter_reset_prefix(sid_kvs_iter_t *iter, const char *prefix)
+{
+	_do_sid_kvs_iter_reset(iter, ITER_PREFIX, prefix, NULL);
 }
 
 void sid_kvs_iter_destroy(sid_kvs_iter_t *iter)
