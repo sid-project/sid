@@ -2553,20 +2553,25 @@ static const void *_cmd_get_key_spec_value(sid_res_t           *res,
                                            size_t              *value_size,
                                            sid_ucmd_kv_flags_t *flags)
 {
-	const char  *key = NULL;
-	kv_scalar_t *svalue;
-	size_t       size, ext_data_offset;
-	void        *ret = NULL;
+	const char      *key = NULL;
+	sid_kvs_val_fl_t kvs_flags;
+	kv_vector_t      tmp_vvalue[VVALUE_SINGLE_ALIGNED_CNT];
+	void            *val;
+	kv_vector_t     *vvalue;
+	size_t           size, ext_data_offset;
+	void            *ret = NULL;
 
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, key_spec)))
 		goto out;
 
-	if (!(svalue = sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, NULL)))
+	if (!(val = sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, &kvs_flags)))
 		goto out;
 
-	switch (_mod_match(svalue->data, owner)) {
+	vvalue = _get_vvalue(kvs_flags, val, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
+
+	switch (_mod_match(VVALUE_OWNER(vvalue), owner)) {
 		case MOD_NO_MATCH:
-			if (!(svalue->flags & SID_KV_FL_FRG_RD))
+			if (!(VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_RD))
 				goto out;
 			break;
 		case MOD_MATCH:
@@ -2574,26 +2579,38 @@ static const void *_cmd_get_key_spec_value(sid_res_t           *res,
 			/* nothing to do here */
 			break;
 		case MOD_SUB_MATCH:
-			if (!(svalue->flags & SID_KV_FL_SUB_RD))
+			if (!(VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_RD))
 				goto out;
 			break;
 		case MOD_SUP_MATCH:
-			if (!(svalue->flags & SID_KV_FL_SUP_RD))
+			if (!(VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_RD))
 				goto out;
 			break;
 	}
 
-	if (flags)
-		*flags = svalue->flags;
+	if (kvs_flags & SID_KVS_VAL_FL_VECTOR) {
+		if (VVALUE_FLAGS(vvalue) & SID_KV_FL_ALIGN) {
+			size -= VVALUE_HEADER_ALIGNED_CNT;
+			if (size)
+				ret = ((kv_vector_t *) val) + VVALUE_HEADER_ALIGNED_CNT;
+		} else {
+			size -= VVALUE_HEADER_CNT;
+			if (size)
+				ret = ((kv_vector_t *) val) + VVALUE_HEADER_CNT;
+		}
+	} else {
+		ext_data_offset  = _svalue_ext_data_offset(val);
+		size            -= (SVALUE_HEADER_SIZE + ext_data_offset);
+		if (size)
+			ret = ((kv_scalar_t *) val)->data + ext_data_offset;
+	}
 
-	ext_data_offset  = _svalue_ext_data_offset(svalue);
-	size            -= (SVALUE_HEADER_SIZE + ext_data_offset);
+	if (flags)
+		*flags = VVALUE_FLAGS(vvalue);
 
 	if (value_size)
 		*value_size = size;
 
-	if (size)
-		ret = svalue->data + ext_data_offset;
 out:
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 	return ret;
