@@ -2238,8 +2238,10 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 				rel_spec->cur_key_spec->id = key_part;
 			} else {
 				sid_res_log_error(update_arg->res,
-				                  SID_INTERNAL_ERROR "%s: unsupported namespace with internal number %d found in rel spec",
-				                  __func__, rel_spec->cur_key_spec->ns);
+				                  SID_INTERNAL_ERROR
+				                  "%s: unsupported namespace with internal number %d found in rel spec",
+				                  __func__,
+				                  rel_spec->cur_key_spec->ns);
 				goto out;
 			}
 
