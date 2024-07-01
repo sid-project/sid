@@ -2238,8 +2238,8 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 				rel_spec->cur_key_spec->id = key_part;
 			} else {
 				sid_res_log_error(update_arg->res,
-				                  SID_INTERNAL_ERROR "%s: unsupported namespace '%s' found in rel spec",
-				                  __func__);
+				                  SID_INTERNAL_ERROR "%s: unsupported namespace with internal number %d found in rel spec",
+				                  __func__, rel_spec->cur_key_spec->ns);
 				goto out;
 			}
 
@@ -3443,7 +3443,7 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
 	                                .rel_key_spec = &((struct kv_key_spec) {.extra_op = NULL,
 	                                                                        .op       = KV_OP_SET,
 	                                                                        .dom      = ID_NULL,
-	                                                                        .ns       = 0,
+	                                                                        .ns       = SID_KV_NS_DEVICE,
 	                                                                        .ns_part  = ID_NULL,
 	                                                                        .id_cat   = ID_NULL,
 	                                                                        .id       = ID_NULL,
@@ -3457,7 +3457,7 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
 	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_cb_delta wrapper
 	//       to do the "is empty?" check before the actual _kv_cb_delta operation
 
-	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, rel_spec.cur_key_spec)))
+	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec)))
 		goto out;
 
 	if (!sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, NULL))
@@ -3480,7 +3480,7 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
 
 	r = 0;
 out:
-	_destroy_key(ucmd_ctx->common->gen_buf, key);
+	_destroy_key(NULL, key);
 	return r;
 }
 
