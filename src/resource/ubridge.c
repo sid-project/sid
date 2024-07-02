@@ -3367,6 +3367,54 @@ int sid_ucmd_dev_add_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 	                              false);
 }
 
+int sid_ucmd_dev_rename_alias(sid_res_t           *mod_res,
+                              struct sid_ucmd_ctx *ucmd_ctx,
+                              const char          *alias_key,
+                              const char          *old_alias,
+                              const char          *new_alias)
+{
+	struct kv_key_spec key_spec;
+	const kv_vector_t *vdevs;
+	size_t             vdevs_size;
+
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_key) || UTIL_STR_EMPTY(old_alias) || UTIL_STR_EMPTY(new_alias))
+		return -EINVAL;
+
+	key_spec = (struct kv_key_spec) {.extra_op = NULL,
+	                                 .op       = KV_OP_SET,
+	                                 .dom      = KV_KEY_DOM_ALIAS,
+	                                 .ns       = SID_KV_NS_MODULE,
+	                                 .ns_part  = _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_MODULE),
+	                                 .id_cat   = alias_key,
+	                                 .id       = old_alias,
+	                                 .core     = KV_KEY_GEN_GROUP_MEMBERS};
+
+	if (!(vdevs = _cmd_get_key_spec_value(mod_res, ucmd_ctx, _owner_name(mod_res), &key_spec, &vdevs_size, NULL)) ||
+	    !vdevs_size)
+		return 0;
+
+	_handle_devs_for_group(mod_res,
+	                       ucmd_ctx,
+	                       _owner_name(mod_res),
+	                       vdevs,
+	                       vdevs_size,
+	                       KV_KEY_DOM_ALIAS,
+	                       SID_KV_NS_MODULE,
+	                       alias_key,
+	                       new_alias,
+	                       KV_OP_PLUS,
+	                       false);
+
+	return _do_sid_ucmd_group_destroy(mod_res,
+	                                  ucmd_ctx,
+	                                  _owner_name(mod_res),
+	                                  KV_KEY_DOM_ALIAS,
+	                                  SID_KV_NS_MODULE,
+	                                  alias_key,
+	                                  old_alias,
+	                                  true);
+}
+
 int sid_ucmd_dev_del_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
 {
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_key) || UTIL_STR_EMPTY(alias))
