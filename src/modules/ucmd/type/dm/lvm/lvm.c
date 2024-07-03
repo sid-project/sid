@@ -343,7 +343,7 @@ static int _lvm_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	                                      NULL,
 	                                      "pvscan --cache --listvg --checkcomplete --vgonline --autoactivation event "
 	                                      "--udevoutput --journal=output /dev/",
-	                                      sid_ucmd_ev_dev_get_name(ucmd_ctx))))
+	                                      sid_ucmd_ev_get_dev_name(ucmd_ctx))))
 		return -1;
 
 	wrk_pvscan = (struct sid_wrk_params) {

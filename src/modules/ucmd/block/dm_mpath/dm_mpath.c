@@ -99,10 +99,10 @@ static int _is_parent_multipathed(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 			return 0;
 	}
 	if (r == MPATH_IS_VALID) {
-		sid_res_log_debug(mod_res, "%s whole disk is a multipath path", sid_ucmd_ev_dev_get_name(ucmd_ctx));
+		sid_res_log_debug(mod_res, "%s whole disk is a multipath path", sid_ucmd_ev_get_dev_name(ucmd_ctx));
 		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, U_DEV_PATH, "1", 2, SID_KV_FL_RD);
 	} else
-		sid_res_log_debug(mod_res, "%s whole disk is not a multipath path", sid_ucmd_ev_dev_get_name(ucmd_ctx));
+		sid_res_log_debug(mod_res, "%s whole disk is not a multipath path", sid_ucmd_ev_get_dev_name(ucmd_ctx));
 	return 0;
 }
 
@@ -117,7 +117,7 @@ static int _dm_mpath_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx
 	if (!_kernel_cmdline_allow()) // treat failure as allowed
 		return 0;
 
-	switch (sid_ucmd_ev_dev_get_type(ucmd_ctx)) {
+	switch (sid_ucmd_ev_get_dev_type(ucmd_ctx)) {
 		case UDEV_DEVTYPE_DISK:
 			break;
 		case UDEV_DEVTYPE_PARTITION:
@@ -131,8 +131,8 @@ static int _dm_mpath_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx
 		return -1;
 	}
 	// currently treats MPATH_SMART like MPATH_STRICT
-	r = mpathvalid_is_path(sid_ucmd_ev_dev_get_name(ucmd_ctx), MPATH_DEFAULT, &wwid, NULL, 0);
-	sid_res_log_debug(mod_res, "%s mpathvalid_is_path returned %d", sid_ucmd_ev_dev_get_name(ucmd_ctx), r);
+	r = mpathvalid_is_path(sid_ucmd_ev_get_dev_name(ucmd_ctx), MPATH_DEFAULT, &wwid, NULL, 0);
+	sid_res_log_debug(mod_res, "%s mpathvalid_is_path returned %d", sid_ucmd_ev_get_dev_name(ucmd_ctx), r);
 
 	if (r == MPATH_IS_VALID) {
 		const char *old_valid_str;
@@ -148,7 +148,7 @@ static int _dm_mpath_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx
 			if (errno || !p || *p || old_valid != MPATH_IS_VALID) {
 				sid_res_log_debug(mod_res,
 				                  "previously released %s. not claiming",
-				                  sid_ucmd_ev_dev_get_name(ucmd_ctx));
+				                  sid_ucmd_ev_get_dev_name(ucmd_ctx));
 				r = MPATH_IS_NOT_VALID;
 			}
 		}

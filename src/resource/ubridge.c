@@ -531,47 +531,47 @@ static uint64_t            null_int            = 0;
 
 static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg);
 
-udev_action_t sid_ucmd_ev_dev_get_action(struct sid_ucmd_ctx *ucmd_ctx)
+udev_action_t sid_ucmd_ev_get_dev_action(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.action;
 }
 
-int sid_ucmd_ev_dev_get_major(struct sid_ucmd_ctx *ucmd_ctx)
+int sid_ucmd_ev_get_dev_major(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.major;
 }
 
-int sid_ucmd_ev_dev_get_minor(struct sid_ucmd_ctx *ucmd_ctx)
+int sid_ucmd_ev_get_dev_minor(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.minor;
 }
 
-const char *sid_ucmd_ev_dev_get_path(struct sid_ucmd_ctx *ucmd_ctx)
+const char *sid_ucmd_ev_get_dev_path(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.path;
 }
 
-const char *sid_ucmd_ev_dev_get_name(struct sid_ucmd_ctx *ucmd_ctx)
+const char *sid_ucmd_ev_get_dev_name(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.name;
 }
 
-udev_devtype_t sid_ucmd_ev_dev_get_type(struct sid_ucmd_ctx *ucmd_ctx)
+udev_devtype_t sid_ucmd_ev_get_dev_type(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.type;
 }
 
-uint64_t sid_ucmd_ev_dev_get_seqnum(struct sid_ucmd_ctx *ucmd_ctx)
+uint64_t sid_ucmd_ev_get_dev_seqnum(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.seqnum;
 }
 
-uint64_t sid_ucmd_ev_dev_get_diskseq(struct sid_ucmd_ctx *ucmd_ctx)
+uint64_t sid_ucmd_ev_get_dev_diskseq(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.diskseq;
 }
 
-const char *sid_ucmd_ev_dev_get_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
+const char *sid_ucmd_ev_get_dev_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.synth_uuid;
 }
@@ -3650,7 +3650,7 @@ static int _dev_is_nvme(struct sid_ucmd_ctx *ucmd_ctx)
 	 * FIXME: Is there any better and quick way of detecting we have
 	 * 	  an NVMe device than just looking at its kernel name?
 	 */
-	return !strncmp(sid_ucmd_ev_dev_get_name(ucmd_ctx), DEV_NAME_PREFIX_NVME, sizeof(DEV_NAME_PREFIX_NVME) - 1);
+	return !strncmp(sid_ucmd_ev_get_dev_name(ucmd_ctx), DEV_NAME_PREFIX_NVME, sizeof(DEV_NAME_PREFIX_NVME) - 1);
 }
 
 static char *_lookup_mod_name(sid_res_t *cmd_res, const int dev_major, const char *dev_name, char *buf, size_t buf_size);
@@ -3663,7 +3663,7 @@ static char *_owner_name_from_blkext(sid_res_t *cmd_res, char *buf, size_t buf_s
 	char                *p;
 	char                *mod_name;
 
-	switch (sid_ucmd_ev_dev_get_type(ucmd_ctx)) {
+	switch (sid_ucmd_ev_get_dev_type(ucmd_ctx)) {
 		case UDEV_DEVTYPE_PARTITION:
 			/*
 			 * First, check if this is a partition on top of an NVMe device.
@@ -5792,9 +5792,9 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 
 		sid_res_log_debug(res,
 		                  "Processing event: %s %s uevent with seqno %" PRIu64 " for device " CMD_DEV_PRINT_FMT,
-		                  sid_ucmd_ev_dev_get_synth_uuid(ucmd_ctx) == NULL ? "genuine" : "synthetic",
-		                  util_udev_action_to_str(sid_ucmd_ev_dev_get_action(ucmd_ctx)),
-		                  sid_ucmd_ev_dev_get_seqnum(ucmd_ctx),
+		                  sid_ucmd_ev_get_dev_synth_uuid(ucmd_ctx) == NULL ? "genuine" : "synthetic",
+		                  util_udev_action_to_str(sid_ucmd_ev_get_dev_action(ucmd_ctx)),
+		                  sid_ucmd_ev_get_dev_seqnum(ucmd_ctx),
 		                  CMD_DEV_PRINT(ucmd_ctx));
 	}
 

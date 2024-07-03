@@ -176,8 +176,8 @@ static const char _failed_to_get_sysfs_msg[] = "Failed to get sysfs property for
 
 #define DEV_PRINT_FMT "%s (%d_%d/%" PRIu64 ")"
 #define DEV_PRINT(ucmd_ctx)                                                                                                        \
-	sid_ucmd_ev_dev_get_name(ucmd_ctx), sid_ucmd_ev_dev_get_major(ucmd_ctx), sid_ucmd_ev_dev_get_minor(ucmd_ctx),              \
-		sid_ucmd_ev_dev_get_diskseq(ucmd_ctx)
+	sid_ucmd_ev_get_dev_name(ucmd_ctx), sid_ucmd_ev_get_dev_major(ucmd_ctx), sid_ucmd_ev_get_dev_minor(ucmd_ctx),              \
+		sid_ucmd_ev_get_dev_diskseq(ucmd_ctx)
 
 static int _get_dm_submod_syms(sid_res_t *mod_res, sid_res_t *submod_res, struct scan_dm_submod_fns **submod_fns)
 {
@@ -377,7 +377,7 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	/* uuid may be blank, name and suspended property is always set  */
 
-	sysfs_dev_path = sid_ucmd_ev_dev_get_path(ucmd_ctx);
+	sysfs_dev_path = sid_ucmd_ev_get_dev_path(ucmd_ctx);
 
 	if (_get_sysfs_value(mod_res, sysfs_dev_path, SYSFS_DM_UUID, uuid, sizeof(uuid)) < 0)
 		return -1;
@@ -696,8 +696,8 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	}
 	is_suspended = !strcmp(val, "1");
 
-	action       = sid_ucmd_ev_dev_get_action(ucmd_ctx);
-	is_synth     = sid_ucmd_ev_dev_get_synth_uuid(ucmd_ctx) != NULL;
+	action       = sid_ucmd_ev_get_dev_action(ucmd_ctx);
+	is_synth     = sid_ucmd_ev_get_dev_synth_uuid(ucmd_ctx) != NULL;
 	ready        = sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, 0);
 
 	/* Quick sanity check. */
