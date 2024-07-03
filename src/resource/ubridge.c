@@ -3274,6 +3274,77 @@ out:
 	return r;
 }
 
+static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
+                                      struct sid_ucmd_ctx    *ucmd_ctx,
+                                      const char             *owner,
+                                      const char             *dom,
+                                      sid_ucmd_kv_namespace_t group_ns,
+                                      const char             *group_cat,
+                                      const char             *group_id,
+                                      int                     force)
+{
+	static sid_ucmd_kv_flags_t kv_flags_sync_no_reserved = (DEFAULT_VALUE_FLAGS_CORE) & ~SID_KV_FL_RS;
+	char                      *key                       = NULL;
+	size_t                     size;
+	kv_vector_t                vvalue[VVALUE_HEADER_CNT];
+	int                        r = -1;
+
+	struct kv_rel_spec rel_spec  = {.delta = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
+	                                .abs_delta    = &((struct kv_delta) {0}),
+
+	                                .cur_key_spec = &((struct kv_key_spec) {.extra_op = NULL,
+	                                                                        .op       = KV_OP_SET,
+	                                                                        .dom      = dom ?: ID_NULL,
+	                                                                        .ns       = group_ns,
+	                                                                        .ns_part  = _get_ns_part(ucmd_ctx, owner, group_ns),
+	                                                                        .id_cat   = group_cat,
+	                                                                        .id       = group_id,
+	                                                                        .core     = KV_KEY_GEN_GROUP_MEMBERS}),
+
+	                                .rel_key_spec = &((struct kv_key_spec) {.extra_op = NULL,
+	                                                                        .op       = KV_OP_SET,
+	                                                                        .dom      = ID_NULL,
+	                                                                        .ns       = SID_KV_NS_DEVICE,
+	                                                                        .ns_part  = ID_NULL,
+	                                                                        .id_cat   = ID_NULL,
+	                                                                        .id       = ID_NULL,
+	                                                                        .core     = KV_KEY_GEN_GROUP_IN})};
+
+	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
+	                                   .gen_buf = ucmd_ctx->common->gen_buf,
+	                                   .is_sync = false,
+	                                   .custom  = &rel_spec};
+
+	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_cb_delta wrapper
+	//       to do the "is empty?" check before the actual _kv_cb_delta operation
+
+	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec)))
+		goto out;
+
+	if (!sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, NULL))
+		goto out;
+
+	if (size > VVALUE_HEADER_CNT && !force) {
+		r = -ENOTEMPTY;
+		goto out;
+	}
+
+	_vvalue_header_prep(vvalue,
+	                    VVALUE_CNT(vvalue),
+	                    &ucmd_ctx->req_env.dev.udev.seqnum,
+	                    &kv_flags_sync_no_reserved,
+	                    &ucmd_ctx->common->gennum,
+	                    core_owner);
+
+	if ((r = _kv_delta_set(key, vvalue, VVALUE_HEADER_CNT, &update_arg)) < 0)
+		goto out;
+
+	r = 0;
+out:
+	_destroy_key(NULL, key);
+	return r;
+}
+
 int sid_ucmd_dev_add_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
 {
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_key) || UTIL_STR_EMPTY(alias))
@@ -3457,77 +3528,6 @@ int sid_ucmd_grp_del_current_dev(sid_res_t              *mod_res,
 	                              group_id,
 	                              KV_OP_MINUS,
 	                              false);
-}
-
-static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
-                                      struct sid_ucmd_ctx    *ucmd_ctx,
-                                      const char             *owner,
-                                      const char             *dom,
-                                      sid_ucmd_kv_namespace_t group_ns,
-                                      const char             *group_cat,
-                                      const char             *group_id,
-                                      int                     force)
-{
-	static sid_ucmd_kv_flags_t kv_flags_sync_no_reserved = (DEFAULT_VALUE_FLAGS_CORE) & ~SID_KV_FL_RS;
-	char                      *key                       = NULL;
-	size_t                     size;
-	kv_vector_t                vvalue[VVALUE_HEADER_CNT];
-	int                        r = -1;
-
-	struct kv_rel_spec rel_spec  = {.delta = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
-	                                .abs_delta    = &((struct kv_delta) {0}),
-
-	                                .cur_key_spec = &((struct kv_key_spec) {.extra_op = NULL,
-	                                                                        .op       = KV_OP_SET,
-	                                                                        .dom      = dom ?: ID_NULL,
-	                                                                        .ns       = group_ns,
-	                                                                        .ns_part  = _get_ns_part(ucmd_ctx, owner, group_ns),
-	                                                                        .id_cat   = group_cat,
-	                                                                        .id       = group_id,
-	                                                                        .core     = KV_KEY_GEN_GROUP_MEMBERS}),
-
-	                                .rel_key_spec = &((struct kv_key_spec) {.extra_op = NULL,
-	                                                                        .op       = KV_OP_SET,
-	                                                                        .dom      = ID_NULL,
-	                                                                        .ns       = SID_KV_NS_DEVICE,
-	                                                                        .ns_part  = ID_NULL,
-	                                                                        .id_cat   = ID_NULL,
-	                                                                        .id       = ID_NULL,
-	                                                                        .core     = KV_KEY_GEN_GROUP_IN})};
-
-	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
-	                                   .gen_buf = ucmd_ctx->common->gen_buf,
-	                                   .is_sync = false,
-	                                   .custom  = &rel_spec};
-
-	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_cb_delta wrapper
-	//       to do the "is empty?" check before the actual _kv_cb_delta operation
-
-	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec)))
-		goto out;
-
-	if (!sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, NULL))
-		goto out;
-
-	if (size > VVALUE_HEADER_CNT && !force) {
-		r = -ENOTEMPTY;
-		goto out;
-	}
-
-	_vvalue_header_prep(vvalue,
-	                    VVALUE_CNT(vvalue),
-	                    &ucmd_ctx->req_env.dev.udev.seqnum,
-	                    &kv_flags_sync_no_reserved,
-	                    &ucmd_ctx->common->gennum,
-	                    core_owner);
-
-	if ((r = _kv_delta_set(key, vvalue, VVALUE_HEADER_CNT, &update_arg)) < 0)
-		goto out;
-
-	r = 0;
-out:
-	_destroy_key(NULL, key);
-	return r;
 }
 
 int sid_ucmd_grp_destroy(sid_res_t              *mod_res,
