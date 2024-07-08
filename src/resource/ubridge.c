@@ -2146,10 +2146,12 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 			sid_buf_get_data(rel_spec->abs_delta->plus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
 		}
 
-		if (!rel_spec->delta->plus)
-			return 0;
-
-		sid_buf_get_data(rel_spec->delta->plus, (const void **) &delta_vvalue, &delta_vsize);
+		if (rel_spec->delta->plus)
+			sid_buf_get_data(rel_spec->delta->plus, (const void **) &delta_vvalue, &delta_vsize);
+		else {
+			delta_vvalue = NULL;
+			delta_vsize  = 0;
+		}
 	} else if (op == KV_OP_MINUS) {
 		if (!update_arg->is_sync) {
 			if (!rel_spec->abs_delta->minus)
@@ -2157,10 +2159,12 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 			sid_buf_get_data(rel_spec->abs_delta->minus, (const void **) &abs_delta_vvalue, &abs_delta_vsize);
 		}
 
-		if (!rel_spec->delta->minus)
-			return 0;
-
-		sid_buf_get_data(rel_spec->delta->minus, (const void **) &delta_vvalue, &delta_vsize);
+		if (rel_spec->delta->minus)
+			sid_buf_get_data(rel_spec->delta->minus, (const void **) &delta_vvalue, &delta_vsize);
+		else {
+			delta_vvalue = NULL;
+			delta_vsize  = 0;
+		}
 	} else {
 		sid_res_log_error(update_arg->res, SID_INTERNAL_ERROR "%s: incorrect delta operation requested.", __func__);
 		return -1;
@@ -2190,6 +2194,11 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 		(void) _manage_kv_index(update_arg, key);
 
 		_destroy_key(update_arg->gen_buf, key);
+	}
+
+	if (!(delta_vsize && rel_spec->delta->flags & DELTA_WITH_REL)) {
+		rel_spec->cur_key_spec->op = orig_op;
+		return 0;
 	}
 
 	/* the other way round now - store final and absolute delta for each relative */
