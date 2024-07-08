@@ -2202,82 +2202,78 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 	}
 
 	/* the other way round now - store final and absolute delta for each relative */
-	if (delta_vsize && rel_spec->delta->flags & DELTA_WITH_REL) {
-		orig_delta             = rel_spec->delta;
-		orig_abs_delta         = rel_spec->abs_delta;
+	orig_delta             = rel_spec->delta;
+	orig_abs_delta         = rel_spec->abs_delta;
 
-		rel_spec->delta        = &((struct kv_delta) {0});
-		rel_spec->abs_delta    = &((struct kv_delta) {0});
-		rel_spec->delta->op    = op;
+	rel_spec->delta        = &((struct kv_delta) {0});
+	rel_spec->abs_delta    = &((struct kv_delta) {0});
+	rel_spec->delta->op    = op;
+	/*
+	 * WARNING: Mind that at this point, we're in _delta_update which is
+	 *          already called from _do_kv_delta_set outside. If we called
+	 *          the _do_kv_delta_set from here with DELTA_WITH_REL, we'd
+	 *          get into infinite loop:
+	 *
+	 *          _do_kv_delta_set -> _delta_update -> _do_kv_delta_set -> _delta_update ...
+	 */
+	rel_spec->delta->flags = DELTA_WITH_DIFF;
+
+	UTIL_SWAP(rel_spec->cur_key_spec, rel_spec->rel_key_spec);
+
+	if (!(key_prefix = _compose_key_prefix(NULL, rel_spec->rel_key_spec)))
+		goto out;
+
+	_vvalue_header_prep(rel_vvalue,
+	                    VVALUE_CNT(rel_vvalue),
+	                    &VVALUE_SEQNUM(vheader),
+	                    &value_flags_no_sync,
+	                    &VVALUE_GENNUM(vheader),
+	                    VVALUE_OWNER(vheader));
+	_vvalue_data_prep(rel_vvalue, VVALUE_CNT(rel_vvalue), 0, (void *) key_prefix, strlen(key_prefix) + 1);
+
+	for (i = VVALUE_IDX_DATA; i < delta_vsize; i++) {
 		/*
-		 * WARNING: Mind that at this point, we're in _delta_update which is
-		 *          already called from _do_kv_delta_set outside. If we called
-		 *          the _do_kv_delta_set from here with DELTA_WITH_REL, we'd
-		 *          get into infinite loop:
-		 *
-		 *          _do_kv_delta_set -> _delta_update -> _do_kv_delta_set -> _delta_update ...
+		 * FIXME: This is a shortcut for now. Simplify whole kv_delta_set and related so we don't need
+		 * to test this condition (check for namespace and then copy the part of the key to reference).
 		 */
-		rel_spec->delta->flags = DELTA_WITH_DIFF;
-
-		UTIL_SWAP(rel_spec->cur_key_spec, rel_spec->rel_key_spec);
-
-		if (!(key_prefix = _compose_key_prefix(NULL, rel_spec->rel_key_spec)))
+		if (rel_spec->cur_key_spec->ns == SID_KV_NS_DEVICE) {
+			if (!(key_part = _copy_ns_part_from_key(delta_vvalue[i].iov_base, NULL, 0)))
+				goto out;
+			rel_spec->cur_key_spec->ns_part = key_part;
+		} else if (rel_spec->cur_key_spec->ns == SID_KV_NS_MODULE) {
+			if (!(key_part = _copy_id_from_key(delta_vvalue[i].iov_base, NULL, 0)))
+				goto out;
+			rel_spec->cur_key_spec->id = key_part;
+		} else {
+			sid_res_log_error(update_arg->res,
+			                  SID_INTERNAL_ERROR "%s: unsupported namespace with internal number %d found in rel spec",
+			                  __func__,
+			                  rel_spec->cur_key_spec->ns);
 			goto out;
-
-		_vvalue_header_prep(rel_vvalue,
-		                    VVALUE_CNT(rel_vvalue),
-		                    &VVALUE_SEQNUM(vheader),
-		                    &value_flags_no_sync,
-		                    &VVALUE_GENNUM(vheader),
-		                    VVALUE_OWNER(vheader));
-		_vvalue_data_prep(rel_vvalue, VVALUE_CNT(rel_vvalue), 0, (void *) key_prefix, strlen(key_prefix) + 1);
-
-		for (i = VVALUE_IDX_DATA; i < delta_vsize; i++) {
-			/*
-			 * FIXME: This is a shortcut for now. Simplify whole kv_delta_set and related so we don't need
-			 * to test this condition (check for namespace and then copy the part of the key to reference).
-			 */
-			if (rel_spec->cur_key_spec->ns == SID_KV_NS_DEVICE) {
-				if (!(key_part = _copy_ns_part_from_key(delta_vvalue[i].iov_base, NULL, 0)))
-					goto out;
-				rel_spec->cur_key_spec->ns_part = key_part;
-			} else if (rel_spec->cur_key_spec->ns == SID_KV_NS_MODULE) {
-				if (!(key_part = _copy_id_from_key(delta_vvalue[i].iov_base, NULL, 0)))
-					goto out;
-				rel_spec->cur_key_spec->id = key_part;
-			} else {
-				sid_res_log_error(update_arg->res,
-				                  SID_INTERNAL_ERROR
-				                  "%s: unsupported namespace with internal number %d found in rel spec",
-				                  __func__,
-				                  rel_spec->cur_key_spec->ns);
-				goto out;
-			}
-
-			if (!(key = _compose_key(NULL, rel_spec->cur_key_spec))) {
-				_destroy_key(NULL, key_part);
-				goto out;
-			}
-
-			_do_kv_delta_set(key, rel_vvalue, VVALUE_SINGLE_CNT, update_arg);
-
-			if (rel_spec->cur_key_spec->ns == SID_KV_NS_DEVICE)
-				rel_spec->cur_key_spec->ns_part = NULL;
-			else if (rel_spec->cur_key_spec->ns == SID_KV_NS_MODULE)
-				rel_spec->cur_key_spec->id = NULL;
-
-			_destroy_key(NULL, key);
-			_destroy_key(NULL, key_part);
 		}
 
-		r = 0;
-out:
-		_destroy_key(NULL, key_prefix);
-		rel_spec->abs_delta = orig_abs_delta;
-		rel_spec->delta     = orig_delta;
-		UTIL_SWAP(rel_spec->rel_key_spec, rel_spec->cur_key_spec);
+		if (!(key = _compose_key(NULL, rel_spec->cur_key_spec))) {
+			_destroy_key(NULL, key_part);
+			goto out;
+		}
+
+		_do_kv_delta_set(key, rel_vvalue, VVALUE_SINGLE_CNT, update_arg);
+
+		if (rel_spec->cur_key_spec->ns == SID_KV_NS_DEVICE)
+			rel_spec->cur_key_spec->ns_part = NULL;
+		else if (rel_spec->cur_key_spec->ns == SID_KV_NS_MODULE)
+			rel_spec->cur_key_spec->id = NULL;
+
+		_destroy_key(NULL, key);
+		_destroy_key(NULL, key_part);
 	}
 
+	r = 0;
+out:
+	_destroy_key(NULL, key_prefix);
+	rel_spec->abs_delta = orig_abs_delta;
+	rel_spec->delta     = orig_delta;
+	UTIL_SWAP(rel_spec->rel_key_spec, rel_spec->cur_key_spec);
 	rel_spec->cur_key_spec->op = orig_op;
 	return r;
 }
