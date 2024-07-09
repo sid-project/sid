@@ -1180,6 +1180,45 @@ static void _print_vvalue(kv_vector_t    *vvalue,
 		fmt_fld_str(format, buf, level, name, "", true);
 }
 
+static void _print_flags(kv_vector_t *vvalue, const char *name, fmt_output_t format, struct sid_buf *buf, int level)
+{
+	static struct {
+		uint64_t    fl_val;
+		const char *abbrev;
+	} fl_tab[]          = {{SID_KV_FL_ALIGN, "AL"},
+	                       {SID_KV_FL_SYNC, "SC"},
+	                       {SID_KV_FL_PERSIST, "PS"},
+	                       {SID_KV_FL_AR, "AR"},
+	                       {SID_KV_FL_RS, "RS"},
+	                       {SID_KV_FL_FRG_RD, "FR_RD"},
+	                       {SID_KV_FL_SUB_RD, "SB_RD"},
+	                       {SID_KV_FL_SUP_RD, "SP_RD"},
+	                       {SID_KV_FL_FRG_WR, "FR_WR"},
+	                       {SID_KV_FL_SUB_WR, "SB_WR"},
+	                       {SID_KV_FL_SUP_WR, "SP_WR"}};
+
+	uint64_t flags      = VVALUE_FLAGS(vvalue);
+	bool     with_comma = false;
+	int      i;
+
+	fmt_arr_start(format, buf, level, "flags", true);
+	level++;
+
+#define _PRINT_FLAG(pos)                                                                                                           \
+	do {                                                                                                                       \
+		if (flags & fl_tab[pos].fl_val) {                                                                                  \
+			fmt_arr_fld_str(format, buf, level, fl_tab[pos].abbrev, with_comma);                                       \
+			with_comma = true;                                                                                         \
+		}                                                                                                                  \
+	} while (0)
+
+	for (i = 0; i < (sizeof(fl_tab) / sizeof(fl_tab[0])); i++)
+		_PRINT_FLAG(i);
+
+	level--;
+	fmt_arr_end(format, buf, level);
+}
+
 static fmt_output_t flags_to_format(uint16_t flags)
 {
 	switch (flags & SID_IFC_CMD_FL_FMT_MASK) {
@@ -1432,19 +1471,7 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 			vvalue = _get_vvalue(kv_store_value_flags, raw_value, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
 			fmt_fld_uint(format, export_buf, 3, "gennum", VVALUE_GENNUM(vvalue), true);
 			fmt_fld_uint64(format, export_buf, 3, "seqnum", VVALUE_SEQNUM(vvalue), true);
-			fmt_arr_start(format, export_buf, 3, "flags", true);
-			fmt_fld_bool(format, export_buf, 4, "AL", VVALUE_FLAGS(vvalue) & SID_KV_FL_ALIGN, false);
-			fmt_fld_bool(format, export_buf, 4, "SC", VVALUE_FLAGS(vvalue) & SID_KV_FL_SYNC, true);
-			fmt_fld_bool(format, export_buf, 4, "PS", VVALUE_FLAGS(vvalue) & SID_KV_FL_PERSIST, true);
-			fmt_fld_bool(format, export_buf, 4, "AR", VVALUE_FLAGS(vvalue) & SID_KV_FL_AR, true);
-			fmt_fld_bool(format, export_buf, 4, "RS", VVALUE_FLAGS(vvalue) & SID_KV_FL_RS, true);
-			fmt_fld_bool(format, export_buf, 4, "FR_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_RD, true);
-			fmt_fld_bool(format, export_buf, 4, "SB_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_RD, true);
-			fmt_fld_bool(format, export_buf, 4, "SP_RD", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_RD, true);
-			fmt_fld_bool(format, export_buf, 4, "FR_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_FRG_WR, true);
-			fmt_fld_bool(format, export_buf, 4, "SB_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUB_WR, true);
-			fmt_fld_bool(format, export_buf, 4, "SP_WR", VVALUE_FLAGS(vvalue) & SID_KV_FL_SUP_WR, true);
-			fmt_arr_end(format, export_buf, 3);
+			_print_flags(vvalue, "flags", format, export_buf, 3);
 			fmt_fld_str(format, export_buf, 3, "owner", VVALUE_OWNER(vvalue), true);
 			_print_vvalue(vvalue, vector, size, vector ? "values" : "value", format, export_buf, 3);
 			fmt_elm_end(format, export_buf, 2);
