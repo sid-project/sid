@@ -2137,6 +2137,7 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 	const char         *key_prefix, *key_part;
 	char               *key;
 	kv_vector_t         rel_vvalue[VVALUE_SINGLE_CNT];
+	struct kv_unset_nfo unset_nfo;
 	int                 r = -1;
 
 	if (op == KV_OP_PLUS) {
@@ -2180,14 +2181,22 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 
 		_value_vector_mark_sync(abs_delta_vvalue, 1);
 
-		sid_kvs_set(update_arg->res,
-		            key,
-		            abs_delta_vvalue,
-		            abs_delta_vsize,
-		            SID_KVS_VAL_FL_VECTOR,
-		            SID_KVS_VAL_OP_NONE,
-		            _kv_cb_write,
-		            update_arg);
+		if (abs_delta_vsize > VVALUE_HEADER_CNT) {
+			sid_kvs_set(update_arg->res,
+			            key,
+			            abs_delta_vvalue,
+			            abs_delta_vsize,
+			            SID_KVS_VAL_FL_VECTOR,
+			            SID_KVS_VAL_OP_NONE,
+			            _kv_cb_write,
+			            update_arg);
+		} else {
+			unset_nfo.owner    = VVALUE_OWNER(abs_delta_vvalue);
+			unset_nfo.seqnum   = VVALUE_SEQNUM(abs_delta_vvalue);
+			update_arg->custom = &unset_nfo;
+			sid_kvs_unset(update_arg->res, key, _kv_cb_write, update_arg);
+			update_arg->custom = rel_spec;
+		}
 
 		_value_vector_mark_sync(abs_delta_vvalue, 0);
 
