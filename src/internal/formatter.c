@@ -134,6 +134,8 @@ int fmt_arr_start(fmt_output_t format, struct sid_buf *buf, int level, const cha
 			r = _print_indent(buf, level);
 		if (!r)
 			r = _print_fmt(buf, "\"%s\": %s", array_name, JSON_START_ARRAY);
+	} else if (format == FMT_ENV) {
+		r = _print_fmt(buf, "%s=\"", array_name);
 	} else if (format == FMT_TABLE)
 		r = _print_fmt(buf, "%s:\n", array_name);
 
@@ -153,6 +155,8 @@ int fmt_arr_end(fmt_output_t format, struct sid_buf *buf, int level)
 			r = _print_indent(buf, level);
 		if (!r)
 			r = _print_fmt(buf, JSON_END_ARRAY);
+	} else if (format == FMT_ENV) {
+		r = _print_fmt(buf, "\"\n");
 	}
 
 	return r;
@@ -375,6 +379,8 @@ int fmt_arr_fld_str(fmt_output_t format, struct sid_buf *buf, int level, const c
 			r = _print_indent(buf, level);
 		if (!r)
 			r = _print_fmt(buf, "\"%s\"", value);
+	} else if (format == FMT_ENV) {
+		r = _print_fmt(buf, "%s%s", with_comma ? "," : "", value);
 	} else if (format == FMT_TABLE)
 		r = _print_fmt(buf, "%s\n", value);
 
