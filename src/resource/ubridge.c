@@ -6129,6 +6129,7 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 	kv_vector_t             *vvalue = NULL;
 	const char              *vvalue_str;
 	void                    *value_to_store;
+	const void              *final_value;
 	struct kv_rel_spec       rel_spec   = {.delta = &((struct kv_delta) {0}), .abs_delta = &((struct kv_delta) {0})};
 	struct kv_update_arg     update_arg = {.gen_buf = common_ctx->gen_buf, .is_sync = true, .custom = &rel_spec};
 	struct kv_unset_nfo      unset_nfo;
@@ -6335,9 +6336,25 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 				                             SID_KVS_VAL_OP_NONE,
 				                             _kv_cb_delta_step,
 				                             &update_arg);
-				_destroy_delta_buffers(rel_spec.delta);
-				if (!value_to_store || update_arg.ret_code < 0)
+
+				if (!value_to_store || update_arg.ret_code < 0) {
+					_destroy_delta_buffers(rel_spec.delta);
 					goto out;
+				}
+
+				sid_buf_get_data(rel_spec.delta->final, &final_value, &value_size);
+
+				unset = !(VVALUE_FLAGS(final_value) & SID_KV_FL_RS) && (value_size == VVALUE_HEADER_CNT);
+				if (unset) {
+					if (value_size == VVALUE_HEADER_CNT) {
+						unset_nfo.owner   = VVALUE_OWNER(final_value);
+						unset_nfo.seqnum  = VVALUE_SEQNUM(final_value);
+						update_arg.custom = &unset_nfo;
+						sid_kvs_unset(common_ctx->kvs_res, key, _kv_cb_main_unset, &update_arg);
+					}
+				}
+
+				_destroy_delta_buffers(rel_spec.delta);
 			}
 		}
 
