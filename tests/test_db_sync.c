@@ -355,8 +355,8 @@ static void test_subtract_missing(void **state)
 	_set_kv(ts->work_ctx, "key", data, 1, KV_OP_MINUS, true);
 	fd = _do_build_buffers(ts->work_res);
 	assert_int_equal(_sync_main_kv_store(ts->main_res, ts->main_ctx->common, fd), 0);
-	_check_kv(ts->main_ctx, "key", NULL, 0, true);
-	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 1);
+	_check_missing_kv(ts->main_ctx, "key");
+	assert_int_equal(kv_store_num_entries(ts->main_ctx->common->kvs_res), 0);
 }
 
 static void test_add_missing(void **state)
