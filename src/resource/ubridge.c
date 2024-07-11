@@ -6328,16 +6328,14 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 						goto out;
 				}
 			} else {
-				value_to_store = sid_kvs_set(common_ctx->kvs_res,
-				                             key,
-				                             value_to_store,
-				                             value_size,
-				                             SID_KVS_VAL_FL_VECTOR | SID_KVS_VAL_FL_REF,
-				                             SID_KVS_VAL_OP_NONE,
-				                             _kv_cb_delta_step,
-				                             &update_arg);
-
-				if (!value_to_store || update_arg.ret_code < 0) {
+				if (!sid_kvs_set(common_ctx->kvs_res,
+				                 key,
+				                 value_to_store,
+				                 value_size,
+				                 SID_KVS_VAL_FL_VECTOR | SID_KVS_VAL_FL_REF,
+				                 SID_KVS_VAL_OP_NONE,
+				                 _kv_cb_delta_step,
+				                 &update_arg)) {
 					_destroy_delta_buffers(rel_spec.delta);
 					goto out;
 				}
