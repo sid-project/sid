@@ -283,12 +283,35 @@ int sid_ucmd_dev_set_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx,
 sid_ucmd_dev_reserved_t sid_ucmd_dev_get_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
 
 int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
+
 int sid_ucmd_dev_alias_rename(sid_res_t           *mod_res,
                               struct sid_ucmd_ctx *ucmd_ctx,
                               const char          *alias_key,
                               const char          *old_alias,
                               const char          *new_alias);
+
 int sid_ucmd_dev_alias_del(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
+
+const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, size_t *count);
+
+const char **sid_ucmd_dev_alias_get_foreign_dev(sid_res_t           *mod_res,
+                                                struct sid_ucmd_ctx *ucmd_ctx,
+                                                const char          *foreign_dev_id,
+                                                const char          *alias_key,
+                                                size_t              *count);
+
+const char **sid_ucmd_dev_alias_get_foreign_mod(sid_res_t           *mod_res,
+                                                struct sid_ucmd_ctx *ucmd_ctx,
+                                                const char          *foreign_mod_name,
+                                                const char          *alias_key,
+                                                size_t              *count);
+
+const char **sid_ucmd_dev_alias_get_foreign_dev_mod(sid_res_t           *mod_res,
+                                                    struct sid_ucmd_ctx *ucmd_ctx,
+                                                    const char          *foreign_dev_id,
+                                                    const char          *foreign_mod_name,
+                                                    const char          *alias_key,
+                                                    size_t              *count);
 
 int sid_ucmd_grp_create(sid_res_t              *mod_res,
                         struct sid_ucmd_ctx    *ucmd_ctx,

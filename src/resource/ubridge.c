@@ -429,6 +429,18 @@ struct kv_key_spec {
 	const char             *core;
 };
 
+static const char *op_to_key_prefix_map[] = {[KV_OP_ILLEGAL] = KV_PREFIX_OP_ILLEGAL_C,
+                                             [KV_OP_SET]     = KV_PREFIX_OP_SET_C,
+                                             [KV_OP_PLUS]    = KV_PREFIX_OP_PLUS_C,
+                                             [KV_OP_MINUS]   = KV_PREFIX_OP_MINUS_C};
+
+static const char *ns_to_key_prefix_map[] = {[SID_KV_NS_UNDEFINED] = KV_PREFIX_NS_UNDEFINED_C,
+                                             [SID_KV_NS_UDEV]      = KV_PREFIX_NS_UDEV_C,
+                                             [SID_KV_NS_DEVICE]    = KV_PREFIX_NS_DEVICE_C,
+                                             [SID_KV_NS_MODULE]    = KV_PREFIX_NS_MODULE_C,
+                                             [SID_KV_NS_DEVMOD]    = KV_PREFIX_NS_DEVMOD_C,
+                                             [SID_KV_NS_GLOBAL]    = KV_PREFIX_NS_GLOBAL_C};
+
 struct kv_rel_spec {
 	struct kv_delta    *delta;
 	struct kv_delta    *abs_delta;
@@ -527,6 +539,7 @@ static struct cmd_reg      _cmd_scan_phase_regs[];
 static sid_ucmd_kv_flags_t value_flags_no_sync = (DEFAULT_VALUE_FLAGS_CORE) & ~SID_KV_FL_SYNC;
 static char               *core_owner          = OWNER_CORE;
 static uint64_t            null_int            = 0;
+static struct iovec        null_iovec          = {.iov_base = NULL, .iov_len = 0};
 
 static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv_update_arg *update_arg);
 
@@ -587,18 +600,6 @@ static char *_do_compose_key(struct sid_buf *buf, struct kv_key_spec *key_spec, 
 				  "%s";
 	char *key;
 
-	static const char *op_to_key_prefix_map[] = {[KV_OP_ILLEGAL] = KV_PREFIX_OP_ILLEGAL_C,
-	                                             [KV_OP_SET]     = KV_PREFIX_OP_SET_C,
-	                                             [KV_OP_PLUS]    = KV_PREFIX_OP_PLUS_C,
-	                                             [KV_OP_MINUS]   = KV_PREFIX_OP_MINUS_C};
-
-	static const char *ns_to_key_prefix_map[] = {[SID_KV_NS_UNDEFINED] = KV_PREFIX_NS_UNDEFINED_C,
-	                                             [SID_KV_NS_UDEV]      = KV_PREFIX_NS_UDEV_C,
-	                                             [SID_KV_NS_DEVICE]    = KV_PREFIX_NS_DEVICE_C,
-	                                             [SID_KV_NS_MODULE]    = KV_PREFIX_NS_MODULE_C,
-	                                             [SID_KV_NS_DEVMOD]    = KV_PREFIX_NS_DEVMOD_C,
-	                                             [SID_KV_NS_GLOBAL]    = KV_PREFIX_NS_GLOBAL_C};
-
 	/* <op>:<dom>:<ns>:<ns_part>:<id_cat>:<id>[:<core>] */
 
 	if (buf) {
@@ -642,6 +643,44 @@ static char *_compose_key_prefix(struct sid_buf *buf, struct kv_key_spec *key_sp
 {
 	/* <op>:<dom>:<ns>:<ns_part><id_cat>:<id> */
 	return _do_compose_key(buf, key_spec, 1);
+}
+
+static key_part_t _decompose_key(const char *key, struct iovec *parts)
+{
+	key_part_t  part;
+	const char *start = key, *end;
+	size_t      len;
+
+	for (part = _KEY_PART_START; part < _KEY_PART_COUNT; part++) {
+		if ((part == (_KEY_PART_COUNT - 1)) || !(end = strstr(start, SID_KVS_KEY_JOIN))) {
+			len = strlen(start);
+			end = start + len;
+		} else
+			len = end - start;
+
+		parts[part].iov_base = (void *) start;
+		parts[part].iov_len  = len;
+
+		if (!end[0])
+			break;
+
+		start = end + 1;
+	}
+
+	return part;
+}
+
+#define STR_TO_IOVEC(str) (str) ? ((struct iovec) {.iov_base = (void *) (str), .iov_len = strlen((str))}) : null_iovec
+
+static void _key_spec_to_parts(struct kv_key_spec *key_spec, struct iovec *parts)
+{
+	parts[KEY_PART_OP]      = STR_TO_IOVEC(op_to_key_prefix_map[key_spec->op]);
+	parts[KEY_PART_DOM]     = STR_TO_IOVEC(key_spec->dom);
+	parts[KEY_PART_NS]      = STR_TO_IOVEC(ns_to_key_prefix_map[key_spec->ns]);
+	parts[KEY_PART_NS_PART] = STR_TO_IOVEC(key_spec->ns_part);
+	parts[KEY_PART_ID_CAT]  = STR_TO_IOVEC(key_spec->id_cat);
+	parts[KEY_PART_ID]      = STR_TO_IOVEC(key_spec->id);
+	parts[KEY_PART_CORE]    = STR_TO_IOVEC(key_spec->core);
 }
 
 static void _destroy_key(struct sid_buf *buf, const char *key)
@@ -2656,6 +2695,67 @@ out:
 	return ret;
 }
 
+static bool _key_parts_match(struct iovec *key_parts1, struct iovec *key_parts2, key_part_t last_key_part)
+{
+	key_part_t   key_part;
+	struct iovec part1, part2;
+
+	for (key_part = _KEY_PART_START; key_part < last_key_part; key_part++) {
+		part1 = key_parts1[key_part];
+		part2 = key_parts2[key_part];
+
+		if (part1.iov_base && part2.iov_base) {
+			if ((part1.iov_len != part2.iov_len) || memcmp(part1.iov_base, part2.iov_base, part1.iov_len))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+static char **_get_key_strv_from_vvalue(const kv_vector_t *vvalue, size_t size, struct kv_key_spec *key_filter, size_t *ret_count)
+{
+	struct iovec   key_filter_parts[_KEY_PART_COUNT];
+	struct iovec   key_parts[_KEY_PART_COUNT];
+	key_part_t     last_key_part;
+	size_t         i, count = 0;
+	struct bitmap *bitmap;
+	char         **strv;
+	char          *p;
+
+	_key_spec_to_parts(key_filter, key_filter_parts);
+
+	if (!(bitmap = bitmap_create(size, false, NULL)))
+		return NULL;
+
+	for (i = 0; i < size; i++) {
+		last_key_part = _decompose_key(vvalue[i].iov_base, key_parts);
+
+		if (_key_parts_match(key_parts, key_filter_parts, last_key_part)) {
+			bitmap_set_bit(bitmap, i);
+			/* Here, the 'count' is the number of chars used in total. */
+			count += vvalue[i].iov_len;
+		}
+	}
+
+	if (!(strv = malloc(bitmap_get_bit_set_count(bitmap) * sizeof(char *) + count * sizeof(char))))
+		goto out;
+
+	p = (char *) (strv + bitmap_get_bit_set_count(bitmap));
+
+	/* Here, the 'count' is the current number of items already in the final strv. */
+	for (i = 0, count = 0; i < size; i++) {
+		if (bitmap_bit_is_set(bitmap, i, NULL)) {
+			strv[count++] = p;
+			p             = mempcpy(p, vvalue[i].iov_base, vvalue[i].iov_len);
+		}
+	}
+out:
+	bitmap_destroy(bitmap);
+	*ret_count = count;
+	return strv;
+}
+
 static const void *_do_sid_ucmd_get_kv(sid_res_t              *res,
                                        struct sid_ucmd_ctx    *ucmd_ctx,
                                        const char             *owner,
@@ -3471,6 +3571,85 @@ int sid_ucmd_dev_alias_del(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 	                              alias,
 	                              KV_OP_MINUS,
 	                              false);
+}
+
+const char **_do_sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
+                                        struct sid_ucmd_ctx *ucmd_ctx,
+                                        const char          *foreign_dev_id,
+                                        const char          *foreign_mod_name,
+                                        const char          *alias_key,
+                                        size_t              *count)
+{
+	const kv_vector_t *vvalue;
+	size_t             vvalue_size;
+	char             **key_strv;
+
+	vvalue = _cmd_get_key_spec_value(
+		mod_res,
+		ucmd_ctx,
+		_owner_name(mod_res),
+		&((struct kv_key_spec) {.extra_op = NULL,
+	                                .op       = KV_OP_SET,
+	                                .dom      = ID_NULL,
+	                                .ns       = SID_KV_NS_DEVICE,
+	                                .ns_part = foreign_dev_id ?: _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_DEVICE),
+	                                .id_cat  = ID_NULL,
+	                                .id      = ID_NULL,
+	                                .core    = KV_KEY_GEN_GROUP_IN}),
+		&vvalue_size,
+		NULL);
+
+	if (!vvalue)
+		return NULL;
+
+	key_strv = _get_key_strv_from_vvalue(
+		vvalue,
+		vvalue_size,
+		&((struct kv_key_spec) {.extra_op = NULL,
+	                                .op       = KV_OP_SET,
+	                                .dom      = KV_KEY_DOM_ALIAS,
+	                                .ns       = SID_KV_NS_MODULE,
+	                                .ns_part =
+	                                        foreign_mod_name ?: _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_MODULE),
+	                                .id_cat = alias_key ?: NULL,
+	                                .id     = NULL,
+	                                .core   = NULL}),
+		count);
+
+	return (const char **) key_strv;
+}
+
+const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, size_t *count)
+{
+	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, NULL, NULL, alias_key, count);
+}
+
+const char **sid_ucmd_dev_alias_get_foreign_dev(sid_res_t           *mod_res,
+                                                struct sid_ucmd_ctx *ucmd_ctx,
+                                                const char          *foreign_dev_id,
+                                                const char          *alias_key,
+                                                size_t              *count)
+{
+	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, foreign_dev_id, NULL, alias_key, count);
+}
+
+const char **sid_ucmd_dev_alias_get_foreign_mod(sid_res_t           *mod_res,
+                                                struct sid_ucmd_ctx *ucmd_ctx,
+                                                const char          *foreign_mod_name,
+                                                const char          *alias_key,
+                                                size_t              *count)
+{
+	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, NULL, foreign_mod_name, alias_key, count);
+}
+
+const char **sid_ucmd_dev_alias_get_foreign_dev_mod(sid_res_t           *mod_res,
+                                                    struct sid_ucmd_ctx *ucmd_ctx,
+                                                    const char          *foreign_dev_id,
+                                                    const char          *foreign_mod_name,
+                                                    const char          *alias_key,
+                                                    size_t              *count)
+{
+	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, foreign_dev_id, foreign_mod_name, alias_key, count);
 }
 
 static int _kv_cb_write_new_only(struct sid_kvs_update_spec *spec)
