@@ -525,7 +525,6 @@ static bool _cmd_root_only[] = {
 
 static struct cmd_reg      _cmd_scan_phase_regs[];
 static sid_ucmd_kv_flags_t value_flags_no_sync = (DEFAULT_VALUE_FLAGS_CORE) & ~SID_KV_FL_SYNC;
-static sid_ucmd_kv_flags_t value_flags_sync    = DEFAULT_VALUE_FLAGS_CORE;
 static char               *core_owner          = OWNER_CORE;
 static uint64_t            null_int            = 0;
 
@@ -2149,9 +2148,9 @@ out:
 static void _value_vector_mark_sync(kv_vector_t *vvalue, int sync)
 {
 	if (sync)
-		vvalue[VVALUE_IDX_FLAGS] = (kv_vector_t) {&value_flags_sync, sizeof(value_flags_sync)};
+		VVALUE_FLAGS(vvalue) |= SID_KV_FL_SYNC;
 	else
-		vvalue[VVALUE_IDX_FLAGS] = (kv_vector_t) {&value_flags_no_sync, sizeof(value_flags_no_sync)};
+		VVALUE_FLAGS(vvalue) &= ~SID_KV_FL_SYNC;
 }
 
 static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg *update_arg)
@@ -3234,13 +3233,14 @@ static int _handle_devs_for_group(sid_res_t              *res,
                                   kv_op_t                 op,
                                   bool                    is_sync)
 {
-	char        *key            = NULL;
-	const char  *rel_key_prefix = NULL;
-	kv_vector_t  single_vvalue[VVALUE_SINGLE_CNT];
-	kv_vector_t *vvalue = NULL;
-	size_t       vvalue_size;
-	unsigned     i;
-	int          r              = -1;
+	char               *key            = NULL;
+	const char         *rel_key_prefix = NULL;
+	kv_vector_t         single_vvalue[VVALUE_SINGLE_CNT];
+	kv_vector_t        *vvalue = NULL;
+	size_t              vvalue_size;
+	sid_ucmd_kv_flags_t flags = value_flags_no_sync;
+	unsigned            i;
+	int                 r       = -1;
 
 	struct kv_rel_spec rel_spec = {
 		.delta        = &((struct kv_delta) {.op = op, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
@@ -3286,12 +3286,7 @@ static int _handle_devs_for_group(sid_res_t              *res,
 		vvalue_size = VVALUE_CNT(single_vvalue);
 	}
 
-	_vvalue_header_prep(vvalue,
-	                    vvalue_size,
-	                    &ucmd_ctx->req_env.dev.udev.seqnum,
-	                    &value_flags_no_sync,
-	                    &ucmd_ctx->common->gennum,
-	                    core_owner);
+	_vvalue_header_prep(vvalue, vvalue_size, &ucmd_ctx->req_env.dev.udev.seqnum, &flags, &ucmd_ctx->common->gennum, core_owner);
 
 	if (vdevs) {
 		for (i = 0; i < vdevs_size; i++)
