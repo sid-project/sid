@@ -3381,7 +3381,7 @@ out:
 	return r;
 }
 
-int sid_ucmd_dev_add_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
+int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
 {
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_key) || UTIL_STR_EMPTY(alias))
 		return -EINVAL;
@@ -3403,7 +3403,7 @@ int sid_ucmd_dev_add_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 	                              false);
 }
 
-int sid_ucmd_dev_rename_alias(sid_res_t           *mod_res,
+int sid_ucmd_dev_alias_rename(sid_res_t           *mod_res,
                               struct sid_ucmd_ctx *ucmd_ctx,
                               const char          *alias_key,
                               const char          *old_alias,
@@ -3451,7 +3451,7 @@ int sid_ucmd_dev_rename_alias(sid_res_t           *mod_res,
 	                                  true);
 }
 
-int sid_ucmd_dev_del_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
+int sid_ucmd_dev_alias_del(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias)
 {
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_key) || UTIL_STR_EMPTY(alias))
 		return -EINVAL;

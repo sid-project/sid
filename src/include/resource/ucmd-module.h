@@ -282,13 +282,13 @@ sid_ucmd_dev_ready_t sid_ucmd_dev_get_ready(sid_res_t *mod_res, struct sid_ucmd_
 int sid_ucmd_dev_set_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved);
 sid_ucmd_dev_reserved_t sid_ucmd_dev_get_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
 
-int sid_ucmd_dev_add_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
-int sid_ucmd_dev_rename_alias(sid_res_t           *mod_res,
+int sid_ucmd_dev_alias_add(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
+int sid_ucmd_dev_alias_rename(sid_res_t           *mod_res,
                               struct sid_ucmd_ctx *ucmd_ctx,
                               const char          *alias_key,
                               const char          *old_alias,
                               const char          *new_alias);
-int sid_ucmd_dev_del_alias(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
+int sid_ucmd_dev_alias_del(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
 
 int sid_ucmd_grp_create(sid_res_t              *mod_res,
                         struct sid_ucmd_ctx    *ucmd_ctx,

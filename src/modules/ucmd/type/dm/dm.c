@@ -388,12 +388,12 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	if (_get_sysfs_value(mod_res, sysfs_dev_path, SYSFS_DM_SUSPENDED, suspended, sizeof(suspended)) < 0 || !suspended[0])
 		return -1;
 
-	if (uuid[0] && (r = sid_ucmd_dev_add_alias(mod_res, ucmd_ctx, ALS_UUID, uuid)) < 0) {
+	if (uuid[0] && (r = sid_ucmd_dev_alias_add(mod_res, ucmd_ctx, ALS_UUID, uuid)) < 0) {
 		sid_res_log_error_errno(mod_res, r, _failed_to_set_alias_msg, ALS_UUID);
 		return -1;
 	}
 
-	if ((r = sid_ucmd_dev_add_alias(mod_res, ucmd_ctx, ALS_NAME, name)) < 0) {
+	if ((r = sid_ucmd_dev_alias_add(mod_res, ucmd_ctx, ALS_NAME, name)) < 0) {
 		sid_res_log_error_errno(mod_res, r, _failed_to_set_alias_msg, ALS_NAME);
 		return -1;
 	}
