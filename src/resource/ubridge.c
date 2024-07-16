@@ -2560,13 +2560,13 @@ out:
 	return ret;
 }
 
-void *sid_ucmd_kv_set(sid_res_t              *mod_res,
-                      struct sid_ucmd_ctx    *ucmd_ctx,
-                      sid_ucmd_kv_namespace_t ns,
-                      const char             *key,
-                      const void             *value,
-                      size_t                  value_size,
-                      sid_ucmd_kv_flags_t     flags)
+const void *sid_ucmd_kv_set(sid_res_t              *mod_res,
+                            struct sid_ucmd_ctx    *ucmd_ctx,
+                            sid_ucmd_kv_namespace_t ns,
+                            const char             *key,
+                            const void             *value,
+                            size_t                  value_size,
+                            sid_ucmd_kv_flags_t     flags)
 {
 	const char *dom;
 
