@@ -569,6 +569,9 @@ static int _dm_submod_scan_a_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 	}
 
 	dm_mod->submod_res = dm_mod->submod_res_current;
+	if (_exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_A_INIT) < 0)
+		return -1;
+
 	return 0;
 }
 
