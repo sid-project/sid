@@ -76,7 +76,13 @@ static int _store_component_names(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 	if (!*vg_name || !*lv_name)
 		goto out;
 
-	if (!sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, "DM_VG_NAME", vg_name, strlen(vg_name) + 1, SID_KV_FL_RD) ||
+	if (!sid_ucmd_kv_set(mod_res,
+	                     ucmd_ctx,
+	                     SID_KV_NS_UDEV,
+	                     "DM_VG_NAME",
+	                     vg_name,
+	                     strlen(vg_name) + 1,
+	                     SID_KV_FL_SYNC | SID_KV_FL_RD) ||
 	    !sid_ucmd_kv_set(mod_res,
 	                     ucmd_ctx,
 	                     SID_KV_NS_DEVMOD,
@@ -84,7 +90,13 @@ static int _store_component_names(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 	                     vg_name,
 	                     strlen(vg_name) + 1,
 	                     SID_KV_FL_SYNC | SID_KV_FL_RD) ||
-	    !sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, "DM_LV_NAME", lv_name, strlen(lv_name) + 1, SID_KV_FL_RD) ||
+	    !sid_ucmd_kv_set(mod_res,
+	                     ucmd_ctx,
+	                     SID_KV_NS_UDEV,
+	                     "DM_LV_NAME",
+	                     lv_name,
+	                     strlen(lv_name) + 1,
+	                     SID_KV_FL_SYNC | SID_KV_FL_RD) ||
 	    !sid_ucmd_kv_set(mod_res,
 	                     ucmd_ctx,
 	                     SID_KV_NS_DEVMOD,
@@ -101,7 +113,7 @@ static int _store_component_names(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 		                     "DM_LV_LAYER",
 		                     lv_layer,
 		                     strlen(lv_layer) + 1,
-		                     SID_KV_FL_RD) ||
+		                     SID_KV_FL_SYNC | SID_KV_FL_RD) ||
 		    !sid_ucmd_kv_set(mod_res,
 		                     ucmd_ctx,
 		                     SID_KV_NS_DEVMOD,
