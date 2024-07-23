@@ -513,7 +513,7 @@ static int _dm_exit(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_
 
 	for (flag_name = _udev_cookie_flag_names; *flag_name; flag_name++) {
 		if (sid_ucmd_kv_unreserve(mod_res, ucmd_common_ctx, SID_KV_NS_UDEV, *flag_name) < 0) {
-			sid_res_log_error(mod_res, "Faile to unreserve dm udev key %s.", *flag_name);
+			sid_res_log_error(mod_res, "Failed to unreserve dm udev key %s.", *flag_name);
 			r = -1;
 		}
 	}
