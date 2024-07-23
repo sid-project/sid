@@ -20,8 +20,6 @@
 #ifndef _SID_LOG_H
 #define _SID_LOG_H
 
-#include "internal/comp-attrs.h"
-
 #include <errno.h>
 #include <stdarg.h>
 #include <string.h>
@@ -77,7 +75,7 @@ void       sid_log_close(sid_log_t *log);
 void       sid_log_change_tgt(sid_log_t *log, sid_log_tgt_t new_target);
 void       sid_log_set_pfx(sid_log_t *log, const char *prefix);
 
-__format_printf(3, 4) void sid_log_output(sid_log_t *log, sid_log_req_t *req, const char *format, ...);
+__attribute__((format(printf, 3, 4))) void sid_log_output(sid_log_t *log, sid_log_req_t *req, const char *format, ...);
 void sid_log_voutput(sid_log_t *log, sid_log_req_t *req, const char *format, va_list ap);
 
 #define SID_LOG_PRINT LOG_LOCAL0
