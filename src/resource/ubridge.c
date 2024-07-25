@@ -407,7 +407,7 @@ struct kv_delta {
 };
 
 typedef enum {
-	__KEY_PART_START = 0x0,
+	_KEY_PART_START  = 0x0,
 	KEY_PART_OP      = 0x0,
 	KEY_PART_DOM     = 0x1,
 	KEY_PART_NS      = 0x2,
@@ -660,7 +660,7 @@ static const char *_get_key_part(const char *key, key_part_t req_part, size_t *l
 	key_part_t  part;
 	const char *start = key, *end;
 
-	for (part = __KEY_PART_START; part < req_part; part++) {
+	for (part = _KEY_PART_START; part < req_part; part++) {
 		if (!(start = strstr(start, SID_KVS_KEY_JOIN)))
 			return NULL;
 		start++;
