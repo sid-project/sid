@@ -3630,6 +3630,9 @@ const char **sid_ucmd_dev_alias_get_foreign_dev(sid_res_t           *mod_res,
                                                 const char          *alias_key,
                                                 size_t              *count)
 {
+	if (UTIL_STR_EMPTY(foreign_dev_id))
+		return NULL;
+
 	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, foreign_dev_id, NULL, alias_key, count);
 }
 
@@ -3639,6 +3642,9 @@ const char **sid_ucmd_dev_alias_get_foreign_mod(sid_res_t           *mod_res,
                                                 const char          *alias_key,
                                                 size_t              *count)
 {
+	if (UTIL_STR_EMPTY(foreign_mod_name))
+		return NULL;
+
 	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, NULL, foreign_mod_name, alias_key, count);
 }
 
@@ -3649,6 +3655,9 @@ const char **sid_ucmd_dev_alias_get_foreign_dev_mod(sid_res_t           *mod_res
                                                     const char          *alias_key,
                                                     size_t              *count)
 {
+	if (UTIL_STR_EMPTY(foreign_dev_id) || UTIL_STR_EMPTY(foreign_mod_name))
+		return NULL;
+
 	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, foreign_dev_id, foreign_mod_name, alias_key, count);
 }
 
