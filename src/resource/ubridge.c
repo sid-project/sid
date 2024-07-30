@@ -3575,8 +3575,8 @@ int sid_ucmd_dev_alias_del(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 
 const char **_do_sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
                                         struct sid_ucmd_ctx *ucmd_ctx,
-                                        const char          *foreign_dev_id,
                                         const char          *mod_name,
+                                        const char          *foreign_dev_id,
                                         const char          *alias_key,
                                         size_t              *count)
 {
@@ -3617,7 +3617,11 @@ const char **_do_sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
 	return (const char **) key_strv;
 }
 
-const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, size_t *count)
+const char **sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
+                                    struct sid_ucmd_ctx *ucmd_ctx,
+                                    const char          *mod_name,
+                                    const char          *alias_key,
+                                    size_t              *count)
 {
 	if (!mod_res || !ucmd_ctx ||
 	    (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
@@ -3627,11 +3631,12 @@ const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucm
 		return NULL;
 	}
 
-	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, NULL, _owner_name(mod_res), alias_key, count);
+	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, mod_name, NULL, alias_key, count);
 }
 
 const char **sid_ucmd_dev_alias_get_foreign_dev(sid_res_t           *mod_res,
                                                 struct sid_ucmd_ctx *ucmd_ctx,
+                                                const char          *mod_name,
                                                 const char          *foreign_dev_id,
                                                 const char          *alias_key,
                                                 size_t              *count)
@@ -3644,42 +3649,7 @@ const char **sid_ucmd_dev_alias_get_foreign_dev(sid_res_t           *mod_res,
 		return NULL;
 	}
 
-	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, foreign_dev_id, _owner_name(mod_res), alias_key, count);
-}
-
-const char **sid_ucmd_dev_alias_get_foreign_mod(sid_res_t           *mod_res,
-                                                struct sid_ucmd_ctx *ucmd_ctx,
-                                                const char          *foreign_mod_name,
-                                                const char          *alias_key,
-                                                size_t              *count)
-{
-	if (!mod_res || !ucmd_ctx ||
-	    (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
-	     !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))) {
-		if (count)
-			*count = 0;
-		return NULL;
-	}
-
-	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, NULL, foreign_mod_name, alias_key, count);
-}
-
-const char **sid_ucmd_dev_alias_get_foreign_dev_mod(sid_res_t           *mod_res,
-                                                    struct sid_ucmd_ctx *ucmd_ctx,
-                                                    const char          *foreign_dev_id,
-                                                    const char          *foreign_mod_name,
-                                                    const char          *alias_key,
-                                                    size_t              *count)
-{
-	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_dev_id) ||
-	    (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
-	     !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))) {
-		if (count)
-			*count = 0;
-		return NULL;
-	}
-
-	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, foreign_dev_id, foreign_mod_name, alias_key, count);
+	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, mod_name, foreign_dev_id, alias_key, count);
 }
 
 static int _kv_cb_write_new_only(struct sid_kvs_update_spec *spec)
