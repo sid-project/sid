@@ -3619,12 +3619,13 @@ const char **_do_sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
 
 const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, size_t *count)
 {
-	if (!mod_res || !ucmd_ctx)
+	if (!mod_res || !ucmd_ctx ||
+	    (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
+	     !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))) {
+		if (count)
+			*count = 0;
 		return NULL;
-
-	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
-	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))
-		return NULL;
+	}
 
 	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, NULL, _owner_name(mod_res), alias_key, count);
 }
@@ -3635,12 +3636,13 @@ const char **sid_ucmd_dev_alias_get_foreign_dev(sid_res_t           *mod_res,
                                                 const char          *alias_key,
                                                 size_t              *count)
 {
-	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_dev_id))
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_dev_id) ||
+	    (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
+	     !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))) {
+		if (count)
+			*count = 0;
 		return NULL;
-
-	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
-	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))
-		return NULL;
+	}
 
 	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, foreign_dev_id, _owner_name(mod_res), alias_key, count);
 }
@@ -3651,12 +3653,13 @@ const char **sid_ucmd_dev_alias_get_foreign_mod(sid_res_t           *mod_res,
                                                 const char          *alias_key,
                                                 size_t              *count)
 {
-	if (!mod_res || !ucmd_ctx)
+	if (!mod_res || !ucmd_ctx ||
+	    (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
+	     !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))) {
+		if (count)
+			*count = 0;
 		return NULL;
-
-	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
-	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))
-		return NULL;
+	}
 
 	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, NULL, foreign_mod_name, alias_key, count);
 }
@@ -3668,12 +3671,13 @@ const char **sid_ucmd_dev_alias_get_foreign_dev_mod(sid_res_t           *mod_res
                                                     const char          *alias_key,
                                                     size_t              *count)
 {
-	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_dev_id))
+	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_dev_id) ||
+	    (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
+	     !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))) {
+		if (count)
+			*count = 0;
 		return NULL;
-
-	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
-	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))
-		return NULL;
+	}
 
 	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, foreign_dev_id, foreign_mod_name, alias_key, count);
 }
