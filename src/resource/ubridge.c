@@ -3576,7 +3576,7 @@ int sid_ucmd_dev_alias_del(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 const char **_do_sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
                                         struct sid_ucmd_ctx *ucmd_ctx,
                                         const char          *foreign_dev_id,
-                                        const char          *foreign_mod_name,
+                                        const char          *mod_name,
                                         const char          *alias_key,
                                         size_t              *count)
 {
@@ -3602,26 +3602,24 @@ const char **_do_sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
 	if (!vvalue)
 		return NULL;
 
-	key_strv = _get_key_strv_from_vvalue(
-		vvalue,
-		vvalue_size,
-		&((struct kv_key_spec) {.extra_op = NULL,
-	                                .op       = KV_OP_SET,
-	                                .dom      = KV_KEY_DOM_ALIAS,
-	                                .ns       = SID_KV_NS_MODULE,
-	                                .ns_part =
-	                                        foreign_mod_name ?: _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_MODULE),
-	                                .id_cat = alias_key ?: NULL,
-	                                .id     = NULL,
-	                                .core   = NULL}),
-		count);
+	key_strv = _get_key_strv_from_vvalue(vvalue,
+	                                     vvalue_size,
+	                                     &((struct kv_key_spec) {.extra_op = NULL,
+	                                                             .op       = KV_OP_SET,
+	                                                             .dom      = KV_KEY_DOM_ALIAS,
+	                                                             .ns       = SID_KV_NS_MODULE,
+	                                                             .ns_part  = mod_name,
+	                                                             .id_cat   = alias_key ?: NULL,
+	                                                             .id       = NULL,
+	                                                             .core     = NULL}),
+	                                     count);
 
 	return (const char **) key_strv;
 }
 
 const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, size_t *count)
 {
-	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, NULL, NULL, alias_key, count);
+	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, NULL, _owner_name(mod_res), alias_key, count);
 }
 
 const char **sid_ucmd_dev_alias_get_foreign_dev(sid_res_t           *mod_res,
@@ -3633,7 +3631,7 @@ const char **sid_ucmd_dev_alias_get_foreign_dev(sid_res_t           *mod_res,
 	if (UTIL_STR_EMPTY(foreign_dev_id))
 		return NULL;
 
-	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, foreign_dev_id, NULL, alias_key, count);
+	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, foreign_dev_id, _owner_name(mod_res), alias_key, count);
 }
 
 const char **sid_ucmd_dev_alias_get_foreign_mod(sid_res_t           *mod_res,
