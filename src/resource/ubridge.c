@@ -5141,21 +5141,10 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 	return _update_dev_deps_from_sysfs(cmd_res);
 }
 
-static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
+static const char *_get_base_mod_name(sid_res_t *cmd_res, char *buf, size_t buf_size)
 {
-	char                 buf[80];
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	const char          *mod_name;
-
-	if (!(ucmd_ctx->scan.block_mod_iter = sid_res_iter_create(ucmd_ctx->common->block_mod_reg_res))) {
-		sid_res_log_error(cmd_res, "Failed to create block module iterator.");
-		goto fail;
-	}
-
-	if (_set_dev_kvs(cmd_res) < 0)
-		goto fail;
-
-	_exec_block_mods(cmd_res);
 
 	if (!(mod_name = _do_sid_ucmd_get_kv(cmd_res,
 	                                     ucmd_ctx,
@@ -5170,9 +5159,9 @@ static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
 		                                  ucmd_ctx->req_env.dev.udev.major,
 		                                  ucmd_ctx->req_env.dev.udev.name,
 		                                  buf,
-		                                  sizeof(buf)))) {
+		                                  buf_size))) {
 			sid_res_log_error(cmd_res, "Module name lookup failed.");
-			goto fail;
+			return NULL;
 		}
 
 		if (!_do_sid_ucmd_set_kv(cmd_res,
@@ -5187,9 +5176,31 @@ static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
 			sid_res_log_error(cmd_res,
 			                  "Failed to store device " CMD_DEV_PRINT_FMT " module name",
 			                  CMD_DEV_PRINT(ucmd_ctx));
-			goto fail;
+			return NULL;
 		}
 	}
+
+	return mod_name;
+}
+
+static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
+{
+	char                 buf[80];
+	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
+	const char          *mod_name;
+
+	if (!(ucmd_ctx->scan.block_mod_iter = sid_res_iter_create(ucmd_ctx->common->block_mod_reg_res))) {
+		sid_res_log_error(cmd_res, "Failed to create block module iterator.");
+		goto fail;
+	}
+
+	if (!(mod_name = _get_base_mod_name(cmd_res, buf, sizeof(buf))))
+		goto fail;
+
+	if (_set_dev_kvs(cmd_res) < 0)
+		goto fail;
+
+	_exec_block_mods(cmd_res);
 
 	if (!(ucmd_ctx->scan.type_mod_res_current = sid_mod_reg_get_mod(ucmd_ctx->common->type_mod_reg_res, mod_name)))
 		sid_res_log_debug(cmd_res, "Module %s not loaded.", mod_name);
