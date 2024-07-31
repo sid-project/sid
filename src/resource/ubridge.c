@@ -5323,24 +5323,15 @@ static int _cmd_exec_scan_remove_init(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	const char          *mod_name;
+	char                 buf[80];
 
 	if (!(ucmd_ctx->scan.block_mod_iter = sid_res_iter_create(ucmd_ctx->common->block_mod_reg_res))) {
 		sid_res_log_error(cmd_res, "Failed to create block module iterator.");
 		goto fail;
 	}
 
-	if (!(mod_name = _do_sid_ucmd_get_kv(cmd_res,
-	                                     ucmd_ctx,
-	                                     _owner_name(NULL),
-	                                     NULL,
-	                                     SID_KV_NS_DEVICE,
-	                                     KV_KEY_DEV_MOD,
-	                                     NULL,
-	                                     NULL,
-	                                     0))) {
-		sid_res_log_error(cmd_res, "Failed to find device " CMD_DEV_PRINT_FMT " module name", CMD_DEV_PRINT(ucmd_ctx));
-		return -1;
-	}
+	if (!(mod_name = _get_base_mod_name(cmd_res, buf, sizeof(buf))))
+		goto fail;
 
 	if (!(ucmd_ctx->scan.type_mod_res_current = sid_mod_reg_get_mod(ucmd_ctx->common->type_mod_reg_res, mod_name))) {
 		sid_res_log_debug(cmd_res, "Module %s not loaded.", mod_name);
