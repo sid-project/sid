@@ -5003,37 +5003,6 @@ static int _exec_type_mod(sid_res_t *cmd_res, sid_res_t *type_mod_res)
 	return 0;
 }
 
-static int _get_devid(sid_res_t *cmd_res)
-{
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
-	char                 buf[UTIL_UUID_STR_SIZE]; /* used for both uuid and diskseq */
-	const char          *devid;
-	int                  r;
-
-	if (!(devid = _do_sid_ucmd_get_kv(cmd_res,
-	                                  ucmd_ctx,
-	                                  _owner_name(NULL),
-	                                  NULL,
-	                                  SID_KV_NS_UDEV,
-	                                  KV_KEY_UDEV_SID_DEV_ID,
-	                                  NULL,
-	                                  NULL,
-	                                  0))) {
-		r = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, ucmd_ctx->req_env.dev.num_s, NULL, NULL, buf, sizeof(buf));
-
-		if (r == 0)
-			devid = buf;
-		else {
-			/* SID doesn't appear to have a record of this device */
-			sid_res_log_error(cmd_res, "Couldn't find device ID for " CMD_DEV_PRINT_FMT ".", CMD_DEV_PRINT(ucmd_ctx));
-			return -1;
-		}
-	}
-
-	ucmd_ctx->req_env.dev.uid_s = strdup(devid);
-	return 0;
-}
-
 static bool _dev_matches_udev(sid_res_t *cmd_res, const char *devid)
 {
 	// TODO: implement this
@@ -5138,7 +5107,7 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 		return -1;
 	}
 
-	return _update_dev_deps_from_sysfs(cmd_res);
+	return 0;
 }
 
 static const char *_get_base_mod_name(sid_res_t *cmd_res, char *buf, size_t buf_size)
@@ -5198,6 +5167,9 @@ static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
 		goto fail;
 
 	if (_set_dev_kvs(cmd_res) < 0)
+		goto fail;
+
+	if (_update_dev_deps_from_sysfs(cmd_res) < 0)
 		goto fail;
 
 	_exec_block_mods(cmd_res);
@@ -5338,7 +5310,7 @@ static int _cmd_exec_scan_remove_init(sid_res_t *cmd_res)
 		return 0;
 	}
 
-	if (_get_devid(cmd_res) < 0)
+	if (_set_dev_kvs(cmd_res) < 0)
 		goto fail;
 
 	_exec_block_mods(cmd_res);
