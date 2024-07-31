@@ -5152,7 +5152,7 @@ static const char *_get_base_mod_name(sid_res_t *cmd_res, char *buf, size_t buf_
 	return mod_name;
 }
 
-static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
+static int _common_scan_init(sid_res_t *cmd_res)
 {
 	char                 buf[80];
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
@@ -5169,8 +5169,10 @@ static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
 	if (_set_dev_kvs(cmd_res) < 0)
 		goto fail;
 
-	if (_update_dev_deps_from_sysfs(cmd_res) < 0)
-		goto fail;
+	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
+		if (_update_dev_deps_from_sysfs(cmd_res) < 0)
+			goto fail;
+	}
 
 	_exec_block_mods(cmd_res);
 
@@ -5185,6 +5187,11 @@ fail:
 	}
 
 	return -1;
+}
+
+static int _cmd_exec_scan_a_init(sid_res_t *cmd_res)
+{
+	return _common_scan_init(cmd_res);
 }
 
 static int _cmd_exec_scan_a_pre(sid_res_t *cmd_res)
@@ -5293,35 +5300,7 @@ static int _cmd_exec_scan_a_exit(sid_res_t *cmd_res)
 
 static int _cmd_exec_scan_remove_init(sid_res_t *cmd_res)
 {
-	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
-	const char          *mod_name;
-	char                 buf[80];
-
-	if (!(ucmd_ctx->scan.block_mod_iter = sid_res_iter_create(ucmd_ctx->common->block_mod_reg_res))) {
-		sid_res_log_error(cmd_res, "Failed to create block module iterator.");
-		goto fail;
-	}
-
-	if (!(mod_name = _get_base_mod_name(cmd_res, buf, sizeof(buf))))
-		goto fail;
-
-	if (!(ucmd_ctx->scan.type_mod_res_current = sid_mod_reg_get_mod(ucmd_ctx->common->type_mod_reg_res, mod_name))) {
-		sid_res_log_debug(cmd_res, "Module %s not loaded.", mod_name);
-		return 0;
-	}
-
-	if (_set_dev_kvs(cmd_res) < 0)
-		goto fail;
-
-	_exec_block_mods(cmd_res);
-	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
-fail:
-	if (ucmd_ctx->scan.block_mod_iter) {
-		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
-		ucmd_ctx->scan.block_mod_iter = NULL;
-	}
-
-	return -1;
+	return _common_scan_init(cmd_res);
 }
 
 static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
