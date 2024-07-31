@@ -4368,8 +4368,8 @@ static const char *_sval_to_dev_reserved_str(kv_scalar_t *val)
 
 static int _cmd_exec_devices(sid_res_t *cmd_res)
 {
-	char                 uuid_buf1[UTIL_UUID_STR_SIZE];
-	char                 uuid_buf2[UTIL_UUID_STR_SIZE];
+	char                 devid_buf1[UTIL_UUID_STR_SIZE];
+	char                 devid_buf2[UTIL_UUID_STR_SIZE];
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	fmt_output_t         format   = flags_to_format(ucmd_ctx->req_hdr.flags);
 	struct sid_buf      *prn_buf  = ucmd_ctx->prn_buf;
@@ -4379,13 +4379,13 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 	size_t               size;
 	sid_kvs_val_fl_t     kv_store_value_flags;
 	const char          *key, *key_core;
-	char                *prev_uuid, *uuid;
+	char                *prev_devid, *devid;
 	kv_vector_t         *vvalue;
 	bool                 with_comma = false;
 	int                  r          = 0;
 
-	prev_uuid                       = uuid_buf1;
-	uuid                            = uuid_buf2;
+	prev_devid                      = devid_buf1;
+	devid                           = devid_buf2;
 
 	if (!(iter = sid_kvs_iter_create_prefix(ucmd_ctx->common->kvs_res, "::D:")))
 		goto out;
@@ -4393,20 +4393,20 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 	fmt_doc_start(format, prn_buf, 0);
 	fmt_arr_start(format, prn_buf, 1, "siddevices", false);
 
-	prev_uuid[0] = 0;
+	prev_devid[0] = 0;
 
 	while ((data = sid_kvs_iter_next(iter, &size, &key, &kv_store_value_flags))) {
-		if (!_copy_ns_part_from_key(key, uuid, sizeof(uuid_buf1)))
+		if (!_copy_ns_part_from_key(key, devid, sizeof(devid_buf1)))
 			continue;
 
 		if (!(key_core = _get_key_part(key, KEY_PART_CORE, NULL)))
 			continue;
 
-		if (strcmp(prev_uuid, uuid)) {
-			if (prev_uuid[0] != 0)
+		if (strcmp(prev_devid, devid)) {
+			if (prev_devid[0] != 0)
 				fmt_elm_end(format, prn_buf, 2);
 			fmt_elm_start(format, prn_buf, 2, with_comma);
-			fmt_fld_str(format, prn_buf, 3, "DEVID", uuid, false);
+			fmt_fld_str(format, prn_buf, 3, "DEVID", devid, false);
 		}
 
 		if (!strcmp(key_core, KV_KEY_GEN_GROUP_IN) || !strcmp(key_core, KV_KEY_GEN_GROUP_MEMBERS)) {
@@ -4418,11 +4418,11 @@ static int _cmd_exec_devices(sid_res_t *cmd_res)
 			fmt_fld_str(format, prn_buf, 3, KV_KEY_DEV_RESERVED, _sval_to_dev_reserved_str(data), with_comma);
 		}
 
-		UTIL_SWAP(uuid, prev_uuid);
+		UTIL_SWAP(devid, prev_devid);
 		with_comma = true;
 	}
 
-	if (prev_uuid[0] != 0)
+	if (prev_devid[0] != 0)
 		fmt_elm_end(format, prn_buf, 2);
 
 	fmt_arr_end(format, prn_buf, 1);
@@ -4496,8 +4496,8 @@ const void *sid_ucmd_kv_get_disk_part(sid_res_t           *mod_res,
 }
 
 static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
-                               const char          *alias_name,
-                               const char          *alias_value,
+                               const char          *alias_key,
+                               const char          *alias,
                                uint16_t            *gennum,
                                size_t              *count,
                                char                *buf,
@@ -4515,8 +4515,8 @@ static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 	                                                 .dom      = KV_KEY_DOM_ALIAS,
 	                                                 .ns       = SID_KV_NS_MODULE,
 	                                                 .ns_part  = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
-	                                                 .id_cat   = alias_name,
-	                                                 .id       = alias_value,
+	                                                 .id_cat   = alias_key,
+	                                                 .id       = alias,
 	                                                 .core     = KV_KEY_GEN_GROUP_MEMBERS})))) {
 		r = -ENOMEM;
 		goto out;
@@ -5003,34 +5003,34 @@ static int _exec_type_mod(sid_res_t *cmd_res, sid_res_t *type_mod_res)
 	return 0;
 }
 
-static int _get_device_uuid(sid_res_t *cmd_res)
+static int _get_devid(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	char                 buf[UTIL_UUID_STR_SIZE]; /* used for both uuid and diskseq */
-	const char          *uuid_p;
+	const char          *devid;
 	int                  r;
 
-	if (!(uuid_p = _do_sid_ucmd_get_kv(cmd_res,
-	                                   ucmd_ctx,
-	                                   _owner_name(NULL),
-	                                   NULL,
-	                                   SID_KV_NS_UDEV,
-	                                   KV_KEY_UDEV_SID_DEV_ID,
-	                                   NULL,
-	                                   NULL,
-	                                   0))) {
+	if (!(devid = _do_sid_ucmd_get_kv(cmd_res,
+	                                  ucmd_ctx,
+	                                  _owner_name(NULL),
+	                                  NULL,
+	                                  SID_KV_NS_UDEV,
+	                                  KV_KEY_UDEV_SID_DEV_ID,
+	                                  NULL,
+	                                  NULL,
+	                                  0))) {
 		r = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, ucmd_ctx->req_env.dev.num_s, NULL, NULL, buf, sizeof(buf));
 
 		if (r == 0)
-			uuid_p = buf;
+			devid = buf;
 		else {
-			/* SID doesn't appera to have a record of this device */
+			/* SID doesn't appear to have a record of this device */
 			sid_res_log_error(cmd_res, "Couldn't find device ID for " CMD_DEV_PRINT_FMT ".", CMD_DEV_PRINT(ucmd_ctx));
 			return -1;
 		}
 	}
 
-	ucmd_ctx->req_env.dev.uid_s = strdup(uuid_p);
+	ucmd_ctx->req_env.dev.uid_s = strdup(devid);
 	return 0;
 }
 
@@ -5338,7 +5338,7 @@ static int _cmd_exec_scan_remove_init(sid_res_t *cmd_res)
 		return 0;
 	}
 
-	if (_get_device_uuid(cmd_res) < 0)
+	if (_get_devid(cmd_res) < 0)
 		goto fail;
 
 	_exec_block_mods(cmd_res);
