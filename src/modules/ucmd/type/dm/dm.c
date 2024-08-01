@@ -73,7 +73,23 @@ static struct sid_mod_sym_params dm_submod_sym_params[] = {
 		SID_MOD_SYM_FL_INDIRECT,
 	},
 	{
+		SID_UCMD_MOD_FN_NAME_SCAN_A_EXIT,
+		SID_MOD_SYM_FL_INDIRECT,
+	},
+	{
+		SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_INIT,
+		SID_MOD_SYM_FL_INDIRECT,
+	},
+	{
 		SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
+		SID_MOD_SYM_FL_INDIRECT,
+	},
+	{
+		SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_EXIT,
+		SID_MOD_SYM_FL_INDIRECT,
+	},
+	{
+		SID_UCMD_MOD_FN_NAME_SCAN_B_INIT,
 		SID_MOD_SYM_FL_INDIRECT,
 	},
 	{
@@ -82,6 +98,10 @@ static struct sid_mod_sym_params dm_submod_sym_params[] = {
 	},
 	{
 		SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
+		SID_MOD_SYM_FL_INDIRECT,
+	},
+	{
+		SID_UCMD_MOD_FN_NAME_SCAN_B_EXIT,
 		SID_MOD_SYM_FL_INDIRECT,
 	},
 	{
@@ -100,9 +120,15 @@ typedef enum {
 	DM_SUBMOD_SCAN_PHASE_SCAN_NEXT,
 	DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT,
 	DM_SUBMOD_SCAN_PHASE_SCAN_POST_NEXT,
+	DM_SUBMOD_SCAN_PHASE_A_EXIT,
+	DM_SUBMOD_SCAN_PHASE_REMOVE_INIT,
 	DM_SUBMOD_SCAN_PHASE_REMOVE,
+	DM_SUBMOD_SCAN_PHASE_REMOVE_EXIT,
+	DM_SUBMOD_SCAN_PHASE_B_INIT,
 	DM_SUBMOD_SCAN_PHASE_ACTION_CURRENT,
 	DM_SUBMOD_SCAN_PHASE_ACTION_NEXT,
+	DM_SUBMOD_SCAN_PHASE_B_EXIT,
+	DM_SUBMOD_SCAN_PHASE_ERROR,
 } dm_submod_cmd_scan_phase_t;
 
 struct scan_dm_submod_fns {
@@ -114,9 +140,14 @@ struct scan_dm_submod_fns {
 	sid_ucmd_fn_t *scan_next;
 	sid_ucmd_fn_t *scan_post_current;
 	sid_ucmd_fn_t *scan_post_next;
+	sid_ucmd_fn_t *scan_a_exit;
+	sid_ucmd_fn_t *scan_remove_init;
 	sid_ucmd_fn_t *scan_remove;
+	sid_ucmd_fn_t *scan_remove_exit;
+	sid_ucmd_fn_t *scan_b_init;
 	sid_ucmd_fn_t *scan_action_current;
 	sid_ucmd_fn_t *scan_action_next;
+	sid_ucmd_fn_t *scan_b_exit;
 	sid_ucmd_fn_t *scan_error;
 } __packed;
 
@@ -220,6 +251,7 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 	struct dm_mod_ctx         *dm_mod                              = sid_mod_get_data(mod_res);
 	struct scan_dm_submod_fns *submod_fns;
 	sid_res_iter_t            *iter;
+	int                        r;
 
 	switch (phase) {
 		case DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT:
@@ -275,8 +307,13 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 		case DM_SUBMOD_SCAN_PHASE_SCAN_PRE:
 		case DM_SUBMOD_SCAN_PHASE_SCAN_CURRENT:
 		case DM_SUBMOD_SCAN_PHASE_SCAN_POST_CURRENT:
+		case DM_SUBMOD_SCAN_PHASE_A_EXIT:
+		case DM_SUBMOD_SCAN_PHASE_REMOVE_INIT:
 		case DM_SUBMOD_SCAN_PHASE_REMOVE:
+		case DM_SUBMOD_SCAN_PHASE_REMOVE_EXIT:
+		case DM_SUBMOD_SCAN_PHASE_B_INIT:
 		case DM_SUBMOD_SCAN_PHASE_ACTION_CURRENT:
+		case DM_SUBMOD_SCAN_PHASE_B_EXIT:
 			if (_do_exec_dm_submod(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, phase, ucmd_ctx) < 0)
 				return -1;
 			break;
@@ -287,6 +324,11 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 			if (_do_exec_dm_submod(mod_res, dm_mod->submod_res = dm_mod->submod_res_next, phase, ucmd_ctx) < 0)
 				return -1;
 			break;
+
+		case DM_SUBMOD_SCAN_PHASE_ERROR:
+			r  = _do_exec_dm_submod(mod_res, dm_mod->submod_res = dm_mod->submod_res_current, phase, ucmd_ctx);
+			r |= _do_exec_dm_submod(mod_res, dm_mod->submod_res = dm_mod->submod_res_next, phase, ucmd_ctx);
+			return r;
 	}
 
 	return 0;
@@ -971,16 +1013,41 @@ fail:
 }
 SID_UCMD_SCAN_A_EXIT(_dm_scan_a_exit)
 
-static int _dm_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_scan_remove_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_res_log_debug(mod_res, "scan-remove");
+	sid_res_log_debug(mod_res, "scan-remove-init");
 
 	if (_dm_submod_common_scan_init(mod_res, ucmd_ctx) < 0)
 		return -1;
 
+	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_REMOVE_INIT);
+}
+
+SID_UCMD_SCAN_REMOVE_INIT(_dm_scan_remove_init);
+
+static int _dm_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-remove");
+
 	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_REMOVE);
 }
 SID_UCMD_SCAN_REMOVE(_dm_scan_remove)
+
+static int _dm_scan_remove_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-remove-exit");
+	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_REMOVE_EXIT);
+}
+
+SID_UCMD_SCAN_REMOVE_EXIT(_dm_scan_remove_exit);
+
+static int _dm_scan_b_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-b-init");
+	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_B_INIT);
+}
+
+SID_UCMD_SCAN_B_INIT(_dm_scan_b_init);
 
 static int _udevcomplete(sid_res_t *mod_res, dm_cookie_base_t cookie_base)
 {
@@ -1039,6 +1106,14 @@ static int _dm_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ct
 	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_ACTION_NEXT);
 }
 SID_UCMD_SCAN_ACTION_NEXT(_dm_scan_action_next)
+
+static int _dm_scan_b_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+{
+	sid_res_log_debug(mod_res, "scan-b-exit");
+	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_B_EXIT);
+}
+
+SID_UCMD_SCAN_B_EXIT(_dm_scan_b_exit);
 
 static int _dm_scan_error(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
