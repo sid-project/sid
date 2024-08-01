@@ -532,7 +532,7 @@ static int _dm_reset(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common
 }
 SID_UCMD_MOD_RESET(_dm_reset)
 
-static int _dm_submod_scan_a_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
+static int _dm_submod_common_scan_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	struct dm_mod_ctx *dm_mod;
 	const char        *submod_name = NULL;
@@ -582,7 +582,7 @@ static int _dm_scan_a_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	if (_get_sysfs_props(mod_res, ucmd_ctx) < 0)
 		return -1;
 
-	return _dm_submod_scan_a_init(mod_res, ucmd_ctx);
+	return _dm_submod_common_scan_init(mod_res, ucmd_ctx);
 }
 SID_UCMD_SCAN_A_INIT(_dm_scan_a_init)
 
@@ -975,7 +975,7 @@ static int _dm_scan_remove(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "scan-remove");
 
-	if (_dm_submod_scan_a_init(mod_res, ucmd_ctx) < 0)
+	if (_dm_submod_common_scan_init(mod_res, ucmd_ctx) < 0)
 		return -1;
 
 	return _exec_dm_submod(mod_res, ucmd_ctx, DM_SUBMOD_SCAN_PHASE_REMOVE);
