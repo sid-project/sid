@@ -5282,10 +5282,10 @@ static int _cmd_exec_scan_a_post_next(sid_res_t *cmd_res)
 static int _cmd_exec_scan_a_exit(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
-	int                  r        = 0;
+	int                  r;
 
-	(void) _exec_block_mods(cmd_res);
 	r = _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
+	(void) _exec_block_mods(cmd_res);
 
 	if (_do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0) == SID_DEV_RDY_UNPROCESSED)
 		if (_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, _owner_name(NULL), SID_DEV_RDY_PUBLIC, false) < 0)
@@ -5317,9 +5317,12 @@ static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
 static int _cmd_exec_scan_remove_exit(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
+	int                  r;
 
-	_exec_block_mods(cmd_res);
-	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
+	r = _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
+	(void) _exec_block_mods(cmd_res);
+
+	return r;
 }
 
 static int _cmd_exec_scan_b_init(sid_res_t *cmd_res)
@@ -5351,8 +5354,8 @@ static int _cmd_exec_scan_b_exit(sid_res_t *cmd_res)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	int                  r;
 
-	_exec_block_mods(cmd_res);
 	r = _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
+	_exec_block_mods(cmd_res);
 
 	if (ucmd_ctx->scan.block_mod_iter) {
 		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
