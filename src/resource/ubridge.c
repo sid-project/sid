@@ -4957,7 +4957,7 @@ static int _update_dev_deps_from_sysfs(sid_res_t *cmd_res)
 	return 0;
 }
 
-static int _exec_block_mods(sid_res_t *cmd_res)
+static int _exec_block_mods(sid_res_t *cmd_res, bool reverse)
 {
 	struct sid_ucmd_ctx       *ucmd_ctx = sid_res_get_data(cmd_res);
 	sid_res_t                 *block_mod_res;
@@ -4966,7 +4966,11 @@ static int _exec_block_mods(sid_res_t *cmd_res)
 
 	sid_res_iter_reset(ucmd_ctx->scan.block_mod_iter);
 
-	while ((block_mod_res = sid_res_iter_next(ucmd_ctx->scan.block_mod_iter))) {
+	while (true) {
+		if (!(block_mod_res = reverse ? sid_res_iter_previous(ucmd_ctx->scan.block_mod_iter)
+		                              : sid_res_iter_next(ucmd_ctx->scan.block_mod_iter)))
+			break;
+
 		if (sid_mod_reg_get_mod_syms(block_mod_res, (const void ***) &block_mod_fns) < 0) {
 			sid_res_log_error(cmd_res, "Failed to retrieve module symbols from module %s.", ID(block_mod_res));
 			return -1;
@@ -5174,7 +5178,7 @@ static int _common_scan_init(sid_res_t *cmd_res)
 			goto fail;
 	}
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 
 	if (!(ucmd_ctx->scan.type_mod_res_current = sid_mod_reg_get_mod(ucmd_ctx->common->type_mod_reg_res, mod_name)))
 		sid_res_log_debug(cmd_res, "Module %s not loaded.", mod_name);
@@ -5198,7 +5202,7 @@ static int _cmd_exec_scan_a_pre(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
@@ -5221,7 +5225,7 @@ static int _cmd_exec_scan_a_current(sid_res_t *cmd_res)
 	if (!UTIL_IN_SET(ready, SID_DEV_RDY_PRIVATE, SID_DEV_RDY_FLAT, SID_DEV_RDY_PUBLIC))
 		return 1;
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
@@ -5236,7 +5240,7 @@ static int _cmd_exec_scan_a_next(sid_res_t *cmd_res)
 	if (!UTIL_IN_SET(ready, SID_DEV_RDY_PUBLIC))
 		return 1;
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 
 	if ((next_mod_name = _do_sid_ucmd_get_kv(cmd_res,
 	                                         ucmd_ctx,
@@ -5263,7 +5267,7 @@ static int _cmd_exec_scan_a_post_current(sid_res_t *cmd_res)
 	if (!UTIL_IN_SET(ready, SID_DEV_RDY_PRIVATE, SID_DEV_RDY_FLAT, SID_DEV_RDY_PUBLIC))
 		return 1;
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
@@ -5275,7 +5279,7 @@ static int _cmd_exec_scan_a_post_next(sid_res_t *cmd_res)
 	if (!UTIL_IN_SET(ready, SID_DEV_RDY_PUBLIC))
 		return 1;
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
 }
 
@@ -5285,7 +5289,7 @@ static int _cmd_exec_scan_a_exit(sid_res_t *cmd_res)
 	int                  r;
 
 	r = _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
-	(void) _exec_block_mods(cmd_res);
+	(void) _exec_block_mods(cmd_res, true);
 
 	if (_do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0) == SID_DEV_RDY_UNPROCESSED)
 		if (_do_sid_ucmd_dev_set_ready(cmd_res, ucmd_ctx, _owner_name(NULL), SID_DEV_RDY_PUBLIC, false) < 0)
@@ -5307,7 +5311,7 @@ static int _cmd_exec_scan_remove_current(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 	if (_exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current) < 0)
 		return -1;
 
@@ -5320,7 +5324,7 @@ static int _cmd_exec_scan_remove_exit(sid_res_t *cmd_res)
 	int                  r;
 
 	r = _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
-	(void) _exec_block_mods(cmd_res);
+	(void) _exec_block_mods(cmd_res, true);
 
 	return r;
 }
@@ -5329,7 +5333,7 @@ static int _cmd_exec_scan_b_init(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
@@ -5337,7 +5341,7 @@ static int _cmd_exec_scan_b_action_current(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 }
 
@@ -5345,7 +5349,7 @@ static int _cmd_exec_scan_b_action_next(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 	return _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
 }
 
@@ -5355,7 +5359,7 @@ static int _cmd_exec_scan_b_exit(sid_res_t *cmd_res)
 	int                  r;
 
 	r = _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, true);
 
 	if (ucmd_ctx->scan.block_mod_iter) {
 		sid_res_iter_destroy(ucmd_ctx->scan.block_mod_iter);
@@ -5370,7 +5374,7 @@ static int _cmd_exec_scan_error(sid_res_t *cmd_res)
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
 	int                  r        = 0;
 
-	_exec_block_mods(cmd_res);
+	_exec_block_mods(cmd_res, false);
 
 	r |= _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_current);
 	r |= _exec_type_mod(cmd_res, ucmd_ctx->scan.type_mod_res_next);
