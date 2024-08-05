@@ -5167,10 +5167,10 @@ static int _common_scan_init(sid_res_t *cmd_res)
 		goto fail;
 	}
 
-	if (!(mod_name = _get_base_mod_name(cmd_res, buf, sizeof(buf))))
+	if (_set_dev_kvs(cmd_res) < 0)
 		goto fail;
 
-	if (_set_dev_kvs(cmd_res) < 0)
+	if (!(mod_name = _get_base_mod_name(cmd_res, buf, sizeof(buf))))
 		goto fail;
 
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
