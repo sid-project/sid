@@ -5657,8 +5657,12 @@ static int _send_out_cmd_resbuf(sid_res_t *cmd_res)
 			break;
 
 		case MSG_CATEGORY_CLIENT:
-			conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, &sid_res_type_ubr_con, NULL);
-			conn     = sid_res_get_data(conn_res);
+			if (!(conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, &sid_res_type_ubr_con, NULL))) {
+				sid_res_log_warning(cmd_res, "Connection lost.");
+				goto out;
+			}
+
+			conn = sid_res_get_data(conn_res);
 
 			if ((r = sid_buf_write_all(ucmd_ctx->res_buf, conn->fd)) < 0) {
 				sid_res_log_error_errno(cmd_res, r, "Failed to send command response to client");
