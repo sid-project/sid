@@ -387,7 +387,8 @@ static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, 
 		return -1;
 	}
 
-	*cookie_flags = flags;
+	if (cookie_flags)
+		*cookie_flags = flags;
 	return 1;
 }
 
@@ -1016,6 +1017,9 @@ SID_UCMD_SCAN_A_EXIT(_dm_scan_a_exit)
 static int _dm_scan_remove_init(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	sid_res_log_debug(mod_res, "scan-remove-init");
+
+	if (_get_cookie_props(mod_res, ucmd_ctx, NULL) < 0)
+		return -1;
 
 	if (_dm_submod_common_scan_init(mod_res, ucmd_ctx) < 0)
 		return -1;
