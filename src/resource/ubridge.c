@@ -5572,7 +5572,7 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 	size_t                buf_pos;
 	char                 *data;
 	size_t                size;
-	int                   r = 0;
+	int                   r = -1;
 
 	if (!ucmd_ctx->exp_buf)
 		return 0;
@@ -5604,7 +5604,7 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 			                                          .ext.used           = true,
 			                                          .ext.socket.fd_pass = sid_buf_get_fd(ucmd_ctx->exp_buf)})) < 0) {
 				sid_res_log_error_errno(cmd_res, r, "Failed to send command exports to main SID process.");
-				r = -1;
+				goto out;
 			}
 
 			sid_buf_rewind(buf, buf_pos, SID_BUF_POS_ABS);
@@ -5613,7 +5613,7 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 	} else if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
 		if ((r = fsync(sid_buf_get_fd(ucmd_ctx->exp_buf))) < 0) {
 			sid_res_log_error_errno(cmd_res, r, "Failed to fsync command exports to a file.");
-			r = -1;
+			goto out;
 		}
 	} else {
 		switch (ucmd_ctx->req_cat) {
@@ -5621,12 +5621,15 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 				break;
 
 			case MSG_CATEGORY_CLIENT:
-				conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, &sid_res_type_ubr_con, NULL);
-				conn     = sid_res_get_data(conn_res);
+				if (!(conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, &sid_res_type_ubr_con, NULL))) {
+					sid_res_log_warning(cmd_res, "Failed to send command exports to client: connection lost.");
+					goto out;
+				}
+				conn = sid_res_get_data(conn_res);
 
 				if ((r = _send_fd_over_unix_comms(sid_buf_get_fd(ucmd_ctx->exp_buf), conn->fd)) < 0) {
 					sid_res_log_error_errno(cmd_res, r, "Failed to send command exports to client.");
-					r = -1;
+					goto out;
 				}
 				break;
 
@@ -5636,6 +5639,8 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 		}
 	}
 
+	r = 0;
+out:
 	sid_buf_destroy(ucmd_ctx->exp_buf);
 	ucmd_ctx->exp_buf = NULL;
 	return r;
@@ -5658,7 +5663,7 @@ static int _send_out_cmd_resbuf(sid_res_t *cmd_res)
 
 		case MSG_CATEGORY_CLIENT:
 			if (!(conn_res = sid_res_search(cmd_res, SID_RES_SEARCH_IMM_ANC, &sid_res_type_ubr_con, NULL))) {
-				sid_res_log_warning(cmd_res, "Connection lost.");
+				sid_res_log_warning(cmd_res, "Failed to send command response to client: connection lost.");
 				goto out;
 			}
 
