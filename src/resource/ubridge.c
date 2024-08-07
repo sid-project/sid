@@ -5578,38 +5578,40 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 		return 0;
 
 	if (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN) {
-		if (sid_buf_count(ucmd_ctx->exp_buf) > 0) {
-			id = sid_res_get_id(cmd_res);
-
-			sid_buf_add(buf,
-			            &(struct internal_msg_header) {.cat = MSG_CATEGORY_SYSTEM,
-			                                           .header =
-			                                                   (struct sid_ifc_msg_header) {
-										   .status = 0,
-										   .prot   = 0,
-										   .cmd    = SYSTEM_CMD_SYNC,
-										   .flags  = 0,
-									   }},
-			            INTERNAL_MSG_HEADER_SIZE,
-			            NULL,
-			            &buf_pos);
-			sid_buf_add(buf, (void *) id, strlen(id) + 1, NULL, NULL);
-			sid_buf_get_data_from(buf, buf_pos, (const void **) &data, &size);
-
-			if ((r = sid_wrk_ctl_chan_send(
-				     cmd_res,
-				     MAIN_WORKER_CHANNEL_ID,
-				     &(struct sid_wrk_data_spec) {.data               = data,
-			                                          .data_size          = size,
-			                                          .ext.used           = true,
-			                                          .ext.socket.fd_pass = sid_buf_get_fd(ucmd_ctx->exp_buf)})) < 0) {
-				sid_res_log_error_errno(cmd_res, r, "Failed to send command exports to main SID process.");
-				goto out;
-			}
-
-			sid_buf_rewind(buf, buf_pos, SID_BUF_POS_ABS);
-		} else
+		if (sid_buf_count(ucmd_ctx->exp_buf) == 0) {
 			r = -ENODATA;
+			goto out;
+		}
+
+		id = sid_res_get_id(cmd_res);
+
+		sid_buf_add(buf,
+		            &(struct internal_msg_header) {.cat = MSG_CATEGORY_SYSTEM,
+		                                           .header =
+		                                                   (struct sid_ifc_msg_header) {
+									   .status = 0,
+									   .prot   = 0,
+									   .cmd    = SYSTEM_CMD_SYNC,
+									   .flags  = 0,
+								   }},
+		            INTERNAL_MSG_HEADER_SIZE,
+		            NULL,
+		            &buf_pos);
+		sid_buf_add(buf, (void *) id, strlen(id) + 1, NULL, NULL);
+		sid_buf_get_data_from(buf, buf_pos, (const void **) &data, &size);
+
+		if ((r = sid_wrk_ctl_chan_send(
+			     cmd_res,
+			     MAIN_WORKER_CHANNEL_ID,
+			     &(struct sid_wrk_data_spec) {.data               = data,
+		                                          .data_size          = size,
+		                                          .ext.used           = true,
+		                                          .ext.socket.fd_pass = sid_buf_get_fd(ucmd_ctx->exp_buf)})) < 0) {
+			sid_res_log_error_errno(cmd_res, r, "Failed to send command exports to main SID process.");
+			goto out;
+		}
+
+		sid_buf_rewind(buf, buf_pos, SID_BUF_POS_ABS);
 	} else if (cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE) {
 		if ((r = fsync(sid_buf_get_fd(ucmd_ctx->exp_buf))) < 0) {
 			sid_res_log_error_errno(cmd_res, r, "Failed to fsync command exports to a file.");
