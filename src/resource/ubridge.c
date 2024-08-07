@@ -5733,6 +5733,29 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 			goto out;
 	}
 
+	if (ucmd_ctx->state == CMD_STATE_RES_EXPBUF_SEND) {
+		if (((r = _send_out_cmd_expbuf(cmd_res)) < 0) && (r != -ENODATA))
+			goto out;
+
+		if (expbuf_first) {
+			if (r == -ENODATA)
+				r = _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
+			else
+				r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK);
+
+			if (r < 0)
+				goto out;
+		} else {
+			if (_is_last_stage(cmd_reg, ucmd_ctx))
+				r = _change_cmd_state(cmd_res, CMD_STATE_FIN);
+			else
+				r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
+
+			if (r < 0)
+				goto out;
+		}
+	}
+
 	if (ucmd_ctx->state == CMD_STATE_RES_RESBUF_SEND) {
 		if ((r = _send_out_cmd_resbuf(cmd_res)) < 0)
 			goto out;
@@ -5747,24 +5770,6 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 				goto out;
 		} else {
 			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND)) < 0)
-				goto out;
-		}
-	}
-
-	if (ucmd_ctx->state == CMD_STATE_RES_EXPBUF_SEND) {
-		if (((r = _send_out_cmd_expbuf(cmd_res)) < 0) && (r != -ENODATA))
-			goto out;
-
-		if (expbuf_first && (r != -ENODATA)) {
-			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK)) < 0)
-				goto out;
-		} else {
-			if (_is_last_stage(cmd_reg, ucmd_ctx))
-				r = _change_cmd_state(cmd_res, CMD_STATE_FIN);
-			else
-				r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
-
-			if (r < 0)
 				goto out;
 		}
 	}
