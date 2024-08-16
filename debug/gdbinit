@@ -1,6 +1,9 @@
+set debuginfod enabled on
 set prompt \033[91m(gdb) \033[0m
 set args -f -vv
-set detach-on-fork on
+
+set non-stop on
+set detach-on-fork off
 set follow-fork-mode child
 
 define str_vector_dump
