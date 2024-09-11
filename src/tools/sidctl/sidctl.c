@@ -17,9 +17,9 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "base/buffer.h"
-#include "iface/iface.h"
-#include "internal/formatter.h"
+#include "base/buf.h"
+#include "iface/ifc.h"
+#include "internal/fmt.h"
 #include "log/log.h"
 
 #include <getopt.h>
@@ -43,28 +43,28 @@
 
 static int _sid_cmd(sid_ifc_cmd_t cmd, uint16_t format)
 {
-	struct sid_ifc_result *res = NULL;
-	const char            *data;
-	size_t                 size;
-	int                    r;
-	struct sid_ifc_request req = {.cmd = cmd, .flags = format};
+	struct sid_ifc_rsl *rsl = NULL;
+	const char         *data;
+	size_t              size;
+	int                 r;
+	struct sid_ifc_req  req = {.cmd = cmd, .flags = format};
 
-	if ((r = sid_ifc_req(&req, &res)) < 0) {
+	if ((r = sid_ifc_req(&req, &rsl)) < 0) {
 		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
 		return -1;
 	}
 
-	if ((data = sid_ifc_result_get_data(res, &size)) != NULL)
+	if ((data = sid_ifc_rsl_get_data(rsl, &size)) != NULL)
 		printf("%s", data);
 	else {
 		uint64_t status;
-		if (sid_ifc_result_get_status(res, &status) != 0 || status & SID_IFC_CMD_STATUS_FAILURE) {
+		if (sid_ifc_rsl_get_status(rsl, &status) != 0 || status & SID_IFC_CMD_STATUS_FAILURE) {
 			sid_log_error(LOG_PREFIX, "Command failed");
 			r = -1;
 		}
 	}
 
-	sid_ifc_result_free(res);
+	sid_ifc_rsl_free(rsl);
 	return r;
 }
 

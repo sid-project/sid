@@ -17,13 +17,13 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "resource/worker-control.h"
+#include "resource/wrk-ctl.h"
 
-#include "base/buffer.h"
+#include "base/buf.h"
 #include "base/comms.h"
 #include "internal/mem.h"
 #include "internal/util.h"
-#include "resource/resource.h"
+#include "resource/res.h"
 
 #include <dirent.h>
 #include <limits.h>

@@ -19,13 +19,13 @@
 
 #include "internal/comp-attrs.h"
 
-#include "resource/kv-store.h"
+#include "resource/kvs.h"
 
 #include "internal/bptree.h"
 #include "internal/hash.h"
 #include "internal/mem.h"
 #include "internal/util.h"
-#include "resource/resource.h"
+#include "resource/res.h"
 
 #include <ctype.h>
 #include <stdint.h>

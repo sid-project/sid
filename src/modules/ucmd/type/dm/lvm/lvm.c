@@ -19,8 +19,8 @@
 
 #include "../dm.h"
 #include "internal/util.h"
-#include "resource/ucmd-module.h"
-#include "resource/worker-control.h"
+#include "resource/ucmd-mod.h"
+#include "resource/wrk-ctl.h"
 
 #include <limits.h>
 #include <stdlib.h>

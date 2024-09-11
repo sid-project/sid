@@ -23,8 +23,8 @@
 
 #include "base/util.h"
 #include "internal/mem.h"
-#include "resource/module-registry.h"
-#include "resource/ucmd-module.h"
+#include "resource/mod-reg.h"
+#include "resource/ucmd-mod.h"
 
 #include <limits.h>
 #include <linux/dm-ioctl.h>

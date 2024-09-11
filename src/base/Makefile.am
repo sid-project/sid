@@ -21,21 +21,21 @@ include $(top_srcdir)/Makefile.common
 
 pkglib_LTLIBRARIES = libsidbase.la
 
-libsidbase_la_SOURCES = buffer-type-linear.c \
-			buffer-type-vector.c \
-			buffer.c \
+libsidbase_la_SOURCES = buf-type-linear.c \
+			buf-type-vector.c \
+			buf.c \
 			comms.c \
-			util.c \
-			binary.c
+			conv.c \
+			util.c
 
 basedir = $(pkgincludedir)/base
 
-base_HEADERS = $(top_srcdir)/src/include/base/buffer-common.h \
-	       $(top_srcdir)/src/include/base/buffer-type.h \
-	       $(top_srcdir)/src/include/base/buffer.h \
+base_HEADERS = $(top_srcdir)/src/include/base/buf-common.h \
+	       $(top_srcdir)/src/include/base/buf-type.h \
+	       $(top_srcdir)/src/include/base/buf.h \
 	       $(top_srcdir)/src/include/base/comms.h \
-	       $(top_srcdir)/src/include/base/util.h \
-	       $(top_srcdir)/src/include/base/binary.h
+	       $(top_srcdir)/src/include/base/conv.h \
+	       $(top_srcdir)/src/include/base/util.h
 
 libsidbase_la_LDFLAGS = -version-info 0:0:0
 

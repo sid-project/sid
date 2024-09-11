@@ -18,7 +18,7 @@
  */
 
 #include "base/util.h"
-#include "iface/iface.h"
+#include "iface/ifc.h"
 #include "log/log.h"
 
 #include <getopt.h>
@@ -63,7 +63,7 @@ struct args {
 	char **argv;
 };
 
-static sid_status_t _get_ubr_status(struct sid_ifc_result *res, int r)
+static sid_status_t _get_ubr_status(struct sid_ifc_rsl *rsl, int r)
 {
 	uint8_t prot;
 
@@ -75,7 +75,7 @@ static sid_status_t _get_ubr_status(struct sid_ifc_result *res, int r)
 		else
 			return SID_STATUS_ERROR;
 	} else {
-		if (sid_ifc_result_get_data(res, NULL) && sid_ifc_result_get_protocol(res, &prot) == 0 && prot == SID_IFC_PROTOCOL)
+		if (sid_ifc_rsl_get_data(rsl, NULL) && sid_ifc_rsl_get_protocol(rsl, &prot) == 0 && prot == SID_IFC_PROTOCOL)
 			return SID_STATUS_ACTIVE;
 		else
 			return SID_STATUS_INCOMPATIBLE;
@@ -84,31 +84,31 @@ static sid_status_t _get_ubr_status(struct sid_ifc_result *res, int r)
 
 static int _usid_cmd_active(void)
 {
-	unsigned long long     val;
-	sid_status_t           ubr_status;
-	struct sid_ifc_result *res;
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
-	int                    r;
+	unsigned long long  val;
+	sid_status_t        ubr_status;
+	struct sid_ifc_rsl *rsl;
+	struct sid_ifc_req  req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
+	int                 r;
 
 	req.seqnum = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
-	r          = sid_ifc_req(&req, &res);
-	ubr_status = _get_ubr_status(res, r);
+	r          = sid_ifc_req(&req, &rsl);
+	ubr_status = _get_ubr_status(rsl, r);
 	if (r == 0)
-		sid_ifc_result_free(res);
+		sid_ifc_rsl_free(rsl);
 	fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[ubr_status]);
 
 	return r;
 }
 
-static int _print_env_from_res(struct sid_ifc_result *res)
+static int _print_env_from_rsl(struct sid_ifc_rsl *rsl)
 {
 	size_t      size;
 	const char *end, *kv;
 	uint64_t    status;
 
-	kv = sid_ifc_result_get_data(res, &size);
+	kv = sid_ifc_rsl_get_data(rsl, &size);
 	if (!kv) {
-		if (sid_ifc_result_get_status(res, &status) < 0 || status & SID_IFC_CMD_STATUS_FAILURE)
+		if (sid_ifc_rsl_get_status(rsl, &status) < 0 || status & SID_IFC_CMD_STATUS_FAILURE)
 			return -EBADMSG;
 		return 0;
 	}
@@ -118,12 +118,12 @@ static int _print_env_from_res(struct sid_ifc_result *res)
 	return 0;
 }
 
-static int _usid_cmd_print_env(struct sid_ifc_request *req)
+static int _usid_cmd_print_env(struct sid_ifc_req *req)
 {
-	unsigned long long     val;
-	sid_status_t           ubr_status;
-	struct sid_ifc_result *res;
-	int                    r;
+	unsigned long long  val;
+	sid_status_t        ubr_status;
+	struct sid_ifc_rsl *rsl;
+	int                 r;
 
 	if ((r = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val)) < 0) {
 		ubr_status = SID_STATUS_ERROR;
@@ -131,8 +131,8 @@ static int _usid_cmd_print_env(struct sid_ifc_request *req)
 	}
 
 	req->seqnum = val;
-	r           = sid_ifc_req(req, &res);
-	ubr_status  = _get_ubr_status(res, r);
+	r           = sid_ifc_req(req, &rsl);
+	ubr_status  = _get_ubr_status(rsl, r);
 	if (r < 0) {
 		if (ubr_status == SID_STATUS_INACTIVE)
 			/* it's not an error if sid is inactive */
@@ -140,8 +140,8 @@ static int _usid_cmd_print_env(struct sid_ifc_request *req)
 		goto out;
 	}
 
-	r = _print_env_from_res(res);
-	sid_ifc_result_free(res);
+	r = _print_env_from_rsl(rsl);
+	sid_ifc_rsl_free(rsl);
 out:
 	fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[ubr_status]);
 	if (r < 0)
@@ -151,14 +151,14 @@ out:
 
 static int _usid_cmd_scan(void)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_SCAN, .flags = SID_IFC_CMD_FL_FMT_ENV};
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_SCAN, .flags = SID_IFC_CMD_FL_FMT_ENV};
 
 	return _usid_cmd_print_env(&req);
 }
 
 static int _usid_cmd_checkpoint(int argc, char **argv)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_CHECKPOINT, .flags = SID_IFC_CMD_FL_FMT_ENV};
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_CHECKPOINT, .flags = SID_IFC_CMD_FL_FMT_ENV};
 
 	if (argc < 2) {
 		/* we need at least checkpoint name */
@@ -180,13 +180,13 @@ static int _usid_cmd_checkpoint(int argc, char **argv)
 
 static int _usid_cmd_version(void)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
-	unsigned long long     val;
-	sid_status_t           ubr_status;
-	const char            *data;
-	struct sid_ifc_result *res;
-	uint64_t               status;
-	int                    r;
+	struct sid_ifc_req  req = {.cmd = SID_IFC_CMD_VERSION, .flags = SID_IFC_CMD_FL_FMT_ENV};
+	unsigned long long  val;
+	sid_status_t        ubr_status;
+	const char         *data;
+	struct sid_ifc_rsl *rsl;
+	uint64_t            status;
+	int                 r;
 
 	req.seqnum = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 
@@ -198,8 +198,8 @@ static int _usid_cmd_version(void)
 	        SID_VERSION_MINOR,
 	        SID_VERSION_RELEASE);
 
-	r          = sid_ifc_req(&req, &res);
-	ubr_status = _get_ubr_status(res, r);
+	r          = sid_ifc_req(&req, &rsl);
+	ubr_status = _get_ubr_status(rsl, r);
 	if (r < 0) {
 		if (ubr_status == SID_STATUS_INACTIVE)
 			/* it's not an error if sid is inactive */
@@ -207,17 +207,17 @@ static int _usid_cmd_version(void)
 		goto out;
 	}
 
-	if ((data = sid_ifc_result_get_data(res, NULL)) != NULL) {
+	if ((data = sid_ifc_rsl_get_data(rsl, NULL)) != NULL) {
 		fprintf(stdout, "%s", data);
 		r = 0;
 	} else {
-		if (sid_ifc_result_get_status(res, &status) == 0 && (status & SID_IFC_CMD_STATUS_FAILURE) == 0)
+		if (sid_ifc_rsl_get_status(rsl, &status) == 0 && (status & SID_IFC_CMD_STATUS_FAILURE) == 0)
 			r = -ENODATA;
 		else
 			r = -EBADE;
 	}
 
-	sid_ifc_result_free(res);
+	sid_ifc_rsl_free(rsl);
 out:
 	fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[ubr_status]);
 	if (r < 0)

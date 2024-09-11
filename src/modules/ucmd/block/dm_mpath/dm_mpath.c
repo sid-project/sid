@@ -18,7 +18,7 @@
  */
 
 #include "base/util.h"
-#include "resource/ucmd-module.h"
+#include "resource/ucmd-mod.h"
 
 #include <libudev.h>
 #include <mpath_valid.h>

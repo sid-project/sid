@@ -17,10 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_MODULE_H
-#define _SID_MODULE_H
+#ifndef _SID_MOD_H
+#define _SID_MOD_H
 
-#include "resource.h"
+#include "res.h"
 
 #include <inttypes.h>
 

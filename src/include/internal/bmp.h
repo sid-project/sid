@@ -17,22 +17,28 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "resource/resource.h"
+#ifndef _SID_BMP_H
+#define _SID_BMP_H
 
-/*
- * This resource is only used to aggregate other resources.
- * There's no resource-specific implementation here.
- */
+#include <stdbool.h>
+#include <stddef.h>
 
-static int _init_aggregate(sid_res_t *res, const void *kickstart_data, void **data)
-{
-	*data = (void *) kickstart_data;
-	return 0;
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct bmp;
+
+struct bmp *bmp_create(size_t bit_count, bool invert, int *ret_code);
+void        bmp_destroy(struct bmp *bmp);
+int         bmp_set_bit(struct bmp *bmp, size_t bit_pos);
+int         bmp_unset_bit(struct bmp *bmp, size_t bit_pos);
+bool        bmp_bit_is_set(struct bmp *bmp, size_t bit_pos, int *ret_code);
+size_t      bmp_get_bit_count(struct bmp *bmp);
+size_t      bmp_get_bit_set_count(struct bmp *bmp);
+
+#ifdef __cplusplus
 }
+#endif
 
-const sid_res_type_t sid_res_type_aggr = {
-	.name        = "aggregate",
-	.short_name  = "agg",
-	.description = "Simple resource to aggregate other resources.",
-	.init        = _init_aggregate,
-};
+#endif

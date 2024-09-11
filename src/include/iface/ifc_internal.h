@@ -17,8 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_IFACE_INTERNAL_H
-#define _SID_IFACE_INTERNAL_H
+#ifndef _SID_IFC_INTERNAL_H
+#define _SID_IFC_INTERNAL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,7 +26,7 @@ extern "C" {
 
 #include "internal/comp-attrs.h"
 
-#include "iface/iface.h"
+#include "iface/ifc.h"
 
 struct sid_ifc_msg_header {
 	uint64_t status;

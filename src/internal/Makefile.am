@@ -22,11 +22,11 @@ include $(top_srcdir)/Makefile.common
 pkglib_LTLIBRARIES = libsidinternal.la
 
 libsidinternal_la_SOURCES = mem.c \
-			    bitmap.c \
+			    bmp.c \
 			    list.c \
 			    util.c \
 			    hash.c \
-			    formatter.c \
+			    fmt.c \
 			    bptree.c
 
 internaldir = $(pkgincludedir)/internal
@@ -34,10 +34,10 @@ internaldir = $(pkgincludedir)/internal
 internal_HEADERS = $(top_srcdir)/src/include/internal/common.h \
 		   $(top_srcdir)/src/include/internal/comp-attrs.h \
 		   $(top_srcdir)/src/include/internal/mem.h \
-		   $(top_srcdir)/src/include/internal/bitmap.h \
+		   $(top_srcdir)/src/include/internal/bmp.h \
 		   $(top_srcdir)/src/include/internal/list.h \
 		   $(top_srcdir)/src/include/internal/util.h \
-		   $(top_srcdir)/src/include/internal/formatter.h \
+		   $(top_srcdir)/src/include/internal/fmt.h \
 		   $(top_srcdir)/src/include/internal/hash.h \
 		   $(top_srcdir)/src/include/internal/bptree.h
 

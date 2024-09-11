@@ -17,10 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "base/buffer.h"
+#include "base/buf.h"
 #include "base/comms.h"
 #include "base/util.h"
-#include "iface/iface_internal.h"
+#include "iface/ifc_internal.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -49,7 +49,7 @@ static const char * const _cmd_names[] = {
 	[SID_IFC_CMD_DEVICES]    = "devices",
 };
 
-struct sid_ifc_result {
+struct sid_ifc_rsl {
 	struct sid_buf *buf;
 	const char     *shm;
 	size_t          shm_len;
@@ -60,46 +60,46 @@ static inline bool _needs_mem_fd(sid_ifc_cmd_t cmd)
 	return (cmd == SID_IFC_CMD_DBDUMP);
 }
 
-void sid_ifc_result_free(struct sid_ifc_result *res)
+void sid_ifc_rsl_free(struct sid_ifc_rsl *rsl)
 {
-	if (!res)
+	if (!rsl)
 		return;
-	if (res->buf)
-		sid_buf_destroy(res->buf);
-	if (res->shm != MAP_FAILED)
-		munmap((void *) res->shm, res->shm_len);
-	free(res);
+	if (rsl->buf)
+		sid_buf_destroy(rsl->buf);
+	if (rsl->shm != MAP_FAILED)
+		munmap((void *) rsl->shm, rsl->shm_len);
+	free(rsl);
 }
 
-int sid_ifc_result_get_status(struct sid_ifc_result *res, uint64_t *status)
+int sid_ifc_rsl_get_status(struct sid_ifc_rsl *rsl, uint64_t *status)
 {
 	size_t                           size;
 	const struct sid_ifc_msg_header *hdr_p;
 	struct sid_ifc_msg_header        hdr;
 
-	if (!res || !status)
+	if (!rsl || !status)
 		return -EINVAL;
-	sid_buf_get_data(res->buf, (const void **) &hdr_p, &size);
+	sid_buf_get_data(rsl->buf, (const void **) &hdr_p, &size);
 	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	*status = hdr.status;
 	return 0;
 }
 
-int sid_ifc_result_get_protocol(struct sid_ifc_result *res, uint8_t *prot)
+int sid_ifc_rsl_get_protocol(struct sid_ifc_rsl *rsl, uint8_t *prot)
 {
 	size_t                           size;
 	const struct sid_ifc_msg_header *hdr_p;
 	struct sid_ifc_msg_header        hdr;
 
-	if (!res || !prot)
+	if (!rsl || !prot)
 		return -EINVAL;
-	sid_buf_get_data(res->buf, (const void **) &hdr_p, &size);
+	sid_buf_get_data(rsl->buf, (const void **) &hdr_p, &size);
 	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	*prot = hdr.prot;
 	return 0;
 }
 
-const char *sid_ifc_result_get_data(struct sid_ifc_result *res, size_t *size_p)
+const char *sid_ifc_rsl_get_data(struct sid_ifc_rsl *rsl, size_t *size_p)
 {
 	size_t                           size;
 	const struct sid_ifc_msg_header *hdr_p;
@@ -108,17 +108,17 @@ const char *sid_ifc_result_get_data(struct sid_ifc_result *res, size_t *size_p)
 	if (size_p)
 		*size_p = 0;
 
-	if (!res)
+	if (!rsl)
 		return NULL;
 
-	sid_buf_get_data(res->buf, (const void **) &hdr_p, &size);
+	sid_buf_get_data(rsl->buf, (const void **) &hdr_p, &size);
 	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	if (hdr.status & SID_IFC_CMD_STATUS_FAILURE)
 		return NULL;
-	else if (res->shm != MAP_FAILED) {
+	else if (rsl->shm != MAP_FAILED) {
 		if (size_p)
-			*size_p = res->shm_len - SID_BUF_SIZE_PREFIX_LEN;
-		return res->shm + SID_BUF_SIZE_PREFIX_LEN;
+			*size_p = rsl->shm_len - SID_BUF_SIZE_PREFIX_LEN;
+		return rsl->shm + SID_BUF_SIZE_PREFIX_LEN;
 	} else if (size > SID_IFC_MSG_HEADER_SIZE) {
 		if (size_p)
 			*size_p = size - SID_IFC_MSG_HEADER_SIZE;
@@ -214,28 +214,28 @@ out:
 	return r;
 }
 
-int sid_ifc_req(struct sid_ifc_request *req, struct sid_ifc_result **res_p)
+int sid_ifc_req(struct sid_ifc_req *req, struct sid_ifc_rsl **rsl_p)
 {
-	int                    socket_fd = -1;
-	struct sid_buf        *buf       = NULL;
-	ssize_t                n;
-	int                    r         = -1;
-	struct sid_ifc_result *res       = NULL;
-	int                    export_fd = -1;
+	int                 socket_fd = -1;
+	struct sid_buf     *buf       = NULL;
+	ssize_t             n;
+	int                 r         = -1;
+	struct sid_ifc_rsl *rsl       = NULL;
+	int                 export_fd = -1;
 
-	if (!res_p)
+	if (!rsl_p)
 		return -EINVAL;
-	*res_p = NULL;
+	*rsl_p = NULL;
 
 	if (!req)
 		return -EINVAL;
 
-	res = malloc(sizeof(*res));
-	if (!res)
+	rsl = malloc(sizeof(*rsl));
+	if (!rsl)
 		return -ENOMEM;
-	res->buf     = NULL;
-	res->shm     = MAP_FAILED;
-	res->shm_len = 0;
+	rsl->buf     = NULL;
+	rsl->shm     = MAP_FAILED;
+	rsl->shm_len = 0;
 
 	if (!(buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
 	                                                    .type    = SID_BUF_TYPE_LINEAR,
@@ -243,7 +243,7 @@ int sid_ifc_req(struct sid_ifc_request *req, struct sid_ifc_result **res_p)
 	                           &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
 	                           &r)))
 		goto out;
-	res->buf = buf;
+	rsl->buf = buf;
 
 	if ((r = sid_buf_add(buf,
 	                     &((struct sid_ifc_msg_header) {.status = req->seqnum,
@@ -340,11 +340,11 @@ int sid_ifc_req(struct sid_ifc_request *req, struct sid_ifc_result **res_p)
 			goto out;
 		}
 		if (msg_size > SID_BUF_SIZE_PREFIX_LEN) {
-			if ((res->shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, export_fd, 0)) == MAP_FAILED) {
+			if ((rsl->shm = mmap(NULL, msg_size, PROT_READ, MAP_SHARED, export_fd, 0)) == MAP_FAILED) {
 				r = -errno;
 				goto out;
 			}
-			res->shm_len = msg_size;
+			rsl->shm_len = msg_size;
 		}
 	}
 out:
@@ -354,8 +354,8 @@ out:
 		close(socket_fd);
 
 	if (r < 0)
-		sid_ifc_result_free(res);
+		sid_ifc_rsl_free(rsl);
 	else
-		*res_p = res;
+		*rsl_p = rsl;
 	return r;
 }

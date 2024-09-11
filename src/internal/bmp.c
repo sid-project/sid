@@ -19,14 +19,14 @@
 
 #include "internal/comp-attrs.h"
 
-#include "internal/bitmap.h"
+#include "internal/bmp.h"
 
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
-struct bitmap {
+struct bmp {
 	size_t   bit_count;
 	size_t   bit_set_count;
 	unsigned mem[];
@@ -41,16 +41,16 @@ static unsigned _log2n_recursive(unsigned n)
 	return n > 1 ? _log2n_recursive(n / 2) + 1 : 0;
 }
 
-__constructor static void _init_bitmap()
+__constructor static void _init_bmp()
 {
 	BLOCK_SHIFT = _log2n_recursive(BITS_PER_BLOCK);
 }
 
-struct bitmap *bitmap_create(size_t bit_count, bool invert, int *ret_code)
+struct bmp *bmp_create(size_t bit_count, bool invert, int *ret_code)
 {
-	size_t         mem_size;
-	struct bitmap *bitmap = NULL;
-	int            r      = 0;
+	size_t      mem_size;
+	struct bmp *bmp = NULL;
+	int         r   = 0;
 
 	if (!bit_count) {
 		r = -EINVAL;
@@ -59,34 +59,34 @@ struct bitmap *bitmap_create(size_t bit_count, bool invert, int *ret_code)
 
 	mem_size = ((bit_count - 1) / BITS_PER_BLOCK + 1) * BLOCK_SIZE;
 
-	if (!(bitmap = malloc(sizeof(struct bitmap) + mem_size))) {
+	if (!(bmp = malloc(sizeof(struct bmp) + mem_size))) {
 		r = -ENOMEM;
 		goto out;
 	}
 
-	bitmap->bit_count = bit_count;
+	bmp->bit_count = bit_count;
 
 	if (invert) {
-		memset(bitmap->mem, UCHAR_MAX, mem_size);
-		bitmap->bit_set_count = bit_count;
+		memset(bmp->mem, UCHAR_MAX, mem_size);
+		bmp->bit_set_count = bit_count;
 	} else {
-		memset(bitmap->mem, 0, mem_size);
-		bitmap->bit_set_count = 0;
+		memset(bmp->mem, 0, mem_size);
+		bmp->bit_set_count = 0;
 	}
 out:
 	if (ret_code)
 		*ret_code = r;
-	return bitmap;
+	return bmp;
 }
 
-void bitmap_destroy(struct bitmap *bitmap)
+void bmp_destroy(struct bmp *bmp)
 {
-	free(bitmap);
+	free(bmp);
 }
 
-static int _get_coord(struct bitmap *bitmap, size_t bit_pos, unsigned *block, unsigned *bit)
+static int _get_coord(struct bmp *bmp, size_t bit_pos, unsigned *block, unsigned *bit)
 {
-	if (bit_pos >= bitmap->bit_count)
+	if (bit_pos >= bmp->bit_count)
 		return -ERANGE;
 
 	*block = bit_pos >> BLOCK_SHIFT;
@@ -95,58 +95,58 @@ static int _get_coord(struct bitmap *bitmap, size_t bit_pos, unsigned *block, un
 	return 0;
 }
 
-int bitmap_set_bit(struct bitmap *bitmap, size_t bit_pos)
+int bmp_set_bit(struct bmp *bmp, size_t bit_pos)
 {
 	unsigned block, bit;
 	int      r;
 
-	if ((r = _get_coord(bitmap, bit_pos, &block, &bit)) < 0)
+	if ((r = _get_coord(bmp, bit_pos, &block, &bit)) < 0)
 		return r;
 
-	if (!(bitmap->mem[block] & bit)) {
-		bitmap->mem[block] |= bit;
-		bitmap->bit_set_count++;
+	if (!(bmp->mem[block] & bit)) {
+		bmp->mem[block] |= bit;
+		bmp->bit_set_count++;
 	}
 
 	return 0;
 }
 
-int bitmap_unset_bit(struct bitmap *bitmap, size_t bit_pos)
+int bmp_unset_bit(struct bmp *bmp, size_t bit_pos)
 {
 	unsigned block, bit;
 	int      r;
 
-	if ((r = _get_coord(bitmap, bit_pos, &block, &bit)) < 0)
+	if ((r = _get_coord(bmp, bit_pos, &block, &bit)) < 0)
 		return r;
 
-	if (bitmap->mem[block] & bit) {
-		bitmap->mem[block] &= ~bit;
-		bitmap->bit_set_count--;
+	if (bmp->mem[block] & bit) {
+		bmp->mem[block] &= ~bit;
+		bmp->bit_set_count--;
 	}
 
 	return 0;
 }
 
-bool bitmap_bit_is_set(struct bitmap *bitmap, size_t bit_pos, int *ret_code)
+bool bmp_bit_is_set(struct bmp *bmp, size_t bit_pos, int *ret_code)
 {
 	unsigned block, bit;
 	int      r;
 
-	if ((r = _get_coord(bitmap, bit_pos, &block, &bit)) < 0) {
+	if ((r = _get_coord(bmp, bit_pos, &block, &bit)) < 0) {
 		if (ret_code)
 			*ret_code = r;
 		return 0;
 	}
 
-	return bitmap->mem[block] & bit;
+	return bmp->mem[block] & bit;
 }
 
-size_t bitmap_get_bit_count(struct bitmap *bitmap)
+size_t bmp_get_bit_count(struct bmp *bmp)
 {
-	return bitmap->bit_count;
+	return bmp->bit_count;
 }
 
-size_t bitmap_get_bit_set_count(struct bitmap *bitmap)
+size_t bmp_get_bit_set_count(struct bmp *bmp)
 {
-	return bitmap->bit_set_count;
+	return bmp->bit_set_count;
 }

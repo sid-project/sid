@@ -1,7 +1,7 @@
 /*
  * This file is part of SID.
  *
- * Copyright (C) 2017-2018 Red Hat, Inc. All rights reserved.
+ * Copyright (C) 2022 Red Hat, Inc. All rights reserved.
  *
  * SID is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,25 +17,16 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_BITMAP_H
-#define _SID_BITMAP_H
+#ifndef _SID_UBR_H
+#define _SID_UBR_H
 
-#include <stdbool.h>
-#include <stddef.h>
+#include "resource/res.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct bitmap;
-
-struct bitmap *bitmap_create(size_t bit_count, bool invert, int *ret_code);
-void           bitmap_destroy(struct bitmap *bitmap);
-int            bitmap_set_bit(struct bitmap *bitmap, size_t bit_pos);
-int            bitmap_unset_bit(struct bitmap *bitmap, size_t bit_pos);
-bool           bitmap_bit_is_set(struct bitmap *bitmap, size_t bit_pos, int *ret_code);
-size_t         bitmap_get_bit_count(struct bitmap *bitmap);
-size_t         bitmap_get_bit_set_count(struct bitmap *bitmap);
+int sid_ubr_cmd_dbdump(sid_res_t *ubridge_res, const char *file_path);
 
 #ifdef __cplusplus
 }

@@ -17,11 +17,11 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "resource/module-registry.h"
+#include "resource/mod-reg.h"
 
 #include "internal/mem.h"
 #include "internal/util.h"
-#include "resource/resource.h"
+#include "resource/res.h"
 
 #include <dirent.h>
 #include <dlfcn.h>

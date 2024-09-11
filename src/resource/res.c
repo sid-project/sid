@@ -17,10 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "resource/resource.h"
+#include "resource/res.h"
 
-#include "base/buffer.h"
-#include "internal/formatter.h"
+#include "base/buf.h"
+#include "internal/fmt.h"
 #include "internal/list.h"
 #include "internal/mem.h"
 

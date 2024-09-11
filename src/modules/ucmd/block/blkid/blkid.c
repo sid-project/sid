@@ -18,7 +18,7 @@
  */
 
 #include "blkid-type.h"
-#include "resource/ucmd-module.h"
+#include "resource/ucmd-mod.h"
 
 #include <blkid/blkid.h>
 #include <errno.h>

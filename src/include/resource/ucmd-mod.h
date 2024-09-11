@@ -24,7 +24,7 @@
 
 #include "internal/common.h"
 
-#include "resource/module.h"
+#include "resource/mod.h"
 
 #include <inttypes.h>
 #include <stddef.h>
@@ -224,7 +224,7 @@ const void *sid_ucmd_kv_get_foreign_dev_mod(sid_res_t              *mod_res,
 // 	 Instead, we should be using sid_ucmd_get_foreign_dev_mod_kv with the
 // 	 dev ID of the parent disk and then remove this function.
 //
-// 	 We will be adding ucmd-module.h API to get the layer/list of devices
+// 	 We will be adding ucmd-mod.h API to get the layer/list of devices
 // 	 underneath given device and also the layer/list of devices above
 // 	 (thinking in the form of an iterator). This still needs some thinking
 // 	 of a good way how to represent it as we'll be using this for both

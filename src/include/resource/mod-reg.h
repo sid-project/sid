@@ -17,11 +17,11 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_MODULE_REGISTRY_H
-#define _SID_MODULE_REGISTRY_H
+#ifndef _SID_MOD_REG_H
+#define _SID_MOD_REG_H
 
-#include "resource/module.h"
-#include "resource/resource.h"
+#include "resource/mod.h"
+#include "resource/res.h"
 
 #ifdef __cplusplus
 extern "C" {

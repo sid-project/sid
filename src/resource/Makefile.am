@@ -21,24 +21,24 @@ include $(top_srcdir)/Makefile.common
 
 pkglib_LTLIBRARIES = libsidresource.la
 
-libsidresource_la_SOURCES = resource.c \
-			    aggregate.c \
-			    ubridge.c \
-			    module-registry.c \
-			    kv-store.c \
-			    worker-control.c \
+libsidresource_la_SOURCES = res.c \
+			    aggr.c \
+			    ubr.c \
+			    mod-reg.c \
+			    kvs.c \
+			    wrk-ctl.c \
 			    sid.c
 
 resourcedir = $(pkgincludedir)/resource
 
-resource_HEADERS = $(top_srcdir)/src/include/resource/resource.h \
-		   $(top_srcdir)/src/include/resource/resource-type-regs.h \
-		   $(top_srcdir)/src/include/resource/module.h \
-		   $(top_srcdir)/src/include/resource/module-registry.h \
-		   $(top_srcdir)/src/include/resource/kv-store.h \
-		   $(top_srcdir)/src/include/resource/ucmd-module.h \
-		   $(top_srcdir)/src/include/resource/ubridge.h \
-		   $(top_srcdir)/src/include/resource/worker-control.h
+resource_HEADERS = $(top_srcdir)/src/include/resource/res.h \
+		   $(top_srcdir)/src/include/resource/res-type-regs.h \
+		   $(top_srcdir)/src/include/resource/mod.h \
+		   $(top_srcdir)/src/include/resource/mod-reg.h \
+		   $(top_srcdir)/src/include/resource/kvs.h \
+		   $(top_srcdir)/src/include/resource/ucmd-mod.h \
+		   $(top_srcdir)/src/include/resource/ubr.h \
+		   $(top_srcdir)/src/include/resource/wrk-ctl.h
 
 libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
 			   $(UDEV_CFLAGS)

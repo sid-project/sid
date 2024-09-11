@@ -17,8 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "resource/resource.h"
-#include "resource/ubridge.h"
+#include "resource/res.h"
+#include "resource/ubr.h"
 
 #include <signal.h>
 

@@ -17,9 +17,9 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "internal/formatter.h"
+#include "internal/fmt.h"
 
-#include "base/binary.h"
+#include "base/conv.h"
 
 #include <errno.h>
 #include <inttypes.h>
@@ -60,12 +60,12 @@ static int _print_binary(const unsigned char *value, size_t len, struct sid_buf 
 	if (!value || !buf)
 		return -EINVAL;
 
-	if ((enc_len = sid_conv_bin_encode_len(len)) == 0)
+	if ((enc_len = sid_conv_base64_encoded_len(len)) == 0)
 		return -ERANGE;
 
 	r = sid_buf_add(buf, NULL, enc_len, (const void **) &ptr, NULL);
 	if (!r)
-		r = sid_conv_bin_encode(value, len, (unsigned char *) ptr, enc_len);
+		r = sid_conv_base64_encode(value, len, (unsigned char *) ptr, enc_len);
 	if (!r)
 		r = sid_buf_rewind(buf, 1, SID_BUF_POS_REL);
 

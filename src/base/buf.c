@@ -17,9 +17,9 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "base/buffer.h"
+#include "base/buf.h"
 
-#include "base/buffer-type.h"
+#include "base/buf-type.h"
 
 #include <errno.h>
 #include <stdlib.h>

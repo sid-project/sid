@@ -1,7 +1,7 @@
 #include "../src/base/util.c"
-#include "../src/iface/iface.c"
-#include "base/buffer.h"
-#include "iface/iface.h"
+#include "../src/iface/ifc.c"
+#include "base/buf.h"
+#include "iface/ifc.h"
 
 #include <setjmp.h>
 #include <stdarg.h>
@@ -246,59 +246,59 @@ static void test_add_scan_env(void **state)
 
 static void test_sid_ifc_req_fail_no_res(void **state)
 {
-	struct sid_ifc_request req;
+	struct sid_ifc_req req;
 
 	assert_int_equal(sid_ifc_req(&req, NULL), -EINVAL);
 }
 
 static void test_sid_ifc_req_fail_no_req(void **state)
 {
-	struct sid_ifc_result *res;
+	struct sid_ifc_rsl *rsl;
 
-	assert_int_equal(sid_ifc_req(NULL, &res), -EINVAL);
-	assert_null(res);
+	assert_int_equal(sid_ifc_req(NULL, &rsl), -EINVAL);
+	assert_null(rsl);
 }
 
 static void test_sid_ifc_req_fail_missing(void **state)
 {
-	struct sid_ifc_request          req = {.flags = SID_IFC_CMD_FL_UNMODIFIED_DATA};
-	struct sid_ifc_result          *res;
+	struct sid_ifc_req              req = {.flags = SID_IFC_CMD_FL_UNMODIFIED_DATA};
+	struct sid_ifc_rsl             *rsl;
 	struct sid_ifc_unmodified_data *data = &req.data.unmodified;
 
 	data->mem                            = NULL;
 	data->size                           = 1;
-	assert_int_equal(sid_ifc_req(&req, &res), -EINVAL);
-	assert_null(res);
+	assert_int_equal(sid_ifc_req(&req, &rsl), -EINVAL);
+	assert_null(rsl);
 }
 
 static void test_sid_ifc_req_fail_write(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION};
-	struct sid_ifc_result *res;
+	struct sid_ifc_req  req = {.cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_rsl *rsl;
 
 	will_return(__wrap_sid_buf_write_all, -ENODATA);
-	assert_int_equal(sid_ifc_req(&req, &res), -ENODATA);
-	assert_null(res);
+	assert_int_equal(sid_ifc_req(&req, &rsl), -ENODATA);
+	assert_null(rsl);
 }
 
 static void test_sid_ifc_req_fail_read1(void **state)
 {
-	struct sid_ifc_request    req = {.cmd = SID_IFC_CMD_VERSION};
-	struct sid_ifc_result    *res;
+	struct sid_ifc_req        req = {.cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_rsl       *rsl;
 	struct sid_ifc_msg_header hdr = {.prot = SID_IFC_PROTOCOL, .cmd = SID_IFC_CMD_VERSION};
 
 	will_return(__wrap_sid_buf_write_all, 0);
 	will_return(__wrap_sid_buf_write_all, sizeof(hdr));
 	will_return(__wrap_sid_buf_write_all, &hdr);
 	will_return(__wrap_sid_buf_read, -EBADMSG);
-	assert_int_equal(sid_ifc_req(&req, &res), -EBADMSG);
-	assert_null(res);
+	assert_int_equal(sid_ifc_req(&req, &rsl), -EBADMSG);
+	assert_null(rsl);
 }
 
 static void test_sid_ifc_req_fail_read2(void **state)
 {
-	struct sid_ifc_request    req = {.cmd = SID_IFC_CMD_VERSION};
-	struct sid_ifc_result    *res;
+	struct sid_ifc_req        req = {.cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_rsl       *rsl;
 	struct sid_ifc_msg_header hdr = {.prot = SID_IFC_PROTOCOL, .cmd = SID_IFC_CMD_VERSION};
 
 	will_return(__wrap_sid_buf_write_all, 0);
@@ -307,20 +307,20 @@ static void test_sid_ifc_req_fail_read2(void **state)
 	will_return(__wrap_sid_buf_read, -EINTR);
 	will_return(__wrap_sid_buf_read, -EAGAIN);
 	will_return(__wrap_sid_buf_read, 0);
-	assert_int_equal(sid_ifc_req(&req, &res), -EBADMSG);
-	assert_null(res);
+	assert_int_equal(sid_ifc_req(&req, &rsl), -EBADMSG);
+	assert_null(rsl);
 }
 
-static struct sid_ifc_result *__do_sid_ifc_req(struct sid_ifc_request *req,
-                                               void                   *req_data,
-                                               size_t                  req_data_size,
-                                               uint64_t                status,
-                                               void                   *res_data,
-                                               ssize_t                 res_data_size,
-                                               int                     ret)
+static struct sid_ifc_rsl *__do_sid_ifc_req(struct sid_ifc_req *req,
+                                            void               *req_data,
+                                            size_t              req_data_size,
+                                            uint64_t            status,
+                                            void               *res_data,
+                                            ssize_t             res_data_size,
+                                            int                 ret)
 {
 	struct sid_ifc_msg_header *res_hdr, *req_hdr;
-	struct sid_ifc_result     *res;
+	struct sid_ifc_rsl        *rsl;
 
 	req_hdr = calloc(1, sizeof(*req_hdr) + req_data_size);
 	assert_non_null(req_hdr);
@@ -347,76 +347,76 @@ static struct sid_ifc_result *__do_sid_ifc_req(struct sid_ifc_request *req,
 	will_return(__wrap_sid_buf_write_all, req_hdr);
 	will_return(__wrap_sid_buf_read, sizeof(*res_hdr) + res_data_size);
 	will_return(__wrap_sid_buf_read, res_hdr);
-	assert_int_equal(sid_ifc_req(req, &res), ret);
+	assert_int_equal(sid_ifc_req(req, &rsl), ret);
 	free(req_hdr);
 	free(res_hdr);
 
-	return res;
+	return rsl;
 }
 
-static void __check_sid_ifc_req(struct sid_ifc_request *req,
-                                void                   *req_data,
-                                size_t                  req_data_size,
-                                uint64_t                status,
-                                void                   *res_data,
-                                ssize_t                 res_data_size)
+static void __check_sid_ifc_req(struct sid_ifc_req *req,
+                                void               *req_data,
+                                size_t              req_data_size,
+                                uint64_t            status,
+                                void               *res_data,
+                                ssize_t             res_data_size)
 {
-	const char            *data;
-	uint64_t               res_status;
-	uint8_t                res_prot;
-	size_t                 size;
-	struct sid_ifc_result *res = __do_sid_ifc_req(req, req_data, req_data_size, status, res_data, res_data_size, 0);
+	const char         *data;
+	uint64_t            res_status;
+	uint8_t             res_prot;
+	size_t              size;
+	struct sid_ifc_rsl *rsl = __do_sid_ifc_req(req, req_data, req_data_size, status, res_data, res_data_size, 0);
 
-	assert_non_null(res);
-	assert_int_equal(sid_ifc_result_get_status(res, &res_status), 0);
+	assert_non_null(rsl);
+	assert_int_equal(sid_ifc_rsl_get_status(rsl, &res_status), 0);
 	assert_int_equal(res_status, status);
-	assert_int_equal(sid_ifc_result_get_protocol(res, &res_prot), 0);
+	assert_int_equal(sid_ifc_rsl_get_protocol(rsl, &res_prot), 0);
 	assert_int_equal(res_prot, SID_IFC_PROTOCOL);
-	data = sid_ifc_result_get_data(res, &size);
+	data = sid_ifc_rsl_get_data(rsl, &size);
 	assert_int_equal(size, (status & SID_IFC_CMD_STATUS_FAILURE) ? 0 : res_data_size);
 	if (status & SID_IFC_CMD_STATUS_FAILURE || res_data_size == 0)
 		assert_null(data);
 	else
 		assert_memory_equal(data, res_data, res_data_size);
-	sid_ifc_result_free(res);
+	sid_ifc_rsl_free(rsl);
 }
 
 #define RESULT_DATA "SID_IFC_PROTOCOL: 2\nSID_MAJOR: 1\nSID_MINOR: 2\nSID_RELEASE: 3\n"
 
 static void test_sid_ifc_req_basic_pass(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_VERSION};
 
 	__check_sid_ifc_req(&req, NULL, 0, 0, RESULT_DATA, sizeof(RESULT_DATA));
 }
 
 static void test_sid_ifc_req_basic_fail1(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_VERSION};
 
 	__check_sid_ifc_req(&req, NULL, 0, SID_IFC_CMD_STATUS_FAILURE, NULL, 0);
 }
 
 static void test_sid_ifc_req_basic_fail2(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_VERSION};
 
 	__check_sid_ifc_req(&req, NULL, 0, SID_IFC_CMD_STATUS_FAILURE, RESULT_DATA, sizeof(RESULT_DATA));
 }
 
 static void test_sid_ifc_req_basic_no_data(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_VERSION};
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_VERSION};
 
 	__check_sid_ifc_req(&req, NULL, 0, 0, NULL, 0);
 }
 
 static void test_sid_ifc_req_scan(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_SCAN};
-	struct sid_buf        *buf;
-	char                  *data;
-	size_t                 size;
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_SCAN};
+	struct sid_buf    *buf;
+	char              *data;
+	size_t             size;
 
 	buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
 	                                              .type    = SID_BUF_TYPE_LINEAR,
@@ -436,7 +436,7 @@ static void test_sid_ifc_req_scan(void **state)
 
 static void test_sid_ifc_req_checkpoint(void **state)
 {
-	struct sid_ifc_request          req = {.cmd = SID_IFC_CMD_CHECKPOINT};
+	struct sid_ifc_req              req = {.cmd = SID_IFC_CMD_CHECKPOINT};
 	struct sid_buf                 *buf;
 	char                           *req_data;
 	size_t                          size;
@@ -470,7 +470,7 @@ static void test_sid_ifc_req_checkpoint(void **state)
 
 static void test_sid_ifc_req_export_pass(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_DBDUMP};
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_DBDUMP};
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + SID_BUF_SIZE_PREFIX_LEN);
@@ -482,7 +482,7 @@ static void test_sid_ifc_req_export_pass(void **state)
 
 static void test_sid_ifc_req_export_fail1(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_DBDUMP};
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_DBDUMP};
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + SID_BUF_SIZE_PREFIX_LEN);
@@ -494,7 +494,7 @@ static void test_sid_ifc_req_export_fail1(void **state)
 
 static void test_sid_ifc_req_export_fail2(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_DBDUMP};
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_DBDUMP};
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + SID_BUF_SIZE_PREFIX_LEN);
@@ -506,7 +506,7 @@ static void test_sid_ifc_req_export_fail2(void **state)
 
 static void test_sid_ifc_req_export_no_data(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_DBDUMP};
+	struct sid_ifc_req req = {.cmd = SID_IFC_CMD_DBDUMP};
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, SID_BUF_SIZE_PREFIX_LEN);
@@ -515,48 +515,48 @@ static void test_sid_ifc_req_export_no_data(void **state)
 
 static void test_sid_ifc_req_fail_recv_fd(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_DBDUMP};
-	struct sid_ifc_result *res;
+	struct sid_ifc_req  req = {.cmd = SID_IFC_CMD_DBDUMP};
+	struct sid_ifc_rsl *rsl;
 
 	will_return(__wrap_sid_comms_unix_recv, -EINTR);
 	will_return(__wrap_sid_comms_unix_recv, -ENOTCONN);
-	res = __do_sid_ifc_req(&req, NULL, 0, 0, NULL, 0, -ENOTCONN);
-	assert_null(res);
+	rsl = __do_sid_ifc_req(&req, NULL, 0, 0, NULL, 0, -ENOTCONN);
+	assert_null(rsl);
 }
 
 static void test_sid_ifc_req_fail_read_fd1(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_DBDUMP};
-	struct sid_ifc_result *res;
+	struct sid_ifc_req  req = {.cmd = SID_IFC_CMD_DBDUMP};
+	struct sid_ifc_rsl *rsl;
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, -EINTR);
 	will_return(__wrap_read, -EIO);
-	res = __do_sid_ifc_req(&req, NULL, 0, 0, NULL, 0, -EIO);
-	assert_null(res);
+	rsl = __do_sid_ifc_req(&req, NULL, 0, 0, NULL, 0, -EIO);
+	assert_null(rsl);
 }
 
 static void test_sid_ifc_req_fail_read_fd2(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_DBDUMP};
-	struct sid_ifc_result *res;
+	struct sid_ifc_req  req = {.cmd = SID_IFC_CMD_DBDUMP};
+	struct sid_ifc_rsl *rsl;
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, SID_BUF_SIZE_PREFIX_LEN - 1);
-	res = __do_sid_ifc_req(&req, NULL, 0, 0, NULL, 0, -EBADMSG);
-	assert_null(res);
+	rsl = __do_sid_ifc_req(&req, NULL, 0, 0, NULL, 0, -EBADMSG);
+	assert_null(rsl);
 }
 
 static void test_sid_ifc_req_fail_mmap(void **state)
 {
-	struct sid_ifc_request req = {.cmd = SID_IFC_CMD_DBDUMP};
-	struct sid_ifc_result *res;
+	struct sid_ifc_req  req = {.cmd = SID_IFC_CMD_DBDUMP};
+	struct sid_ifc_rsl *rsl;
 
 	will_return(__wrap_sid_comms_unix_recv, sizeof(unsigned char));
 	will_return(__wrap_read, sizeof(RESULT_DATA) + SID_BUF_SIZE_PREFIX_LEN);
 	will_return(__wrap_mmap, -ENOMEM);
-	res = __do_sid_ifc_req(&req, NULL, 0, 0, NULL, 0, -ENOMEM);
-	assert_null(res);
+	rsl = __do_sid_ifc_req(&req, NULL, 0, 0, NULL, 0, -ENOMEM);
+	assert_null(rsl);
 }
 
 int main(void)

@@ -1,7 +1,7 @@
 #include "../src/internal/mem.c"
-#include "../src/resource/kv-store.c"
-#include "../src/resource/ubridge.c"
-#include "ucmd-module.h"
+#include "../src/resource/kvs.c"
+#include "../src/resource/ubr.c"
+#include "ucmd-mod.h"
 
 #include <setjmp.h>
 #include <stdarg.h>

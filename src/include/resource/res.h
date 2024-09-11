@@ -17,12 +17,12 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_RESOURCE_H
-#define _SID_RESOURCE_H
+#ifndef _SID_RES_H
+#define _SID_RES_H
 
-#include "base/buffer.h"
-#include "iface/service-link.h"
-#include "internal/formatter.h"
+#include "base/buf.h"
+#include "iface/srv-lnk.h"
+#include "internal/fmt.h"
 
 #include <signal.h>
 #include <stdbool.h>
@@ -48,7 +48,7 @@ typedef struct sid_res_type {
 	unsigned int with_watchdog  :1;
 } sid_res_type_t;
 
-#include "resource-type-regs.h"
+#include "res-type-regs.h"
 
 /*
  * create/destroy functions and related types

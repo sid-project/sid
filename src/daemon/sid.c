@@ -20,8 +20,8 @@
 #include "base/util.h"
 #include "internal/util.h"
 #include "log/log.h"
-#include "resource/resource.h"
-#include "resource/worker-control.h"
+#include "resource/res.h"
+#include "resource/wrk-ctl.h"
 
 #include <errno.h>
 #include <fcntl.h>

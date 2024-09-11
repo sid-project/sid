@@ -17,8 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_IFACE_H
-#define _SID_IFACE_H
+#ifndef _SID_IFC_H
+#define _SID_IFC_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -67,7 +67,7 @@ struct sid_ifc_unmodified_data {
 	size_t size;
 };
 
-struct sid_ifc_request {
+struct sid_ifc_req {
 	sid_ifc_cmd_t cmd;
 	uint64_t      flags;
 	uint64_t      seqnum;
@@ -78,15 +78,15 @@ struct sid_ifc_request {
 	} data;
 };
 
-struct sid_ifc_result;
+struct sid_ifc_rsl;
 
 const char   *sid_ifc_cmd_type_to_name(sid_ifc_cmd_t cmd);
 sid_ifc_cmd_t sid_ifc_cmd_name_to_type(const char *cmd_name);
-int           sid_ifc_req(struct sid_ifc_request *req, struct sid_ifc_result **res);
-void          sid_ifc_result_free(struct sid_ifc_result *res);
-int           sid_ifc_result_get_status(struct sid_ifc_result *res, uint64_t *status);
-int           sid_ifc_result_get_protocol(struct sid_ifc_result *res, uint8_t *prot);
-const char   *sid_ifc_result_get_data(struct sid_ifc_result *res, size_t *size_p);
+int           sid_ifc_req(struct sid_ifc_req *req, struct sid_ifc_rsl **rsl);
+void          sid_ifc_rsl_free(struct sid_ifc_rsl *rsl);
+int           sid_ifc_rsl_get_status(struct sid_ifc_rsl *rsl, uint64_t *status);
+int           sid_ifc_rsl_get_protocol(struct sid_ifc_rsl *rsl, uint8_t *prot);
+const char   *sid_ifc_rsl_get_data(struct sid_ifc_rsl *rsl, size_t *size_p);
 #ifdef __cplusplus
 }
 #endif

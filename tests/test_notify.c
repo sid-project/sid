@@ -1,4 +1,4 @@
-#include "../src/iface/service-link.c"
+#include "../src/iface/srv-lnk.c"
 
 #include <setjmp.h>
 #include <stdarg.h>

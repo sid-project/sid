@@ -17,10 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_KV_STORE_H
-#define _SID_KV_STORE_H
+#ifndef _SID_KVS_H
+#define _SID_KVS_H
 
-#include "resource/resource.h"
+#include "resource/res.h"
 
 #include <sys/uio.h>
 

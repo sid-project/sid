@@ -164,11 +164,11 @@ base libraries.
 %{_libdir}/sid/libsidbase.so
 %dir %{_includedir}/sid
 %dir %{_includedir}/sid/base
-%{_includedir}/sid/base/binary.h
-%{_includedir}/sid/base/buffer-common.h
-%{_includedir}/sid/base/buffer-type.h
-%{_includedir}/sid/base/buffer.h
+%{_includedir}/sid/base/buf-common.h
+%{_includedir}/sid/base/buf-type.h
+%{_includedir}/sid/base/buf.h
 %{_includedir}/sid/base/comms.h
+%{_includedir}/sid/base/conv.h
 %{_includedir}/sid/base/util.h
 %doc README.md
 
@@ -206,11 +206,11 @@ internal libraries.
 
 %files internal-libs-devel
 %dir %{_includedir}/sid/internal
-%{_includedir}/sid/internal/bitmap.h
+%{_includedir}/sid/internal/bmp.h
 %{_includedir}/sid/internal/bptree.h
 %{_includedir}/sid/internal/common.h
 %{_includedir}/sid/internal/comp-attrs.h
-%{_includedir}/sid/internal/formatter.h
+%{_includedir}/sid/internal/fmt.h
 %{_includedir}/sid/internal/hash.h
 %{_includedir}/sid/internal/list.h
 %{_includedir}/sid/internal/mem.h
@@ -294,9 +294,9 @@ interface libraries.
 %{_libdir}/sid/libsidiface.so
 %dir %{_includedir}/sid
 %dir %{_includedir}/sid/iface
-%{_includedir}/sid/iface/service-link.h
-%{_includedir}/sid/iface/iface.h
-%{_includedir}/sid/iface/iface_internal.h
+%{_includedir}/sid/iface/srv-lnk.h
+%{_includedir}/sid/iface/ifc.h
+%{_includedir}/sid/iface/ifc_internal.h
 %doc README.md
 
 
@@ -341,14 +341,14 @@ resource libraries.
 %{_libdir}/sid/libsidresource.so
 %dir %{_includedir}/sid
 %dir %{_includedir}/sid/resource
-%{_includedir}/sid/resource/kv-store.h
-%{_includedir}/sid/resource/module-registry.h
-%{_includedir}/sid/resource/module.h
-%{_includedir}/sid/resource/resource-type-regs.h
-%{_includedir}/sid/resource/resource.h
-%{_includedir}/sid/resource/ucmd-module.h
-%{_includedir}/sid/resource/ubridge.h
-%{_includedir}/sid/resource/worker-control.h
+%{_includedir}/sid/resource/kvs.h
+%{_includedir}/sid/resource/mod-reg.h
+%{_includedir}/sid/resource/mod.h
+%{_includedir}/sid/resource/res-type-regs.h
+%{_includedir}/sid/resource/res.h
+%{_includedir}/sid/resource/ucmd-mod.h
+%{_includedir}/sid/resource/ubr.h
+%{_includedir}/sid/resource/wrk-ctl.h
 %doc README.md
 
 

@@ -3,11 +3,11 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#define UNIT_TESTING /* enable cmocka memory testing in mem.c and kv-store.c*/
+#define UNIT_TESTING /* enable cmocka memory testing in mem.c and kvs.c*/
 #include "../src/internal/mem.c"
-#include "../src/resource/kv-store.c"
-#include "../src/resource/ubridge.c"
-#include "ucmd-module.h"
+#include "../src/resource/kvs.c"
+#include "../src/resource/ubr.c"
+#include "ucmd-mod.h"
 
 #include <cmocka.h>
 

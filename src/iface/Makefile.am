@@ -23,11 +23,11 @@ pkglib_LTLIBRARIES = libsidiface_servicelink.la libsidiface.la
 
 ifacedir = $(pkgincludedir)/iface
 
-libsidiface_servicelink_la_SOURCES = service-link.c
+libsidiface_servicelink_la_SOURCES = srv-lnk.c
 
 iface_servicelinkdir = ${ifacedir}
 
-iface_servicelink_HEADERS = $(top_srcdir)/src/include/iface/service-link.h
+iface_servicelink_HEADERS = $(top_srcdir)/src/include/iface/srv-lnk.h
 
 libsidiface_servicelink_la_CFLAGS = $(SYSTEMD_CFLAGS)
 
@@ -38,12 +38,12 @@ libsidiface_servicelink_la_LIBADD = $(top_builddir)/src/internal/libsidinternal.
 				    $(top_builddir)/src/log/libsidlog.la \
 				    $(SYSTEMD_LIBS)
 
-libsidiface_la_SOURCES = iface.c
+libsidiface_la_SOURCES = ifc.c
 
 libsidiface_la_LIBADD = $(top_builddir)/src/base/libsidbase.la
 
-iface_HEADERS = $(top_srcdir)/src/include/iface/iface.h \
-		$(top_srcdir)/src/include/iface/iface_internal.h
+iface_HEADERS = $(top_srcdir)/src/include/iface/ifc.h \
+		$(top_srcdir)/src/include/iface/ifc_internal.h
 
 libsidiface_la_LDFLAGS = -version-info 0:0:0
 

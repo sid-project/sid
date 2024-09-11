@@ -21,21 +21,21 @@
 
 #include "internal/common.h"
 
-#include "resource/ubridge.h"
+#include "resource/ubr.h"
 
-#include "base/buffer.h"
+#include "base/buf.h"
 #include "base/comms.h"
 #include "base/util.h"
-#include "iface/iface_internal.h"
-#include "internal/bitmap.h"
-#include "internal/formatter.h"
+#include "iface/ifc_internal.h"
+#include "internal/bmp.h"
+#include "internal/fmt.h"
 #include "internal/mem.h"
 #include "internal/util.h"
-#include "resource/kv-store.h"
-#include "resource/module-registry.h"
-#include "resource/resource.h"
-#include "resource/ucmd-module.h"
-#include "resource/worker-control.h"
+#include "resource/kvs.h"
+#include "resource/mod-reg.h"
+#include "resource/res.h"
+#include "resource/ucmd-mod.h"
+#include "resource/wrk-ctl.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -453,12 +453,12 @@ struct kv_rel_spec {
 };
 
 struct cross_bitmap_calc_arg {
-	kv_vector_t   *old_vvalue;
-	size_t         old_vsize;
-	struct bitmap *old_bmp;
-	kv_vector_t   *new_vvalue;
-	size_t         new_vsize;
-	struct bitmap *new_bmp;
+	kv_vector_t *old_vvalue;
+	size_t       old_vsize;
+	struct bmp  *old_bmp;
+	kv_vector_t *new_vvalue;
+	size_t       new_vsize;
+	struct bmp  *new_bmp;
 };
 
 struct sid_dbstats {
@@ -2000,8 +2000,8 @@ static void _delta_cross_bitmap_calc(struct cross_bitmap_calc_arg *cross)
 				i_new++;
 			} else {
 				/* both old and new has the item: we have found contradiction! */
-				bitmap_unset_bit(cross->old_bmp, i_old);
-				bitmap_unset_bit(cross->new_bmp, i_new);
+				bmp_unset_bit(cross->old_bmp, i_old);
+				bmp_unset_bit(cross->new_bmp, i_new);
 				i_old++;
 				i_new++;
 			}
@@ -2042,7 +2042,7 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 		goto out;
 	cross1.old_vvalue = sid_kvs_get(update_arg->res, delta_key, &cross1.old_vsize, NULL);
 	_destroy_key(update_arg->gen_buf, delta_key);
-	if (cross1.old_vvalue && !(cross1.old_bmp = bitmap_create(cross1.old_vsize, true, NULL)))
+	if (cross1.old_vvalue && !(cross1.old_bmp = bmp_create(cross1.old_vsize, true, NULL)))
 		goto out;
 
 	rel_spec->cur_key_spec->op = KV_OP_MINUS;
@@ -2050,7 +2050,7 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 		goto out;
 	cross2.old_vvalue = sid_kvs_get(update_arg->res, delta_key, &cross2.old_vsize, NULL);
 	_destroy_key(update_arg->gen_buf, delta_key);
-	if (cross2.old_vvalue && !(cross2.old_bmp = bitmap_create(cross2.old_vsize, true, NULL)))
+	if (cross2.old_vvalue && !(cross2.old_bmp = bmp_create(cross2.old_vsize, true, NULL)))
 		goto out;
 
 	/*
@@ -2064,7 +2064,7 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	if (rel_spec->delta->minus) {
 		sid_buf_get_data(rel_spec->delta->minus, (const void **) &cross1.new_vvalue, &cross1.new_vsize);
 
-		if (!(cross1.new_bmp = bitmap_create(cross1.new_vsize, true, NULL)))
+		if (!(cross1.new_bmp = bmp_create(cross1.new_vsize, true, NULL)))
 			goto out;
 
 		/* cross-compare old_plus with new_minus and unset bitmap positions where we find contradiction */
@@ -2082,7 +2082,7 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	if (rel_spec->delta->plus) {
 		sid_buf_get_data(rel_spec->delta->plus, (const void **) &cross2.new_vvalue, &cross2.new_vsize);
 
-		if (!(cross2.new_bmp = bitmap_create(cross2.new_vsize, true, NULL)))
+		if (!(cross2.new_bmp = bmp_create(cross2.new_vsize, true, NULL)))
 			goto out;
 
 		/* cross-compare old_minus with new_plus and unset bitmap positions where we find contradiction */
@@ -2097,13 +2097,13 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	 * plus  <---+---> plus
 	 * minus <---+---> minus
 	 */
-	abs_minus_vsize = ((cross2.old_bmp ? bitmap_get_bit_set_count(cross2.old_bmp) : 0) +
-	                   (cross1.new_bmp ? bitmap_get_bit_set_count(cross1.new_bmp) : 0));
+	abs_minus_vsize = ((cross2.old_bmp ? bmp_get_bit_set_count(cross2.old_bmp) : 0) +
+	                   (cross1.new_bmp ? bmp_get_bit_set_count(cross1.new_bmp) : 0));
 	if (cross2.old_bmp && cross1.new_bmp)
 		abs_minus_vsize -= VVALUE_HEADER_CNT;
 
-	abs_plus_vsize = ((cross1.old_bmp ? bitmap_get_bit_set_count(cross1.old_bmp) : 0) +
-	                  (cross2.new_bmp ? bitmap_get_bit_set_count(cross2.new_bmp) : 0));
+	abs_plus_vsize = ((cross1.old_bmp ? bmp_get_bit_set_count(cross1.old_bmp) : 0) +
+	                  (cross2.new_bmp ? bmp_get_bit_set_count(cross2.new_bmp) : 0));
 	if (cross1.old_bmp && cross2.new_bmp)
 		abs_plus_vsize -= VVALUE_HEADER_CNT;
 
@@ -2116,44 +2116,44 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 
 	if (cross1.old_vvalue) {
 		for (i = VVALUE_IDX_DATA; i < cross1.old_vsize; i++) {
-			if (bitmap_bit_is_set(cross1.old_bmp, i, NULL) && ((r = sid_buf_add(rel_spec->abs_delta->plus,
-			                                                                    cross1.old_vvalue[i].iov_base,
-			                                                                    cross1.old_vvalue[i].iov_len,
-			                                                                    NULL,
-			                                                                    NULL)) < 0))
+			if (bmp_bit_is_set(cross1.old_bmp, i, NULL) && ((r = sid_buf_add(rel_spec->abs_delta->plus,
+			                                                                 cross1.old_vvalue[i].iov_base,
+			                                                                 cross1.old_vvalue[i].iov_len,
+			                                                                 NULL,
+			                                                                 NULL)) < 0))
 				goto out;
 		}
 	}
 
 	if (cross1.new_vvalue) {
 		for (i = VVALUE_IDX_DATA; i < cross1.new_vsize; i++) {
-			if (bitmap_bit_is_set(cross1.new_bmp, i, NULL) && ((r = sid_buf_add(rel_spec->abs_delta->minus,
-			                                                                    cross1.new_vvalue[i].iov_base,
-			                                                                    cross1.new_vvalue[i].iov_len,
-			                                                                    NULL,
-			                                                                    NULL)) < 0))
+			if (bmp_bit_is_set(cross1.new_bmp, i, NULL) && ((r = sid_buf_add(rel_spec->abs_delta->minus,
+			                                                                 cross1.new_vvalue[i].iov_base,
+			                                                                 cross1.new_vvalue[i].iov_len,
+			                                                                 NULL,
+			                                                                 NULL)) < 0))
 				goto out;
 		}
 	}
 
 	if (cross2.old_vvalue) {
 		for (i = VVALUE_IDX_DATA; i < cross2.old_vsize; i++) {
-			if (bitmap_bit_is_set(cross2.old_bmp, i, NULL) && ((r = sid_buf_add(rel_spec->abs_delta->minus,
-			                                                                    cross2.old_vvalue[i].iov_base,
-			                                                                    cross2.old_vvalue[i].iov_len,
-			                                                                    NULL,
-			                                                                    NULL)) < 0))
+			if (bmp_bit_is_set(cross2.old_bmp, i, NULL) && ((r = sid_buf_add(rel_spec->abs_delta->minus,
+			                                                                 cross2.old_vvalue[i].iov_base,
+			                                                                 cross2.old_vvalue[i].iov_len,
+			                                                                 NULL,
+			                                                                 NULL)) < 0))
 				goto out;
 		}
 	}
 
 	if (cross2.new_vvalue) {
 		for (i = VVALUE_IDX_DATA; i < cross2.new_vsize; i++) {
-			if (bitmap_bit_is_set(cross2.new_bmp, i, NULL) && ((r = sid_buf_add(rel_spec->abs_delta->plus,
-			                                                                    cross2.new_vvalue[i].iov_base,
-			                                                                    cross2.new_vvalue[i].iov_len,
-			                                                                    NULL,
-			                                                                    NULL)) < 0))
+			if (bmp_bit_is_set(cross2.new_bmp, i, NULL) && ((r = sid_buf_add(rel_spec->abs_delta->plus,
+			                                                                 cross2.new_vvalue[i].iov_base,
+			                                                                 cross2.new_vvalue[i].iov_len,
+			                                                                 NULL,
+			                                                                 NULL)) < 0))
 				goto out;
 		}
 	}
@@ -2171,13 +2171,13 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	r = 0;
 out:
 	if (cross1.old_bmp)
-		bitmap_destroy(cross1.old_bmp);
+		bmp_destroy(cross1.old_bmp);
 	if (cross1.new_bmp)
-		bitmap_destroy(cross1.new_bmp);
+		bmp_destroy(cross1.new_bmp);
 	if (cross2.old_bmp)
-		bitmap_destroy(cross2.old_bmp);
+		bmp_destroy(cross2.old_bmp);
 	if (cross2.new_bmp)
-		bitmap_destroy(cross2.new_bmp);
+		bmp_destroy(cross2.new_bmp);
 
 	rel_spec->cur_key_spec->op = orig_op;
 
@@ -2719,43 +2719,43 @@ static bool _key_parts_match(struct iovec *key_parts1, struct iovec *key_parts2,
 
 static char **_get_key_strv_from_vvalue(const kv_vector_t *vvalue, size_t size, struct kv_key_spec *key_filter, size_t *ret_count)
 {
-	struct iovec   key_filter_parts[_KEY_PART_COUNT];
-	struct iovec   key_parts[_KEY_PART_COUNT];
-	key_part_t     last_key_part;
-	size_t         i, count = 0;
-	struct bitmap *bitmap;
-	char         **strv;
-	char          *p;
+	struct iovec key_filter_parts[_KEY_PART_COUNT];
+	struct iovec key_parts[_KEY_PART_COUNT];
+	key_part_t   last_key_part;
+	size_t       i, count = 0;
+	struct bmp  *bmp;
+	char       **strv;
+	char        *p;
 
 	_key_spec_to_parts(key_filter, key_filter_parts);
 
-	if (!(bitmap = bitmap_create(size, false, NULL)))
+	if (!(bmp = bmp_create(size, false, NULL)))
 		return NULL;
 
 	for (i = 0; i < size; i++) {
 		last_key_part = _decompose_key(vvalue[i].iov_base, key_parts);
 
 		if (_key_parts_match(key_parts, key_filter_parts, last_key_part)) {
-			bitmap_set_bit(bitmap, i);
+			bmp_set_bit(bmp, i);
 			/* Here, the 'count' is the number of chars used in total. */
 			count += vvalue[i].iov_len;
 		}
 	}
 
-	if (!(strv = malloc(bitmap_get_bit_set_count(bitmap) * sizeof(char *) + count * sizeof(char))))
+	if (!(strv = malloc(bmp_get_bit_set_count(bmp) * sizeof(char *) + count * sizeof(char))))
 		goto out;
 
-	p = (char *) (strv + bitmap_get_bit_set_count(bitmap));
+	p = (char *) (strv + bmp_get_bit_set_count(bmp));
 
 	/* Here, the 'count' is the current number of items already in the final strv. */
 	for (i = 0, count = 0; i < size; i++) {
-		if (bitmap_bit_is_set(bitmap, i, NULL)) {
+		if (bmp_bit_is_set(bmp, i, NULL)) {
 			strv[count++] = p;
 			p             = mempcpy(p, vvalue[i].iov_base, vvalue[i].iov_len);
 		}
 	}
 out:
-	bitmap_destroy(bitmap);
+	bmp_destroy(bmp);
 	*ret_count = count;
 	return strv;
 }

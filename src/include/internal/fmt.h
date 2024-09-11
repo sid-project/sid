@@ -17,10 +17,10 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_FORMATTER_H
-#define _SID_FORMATTER_H
+#ifndef _SID_FMT_H
+#define _SID_FMT_H
 
-#include "base/buffer.h"
+#include "base/buf.h"
 
 #include <stdbool.h>
 #include <stddef.h>

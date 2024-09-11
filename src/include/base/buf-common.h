@@ -17,8 +17,8 @@
  * along with SID.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SID_BUFFER_COMMON_H
-#define _SID_BUFFER_COMMON_H
+#ifndef _SID_BUF_COMMON_H
+#define _SID_BUF_COMMON_H
 
 #include <inttypes.h>
 #include <stdbool.h>
