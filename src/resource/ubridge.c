@@ -220,9 +220,11 @@ typedef enum {
 	CMD_STATE_EXE_RUN,             /* cmd execution running */
 	CMD_STATE_EXE_WAIT,            /* wait for event and/or data to resume cmd execution */
 	CMD_STATE_RES_BUILD,           /* build cmd stage results */
-	CMD_STATE_RES_EXPBUF_SEND,     /* send cmd stage export buffer */
+	CMD_STATE_RES_EXPBUF_F_SEND,   /* send cmd stage export buffer as first */
+	CMD_STATE_RES_RESBUF_L_SEND,   /* send cmd state result buffer as last */
+	CMD_STATE_RES_RESBUF_F_SEND,   /* send cmd stage result buffer as first */
+	CMD_STATE_RES_EXPBUF_L_SEND,   /* send cmd state export buffer as last */
 	CMD_STATE_RES_EXPBUF_WAIT_ACK, /* wait for cmd stage export buffer reception ack */
-	CMD_STATE_RES_RESBUF_SEND,     /* send cmd stage result buffer */
 	CMD_STATE_TIM_OUT,             /* cmd timeout */
 	CMD_STATE_ERR,                 /* cmd error */
 	CMD_STATE_FIN,                 /* all cmd stages done, all results successfully sent */
@@ -235,9 +237,11 @@ static const char *cmd_state_str[]        = {[CMD_STATE_UNDEFINED]           = "
                                              [CMD_STATE_EXE_RUN]             = "CMD_EXE_RUN",
                                              [CMD_STATE_EXE_WAIT]            = "CMD_EXE_WAIT",
                                              [CMD_STATE_RES_BUILD]           = "CMD_RES_BUILD",
-                                             [CMD_STATE_RES_EXPBUF_SEND]     = "CMD_RES_EXPBUF_SEND",
+                                             [CMD_STATE_RES_EXPBUF_F_SEND]   = "CMD_RES_EXPBUF_F_SEND",
+                                             [CMD_STATE_RES_RESBUF_L_SEND]   = "CMD_RES_RESBUF_L_SEND",
+                                             [CMD_STATE_RES_RESBUF_F_SEND]   = "CMD_RES_RESBUF_F_SEND",
+                                             [CMD_STATE_RES_EXPBUF_L_SEND]   = "CMD_RES_EXPBUF_L_SEND",
                                              [CMD_STATE_RES_EXPBUF_WAIT_ACK] = "CMD_RES_EXPBUF_WAIT_ACK",
-                                             [CMD_STATE_RES_RESBUF_SEND]     = "CMD_RES_RESBUF_SEND",
                                              [CMD_STATE_TIM_OUT]             = "CMD_TIM_OUT",
                                              [CMD_STATE_ERR]                 = "CMD_ERR",
                                              [CMD_STATE_FIN]                 = "CMD_FIN"};
@@ -5692,14 +5696,22 @@ out:
 
 static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 {
-	sid_res_t            *cmd_res      = data;
-	struct sid_ucmd_ctx  *ucmd_ctx     = sid_res_get_data(cmd_res);
-	const struct cmd_reg *cmd_reg      = _get_cmd_reg(ucmd_ctx);
-	bool                  expbuf_first = cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN;
-	int                   r            = -1;
+	sid_res_t            *cmd_res  = data;
+	struct sid_ucmd_ctx  *ucmd_ctx = sid_res_get_data(cmd_res);
+	const struct cmd_reg *cmd_reg  = _get_cmd_reg(ucmd_ctx);
+	int                   r        = -1;
 
 	if (ucmd_ctx->state == CMD_STATE_TIM_OUT) {
 		/* TODO: add timeout handling, calling out to module code */
+		goto out;
+	}
+
+	if (ucmd_ctx->state != CMD_STATE_EXE_SCHED) {
+		sid_res_log_error(cmd_res,
+		                  SID_INTERNAL_ERROR "%s: Incorrect command state: %s, expected: %s.",
+		                  __func__,
+		                  cmd_state_str[ucmd_ctx->state],
+		                  cmd_state_str[CMD_STATE_EXE_SCHED]);
 		goto out;
 	}
 
@@ -5708,77 +5720,97 @@ static int _cmd_handler(sid_res_ev_src_t *es, void *data)
 		 * If prev_state is:
 		 *   - CMD_STATE_INI, we are running this handler for the very first time,
 		 *   - CMD_STATE_EXE_WAIT, we are resuming handler from previous run where we needed more data,
-		 *   - CMD_STATE_FIN, we have run the handler before and finished (sent the results), now we need to run it afresh.
+		 *   - CMD_STATE_STG_WAIT, we have finished previous cmd stage and now we're running a new one.
 		 */
 		if ((r = _change_cmd_state(cmd_res, CMD_STATE_EXE_RUN)) < 0)
 			goto out;
 
+		/*
+		 * =======================================
+		 * Execute the command's specific handler.
+		 * =======================================
+		 */
 		if (cmd_reg->exec && ((r = cmd_reg->exec(cmd_res)) < 0)) {
 			sid_res_log_error(cmd_res, "Failed to execute command");
 			goto out;
 		}
 
+		/*
+		 * If the command's specific handler has not changed the command
+		 * state by itself, change the state to default CMD_STATE_RES_BUILD.
+		 */
 		if (ucmd_ctx->state == CMD_STATE_EXE_RUN)
 			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_BUILD)) < 0)
 				goto out;
-	} else if (ucmd_ctx->prev_state == CMD_STATE_RES_EXPBUF_WAIT_ACK) {
-		/* The export buffer reception is acked, now we can send the response buffer. */
-		if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND)) < 0)
-			goto out;
+	} else {
+		/*
+		 * If prev_state is:
+		 *   - CMD_STATE_RES_EXPBUF_WAIT_ACK, the expbuf is now acked, so move on to sending the resbuf.
+		 */
+		if (ucmd_ctx->prev_state == CMD_STATE_RES_EXPBUF_WAIT_ACK) {
+			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_L_SEND)) < 0)
+				goto out;
+		}
 	}
 
 	if (ucmd_ctx->state == CMD_STATE_RES_BUILD) {
 		if ((r = _build_cmd_kv_buffers(cmd_res, cmd_reg->flags)) < 0)
 			goto out;
 
-		if (expbuf_first)
-			r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND);
-		else
-			r = _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
-
-		if (r < 0)
+		/*
+		 * If we are sending the expbuf to main process, then send
+		 * it first (and wait for the main process to ack its
+		 * successful reception), then send the respbuf:
+		 *
+		 * Otherwise, send the respbuf first and then expbuf
+		 * (and do not wait for the expbuf reception ack).
+		 */
+		if ((r = (cmd_reg->flags & CMD_KV_EXPBUF_TO_MAIN ? _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_F_SEND)
+		                                                 : _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_F_SEND))) < 0)
 			goto out;
 	}
 
-	if (ucmd_ctx->state == CMD_STATE_RES_EXPBUF_SEND) {
+	if (ucmd_ctx->state == CMD_STATE_RES_EXPBUF_F_SEND) {
+		/* We are sending the expbuf first. */
 		if (((r = _send_out_cmd_expbuf(cmd_res)) < 0) && (r != -ENODATA))
 			goto out;
 
-		if (expbuf_first) {
-			if (r == -ENODATA)
-				r = _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_SEND);
-			else
-				r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK);
+		/*
+		 * If there was no data actually sent in expbuf, then move on to sending the resbuf,
+		 * otherwise, wait for expbuf reception ack first.
+		 */
+		if ((r = (r == -ENODATA) ? _change_cmd_state(cmd_res, CMD_STATE_RES_RESBUF_L_SEND)
+		                         : _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_WAIT_ACK)) < 0)
+			goto out;
 
-			if (r < 0)
-				goto out;
-		} else {
-			if (_is_last_stage(cmd_reg, ucmd_ctx))
-				r = _change_cmd_state(cmd_res, CMD_STATE_FIN);
-			else
-				r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
-
-			if (r < 0)
-				goto out;
-		}
-	}
-
-	if (ucmd_ctx->state == CMD_STATE_RES_RESBUF_SEND) {
+	} else if (ucmd_ctx->state == CMD_STATE_RES_RESBUF_F_SEND) {
+		/* We are sending the respuf first. */
 		if ((r = _send_out_cmd_resbuf(cmd_res)) < 0)
 			goto out;
 
-		if (expbuf_first) {
-			if (_is_last_stage(cmd_reg, ucmd_ctx))
-				r = _change_cmd_state(cmd_res, CMD_STATE_FIN);
-			else
-				r = _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT);
+		/* Then we are sending the expbuf. */
+		if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_L_SEND)) < 0)
+			goto out;
+	}
 
-			if (r < 0)
-				goto out;
-		} else {
-			if ((r = _change_cmd_state(cmd_res, CMD_STATE_RES_EXPBUF_SEND)) < 0)
-				goto out;
-		}
+	if (ucmd_ctx->state == CMD_STATE_RES_RESBUF_L_SEND) {
+		/* We are sending the resbuf last. */
+		if ((r = _send_out_cmd_resbuf(cmd_res)) < 0)
+			goto out;
+
+		/* If this is the last stage, finish, otherwise wait for the next stage. */
+		if ((r = _is_last_stage(cmd_reg, ucmd_ctx) ? _change_cmd_state(cmd_res, CMD_STATE_FIN)
+		                                           : _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT)) < 0)
+			goto out;
+	} else if (ucmd_ctx->state == CMD_STATE_RES_EXPBUF_L_SEND) {
+		/* We are sending the expbuf last. */
+		if (((r = _send_out_cmd_expbuf(cmd_res)) < 0) && (r != -ENODATA))
+			goto out;
+
+		/* If this is the last stage, finish, otherwise wait for the next stage. */
+		if ((r = _is_last_stage(cmd_reg, ucmd_ctx) ? _change_cmd_state(cmd_res, CMD_STATE_FIN)
+		                                           : _change_cmd_state(cmd_res, CMD_STATE_STG_WAIT)) < 0)
+			goto out;
 	}
 out:
 	if (r < 0) {
@@ -5792,6 +5824,11 @@ out:
 	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_STG_WAIT, CMD_STATE_FIN))
 		(void) _process_cmd_unsbuf(cmd_res);
 
+	/*
+	 * TODO: check CMD_STATE_ERR handling - we are setting that under
+	 * the (r < 0) condition before and returning, this doesn't seem
+	 * correct.
+	 */
 	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_FIN, CMD_STATE_ERR))
 		(void) sid_wrk_ctl_yield_worker(cmd_res);
 
