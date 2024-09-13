@@ -10,10 +10,6 @@
 #ifndef SID_CONV_H
 #define SID_CONV_H
 
-#include <stddef.h>
-
-size_t         sid_conv_base64_encoded_len(size_t in_len);
-int            sid_conv_base64_encode(const unsigned char *src, size_t len, unsigned char *dest, size_t out_len);
-unsigned char *sid_conv_base64_decode(const unsigned char *src, size_t len, size_t *out_len);
+#include "base/conv-base64.h"
 
 #endif /* SID_CONV_H */

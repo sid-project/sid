@@ -25,7 +25,7 @@ libsidbase_la_SOURCES = buf-type-linear.c \
 			buf-type-vector.c \
 			buf.c \
 			comms.c \
-			conv.c \
+			conv-base64.c \
 			util.c
 
 basedir = $(pkgincludedir)/base
@@ -34,6 +34,7 @@ base_HEADERS = $(top_srcdir)/src/include/base/buf-common.h \
 	       $(top_srcdir)/src/include/base/buf-type.h \
 	       $(top_srcdir)/src/include/base/buf.h \
 	       $(top_srcdir)/src/include/base/comms.h \
+	       $(top_srcdir)/src/include/base/conv-base64.h \
 	       $(top_srcdir)/src/include/base/conv.h \
 	       $(top_srcdir)/src/include/base/util.h
 
