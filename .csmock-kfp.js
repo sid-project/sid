@@ -7,7 +7,7 @@
             "key_event_idx": 0,
             "events": [
                 {
-                    "file_name": "sid-0.0.5/src/resource/ubridge.c",
+                    "file_name": "sid-0.0.5/src/resource/ubr.c",
                     "line": 735,
                     "column": 55,
                     "event": "warning[-Warray-bounds=]",
@@ -29,14 +29,14 @@
                     "verbosity_level": 1
                 },
                 {
-                    "file_name": "sid-0.0.5/src/resource/ubridge.c",
+                    "file_name": "sid-0.0.5/src/resource/ubr.c",
                     "line": 0,
                     "event": "scope_hint",
                     "message": "In function '_init_common'",
                     "verbosity_level": 1
                 },
                 {
-                    "file_name": "sid-0.0.5/src/resource/ubridge.c",
+                    "file_name": "sid-0.0.5/src/resource/ubr.c",
                     "line": 5863,
                     "column": 22,
                     "event": "note",
