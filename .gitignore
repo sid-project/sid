@@ -45,6 +45,7 @@ udev/00-sid.rules
 libtool
 
 .gdbinit
+.valgrind.supp
 
 .mk.log
 

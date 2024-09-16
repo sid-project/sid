@@ -1,0 +1,10 @@
+{
+   <sd_event_new-memleak-false-positive-after-fork>
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:malloc_multiply
+   fun:sd_event_new
+   fun:sid_res_create
+   fun:main
+}
