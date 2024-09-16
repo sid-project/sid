@@ -93,10 +93,9 @@ static int _usid_cmd_active(void)
 	req.seqnum = sid_util_env_get_ull(KEY_ENV_SEQNUM, 0, UINT64_MAX, &val) < 0 ? 0 : val;
 	r          = sid_ifc_req(&req, &rsl);
 	ubr_status = _get_ubr_status(rsl, r);
-	if (r == 0)
-		sid_ifc_rsl_free(rsl);
-	fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[ubr_status]);
+	sid_ifc_rsl_free(rsl);
 
+	fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[ubr_status]);
 	return r;
 }
 
@@ -133,14 +132,14 @@ static int _usid_cmd_print_env(struct sid_ifc_req *req)
 	req->seqnum = val;
 	r           = sid_ifc_req(req, &rsl);
 	ubr_status  = _get_ubr_status(rsl, r);
+
 	if (r < 0) {
 		if (ubr_status == SID_STATUS_INACTIVE)
 			/* it's not an error if sid is inactive */
 			r = 0;
-		goto out;
-	}
+	} else
+		r = _print_env_from_rsl(rsl);
 
-	r = _print_env_from_rsl(rsl);
 	sid_ifc_rsl_free(rsl);
 out:
 	fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[ubr_status]);
@@ -200,25 +199,25 @@ static int _usid_cmd_version(void)
 
 	r          = sid_ifc_req(&req, &rsl);
 	ubr_status = _get_ubr_status(rsl, r);
+
 	if (r < 0) {
 		if (ubr_status == SID_STATUS_INACTIVE)
 			/* it's not an error if sid is inactive */
 			r = 0;
-		goto out;
-	}
-
-	if ((data = sid_ifc_rsl_get_data(rsl, NULL)) != NULL) {
-		fprintf(stdout, "%s", data);
-		r = 0;
 	} else {
-		if (sid_ifc_rsl_get_status(rsl, &status) == 0 && (status & SID_IFC_CMD_STATUS_FAILURE) == 0)
-			r = -ENODATA;
-		else
-			r = -EBADE;
+		if ((data = sid_ifc_rsl_get_data(rsl, NULL)) != NULL) {
+			fprintf(stdout, "%s", data);
+			r = 0;
+		} else {
+			if (sid_ifc_rsl_get_status(rsl, &status) == 0 && (status & SID_IFC_CMD_STATUS_FAILURE) == 0)
+				r = -ENODATA;
+			else
+				r = -EBADE;
+		}
 	}
 
 	sid_ifc_rsl_free(rsl);
-out:
+
 	fprintf(stdout, KEY_SID_STATUS "=%s\n", sid_status_str[ubr_status]);
 	if (r < 0)
 		sid_log_error_errno(LOG_PREFIX, r, "Command request failed");
