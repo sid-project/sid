@@ -1,5 +1,5 @@
 {
-   <sd_event_new-memleak-false-positive-after-fork>
+   <sd_event_new-memleak-false-positive-after-fork1
    Memcheck:Leak
    match-leak-kinds: definite
    fun:malloc
@@ -8,3 +8,47 @@
    fun:sid_res_create
    fun:main
 }
+
+{
+   <sd_event_new-indirect-memleak-false-positive-after-fork>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:malloc
+   fun:malloc_multiply
+   fun:prioq_new
+   fun:prioq_ensure_allocated
+   fun:sd_event_new
+   fun:sid_res_create
+   fun:main
+}
+
+{
+   <sd_event_run-indirect-memleak-false-positive-after-fork1>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:realloc
+   fun:greedy_realloc
+   fun:process_epoll
+   fun:sd_event_wait
+   fun:sd_event_run
+   fun:sd_event_loop
+   fun:sid_res_ev_loop_run
+   fun:main
+}
+
+{
+   <sd_event_run-indirect-memleak-false-positive-after-fork2>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:reallocarray
+   fun:prioq_put
+   fun:source_set_pending
+   fun:process_io
+   fun:process_epoll
+   fun:sd_event_wait
+   fun:sd_event_run
+   fun:sd_event_loop
+   fun:sid_res_ev_loop_run
+   fun:main
+}
+
