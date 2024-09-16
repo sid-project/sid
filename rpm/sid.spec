@@ -169,6 +169,7 @@ base libraries.
 %{_includedir}/sid/base/buf.h
 %{_includedir}/sid/base/comms.h
 %{_includedir}/sid/base/conv.h
+%{_includedir}/sid/base/conv-base64.h
 %{_includedir}/sid/base/util.h
 %doc README.md
 
