@@ -43,7 +43,7 @@ libsidiface_la_SOURCES = ifc.c
 libsidiface_la_LIBADD = $(top_builddir)/src/base/libsidbase.la
 
 iface_HEADERS = $(top_srcdir)/src/include/iface/ifc.h \
-		$(top_srcdir)/src/include/iface/ifc_internal.h
+		$(top_srcdir)/src/include/iface/ifc-internal.h
 
 libsidiface_la_LDFLAGS = -version-info 0:0:0
 

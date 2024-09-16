@@ -26,7 +26,7 @@
 #include "base/buf.h"
 #include "base/comms.h"
 #include "base/util.h"
-#include "iface/ifc_internal.h"
+#include "iface/ifc-internal.h"
 #include "internal/bmp.h"
 #include "internal/fmt.h"
 #include "internal/mem.h"

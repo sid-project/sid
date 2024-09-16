@@ -297,7 +297,7 @@ interface libraries.
 %dir %{_includedir}/sid/iface
 %{_includedir}/sid/iface/srv-lnk.h
 %{_includedir}/sid/iface/ifc.h
-%{_includedir}/sid/iface/ifc_internal.h
+%{_includedir}/sid/iface/ifc-internal.h
 %doc README.md
 
 

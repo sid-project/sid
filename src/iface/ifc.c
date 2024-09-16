@@ -20,7 +20,7 @@
 #include "base/buf.h"
 #include "base/comms.h"
 #include "base/util.h"
-#include "iface/ifc_internal.h"
+#include "iface/ifc-internal.h"
 
 #include <errno.h>
 #include <stdlib.h>
