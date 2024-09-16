@@ -1,10 +1,13 @@
 set debuginfod enabled on
-set prompt \033[91m(gdb) \033[0m
+#et prompt \033[91m(gdb) \033[0m
 set args -f -vv
 
 set non-stop on
 set detach-on-fork off
 set follow-fork-mode child
+
+set print frame-arguments all
+set print type nested-type-limit unlimited
 
 define str_vector_dump
 	set $i = $arg1
@@ -16,7 +19,6 @@ end
 
 document str_vector_dump
 Print the string elements of struct iovec.
-
 	Usage: str_vector_dump <vector> <start_index> <end_index>
 end
 
