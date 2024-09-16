@@ -52,3 +52,53 @@
    fun:main
 }
 
+{
+   <sd_event_run-indirect-memleak-false-positive-after-fork3>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:realloc
+   fun:greedy_realloc
+   fun:process_epoll
+   fun:sd_event_wait
+   fun:sd_event_prepare
+   fun:sd_event_run
+   fun:sd_event_loop
+   fun:sid_res_ev_loop_run
+   fun:main
+}
+
+{
+   <sd_event_add_child-indirect-memleak-false-positive-after-fork1>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:realloc
+   fun:resize_buckets
+   fun:hashmap_base_put_boldly
+   fun:hashmap_put
+   fun:sd_event_add_child
+   fun:sid_res_ev_create_child
+   fun:_init_worker_proxy
+   fun:sid_res_create
+   fun:_do_worker_control_get_new_worker
+   fun:sid_wrk_ctl_get_new_worker
+   fun:_get_worker
+   fun:_on_ubridge_interface_event
+}
+
+{
+   <sd_event_add_child-indirect-memleak-false-positive-after-fork2>
+   Memcheck:Leak
+   match-leak-kinds: indirect
+   fun:calloc
+   fun:hashmap_base_new
+   fun:hashmap_base_ensure_allocated
+   fun:_hashmap_ensure_allocated
+   fun:sd_event_add_child
+   fun:sid_res_ev_create_child
+   fun:_init_worker_proxy
+   fun:sid_res_create
+   fun:_do_worker_control_get_new_worker
+   fun:sid_wrk_ctl_get_new_worker
+   fun:_get_worker
+   fun:_on_ubridge_interface_event
+}
