@@ -526,8 +526,7 @@ static int _dm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_
 	sid_mod_set_data(mod_res, dm_mod);
 	return 0;
 fail:
-	if (dm_mod->submod_registry)
-		sid_res_unref(dm_mod->submod_registry);
+	sid_res_unref(dm_mod->submod_registry);
 	free(dm_mod);
 	return -1;
 }

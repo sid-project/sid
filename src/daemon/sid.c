@@ -234,8 +234,6 @@ int main(int argc, char *argv[])
 	}
 
 out:
-	if (sid_res)
-		sid_res_unref(sid_res);
-
+	sid_res_unref(sid_res);
 	return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
