@@ -455,7 +455,7 @@ static int _do_sid_res_unref(sid_res_t *res, int nested)
 
 int sid_res_unref(sid_res_t *res)
 {
-	return _do_sid_res_unref(res, 0);
+	return res ? _do_sid_res_unref(res, 0) : 0;
 }
 
 /*
