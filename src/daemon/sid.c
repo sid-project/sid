@@ -157,18 +157,22 @@ int main(int argc, char *argv[])
 	if (atexit(_close_log) < 0)
 		return EXIT_FAILURE;
 
-	if (foreground) {
-		if (journal)
-			_log = sid_log_init_with_handle(SID_LOG_TGT_JOURNAL, verbose);
-		else
+	if (journal)
+		_log = sid_log_init_with_handle(SID_LOG_TGT_JOURNAL, verbose);
+	else {
+		if (foreground)
 			_log = sid_log_init_with_handle(SID_LOG_TGT_STANDARD, verbose);
-	} else {
-		if (journal)
-			_log = sid_log_init_with_handle(SID_LOG_TGT_JOURNAL, verbose);
 		else
 			_log = sid_log_init_with_handle(SID_LOG_TGT_SYSLOG, verbose);
-		_become_daemon();
 	}
+
+	if (!_log) {
+		fprintf(stderr, "Failed to initialize logging.");
+		return EXIT_FAILURE;
+	}
+
+	if (!foreground)
+		_become_daemon();
 
 	if (pthread_atfork(NULL, NULL, _set_log_prefix) < 0) {
 		sid_log_herror(_log, LOG_PREFIX, "Failed to register fork handler.");
@@ -198,12 +202,11 @@ int main(int argc, char *argv[])
 					   },
 	                                   SID_NULL_SRV_LNK});
 
-	if (!sid_res)
+	if (!sid_res_ref(sid_res))
 		goto out;
 
-	sid_res_ref(sid_res);
-
 	r = sid_res_ev_loop_run(sid_res);
+
 	if (r == -ECHILD) {
 		sid_res_t *worker_control_res;
 
@@ -214,7 +217,9 @@ int main(int argc, char *argv[])
 			               __func__);
 			goto out;
 		}
+
 		sid_res = NULL;
+
 		r       = sid_wrk_ctl_run_worker(worker_control_res,
                                            (sid_res_srv_lnk_def_t[]) {
                                                    {
