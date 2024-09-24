@@ -174,8 +174,8 @@ int main(int argc, char *argv[])
 	if (!foreground)
 		_become_daemon();
 
-	if (pthread_atfork(NULL, NULL, _set_log_prefix) < 0) {
-		sid_log_herror(_log, LOG_PREFIX, "Failed to register fork handler.");
+	if ((r = pthread_atfork(NULL, NULL, _set_log_prefix)) < 0) {
+		sid_log_herror_errno(_log, LOG_PREFIX, r, "Failed to register fork handler.");
 		return EXIT_FAILURE;
 	}
 
