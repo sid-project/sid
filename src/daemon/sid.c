@@ -101,6 +101,13 @@ static void _close_log()
 	sid_log_close(_log);
 }
 
+/*
+ * This is pthread_atfork's callback.
+ * We're still running with signals blocked and no other threads at this moment
+ * if we used wrk_ctl interface to get a new worker. Therefore, it should be OK
+ * to call getpid() and possibly other functions from here even if not listed as
+ * async-thread-safe.
+ */
 static void _set_log_prefix()
 {
 	static char buf[16] = "c ";
