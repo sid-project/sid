@@ -54,7 +54,7 @@ static void _become_daemon()
 
 	switch (fork()) {
 		case -1:
-			sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to fork daemon");
+			sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to fork the first time to become daemon");
 			exit(EXIT_FAILURE);
 		case 0:
 			break;
@@ -63,8 +63,18 @@ static void _become_daemon()
 	}
 
 	if (!setsid()) {
-		sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to set session ID");
+		sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to create a new session to become daemon");
 		exit(EXIT_FAILURE);
+	}
+
+	switch (fork()) {
+		case -1:
+			sid_log_herror_errno(_log, LOG_PREFIX, errno, "Failed to fork the second time to become daemon");
+			exit(EXIT_FAILURE);
+		case 0:
+			break;
+		default:
+			exit(EXIT_SUCCESS);
 	}
 
 	if (chdir("/")) {
