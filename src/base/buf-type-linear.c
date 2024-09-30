@@ -127,11 +127,15 @@ static int _buffer_linear_destroy(struct sid_buf *buf)
 		case SID_BUF_BACKEND_MEMFD:
 		case SID_BUF_BACKEND_FILE:
 			(void) close(buf->fd);
-			r = munmap(buf->mem, buf->stat.usage.allocated);
+			if (munmap(buf->mem, buf->stat.usage.allocated) < 0)
+				r = -errno;
+			else
+				r = 0;
 			break;
 
 		default:
-			return -ENOTSUP;
+			r = -ENOTSUP;
+			break;
 	}
 
 	return r;
