@@ -28,8 +28,13 @@ static bool _check_buf(struct sid_buf *buf)
 
 struct sid_buf *sid_buf_create(const struct sid_buf_spec *spec, const struct sid_buf_init *init, int *ret_code)
 {
-	struct sid_buf *buf;
-	int             r = 0;
+	struct sid_buf *buf = NULL;
+	int             r   = 0;
+
+	if (!spec || !init) {
+		r = -EINVAL;
+		goto out;
+	}
 
 	if (!(buf = malloc(sizeof(*buf)))) {
 		r = -ENOMEM;
@@ -74,9 +79,12 @@ int sid_buf_reset_init(struct sid_buf *buf, const struct sid_buf_init *init)
 {
 	struct sid_buf_stat orig_stat = buf->stat;
 
-	buf->stat.init                = *init;
-	buf->mark.set                 = false;
-	buf->mark.pos                 = 0;
+	if (!init)
+		return -EINVAL;
+
+	buf->stat.init = *init;
+	buf->mark.set  = false;
+	buf->mark.pos  = 0;
 
 	if (!_check_buf(buf)) {
 		buf->stat = orig_stat;
@@ -193,7 +201,7 @@ int sid_buf_rewind(struct sid_buf *buf, size_t pos, sid_buf_pos_t whence)
 
 static int _do_sid_buf_mem_release(struct sid_buf *buf, const void *mem, bool rewind)
 {
-	if (mem < buf->mem)
+	if (!mem || mem < buf->mem)
 		return -EINVAL;
 
 	return _buffer_type_registry[buf->stat.spec.type]->release_mem(buf, mem, rewind);
