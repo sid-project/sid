@@ -1,3 +1,9 @@
+#
+# SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+
 set debuginfod enabled on
 #et prompt \033[91m(gdb) \033[0m
 set args -f -vv

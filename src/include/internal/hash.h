@@ -1,25 +1,8 @@
 /*
- * This file is part of SID.
+ * SPDX-FileCopyrightText: (C) 2001-2004 Sistina Software, Inc.
+ * SPDX-FileCopyrightText: (C) 2004-2024 Red Hat, Inc.
  *
- * Copyright (C) 2001-2004 Sistina Software, Inc. All rights reserved.
- * Copyright (C) 2004-2021 Red Hat, Inc. All rights reserved.
- *
- * SID is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
- *
- * SID is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with SID.  If not, see <http://www.gnu.org/licenses/>.
- */
-
-/*
- * Code adopted and redacted from lvm2 source tree (https://sourceware.org/lvm2).
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef _SID_HASH_H

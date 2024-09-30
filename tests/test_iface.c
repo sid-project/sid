@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 #include "../src/base/util.c"
 #include "../src/iface/ifc.c"
 #include "base/buf.h"

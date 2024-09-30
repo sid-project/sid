@@ -1,3 +1,9 @@
+#
+# SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+
 #global commit 13a0dd86874b5d7558a0e131f3deaa42cd7d9d23
 %{?commit:%global shortcommit %(c=%{commit}; echo ${c:0:7})}
 %{?commit:%global commitdate 20200828}
@@ -110,7 +116,7 @@ rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/dm/*.{a,la}
 
 %files
-%license COPYING BSD_LICENSE
+%license LICENSES/GPL-2.0-or-later.txt LICENSES/BSD-3-Clause.txt
 %{_sbindir}/sid
 %config(noreplace) %{_sysconfdir}/sysconfig/sid.sysconfig
 %{_udevrulesdir}/00-sid.rules

@@ -1,3 +1,9 @@
+#
+# SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+
 alias autogen-sid='echo -e "\n ========== AUTOGENERATING =====\n ..."; ./autogen.sh'
 alias configure-sid='echo -e "\n ========== CONFIGURING ========\n ..."; ./configure --disable-static --with-systemdsystemunitdir=/etc/systemd/system --with-udevrulesdir=/etc/udev/rules.d --enable-valgrind --enable-mod-block-dummy --enable-mod-type-dummy CC=clang'
 alias configure-sid-gcc='echo -e "\n ========== CONFIGURING ========\n ..."; ./configure --disable-static --with-systemdsystemunitdir=/etc/systemd/system --with-udevrulesdir=/etc/udev/rules.d CC=gcc'

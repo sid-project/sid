@@ -1,3 +1,5 @@
+.SH COPYRIGHT Copyright (C) 2020-2024 Red Hat, Inc. All rights reserved.
+.\" SPDX-License-Identifier: GPL-2.0-or-later
 .TH SID 8 "Storage Instantiation Daemon version @VERSION@" "Red Hat, Inc."
 .
 .SH NAME

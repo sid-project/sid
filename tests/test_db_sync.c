@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 #include "../src/internal/mem.c"
 #include "../src/resource/kvs.c"
 #include "../src/resource/ubr.c"

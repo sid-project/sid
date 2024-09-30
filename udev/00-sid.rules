@@ -1,3 +1,9 @@
+#
+# SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+
 SUBSYSTEM!="block", GOTO="sid_end"
 ACTION!="add|change|remove", GOTO="sid_end"
 

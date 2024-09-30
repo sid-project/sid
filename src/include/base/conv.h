@@ -1,10 +1,7 @@
 /*
- * Base64 encoding/decoding (RFC1341)
- * Copyright (c) 2005, Jouni Malinen <j@w1.fi>
+ * SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
  *
- * This software may be distributed under the terms of the BSD license.
- * See BSD_LICENSE for more details.
- * SPDX-License-Identifier: BSD-3-Clause
+ * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #ifndef SID_CONV_H
