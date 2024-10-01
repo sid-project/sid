@@ -27,7 +27,8 @@ jobs:
       - name: Install reuse
         run: |
           sudo apt -qq update
-          sudo apt -y -qq install reuse
+          sudo apt -y -qq install pip
+          sudo pip install reuse
 
       - name: Check licensing with reuse
         run: |
