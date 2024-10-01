@@ -9,10 +9,10 @@ name: Check licenses
 on:
   pull_request:
     branches:
-      - main
+     - main
   push:
-      branches:
-        -main
+    branches:
+     - main
   workflow_dispatch:
 
 jobs:
