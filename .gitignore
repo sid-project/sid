@@ -34,6 +34,7 @@ m4/libtool.m4
 **/*~
 
 src/daemon/sid
+src/modules/ucmd/block/blkid/blkid-type-mapper.c
 src/tools/usid/usid
 src/tools/sidctl/sidctl
 systemd/sid.service
