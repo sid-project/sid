@@ -1,0 +1,17 @@
+#
+# SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+#
+# SPDX-License-Identifier: CC0-1.0
+#
+
+version = 1
+
+[[annotations]]
+path = [".csmock-kfp.js", ".gitignore", "AUTHORS", "README.md", "tests/.gitignore"]
+SPDX-FileCopyrightText = "2017-2024 Red Hat, Inc."
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = ["INSTALL"]
+SPDX-FileCopyrightText = "1994-1996, 1999-2002, 2004-2016 Free Software Foundation, Inc."
+SPDX-License-Identifier = "FSFAP"

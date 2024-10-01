@@ -1,11 +1,11 @@
 dnl as-ac-expand.m4 0.2.0                                   -*- autoconf -*-
 dnl autostars m4 macro for expanding directories using configure's prefix
 
-dnl (C) 2003, 2004, 2005 Thomas Vander Stichele <thomas at apestaart dot org>
-
-dnl Copying and distribution of this file, with or without modification,
-dnl are permitted in any medium without royalty provided the copyright
-dnl notice and this notice are preserved.
+dnl
+dnl SPDX-FileCopyrightText: (C) 2003, 2004, 2005 Thomas Vander Stichele <thomas at apestaart dot org>
+dnl
+dnl SPDX-License-Identifier: FSFAP-no-warranty-disclaimer
+dnl
 
 dnl AS_AC_EXPAND(VAR, CONFIGURE_VAR)
 

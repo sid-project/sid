@@ -1,3 +1,9 @@
+dnl
+dnl SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+dnl
+dnl SPDX-License-Identifier: FSFAP-no-warranty-disclaimer
+dnl
+
 dnl A macro to check presence of cmocka on the system
 AC_DEFUN([AM_CHECK_CMOCKA],
 [
