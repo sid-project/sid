@@ -116,7 +116,7 @@ rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/*.{a,la}
 rm -f %{buildroot}/%{_libdir}/sid/modules/ucmd/type/dm/*.{a,la}
 
 %files
-%license LICENSES/GPL-2.0-or-later.txt LICENSES/BSD-3-Clause.txt
+%license LICENSES/GPL-2.0-or-later.txt LICENSES/BSD-3-Clause.txt LICENSES/FSFAP.txt LICENSES/FSFAP-no-warranty-disclaimer.txt LICENSES/CC0-1.0.txt
 %{_sbindir}/sid
 %config(noreplace) %{_sysconfdir}/sysconfig/sid.sysconfig
 %{_udevrulesdir}/00-sid.rules
