@@ -1,0 +1,34 @@
+#
+# SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+
+name: Check licenses
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+      branches:
+        -main
+  workflow_dispatch:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
+      - name: Install reuse
+        run: |
+          sudo apt -qq update
+          sudo apt -y -qq install reuse
+
+      - name: Check licensing with reuse
+        run: |
+          reuse lint
