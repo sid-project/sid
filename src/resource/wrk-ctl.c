@@ -209,9 +209,9 @@ fail:
 	while (i > 0) {
 		i--;
 		if (proxy_chans[i].fd >= 0)
-			close(proxy_chans[i].fd);
+			(void) close(proxy_chans[i].fd);
 		if (chans[i].fd >= 0)
-			close(chans[i].fd);
+			(void) close(chans[i].fd);
 	}
 
 	if (proxy_chans)
@@ -578,7 +578,7 @@ static int _setup_channel(sid_res_t *owner, bool is_worker, sid_wrk_type_t type,
 					r = -errno;
 					goto fail;
 				}
-				close(chan->fd);
+				(void) close(chan->fd);
 				chan->fd = chan->spec->wire.ext.pipe.fd_redir;
 			}
 
@@ -600,7 +600,7 @@ static int _setup_channel(sid_res_t *owner, bool is_worker, sid_wrk_type_t type,
 					r = -errno;
 					goto fail;
 				}
-				close(chan->fd);
+				(void) close(chan->fd);
 				chan->fd = chan->spec->wire.ext.pipe.fd_redir;
 			}
 
@@ -625,7 +625,7 @@ static int _setup_channel(sid_res_t *owner, bool is_worker, sid_wrk_type_t type,
 					                        chan->spec->id);
 				}
 
-				close(chan->fd);
+				(void) close(chan->fd);
 				chan->fd = chan->spec->wire.ext.socket.fd_redir;
 			}
 			break;
@@ -716,7 +716,7 @@ static void _destroy_channels(struct sid_wrk_chan *channels, unsigned channel_co
 			case SID_WRK_WIRE_PIPE_TO_WRK:
 			case SID_WRK_WIRE_PIPE_TO_PRX:
 				if (chan->fd >= 0)
-					close(chan->fd);
+					(void) close(chan->fd);
 				break;
 		}
 
@@ -1351,7 +1351,7 @@ int sid_wrk_ctl_chan_close(sid_res_t *current_res, const char *channel_id)
 	if ((r = _channel_prepare_send(current_res, channel_id, &((struct sid_wrk_data_spec) {0}), &chan)) < 0)
 		return r;
 
-	close(chan->fd);
+	(void) close(chan->fd);
 	chan->fd = -1;
 
 	return 0;

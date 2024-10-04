@@ -275,7 +275,7 @@ static int _blkid_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	r = 0;
 out:
 	if (fd >= 0)
-		close(fd);
+		(void) close(fd);
 	if (pr)
 		blkid_free_probe(pr);
 

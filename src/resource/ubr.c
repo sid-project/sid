@@ -6008,7 +6008,7 @@ fail:
 			sid_buf_destroy(conn->buf);
 		free(conn);
 	}
-	close(data_spec->ext.socket.fd_pass);
+	(void) close(data_spec->ext.socket.fd_pass);
 	return -1;
 }
 
@@ -6017,7 +6017,7 @@ static int _destroy_connection(sid_res_t *res)
 	struct connection *conn = sid_res_get_data(res);
 
 	if (conn->fd != -1)
-		close(conn->fd);
+		(void) close(conn->fd);
 
 	if (conn->buf)
 		sid_buf_destroy(conn->buf);
@@ -6573,7 +6573,7 @@ static int _worker_proxy_recv_system_cmd_sync(sid_res_t *worker_proxy_res, struc
 		MAIN_WORKER_CHANNEL_ID,
 		&(struct sid_wrk_data_spec) {.data = data_spec->data, .data_size = data_spec->data_size, .ext.used = false});
 
-	close(data_spec->ext.socket.fd_pass);
+	(void) close(data_spec->ext.socket.fd_pass);
 	return r;
 }
 
@@ -6707,7 +6707,7 @@ static int _worker_recv_system_cmd_resources(sid_res_t *worker_res, struct sid_w
 
 	r = _change_cmd_state(cmd_res, CMD_STATE_EXE_SCHED);
 out:
-	close(data_spec->ext.socket.fd_pass);
+	(void) close(data_spec->ext.socket.fd_pass);
 	return r;
 }
 
@@ -6987,7 +6987,7 @@ static int _load_kv_store(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *co
 
 	r = _sync_main_kv_store(ubridge_res, common_ctx, fd);
 
-	close(fd);
+	(void) close(fd);
 	return r;
 }
 

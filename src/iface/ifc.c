@@ -336,9 +336,9 @@ int sid_ifc_req(struct sid_ifc_req *req, struct sid_ifc_rsl **rsl_p)
 	}
 out:
 	if (export_fd >= 0)
-		close(export_fd);
+		(void) close(export_fd);
 	if (socket_fd >= 0)
-		close(socket_fd);
+		(void) close(socket_fd);
 
 	if (r < 0)
 		sid_ifc_rsl_free(rsl);

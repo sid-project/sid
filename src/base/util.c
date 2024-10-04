@@ -96,7 +96,7 @@ static int _get_proc_cmdline(char *buf, off_t size)
 		len += bytes;
 	}
 out:
-	close(fd);
+	(void) close(fd);
 	if (r)
 		memset(buf, 0, size);
 	return r;

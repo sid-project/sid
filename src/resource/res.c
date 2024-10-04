@@ -433,7 +433,7 @@ static int _do_sid_res_unref(sid_res_t *res, int nested)
 		res->event_loop.sd_event_loop = sd_event_unref(res->event_loop.sd_event_loop);
 
 	if (res->event_loop.signalfd != -1) {
-		close(res->event_loop.signalfd);
+		(void) close(res->event_loop.signalfd);
 		res->event_loop.signalfd = -1;
 	}
 
