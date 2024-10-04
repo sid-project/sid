@@ -54,7 +54,7 @@ void sid_ifc_rsl_free(struct sid_ifc_rsl *rsl)
 	if (rsl->buf)
 		sid_buf_destroy(rsl->buf);
 	if (rsl->shm != MAP_FAILED)
-		munmap((void *) rsl->shm, rsl->shm_len);
+		(void) munmap((void *) rsl->shm, rsl->shm_len);
 	free(rsl);
 }
 

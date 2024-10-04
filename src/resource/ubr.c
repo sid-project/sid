@@ -6188,7 +6188,7 @@ static int _destroy_command(sid_res_t *res)
 
 	if (ucmd_ctx->req_hdr.cmd == SID_IFC_CMD_RESOURCES) {
 		if (ucmd_ctx->resources.main_res_mem)
-			munmap(ucmd_ctx->resources.main_res_mem, ucmd_ctx->resources.main_res_mem_size);
+			(void) munmap(ucmd_ctx->resources.main_res_mem, ucmd_ctx->resources.main_res_mem_size);
 	}
 
 	if ((cmd_reg->flags & CMD_KV_EXPBUF_TO_FILE))
