@@ -51,10 +51,13 @@ void sid_ifc_rsl_free(struct sid_ifc_rsl *rsl)
 {
 	if (!rsl)
 		return;
+
 	if (rsl->buf)
 		sid_buf_destroy(rsl->buf);
+
 	if (rsl->shm != MAP_FAILED)
 		(void) munmap((void *) rsl->shm, rsl->shm_len);
+
 	free(rsl);
 }
 
@@ -63,12 +66,17 @@ int sid_ifc_rsl_get_status(struct sid_ifc_rsl *rsl, uint64_t *status)
 	size_t                           size;
 	const struct sid_ifc_msg_header *hdr_p;
 	struct sid_ifc_msg_header        hdr;
+	int                              r;
 
 	if (!rsl || !status)
 		return -EINVAL;
-	sid_buf_get_data(rsl->buf, (const void **) &hdr_p, &size);
+
+	if ((r = sid_buf_get_data(rsl->buf, (const void **) &hdr_p, &size)) < 0)
+		return r;
+
 	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	*status = hdr.status;
+
 	return 0;
 }
 
@@ -77,12 +85,17 @@ int sid_ifc_rsl_get_protocol(struct sid_ifc_rsl *rsl, uint8_t *prot)
 	size_t                           size;
 	const struct sid_ifc_msg_header *hdr_p;
 	struct sid_ifc_msg_header        hdr;
+	int                              r;
 
 	if (!rsl || !prot)
 		return -EINVAL;
-	sid_buf_get_data(rsl->buf, (const void **) &hdr_p, &size);
+
+	if ((r = sid_buf_get_data(rsl->buf, (const void **) &hdr_p, &size)) < 0)
+		return r;
+
 	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
 	*prot = hdr.prot;
+
 	return 0;
 }
 
@@ -98,8 +111,11 @@ const char *sid_ifc_rsl_get_data(struct sid_ifc_rsl *rsl, size_t *size_p)
 	if (!rsl)
 		return NULL;
 
-	sid_buf_get_data(rsl->buf, (const void **) &hdr_p, &size);
+	if (sid_buf_get_data(rsl->buf, (const void **) &hdr_p, &size) < 0)
+		return NULL;
+
 	memcpy(&hdr, hdr_p, sizeof(struct sid_ifc_msg_header));
+
 	if (hdr.status & SID_IFC_CMD_STATUS_FAILURE)
 		return NULL;
 	else if (rsl->shm != MAP_FAILED) {
@@ -111,6 +127,7 @@ const char *sid_ifc_rsl_get_data(struct sid_ifc_rsl *rsl, size_t *size_p)
 			*size_p = size - SID_IFC_MSG_HEADER_SIZE;
 		return (const char *) hdr_p + SID_IFC_MSG_HEADER_SIZE;
 	}
+
 	return NULL;
 }
 
@@ -152,6 +169,7 @@ static int _add_devt_env_to_buffer(struct sid_buf *buf)
 	minor  = val;
 
 	devnum = makedev(major, minor);
+
 	return sid_buf_add(buf, &devnum, sizeof(devnum), NULL, NULL);
 }
 
@@ -212,25 +230,24 @@ int sid_ifc_req(struct sid_ifc_req *req, struct sid_ifc_rsl **rsl_p)
 
 	if (!rsl_p)
 		return -EINVAL;
+
 	*rsl_p = NULL;
 
 	if (!req)
 		return -EINVAL;
 
-	rsl = malloc(sizeof(*rsl));
-	if (!rsl)
+	if (!(rsl = malloc(sizeof(*rsl))))
 		return -ENOMEM;
-	rsl->buf     = NULL;
+
 	rsl->shm     = MAP_FAILED;
 	rsl->shm_len = 0;
 
-	if (!(buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                    .type    = SID_BUF_TYPE_LINEAR,
-	                                                    .mode    = SID_BUF_MODE_SIZE_PREFIX}),
-	                           &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                           &r)))
+	if (!(rsl->buf = buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
+	                                                               .type    = SID_BUF_TYPE_LINEAR,
+	                                                               .mode    = SID_BUF_MODE_SIZE_PREFIX}),
+	                                      &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
+	                                      &r)))
 		goto out;
-	rsl->buf = buf;
 
 	if ((r = sid_buf_add(buf,
 	                     &((struct sid_ifc_msg_header) {.status = req->seqnum,
@@ -244,10 +261,12 @@ int sid_ifc_req(struct sid_ifc_req *req, struct sid_ifc_rsl **rsl_p)
 
 	if (req->flags & SID_IFC_CMD_FL_UNMODIFIED_DATA) {
 		struct sid_ifc_unmodified_data *data = &req->data.unmodified;
+
 		if (data->mem == NULL && data->size > 0) {
 			r = -EINVAL;
 			goto out;
 		}
+
 		if (data->size > 0 && ((r = sid_buf_add(buf, (void *) data->mem, data->size, NULL, NULL)) < 0))
 			goto out;
 	} else {
@@ -276,7 +295,8 @@ int sid_ifc_req(struct sid_ifc_req *req, struct sid_ifc_rsl **rsl_p)
 		goto out;
 	}
 
-	sid_buf_reset(buf);
+	if ((r = sid_buf_reset(buf) < 0))
+		goto out;
 
 	for (;;) {
 		n = sid_buf_read(buf, socket_fd);
@@ -298,10 +318,12 @@ int sid_ifc_req(struct sid_ifc_req *req, struct sid_ifc_rsl **rsl_p)
 			break;
 		}
 	}
+
 	if (sid_buf_count(buf) < SID_IFC_MSG_HEADER_SIZE) {
 		r = -EBADMSG;
 		goto out;
 	}
+
 	if (_needs_mem_fd(req->cmd)) {
 		unsigned char            byte;
 		SID_BUF_SIZE_PREFIX_TYPE msg_size;
@@ -337,6 +359,7 @@ int sid_ifc_req(struct sid_ifc_req *req, struct sid_ifc_rsl **rsl_p)
 out:
 	if (export_fd >= 0)
 		(void) close(export_fd);
+
 	if (socket_fd >= 0)
 		(void) close(socket_fd);
 
@@ -344,5 +367,6 @@ out:
 		sid_ifc_rsl_free(rsl);
 	else
 		*rsl_p = rsl;
+
 	return r;
 }

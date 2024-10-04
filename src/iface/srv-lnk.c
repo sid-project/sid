@@ -325,7 +325,8 @@ static int _notify_systemd(struct sid_srv_lnk *sl,
 	if ((r = sid_buf_add(buf, (void *) "", 1, NULL, NULL)) < 0)
 		goto out;
 
-	sid_buf_get_data(buf, (const void **) &arg_str, &size);
+	if ((r = sid_buf_get_data(buf, (const void **) &arg_str, &size)) < 0)
+		goto out;
 
 	r = sd_notify(unset, arg_str);
 out:
