@@ -245,14 +245,12 @@ int sid_ifc_req(struct sid_ifc_req *req, struct sid_ifc_rsl **rsl_p)
 	if (!(rsl->buf = buf = sid_buf_create(&SID_BUF_SPEC(.mode = SID_BUF_MODE_SIZE_PREFIX), &SID_BUF_INIT(.alloc_step = 1), &r)))
 		goto out;
 
-	if ((r = sid_buf_add(buf,
-	                     &((struct sid_ifc_msg_header) {.status = req->seqnum,
-	                                                    .prot   = SID_IFC_PROTOCOL,
-	                                                    .cmd    = req->cmd,
-	                                                    .flags  = req->flags}),
-	                     SID_IFC_MSG_HEADER_SIZE,
-	                     NULL,
-	                     NULL)) < 0)
+	if ((r = sid_buf_add(
+		     buf,
+		     &SID_IFC_MSG_HEADER(.status = req->seqnum, .prot = SID_IFC_PROTOCOL, .cmd = req->cmd, .flags = req->flags),
+		     SID_IFC_MSG_HEADER_SIZE,
+		     NULL,
+		     NULL)) < 0)
 		goto out;
 
 	if (req->flags & SID_IFC_CMD_FL_UNMODIFIED_DATA) {

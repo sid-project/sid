@@ -22,6 +22,8 @@ struct sid_ifc_msg_header {
 	uint16_t flags;
 } __packed;
 
+#define SID_IFC_MSG_HEADER(...) ((struct sid_ifc_msg_header) {__VA_ARGS__})
+
 #define SID_IFC_MSG_HEADER_SIZE sizeof(struct sid_ifc_msg_header)
 
 #define SID_IFC_SOCKET_PATH     "\0sid-ubridge.socket"
