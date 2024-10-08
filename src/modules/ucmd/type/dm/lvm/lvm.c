@@ -123,6 +123,8 @@ struct out_ctx {
 	bool                 store_kv;
 };
 
+#define OUT_CTX(...) ((struct out_ctx) {__VA_ARGS__})
+
 static int _process_out_line(const char *line, size_t len, bool merge_back, void *data)
 {
 	sid_res_t      *proxy_res = data;
@@ -328,12 +330,11 @@ static int _lvm_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	                                      sid_ucmd_ev_get_dev_name(ucmd_ctx))))
 		return -1;
 
-	wrk_pvscan =
-		SID_WRK_PARAMS(.id                 = "pvscan",
-	                       .external.exec_file = LVM_EXEC_BIN_PATH,
-	                       .external.args      = cmd_line,
-	                       .worker_proxy_arg = &((struct out_ctx) {.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = true}),
-	                       .timeout_spec     = SID_WRK_TIMEOUT_SPEC(.usec = 20000000, .signum = SIGKILL));
+	wrk_pvscan = SID_WRK_PARAMS(.id                 = "pvscan",
+	                            .external.exec_file = LVM_EXEC_BIN_PATH,
+	                            .external.args      = cmd_line,
+	                            .worker_proxy_arg   = &OUT_CTX(.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = true),
+	                            .timeout_spec       = SID_WRK_TIMEOUT_SPEC(.usec = 20000000, .signum = SIGKILL));
 
 	if ((r = sid_wrk_ctl_run_new_worker(runner_res, &wrk_pvscan, SID_RES_NO_SERVICE_LINKS)) < 0) {
 		sid_res_log_error_errno(mod_res, r, "Failed to run %s", wrk_pvscan.id);
@@ -366,9 +367,8 @@ static int _lvm_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_c
 			SID_WRK_PARAMS(.id                 = "vgchange",
 		                       .external.exec_file = LVM_EXEC_BIN_PATH,
 		                       .external.args      = cmd_line,
-		                       .worker_proxy_arg =
-		                               &((struct out_ctx) {.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = false}),
-		                       .timeout_spec = SID_WRK_TIMEOUT_SPEC(.usec = 20000000, .signum = SIGKILL));
+		                       .worker_proxy_arg   = &OUT_CTX(.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = false),
+		                       .timeout_spec       = SID_WRK_TIMEOUT_SPEC(.usec = 20000000, .signum = SIGKILL));
 
 		if ((r = sid_wrk_ctl_run_new_worker(runner_res, &wrk_vgchange, SID_RES_NO_SERVICE_LINKS)) < 0) {
 			sid_res_log_error_errno(mod_res, r, "Failed to run %s", wrk_vgchange.id);
