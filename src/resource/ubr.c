@@ -486,6 +486,8 @@ struct sid_msg {
 	struct sid_ifc_msg_header *header;
 };
 
+#define SID_MSG(...) ((struct sid_msg) {__VA_ARGS__})
+
 struct internal_msg_header {
 	msg_category_t cat; /* keep this first so we can decide how to read the rest */
 	struct sid_ifc_msg_header
@@ -6741,12 +6743,11 @@ static int
 			 * Command requested internally.
 			 * Generate sid_msg out of int_msg as if it was sent through a connection.
 			 */
-			if (_create_cmd_res(worker_res,
-			                    &((struct sid_msg) {.cat    = MSG_CATEGORY_SELF,
-			                                        .size   = data_spec->data_size - sizeof(int_msg.cat),
-			                                        .header = (struct sid_ifc_msg_header *) (data_spec->data +
-			                                                                                 sizeof(int_msg.cat))})) <
-			    0)
+			if (_create_cmd_res(
+				    worker_res,
+				    &SID_MSG(.cat    = MSG_CATEGORY_SELF,
+			                     .size   = data_spec->data_size - sizeof(int_msg.cat),
+			                     .header = (struct sid_ifc_msg_header *) (data_spec->data + sizeof(int_msg.cat)))) < 0)
 				return -1;
 			break;
 	}
