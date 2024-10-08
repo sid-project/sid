@@ -368,6 +368,8 @@ struct kv_update_arg {
 	int             ret_code; /* out */
 };
 
+#define KV_UPDATE_ARG(...) ((struct kv_update_arg) {__VA_ARGS__})
+
 typedef enum {
 	MOD_NO_MATCH,   /* modules do not match */
 	MOD_MATCH,      /* modules do match (1:1) */
@@ -2539,11 +2541,7 @@ static void *_do_sid_ucmd_set_kv(sid_res_t              *res,
 	                    (char *) owner);
 	_vvalue_data_prep(vvalue, vvalue_cnt, 0, (void *) value, value_size);
 
-	update_arg = (struct kv_update_arg) {.res      = ucmd_ctx->common->kvs_res,
-	                                     .gen_buf  = ucmd_ctx->common->gen_buf,
-	                                     .is_sync  = false,
-	                                     .custom   = NULL,
-	                                     .ret_code = -EREMOTEIO};
+	update_arg = KV_UPDATE_ARG(.res = ucmd_ctx->common->kvs_res, .gen_buf = ucmd_ctx->common->gen_buf, .ret_code = -EREMOTEIO);
 
 	if (flags & SID_KV_FL_AR) {
 		key[0] = KV_PREFIX_OP_ARCHIVE_C[0];
@@ -2943,11 +2941,7 @@ static int _do_sid_ucmd_mod_reserve_kv(sid_res_t                  *res,
 	 */
 	is_worker  = sid_wrk_ctl_detect_worker(common->kvs_res);
 
-	update_arg = (struct kv_update_arg) {.res      = common->kvs_res,
-	                                     .gen_buf  = NULL,
-	                                     .is_sync  = !is_worker,
-	                                     .custom   = NULL,
-	                                     .ret_code = -EREMOTEIO};
+	update_arg = KV_UPDATE_ARG(.res = common->kvs_res, .is_sync = !is_worker, .ret_code = -EREMOTEIO);
 
 	if (!unset)
 		flags |= SID_KV_FL_RS | SID_KV_FL_SYNC_P;
@@ -3335,10 +3329,10 @@ static int _handle_devs_for_group(sid_res_t              *res,
 	                                                 .ns_part = _get_ns_part(ucmd_ctx, owner, SID_KV_NS_DEVICE),
 	                                                 .core    = KV_KEY_GEN_GROUP_IN));
 
-	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
-	                                   .gen_buf = ucmd_ctx->common->gen_buf,
-	                                   .is_sync = is_sync,
-	                                   .custom  = &rel_spec};
+	struct kv_update_arg update_arg = KV_UPDATE_ARG(.res     = ucmd_ctx->common->kvs_res,
+	                                                .gen_buf = ucmd_ctx->common->gen_buf,
+	                                                .is_sync = is_sync,
+	                                                .custom  = &rel_spec);
 
 	// TODO: check return values / maybe also pass flags / use proper owner
 
@@ -3409,10 +3403,8 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
 
 	                    .rel_key_spec = &KV_KEY_SPEC(.op = KV_OP_SET, .ns = SID_KV_NS_DEVICE, .core = KV_KEY_GEN_GROUP_IN));
 
-	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
-	                                   .gen_buf = ucmd_ctx->common->gen_buf,
-	                                   .is_sync = false,
-	                                   .custom  = &rel_spec};
+	struct kv_update_arg update_arg =
+		KV_UPDATE_ARG(.res = ucmd_ctx->common->kvs_res, .gen_buf = ucmd_ctx->common->gen_buf, .custom = &rel_spec);
 
 	// TODO: do not call kv_store_get_value, only kv_store_set_value and provide _kv_cb_delta wrapper
 	//       to do the "is empty?" check before the actual _kv_cb_delta operation
@@ -3636,10 +3628,7 @@ static int _do_sid_ucmd_group_create(sid_res_t              *res,
                                                   .id      = group_id,
                                                   .core    = KV_KEY_GEN_GROUP_MEMBERS);
 
-	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kvs_res,
-	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
-	                                   .custom   = NULL,
-	                                   .ret_code = 0};
+	struct kv_update_arg update_arg = KV_UPDATE_ARG(.res = ucmd_ctx->common->kvs_res, .gen_buf = ucmd_ctx->common->gen_buf);
 
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
 		goto out;
@@ -4668,10 +4657,8 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 	                                                 /* .id will be calculated later */
 	                                                 .core    = KV_KEY_GEN_GROUP_IN));
 
-	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
-	                                   .gen_buf = ucmd_ctx->common->gen_buf,
-	                                   .is_sync = false,
-	                                   .custom  = &rel_spec};
+	struct kv_update_arg update_arg =
+		KV_UPDATE_ARG(.res = ucmd_ctx->common->kvs_res, .gen_buf = ucmd_ctx->common->gen_buf, .custom = &rel_spec);
 
 	if (ucmd_ctx->req_env.dev.udev.action != UDEV_ACTION_REMOVE) {
 		if ((r = sid_buf_add_fmt(ucmd_ctx->common->gen_buf,
@@ -4820,10 +4807,8 @@ static int _update_part_deps_from_sysfs(sid_res_t *cmd_res)
 	                                                 /* .id will be calculated later */
 	                                                 .core    = KV_KEY_GEN_GROUP_IN));
 
-	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
-	                                   .gen_buf = ucmd_ctx->common->gen_buf,
-	                                   .is_sync = false,
-	                                   .custom  = &rel_spec};
+	struct kv_update_arg update_arg =
+		KV_UPDATE_ARG(.res = ucmd_ctx->common->kvs_res, .gen_buf = ucmd_ctx->common->gen_buf, .custom = &rel_spec);
 
 	count = (ucmd_ctx->req_env.dev.udev.action == UDEV_ACTION_REMOVE) ? VVALUE_HEADER_CNT : VVALUE_SINGLE_CNT;
 	_vvalue_header_prep(vvalue,
@@ -6237,7 +6222,7 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 	void                    *value_to_store;
 	const void              *final_value;
 	struct kv_rel_spec       rel_spec   = KV_REL_SPEC(.delta = &KV_DELTA(), .abs_delta = &KV_DELTA());
-	struct kv_update_arg     update_arg = {.gen_buf = common_ctx->gen_buf, .is_sync = true, .custom = &rel_spec};
+	struct kv_update_arg     update_arg = KV_UPDATE_ARG(.gen_buf = common_ctx->gen_buf, .is_sync = true, .custom = &rel_spec);
 	struct kv_unset_nfo      unset_nfo;
 	bool                     unset, archive;
 	int                      r = -1;
