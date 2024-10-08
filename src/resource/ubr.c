@@ -443,6 +443,8 @@ struct kv_rel_spec {
 	struct kv_key_spec *rel_key_spec;
 };
 
+#define KV_REL_SPEC(...) ((struct kv_rel_spec) {__VA_ARGS__})
+
 struct cross_bitmap_calc_arg {
 	kv_vector_t *old_vvalue;
 	size_t       old_vsize;
@@ -3313,24 +3315,25 @@ static int _handle_devs_for_group(sid_res_t              *res,
 	size_t              vvalue_size;
 	sid_ucmd_kv_flags_t flags = value_flags_no_sync;
 	unsigned            i;
-	int                 r           = -1;
+	int                 r = -1;
 
-	struct kv_rel_spec rel_spec     = {.delta        = &KV_DELTA(.op = op, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
+	struct kv_rel_spec rel_spec =
+		KV_REL_SPEC(.delta        = &KV_DELTA(.op = op, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
 
-	                                   .abs_delta    = &KV_DELTA(),
+	                    .abs_delta    = &KV_DELTA(),
 
-	                                   .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-                                                                    .dom     = dom,
-                                                                    .ns      = group_ns,
-                                                                    .ns_part = _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MODULE),
-                                                                    .id_cat  = group_cat,
-                                                                    .id      = group_id,
-                                                                    .core    = KV_KEY_GEN_GROUP_MEMBERS),
+	                    .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
+	                                                 .dom     = dom,
+	                                                 .ns      = group_ns,
+	                                                 .ns_part = _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MODULE),
+	                                                 .id_cat  = group_cat,
+	                                                 .id      = group_id,
+	                                                 .core    = KV_KEY_GEN_GROUP_MEMBERS),
 
-	                                   .rel_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-                                                                    .ns      = SID_KV_NS_DEVICE,
-                                                                    .ns_part = _get_ns_part(ucmd_ctx, owner, SID_KV_NS_DEVICE),
-                                                                    .core    = KV_KEY_GEN_GROUP_IN)};
+	                    .rel_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
+	                                                 .ns      = SID_KV_NS_DEVICE,
+	                                                 .ns_part = _get_ns_part(ucmd_ctx, owner, SID_KV_NS_DEVICE),
+	                                                 .core    = KV_KEY_GEN_GROUP_IN));
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
@@ -3390,21 +3393,21 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
 	char                      *key                       = NULL;
 	size_t                     size;
 	kv_vector_t                vvalue[VVALUE_HEADER_CNT];
-	int                        r    = -1;
+	int                        r = -1;
 
-	struct kv_rel_spec rel_spec     = {.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
-	                                   .abs_delta    = &KV_DELTA(),
+	struct kv_rel_spec rel_spec =
+		KV_REL_SPEC(.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
+	                    .abs_delta    = &KV_DELTA(),
 
-	                                   .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-                                                                    .dom     = dom,
-                                                                    .ns      = group_ns,
-                                                                    .ns_part = _get_ns_part(ucmd_ctx, owner, group_ns),
-                                                                    .id_cat  = group_cat,
-                                                                    .id      = group_id,
-                                                                    .core    = KV_KEY_GEN_GROUP_MEMBERS),
+	                    .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
+	                                                 .dom     = dom,
+	                                                 .ns      = group_ns,
+	                                                 .ns_part = _get_ns_part(ucmd_ctx, owner, group_ns),
+	                                                 .id_cat  = group_cat,
+	                                                 .id      = group_id,
+	                                                 .core    = KV_KEY_GEN_GROUP_MEMBERS),
 
-	                                   .rel_key_spec =
-	                                           &KV_KEY_SPEC(.op = KV_OP_SET, .ns = SID_KV_NS_DEVICE, .core = KV_KEY_GEN_GROUP_IN)};
+	                    .rel_key_spec = &KV_KEY_SPEC(.op = KV_OP_SET, .ns = SID_KV_NS_DEVICE, .core = KV_KEY_GEN_GROUP_IN));
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
@@ -4646,24 +4649,24 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 	int                  count = 0, i = 0;
 	char                 buf[UTIL_UUID_STR_SIZE];
 	const char          *dep_dseq;
-	int                  r      = -1;
+	int                  r = -1;
 
-	struct kv_rel_spec rel_spec = {
-		.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
+	struct kv_rel_spec rel_spec =
+		KV_REL_SPEC(.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
 
-		.abs_delta    = &KV_DELTA(),
+	                    .abs_delta    = &KV_DELTA(),
 
-		.cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                     .ns      = SID_KV_NS_DEVICE,
-	                                     .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_DEVICE),
-	                                     .core    = KV_KEY_GEN_GROUP_MEMBERS),
-		.rel_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                     .dom     = KV_KEY_DOM_ALIAS,
-	                                     .ns      = SID_KV_NS_MODULE,
-	                                     .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
-	                                     .id_cat  = DEV_ALIAS_DSEQ,
-	                                     /* .id will be calculated later */
-	                                     .core    = KV_KEY_GEN_GROUP_IN)};
+	                    .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
+	                                                 .ns      = SID_KV_NS_DEVICE,
+	                                                 .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_DEVICE),
+	                                                 .core    = KV_KEY_GEN_GROUP_MEMBERS),
+	                    .rel_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
+	                                                 .dom     = KV_KEY_DOM_ALIAS,
+	                                                 .ns      = SID_KV_NS_MODULE,
+	                                                 .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
+	                                                 .id_cat  = DEV_ALIAS_DSEQ,
+	                                                 /* .id will be calculated later */
+	                                                 .core    = KV_KEY_GEN_GROUP_IN));
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
@@ -4800,22 +4803,22 @@ static int _update_part_deps_from_sysfs(sid_res_t *cmd_res)
 	int                  r   = -1;
 	size_t               count;
 
-	struct kv_rel_spec rel_spec = {
-		.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
+	struct kv_rel_spec rel_spec =
+		KV_REL_SPEC(.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
 
-		.abs_delta    = &KV_DELTA(),
+	                    .abs_delta    = &KV_DELTA(),
 
-		.cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                     .ns      = SID_KV_NS_DEVICE,
-	                                     .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_DEVICE),
-	                                     .core    = KV_KEY_GEN_GROUP_MEMBERS),
-		.rel_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                     .dom     = KV_KEY_DOM_ALIAS,
-	                                     .ns      = SID_KV_NS_MODULE,
-	                                     .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
-	                                     .id_cat  = DEV_ALIAS_DSEQ,
-	                                     /* .id will be calculated later */
-	                                     .core    = KV_KEY_GEN_GROUP_IN)};
+	                    .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
+	                                                 .ns      = SID_KV_NS_DEVICE,
+	                                                 .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_DEVICE),
+	                                                 .core    = KV_KEY_GEN_GROUP_MEMBERS),
+	                    .rel_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
+	                                                 .dom     = KV_KEY_DOM_ALIAS,
+	                                                 .ns      = SID_KV_NS_MODULE,
+	                                                 .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
+	                                                 .id_cat  = DEV_ALIAS_DSEQ,
+	                                                 /* .id will be calculated later */
+	                                                 .core    = KV_KEY_GEN_GROUP_IN));
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
@@ -6233,7 +6236,7 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 	const char              *vvalue_str;
 	void                    *value_to_store;
 	const void              *final_value;
-	struct kv_rel_spec       rel_spec   = {.delta = &KV_DELTA(), .abs_delta = &KV_DELTA()};
+	struct kv_rel_spec       rel_spec   = KV_REL_SPEC(.delta = &KV_DELTA(), .abs_delta = &KV_DELTA());
 	struct kv_update_arg     update_arg = {.gen_buf = common_ctx->gen_buf, .is_sync = true, .custom = &rel_spec};
 	struct kv_unset_nfo      unset_nfo;
 	bool                     unset, archive;
