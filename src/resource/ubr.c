@@ -397,6 +397,8 @@ struct kv_delta {
 	struct sid_buf *final;
 };
 
+#define KV_DELTA(...) ((struct kv_delta) {__VA_ARGS__})
+
 typedef enum {
 	_KEY_PART_START  = 0x0,
 	KEY_PART_OP      = 0x0,
@@ -2253,8 +2255,8 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 	orig_delta             = rel_spec->delta;
 	orig_abs_delta         = rel_spec->abs_delta;
 
-	rel_spec->delta        = &((struct kv_delta) {0});
-	rel_spec->abs_delta    = &((struct kv_delta) {0});
+	rel_spec->delta        = &KV_DELTA();
+	rel_spec->abs_delta    = &KV_DELTA();
 	rel_spec->delta->op    = op;
 	/*
 	 * WARNING: Mind that at this point, we're in _delta_update which is
@@ -3311,9 +3313,9 @@ static int _handle_devs_for_group(sid_res_t              *res,
 	unsigned            i;
 	int                 r           = -1;
 
-	struct kv_rel_spec rel_spec     = {.delta        = &((struct kv_delta) {.op = op, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
+	struct kv_rel_spec rel_spec     = {.delta        = &KV_DELTA(.op = op, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
 
-	                                   .abs_delta    = &((struct kv_delta) {0}),
+	                                   .abs_delta    = &KV_DELTA(),
 
 	                                   .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
                                                                     .dom     = dom,
@@ -3386,12 +3388,12 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
 	char                      *key                       = NULL;
 	size_t                     size;
 	kv_vector_t                vvalue[VVALUE_HEADER_CNT];
-	int                        r = -1;
+	int                        r    = -1;
 
-	struct kv_rel_spec rel_spec  = {.delta = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
-	                                .abs_delta    = &((struct kv_delta) {0}),
+	struct kv_rel_spec rel_spec     = {.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
+	                                   .abs_delta    = &KV_DELTA(),
 
-	                                .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
+	                                   .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
                                                                     .dom     = dom,
                                                                     .ns      = group_ns,
                                                                     .ns_part = _get_ns_part(ucmd_ctx, owner, group_ns),
@@ -3399,8 +3401,8 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
                                                                     .id      = group_id,
                                                                     .core    = KV_KEY_GEN_GROUP_MEMBERS),
 
-	                                .rel_key_spec =
-	                                        &KV_KEY_SPEC(.op = KV_OP_SET, .ns = SID_KV_NS_DEVICE, .core = KV_KEY_GEN_GROUP_IN)};
+	                                   .rel_key_spec =
+	                                           &KV_KEY_SPEC(.op = KV_OP_SET, .ns = SID_KV_NS_DEVICE, .core = KV_KEY_GEN_GROUP_IN)};
 
 	struct kv_update_arg update_arg = {.res     = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf = ucmd_ctx->common->gen_buf,
@@ -4645,9 +4647,9 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 	int                  r      = -1;
 
 	struct kv_rel_spec rel_spec = {
-		.delta        = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
+		.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
 
-		.abs_delta    = &((struct kv_delta) {0}),
+		.abs_delta    = &KV_DELTA(),
 
 		.cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
 	                                     .ns      = SID_KV_NS_DEVICE,
@@ -4797,9 +4799,9 @@ static int _update_part_deps_from_sysfs(sid_res_t *cmd_res)
 	size_t               count;
 
 	struct kv_rel_spec rel_spec = {
-		.delta        = &((struct kv_delta) {.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL}),
+		.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
 
-		.abs_delta    = &((struct kv_delta) {0}),
+		.abs_delta    = &KV_DELTA(),
 
 		.cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
 	                                     .ns      = SID_KV_NS_DEVICE,
@@ -6229,7 +6231,7 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 	const char              *vvalue_str;
 	void                    *value_to_store;
 	const void              *final_value;
-	struct kv_rel_spec       rel_spec   = {.delta = &((struct kv_delta) {0}), .abs_delta = &((struct kv_delta) {0})};
+	struct kv_rel_spec       rel_spec   = {.delta = &KV_DELTA(), .abs_delta = &KV_DELTA()};
 	struct kv_update_arg     update_arg = {.gen_buf = common_ctx->gen_buf, .is_sync = true, .custom = &rel_spec};
 	struct kv_unset_nfo      unset_nfo;
 	bool                     unset, archive;
