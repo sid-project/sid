@@ -38,7 +38,7 @@ struct sid_wrk_init_cb_spec {
 	void                 *arg;
 };
 
-#define SID_WRK_NULL_INIT_CB_SPEC ((struct sid_wrk_init_cb_spec) {.fn = NULL, .arg = NULL})
+#define SID_WRK_INIT_CB_SPEC(...) ((struct sid_wrk_init_cb_spec) {__VA_ARGS__})
 
 /* Wire specification */
 typedef enum {
@@ -66,6 +66,8 @@ struct sid_wrk_wire_spec {
 	} ext;
 };
 
+#define SID_WRK_WIRE_SPEC(...) ((struct sid_wrk_wire_spec) {__VA_ARGS__})
+
 /* Transmit/receive data specification */
 struct sid_wrk_data_spec {
 	void  *data;
@@ -82,6 +84,8 @@ struct sid_wrk_data_spec {
 	} ext;
 };
 
+#define SID_WRK_DATA_SPEC(...) ((struct sid_wrk_data_spec) {__VA_ARGS__})
+
 /* Channel specification */
 struct sid_wrk_chan;
 
@@ -92,11 +96,15 @@ struct sid_wrk_lane_cb_spec {
 	void                 *arg;
 };
 
+#define SID_WRK_LANE_CB_SPEC(...) ((struct sid_wrk_lane_cb_spec) {__VA_ARGS__})
+
 struct sid_wrk_lane_spec {
 	struct sid_wrk_lane_cb_spec cb;       /* callback called on lane activity */
 	struct sid_buf_init         buf_init; /* lane buffer initialization parameters */
 	struct iovec                data_suffix;
 };
+
+#define SID_WRK_LANE_SPEC(...) ((struct sid_wrk_lane_spec) {__VA_ARGS__})
 
 struct sid_wrk_chan_spec {
 	const char              *id;
@@ -107,6 +115,8 @@ struct sid_wrk_chan_spec {
 	struct sid_wrk_lane_spec proxy_rx;
 };
 
+#define SID_WRK_CHAN_SPEC(...)    ((struct sid_wrk_chan_spec) {__VA_ARGS__})
+
 #define SID_WRK_NULL_LANE_CB_SPEC ((const struct sid_wrk_lane_cb_spec) {NULL})
 #define SID_WRK_NULL_LANE_SPEC    ((const struct sid_wrk_lane_spec) {NULL})
 #define SID_WRK_NULL_CHAN_SPEC    ((const struct sid_wrk_chan_spec) {NULL})
@@ -116,6 +126,8 @@ struct sid_wrk_timeout_spec {
 	uint64_t usec;
 	int      signum;
 };
+
+#define SID_WRK_TIMEOUT_SPEC(...) ((struct sid_wrk_timeout_spec) {__VA_ARGS__})
 
 /* Worker-control resource parameters */
 struct sid_wrk_ctl_res_params {
@@ -145,6 +157,8 @@ struct sid_wrk_params {
 
 	struct sid_wrk_timeout_spec timeout_spec;
 };
+
+#define SID_WRK_PARAMS(...) ((struct sid_wrk_params) {__VA_ARGS__})
 
 int        sid_wrk_ctl_get_new_worker(sid_res_t *worker_control_res, struct sid_wrk_params *params, sid_res_t **res_p);
 int        sid_wrk_ctl_run_new_worker(sid_res_t             *worker_control_res,

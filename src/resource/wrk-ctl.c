@@ -1348,7 +1348,7 @@ int sid_wrk_ctl_chan_close(sid_res_t *current_res, const char *channel_id)
 	struct sid_wrk_chan *chan;
 	int                  r;
 
-	if ((r = _channel_prepare_send(current_res, channel_id, &((struct sid_wrk_data_spec) {0}), &chan)) < 0)
+	if ((r = _channel_prepare_send(current_res, channel_id, &SID_WRK_DATA_SPEC(), &chan)) < 0)
 		return r;
 
 	(void) close(chan->fd);

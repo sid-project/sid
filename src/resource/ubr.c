@@ -4271,11 +4271,7 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 
 		if ((r = sid_wrk_ctl_chan_send(cmd_res,
 		                               MAIN_WORKER_CHANNEL_ID,
-		                               &(struct sid_wrk_data_spec) {
-						       .data      = data,
-						       .data_size = size,
-						       .ext.used  = false,
-					       })) < 0) {
+		                               &SID_WRK_DATA_SPEC(.data = data, .data_size = size, .ext.used = false))) < 0) {
 			sid_res_log_error_errno(cmd_res, r, "Failed to sent request to main process to write its resource tree.");
 			r = -1;
 		} else
@@ -5575,13 +5571,12 @@ static int _send_out_cmd_expbuf(sid_res_t *cmd_res)
 		sid_buf_add(buf, (void *) id, strlen(id) + 1, NULL, NULL);
 		sid_buf_get_data_from(buf, buf_pos, (const void **) &data, &size);
 
-		if ((r = sid_wrk_ctl_chan_send(
-			     cmd_res,
-			     MAIN_WORKER_CHANNEL_ID,
-			     &(struct sid_wrk_data_spec) {.data               = data,
-		                                          .data_size          = size,
-		                                          .ext.used           = true,
-		                                          .ext.socket.fd_pass = sid_buf_get_fd(ucmd_ctx->exp_buf)})) < 0) {
+		if ((r = sid_wrk_ctl_chan_send(cmd_res,
+		                               MAIN_WORKER_CHANNEL_ID,
+		                               &SID_WRK_DATA_SPEC(.data               = data,
+		                                                  .data_size          = size,
+		                                                  .ext.used           = true,
+		                                                  .ext.socket.fd_pass = sid_buf_get_fd(ucmd_ctx->exp_buf)))) < 0) {
 			sid_res_log_error_errno(cmd_res, r, "Failed to send command exports to main SID process.");
 			goto out;
 		}
@@ -6545,7 +6540,7 @@ static int _worker_proxy_recv_system_cmd_sync(sid_res_t *worker_proxy_res, struc
 	r = sid_wrk_ctl_chan_send(
 		worker_proxy_res,
 		MAIN_WORKER_CHANNEL_ID,
-		&(struct sid_wrk_data_spec) {.data = data_spec->data, .data_size = data_spec->data_size, .ext.used = false});
+		&SID_WRK_DATA_SPEC(.data = data_spec->data, .data_size = data_spec->data_size, .ext.used = false));
 
 	(void) close(data_spec->ext.socket.fd_pass);
 	return r;
@@ -6580,10 +6575,10 @@ static int _worker_proxy_recv_system_cmd_resources(sid_res_t                *wor
 	/* reply to the worker with the same header and data (cmd id) */
 	r = sid_wrk_ctl_chan_send(worker_proxy_res,
 	                          MAIN_WORKER_CHANNEL_ID,
-	                          &(struct sid_wrk_data_spec) {.data               = data_spec->data,
-	                                                       .data_size          = data_spec->data_size,
-	                                                       .ext.used           = true,
-	                                                       .ext.socket.fd_pass = sid_buf_get_fd(buf)});
+	                          &SID_WRK_DATA_SPEC(.data               = data_spec->data,
+	                                             .data_size          = data_spec->data_size,
+	                                             .ext.used           = true,
+	                                             .ext.socket.fd_pass = sid_buf_get_fd(buf)));
 out:
 	sid_buf_destroy(buf);
 	return r;
@@ -6842,7 +6837,7 @@ static int _get_worker(sid_res_t *ubridge_res, sid_res_t **res_p)
 			return -1;
 		}
 
-		if (sid_wrk_ctl_get_new_worker(worker_control_res, &((struct sid_wrk_params) {.id = uuid}), res_p) < 0)
+		if (sid_wrk_ctl_get_new_worker(worker_control_res, &SID_WRK_PARAMS(.id = uuid), res_p) < 0)
 			return -1;
 	}
 
@@ -6867,12 +6862,10 @@ static int _on_ubridge_interface_event(sid_res_ev_src_t *es, int fd, uint32_t re
 	if (!worker_proxy_res)
 		return 0;
 
-	int_msg.cat         = MSG_CATEGORY_CLIENT;
-	int_msg.header      = (struct sid_ifc_msg_header) {0};
+	int_msg.cat    = MSG_CATEGORY_CLIENT;
+	int_msg.header = (struct sid_ifc_msg_header) {0};
 
-	data_spec.data      = &int_msg;
-	data_spec.data_size = INTERNAL_MSG_HEADER_SIZE;
-	data_spec.ext.used  = true;
+	data_spec      = SID_WRK_DATA_SPEC(.data = &int_msg, .data_size = INTERNAL_MSG_HEADER_SIZE, .ext.used = true);
 
 	if ((data_spec.ext.socket.fd_pass = accept4(ubridge->socket_fd, NULL, NULL, SOCK_NONBLOCK | SOCK_CLOEXEC)) < 0) {
 		sid_res_log_sys_error(ubridge_res, "accept", "");
@@ -6917,8 +6910,7 @@ int sid_ubr_cmd_dbdump(sid_res_t *ubridge_res, const char *file_path)
 		memcpy(buf + INTERNAL_MSG_HEADER_SIZE, file_path, file_path_size);
 	}
 
-	data_spec =
-		(struct sid_wrk_data_spec) {.data = buf, .data_size = INTERNAL_MSG_HEADER_SIZE + file_path_size, .ext.used = false};
+	data_spec = SID_WRK_DATA_SPEC(.data = buf, .data_size = INTERNAL_MSG_HEADER_SIZE + file_path_size, .ext.used = false);
 
 	return sid_wrk_ctl_chan_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec);
 }
@@ -7006,9 +6998,7 @@ static int _on_ubridge_umonitor_event(sid_res_ev_src_t *es, int fd, uint32_t rev
 		.cat    = MSG_CATEGORY_SYSTEM,
 		.header = (struct sid_ifc_msg_header) {.status = 0, .prot = 0, .cmd = SYSTEM_CMD_UMONITOR, .flags = 0}};
 
-	data_spec.data      = &int_msg;
-	data_spec.data_size = INTERNAL_MSG_HEADER_SIZE;
-	data_spec.ext.used  = false;
+	data_spec = SID_WRK_DATA_SPEC(.data = &int_msg, .data_size = INTERNAL_MSG_HEADER_SIZE, .ext.used = false);
 
 	if ((r = sid_wrk_ctl_chan_send(worker_proxy_res, MAIN_WORKER_CHANNEL_ID, &data_spec)) < 0)
 		sid_res_log_error_errno(ubridge_res, r, "Failed to notify worker about UDEV event with seqno %" PRIu64, seqnum);
@@ -7558,40 +7548,21 @@ static int _init_ubridge(sid_res_t *res, const void *kickstart_data, void **data
 	common_ctx                                              = sid_res_get_data(common_res);
 
 	struct sid_wrk_ctl_res_params worker_control_res_params = {
-		.worker_type = SID_WRK_TYPE_INTERNAL,
+		.worker_type   = SID_WRK_TYPE_INTERNAL,
 
-		.init_cb_spec =
-			(struct sid_wrk_init_cb_spec) {
-				.fn  = _worker_init_fn,
-				.arg = common_ctx,
-			},
+		.init_cb_spec  = SID_WRK_INIT_CB_SPEC(.fn = _worker_init_fn, .arg = common_ctx),
 
 		.channel_specs = (struct sid_wrk_chan_spec[]) {
 			{
-				.id = MAIN_WORKER_CHANNEL_ID,
+				.id   = MAIN_WORKER_CHANNEL_ID,
 
-				.wire =
-					(struct sid_wrk_wire_spec) {
-						.type = SID_WRK_WIRE_SOCKET,
-					},
+				.wire = SID_WRK_WIRE_SPEC(.type = SID_WRK_WIRE_SOCKET),
 
 				.worker_rx =
-					(struct sid_wrk_lane_spec) {
-						.cb =
-							(struct sid_wrk_lane_cb_spec) {
-								.fn  = _worker_recv_fn,
-								.arg = common_ctx,
-							},
-					},
+					SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn = _worker_recv_fn, .arg = common_ctx)),
 
-				.proxy_rx =
-					(struct sid_wrk_lane_spec) {
-						.cb =
-							(struct sid_wrk_lane_cb_spec) {
-								.fn  = _worker_proxy_recv_fn,
-								.arg = common_ctx,
-							},
-					},
+				.proxy_rx = SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn  = _worker_proxy_recv_fn,
+	                                                                                 .arg = common_ctx)),
 			},
 			SID_WRK_NULL_CHAN_SPEC,
 		}};

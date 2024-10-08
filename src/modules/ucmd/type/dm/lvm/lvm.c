@@ -177,50 +177,33 @@ static int _lvm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common
 
 	struct sid_wrk_ctl_res_params runner_params = {
 		.worker_type = SID_WRK_TYPE_EXTERNAL,
+
 		.channel_specs =
 			(struct sid_wrk_chan_spec[]) {
 				{
-					.id = "stdout",
-					.wire =
-						(struct sid_wrk_wire_spec) {
-							.type              = SID_WRK_WIRE_PIPE_TO_PRX,
-							.ext.used          = true,
-							.ext.pipe.fd_redir = STDOUT_FILENO,
-						},
-					.proxy_rx =
-						(struct sid_wrk_lane_spec) {
-							.cb =
-								(struct sid_wrk_lane_cb_spec) {
-									.fn = _runner_stdout_recv_fn,
-								},
-							.data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1},
-						},
+					.id       = "stdout",
+
+					.wire     = SID_WRK_WIRE_SPEC(.type              = SID_WRK_WIRE_PIPE_TO_PRX,
+                                                                  .ext.used          = true,
+                                                                  .ext.pipe.fd_redir = STDOUT_FILENO),
+
+					.proxy_rx = SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn = _runner_stdout_recv_fn),
+	                                                              .data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1}),
 				},
 				{
-					.id = "stderr",
-					.wire =
-						(struct sid_wrk_wire_spec) {
-							.type              = SID_WRK_WIRE_PIPE_TO_PRX,
-							.ext.used          = true,
-							.ext.pipe.fd_redir = STDERR_FILENO,
-						},
-					.proxy_rx =
-						(struct sid_wrk_lane_spec) {
-							.cb =
-								(struct sid_wrk_lane_cb_spec) {
-									.fn = _runner_stderr_recv_fn,
-								},
-							.data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1},
-						},
+					.id       = "stderr",
+
+					.wire     = SID_WRK_WIRE_SPEC(.type              = SID_WRK_WIRE_PIPE_TO_PRX,
+                                                                  .ext.used          = true,
+                                                                  .ext.pipe.fd_redir = STDERR_FILENO),
+
+					.proxy_rx = SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn = _runner_stderr_recv_fn),
+	                                                              .data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1}),
 				},
 				SID_WRK_NULL_CHAN_SPEC,
 			},
-		.timeout_spec =
-			(struct sid_wrk_timeout_spec) {
-				.usec   = 5000000,
-				.signum = SIGKILL,
-			},
-	};
+
+		.timeout_spec = SID_WRK_TIMEOUT_SPEC(.usec = 5000000, .signum = SIGKILL)};
 
 	if (!(runner_res = sid_res_create(mod_res,
 	                                  &sid_res_type_wrk_ctl,
@@ -345,15 +328,12 @@ static int _lvm_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	                                      sid_ucmd_ev_get_dev_name(ucmd_ctx))))
 		return -1;
 
-	wrk_pvscan = (struct sid_wrk_params) {
-		.id                 = "pvscan",
-		.external.exec_file = LVM_EXEC_BIN_PATH,
-		.external.args      = cmd_line,
-		.worker_proxy_arg   = &((struct out_ctx) {.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = true}),
-		.timeout_spec       = (struct sid_wrk_timeout_spec) {
-			      .usec   = 20000000,
-			      .signum = SIGKILL,
-                }};
+	wrk_pvscan =
+		SID_WRK_PARAMS(.id                 = "pvscan",
+	                       .external.exec_file = LVM_EXEC_BIN_PATH,
+	                       .external.args      = cmd_line,
+	                       .worker_proxy_arg = &((struct out_ctx) {.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = true}),
+	                       .timeout_spec     = SID_WRK_TIMEOUT_SPEC(.usec = 20000000, .signum = SIGKILL));
 
 	if ((r = sid_wrk_ctl_run_new_worker(runner_res, &wrk_pvscan, SID_RES_NO_SERVICE_LINKS)) < 0) {
 		sid_res_log_error_errno(mod_res, r, "Failed to run %s", wrk_pvscan.id);
@@ -382,15 +362,13 @@ static int _lvm_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_c
 		if (!(cmd_line = util_str_comb_to_str(NULL, NULL, "vgchange -aay --autoactivation event ", val)))
 			goto out;
 
-		wrk_vgchange = (struct sid_wrk_params) {
-			.id                 = "vgchange",
-			.external.exec_file = LVM_EXEC_BIN_PATH,
-			.external.args      = cmd_line,
-			.worker_proxy_arg   = &((struct out_ctx) {.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = false}),
-			.timeout_spec       = (struct sid_wrk_timeout_spec) {
-				      .usec   = 20000000,
-				      .signum = SIGKILL,
-                        }};
+		wrk_vgchange =
+			SID_WRK_PARAMS(.id                 = "vgchange",
+		                       .external.exec_file = LVM_EXEC_BIN_PATH,
+		                       .external.args      = cmd_line,
+		                       .worker_proxy_arg =
+		                               &((struct out_ctx) {.mod_res = mod_res, .ucmd_ctx = ucmd_ctx, .store_kv = false}),
+		                       .timeout_spec = SID_WRK_TIMEOUT_SPEC(.usec = 20000000, .signum = SIGKILL));
 
 		if ((r = sid_wrk_ctl_run_new_worker(runner_res, &wrk_vgchange, SID_RES_NO_SERVICE_LINKS)) < 0) {
 			sid_res_log_error_errno(mod_res, r, "Failed to run %s", wrk_vgchange.id);
