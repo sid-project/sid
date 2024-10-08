@@ -1028,19 +1028,11 @@ int sid_kvs_transaction_begin(sid_res_t *kv_store_res)
 	if (sid_kvs_transaction_active(kv_store_res))
 		return -EBUSY;
 
-	if (!(rollback_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                             .type    = SID_BUF_TYPE_LINEAR,
-	                                                             .mode    = SID_BUF_MODE_PLAIN}),
-	                                    &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                                    &r))) {
+	if (!(rollback_buf = sid_buf_create(&SID_BUF_SPEC(), &SID_BUF_INIT(.alloc_step = 1), &r))) {
 		sid_res_log_error_errno(kv_store_res, r, "Failed to create transaction rollback tracker buffer");
 		return r;
 	}
-	if (!(unset_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                          .type    = SID_BUF_TYPE_LINEAR,
-	                                                          .mode    = SID_BUF_MODE_PLAIN}),
-	                                 &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                                 &r))) {
+	if (!(unset_buf = sid_buf_create(&SID_BUF_SPEC(), &SID_BUF_INIT(.alloc_step = 1), &r))) {
 		sid_res_log_error_errno(kv_store_res, r, "Failed to create transaction unset tracker buffer");
 		sid_buf_destroy(rollback_buf);
 		return r;

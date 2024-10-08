@@ -483,7 +483,7 @@ static const struct sid_buf_init *_get_lane_buf_init(const struct sid_buf_init *
 
 static int _setup_channel(sid_res_t *owner, bool is_worker, sid_wrk_type_t type, struct sid_wrk_chan *chan)
 {
-	struct sid_buf_spec        buf_spec = {.backend = SID_BUF_BACKEND_MALLOC, .type = SID_BUF_TYPE_LINEAR, .mode = 0};
+	struct sid_buf_spec        buf_spec = {0};
 	struct sid_buf           **buf1, **buf2;
 	const struct sid_buf_init *buf1_init, *buf2_init;
 	int                        r;

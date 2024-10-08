@@ -35,11 +35,7 @@ struct sid_ucmd_common_ctx *_create_common_ctx(void)
 	                                     SID_RES_PRIO_NORMAL,
 	                                     SID_RES_NO_SERVICE_LINKS);
 	assert_non_null(common_ctx->kvs_res);
-	common_ctx->gen_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                              .type    = SID_BUF_TYPE_LINEAR,
-	                                                              .mode    = SID_BUF_MODE_PLAIN}),
-	                                     &((struct sid_buf_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
-	                                     NULL);
+	common_ctx->gen_buf = sid_buf_create(&SID_BUF_SPEC(), &SID_BUF_INIT(.alloc_step = PATH_MAX), NULL);
 	assert_non_null(common_ctx->gen_buf);
 	common_ctx->gennum = 1;
 	return common_ctx;
@@ -257,11 +253,7 @@ static struct sid_buf *dump_db(sid_res_t *kv_store_res)
 	struct kv_store *kv_store = sid_res_get_data(kv_store_res);
 	/* Could do this for hash as well but not sure if it's worth is */
 	assert_true(kv_store->backend == SID_KVS_BACKEND_BPTREE);
-	struct sid_buf *buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                              .type    = SID_BUF_TYPE_VECTOR,
-	                                                              .mode    = SID_BUF_MODE_PLAIN}),
-	                                     &((struct sid_buf_init) {.size = 0, .alloc_step = 2, .limit = 0}),
-	                                     NULL);
+	struct sid_buf *buf = sid_buf_create(&SID_BUF_SPEC(.type = SID_BUF_TYPE_VECTOR), &SID_BUF_INIT(.alloc_step = 2), NULL);
 	assert_non_null(buf);
 	bptree_iter(kv_store->bpt, NULL, NULL, dumper_fn, buf);
 	return buf;

@@ -27,11 +27,7 @@ int test_fmt_add(int buf_size)
 	struct sid_buf *buf = NULL;
 	char           *data;
 	size_t          data_size;
-	buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                              .type    = SID_BUF_TYPE_LINEAR,
-	                                              .mode    = SID_BUF_MODE_PLAIN}),
-	                     &((struct sid_buf_init) {.size = buf_size, .alloc_step = 1, .limit = 0}),
-	                     NULL);
+	buf = sid_buf_create(&SID_BUF_SPEC(), &SID_BUF_INIT(.size = buf_size, .alloc_step = 1), NULL);
 	assert_non_null(buf);
 	assert_int_equal(sid_buf_add_fmt(buf, NULL, NULL, TEST_STR), 0);
 	assert_int_equal(sid_buf_get_data(buf, (const void **) &data, &data_size), 0);
@@ -67,11 +63,7 @@ static void test_linear_rewind_mem(void **state)
 {
 	struct sid_buf *buf;
 
-	buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                              .type    = SID_BUF_TYPE_LINEAR,
-	                                              .mode    = SID_BUF_MODE_PLAIN}),
-	                     &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                     NULL);
+	buf = sid_buf_create(&SID_BUF_SPEC(), &SID_BUF_INIT(.alloc_step = 1), NULL);
 
 	do_rewind_test(buf);
 	sid_buf_destroy(buf);
@@ -81,11 +73,7 @@ static void test_vector_rewind_mem(void **state)
 {
 	struct sid_buf *buf;
 
-	buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                              .type    = SID_BUF_TYPE_VECTOR,
-	                                              .mode    = SID_BUF_MODE_PLAIN}),
-	                     &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                     NULL);
+	buf = sid_buf_create(&SID_BUF_SPEC(.type = SID_BUF_TYPE_VECTOR), &SID_BUF_INIT(.alloc_step = 1), NULL);
 
 	do_rewind_test(buf);
 	sid_buf_destroy(buf);
@@ -96,9 +84,7 @@ static void do_test_zero_add(sid_buf_backend_t backend, sid_buf_type_t type, sid
 	struct sid_buf *buf;
 	const void     *rewind_mem, *tmp_mem_start;
 
-	buf        = sid_buf_create(&((struct sid_buf_spec) {.backend = backend, .type = type, .mode = mode}),
-                             &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-                             NULL);
+	buf = sid_buf_create(&SID_BUF_SPEC(.backend = backend, .type = type, .mode = mode), &SID_BUF_INIT(.alloc_step = 1), NULL);
 
 	rewind_mem = do_rewind_test(buf);
 	assert_int_equal(sid_buf_add(buf, "", 0, &tmp_mem_start, NULL), 0);
@@ -154,9 +140,7 @@ static void do_test_get_data_from(sid_buf_type_t type, sid_buf_mode_t mode)
 	void           *data;
 	size_t          pos, size, old_size;
 
-	buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC, .type = type, .mode = mode}),
-	                     &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                     NULL);
+	buf = sid_buf_create(&SID_BUF_SPEC(.type = type, .mode = mode), &SID_BUF_INIT(.alloc_step = 1), NULL);
 
 	assert_int_equal(sid_buf_add(buf, TEST_STR, TEST_SIZE, NULL, NULL), 0);
 	old_size = sid_buf_count(buf);

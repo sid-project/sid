@@ -164,11 +164,7 @@ static void _test_checkpoint(char *name, char *keys[], char *values[], int nr_ke
 	struct sid_ifc_checkpoint_data check_data = {.name = name, .keys = keys, .nr_keys = nr_keys};
 	unsigned int                   i;
 
-	buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                              .type    = SID_BUF_TYPE_LINEAR,
-	                                              .mode    = SID_BUF_MODE_SIZE_PREFIX}),
-	                     &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                     NULL);
+	buf = sid_buf_create(&SID_BUF_SPEC(.mode = SID_BUF_MODE_SIZE_PREFIX), &SID_BUF_INIT(.alloc_step = 1), NULL);
 
 	assert_non_null(buf);
 	if (ret_val == 0) {
@@ -230,11 +226,7 @@ static void test_add_scan_env(void **state)
 	char           *data, *p, **kv;
 	size_t          size;
 
-	buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                              .type    = SID_BUF_TYPE_LINEAR,
-	                                              .mode    = SID_BUF_MODE_SIZE_PREFIX}),
-	                     &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                     NULL);
+	buf = sid_buf_create(&SID_BUF_SPEC(.mode = SID_BUF_MODE_SIZE_PREFIX), &SID_BUF_INIT(.alloc_step = 1), NULL);
 	assert_non_null(buf);
 	will_return(__wrap_getenv, "8");
 	will_return(__wrap_getenv, "0");
@@ -424,11 +416,7 @@ static void test_sid_ifc_req_scan(void **state)
 	char              *data;
 	size_t             size;
 
-	buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                              .type    = SID_BUF_TYPE_LINEAR,
-	                                              .mode    = SID_BUF_MODE_SIZE_PREFIX}),
-	                     &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                     NULL);
+	buf = sid_buf_create(&SID_BUF_SPEC(.mode = SID_BUF_MODE_SIZE_PREFIX), &SID_BUF_INIT(.alloc_step = 1), NULL);
 
 	assert_non_null(buf);
 	will_return(__wrap_getenv, "8");
@@ -452,11 +440,7 @@ static void test_sid_ifc_req_checkpoint(void **state)
 	data->name    = CHECKPOINT_NAME;
 	data->keys    = check_keys;
 	data->nr_keys = NR_KEYS;
-	buf           = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                        .type    = SID_BUF_TYPE_LINEAR,
-	                                                        .mode    = SID_BUF_MODE_SIZE_PREFIX}),
-                             &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-                             NULL);
+	buf           = sid_buf_create(&SID_BUF_SPEC(.mode = SID_BUF_MODE_SIZE_PREFIX), &SID_BUF_INIT(.alloc_step = 1), NULL);
 
 	assert_non_null(buf);
 	will_return(__wrap_getenv, "8");

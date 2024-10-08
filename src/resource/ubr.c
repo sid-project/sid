@@ -1308,25 +1308,17 @@ static int _build_cmd_kv_buffers(sid_res_t *cmd_res, uint32_t flags)
 
 	if (flags & CMD_KV_EXPBUF_TO_FILE)
 		buf_spec = (struct sid_buf_spec) {.backend  = SID_BUF_BACKEND_FILE,
-		                                  .type     = SID_BUF_TYPE_LINEAR,
 		                                  .mode     = SID_BUF_MODE_SIZE_PREFIX,
 		                                  .ext.file = {ucmd_ctx->req_env.exp_path ?: MAIN_KV_STORE_FILE_PATH}};
 	else
-		buf_spec = (struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MEMFD,
-		                                  .type    = SID_BUF_TYPE_LINEAR,
-		                                  .mode    = SID_BUF_MODE_SIZE_PREFIX};
+		buf_spec = (struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MEMFD, .mode = SID_BUF_MODE_SIZE_PREFIX};
 
-	if (!(export_buf =
-	              sid_buf_create(&buf_spec, &((struct sid_buf_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}), &r))) {
+	if (!(export_buf = sid_buf_create(&buf_spec, &SID_BUF_INIT(.alloc_step = PATH_MAX), &r))) {
 		sid_res_log_error(cmd_res, "Failed to create export buffer.");
 		goto fail;
 	}
 
-	if (!(unset_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                          .type    = SID_BUF_TYPE_LINEAR,
-	                                                          .mode    = SID_BUF_MODE_PLAIN}),
-	                                 &((struct sid_buf_init) {.size = 256, .alloc_step = 256, .limit = 0}),
-	                                 &r))) {
+	if (!(unset_buf = sid_buf_create(&SID_BUF_SPEC(), &SID_BUF_INIT(.size = 256, .alloc_step = 256), &r))) {
 		sid_res_log_error(cmd_res, "Failed to create unset buffer.");
 		goto fail;
 	}
@@ -1739,11 +1731,7 @@ static int _init_delta_buffer(kv_vector_t *vheader, struct sid_buf **delta_buf, 
 		goto out;
 	}
 
-	if (!(buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                    .type    = SID_BUF_TYPE_VECTOR,
-	                                                    .mode    = SID_BUF_MODE_PLAIN}),
-	                           &((struct sid_buf_init) {.size = size, .alloc_step = 0, .limit = 0}),
-	                           &r)))
+	if (!(buf = sid_buf_create(&SID_BUF_SPEC(.type = SID_BUF_TYPE_VECTOR), &SID_BUF_INIT(.size = size), &r)))
 		goto out;
 
 	for (i = 0; i < VVALUE_HEADER_CNT; i++) {
@@ -4760,12 +4748,8 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 	 *   +VVALUE_HEADER_CNT to include record header
 	 *   -2 to subtract "." and ".." directory which we're not interested in
 	 */
-	if (!(vec_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                        .type    = SID_BUF_TYPE_VECTOR,
-	                                                        .mode    = SID_BUF_MODE_PLAIN}),
-	                               &((struct sid_buf_init) {.size       = VVALUE_HEADER_CNT + (count >= 2 ? count - 2 : 0),
-	                                                        .alloc_step = 1,
-	                                                        .limit      = 0}),
+	if (!(vec_buf = sid_buf_create(&SID_BUF_SPEC(.type = SID_BUF_TYPE_VECTOR),
+	                               &SID_BUF_INIT(.size = VVALUE_HEADER_CNT + (count >= 2 ? count - 2 : 0), .alloc_step = 1),
 	                               &r))) {
 		sid_res_log_error_errno(cmd_res,
 		                        r,
@@ -5991,11 +5975,7 @@ static int _init_connection(sid_res_t *res, const void *kickstart_data, void **d
 		goto fail;
 	}
 
-	if (!(conn->buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                          .type    = SID_BUF_TYPE_LINEAR,
-	                                                          .mode    = SID_BUF_MODE_SIZE_PREFIX}),
-	                                 &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                                 &r))) {
+	if (!(conn->buf = sid_buf_create(&SID_BUF_SPEC(.mode = SID_BUF_MODE_SIZE_PREFIX), &SID_BUF_INIT(.alloc_step = 1), &r))) {
 		sid_res_log_error_errno(res, r, "Failed to create connection buffer");
 		goto fail;
 	}
@@ -6062,19 +6042,13 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 	}
 
 	/* FIXME: Not all commands require print buffer - add command flag to control creation of this buffer. */
-	if (!(ucmd_ctx->prn_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                                  .type    = SID_BUF_TYPE_LINEAR,
-	                                                                  .mode    = SID_BUF_MODE_PLAIN}),
-	                                         &((struct sid_buf_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
-	                                         &r))) {
+	if (!(ucmd_ctx->prn_buf = sid_buf_create(&SID_BUF_SPEC(), &SID_BUF_INIT(.alloc_step = PATH_MAX), &r))) {
 		sid_res_log_error_errno(res, r, "Failed to create print buffer");
 		goto fail;
 	}
 
-	if (!(ucmd_ctx->res_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                                  .type    = SID_BUF_TYPE_VECTOR,
-	                                                                  .mode    = SID_BUF_MODE_SIZE_PREFIX}),
-	                                         &((struct sid_buf_init) {.size = 1, .alloc_step = 1, .limit = 0}),
+	if (!(ucmd_ctx->res_buf = sid_buf_create(&SID_BUF_SPEC(.type = SID_BUF_TYPE_VECTOR, .mode = SID_BUF_MODE_SIZE_PREFIX),
+	                                         &SID_BUF_INIT(.size = 1, .alloc_step = 1),
 	                                         &r))) {
 		sid_res_log_error_errno(res, r, "Failed to create response buffer");
 		goto fail;
@@ -6587,10 +6561,8 @@ static int _worker_proxy_recv_system_cmd_resources(sid_res_t                *wor
 
 	memcpy(&int_msg, data_spec->data, INTERNAL_MSG_HEADER_SIZE);
 
-	if (!(buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MEMFD,
-	                                                    .type    = SID_BUF_TYPE_LINEAR,
-	                                                    .mode    = SID_BUF_MODE_SIZE_PREFIX}),
-	                           &((struct sid_buf_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
+	if (!(buf = sid_buf_create(&SID_BUF_SPEC(.backend = SID_BUF_BACKEND_MEMFD, .mode = SID_BUF_MODE_SIZE_PREFIX),
+	                           &SID_BUF_INIT(.alloc_step = PATH_MAX),
 	                           &r))) {
 		sid_res_log_error_errno(worker_proxy_res, r, "Failed to create temporary buffer.");
 		return -1;
@@ -7456,11 +7428,7 @@ static int _init_common(sid_res_t *res, const void *kickstart_data, void **data)
 		goto fail;
 	}
 
-	if (!(common_ctx->gen_buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                                    .type    = SID_BUF_TYPE_LINEAR,
-	                                                                    .mode    = SID_BUF_MODE_PLAIN}),
-	                                           &((struct sid_buf_init) {.size = 0, .alloc_step = PATH_MAX, .limit = 0}),
-	                                           &r))) {
+	if (!(common_ctx->gen_buf = sid_buf_create(&SID_BUF_SPEC(), &SID_BUF_INIT(.alloc_step = PATH_MAX), &r))) {
 		sid_res_log_error_errno(res, r, "Failed to create generic buffer");
 		goto fail;
 	}

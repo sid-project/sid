@@ -46,11 +46,15 @@ struct sid_buf_spec {
 	} ext;
 };
 
+#define SID_BUF_SPEC(...) ((struct sid_buf_spec) {__VA_ARGS__})
+
 struct sid_buf_init {
 	size_t size;
 	size_t alloc_step;
 	size_t limit;
 };
+
+#define SID_BUF_INIT(...) ((struct sid_buf_init) {__VA_ARGS__})
 
 struct sid_buf_usage {
 	size_t allocated;

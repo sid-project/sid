@@ -242,11 +242,7 @@ int sid_ifc_req(struct sid_ifc_req *req, struct sid_ifc_rsl **rsl_p)
 	rsl->shm     = MAP_FAILED;
 	rsl->shm_len = 0;
 
-	if (!(rsl->buf = buf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                               .type    = SID_BUF_TYPE_LINEAR,
-	                                                               .mode    = SID_BUF_MODE_SIZE_PREFIX}),
-	                                      &((struct sid_buf_init) {.size = 0, .alloc_step = 1, .limit = 0}),
-	                                      &r)))
+	if (!(rsl->buf = buf = sid_buf_create(&SID_BUF_SPEC(.mode = SID_BUF_MODE_SIZE_PREFIX), &SID_BUF_INIT(.alloc_step = 1), &r)))
 		goto out;
 
 	if ((r = sid_buf_add(buf,

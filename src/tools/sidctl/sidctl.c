@@ -60,11 +60,7 @@ static int _sid_cmd_version(uint16_t format)
 	struct sid_buf *outbuf = NULL;
 	int             r;
 
-	outbuf = sid_buf_create(&((struct sid_buf_spec) {.backend = SID_BUF_BACKEND_MALLOC,
-	                                                 .type    = SID_BUF_TYPE_LINEAR,
-	                                                 .mode    = SID_BUF_MODE_PLAIN}),
-	                        &((struct sid_buf_init) {.size = 4096, .alloc_step = 1, .limit = 0}),
-	                        NULL);
+	outbuf = sid_buf_create(&SID_BUF_SPEC(), &SID_BUF_INIT(.size = 4096, .alloc_step = 1), NULL);
 	if (!outbuf)
 		return -1;
 
