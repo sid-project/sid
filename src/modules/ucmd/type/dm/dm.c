@@ -26,78 +26,6 @@
 SID_UCMD_MOD_PRIO(0)
 SID_UCMD_MOD_ALIASES("device_mapper")
 
-static struct sid_mod_sym_params dm_submod_sym_params[] = {
-	{
-		SID_UCMD_MOD_DM_FN_NAME_SCAN_SUBSYS_MATCH_CURRENT,
-		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_DM_FN_NAME_SCAN_SUBSYS_MATCH_NEXT,
-		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_A_INIT,
-		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_PRE,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_A_EXIT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_INIT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_EXIT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_B_INIT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_B_EXIT,
-		SID_MOD_SYM_FL_INDIRECT,
-	},
-	{
-		SID_UCMD_MOD_FN_NAME_SCAN_ERROR,
-		SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
-	},
-	SID_MOD_NULL_SYM_PARAMS,
-};
-
 typedef enum {
 	DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_CURRENT,
 	DM_SUBMOD_SCAN_PHASE_SUBSYS_MATCH_NEXT,
@@ -476,8 +404,9 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 static int _dm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
 {
-	struct dm_mod_ctx *dm_mod = NULL;
-	const char       **flag_name;
+	struct sid_mod_reg_res_params *submod_reg_res_params;
+	struct dm_mod_ctx             *dm_mod = NULL;
+	const char                   **flag_name;
 
 	sid_res_log_debug(mod_res, "init");
 
@@ -486,24 +415,49 @@ static int _dm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_
 		return -1;
 	}
 
-	struct sid_mod_reg_res_params dm_submod_reg_res_mod_params = {
-		.directory     = SID_UCMD_TYPE_MOD_DIR "/" DM_ID,
-		.module_prefix = NULL,
-		.module_suffix = ".so",
-		.flags         = 0,
-		.symbol_params = dm_submod_sym_params,
-		.cb_arg        = ucmd_common_ctx,
-	};
+	{
+		submod_reg_res_params = &(struct sid_mod_reg_res_params) {
+			.directory     = SID_UCMD_TYPE_MOD_DIR "/" DM_ID,
+			.module_prefix = NULL,
+			.module_suffix = ".so",
+			.flags         = 0,
+			.symbol_params = SID_MOD_SYM_PARAMS_ARRAY(
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_DM_FN_NAME_SCAN_SUBSYS_MATCH_CURRENT,
+		                                   .flags = SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_DM_FN_NAME_SCAN_SUBSYS_MATCH_NEXT,
+		                                   .flags = SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_A_INIT,
+		                                   .flags = SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_PRE, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_CURRENT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_NEXT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
+		                                   .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_A_EXIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_INIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_REMOVE, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_EXIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_B_INIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
+		                                   .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_B_EXIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_ERROR,
+		                                   .flags = SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT)),
+			.cb_arg = ucmd_common_ctx,
+		};
 
-	if (!(dm_mod->submod_registry = sid_res_create(SID_RES_NO_PARENT,
-	                                               &sid_res_type_mod_reg,
-	                                               SID_RES_FL_NONE,
-	                                               DM_SUBMODULES_ID,
-	                                               &dm_submod_reg_res_mod_params,
-	                                               SID_RES_PRIO_NORMAL,
-	                                               SID_RES_NO_SERVICE_LINKS))) {
-		sid_res_log_error(mod_res, "Failed to create submodule registry.");
-		goto fail;
+		if (!(dm_mod->submod_registry = sid_res_create(SID_RES_NO_PARENT,
+		                                               &sid_res_type_mod_reg,
+		                                               SID_RES_FL_NONE,
+		                                               DM_SUBMODULES_ID,
+		                                               submod_reg_res_params,
+		                                               SID_RES_PRIO_NORMAL,
+		                                               SID_RES_NO_SERVICE_LINKS))) {
+			sid_res_log_error(mod_res, "Failed to create submodule registry.");
+			goto fail;
+		}
 	}
 
 	if (sid_mod_reg_add_mod_subreg(mod_res, dm_mod->submod_registry) < 0) {

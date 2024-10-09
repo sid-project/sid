@@ -27,7 +27,8 @@ struct sid_mod_sym_params {
 	uint64_t    flags; /* SID_MOD_SYM_FL_* flags */
 };
 
-#define SID_MOD_NULL_SYM_PARAMS ((const struct sid_mod_sym_params) {.name = NULL, .flags = 0})
+#define SID_MOD_SYM_PARAMS(...)       ((struct sid_mod_sym_params) {__VA_ARGS__})
+#define SID_MOD_SYM_PARAMS_ARRAY(...) ((struct sid_mod_sym_params[]) {__VA_ARGS__, SID_MOD_SYM_PARAMS()})
 
 struct sid_mod_reg_res_params {
 	const char                      *directory;     /* directory with modules */

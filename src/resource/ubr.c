@@ -7190,142 +7190,13 @@ fail:
 	return -1;
 }
 
-static struct sid_mod_sym_params block_symbol_params[] = {{
-								  SID_UCMD_MOD_FN_NAME_SCAN_A_INIT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_PRE,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_A_EXIT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_INIT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_EXIT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_B_INIT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_B_EXIT,
-								  SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          {
-								  SID_UCMD_MOD_FN_NAME_SCAN_ERROR,
-								  SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
-							  },
-                                                          SID_MOD_NULL_SYM_PARAMS};
-
-static struct sid_mod_sym_params type_symbol_params[]  = {
-
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_A_INIT,
-                SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_PRE,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_CURRENT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_NEXT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_A_EXIT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_INIT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_REMOVE,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_EXIT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_B_INIT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_B_EXIT,
-                SID_MOD_SYM_FL_INDIRECT,
-        },
-
-        {
-                SID_UCMD_MOD_FN_NAME_SCAN_ERROR,
-                SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT,
-        },
-        SID_MOD_NULL_SYM_PARAMS};
-
 static const struct sid_kvs_res_params main_kv_store_res_params = {.backend = SID_KVS_BACKEND_BPTREE, .bptree.order = 4};
 
 static int _init_common(sid_res_t *res, const void *kickstart_data, void **data)
 {
-	struct sid_ucmd_common_ctx *common_ctx;
-	int                         r;
+	struct sid_ucmd_common_ctx    *common_ctx;
+	struct sid_mod_reg_res_params *mod_reg_res_params;
+	int                            r;
 
 	if (!(common_ctx = mem_zalloc(sizeof(struct sid_ucmd_common_ctx)))) {
 		sid_res_log_error(res, "Failed to allocate memory for common structure.");
@@ -7357,44 +7228,85 @@ static int _init_common(sid_res_t *res, const void *kickstart_data, void **data)
 	if (_set_up_kv_store_generation(common_ctx) < 0 || _set_up_boot_id(common_ctx) < 0)
 		goto fail;
 
-	struct sid_mod_reg_res_params block_res_mod_params = {
-		.directory     = SID_UCMD_BLOCK_MOD_DIR,
-		.module_prefix = NULL,
-		.module_suffix = ".so",
-		.flags         = 0,
-		.symbol_params = block_symbol_params,
-		.cb_arg        = common_ctx,
-	};
+	{
+		mod_reg_res_params = &(struct sid_mod_reg_res_params) {
+			.directory     = SID_UCMD_BLOCK_MOD_DIR,
+			.module_prefix = NULL,
+			.module_suffix = ".so",
+			.flags         = 0,
+			.symbol_params = SID_MOD_SYM_PARAMS_ARRAY(
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_A_INIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_PRE, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_CURRENT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_NEXT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
+		                                   .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_A_EXIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_INIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_REMOVE, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_EXIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_B_INIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
+		                                   .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_B_EXIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_ERROR,
+		                                   .flags = SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT)),
+			.cb_arg = common_ctx,
+		};
 
-	struct sid_mod_reg_res_params type_res_mod_params = {
-		.directory     = SID_UCMD_TYPE_MOD_DIR,
-		.module_prefix = NULL,
-		.module_suffix = ".so",
-		.flags         = 0,
-		.symbol_params = type_symbol_params,
-		.cb_arg        = common_ctx,
-	};
-
-	if (!(common_ctx->block_mod_reg_res = sid_res_create(common_ctx->res,
-	                                                     &sid_res_type_mod_reg,
-	                                                     SID_RES_FL_RESTRICT_WALK_UP | SID_RES_FL_DISALLOW_ISOLATION,
-	                                                     MODULES_BLOCK_ID,
-	                                                     &block_res_mod_params,
-	                                                     SID_RES_PRIO_NORMAL,
-	                                                     SID_RES_NO_SERVICE_LINKS))) {
-		sid_res_log_error(res, "Failed to create type module registry.");
-		goto fail;
+		if (!(common_ctx->block_mod_reg_res = sid_res_create(common_ctx->res,
+		                                                     &sid_res_type_mod_reg,
+		                                                     SID_RES_FL_RESTRICT_WALK_UP | SID_RES_FL_DISALLOW_ISOLATION,
+		                                                     MODULES_BLOCK_ID,
+		                                                     mod_reg_res_params,
+		                                                     SID_RES_PRIO_NORMAL,
+		                                                     SID_RES_NO_SERVICE_LINKS))) {
+			sid_res_log_error(res, "Failed to create block module registry.");
+			goto fail;
+		}
 	}
 
-	if (!(common_ctx->type_mod_reg_res = sid_res_create(common_ctx->res,
-	                                                    &sid_res_type_mod_reg,
-	                                                    SID_RES_FL_RESTRICT_WALK_UP | SID_RES_FL_DISALLOW_ISOLATION,
-	                                                    MODULES_TYPE_ID,
-	                                                    &type_res_mod_params,
-	                                                    SID_RES_PRIO_NORMAL,
-	                                                    SID_RES_NO_SERVICE_LINKS))) {
-		sid_res_log_error(res, "Failed to create block module registry.");
-		goto fail;
+	{
+		mod_reg_res_params = &(struct sid_mod_reg_res_params) {
+			.directory     = SID_UCMD_TYPE_MOD_DIR,
+			.module_prefix = NULL,
+			.module_suffix = ".so",
+			.flags         = 0,
+			.symbol_params = SID_MOD_SYM_PARAMS_ARRAY(
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_A_INIT,
+		                                   .flags = SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_PRE, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_CURRENT, .flags = SID_MOD_SYM_FL_INDIRECT, ),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_NEXT, .flags = SID_MOD_SYM_FL_INDIRECT, ),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_POST_CURRENT,
+		                                   .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_POST_NEXT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_A_EXIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_INIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_REMOVE, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_REMOVE_EXIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_B_INIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_ACTION_CURRENT,
+		                                   .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_ACTION_NEXT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name = SID_UCMD_MOD_FN_NAME_SCAN_B_EXIT, .flags = SID_MOD_SYM_FL_INDIRECT),
+				SID_MOD_SYM_PARAMS(.name  = SID_UCMD_MOD_FN_NAME_SCAN_ERROR,
+		                                   .flags = SID_MOD_SYM_FL_FAIL_ON_MISSING | SID_MOD_SYM_FL_INDIRECT)),
+			.cb_arg = common_ctx,
+		};
+
+		if (!(common_ctx->type_mod_reg_res = sid_res_create(common_ctx->res,
+		                                                    &sid_res_type_mod_reg,
+		                                                    SID_RES_FL_RESTRICT_WALK_UP | SID_RES_FL_DISALLOW_ISOLATION,
+		                                                    MODULES_TYPE_ID,
+		                                                    mod_reg_res_params,
+		                                                    SID_RES_PRIO_NORMAL,
+		                                                    SID_RES_NO_SERVICE_LINKS))) {
+			sid_res_log_error(res, "Failed to create type module registry.");
+			goto fail;
+		}
 	}
 
 	if ((r = sid_mod_reg_load_mods(common_ctx->block_mod_reg_res)) < 0) {
