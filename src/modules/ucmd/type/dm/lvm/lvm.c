@@ -178,32 +178,27 @@ static int _lvm_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common
 	sid_res_log_debug(mod_res, "init");
 
 	struct sid_wrk_ctl_res_params runner_params = {
-		.worker_type = SID_WRK_TYPE_EXTERNAL,
+		.worker_type   = SID_WRK_TYPE_EXTERNAL,
 
-		.channel_specs =
-			(struct sid_wrk_chan_spec[]) {
-				{
-					.id       = "stdout",
+		.channel_specs = SID_WRK_CHAN_SPEC_ARRAY(
+			SID_WRK_CHAN_SPEC(.id   = "stdout",
 
-					.wire     = SID_WRK_WIRE_SPEC(.type              = SID_WRK_WIRE_PIPE_TO_PRX,
-                                                                  .ext.used          = true,
-                                                                  .ext.pipe.fd_redir = STDOUT_FILENO),
+	                                  .wire = SID_WRK_WIRE_SPEC(.type              = SID_WRK_WIRE_PIPE_TO_PRX,
+	                                                            .ext.used          = true,
+	                                                            .ext.pipe.fd_redir = STDOUT_FILENO),
 
-					.proxy_rx = SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn = _runner_stdout_recv_fn),
-	                                                              .data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1}),
-				},
-				{
-					.id       = "stderr",
+	                                  .proxy_rx =
+	                                          SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn = _runner_stdout_recv_fn),
+	                                                            .data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1})),
+			SID_WRK_CHAN_SPEC(.id   = "stderr",
 
-					.wire     = SID_WRK_WIRE_SPEC(.type              = SID_WRK_WIRE_PIPE_TO_PRX,
-                                                                  .ext.used          = true,
-                                                                  .ext.pipe.fd_redir = STDERR_FILENO),
+	                                  .wire = SID_WRK_WIRE_SPEC(.type              = SID_WRK_WIRE_PIPE_TO_PRX,
+	                                                            .ext.used          = true,
+	                                                            .ext.pipe.fd_redir = STDERR_FILENO),
 
-					.proxy_rx = SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn = _runner_stderr_recv_fn),
-	                                                              .data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1}),
-				},
-				SID_WRK_NULL_CHAN_SPEC,
-			},
+	                                  .proxy_rx =
+	                                          SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn = _runner_stderr_recv_fn),
+	                                                            .data_suffix = (struct iovec) {.iov_base = "", .iov_len = 1}))),
 
 		.timeout_spec = SID_WRK_TIMEOUT_SPEC(.usec = 5000000, .signum = SIGKILL)};
 

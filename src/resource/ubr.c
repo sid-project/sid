@@ -7482,20 +7482,16 @@ static int _init_ubridge(sid_res_t *res, const void *kickstart_data, void **data
 
 		.init_cb_spec  = SID_WRK_INIT_CB_SPEC(.fn = _worker_init_fn, .arg = common_ctx),
 
-		.channel_specs = (struct sid_wrk_chan_spec[]) {
-			{
-				.id   = MAIN_WORKER_CHANNEL_ID,
+		.channel_specs = SID_WRK_CHAN_SPEC_ARRAY(
+			SID_WRK_CHAN_SPEC(.id        = MAIN_WORKER_CHANNEL_ID,
 
-				.wire = SID_WRK_WIRE_SPEC(.type = SID_WRK_WIRE_SOCKET),
+	                                  .wire      = SID_WRK_WIRE_SPEC(.type = SID_WRK_WIRE_SOCKET),
 
-				.worker_rx =
-					SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn = _worker_recv_fn, .arg = common_ctx)),
+	                                  .worker_rx = SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn  = _worker_recv_fn,
+	                                                                                            .arg = common_ctx)),
 
-				.proxy_rx = SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn  = _worker_proxy_recv_fn,
-	                                                                                 .arg = common_ctx)),
-			},
-			SID_WRK_NULL_CHAN_SPEC,
-		}};
+	                                  .proxy_rx  = SID_WRK_LANE_SPEC(.cb = SID_WRK_LANE_CB_SPEC(.fn  = _worker_proxy_recv_fn,
+                                                                                                   .arg = common_ctx))))};
 
 	if (!sid_res_create(ubridge->internal_res,
 	                    &sid_res_type_wrk_ctl,

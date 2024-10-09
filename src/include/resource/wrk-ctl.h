@@ -115,11 +115,8 @@ struct sid_wrk_chan_spec {
 	struct sid_wrk_lane_spec proxy_rx;
 };
 
-#define SID_WRK_CHAN_SPEC(...)    ((struct sid_wrk_chan_spec) {__VA_ARGS__})
-
-#define SID_WRK_NULL_LANE_CB_SPEC ((const struct sid_wrk_lane_cb_spec) {NULL})
-#define SID_WRK_NULL_LANE_SPEC    ((const struct sid_wrk_lane_spec) {NULL})
-#define SID_WRK_NULL_CHAN_SPEC    ((const struct sid_wrk_chan_spec) {NULL})
+#define SID_WRK_CHAN_SPEC(...)       ((struct sid_wrk_chan_spec) {__VA_ARGS__})
+#define SID_WRK_CHAN_SPEC_ARRAY(...) ((struct sid_wrk_chan_spec[]) {__VA_ARGS__, SID_WRK_CHAN_SPEC()})
 
 /* Timeout specification */
 struct sid_wrk_timeout_spec {
