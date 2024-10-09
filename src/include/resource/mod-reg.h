@@ -14,10 +14,10 @@
 extern "C" {
 #endif
 
-/* For use in struct module_registry_resource_resource_module_params.flags field. */
+/* For use in struct sid_mod_reg_res_params.flags field. */
 #define SID_MOD_REG_FL_PRELOAD         UINT64_C(0x0000000000000001)
 
-/* For use in struct module_symbol_params.flags field. */
+/* For use in struct sid_mod_sym_params.flags field. */
 #define SID_MOD_SYM_FL_WARN_ON_MISSING UINT64_C(0x0000000000000001)
 #define SID_MOD_SYM_FL_FAIL_ON_MISSING UINT64_C(0x0000000000000002)
 #define SID_MOD_SYM_FL_INDIRECT        UINT64_C(0x0000000000000004)
