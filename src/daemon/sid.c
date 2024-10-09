@@ -203,21 +203,16 @@ int main(int argc, char *argv[])
 		SID_RES_NO_CUSTOM_ID,
 		SID_RES_NO_PARAMS,
 		SID_RES_PRIO_NORMAL,
-		(sid_res_srv_lnk_def_t[]) {{
-						   .name         = "systemd",
-						   .type         = SID_SRV_LNK_TYPE_SYSTEMD,
-						   .notification = SID_SRV_LNK_NOTIF_READY | SID_SRV_LNK_NOTIF_STATUS,
-						   .flags        = SID_SRV_LNK_FL_NONE,
-						   .data         = NULL,
-					   },
-	                                   {
-						   .name         = "logger",
-						   .type         = SID_SRV_LNK_TYPE_LOGGER,
-						   .notification = SID_SRV_LNK_NOTIF_READY | SID_SRV_LNK_NOTIF_MESSAGE,
-						   .flags        = SID_SRV_LNK_FL_CLONEABLE,
-						   .data         = _log,
-					   },
-	                                   SID_NULL_SRV_LNK});
+		SID_RES_SRV_LNK_DEF_ARRAY(SID_RES_SRV_LNK_DEF(.name         = "systemd",
+	                                                      .type         = SID_SRV_LNK_TYPE_SYSTEMD,
+	                                                      .notification = SID_SRV_LNK_NOTIF_READY | SID_SRV_LNK_NOTIF_STATUS,
+	                                                      .flags        = SID_SRV_LNK_FL_NONE,
+	                                                      .data         = NULL),
+	                                  SID_RES_SRV_LNK_DEF(.name         = "logger",
+	                                                      .type         = SID_SRV_LNK_TYPE_LOGGER,
+	                                                      .notification = SID_SRV_LNK_NOTIF_READY | SID_SRV_LNK_NOTIF_MESSAGE,
+	                                                      .flags        = SID_SRV_LNK_FL_CLONEABLE,
+	                                                      .data         = _log)));
 
 	if (!sid_res_ref(sid_res))
 		goto out;
@@ -238,16 +233,11 @@ int main(int argc, char *argv[])
 		sid_res = NULL;
 
 		r       = sid_wrk_ctl_run_worker(worker_control_res,
-                                           (sid_res_srv_lnk_def_t[]) {
-                                                   {
-								 .name         = "worker-logger",
-								 .type         = SID_SRV_LNK_TYPE_LOGGER,
-								 .notification = SID_SRV_LNK_NOTIF_MESSAGE,
-								 .flags        = SID_SRV_LNK_FL_CLONEABLE,
-								 .data         = _log,
-                                                   },
-                                                   SID_NULL_SRV_LNK,
-                                           });
+                                           SID_RES_SRV_LNK_DEF_ARRAY(SID_RES_SRV_LNK_DEF(.name         = "worker-logger",
+                                                                                         .type         = SID_SRV_LNK_TYPE_LOGGER,
+                                                                                         .notification = SID_SRV_LNK_NOTIF_MESSAGE,
+                                                                                         .flags        = SID_SRV_LNK_FL_CLONEABLE,
+                                                                                         .data         = _log)));
 	}
 
 out:

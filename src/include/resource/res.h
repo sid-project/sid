@@ -64,10 +64,9 @@ typedef struct sid_res_srv_lnk_def {
 	void               *data;
 } sid_res_srv_lnk_def_t;
 
-#define SID_NULL_SRV_LNK                                                                                                           \
-	((sid_res_srv_lnk_def_t) {.name = NULL, .type = SID_SRV_LNK_TYPE_NONE, .notification = SID_SRV_LNK_NOTIF_NONE})
+#define SID_RES_SRV_LNK_DEF(...)       ((struct sid_res_srv_lnk_def) {__VA_ARGS__})
+#define SID_RES_SRV_LNK_DEF_ARRAY(...) ((struct sid_res_srv_lnk_def[]) {__VA_ARGS__, SID_RES_SRV_LNK_DEF()})
 
-/* Note: service_link_defs[] array must always be terminated by NULL_SERVICE_LINK */
 sid_res_t *sid_res_create(sid_res_t            *parent_res,
                           const sid_res_type_t *type,
                           sid_res_flags_t       flags,
