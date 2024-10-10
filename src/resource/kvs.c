@@ -67,8 +67,8 @@ struct kv_trans_fn_arg {
 };
 
 struct kv_update_fn_relay {
-	sid_kvs_update_cb_fn_t kv_update_fn;
-	void                  *kv_update_fn_arg;
+	sid_kvs_update_cb_fn_t fn;
+	void                  *fn_arg;
 	struct sid_buf        *unset_buf;
 	struct sid_buf        *rollback_buf;
 	struct kv_archive_arg  archive_arg;
@@ -354,7 +354,7 @@ static int _update_fn(const char                *key,
 	const char                *key_dup;
 	int                        r = 1;
 
-	if (relay->kv_update_fn) {
+	if (relay->fn) {
 		if (old_value) {
 			update_spec.old_data      = _get_data(old_value);
 			update_spec.old_data_size = old_value->size;
@@ -365,9 +365,9 @@ static int _update_fn(const char                *key,
 		update_spec.new_data_size = orig_new_data_size = orig_new_value->size;
 		update_spec.new_flags = orig_new_flags = orig_new_value->ext_flags;
 
-		update_spec.arg                        = relay->kv_update_fn_arg;
+		update_spec.arg                        = relay->fn_arg;
 
-		r                                      = relay->kv_update_fn(&update_spec);
+		r                                      = relay->fn(&update_spec);
 
 		/* Check if there has been any change... */
 		if ((r > 0) && ((update_spec.new_data != orig_new_data) || (update_spec.new_data_size != orig_new_data_size) ||
@@ -505,9 +505,6 @@ static int _set_value(struct kv_store           *kv_store,
 {
 	int r = 0;
 
-	if (!key)
-		return -EINVAL;
-
 	switch (kv_store->backend) {
 		case SID_KVS_BACKEND_HASH:
 			r = hash_update(kv_store->ht,
@@ -530,30 +527,30 @@ static int _set_value(struct kv_store           *kv_store,
 	}
 
 	if (r < 0 || relay->ret_code < 0)
-		return -1;
+		return -EIO;
 
 	return 0;
 }
 
 static void _kv_store_trans_rollback_value(sid_res_t *kv_store_res, struct kv_rollback_arg *rollback_arg);
 
-static void *_do_kv_store_set_value(sid_res_t             *kv_store_res,
-                                    const char            *key,
-                                    void                  *value,
-                                    size_t                 value_size,
-                                    sid_kvs_val_fl_t       flags,
-                                    sid_kvs_val_op_fl_t    op_flags,
-                                    sid_kvs_update_cb_fn_t kv_update_fn,
-                                    void                  *kv_update_fn_arg,
-                                    const char            *archive_key)
+int sid_kvs_set(sid_res_t *kv_store_res, struct sid_kvs_set_args *args)
 {
-	struct kv_store          *kv_store     = sid_res_get_data(kv_store_res);
-	struct iovec              iov_internal = {.iov_base = value, .iov_len = value_size};
-	struct iovec             *iov;
+	struct kv_store          *kv_store;
+	struct iovec              iov_internal, *iov;
 	int                       iov_cnt;
+	const char               *c_key, *c_archive_key;
 	struct kv_update_fn_relay relay;
+	struct kv_store_value    *kv_store_value = NULL;
 	size_t                    kv_store_value_size;
-	struct kv_store_value    *kv_store_value;
+	int                       r = 0;
+
+	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || !args || UTIL_STR_EMPTY(args->key)) {
+		r = -EINVAL;
+		goto out;
+	}
+
+	kv_store = sid_res_get_data(kv_store_res);
 
 	/*
 	 * Update the record with new data under the 'key' first. If we fail to do so
@@ -565,90 +562,58 @@ static void *_do_kv_store_set_value(sid_res_t             *kv_store_res,
 	 *
 	 */
 
-	if (flags & SID_KVS_VAL_FL_VECTOR) {
-		iov     = value;
-		iov_cnt = value_size;
+	if (args->flags & SID_KVS_VAL_FL_VECTOR) {
+		iov     = args->value;
+		iov_cnt = args->size;
 	} else {
-		iov     = &iov_internal;
-		iov_cnt = 1;
+		iov_internal.iov_base = args->value;
+		iov_internal.iov_len  = args->size;
+		iov                   = &iov_internal;
+		iov_cnt               = 1;
 	}
 
-	if (!(kv_store_value = _create_kv_store_value(iov, iov_cnt, flags, op_flags, &kv_store_value_size)))
-		return NULL;
+	if (!(kv_store_value = _create_kv_store_value(iov, iov_cnt, args->flags, args->op_flags, &kv_store_value_size))) {
+		r = -ENOMEM;
+		goto out;
+	}
 
-	key         = _canonicalize_key(key);
-	archive_key = _canonicalize_key(archive_key);
+	c_key         = _canonicalize_key(args->key);
+	c_archive_key = _canonicalize_key(args->archive_key);
 
-	relay       = (struct kv_update_fn_relay) {.kv_update_fn            = kv_update_fn,
-	                                           .kv_update_fn_arg        = kv_update_fn_arg,
-	                                           .archive_arg.has_archive = archive_key != NULL,
-	                                           .rollback_buf            = kv_store->trans_rollback_buf};
+	relay         = (struct kv_update_fn_relay) {.fn                      = args->fn,
+	                                             .fn_arg                  = args->fn_arg,
+	                                             .archive_arg.has_archive = c_archive_key != NULL,
+	                                             .rollback_buf            = kv_store->trans_rollback_buf};
 
-	if (_set_value(kv_store, key, &kv_store_value, &kv_store_value_size, &relay) < 0)
-		return NULL;
+	if ((r = _set_value(kv_store, c_key, &kv_store_value, &kv_store_value_size, &relay)) < 0)
+		goto out;
 
 	if (relay.archive_arg.has_archive && relay.archive_arg.kv_store_value) {
 		relay.archive_arg.has_archive = false;
 		relay.archive_arg.is_archive  = true;
-		relay.kv_update_fn            = NULL;
-		relay.kv_update_fn_arg        = NULL;
+		relay.fn                      = NULL;
+		relay.fn_arg                  = NULL;
 
-		if (_set_value(kv_store,
-		               archive_key,
-		               &relay.archive_arg.kv_store_value,
-		               &relay.archive_arg.kv_store_value_size,
-		               &relay) < 0) {
+		if ((r = _set_value(kv_store,
+		                    c_archive_key,
+		                    &relay.archive_arg.kv_store_value,
+		                    &relay.archive_arg.kv_store_value_size,
+		                    &relay)) < 0) {
 			if (!sid_kvs_transaction_active(kv_store_res)) {
 				_kv_store_trans_rollback_value(
 					kv_store_res,
-					&(struct kv_rollback_arg) {.key                 = key,
+					&(struct kv_rollback_arg) {.key                 = c_key,
 				                                   .kv_store_value      = relay.archive_arg.kv_store_value,
 				                                   .kv_store_value_size = relay.archive_arg.kv_store_value_size});
 			}
-			return NULL;
+			goto out;
 		}
 	}
+out:
+	if (args->stored_value)
+		*args->stored_value = _get_data(kv_store_value);
 
-	return _get_data(kv_store_value);
-}
-
-void *sid_kvs_set(sid_res_t             *kv_store_res,
-                  const char            *key,
-                  void                  *value,
-                  size_t                 value_size,
-                  sid_kvs_val_fl_t       flags,
-                  sid_kvs_val_op_fl_t    op_flags,
-                  sid_kvs_update_cb_fn_t kv_update_fn,
-                  void                  *kv_update_fn_arg)
-{
-	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || UTIL_STR_EMPTY(key))
-		return NULL;
-
-	return _do_kv_store_set_value(kv_store_res, key, value, value_size, flags, op_flags, kv_update_fn, kv_update_fn_arg, NULL);
-}
-
-void *sid_kvs_set_with_archive(sid_res_t             *kv_store_res,
-                               const char            *key,
-                               void                  *value,
-                               size_t                 value_size,
-                               sid_kvs_val_fl_t       flags,
-                               sid_kvs_val_op_fl_t    op_flags,
-                               sid_kvs_update_cb_fn_t kv_update_fn,
-                               void                  *kv_update_fn_arg,
-                               const char            *archive_key)
-{
-	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || UTIL_STR_EMPTY(key))
-		return NULL;
-
-	return _do_kv_store_set_value(kv_store_res,
-	                              key,
-	                              value,
-	                              value_size,
-	                              flags,
-	                              op_flags,
-	                              kv_update_fn,
-	                              kv_update_fn_arg,
-	                              archive_key);
+	return r;
 }
 
 int sid_kvs_add_alias(sid_res_t *kv_store_res, const char *key, const char *alias, bool force)
@@ -671,36 +636,44 @@ int sid_kvs_add_alias(sid_res_t *kv_store_res, const char *key, const char *alia
 	}
 }
 
-void *sid_kvs_get(sid_res_t *kv_store_res, const char *key, size_t *value_size, sid_kvs_val_fl_t *flags)
+void *sid_kvs_get(sid_res_t *kv_store_res, struct sid_kvs_get_args *args)
 {
 	struct kv_store       *kv_store;
-	struct kv_store_value *found;
+	const char            *c_key;
+	struct kv_store_value *found = NULL;
+	int                    r     = 0;
 
-	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || UTIL_STR_EMPTY(key))
-		return NULL;
+	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || !args || UTIL_STR_EMPTY(args->key)) {
+		r = -EINVAL;
+		goto out;
+	}
 
 	kv_store = sid_res_get_data(kv_store_res);
-	key      = _canonicalize_key(key);
-	found    = NULL;
+	c_key    = _canonicalize_key(args->key);
 
 	switch (kv_store->backend) {
 		case SID_KVS_BACKEND_HASH:
-			found = hash_lookup(kv_store->ht, key, strlen(key) + 1, NULL);
+			found = hash_lookup(kv_store->ht, c_key, strlen(c_key) + 1, NULL);
 			break;
 
 		case SID_KVS_BACKEND_BPTREE:
-			found = bptree_lookup(kv_store->bpt, key, NULL, NULL);
+			found = bptree_lookup(kv_store->bpt, c_key, NULL, NULL);
 			break;
 	}
 
-	if (!found)
-		return NULL;
+	if (!found) {
+		r = -ENOENT;
+		goto out;
+	}
 
-	if (value_size)
-		*value_size = found->size;
+	if (args->size)
+		*args->size = found->size;
 
-	if (flags)
-		*flags = found->ext_flags;
+	if (args->flags)
+		*args->flags = found->ext_flags;
+out:
+	if (args->ret_code)
+		*args->ret_code = r;
 
 	return _get_data(found);
 }
@@ -717,7 +690,7 @@ static int _unset_fn(const char                *key,
 	const char                *key_dup;
 	int                        r;
 
-	if (relay->kv_update_fn) {
+	if (relay->fn) {
 		update_spec.key           = key;
 
 		update_spec.new_data      = NULL;
@@ -734,9 +707,9 @@ static int _unset_fn(const char                *key,
 			update_spec.old_flags     = 0;
 		}
 
-		update_spec.arg = relay->kv_update_fn_arg;
+		update_spec.arg = relay->fn_arg;
 
-		r               = relay->kv_update_fn(&update_spec);
+		r               = relay->fn(&update_spec);
 	} else
 		r = 1;
 
@@ -806,9 +779,6 @@ static int _unset_value(struct kv_store *kv_store, const char *key, struct kv_up
 {
 	int r = 0;
 
-	if (!key)
-		return -EINVAL;
-
 	switch (kv_store->backend) {
 		case SID_KVS_BACKEND_HASH:
 			r = hash_update(kv_store->ht, key, strlen(key) + 1, NULL, 0, _hash_unset_fn, relay);
@@ -820,74 +790,59 @@ static int _unset_value(struct kv_store *kv_store, const char *key, struct kv_up
 	}
 
 	if (r < 0 || relay->ret_code < 0)
-		return -1;
+		return -EIO;
 
 	return 0;
 }
 
-static int _do_kv_store_unset(sid_res_t             *kv_store_res,
-                              const char            *key,
-                              struct sid_buf        *unset_buf,
-                              sid_kvs_update_cb_fn_t kv_unset_fn,
-                              void                  *kv_unset_fn_arg,
-                              const char            *archive_key)
+int sid_kvs_unset(sid_res_t *kv_store_res, struct sid_kvs_unset_args *args)
 {
-	struct kv_store          *kv_store = sid_res_get_data(kv_store_res);
+	struct kv_store          *kv_store;
 	struct kv_update_fn_relay relay;
+	const char               *c_key, *c_archive_key;
+	int                       r = 0;
 
-	key         = _canonicalize_key(key);
-	archive_key = _canonicalize_key(archive_key);
+	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || !args || !args->key) {
+		r = -EINVAL;
+		goto out;
+	}
 
-	relay       = (struct kv_update_fn_relay) {.kv_update_fn            = kv_unset_fn,
-	                                           .kv_update_fn_arg        = kv_unset_fn_arg,
-	                                           .archive_arg.has_archive = archive_key != NULL,
-	                                           .unset_buf               = unset_buf};
+	kv_store      = sid_res_get_data(kv_store_res);
 
-	if (_unset_value(kv_store, key, &relay) < 0)
-		return -1;
+	c_key         = _canonicalize_key(args->key);
+	c_archive_key = _canonicalize_key(args->archive_key);
+
+	relay         = (struct kv_update_fn_relay) {.fn                      = args->fn,
+	                                             .fn_arg                  = args->fn_arg,
+	                                             .archive_arg.has_archive = c_archive_key != NULL,
+	                                             .unset_buf               = kv_store->trans_unset_buf};
+
+	if ((r = _unset_value(kv_store, c_key, &relay)) < 0)
+		goto out;
 
 	if (relay.archive_arg.has_archive && relay.archive_arg.kv_store_value) {
 		relay.archive_arg.has_archive = false;
 		relay.archive_arg.is_archive  = true;
-		relay.kv_update_fn            = NULL;
-		relay.kv_update_fn_arg        = NULL;
+		relay.fn                      = NULL;
+		relay.fn_arg                  = NULL;
 
-		if (_set_value(kv_store,
-		               archive_key,
-		               &relay.archive_arg.kv_store_value,
-		               &relay.archive_arg.kv_store_value_size,
-		               &relay) < 0) {
+		if ((r = _set_value(kv_store,
+		                    c_archive_key,
+		                    &relay.archive_arg.kv_store_value,
+		                    &relay.archive_arg.kv_store_value_size,
+		                    &relay)) < 0) {
 			if (!sid_kvs_transaction_active(kv_store_res)) {
 				_kv_store_trans_rollback_value(
 					kv_store_res,
-					&(struct kv_rollback_arg) {.key                 = key,
+					&(struct kv_rollback_arg) {.key                 = c_key,
 				                                   .kv_store_value      = relay.archive_arg.kv_store_value,
 				                                   .kv_store_value_size = relay.archive_arg.kv_store_value_size});
 			}
-
-			return -1;
+			goto out;
 		}
 	}
-
-	return 0;
-}
-
-int sid_kvs_unset(sid_res_t *kv_store_res, const char *key, sid_kvs_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg)
-{
-	struct kv_store *kv_store = sid_res_get_data(kv_store_res);
-
-	return _do_kv_store_unset(kv_store_res, key, kv_store->trans_unset_buf, kv_unset_fn, kv_unset_fn_arg, NULL);
-}
-
-int sid_kvs_unset_with_archive(sid_res_t             *kv_store_res,
-                               const char            *key,
-                               sid_kvs_update_cb_fn_t kv_unset_fn,
-                               void                  *kv_unset_fn_arg,
-                               const char            *archive_key)
-{
-	struct kv_store *kv_store = sid_res_get_data(kv_store_res);
-
-	return _do_kv_store_unset(kv_store_res, key, kv_store->trans_unset_buf, kv_unset_fn, kv_unset_fn_arg, archive_key);
+out:
+	return r;
 }
 
 static int _rollback_fn(const char             *key,

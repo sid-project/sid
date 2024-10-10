@@ -121,7 +121,7 @@ static void _check_missing_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 
 	key_spec.core = core;
 	assert_non_null(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec));
-	assert_null(sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, &flags));
+	assert_null(sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &size, .flags = &flags));
 
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 }
@@ -139,7 +139,7 @@ static void _check_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **da
 	key_spec.core = core;
 	assert_non_null(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec));
 
-	assert_non_null(value = sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, &flags));
+	assert_non_null(value = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &size, .flags = &flags));
 	vvalue = _get_vvalue(flags, value, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
 	if (flags & SID_KVS_VAL_FL_VECTOR) {
 		assert_true(vector);
@@ -185,14 +185,15 @@ static void _set_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **data
 	for (i = 0; i < nr_data; i++)
 		_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), i, data[i], data[i] ? strlen(data[i]) + 1 : 0);
 
-	assert_non_null(sid_kvs_set(ucmd_ctx->common->kvs_res,
-	                            key,
-	                            vvalue,
-	                            VVALUE_HEADER_CNT + nr_data,
-	                            SID_KVS_VAL_FL_VECTOR,
-	                            vector ? SID_KVS_VAL_OP_NONE : SID_KVS_VAL_OP_MERGE,
-	                            _kv_cb_write,
-	                            &update_arg));
+	assert_int_equal(sid_kvs_va_set(ucmd_ctx->common->kvs_res,
+	                                .key      = key,
+	                                .value    = vvalue,
+	                                .size     = VVALUE_HEADER_CNT + nr_data,
+	                                .flags    = SID_KVS_VAL_FL_VECTOR,
+	                                .op_flags = vector ? SID_KVS_VAL_OP_NONE : SID_KVS_VAL_OP_MERGE,
+	                                .fn       = _kv_cb_write,
+	                                .fn_arg   = &update_arg),
+	                 0);
 	assert_true(update_arg.ret_code >= 0);
 
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
@@ -219,14 +220,13 @@ static void _set_broken_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 	                    &flags,
 	                    &ucmd_ctx->common->gennum,
 	                    (char *) owner);
-	assert_non_null(sid_kvs_set(ucmd_ctx->common->kvs_res,
-	                            key,
-	                            vvalue,
-	                            VVALUE_HEADER_CNT - 1,
-	                            SID_KVS_VAL_FL_VECTOR,
-	                            SID_KVS_VAL_OP_NONE,
-	                            NULL,
-	                            &update_arg));
+	assert_int_equal(sid_kvs_va_set(ucmd_ctx->common->kvs_res,
+	                                .key    = key,
+	                                .value  = vvalue,
+	                                .size   = VVALUE_HEADER_CNT - 1,
+	                                .flags  = SID_KVS_VAL_FL_VECTOR,
+	                                .fn_arg = &update_arg),
+	                 0);
 
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 }

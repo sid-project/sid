@@ -58,7 +58,7 @@ struct sid_kvs_update_spec {
 	size_t              new_data_size;
 	sid_kvs_val_fl_t    new_flags;
 	sid_kvs_val_op_fl_t op_flags;
-	void               *arg; /* kv_update_fn_arg or kv_unset_fn_arg from kv_store_set/unset_value call */
+	void               *arg; /* fn_arg from sid_kvs_set/unset call */
 };
 
 /*
@@ -71,10 +71,10 @@ typedef int (*sid_kvs_update_cb_fn_t)(struct sid_kvs_update_spec *update_spec);
 // clang-format off
 /*
  * Sets key-value pair:
- *   - kv_update_fn callback with kv_update_fn_arg is called before updating the value.
+ *   - fn callback with fn_arg is called before updating the value.
  *   - Value and size depend on flags with KV_STORE_VALUE_ prefix, see table below.
  *     INPUT VALUE:  value as provided via kv_store_set_value's "value" argument.
- *     INPUT SIZE:   value size as provided via kv_store_set_value's "value_size" argument.
+ *     INPUT SIZE:   value size as provided via kv_store_set_value's "size" argument.
  *     OUTPUT VALUE: value as returned by kv_store_{set,get}_value.
  *     OUTPUT SIZE:  value size as returned by kv_store_get_value.
  *
@@ -112,24 +112,54 @@ typedef int (*sid_kvs_update_cb_fn_t)(struct sid_kvs_update_spec *update_spec);
  *   The value that has been set.
  */
 // clang-format on
-void *sid_kvs_set(sid_res_t             *kv_store_res,
-                  const char            *key,
-                  void                  *value,
-                  size_t                 value_size,
-                  sid_kvs_val_fl_t       flags,
-                  sid_kvs_val_op_fl_t    op_flags,
-                  sid_kvs_update_cb_fn_t kv_update_fn,
-                  void                  *kv_update_fn_arg);
 
-void *sid_kvs_set_with_archive(sid_res_t             *kv_store_res,
-                               const char            *key,
-                               void                  *value,
-                               size_t                 value_size,
-                               sid_kvs_val_fl_t       flags,
-                               sid_kvs_val_op_fl_t    op_flags,
-                               sid_kvs_update_cb_fn_t kv_update_fn,
-                               void                  *kv_update_fn_arg,
-                               const char            *archive_key);
+struct sid_kvs_set_args {
+	const char            *key;
+	void                  *value;
+	size_t                 size;
+	sid_kvs_val_fl_t       flags;
+	sid_kvs_val_op_fl_t    op_flags;
+	const char            *archive_key;
+	sid_kvs_update_cb_fn_t fn;
+	void                  *fn_arg;
+	void                 **stored_value;
+};
+
+int sid_kvs_set(sid_res_t *kv_store_res, struct sid_kvs_set_args *args);
+#define sid_kvs_va_set(kv_store_res, ...) sid_kvs_set((kv_store_res), &((struct sid_kvs_set_args) {__VA_ARGS__}))
+
+struct sid_kvs_get_args {
+	const char       *key;
+	size_t           *size;
+	sid_kvs_val_fl_t *flags;
+	int              *ret_code;
+};
+
+/*
+ * Gets value for given key.
+ *   - If size is not NULL, the function returns the size of the value through this output argument.
+ *   - If flags is not NULL, the function returns the flags attached to the value through this output argument.
+ */
+void *sid_kvs_get(sid_res_t *kv_store_res, struct sid_kvs_get_args *args);
+#define sid_kvs_va_get(kv_store_res, ...) sid_kvs_get((kv_store_res), &((struct sid_kvs_get_args) {__VA_ARGS__}))
+
+struct sid_kvs_unset_args {
+	const char            *key;
+	const char            *archive_key;
+	sid_kvs_update_cb_fn_t fn;
+	void                  *fn_arg;
+};
+
+/*
+ * Unset given key. If this is the last key for the value (no more aliases), unsets the value too.
+ *   - Before unsetting, fn with fn_arg is called to confirm the action.
+ *
+ * Returns:
+ *    0 if value unset
+ *   -1 if value not unset
+ */
+int sid_kvs_unset(sid_res_t *kv_store_res, struct sid_kvs_unset_args *args);
+#define sid_kvs_va_unset(kv_store_res, ...) sid_kvs_unset((kv_store_res), &((struct sid_kvs_unset_args) {__VA_ARGS__}))
 
 /*
  * Add alias for given key.
@@ -142,28 +172,6 @@ void *sid_kvs_set_with_archive(sid_res_t             *kv_store_res,
  *     -1 if alias not added
  */
 int sid_kvs_add_alias(sid_res_t *kv_store_res, const char *key, const char *alias, bool force);
-/*
- * Gets value for given key.
- *   - If value_size is not NULL, the function returns the size of the value through this output argument.
- *   - If flags is not NULL, the function returns the flags attached to the value through this output argument.
- */
-void *sid_kvs_get(sid_res_t *kv_store_res, const char *key, size_t *value_size, sid_kvs_val_fl_t *flags);
-
-/*
- * Unset given key. If this is the last key for the value (no more aliases), unsets the value too.
- *   - Before unsetting, kv_unset_fn with kv_unset_fn_arg is called to confirm the action.
- *
- * Returns:
- *    0 if value unset
- *   -1 if value not unset
- */
-int sid_kvs_unset(sid_res_t *kv_store_res, const char *key, sid_kvs_update_cb_fn_t kv_unset_fn, void *kv_unset_fn_arg);
-
-int sid_kvs_unset_with_archive(sid_res_t             *kv_store_res,
-                               const char            *key,
-                               sid_kvs_update_cb_fn_t kv_unset_fn,
-                               void                  *kv_unset_fn_arg,
-                               const char            *archive_key);
 
 size_t sid_kvs_get_size(sid_res_t *kv_store_res, size_t *meta_size, size_t *data_size);
 

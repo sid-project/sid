@@ -960,7 +960,7 @@ static int _manage_kv_index(struct kv_update_arg *update_arg, char *key)
 			break;
 		case KV_INDEX_REMOVE:
 			key[0] = KV_PREFIX_OP_SYNC_C[0];
-			r      = sid_kvs_unset(update_arg->res, key, NULL, NULL);
+			r      = sid_kvs_va_unset(update_arg->res, .key = key);
 			key[0] = ' ';
 			break;
 		default:
@@ -1160,7 +1160,7 @@ static const char *_owner_name(sid_res_t *res)
 	return res ? sid_mod_get_full_name(res) : MOD_NAME_CORE;
 }
 
-static size_t _svalue_ext_data_offset(kv_scalar_t *svalue)
+static size_t _svalue_ext_data_offset(const kv_scalar_t *svalue)
 {
 	size_t owner_size = strlen(svalue->data) + 1;
 
@@ -1574,7 +1574,7 @@ static int _process_cmd_unsbuf(sid_res_t *cmd_res)
 	for (i = 0; i < size; i++) {
 		key = (const char *) ((uintptr_t *) raw_value)[i];
 
-		if (sid_kvs_unset(ucmd_ctx->common->kvs_res, key, NULL, NULL) < 0) {
+		if (sid_kvs_va_unset(ucmd_ctx->common->kvs_res, .key = key) < 0) {
 			sid_res_log_error(cmd_res, "Failed to unset key %s.", key);
 			goto out;
 		}
@@ -1610,7 +1610,7 @@ static int _check_global_kv_rs_for_wr(struct sid_ucmd_ctx    *ucmd_ctx,
 		goto out;
 	}
 
-	if (!(found = sid_kvs_get(ucmd_ctx->common->kvs_res, key, &value_size, &kv_store_value_flags)))
+	if (!(found = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &value_size, .flags = &kv_store_value_flags)))
 		goto out;
 
 	vvalue = _get_vvalue(kv_store_value_flags, found, value_size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
@@ -2018,7 +2018,7 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	rel_spec->cur_key_spec->op = KV_OP_PLUS;
 	if (!(delta_key = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec)))
 		goto out;
-	cross1.old_vvalue = sid_kvs_get(update_arg->res, delta_key, &cross1.old_vsize, NULL);
+	cross1.old_vvalue = sid_kvs_va_get(update_arg->res, .key = delta_key, .size = &cross1.old_vsize);
 	_destroy_key(update_arg->gen_buf, delta_key);
 	if (cross1.old_vvalue && !(cross1.old_bmp = bmp_create(cross1.old_vsize, true, NULL)))
 		goto out;
@@ -2026,7 +2026,7 @@ static int _delta_abs_calc(kv_vector_t *vheader, struct kv_update_arg *update_ar
 	rel_spec->cur_key_spec->op = KV_OP_MINUS;
 	if (!(delta_key = _compose_key(update_arg->gen_buf, rel_spec->cur_key_spec)))
 		goto out;
-	cross2.old_vvalue = sid_kvs_get(update_arg->res, delta_key, &cross2.old_vsize, NULL);
+	cross2.old_vvalue = sid_kvs_va_get(update_arg->res, .key = delta_key, .size = &cross2.old_vsize);
 	_destroy_key(update_arg->gen_buf, delta_key);
 	if (cross2.old_vvalue && !(cross2.old_bmp = bmp_create(cross2.old_vsize, true, NULL)))
 		goto out;
@@ -2229,19 +2229,19 @@ static int _delta_update(kv_vector_t *vheader, kv_op_t op, struct kv_update_arg 
 		_value_vector_mark_sync(abs_delta_vvalue, 1);
 
 		if (abs_delta_vsize > VVALUE_HEADER_CNT) {
-			sid_kvs_set(update_arg->res,
-			            key,
-			            abs_delta_vvalue,
-			            abs_delta_vsize,
-			            SID_KVS_VAL_FL_VECTOR,
-			            SID_KVS_VAL_OP_NONE,
-			            _kv_cb_write,
-			            update_arg);
+			if (sid_kvs_va_set(update_arg->res,
+			                   .key    = key,
+			                   .value  = abs_delta_vvalue,
+			                   .size   = abs_delta_vsize,
+			                   .flags  = SID_KVS_VAL_FL_VECTOR,
+			                   .fn     = _kv_cb_write,
+			                   .fn_arg = update_arg) < 0)
+				return -1;
 		} else {
 			unset_nfo.owner    = VVALUE_OWNER(abs_delta_vvalue);
 			unset_nfo.seqnum   = VVALUE_SEQNUM(abs_delta_vvalue);
 			update_arg->custom = &unset_nfo;
-			sid_kvs_unset(update_arg->res, key, _kv_cb_write, update_arg);
+			sid_kvs_va_unset(update_arg->res, .key = key, .fn = _kv_cb_write, .fn_arg = update_arg);
 			update_arg->custom = rel_spec;
 		}
 
@@ -2397,14 +2397,13 @@ static int _do_kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct
 	 *   delta->plus contains list of items which have been added to the old vvalue (not stored in db)
 	 *   delta->minus contains list of items which have been remove from the old vvalue (not stored in db)
 	 */
-	if (!sid_kvs_set(update_arg->res,
-	                 key,
-	                 vvalue,
-	                 vsize,
-	                 SID_KVS_VAL_FL_VECTOR | SID_KVS_VAL_FL_REF,
-	                 SID_KVS_VAL_OP_NONE,
-	                 _kv_cb_delta_step,
-	                 update_arg) ||
+	if (sid_kvs_va_set(update_arg->res,
+	                   .key    = key,
+	                   .value  = vvalue,
+	                   .size   = vsize,
+	                   .flags  = SID_KVS_VAL_FL_VECTOR | SID_KVS_VAL_FL_REF,
+	                   .fn     = _kv_cb_delta_step,
+	                   .fn_arg = update_arg) < 0 ||
 	    update_arg->ret_code < 0)
 		goto out;
 
@@ -2475,20 +2474,20 @@ static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv
 	return r;
 }
 
-static void *_do_sid_ucmd_set_kv(sid_res_t              *res,
-                                 struct sid_ucmd_ctx    *ucmd_ctx,
-                                 const char             *owner,
-                                 const char             *dom,
-                                 sid_ucmd_kv_namespace_t ns,
-                                 const char             *key_core,
-                                 sid_ucmd_kv_flags_t     flags,
-                                 const void             *value,
-                                 size_t                  value_size)
+static const void *_do_sid_ucmd_set_kv(sid_res_t              *res,
+                                       struct sid_ucmd_ctx    *ucmd_ctx,
+                                       const char             *owner,
+                                       const char             *dom,
+                                       sid_ucmd_kv_namespace_t ns,
+                                       const char             *key_core,
+                                       sid_ucmd_kv_flags_t     flags,
+                                       const void             *value,
+                                       size_t                  value_size)
 {
 	char                *key        = NULL;
 	size_t               vvalue_cnt = flags & SID_KV_FL_ALIGN ? VVALUE_SINGLE_ALIGNED_CNT : VVALUE_SINGLE_CNT;
 	kv_vector_t          vvalue[vvalue_cnt];
-	kv_scalar_t         *svalue;
+	const kv_scalar_t   *svalue;
 	struct kv_update_arg update_arg;
 	struct kv_key_spec   key_spec =
 		KV_KEY_SPEC(.op      = KV_OP_SET,
@@ -2498,8 +2497,8 @@ static void *_do_sid_ucmd_set_kv(sid_res_t              *res,
 	                    .id_cat  = ns == SID_KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
 	                    .id      = ns == SID_KV_NS_DEVMOD ? _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MODULE) : ID_NULL,
 	                    .core    = key_core);
-	int   r;
-	void *ret = NULL;
+	int         r;
+	const void *ret = NULL;
 
 	/*
 	 * First, we check if the KV is not reserved globally. This applies to reservations
@@ -2543,29 +2542,19 @@ static void *_do_sid_ucmd_set_kv(sid_res_t              *res,
 
 	update_arg = KV_UPDATE_ARG(.res = ucmd_ctx->common->kvs_res, .gen_buf = ucmd_ctx->common->gen_buf, .ret_code = -EREMOTEIO);
 
-	if (flags & SID_KV_FL_AR) {
-		key[0] = KV_PREFIX_OP_ARCHIVE_C[0];
-		if (!(svalue = sid_kvs_set_with_archive(ucmd_ctx->common->kvs_res,
-		                                        key + 1,
-		                                        vvalue,
-		                                        vvalue_cnt,
-		                                        SID_KVS_VAL_FL_VECTOR,
-		                                        SID_KVS_VAL_OP_MERGE,
-		                                        _kv_cb_write,
-		                                        &update_arg,
-		                                        key)))
-			goto out;
-	} else {
-		if (!(svalue = sid_kvs_set(ucmd_ctx->common->kvs_res,
-		                           key,
-		                           vvalue,
-		                           vvalue_cnt,
-		                           SID_KVS_VAL_FL_VECTOR,
-		                           SID_KVS_VAL_OP_MERGE,
-		                           _kv_cb_write,
-		                           &update_arg)))
-			goto out;
-	}
+	key[0]     = KV_PREFIX_OP_ARCHIVE_C[0];
+
+	if (sid_kvs_va_set(ucmd_ctx->common->kvs_res,
+	                   .key          = key + 1,
+	                   .value        = vvalue,
+	                   .size         = vvalue_cnt,
+	                   .flags        = SID_KVS_VAL_FL_VECTOR,
+	                   .op_flags     = SID_KVS_VAL_OP_MERGE,
+	                   .fn           = _kv_cb_write,
+	                   .fn_arg       = &update_arg,
+	                   .archive_key  = flags & SID_KV_FL_AR ? key : NULL,
+	                   .stored_value = (void **) &svalue) < 0)
+		goto out;
 
 	if (value)
 		ret = svalue->data + _svalue_ext_data_offset(svalue);
@@ -2621,7 +2610,7 @@ static const void *_cmd_get_key_spec_value(sid_res_t           *res,
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, key_spec)))
 		goto out;
 
-	if (!(val = sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, &kvs_flags)))
+	if (!(val = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &size, .flags = &kvs_flags)))
 		goto out;
 
 	vvalue = _get_vvalue(kvs_flags, val, size, tmp_vvalue, VVALUE_CNT(tmp_vvalue));
@@ -2951,18 +2940,19 @@ static int _do_sid_ucmd_mod_reserve_kv(sid_res_t                  *res,
 		unset_nfo.seqnum  = 0; /* reservation is handled before/after any events, so no seqnum here - use 0 instead */
 		update_arg.custom = &unset_nfo;
 
-		if (sid_kvs_unset(common->kvs_res, key, _kv_cb_reserve, &update_arg) < 0 || update_arg.ret_code < 0)
+		if (sid_kvs_va_unset(common->kvs_res, .key = key, .fn = _kv_cb_reserve, .fn_arg = &update_arg) < 0 ||
+		    update_arg.ret_code < 0)
 			goto out;
 	} else {
 		_vvalue_header_prep(vvalue, VVALUE_CNT(vvalue), &null_int, &flags, &common->gennum, (char *) owner);
-		if (!sid_kvs_set(common->kvs_res,
-		                 key,
-		                 vvalue,
-		                 VVALUE_HEADER_CNT,
-		                 SID_KVS_VAL_FL_VECTOR,
-		                 SID_KVS_VAL_OP_MERGE,
-		                 _kv_cb_reserve,
-		                 &update_arg))
+		if (sid_kvs_va_set(common->kvs_res,
+		                   .key      = key,
+		                   .value    = vvalue,
+		                   .size     = VVALUE_HEADER_CNT,
+		                   .flags    = SID_KVS_VAL_FL_VECTOR,
+		                   .op_flags = SID_KVS_VAL_OP_MERGE,
+		                   .fn       = _kv_cb_reserve,
+		                   .fn_arg   = &update_arg) < 0)
 			goto out;
 
 		(void) _manage_kv_index(&update_arg, key);
@@ -3412,7 +3402,7 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
 	if (!(key = _compose_key(NULL, rel_spec.cur_key_spec)))
 		goto out;
 
-	if (!sid_kvs_get(ucmd_ctx->common->kvs_res, key, &size, NULL))
+	if (!sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &size))
 		goto out;
 
 	if (size > VVALUE_HEADER_CNT && !force) {
@@ -3640,14 +3630,13 @@ static int _do_sid_ucmd_group_create(sid_res_t              *res,
 	                    &ucmd_ctx->common->gennum,
 	                    (char *) owner);
 
-	if (!sid_kvs_set(ucmd_ctx->common->kvs_res,
-	                 key,
-	                 vvalue,
-	                 VVALUE_HEADER_CNT,
-	                 SID_KVS_VAL_FL_VECTOR,
-	                 SID_KVS_VAL_OP_NONE,
-	                 _kv_cb_write_new_only,
-	                 &update_arg))
+	if (sid_kvs_va_set(ucmd_ctx->common->kvs_res,
+	                   .key    = key,
+	                   .value  = vvalue,
+	                   .size   = VVALUE_HEADER_CNT,
+	                   .flags  = SID_KVS_VAL_FL_VECTOR,
+	                   .fn     = _kv_cb_write_new_only,
+	                   .fn_arg = &update_arg) < 0)
 		goto out;
 
 	(void) _manage_kv_index(&update_arg, key);
@@ -4457,7 +4446,7 @@ static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 		goto out;
 	}
 
-	if (!(vvalue = sid_kvs_get(ucmd_ctx->common->kvs_res, key, &vvalue_size, NULL))) {
+	if (!(vvalue = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &vvalue_size))) {
 		r = -ENODATA;
 		goto out;
 	}
@@ -6366,18 +6355,18 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 
 			update_arg.custom = &unset_nfo;
 
-			if (archive) {
-				if (sid_kvs_unset_with_archive(common_ctx->kvs_res,
-				                               key,
-				                               _kv_cb_main_unset,
-				                               &update_arg,
-				                               archive_key) < 0)
-					goto out;
-			} else {
-				if (sid_kvs_unset(common_ctx->kvs_res, key, _kv_cb_main_unset, &update_arg) < 0)
-					goto out;
+			if (sid_kvs_va_unset(common_ctx->kvs_res,
+			                     .key         = key,
+			                     .fn          = _kv_cb_main_unset,
+			                     .fn_arg      = &update_arg,
+			                     .archive_key = archive ? archive_key : NULL) < 0)
+				goto out;
 
-				if (sid_kvs_unset(common_ctx->kvs_res, archive_key, _kv_cb_main_unset, &update_arg) < 0)
+			if (!archive) {
+				if (sid_kvs_va_unset(common_ctx->kvs_res,
+				                     .key    = archive_key,
+				                     .fn     = _kv_cb_main_unset,
+				                     .fn_arg = &update_arg) < 0)
 					goto out;
 			}
 		} else {
@@ -6385,42 +6374,34 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 				if (!(archive_key = _compose_archive_key(res, key, key_size)))
 					goto out;
 
-				if (archive) {
-					if (!sid_kvs_set_with_archive(common_ctx->kvs_res,
-					                              key,
-					                              value_to_store,
-					                              value_size,
-					                              kv_store_value_flags,
-					                              SID_KVS_VAL_OP_NONE,
-					                              _kv_cb_main_set,
-					                              &update_arg,
-					                              archive_key))
-						goto out;
-				} else {
-					if (!sid_kvs_set(common_ctx->kvs_res,
-					                 key,
-					                 value_to_store,
-					                 value_size,
-					                 kv_store_value_flags,
-					                 SID_KVS_VAL_OP_NONE,
-					                 _kv_cb_main_set,
-					                 &update_arg))
-						goto out;
+				if (sid_kvs_va_set(common_ctx->kvs_res,
+				                   .key         = key,
+				                   .value       = value_to_store,
+				                   .size        = value_size,
+				                   .flags       = kv_store_value_flags,
+				                   .fn          = _kv_cb_main_set,
+				                   .fn_arg      = &update_arg,
+				                   .archive_key = archive ? archive_key : NULL) < 0)
+					goto out;
 
+				if (!archive) {
 					update_arg.custom = &unset_nfo;
 
-					if (sid_kvs_unset(common_ctx->kvs_res, archive_key, _kv_cb_main_unset, &update_arg) < 0)
+					if (sid_kvs_va_unset(common_ctx->kvs_res,
+					                     .key    = archive_key,
+					                     .fn     = _kv_cb_main_unset,
+					                     .fn_arg = &update_arg) < 0)
 						goto out;
 				}
 			} else {
-				if (!sid_kvs_set(common_ctx->kvs_res,
-				                 key,
-				                 value_to_store,
-				                 value_size,
-				                 SID_KVS_VAL_FL_VECTOR | SID_KVS_VAL_FL_REF,
-				                 SID_KVS_VAL_OP_NONE,
-				                 _kv_cb_delta_step,
-				                 &update_arg)) {
+				if (sid_kvs_va_set(common_ctx->kvs_res,
+				                   .key      = key,
+				                   .value    = value_to_store,
+				                   .size     = value_size,
+				                   .flags    = SID_KVS_VAL_FL_VECTOR | SID_KVS_VAL_FL_REF,
+				                   .op_flags = SID_KVS_VAL_OP_NONE,
+				                   .fn       = _kv_cb_delta_step,
+				                   .fn_arg   = &update_arg) < 0) {
 					_destroy_delta_buffers(rel_spec.delta);
 					goto out;
 				}
@@ -6433,7 +6414,10 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 						unset_nfo.owner   = VVALUE_OWNER(final_value);
 						unset_nfo.seqnum  = VVALUE_SEQNUM(final_value);
 						update_arg.custom = &unset_nfo;
-						sid_kvs_unset(common_ctx->kvs_res, key, _kv_cb_main_unset, &update_arg);
+						sid_kvs_va_unset(common_ctx->kvs_res,
+						                 .key    = key,
+						                 .fn     = _kv_cb_main_unset,
+						                 .fn_arg = &update_arg);
 					}
 				}
 
@@ -7009,7 +6993,7 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 	                         &KV_KEY_SPEC(.op = KV_OP_SET, .ns = SID_KV_NS_GLOBAL, .core = KV_KEY_DB_GENERATION))))
 		return -1;
 
-	if ((svalue = sid_kvs_get(ctx->kvs_res, key, NULL, NULL))) {
+	if ((svalue = sid_kvs_va_get(ctx->kvs_res, .key = key))) {
 		memcpy(&ctx->gennum, svalue->data + _svalue_ext_data_offset(svalue), sizeof(uint16_t));
 		ctx->gennum++;
 	} else
@@ -7020,7 +7004,13 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 	_vvalue_header_prep(vvalue, VVALUE_CNT(vvalue), &null_int, &flags, &ctx->gennum, core_owner);
 	_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, &ctx->gennum, sizeof(ctx->gennum));
 
-	sid_kvs_set(ctx->kvs_res, key, vvalue, VVALUE_SINGLE_ALIGNED_CNT, SID_KVS_VAL_FL_VECTOR, SID_KVS_VAL_OP_MERGE, NULL, NULL);
+	if (sid_kvs_va_set(ctx->kvs_res,
+	                   .key      = key,
+	                   .value    = vvalue,
+	                   .size     = VVALUE_SINGLE_ALIGNED_CNT,
+	                   .flags    = SID_KVS_VAL_FL_VECTOR,
+	                   .op_flags = SID_KVS_VAL_OP_MERGE) < 0)
+		return -1;
 
 	_destroy_key(ctx->gen_buf, key);
 	return 0;
@@ -7038,7 +7028,7 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 	if (!(key = _compose_key(ctx->gen_buf, &KV_KEY_SPEC(.op = KV_OP_SET, .ns = SID_KV_NS_GLOBAL, .core = KV_KEY_BOOT_ID))))
 		return -1;
 
-	if ((svalue = sid_kvs_get(ctx->kvs_res, key, NULL, NULL)))
+	if ((svalue = sid_kvs_va_get(ctx->kvs_res, .key = key)))
 		old_boot_id = svalue->data + _svalue_ext_data_offset(svalue);
 	else
 		old_boot_id = NULL;
@@ -7054,7 +7044,13 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 	_vvalue_header_prep(vvalue, VVALUE_CNT(vvalue), &null_int, &value_flags_no_sync, &ctx->gennum, core_owner);
 	_vvalue_data_prep(vvalue, VVALUE_CNT(vvalue), 0, boot_id, sizeof(boot_id));
 
-	sid_kvs_set(ctx->kvs_res, key, vvalue, VVALUE_IDX_DATA + 1, SID_KVS_VAL_FL_VECTOR, SID_KVS_VAL_OP_MERGE, NULL, NULL);
+	if (sid_kvs_va_set(ctx->kvs_res,
+	                   .key      = key,
+	                   .value    = vvalue,
+	                   .size     = VVALUE_IDX_DATA + 1,
+	                   .flags    = SID_KVS_VAL_FL_VECTOR,
+	                   .op_flags = SID_KVS_VAL_OP_MERGE) < 0)
+		return -1;
 
 	_destroy_key(ctx->gen_buf, key);
 	return 0;
