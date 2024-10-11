@@ -24,12 +24,5 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
 
-      - name: Install reuse
-        run: |
-          sudo apt -qq update
-          sudo apt -y -qq install pip
-          sudo pip install reuse
-
-      - name: Check licensing with reuse
-        run: |
-          reuse lint
+      - name: REUSE license check
+        uses: fsfe/reuse-action@v4
