@@ -35,20 +35,17 @@ typedef uint32_t sid_kvs_val_fl_t;
 
 typedef uint32_t sid_kvs_val_op_fl_t;
 
-struct sid_kvs_hash_backend_params {
-	size_t initial_size;
-};
-
-struct sid_kvs_bptree_backend_params {
-	int order;
-};
-
 struct sid_kvs_res_params {
 	sid_kvs_backend_t backend;
 
 	union {
-		struct sid_kvs_hash_backend_params   hash;
-		struct sid_kvs_bptree_backend_params bptree;
+		struct {
+			size_t initial_size;
+		} hash;
+
+		struct {
+			int order;
+		} bptree;
 	};
 };
 
