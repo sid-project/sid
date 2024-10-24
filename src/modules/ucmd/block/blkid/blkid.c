@@ -134,62 +134,170 @@ static void _add_property(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, con
 
 	if (!strcmp(name, "TYPE")) {
 		len = strlen(value);
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_TYPE], value, len + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_TYPE],
+		                   .value = value,
+		                   .size  = len + 1,
+		                   .flags = SID_KV_FL_RD);
 
 		/* Translate blkid type name to sid module name and save the result in SID_UCMD_KEY_DEVICE_NEXT_MOD variable in
 		 * KV_NS_DEVICE. */
 		if ((blkid_type = blkid_type_lookup(value, len)))
-			sid_ucmd_kv_set(mod_res,
-			                ucmd_ctx,
-			                SID_KV_NS_DEVICE,
-			                keys[D_NEXT_MOD],
-			                blkid_type->module_name,
-			                strlen(blkid_type->module_name) + 1,
-			                SID_KV_FL_SYNC_P | SID_KV_FL_RD);
+			sid_ucmd_kv_va_set(mod_res,
+			                   ucmd_ctx,
+			                   .ns    = SID_KV_NS_DEVICE,
+			                   .key   = keys[D_NEXT_MOD],
+			                   .value = blkid_type->module_name,
+			                   .size  = strlen(blkid_type->module_name) + 1,
+			                   .flags = SID_KV_FL_SYNC_P | SID_KV_FL_RD);
 	} else if (!strcmp(name, "USAGE")) {
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_USAGE], value, strlen(value) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_USAGE],
+		                   .value = value,
+		                   .size  = strlen(value) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "VERSION")) {
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_VERSION], value, strlen(value) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_VERSION],
+		                   .value = value,
+		                   .size  = strlen(value) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "UUID")) {
 		blkid_safe_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_UUID], value, strlen(value) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_UUID],
+		                   .value = value,
+		                   .size  = strlen(value) + 1,
+		                   .flags = SID_KV_FL_RD);
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_UUID_ENC], s, strlen(s) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_UUID_ENC],
+		                   s,
+		                   strlen(s) + 1,
+		                   SID_KV_FL_RD);
 	} else if (!strcmp(name, "UUID_SUB")) {
 		blkid_safe_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_UUID_SUB], value, strlen(value) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_UUID_SUB],
+		                   .value = value,
+		                   .size  = strlen(value) + 1,
+		                   .flags = SID_KV_FL_RD);
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_UUID_SUB_ENC], s, strlen(s) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_UUID_SUB_ENC],
+		                   .value = s,
+		                   .size  = strlen(s) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "LABEL")) {
 		blkid_safe_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_LABEL], s, strlen(s) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_LABEL],
+		                   .value = s,
+		                   .size  = strlen(s) + 1,
+		                   .flags = SID_KV_FL_RD);
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_LABEL_ENC], s, strlen(s) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_LABEL_ENC],
+		                   .value = s,
+		                   .size  = strlen(s) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PTTYPE")) {
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_PART_TABLE_TYPE], value, strlen(value) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_PART_TABLE_TYPE],
+		                   .value = value,
+		                   .size  = strlen(value) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PTUUID")) {
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_PART_TABLE_UUID], value, strlen(value) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_PART_TABLE_UUID],
+		                   .value = value,
+		                   .size  = strlen(value) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PART_ENTRY_NAME")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_PART_ENTRY_NAME], s, strlen(s) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_PART_ENTRY_NAME],
+		                   .value = s,
+		                   .size  = strlen(s) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PART_ENTRY_TYPE")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_PART_ENTRY_TYPE], s, strlen(s) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_PART_ENTRY_TYPE],
+		                   .value = s,
+		                   .size  = strlen(s) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strncmp(name, "PART_ENTRY_", strlen("PART_ENTRY_"))) {
 		snprintf(s, sizeof(s), "ID_%s", name);
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, s, value, strlen(value) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = s,
+		                   .value = value,
+		                   .size  = strlen(value) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "SYSTEM_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_SYSTEM_ID], s, strlen(s) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_SYSTEM_ID],
+		                   .value = s,
+		                   .size  = strlen(s) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PUBLISHER_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_PUBLISHER_ID], s, strlen(s) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_PUBLISHER_ID],
+		                   .value = s,
+		                   .size  = strlen(s) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "APPLICATION_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_APPLICATION_ID], s, strlen(s) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_APPLICATION_ID],
+		                   .value = s,
+		                   .size  = strlen(s) + 1,
+		                   .flags = SID_KV_FL_RD);
 	} else if (!strcmp(name, "BOOT_SYSTEM_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, keys[U_FS_BOOT_SYSTEM_ID], s, strlen(s) + 1, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = keys[U_FS_BOOT_SYSTEM_ID],
+		                   .value = s,
+		                   .size  = strlen(s) + 1,
+		                   .flags = SID_KV_FL_RD);
 	}
 }
 

@@ -87,7 +87,13 @@ static int _is_parent_multipathed(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 	}
 	if (r == MPATH_IS_VALID) {
 		sid_res_log_debug(mod_res, "%s whole disk is a multipath path", sid_ucmd_ev_get_dev_name(ucmd_ctx));
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, U_DEV_PATH, "1", 2, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = U_DEV_PATH,
+		                   .value = "1",
+		                   .size  = 2,
+		                   .flags = SID_KV_FL_RD);
 	} else
 		sid_res_log_debug(mod_res, "%s whole disk is not a multipath path", sid_ucmd_ev_get_dev_name(ucmd_ctx));
 	return 0;
@@ -143,26 +149,38 @@ static int _dm_mpath_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx
 		r = MPATH_IS_VALID;
 
 	if (r == MPATH_IS_VALID)
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, U_DEV_PATH, "1", 2, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = U_DEV_PATH,
+		                   .value = "1",
+		                   .size  = 2,
+		                   .flags = SID_KV_FL_RD);
 	else if (r != MPATH_IS_ERROR)
-		sid_ucmd_kv_set(mod_res, ucmd_ctx, SID_KV_NS_UDEV, U_DEV_PATH, "0", 2, SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_UDEV,
+		                   .key   = U_DEV_PATH,
+		                   .value = "0",
+		                   .size  = 2,
+		                   .flags = SID_KV_FL_RD);
 
 	if (r != MPATH_IS_ERROR && snprintf(valid_str, sizeof(valid_str), "%d", r) < sizeof(valid_str) && valid_str[0])
-		sid_ucmd_kv_set(mod_res,
-		                ucmd_ctx,
-		                SID_KV_NS_DEVMOD,
-		                X_VALID,
-		                valid_str,
-		                sizeof(valid_str),
-		                SID_KV_FL_RD | SID_KV_FL_SYNC_P);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_DEVMOD,
+		                   .key   = X_VALID,
+		                   .value = valid_str,
+		                   .size  = sizeof(valid_str),
+		                   .flags = SID_KV_FL_RD | SID_KV_FL_SYNC_P);
 	if (wwid) {
-		sid_ucmd_kv_set(mod_res,
-		                ucmd_ctx,
-		                SID_KV_NS_DEVMOD,
-		                X_WWID,
-		                wwid,
-		                strlen(wwid) + 1,
-		                SID_KV_FL_RD | SID_KV_FL_SYNC_P);
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns    = SID_KV_NS_DEVMOD,
+		                   .key   = X_WWID,
+		                   .value = wwid,
+		                   .size  = strlen(wwid) + 1,
+		                   .flags = SID_KV_FL_RD | SID_KV_FL_SYNC_P);
 		free(wwid);
 	}
 	return (r != MPATH_IS_ERROR) ? 0 : -1;
