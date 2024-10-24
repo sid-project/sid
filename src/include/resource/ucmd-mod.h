@@ -161,13 +161,18 @@ typedef uint64_t sid_ucmd_kv_flags_t;
 #define SID_UCMD_KV_UNSET            ((void *) -1)
 #define SID_UCMD_KEY_DEVICE_NEXT_MOD "SID_NEXT_MOD"
 
-const void *sid_ucmd_kv_set(sid_res_t              *mod_res,
-                            struct sid_ucmd_ctx    *ucmd_ctx,
-                            sid_ucmd_kv_namespace_t ns,
-                            const char             *key,
-                            const void             *value,
-                            size_t                  value_size,
-                            sid_ucmd_kv_flags_t     flags);
+struct sid_ucmd_kv_set_args {
+	sid_ucmd_kv_namespace_t ns;
+	const char             *key;
+	const void             *value;
+	size_t                  size;
+	sid_ucmd_kv_flags_t     flags;
+	const void            **stored_value;
+};
+
+int sid_ucmd_kv_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_kv_set_args *args);
+#define sid_ucmd_kv_va_set(mod_res, ucmd_ctx, ...)                                                                                 \
+	sid_ucmd_kv_set(mod_res, ucmd_ctx, &((struct sid_ucmd_kv_set_args) {__VA_ARGS__}))
 
 const void *sid_ucmd_kv_get(sid_res_t              *mod_res,
                             struct sid_ucmd_ctx    *ucmd_ctx,

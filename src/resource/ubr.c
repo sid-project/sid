@@ -1587,11 +1587,10 @@ out:
 	return r;
 }
 
-static int _check_global_kv_rs_for_wr(struct sid_ucmd_ctx    *ucmd_ctx,
-                                      const char             *owner,
-                                      const char             *dom,
-                                      sid_ucmd_kv_namespace_t ns,
-                                      const char             *key_core)
+static int _check_global_kv_rs_for_wr(struct sid_ucmd_ctx         *ucmd_ctx,
+                                      const char                  *owner,
+                                      const char                  *dom,
+                                      struct sid_ucmd_kv_set_args *set_args)
 {
 	kv_vector_t        tmp_vvalue[VVALUE_SINGLE_CNT];
 	kv_vector_t       *vvalue;
@@ -1599,10 +1598,10 @@ static int _check_global_kv_rs_for_wr(struct sid_ucmd_ctx    *ucmd_ctx,
 	void              *found;
 	size_t             value_size;
 	sid_kvs_val_fl_t   kv_store_value_flags;
-	struct kv_key_spec key_spec = KV_KEY_SPEC(.op = KV_OP_SET, .dom = dom, .ns = ns, .core = key_core);
+	struct kv_key_spec key_spec = KV_KEY_SPEC(.op = KV_OP_SET, .dom = dom, .ns = set_args->ns, .core = set_args->key);
 	int                r        = 1;
 
-	if ((ns != SID_KV_NS_UDEV) && (ns != SID_KV_NS_DEVICE))
+	if ((set_args->ns != SID_KV_NS_UDEV) && (set_args->ns != SID_KV_NS_DEVICE))
 		goto out;
 
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec))) {
@@ -2474,31 +2473,23 @@ static int _kv_delta_set(char *key, kv_vector_t *vvalue, size_t vsize, struct kv
 	return r;
 }
 
-static const void *_do_sid_ucmd_set_kv(sid_res_t              *res,
-                                       struct sid_ucmd_ctx    *ucmd_ctx,
-                                       const char             *owner,
-                                       const char             *dom,
-                                       sid_ucmd_kv_namespace_t ns,
-                                       const char             *key_core,
-                                       sid_ucmd_kv_flags_t     flags,
-                                       const void             *value,
-                                       size_t                  value_size)
+#define KV_SET_ARGS(...) ((struct sid_ucmd_kv_set_args) {__VA_ARGS__})
+
+static int _do_sid_ucmd_kv_set(sid_res_t                   *res,
+                               struct sid_ucmd_ctx         *ucmd_ctx,
+                               const char                  *owner,
+                               const char                  *dom,
+                               struct sid_ucmd_kv_set_args *args)
 {
 	char                *key        = NULL;
-	size_t               vvalue_cnt = flags & SID_KV_FL_ALIGN ? VVALUE_SINGLE_ALIGNED_CNT : VVALUE_SINGLE_CNT;
+	const void          *value      = args->value;
+	sid_ucmd_kv_flags_t  flags      = args->flags;
+	size_t               vvalue_cnt = args->flags & SID_KV_FL_ALIGN ? VVALUE_SINGLE_ALIGNED_CNT : VVALUE_SINGLE_CNT;
 	kv_vector_t          vvalue[vvalue_cnt];
-	const kv_scalar_t   *svalue;
 	struct kv_update_arg update_arg;
-	struct kv_key_spec   key_spec =
-		KV_KEY_SPEC(.op      = KV_OP_SET,
-	                    .dom     = dom,
-	                    .ns      = ns,
-	                    .ns_part = _get_ns_part(ucmd_ctx, owner, ns),
-	                    .id_cat  = ns == SID_KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
-	                    .id      = ns == SID_KV_NS_DEVMOD ? _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MODULE) : ID_NULL,
-	                    .core    = key_core);
-	int         r;
-	const void *ret = NULL;
+	const kv_scalar_t   *svalue;
+	const void          *stored_value;
+	int                  r = 0;
 
 	/*
 	 * First, we check if the KV is not reserved globally. This applies to reservations
@@ -2517,20 +2508,30 @@ static const void *_do_sid_ucmd_set_kv(sid_res_t              *res,
 	 *        and the other one inside kv_store_set_value. Can we come up with a better
 	 *        scheme so there's only one lookup?
 	 */
-	if (!((ns == SID_KV_NS_UDEV) && !strcmp(owner, OWNER_CORE))) {
-		r = _check_global_kv_rs_for_wr(ucmd_ctx, owner, dom, ns, key_core);
-		if (r <= 0)
-			return NULL;
+
+	if (!((args->ns == SID_KV_NS_UDEV) && !strcmp(owner, OWNER_CORE))) {
+		if ((r = _check_global_kv_rs_for_wr(ucmd_ctx, owner, dom, args)) < 0)
+			goto out;
 	}
 
-	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, &key_spec)))
-		return NULL;
+	if (!(key = _compose_key(
+		      ucmd_ctx->common->gen_buf,
+		      &KV_KEY_SPEC(.op      = KV_OP_SET,
+	                           .dom     = dom,
+	                           .ns      = args->ns,
+	                           .ns_part = _get_ns_part(ucmd_ctx, owner, args->ns),
+	                           .id_cat  = args->ns == SID_KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
+	                           .id   = args->ns == SID_KV_NS_DEVMOD ? _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MODULE) : ID_NULL,
+	                           .core = args->key)))) {
+		r = -ENOMEM;
+		goto out;
+	}
+
+	if (args->ns == SID_KV_NS_UDEV)
+		flags |= SID_KV_FL_SYNC_P;
 
 	if (value == SID_UCMD_KV_UNSET)
 		value = NULL;
-
-	if (!value)
-		value_size = 0;
 
 	_vvalue_header_prep(vvalue,
 	                    vvalue_cnt,
@@ -2538,58 +2539,49 @@ static const void *_do_sid_ucmd_set_kv(sid_res_t              *res,
 	                    &flags,
 	                    &ucmd_ctx->common->gennum,
 	                    (char *) owner);
-	_vvalue_data_prep(vvalue, vvalue_cnt, 0, (void *) value, value_size);
-
-	update_arg = KV_UPDATE_ARG(.res = ucmd_ctx->common->kvs_res, .gen_buf = ucmd_ctx->common->gen_buf, .ret_code = -EREMOTEIO);
+	_vvalue_data_prep(vvalue, vvalue_cnt, 0, (void *) value, value ? args->size : 0);
 
 	key[0]     = KV_PREFIX_OP_ARCHIVE_C[0];
+	update_arg = KV_UPDATE_ARG(.res = ucmd_ctx->common->kvs_res, .gen_buf = ucmd_ctx->common->gen_buf, .ret_code = -EREMOTEIO);
 
-	if (sid_kvs_va_set(ucmd_ctx->common->kvs_res,
-	                   .key          = key + 1,
-	                   .value        = vvalue,
-	                   .size         = vvalue_cnt,
-	                   .flags        = SID_KVS_VAL_FL_VECTOR,
-	                   .op_flags     = SID_KVS_VAL_OP_MERGE,
-	                   .fn           = _kv_cb_write,
-	                   .fn_arg       = &update_arg,
-	                   .archive_key  = flags & SID_KV_FL_AR ? key : NULL,
-	                   .stored_value = (void **) &svalue) < 0)
+	if ((r = sid_kvs_va_set(ucmd_ctx->common->kvs_res,
+	                        .key          = key + 1,
+	                        .value        = vvalue,
+	                        .size         = vvalue_cnt,
+	                        .flags        = SID_KVS_VAL_FL_VECTOR,
+	                        .op_flags     = SID_KVS_VAL_OP_MERGE,
+	                        .fn           = _kv_cb_write,
+	                        .fn_arg       = &update_arg,
+	                        .archive_key  = flags & SID_KV_FL_AR ? key : NULL,
+	                        .stored_value = (void **) &svalue) < 0))
 		goto out;
 
-	if (value)
-		ret = svalue->data + _svalue_ext_data_offset(svalue);
-	else
-		ret = SID_UCMD_KV_UNSET;
+	stored_value = value ? svalue->data + _svalue_ext_data_offset(svalue) : SID_UCMD_KV_UNSET;
 out:
 	(void) _manage_kv_index(&update_arg, key);
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
-	return ret;
+
+	if (args->stored_value)
+		*args->stored_value = stored_value;
+
+	return r;
 }
 
-const void *sid_ucmd_kv_set(sid_res_t              *mod_res,
-                            struct sid_ucmd_ctx    *ucmd_ctx,
-                            sid_ucmd_kv_namespace_t ns,
-                            const char             *key,
-                            const void             *value,
-                            size_t                  value_size,
-                            sid_ucmd_kv_flags_t     flags)
+int sid_ucmd_kv_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_kv_set_args *args)
 {
 	const char *dom;
 
-	if (!mod_res || !ucmd_ctx || (ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(key) || (key[0] == KV_PREFIX_KEY_SYS_C[0]))
-		return NULL;
+	if (!mod_res || !ucmd_ctx || !args || (args->ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(args->key) ||
+	    (args->key[0] == KV_PREFIX_KEY_SYS_C[0]))
+		return -EINVAL;
 
 	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
 	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))
-		return NULL;
+		return -EINVAL;
 
-	if (ns == SID_KV_NS_UDEV) {
-		dom    = NULL;
-		flags |= SID_KV_FL_SYNC_P;
-	} else
-		dom = KV_KEY_DOM_USER;
+	dom = args->ns == SID_KV_NS_UDEV ? NULL : KV_KEY_DOM_USER;
 
-	return _do_sid_ucmd_set_kv(mod_res, ucmd_ctx, _owner_name(mod_res), dom, ns, key, flags, value, value_size);
+	return _do_sid_ucmd_kv_set(mod_res, ucmd_ctx, _owner_name(mod_res), dom, args);
 }
 
 static const void *_cmd_get_key_spec_value(sid_res_t           *res,
@@ -3065,15 +3057,16 @@ static int _do_sid_ucmd_dev_set_ready(sid_res_t           *res,
 			break;
 	}
 
-	if (!_do_sid_ucmd_set_kv(res,
-	                         ucmd_ctx,
-	                         owner,
-	                         NULL,
-	                         SID_KV_NS_DEVICE,
-	                         KV_KEY_DEV_READY,
-	                         (is_sync ? 0 : SID_KV_FL_SYNC) | SID_KV_FL_AR | SID_KV_FL_RD | SID_KV_FL_SUB_WR | SID_KV_FL_SUP_WR,
-	                         &ready,
-	                         sizeof(ready)))
+	if ((r = _do_sid_ucmd_kv_set(res,
+	                             ucmd_ctx,
+	                             owner,
+	                             NULL,
+	                             &KV_SET_ARGS(.ns    = SID_KV_NS_DEVICE,
+	                                          .key   = KV_KEY_DEV_READY,
+	                                          .value = &ready,
+	                                          .size  = sizeof(ready),
+	                                          .flags = (is_sync ? 0 : SID_KV_FL_SYNC) | SID_KV_FL_AR | SID_KV_FL_RD |
+	                                                   SID_KV_FL_SUB_WR | SID_KV_FL_SUP_WR))) < 0)
 		r = -1;
 	else
 		r = 0;
@@ -3193,15 +3186,16 @@ static int _do_sid_ucmd_dev_set_reserved(sid_res_t              *res,
 			break;
 	}
 
-	if (!_do_sid_ucmd_set_kv(res,
-	                         ucmd_ctx,
-	                         owner,
-	                         NULL,
-	                         SID_KV_NS_DEVICE,
-	                         KV_KEY_DEV_RESERVED,
-	                         (is_sync ? 0 : SID_KV_FL_SYNC) | SID_KV_FL_AR | SID_KV_FL_RD | SID_KV_FL_SUB_WR | SID_KV_FL_SUP_WR,
-	                         &reserved,
-	                         sizeof(reserved)))
+	if ((r = _do_sid_ucmd_kv_set(res,
+	                             ucmd_ctx,
+	                             owner,
+	                             NULL,
+	                             &KV_SET_ARGS(.ns    = SID_KV_NS_DEVICE,
+	                                          .key   = KV_KEY_DEV_RESERVED,
+	                                          .value = &reserved,
+	                                          .size  = sizeof(reserved),
+	                                          .flags = (is_sync ? 0 : SID_KV_FL_SYNC) | SID_KV_FL_AR | SID_KV_FL_RD |
+	                                                   SID_KV_FL_SUB_WR | SID_KV_FL_SUP_WR))) < 0)
 		r = -1;
 	else
 		r = 0;
@@ -3760,15 +3754,16 @@ static int _device_add_field(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, cons
 	if (asprintf((char **) &key, "%.*s", (int) (value - start - 1), start) < 0)
 		return -1;
 
-	if (!(value = _do_sid_ucmd_set_kv(res,
-	                                  ucmd_ctx,
-	                                  _owner_name(NULL),
-	                                  NULL,
-	                                  SID_KV_NS_UDEV,
-	                                  key,
-	                                  SID_KV_FL_RD | SID_KV_FL_WR,
-	                                  value,
-	                                  strlen(value) + 1)))
+	if (_do_sid_ucmd_kv_set(res,
+	                        ucmd_ctx,
+	                        _owner_name(NULL),
+	                        NULL,
+	                        &KV_SET_ARGS(.ns           = SID_KV_NS_UDEV,
+	                                     .key          = key,
+	                                     .value        = value,
+	                                     .size         = strlen(value) + 1,
+	                                     .flags        = SID_KV_FL_RD | SID_KV_FL_WR,
+	                                     .stored_value = (const void **) &value)) < 0)
 		return -1;
 
 	sid_res_log_debug(res, "Imported udev property %s=%s", key, value);
@@ -4244,7 +4239,8 @@ static int _cmd_exec_resources(sid_res_t *cmd_res)
 	 *
 	 * The resulting output is composed of 3 parts:
 	 *   - start element + start array                                             (in prn_buf)
-	 *   - the resource tree from main process                                     (in mmap'd memfd sent from main process)
+	 *   - the resource tree from main process                                     (in mmap'd memfd sent from main
+	 * process)
 	 *   - the resource tree from current worker process + array end + end element (in prn_buf)
 	 */
 	format   = flags_to_format(ucmd_ctx->req_hdr.flags);
@@ -4670,10 +4666,10 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 
 		if (count < 0) {
 			/*
-			 * FIXME: Add code to deal with/warn about: (errno == ENOENT) && (ucmd_ctx->req_env.dev.udev.action !=
-			 * UDEV_ACTION_REMOVE). That means we don't have REMOVE uevent, but at the same time, we don't have sysfs
-			 * content, e.g. because we're processing this uevent too late: the device has already been removed right
-			 * after this uevent was triggered. For now, error out even in this case.
+			 * FIXME: Add code to deal with/warn about: (errno == ENOENT) && (ucmd_ctx->req_env.dev.udev.action
+			 * != UDEV_ACTION_REMOVE). That means we don't have REMOVE uevent, but at the same time, we don't
+			 * have sysfs content, e.g. because we're processing this uevent too late: the device has already
+			 * been removed right after this uevent was triggered. For now, error out even in this case.
 			 */
 			sid_res_log_sys_error(cmd_res, "scandir", s);
 			goto out;
@@ -4832,7 +4828,8 @@ static int _update_part_deps_from_sysfs(sid_res_t *cmd_res)
 	/*
 	 * Handle delta.final vector for this device.
 	 * The delta.final is computed inside _kv_cb_delta out of vec_buf.
-	 * The _kv_cb_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous record.
+	 * The _kv_cb_delta also sets delta.plus and delta.minus vectors with info about changes when compared to previous
+	 * record.
 	 */
 	_kv_delta_set(key, vvalue, count, &update_arg);
 
@@ -4990,29 +4987,29 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 	}
 
 	if (!devid_udev) {
-		if (!_do_sid_ucmd_set_kv(cmd_res,
-		                         ucmd_ctx,
-		                         _owner_name(NULL),
-		                         NULL,
-		                         SID_KV_NS_UDEV,
-		                         KV_KEY_UDEV_SID_DEV_ID,
-		                         SID_KV_FL_SYNC,
-		                         ucmd_ctx->req_env.dev.uid_s,
-		                         strlen(ucmd_ctx->req_env.dev.uid_s) + 1)) {
+		if (_do_sid_ucmd_kv_set(cmd_res,
+		                        ucmd_ctx,
+		                        _owner_name(NULL),
+		                        NULL,
+		                        &KV_SET_ARGS(.ns    = SID_KV_NS_UDEV,
+		                                     .key   = KV_KEY_UDEV_SID_DEV_ID,
+		                                     .value = ucmd_ctx->req_env.dev.uid_s,
+		                                     .size  = strlen(ucmd_ctx->req_env.dev.uid_s) + 1,
+		                                     .flags = SID_KV_FL_SYNC)) < 0) {
 			sid_res_log_error(cmd_res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_DEV_ID);
 			return -1;
 		}
 	}
 
-	if (!_do_sid_ucmd_set_kv(cmd_res,
-	                         ucmd_ctx,
-	                         _owner_name(NULL),
-	                         NULL,
-	                         SID_KV_NS_UDEV,
-	                         KV_KEY_UDEV_SID_TAGS,
-	                         SID_KV_FL_SYNC,
-	                         UDEV_TAG_SID,
-	                         sizeof(UDEV_TAG_SID) + 1)) {
+	if (_do_sid_ucmd_kv_set(cmd_res,
+	                        ucmd_ctx,
+	                        _owner_name(NULL),
+	                        NULL,
+	                        &KV_SET_ARGS(.ns    = SID_KV_NS_UDEV,
+	                                     .key   = KV_KEY_UDEV_SID_TAGS,
+	                                     .value = UDEV_TAG_SID,
+	                                     .size  = sizeof(UDEV_TAG_SID) + 1,
+	                                     .flags = SID_KV_FL_SYNC)) < 0) {
 		sid_res_log_error(cmd_res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_TAGS);
 		return -1;
 	}
@@ -5043,15 +5040,15 @@ static const char *_get_base_mod_name(sid_res_t *cmd_res, char *buf, size_t buf_
 			return NULL;
 		}
 
-		if (!_do_sid_ucmd_set_kv(cmd_res,
-		                         ucmd_ctx,
-		                         _owner_name(NULL),
-		                         NULL,
-		                         SID_KV_NS_DEVICE,
-		                         KV_KEY_DEV_MOD,
-		                         DEFAULT_VALUE_FLAGS_CORE,
-		                         mod_name,
-		                         strlen(mod_name) + 1)) {
+		if (_do_sid_ucmd_kv_set(cmd_res,
+		                        ucmd_ctx,
+		                        _owner_name(NULL),
+		                        NULL,
+		                        &KV_SET_ARGS(.ns    = SID_KV_NS_DEVICE,
+		                                     .key   = KV_KEY_DEV_MOD,
+		                                     .value = mod_name,
+		                                     .size  = strlen(mod_name) + 1,
+		                                     .flags = DEFAULT_VALUE_FLAGS_CORE)) < 0) {
 			sid_res_log_error(cmd_res,
 			                  "Failed to store device " CMD_DEV_PRINT_FMT " module name",
 			                  CMD_DEV_PRINT(ucmd_ctx));
@@ -6020,15 +6017,15 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 			goto fail;
 		}
 
-		if (!_do_sid_ucmd_set_kv(res,
-		                         ucmd_ctx,
-		                         _owner_name(NULL),
-		                         NULL,
-		                         SID_KV_NS_UDEV,
-		                         KV_KEY_UDEV_SID_SESSION_ID,
-		                         SID_KV_FL_SYNC_P,
-		                         worker_id,
-		                         strlen(worker_id) + 1)) {
+		if (_do_sid_ucmd_kv_set(res,
+		                        ucmd_ctx,
+		                        _owner_name(NULL),
+		                        NULL,
+		                        &KV_SET_ARGS(.ns    = SID_KV_NS_UDEV,
+		                                     .key   = KV_KEY_UDEV_SID_SESSION_ID,
+		                                     .value = worker_id,
+		                                     .size  = strlen(worker_id) + 1,
+		                                     .flags = SID_KV_FL_SYNC_P)) < 0) {
 			sid_res_log_error(res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
 			goto fail;
 		}
@@ -6305,12 +6302,11 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 				case KV_OP_SET:
 					break;
 				case KV_OP_ILLEGAL:
-					sid_res_log_error(
-						res,
-						SID_INTERNAL_ERROR
-						"%s: Illegal operator found for key %s while trying to sync main key-value store.",
-						__func__,
-						key);
+					sid_res_log_error(res,
+					                  SID_INTERNAL_ERROR "%s: Illegal operator found for key %s while "
+					                                     "trying to sync main key-value store.",
+					                  __func__,
+					                  key);
 					goto out;
 			}
 
