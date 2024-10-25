@@ -1044,7 +1044,7 @@ static int _run_external_worker(sid_res_t *worker_control_res)
 
 	r = execve(argv[0], argv, envp);
 	/* On success, execve never returns */
-	sid_res_log_sys_error(worker_control_res, "execve", id);
+	sid_res_log_error_errno(worker_control_res, errno, "Failed to execute external command %s (%s)", argv[0], id);
 fail:
 	if (id != gen_id)
 		free(id);
