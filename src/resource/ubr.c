@@ -5730,21 +5730,15 @@ out:
 		//       and also any results collected after the res_hdr must be discarded
 		ucmd_ctx->res_hdr.status |= SID_IFC_CMD_STATUS_FAILURE;
 		(void) _change_cmd_state(cmd_res, CMD_STATE_ERR);
-		return r;
 	}
 
-	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_STG_WAIT, CMD_STATE_FIN))
+	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_STG_WAIT, CMD_STATE_FIN, CMD_STATE_ERR))
 		(void) _process_cmd_unsbuf(cmd_res);
 
-	/*
-	 * TODO: check CMD_STATE_ERR handling - we are setting that under
-	 * the (r < 0) condition before and returning, this doesn't seem
-	 * correct.
-	 */
 	if (UTIL_IN_SET(ucmd_ctx->state, CMD_STATE_FIN, CMD_STATE_ERR))
 		(void) sid_wrk_ctl_yield_worker(cmd_res);
 
-	return 0;
+	return r;
 }
 
 static int _reply_failure(sid_res_t *conn_res)
