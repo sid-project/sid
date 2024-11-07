@@ -2561,7 +2561,7 @@ out:
 	(void) _manage_kv_index(&update_arg, key);
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 
-	if (args->stored_value)
+	if (args->stored_value && r == 0)
 		*args->stored_value = stored_value;
 
 	return r;
@@ -2951,9 +2951,7 @@ static int _do_sid_ucmd_dev_set_ready(sid_res_t           *res,
 	                                          .size  = sizeof(ready),
 	                                          .flags = (is_sync ? 0 : SID_KV_FL_SYNC) | SID_KV_FL_AR | SID_KV_FL_RD |
 	                                                   SID_KV_FL_SUB_WR | SID_KV_FL_SUP_WR))) < 0)
-		r = -1;
-	else
-		r = 0;
+		goto out;
 out:
 	if (r < 0) {
 		sid_res_log_error_errno(res,
@@ -3082,9 +3080,7 @@ static int _do_sid_ucmd_dev_set_reserved(sid_res_t              *res,
 	                                          .size  = sizeof(reserved),
 	                                          .flags = (is_sync ? 0 : SID_KV_FL_SYNC) | SID_KV_FL_AR | SID_KV_FL_RD |
 	                                                   SID_KV_FL_SUB_WR | SID_KV_FL_SUP_WR))) < 0)
-		r = -1;
-	else
-		r = 0;
+		goto out;
 out:
 	if (r < 0) {
 		sid_res_log_error_errno(res,
