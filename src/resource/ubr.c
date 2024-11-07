@@ -2557,8 +2557,8 @@ static int _do_sid_ucmd_kv_set(sid_res_t                   *res,
 		goto out;
 
 	stored_value = value ? svalue->data + _svalue_ext_data_offset(svalue) : SID_UCMD_KV_UNSET;
-out:
 	(void) _manage_kv_index(&update_arg, key);
+out:
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 
 	if (args->stored_value && r == 0)
