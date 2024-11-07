@@ -174,41 +174,20 @@ int sid_ucmd_kv_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct si
 #define sid_ucmd_kv_va_set(mod_res, ucmd_ctx, ...)                                                                                 \
 	sid_ucmd_kv_set(mod_res, ucmd_ctx, &((struct sid_ucmd_kv_set_args) {__VA_ARGS__}))
 
-const void *sid_ucmd_kv_get(sid_res_t              *mod_res,
-                            struct sid_ucmd_ctx    *ucmd_ctx,
-                            sid_ucmd_kv_namespace_t ns,
-                            const char             *key,
-                            size_t                 *value_size,
-                            sid_ucmd_kv_flags_t    *flags,
-                            unsigned int            archive);
+struct sid_ucmd_kv_get_args {
+	sid_ucmd_kv_namespace_t ns;
+	const char             *foreign_mod_name;
+	const char             *foreign_dev_id;
+	const char             *key;
+	unsigned int            archive;
+	sid_ucmd_kv_flags_t    *flags;
+	size_t                 *size;
+	int                    *ret_code;
+};
 
-const void *sid_ucmd_kv_get_foreign_mod(sid_res_t              *mod_res,
-                                        struct sid_ucmd_ctx    *ucmd_ctx,
-                                        const char             *foreign_mod_name,
-                                        sid_ucmd_kv_namespace_t ns,
-                                        const char             *key,
-                                        size_t                 *value_size,
-                                        sid_ucmd_kv_flags_t    *flags,
-                                        unsigned int            archive);
-
-const void *sid_ucmd_kv_get_foreign_dev(sid_res_t              *mod_res,
-                                        struct sid_ucmd_ctx    *ucmd_ctx,
-                                        const char             *foreign_dev_id,
-                                        sid_ucmd_kv_namespace_t ns,
-                                        const char             *key,
-                                        size_t                 *value_size,
-                                        sid_ucmd_kv_flags_t    *flags,
-                                        unsigned int            archive);
-
-const void *sid_ucmd_kv_get_foreign_dev_mod(sid_res_t              *mod_res,
-                                            struct sid_ucmd_ctx    *ucmd_ctx,
-                                            const char             *foreign_dev_id,
-                                            const char             *foreign_mod_name,
-                                            sid_ucmd_kv_namespace_t ns,
-                                            const char             *key,
-                                            size_t                 *value_size,
-                                            sid_ucmd_kv_flags_t    *flags,
-                                            unsigned int            archive);
+const void *sid_ucmd_kv_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_kv_get_args *args);
+#define sid_ucmd_kv_va_get(mod_res, ucmd_ctx, ...)                                                                                 \
+	sid_ucmd_kv_get(mod_res, ucmd_ctx, &((struct sid_ucmd_kv_get_args) {__VA_ARGS__}))
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // TODO: The sid_ucmd_kv_get_disk_part doesn't work right now.
