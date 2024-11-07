@@ -257,7 +257,7 @@ static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, 
 	dm_cookie_flags_t flags;
 	char             *p;
 
-	if (!(str = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, DM_U_COOKIE, NULL, NULL, 0))) {
+	if (!(str = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = DM_U_COOKIE))) {
 		if (sid_ucmd_kv_va_set(mod_res,
 		                       ucmd_ctx,
 		                       .ns    = SID_KV_NS_DEVMOD,
@@ -537,7 +537,7 @@ static int _dm_submod_common_scan_init(sid_res_t *mod_res, struct sid_ucmd_ctx *
 	const char        *submod_name = NULL;
 
 	dm_mod                         = sid_mod_get_data(mod_res);
-	submod_name                    = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVICE, DM_SUBMODULES_ID, NULL, NULL, 0);
+	submod_name                    = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_DEVICE, .key = DM_SUBMODULES_ID);
 
 	if (submod_name) {
 		if (strcmp(submod_name, DM_SUBMODULE_ID_NONE) != 0) {
@@ -691,7 +691,7 @@ static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 		goto out;
 	}
 
-	if (!(val = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, DM_U_SUSPENDED, NULL, NULL, 0))) {
+	if (!(val = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = DM_U_SUSPENDED))) {
 		sid_res_log_error(mod_res, _failed_to_get_msg, DM_U_SUSPENDED);
 		r = -1;
 		goto out;
@@ -909,7 +909,7 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 		}
 	}
 
-	if (!(flags = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, DM_X_COOKIE_FLAGS, NULL, NULL, 0)))
+	if (!(flags = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_DEVMOD, .key = DM_X_COOKIE_FLAGS)))
 		return 0;
 
 	for (i = 0; i < COOKIE_FLAGS_SHIFT; i++) {
@@ -1051,7 +1051,7 @@ static int _dm_scan_action_current(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd
 	sid_res_log_debug(mod_res, "scan-action-current");
 
 	if ((cookie_base_p =
-	             (dm_cookie_base_t *) sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, DM_X_COOKIE_BASE, NULL, NULL, 0))) {
+	             (dm_cookie_base_t *) sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_DEVMOD, .key = DM_X_COOKIE_BASE))) {
 		if (_udevcomplete(mod_res, *cookie_base_p) < 0)
 			return -1;
 	}

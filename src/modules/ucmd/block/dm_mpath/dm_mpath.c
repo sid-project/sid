@@ -132,7 +132,7 @@ static int _dm_mpath_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx
 		char       *p;
 		int         old_valid;
 
-		old_valid_str = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, X_VALID, NULL, NULL, 0);
+		old_valid_str = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_DEVMOD, .key = X_VALID);
 		if (old_valid_str && old_valid_str[0]) {
 			errno     = 0;
 			old_valid = strtol(old_valid_str, &p, 10);

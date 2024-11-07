@@ -52,7 +52,11 @@ static int _store_component_names(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 	char       *vg_name = NULL, *lv_name, *lv_layer;
 	int         r       = -1;
 
-	if (!(dm_name = sid_ucmd_kv_get_foreign_mod(mod_res, ucmd_ctx, "/type/dm", SID_KV_NS_DEVMOD, DM_X_NAME, NULL, NULL, 0)))
+	if (!(dm_name = sid_ucmd_kv_va_get(mod_res,
+	                                   ucmd_ctx,
+	                                   .foreign_mod_name = "/type/dm",
+	                                   .ns               = SID_KV_NS_DEVMOD,
+	                                   .key              = DM_X_NAME)))
 		goto out;
 
 	if (!(vg_name = strdup(dm_name)))
@@ -244,7 +248,7 @@ static int _lvm_subsys_match_current(sid_res_t *mod_res, struct sid_ucmd_ctx *uc
 
 	sid_res_log_debug(mod_res, "scan-dm-subsys-match");
 
-	if (!(uuid = sid_ucmd_kv_get_foreign_mod(mod_res, ucmd_ctx, "/type/dm", SID_KV_NS_DEVMOD, "uuid", NULL, NULL, 0)))
+	if (!(uuid = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .foreign_mod_name = "/type/dm", .ns = SID_KV_NS_DEVMOD, .key = "uuid")))
 		return 0;
 
 	return !strncmp(uuid, LVM_DM_UUID_PREFIX, sizeof(LVM_DM_UUID_PREFIX) - 1);
@@ -257,7 +261,7 @@ static int _lvm_subsys_match_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 
 	sid_res_log_debug(mod_res, "scan-dm-subsys-match-next");
 
-	if (!(type = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_UDEV, "ID_FS_TYPE", NULL, NULL, 0)))
+	if (!(type = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = "ID_FS_TYPE")))
 		return 0;
 
 	return !strcmp(type, "LVM2_member");
@@ -289,7 +293,11 @@ static int _lvm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	if (ready < _SID_DEV_RDY)
 		return 0;
 
-	flags = sid_ucmd_kv_get_foreign_mod(mod_res, ucmd_ctx, "/type/dm", SID_KV_NS_DEVMOD, DM_X_COOKIE_FLAGS, NULL, NULL, 0);
+	flags = sid_ucmd_kv_va_get(mod_res,
+	                           ucmd_ctx,
+	                           .foreign_mod_name = "/type/dm",
+	                           .ns               = SID_KV_NS_DEVMOD,
+	                           .key              = DM_X_COOKIE_FLAGS);
 
 	switch (ready) {
 		case SID_DEV_RDY_PUBLIC:
@@ -358,7 +366,7 @@ static int _lvm_scan_action_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_c
 
 	sid_res_log_debug(mod_res, "scan-action-next");
 
-	if ((val = sid_ucmd_kv_get(mod_res, ucmd_ctx, SID_KV_NS_DEVMOD, LVM_VG_NAME_COMPLETE, NULL, NULL, 0))) {
+	if ((val = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_DEVMOD, .key = LVM_VG_NAME_COMPLETE))) {
 		runner_res = sid_mod_get_data(mod_res);
 
 		if (!(cmd_line = util_str_comb_to_str(NULL, NULL, "vgchange -aay --autoactivation event ", val)))
