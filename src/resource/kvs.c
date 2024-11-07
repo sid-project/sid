@@ -545,7 +545,10 @@ int sid_kvs_set(sid_res_t *kv_store_res, struct sid_kvs_set_args *args)
 	size_t                    kv_store_value_size;
 	int                       r = 0;
 
-	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || !args || UTIL_STR_EMPTY(args->key)) {
+	if (!args)
+		return -EINVAL;
+
+	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || UTIL_STR_EMPTY(args->key)) {
 		r = -EINVAL;
 		goto out;
 	}
@@ -610,7 +613,7 @@ int sid_kvs_set(sid_res_t *kv_store_res, struct sid_kvs_set_args *args)
 		}
 	}
 out:
-	if (args->stored_value)
+	if (args->stored_value && r == 0)
 		*args->stored_value = _get_data(kv_store_value);
 
 	return r;
@@ -643,7 +646,10 @@ void *sid_kvs_get(sid_res_t *kv_store_res, struct sid_kvs_get_args *args)
 	struct kv_store_value *found = NULL;
 	int                    r     = 0;
 
-	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || !args || UTIL_STR_EMPTY(args->key)) {
+	if (!args)
+		return NULL;
+
+	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || UTIL_STR_EMPTY(args->key)) {
 		r = -EINVAL;
 		goto out;
 	}
@@ -802,7 +808,10 @@ int sid_kvs_unset(sid_res_t *kv_store_res, struct sid_kvs_unset_args *args)
 	const char               *c_key, *c_archive_key;
 	int                       r = 0;
 
-	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || !args || !args->key) {
+	if (!args)
+		return -EINVAL;
+
+	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || !args->key) {
 		r = -EINVAL;
 		goto out;
 	}
