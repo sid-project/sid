@@ -811,7 +811,7 @@ int sid_kvs_unset(sid_res_t *kv_store_res, struct sid_kvs_unset_args *args)
 	if (!args)
 		return -EINVAL;
 
-	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || !args->key) {
+	if (!sid_res_match(kv_store_res, &sid_res_type_kvs, NULL) || UTIL_STR_EMPTY(args->key)) {
 		r = -EINVAL;
 		goto out;
 	}
