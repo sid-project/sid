@@ -2770,14 +2770,22 @@ static const void *_do_sid_ucmd_get_kv(sid_res_t                   *res,
 const void *sid_ucmd_kv_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_kv_get_args *args)
 {
 	const char *dom;
+	int         r;
 
-	if (!mod_res || !ucmd_ctx || !args || (args->ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(args->key) ||
-	    (args->key[0] == KV_PREFIX_KEY_SYS_C[0]))
+	if (!args)
 		return NULL;
+
+	if (!mod_res || !ucmd_ctx || args->ns == SID_KV_NS_UNDEFINED || UTIL_STR_EMPTY(args->key) ||
+	    (args->key[0] == KV_PREFIX_KEY_SYS_C[0])) {
+		r = -EINVAL;
+		goto fail;
+	}
 
 	if (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
-	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))
-		return NULL;
+	    !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res)) {
+		r = -EINVAL;
+		goto fail;
+	}
 
 	if (args->ns == SID_KV_NS_UDEV)
 		dom = NULL;
@@ -2785,6 +2793,10 @@ const void *sid_ucmd_kv_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, s
 		dom = KV_KEY_DOM_USER;
 
 	return _do_sid_ucmd_get_kv(mod_res, ucmd_ctx, _owner_name(mod_res), dom, args);
+fail:
+	if (args->ret_code)
+		*args->ret_code = r;
+	return NULL;
 }
 
 static int _do_sid_ucmd_mod_reserve_kv(sid_res_t                  *res,
