@@ -2684,20 +2684,27 @@ static bool _key_parts_match(struct iovec *key_parts1, struct iovec *key_parts2,
 	return true;
 }
 
-static char **_get_key_strv_from_vvalue(const kv_vector_t *vvalue, size_t size, struct kv_key_spec *key_filter, size_t *ret_count)
+static char **_get_key_strv_from_vvalue(const kv_vector_t  *vvalue,
+                                        size_t              size,
+                                        struct kv_key_spec *key_filter,
+                                        size_t             *ret_count,
+                                        int                *ret_code)
 {
 	struct iovec key_filter_parts[_KEY_PART_COUNT];
 	struct iovec key_parts[_KEY_PART_COUNT];
 	key_part_t   last_key_part;
 	size_t       i, count = 0;
 	struct bmp  *bmp;
-	char       **strv;
+	char       **strv = NULL;
 	char        *p;
+	int          r = 0;
 
 	_key_spec_to_parts(key_filter, key_filter_parts);
 
-	if (!(bmp = bmp_create(size, false, NULL)))
-		return NULL;
+	if (!(bmp = bmp_create(size, false, NULL))) {
+		r = -ENOMEM;
+		goto out;
+	}
 
 	for (i = 0; i < size; i++) {
 		last_key_part = _decompose_key(vvalue[i].iov_base, key_parts);
@@ -2709,8 +2716,10 @@ static char **_get_key_strv_from_vvalue(const kv_vector_t *vvalue, size_t size, 
 		}
 	}
 
-	if (!(strv = malloc(bmp_get_bit_set_count(bmp) * sizeof(char *) + count * sizeof(char))))
+	if (!(strv = malloc(bmp_get_bit_set_count(bmp) * sizeof(char *) + count * sizeof(char)))) {
+		r = -ENOMEM;
 		goto out;
+	}
 
 	p = (char *) (strv + bmp_get_bit_set_count(bmp));
 
@@ -2723,7 +2732,10 @@ static char **_get_key_strv_from_vvalue(const kv_vector_t *vvalue, size_t size, 
 	}
 out:
 	bmp_destroy(bmp);
-	*ret_count = count;
+	if (ret_count)
+		*ret_count = count;
+	if (ret_code)
+		*ret_code = r;
 	return strv;
 }
 
@@ -3398,16 +3410,22 @@ int sid_ucmd_dev_alias_del(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 	                              false);
 }
 
-const char **_do_sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
-                                        struct sid_ucmd_ctx *ucmd_ctx,
-                                        const char          *mod_name,
-                                        const char          *foreign_dev_id,
-                                        const char          *alias_key,
-                                        size_t              *count)
+const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_dev_alias_get_args *args)
 {
 	const kv_vector_t *vvalue;
 	size_t             vvalue_size;
-	char             **key_strv;
+	char             **key_strv = NULL;
+	int                r        = 0;
+
+	if (!args)
+		return NULL;
+
+	if (!mod_res || !ucmd_ctx ||
+	    (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
+	     !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))) {
+		r = -EINVAL;
+		goto out;
+	}
 
 	vvalue = _cmd_get_key_spec_value(
 		mod_res,
@@ -3415,60 +3433,28 @@ const char **_do_sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
 		_owner_name(mod_res),
 		&KV_KEY_SPEC(.op      = KV_OP_SET,
 	                     .ns      = SID_KV_NS_DEVICE,
-	                     .ns_part = foreign_dev_id ?: _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_DEVICE),
+	                     .ns_part = args->dev_id ?: _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_DEVICE),
 	                     .core    = KV_KEY_GEN_GROUP_IN),
 		&vvalue_size,
 		NULL,
-		NULL);
+		args->ret_code);
 
 	if (!vvalue)
-		return NULL;
+		goto out;
 
 	key_strv = _get_key_strv_from_vvalue(vvalue,
 	                                     vvalue_size,
 	                                     &KV_KEY_SPEC(.op      = KV_OP_SET,
 	                                                  .dom     = KV_KEY_DOM_ALIAS,
 	                                                  .ns      = SID_KV_NS_MODULE,
-	                                                  .ns_part = mod_name,
-	                                                  .id_cat  = alias_key),
-	                                     count);
-
+	                                                  .ns_part = args->mod_name,
+	                                                  .id_cat  = args->alias_key),
+	                                     args->count,
+	                                     &r);
+out:
+	if (args->ret_code)
+		*args->ret_code = r;
 	return (const char **) key_strv;
-}
-
-const char **sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
-                                    struct sid_ucmd_ctx *ucmd_ctx,
-                                    const char          *mod_name,
-                                    const char          *alias_key,
-                                    size_t              *count)
-{
-	if (!mod_res || !ucmd_ctx ||
-	    (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
-	     !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))) {
-		if (count)
-			*count = 0;
-		return NULL;
-	}
-
-	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, mod_name, NULL, alias_key, count);
-}
-
-const char **sid_ucmd_dev_alias_get_foreign_dev(sid_res_t           *mod_res,
-                                                struct sid_ucmd_ctx *ucmd_ctx,
-                                                const char          *mod_name,
-                                                const char          *foreign_dev_id,
-                                                const char          *alias_key,
-                                                size_t              *count)
-{
-	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(foreign_dev_id) ||
-	    (!sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->block_mod_reg_res) &&
-	     !sid_mod_reg_match_dep(mod_res, ucmd_ctx->common->type_mod_reg_res))) {
-		if (count)
-			*count = 0;
-		return NULL;
-	}
-
-	return _do_sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, mod_name, foreign_dev_id, alias_key, count);
 }
 
 static int _kv_cb_write_new_only(struct sid_kvs_update_spec *spec)

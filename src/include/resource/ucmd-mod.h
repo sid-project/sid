@@ -263,18 +263,18 @@ int sid_ucmd_dev_alias_rename(sid_res_t           *mod_res,
 
 int sid_ucmd_dev_alias_del(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
 
-const char **sid_ucmd_dev_alias_get(sid_res_t           *mod_res,
-                                    struct sid_ucmd_ctx *ucmd_ctx,
-                                    const char          *mod_name,
-                                    const char          *alias_key,
-                                    size_t              *count);
+struct sid_ucmd_dev_alias_get_args {
+	const char *dev_id;
+	const char *mod_name;
+	const char *alias_key;
+	size_t     *count;
+	int        *ret_code;
+};
 
-const char **sid_ucmd_dev_alias_get_foreign_dev(sid_res_t           *mod_res,
-                                                struct sid_ucmd_ctx *ucmd_ctx,
-                                                const char          *mod_name,
-                                                const char          *foreign_dev_id,
-                                                const char          *alias_key,
-                                                size_t              *count);
+#define sid_ucmd_dev_alias_va_get(mod_res, ucmd_ctx, ...)                                                                          \
+	sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, &((struct sid_ucmd_dev_alias_get_args) {__VA_ARGS__}))
+
+const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_dev_alias_get_args *args);
 
 int sid_ucmd_grp_create(sid_res_t              *mod_res,
                         struct sid_ucmd_ctx    *ucmd_ctx,
