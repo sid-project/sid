@@ -1593,7 +1593,7 @@ static int _check_global_kv_rs_for_wr(struct sid_ucmd_ctx         *ucmd_ctx,
 	void              *found;
 	size_t             value_size;
 	sid_kvs_val_fl_t   kv_store_value_flags;
-	struct kv_key_spec key_spec = KV_KEY_SPEC(.op = KV_OP_SET, .dom = dom, .ns = set_args->ns, .core = set_args->key);
+	struct kv_key_spec key_spec = KV_KEY_SPEC(.dom = dom, .ns = set_args->ns, .core = set_args->key);
 	int                r        = 1;
 
 	if ((set_args->ns != SID_KV_NS_UDEV) && (set_args->ns != SID_KV_NS_DEVICE))
@@ -2501,8 +2501,7 @@ static int _do_sid_ucmd_kv_set(sid_res_t                   *res,
 
 	if (!(key = _compose_key(
 		      ucmd_ctx->common->gen_buf,
-		      &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                           .dom     = dom,
+		      &KV_KEY_SPEC(.dom     = dom,
 	                           .ns      = args->ns,
 	                           .ns_part = _get_ns_part(ucmd_ctx, owner, args->ns),
 	                           .id_cat  = args->ns == SID_KV_NS_DEVMOD ? KV_PREFIX_NS_MODULE_C : ID_NULL,
@@ -2734,7 +2733,6 @@ static const void *_do_sid_ucmd_get_kv(sid_res_t                   *res,
 
 	struct kv_key_spec key_spec =
 		KV_KEY_SPEC(.extra_op = args->archive == 1 ? KV_PREFIX_OP_ARCHIVE_C : KV_PREFIX_OP_BLANK_C,
-	                    .op       = KV_OP_SET,
 	                    .dom      = dom,
 	                    .ns       = args->ns,
 	                    .ns_part  = foreign ? _get_foreign_ns_part(ucmd_ctx,
@@ -2798,7 +2796,7 @@ static int _do_sid_ucmd_mod_reserve_kv(sid_res_t                  *res,
 	struct kv_update_arg update_arg;
 	struct kv_unset_nfo  unset_nfo;
 	int                  is_worker;
-	struct kv_key_spec   key_spec = KV_KEY_SPEC(.op = KV_OP_SET, .dom = dom, .ns = ns, .core = key_core);
+	struct kv_key_spec   key_spec = KV_KEY_SPEC(.dom = dom, .ns = ns, .core = key_core);
 	int                  r        = -1;
 
 	if (!(key = _compose_key(common->gen_buf, &key_spec)))
@@ -3194,16 +3192,14 @@ static int _handle_devs_for_group(sid_res_t              *res,
 
 	                    .abs_delta    = &KV_DELTA(),
 
-	                    .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                                 .dom     = dom,
+	                    .cur_key_spec = &KV_KEY_SPEC(.dom     = dom,
 	                                                 .ns      = group_ns,
 	                                                 .ns_part = _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MODULE),
 	                                                 .id_cat  = group_cat,
 	                                                 .id      = group_id,
 	                                                 .core    = KV_KEY_GEN_GROUP_MEMBERS),
 
-	                    .rel_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                                 .ns      = SID_KV_NS_DEVICE,
+	                    .rel_key_spec = &KV_KEY_SPEC(.ns      = SID_KV_NS_DEVICE,
 	                                                 .ns_part = _get_ns_part(ucmd_ctx, owner, SID_KV_NS_DEVICE),
 	                                                 .core    = KV_KEY_GEN_GROUP_IN));
 
@@ -3268,18 +3264,17 @@ static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
 	int                        r = -1;
 
 	struct kv_rel_spec rel_spec =
-		KV_REL_SPEC(.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
+		KV_REL_SPEC(.delta        = &KV_DELTA(.flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
 	                    .abs_delta    = &KV_DELTA(),
 
-	                    .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                                 .dom     = dom,
+	                    .cur_key_spec = &KV_KEY_SPEC(.dom     = dom,
 	                                                 .ns      = group_ns,
 	                                                 .ns_part = _get_ns_part(ucmd_ctx, owner, group_ns),
 	                                                 .id_cat  = group_cat,
 	                                                 .id      = group_id,
 	                                                 .core    = KV_KEY_GEN_GROUP_MEMBERS),
 
-	                    .rel_key_spec = &KV_KEY_SPEC(.op = KV_OP_SET, .ns = SID_KV_NS_DEVICE, .core = KV_KEY_GEN_GROUP_IN));
+	                    .rel_key_spec = &KV_KEY_SPEC(.ns = SID_KV_NS_DEVICE, .core = KV_KEY_GEN_GROUP_IN));
 
 	struct kv_update_arg update_arg =
 		KV_UPDATE_ARG(.res = ucmd_ctx->common->kvs_res, .gen_buf = ucmd_ctx->common->gen_buf, .custom = &rel_spec);
@@ -3350,8 +3345,7 @@ int sid_ucmd_dev_alias_rename(sid_res_t           *mod_res,
 	if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(alias_key) || UTIL_STR_EMPTY(old_alias) || UTIL_STR_EMPTY(new_alias))
 		return -EINVAL;
 
-	key_spec = KV_KEY_SPEC(.op      = KV_OP_SET,
-	                       .dom     = KV_KEY_DOM_ALIAS,
+	key_spec = KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
 	                       .ns      = SID_KV_NS_MODULE,
 	                       .ns_part = _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_MODULE),
 	                       .id_cat  = alias_key,
@@ -3428,8 +3422,7 @@ const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucm
 		mod_res,
 		ucmd_ctx,
 		_owner_name(mod_res),
-		&KV_KEY_SPEC(.op      = KV_OP_SET,
-	                     .ns      = SID_KV_NS_DEVICE,
+		&KV_KEY_SPEC(.ns      = SID_KV_NS_DEVICE,
 	                     .ns_part = args->dev_id ?: _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_DEVICE),
 	                     .core    = KV_KEY_GEN_GROUP_IN),
 		&vvalue_size,
@@ -3439,15 +3432,12 @@ const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucm
 	if (!vvalue)
 		goto out;
 
-	key_strv = _get_key_strv_from_vvalue(vvalue,
-	                                     vvalue_size,
-	                                     &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                                  .dom     = KV_KEY_DOM_ALIAS,
-	                                                  .ns      = SID_KV_NS_MODULE,
-	                                                  .ns_part = args->mod_name,
-	                                                  .id_cat  = args->alias_key),
-	                                     args->count,
-	                                     &r);
+	key_strv = _get_key_strv_from_vvalue(
+		vvalue,
+		vvalue_size,
+		&KV_KEY_SPEC(.dom = KV_KEY_DOM_ALIAS, .ns = SID_KV_NS_MODULE, .ns_part = args->mod_name, .id_cat = args->alias_key),
+		args->count,
+		&r);
 out:
 	if (args->ret_code)
 		*args->ret_code = r;
@@ -3475,8 +3465,7 @@ static int _do_sid_ucmd_group_create(sid_res_t              *res,
 	kv_vector_t vvalue[VVALUE_HEADER_CNT];
 	int         r                   = -1;
 
-	struct kv_key_spec key_spec     = KV_KEY_SPEC(.op      = KV_OP_SET,
-                                                  .dom     = dom ?: ID_NULL,
+	struct kv_key_spec key_spec     = KV_KEY_SPEC(.dom     = dom ?: ID_NULL,
                                                   .ns      = group_ns,
                                                   .ns_part = _get_ns_part(ucmd_ctx, owner, group_ns),
                                                   .id_cat  = group_cat,
@@ -4270,8 +4259,7 @@ const void *sid_ucmd_kv_get_disk_part(sid_res_t           *mod_res,
                                       sid_ucmd_kv_flags_t *flags)
 {
 	char               devno_buf[16];
-	struct kv_key_spec key_spec = KV_KEY_SPEC(.op   = KV_OP_SET,
-	                                          .dom  = KV_KEY_DOM_USER,
+	struct kv_key_spec key_spec = KV_KEY_SPEC(.dom  = KV_KEY_DOM_USER,
 	                                          .ns   = SID_KV_NS_DEVICE,
 	                                          /* .ns_part will be calculated later */
 	                                          .core = key_core);
@@ -4302,8 +4290,7 @@ static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 	int          r;
 
 	if (!(key = _compose_key(ucmd_ctx->common->gen_buf,
-	                         &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                      .dom     = KV_KEY_DOM_ALIAS,
+	                         &KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
 	                                      .ns      = SID_KV_NS_MODULE,
 	                                      .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
 	                                      .id_cat  = alias_key,
@@ -4497,16 +4484,14 @@ static int _update_disk_deps_from_sysfs(sid_res_t *cmd_res)
 	int                  r = -1;
 
 	struct kv_rel_spec rel_spec =
-		KV_REL_SPEC(.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
+		KV_REL_SPEC(.delta        = &KV_DELTA(.flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
 
 	                    .abs_delta    = &KV_DELTA(),
 
-	                    .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                                 .ns      = SID_KV_NS_DEVICE,
+	                    .cur_key_spec = &KV_KEY_SPEC(.ns      = SID_KV_NS_DEVICE,
 	                                                 .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_DEVICE),
 	                                                 .core    = KV_KEY_GEN_GROUP_MEMBERS),
-	                    .rel_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                                 .dom     = KV_KEY_DOM_ALIAS,
+	                    .rel_key_spec = &KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
 	                                                 .ns      = SID_KV_NS_MODULE,
 	                                                 .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
 	                                                 .id_cat  = DEV_ALIAS_DSEQ,
@@ -4647,16 +4632,14 @@ static int _update_part_deps_from_sysfs(sid_res_t *cmd_res)
 	size_t               count;
 
 	struct kv_rel_spec rel_spec =
-		KV_REL_SPEC(.delta        = &KV_DELTA(.op = KV_OP_SET, .flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
+		KV_REL_SPEC(.delta        = &KV_DELTA(.flags = DELTA_WITH_DIFF | DELTA_WITH_REL),
 
 	                    .abs_delta    = &KV_DELTA(),
 
-	                    .cur_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                                 .ns      = SID_KV_NS_DEVICE,
+	                    .cur_key_spec = &KV_KEY_SPEC(.ns      = SID_KV_NS_DEVICE,
 	                                                 .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_DEVICE),
 	                                                 .core    = KV_KEY_GEN_GROUP_MEMBERS),
-	                    .rel_key_spec = &KV_KEY_SPEC(.op      = KV_OP_SET,
-	                                                 .dom     = KV_KEY_DOM_ALIAS,
+	                    .rel_key_spec = &KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
 	                                                 .ns      = SID_KV_NS_MODULE,
 	                                                 .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
 	                                                 .id_cat  = DEV_ALIAS_DSEQ,
@@ -6838,8 +6821,7 @@ static int _set_up_kv_store_generation(struct sid_ucmd_common_ctx *ctx)
 	const char         *key;
 	kv_scalar_t        *svalue;
 
-	if (!(key = _compose_key(ctx->gen_buf,
-	                         &KV_KEY_SPEC(.op = KV_OP_SET, .ns = SID_KV_NS_GLOBAL, .core = KV_KEY_DB_GENERATION))))
+	if (!(key = _compose_key(ctx->gen_buf, &KV_KEY_SPEC(.ns = SID_KV_NS_GLOBAL, .core = KV_KEY_DB_GENERATION))))
 		return -1;
 
 	if ((svalue = sid_kvs_va_get(ctx->kvs_res, .key = key))) {
@@ -6874,7 +6856,7 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 	char        *old_boot_id;
 	int          r;
 
-	if (!(key = _compose_key(ctx->gen_buf, &KV_KEY_SPEC(.op = KV_OP_SET, .ns = SID_KV_NS_GLOBAL, .core = KV_KEY_BOOT_ID))))
+	if (!(key = _compose_key(ctx->gen_buf, &KV_KEY_SPEC(.ns = SID_KV_NS_GLOBAL, .core = KV_KEY_BOOT_ID))))
 		return -1;
 
 	if ((svalue = sid_kvs_va_get(ctx->kvs_res, .key = key)))
