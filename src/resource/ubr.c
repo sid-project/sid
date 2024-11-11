@@ -67,7 +67,6 @@
 #define KV_PREFIX_OP_SYNC_C        ">"
 #define KV_PREFIX_OP_ARCHIVE_C     "~"
 #define KV_PREFIX_OP_BLANK_C       " "
-#define KV_PREFIX_OP_ILLEGAL_C     "X"
 #define KV_PREFIX_OP_SET_C         ""
 #define KV_PREFIX_OP_PLUS_C        "+"
 #define KV_PREFIX_OP_MINUS_C       "-"
@@ -379,10 +378,9 @@ typedef enum {
 } mod_match_t;
 
 typedef enum {
-	KV_OP_ILLEGAL, /* illegal operation */
-	KV_OP_SET,     /* set value for kv */
-	KV_OP_PLUS,    /* add value to vector kv */
-	KV_OP_MINUS,   /* remove value fomr vector kv */
+	KV_OP_SET,   /* set value for kv */
+	KV_OP_PLUS,  /* add value to vector kv */
+	KV_OP_MINUS, /* remove value fomr vector kv */
 } kv_op_t;
 
 typedef enum {
@@ -426,10 +424,8 @@ struct kv_key_spec {
 
 #define KV_KEY_SPEC(...) ((struct kv_key_spec) {__VA_ARGS__})
 
-static const char *op_to_key_prefix_map[] = {[KV_OP_ILLEGAL] = KV_PREFIX_OP_ILLEGAL_C,
-                                             [KV_OP_SET]     = KV_PREFIX_OP_SET_C,
-                                             [KV_OP_PLUS]    = KV_PREFIX_OP_PLUS_C,
-                                             [KV_OP_MINUS]   = KV_PREFIX_OP_MINUS_C};
+static const char *op_to_key_prefix_map[] =
+	{[KV_OP_SET] = KV_PREFIX_OP_SET_C, [KV_OP_PLUS] = KV_PREFIX_OP_PLUS_C, [KV_OP_MINUS] = KV_PREFIX_OP_MINUS_C};
 
 static const char *ns_to_key_prefix_map[] = {[SID_KV_NS_UNDEFINED] = KV_PREFIX_NS_UNDEFINED_C,
                                              [SID_KV_NS_UDEV]      = KV_PREFIX_NS_UDEV_C,
@@ -729,7 +725,7 @@ static kv_op_t _get_op_from_key(const char *key)
 	 */
 
 	if (!(str = _get_key_part(key, KEY_PART_OP, &len)) || len > 1)
-		return KV_OP_ILLEGAL;
+		return KV_OP_SET;
 
 	if (!len)
 		return KV_OP_SET;
@@ -739,7 +735,7 @@ static kv_op_t _get_op_from_key(const char *key)
 	else if (str[0] == KV_PREFIX_OP_MINUS_C[0])
 		return KV_OP_MINUS;
 
-	return KV_OP_ILLEGAL;
+	return KV_OP_SET;
 }
 
 static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
@@ -1520,7 +1516,6 @@ next:
 				}
 				break;
 			case KV_OP_SET:
-			case KV_OP_ILLEGAL:
 				/* keep */
 				break;
 		}
@@ -1814,8 +1809,6 @@ static int _delta_step_calc(struct sid_kvs_update_spec *spec)
 						                     NULL)) < 0)
 							goto out;
 						break;
-					case KV_OP_ILLEGAL:
-						goto out;
 				}
 				i_old++;
 			} else if (cmp_result > 0) {
@@ -1841,8 +1834,6 @@ static int _delta_step_calc(struct sid_kvs_update_spec *spec)
 					case KV_OP_MINUS:
 						/* we're trying to remove non-existing item: ignore it */
 						break;
-					case KV_OP_ILLEGAL:
-						goto out;
 				}
 				i_new++;
 			} else {
@@ -1870,8 +1861,6 @@ static int _delta_step_calc(struct sid_kvs_update_spec *spec)
 						                     NULL)) < 0)
 							goto out;
 						break;
-					case KV_OP_ILLEGAL:
-						goto out;
 				}
 				i_old++;
 				i_new++;
@@ -1901,8 +1890,6 @@ static int _delta_step_calc(struct sid_kvs_update_spec *spec)
 					case KV_OP_MINUS:
 						/* we're removing non-existing item: don't add to delta->minus */
 						break;
-					case KV_OP_ILLEGAL:
-						goto out;
 				}
 				i_new++;
 			}
@@ -1931,8 +1918,6 @@ static int _delta_step_calc(struct sid_kvs_update_spec *spec)
 						                     NULL)) < 0)
 							goto out;
 						break;
-					case KV_OP_ILLEGAL:
-						goto out;
 				}
 				i_old++;
 			}
@@ -6176,13 +6161,6 @@ static int _sync_main_kv_store(sid_res_t *res, struct sid_ucmd_common_ctx *commo
 					break;
 				case KV_OP_SET:
 					break;
-				case KV_OP_ILLEGAL:
-					sid_res_log_error(res,
-					                  SID_INTERNAL_ERROR "%s: Illegal operator found for key %s while "
-					                                     "trying to sync main key-value store.",
-					                  __func__,
-					                  key);
-					goto out;
 			}
 
 			archive        = VVALUE_FLAGS(vvalue) & SID_KV_FL_AR;
