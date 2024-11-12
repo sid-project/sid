@@ -21,6 +21,7 @@
 #define UDEV_KEY_SEQNUM              "SEQNUM"
 #define UDEV_KEY_DISKSEQ             "DISKSEQ"
 #define UDEV_KEY_SYNTH_UUID          "SYNTH_UUID"
+#define UDEV_KEY_PARTN               "PARTN"
 
 #define UDEV_VALUE_DEVTYPE_UNKNOWN   "unknown"
 #define UDEV_VALUE_DEVTYPE_DISK      "disk"

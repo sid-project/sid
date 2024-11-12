@@ -184,6 +184,7 @@ struct udevice {
 	int            minor;
 	uint64_t       seqnum;
 	uint64_t       diskseq;
+	uint64_t       partn;
 	const char    *synth_uuid;
 };
 
@@ -3643,6 +3644,8 @@ static int _device_add_field(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, cons
 		ucmd_ctx->req_env.dev.udev.diskseq = strtoull(value, NULL, 10);
 	else if (!strcmp(key, UDEV_KEY_SYNTH_UUID))
 		ucmd_ctx->req_env.dev.udev.synth_uuid = value;
+	else if (!strcmp(key, UDEV_KEY_PARTN))
+		ucmd_ctx->req_env.dev.udev.partn = strtoull(value, NULL, 10);
 
 	free((void *) key);
 	return 0;
@@ -3681,9 +3684,19 @@ static int _parse_cmd_udev_env(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, co
 			goto out;
 	}
 
-	if (asprintf((char **) &ucmd_ctx->req_env.dev.dsq_s, "%" PRIu64, ucmd_ctx->req_env.dev.udev.diskseq) < 0) {
-		r = -ENOMEM;
-		goto out;
+	if (ucmd_ctx->req_env.dev.udev.type == UDEV_DEVTYPE_PARTITION) {
+		if (asprintf((char **) &ucmd_ctx->req_env.dev.dsq_s,
+		             "%" PRIu64 "-part%" PRIu64,
+		             ucmd_ctx->req_env.dev.udev.diskseq,
+		             ucmd_ctx->req_env.dev.udev.partn) < 0) {
+			r = -ENOMEM;
+			goto out;
+		}
+	} else {
+		if (asprintf((char **) &ucmd_ctx->req_env.dev.dsq_s, "%" PRIu64, ucmd_ctx->req_env.dev.udev.diskseq) < 0) {
+			r = -ENOMEM;
+			goto out;
+		}
 	}
 out:
 	return r;
@@ -6889,12 +6902,13 @@ static int _set_up_boot_id(struct sid_ucmd_common_ctx *ctx)
 
 static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *common_ctx, struct ulink *ulink)
 {
-	struct sid_ucmd_ctx     ucmd_ctx = {0}; /* dummy context so we can still use _handle_dev_for_group */
+	struct sid_ucmd_ctx     ucmd_ctx = {0}; /* dummy context so we can still use _set_new_dev_kvs */
 	struct udev_enumerate  *udev_enum;
 	struct udev_list_entry *udev_entry;
 	const char             *udev_name;
 	struct udev_device     *udev_dev;
 	const char             *dev_id, *dev_seq, *dev_name;
+	const char             *partn = NULL;
 	dev_t                   dev_num;
 	char                    devno_buf[16];
 	int                     r;
@@ -6937,9 +6951,17 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 			continue;
 		}
 
+		if ((partn = udev_device_get_property_value(udev_dev, UDEV_KEY_PARTN))) {
+			if (asprintf((char **) &ucmd_ctx.req_env.dev.dsq_s, "%s-part%s", dev_seq, partn) < 0) {
+				sid_res_log_error(ubridge_res, "Failed to construct device sequence number for %s.", udev_name);
+				udev_device_unref(udev_dev);
+				continue;
+			}
+		} else
+			ucmd_ctx.req_env.dev.dsq_s = (char *) dev_seq;
+
 		ucmd_ctx.req_env.dev.num_s     = devno_buf;
 		ucmd_ctx.req_env.dev.uid_s     = (char *) dev_id;
-		ucmd_ctx.req_env.dev.dsq_s     = (char *) dev_seq;
 		ucmd_ctx.req_env.dev.udev.name = dev_name;
 		ucmd_ctx.scan.dev_ready        = SID_DEV_RDY_UNDEFINED;
 		ucmd_ctx.scan.dev_reserved     = SID_DEV_RES_UNDEFINED;
@@ -6952,6 +6974,9 @@ static int _ulink_import(sid_res_t *ubridge_res, struct sid_ucmd_common_ctx *com
 		                  dev_name);
 
 		r = _set_new_dev_kvs(ubridge_res, &ucmd_ctx, true);
+
+		if (partn)
+			free((void *) ucmd_ctx.req_env.dev.dsq_s);
 		udev_device_unref(udev_dev);
 
 		if (r < 0)
