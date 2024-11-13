@@ -272,10 +272,9 @@ struct sid_ucmd_dev_alias_get_args {
 	int        *ret_code;
 };
 
+const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_dev_alias_get_args *args);
 #define sid_ucmd_dev_alias_va_get(mod_res, ucmd_ctx, ...)                                                                          \
 	sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, &((struct sid_ucmd_dev_alias_get_args) {__VA_ARGS__}))
-
-const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_dev_alias_get_args *args);
 
 int sid_ucmd_grp_create(sid_res_t              *mod_res,
                         struct sid_ucmd_ctx    *ucmd_ctx,
