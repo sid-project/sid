@@ -571,6 +571,11 @@ udev_devtype_t sid_ucmd_ev_get_dev_type(struct sid_ucmd_ctx *ucmd_ctx)
 	return ucmd_ctx->req_env.dev.udev.type;
 }
 
+uint64_t sid_ucmd_ev_get_dev_partn(struct sid_ucmd_ctx *ucmd_ctx)
+{
+	return ucmd_ctx->req_env.dev.udev.partn;
+}
+
 uint64_t sid_ucmd_ev_get_dev_seqnum(struct sid_ucmd_ctx *ucmd_ctx)
 {
 	return ucmd_ctx->req_env.dev.udev.seqnum;
