@@ -3878,6 +3878,229 @@ out:
 	return r;
 }
 
+static char **_get_dev_imm_deps(sid_res_t           *mod_res,
+                                struct sid_ucmd_ctx *ucmd_ctx,
+                                const char          *dev_key,
+                                sid_dev_search_t     method,
+                                size_t              *ret_count,
+                                int                 *ret_code)
+{
+	char               buf[UTIL_UUID_STR_SIZE];
+	const kv_vector_t *vvalue;
+	size_t             vvalue_size;
+	int                r;
+
+	switch (method) {
+		case SID_DEV_SEARCH_IMM_ANC:
+		case SID_DEV_SEARCH_ANC:
+		case SID_DEV_SEARCH_BASE:
+			/* dev_key is dseq */
+			if (dev_key) {
+				if ((r = _dev_key_to_devid(ucmd_ctx, dev_key, NULL, NULL, buf, sizeof(buf))) < 0) {
+					*ret_code = r;
+					return NULL;
+				}
+			} else
+				buf[0] = 0;
+
+			vvalue = _cmd_get_key_spec_value(
+				mod_res,
+				ucmd_ctx,
+				_owner_name(mod_res),
+				&KV_KEY_SPEC(.ns = SID_KV_NS_DEVICE,
+			                     .ns_part =
+			                             buf[0] ? buf : _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_DEVICE),
+			                     .core = KV_KEY_GEN_GROUP_MEMBERS),
+				&vvalue_size,
+				NULL,
+				ret_code);
+
+			if (*ret_code < 0 && *ret_code != -ENOENT)
+				return NULL;
+
+			return _get_key_strv_from_vvalue(vvalue,
+			                                 vvalue_size,
+			                                 &KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
+			                                              .ns      = SID_KV_NS_MODULE,
+			                                              .ns_part = _owner_name(NULL),
+			                                              .id_cat  = DEV_ALIAS_DSEQ),
+			                                 ret_count,
+			                                 ret_code);
+
+		case SID_DEV_SEARCH_IMM_DESC:
+		case SID_DEV_SEARCH_DESC:
+		case SID_DEV_SEARCH_TOP:
+			/* dev_key is devid */
+			if (dev_key) {
+				if ((r = _dev_key_to_dsq(ucmd_ctx, dev_key, NULL, buf, sizeof(buf))) < 0) {
+					*ret_code = r;
+					return NULL;
+				}
+			} else
+				buf[0] = 0;
+
+			vvalue = _cmd_get_key_spec_value(mod_res,
+			                                 ucmd_ctx,
+			                                 _owner_name(mod_res),
+			                                 &KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
+			                                              .ns      = SID_KV_NS_MODULE,
+			                                              .ns_part = _owner_name(NULL),
+			                                              .id_cat  = DEV_ALIAS_DSEQ,
+			                                              .id      = buf[0] ? buf : ucmd_ctx->req_env.dev.dsq_s,
+			                                              .core    = KV_KEY_GEN_GROUP_IN),
+			                                 &vvalue_size,
+			                                 NULL,
+			                                 ret_code);
+
+			if (*ret_code < 0 && *ret_code != -ENOENT)
+				return NULL;
+
+			return _get_key_strv_from_vvalue(vvalue,
+			                                 vvalue_size,
+			                                 &KV_KEY_SPEC(.ns = SID_KV_NS_DEVICE),
+			                                 ret_count,
+			                                 ret_code);
+
+		default:
+			*ret_code = -EINVAL;
+			return NULL;
+	}
+}
+
+static char **_do_sid_ucmd_dev_stack_get(sid_res_t           *mod_res,
+                                         struct sid_ucmd_ctx *ucmd_ctx,
+                                         const char          *dev_key,
+                                         sid_dev_search_t     method,
+                                         size_t              *ret_count,
+                                         int                 *ret_code)
+{
+	size_t i, count, count1, count2;
+	char **strv = NULL, **strv1 = NULL, **strv2 = NULL;
+	char **strv_merged;
+
+	strv = _get_dev_imm_deps(mod_res, ucmd_ctx, dev_key, method, &count, ret_code);
+
+	if (*ret_code < 0)
+		goto fail;
+
+	switch (method) {
+		case SID_DEV_SEARCH_IMM_ANC:
+		case SID_DEV_SEARCH_IMM_DESC:
+			break;
+
+		case SID_DEV_SEARCH_ANC:
+		case SID_DEV_SEARCH_DESC:
+			if (count == 0)
+				goto out;
+
+			strv1  = strv;
+			count1 = count;
+
+			for (i = 0; i < count; i++) {
+				strv2 = _do_sid_ucmd_dev_stack_get(mod_res, ucmd_ctx, strv[i], method, &count2, ret_code);
+
+				if (*ret_code < 0)
+					goto fail;
+
+				if (!strv2)
+					continue;
+
+				if (!(strv_merged = _strv_add_strv(strv1, count1, strv2, count2))) {
+					*ret_code = -ENOMEM;
+					goto fail;
+				}
+
+				if (strv1 != strv)
+					free(strv1);
+				free(strv2);
+
+				strv1   = strv_merged;
+				count1 += count2;
+			}
+
+			if (strv1 != strv) {
+				free(strv);
+				strv  = strv1;
+				count = count1;
+			}
+			break;
+
+		case SID_DEV_SEARCH_BASE:
+		case SID_DEV_SEARCH_TOP:
+			if (count == 0)
+				goto out;
+
+			strv1  = NULL;
+			count1 = 0;
+
+			for (i = 0; i < count; i++) {
+				strv2 = _do_sid_ucmd_dev_stack_get(mod_res, ucmd_ctx, strv[i], method, &count2, ret_code);
+
+				if (*ret_code < 0)
+					goto fail;
+
+				if (!strv2) {
+					if (!(strv_merged = _strv_add_str(strv1, count1, strv[i]))) {
+						*ret_code = -ENOMEM;
+						goto fail;
+					}
+
+					free(strv1);
+					free(strv2);
+
+					strv1   = strv_merged;
+					count1 += 1;
+				} else {
+					if (strv1) {
+						if (!(strv_merged = _strv_add_strv(strv1, count1, strv2, count2))) {
+							*ret_code = -ENOMEM;
+							goto fail;
+						}
+
+						free(strv1);
+						free(strv2);
+
+						strv1   = strv_merged;
+						count1 += count2;
+					} else {
+						strv1  = strv2;
+						count1 = count2;
+					}
+				}
+			}
+
+			free(strv);
+			strv  = strv1;
+			count = count1;
+			break;
+
+		default:
+			break;
+	}
+out:
+	*ret_count = count;
+	return strv;
+fail:
+	free(strv1);
+	free(strv2);
+	if (strv != strv1)
+		free(strv);
+	*ret_count = 0;
+	return NULL;
+}
+
+const char **sid_ucmd_dev_stack_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_dev_stack_get_args *args)
+{
+	if (!args)
+		return NULL;
+
+	// TODO: deal with situation when args->count and args->ret_code is NULL - we are setting both of these inside
+	// _do_sid_cumd_dev_stack_get
+
+	return (const char **)
+		_do_sid_ucmd_dev_stack_get(mod_res, ucmd_ctx, args->dev_key, args->method, args->count, args->ret_code);
+}
+
 static int _device_add_field(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 {
 	const char *key;

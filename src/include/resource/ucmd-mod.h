@@ -299,6 +299,26 @@ int sid_ucmd_grp_destroy(sid_res_t           *mod_res,
                          const char          *group_id,
                          int                  force);
 
+typedef enum {
+	SID_DEV_SEARCH_IMM_ANC,
+	SID_DEV_SEARCH_ANC,
+	SID_DEV_SEARCH_BASE,
+	SID_DEV_SEARCH_IMM_DESC,
+	SID_DEV_SEARCH_DESC,
+	SID_DEV_SEARCH_TOP,
+} sid_dev_search_t;
+
+struct sid_ucmd_dev_stack_get_args {
+	const char      *dev_key;
+	sid_dev_search_t method;
+	size_t          *count;
+	int             *ret_code;
+};
+
+const char **sid_ucmd_dev_stack_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_dev_stack_get_args *args);
+#define sid_ucmd_dev_stack_va_get(mod_res, ucmd_ctx, ...)                                                                          \
+	sid_ucmd_dev_stack_get(mod_res, ucmd_ctx, &((struct sid_ucmd_dev_stack_get_args) {__VA_ARGS__}))
+
 #ifdef __cplusplus
 }
 #endif
