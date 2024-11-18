@@ -413,14 +413,14 @@ typedef enum {
 } key_part_t;
 
 struct kv_key_spec {
-	const char             *extra_op;
-	kv_op_t                 op;
-	const char             *dom;
-	sid_ucmd_kv_namespace_t ns;
-	const char             *ns_part;
-	const char             *id_cat;
-	const char             *id;
-	const char             *core;
+	const char        *extra_op;
+	kv_op_t            op;
+	const char        *dom;
+	sid_kv_namespace_t ns;
+	const char        *ns_part;
+	const char        *id_cat;
+	const char        *id;
+	const char        *core;
 };
 
 #define KV_KEY_SPEC(...) ((struct kv_key_spec) {__VA_ARGS__})
@@ -744,7 +744,7 @@ static kv_op_t _get_op_from_key(const char *key)
 	return KV_OP_SET;
 }
 
-static sid_ucmd_kv_namespace_t _get_ns_from_key(const char *key)
+static sid_kv_namespace_t _get_ns_from_key(const char *key)
 {
 	const char *str;
 	size_t      len;
@@ -1645,7 +1645,7 @@ out:
 	return r;
 }
 
-static const char *_get_ns_part(struct sid_ucmd_ctx *ucmd_ctx, const char *owner, sid_ucmd_kv_namespace_t ns)
+static const char *_get_ns_part(struct sid_ucmd_ctx *ucmd_ctx, const char *owner, sid_kv_namespace_t ns)
 {
 	switch (ns) {
 		case SID_KV_NS_UDEV:
@@ -1663,11 +1663,11 @@ static const char *_get_ns_part(struct sid_ucmd_ctx *ucmd_ctx, const char *owner
 	return ID_NULL;
 }
 
-static const char *_get_foreign_ns_part(struct sid_ucmd_ctx    *ucmd_ctx,
-                                        const char             *owner,
-                                        const char             *foreign_mod_name,
-                                        const char             *foreign_dev_id,
-                                        sid_ucmd_kv_namespace_t ns)
+static const char *_get_foreign_ns_part(struct sid_ucmd_ctx *ucmd_ctx,
+                                        const char          *owner,
+                                        const char          *foreign_mod_name,
+                                        const char          *foreign_dev_id,
+                                        sid_kv_namespace_t   ns)
 {
 	switch (ns) {
 		case SID_KV_NS_UDEV:
@@ -2792,7 +2792,7 @@ static int _do_sid_ucmd_mod_reserve_kv(sid_res_t                  *res,
                                        struct sid_ucmd_common_ctx *common,
                                        const char                 *owner,
                                        const char                 *dom,
-                                       sid_ucmd_kv_namespace_t     ns,
+                                       sid_kv_namespace_t          ns,
                                        const char                 *key_core,
                                        sid_ucmd_kv_flags_t         flags,
                                        int                         unset)
@@ -2855,7 +2855,7 @@ out:
 
 int sid_ucmd_kv_reserve(sid_res_t                  *mod_res,
                         struct sid_ucmd_common_ctx *common,
-                        sid_ucmd_kv_namespace_t     ns,
+                        sid_kv_namespace_t          ns,
                         const char                 *key,
                         sid_ucmd_kv_flags_t         flags)
 {
@@ -2872,7 +2872,7 @@ int sid_ucmd_kv_reserve(sid_res_t                  *mod_res,
 	return _do_sid_ucmd_mod_reserve_kv(mod_res, common, _owner_name(mod_res), dom, ns, key, flags, 0);
 }
 
-int sid_ucmd_kv_unreserve(sid_res_t *mod_res, struct sid_ucmd_common_ctx *common, sid_ucmd_kv_namespace_t ns, const char *key)
+int sid_ucmd_kv_unreserve(sid_res_t *mod_res, struct sid_ucmd_common_ctx *common, sid_kv_namespace_t ns, const char *key)
 {
 	const char *dom;
 
@@ -3172,17 +3172,17 @@ sid_ucmd_dev_reserved_t sid_ucmd_dev_get_reserved(sid_res_t *mod_res, struct sid
 	return _do_sid_ucmd_dev_get_reserved(mod_res, ucmd_ctx, _owner_name(mod_res), archive);
 }
 
-static int _handle_devs_for_group(sid_res_t              *res,
-                                  struct sid_ucmd_ctx    *ucmd_ctx,
-                                  const char             *owner,
-                                  const kv_vector_t      *vdevs,
-                                  size_t                  vdevs_size,
-                                  const char             *dom,
-                                  sid_ucmd_kv_namespace_t group_ns,
-                                  const char             *group_cat,
-                                  const char             *group_id,
-                                  kv_op_t                 op,
-                                  bool                    is_sync)
+static int _handle_devs_for_group(sid_res_t           *res,
+                                  struct sid_ucmd_ctx *ucmd_ctx,
+                                  const char          *owner,
+                                  const kv_vector_t   *vdevs,
+                                  size_t               vdevs_size,
+                                  const char          *dom,
+                                  sid_kv_namespace_t   group_ns,
+                                  const char          *group_cat,
+                                  const char          *group_id,
+                                  kv_op_t              op,
+                                  bool                 is_sync)
 {
 	char               *key            = NULL;
 	const char         *rel_key_prefix = NULL;
@@ -3254,14 +3254,14 @@ out:
 	return r;
 }
 
-static int _do_sid_ucmd_group_destroy(sid_res_t              *res,
-                                      struct sid_ucmd_ctx    *ucmd_ctx,
-                                      const char             *owner,
-                                      const char             *dom,
-                                      sid_ucmd_kv_namespace_t group_ns,
-                                      const char             *group_cat,
-                                      const char             *group_id,
-                                      int                     force)
+static int _do_sid_ucmd_group_destroy(sid_res_t           *res,
+                                      struct sid_ucmd_ctx *ucmd_ctx,
+                                      const char          *owner,
+                                      const char          *dom,
+                                      sid_kv_namespace_t   group_ns,
+                                      const char          *group_cat,
+                                      const char          *group_id,
+                                      int                  force)
 {
 	static sid_ucmd_kv_flags_t kv_flags_sync_no_reserved = (DEFAULT_VALUE_FLAGS_CORE) & ~SID_KV_FL_RS;
 	char                      *key                       = NULL;
@@ -3458,14 +3458,14 @@ static int _kv_cb_write_new_only(struct sid_kvs_update_spec *spec)
 	return _kv_cb_write(spec);
 }
 
-static int _do_sid_ucmd_group_create(sid_res_t              *res,
-                                     struct sid_ucmd_ctx    *ucmd_ctx,
-                                     const char             *owner,
-                                     const char             *dom,
-                                     sid_ucmd_kv_namespace_t group_ns,
-                                     sid_ucmd_kv_flags_t     group_flags,
-                                     const char             *group_cat,
-                                     const char             *group_id)
+static int _do_sid_ucmd_group_create(sid_res_t           *res,
+                                     struct sid_ucmd_ctx *ucmd_ctx,
+                                     const char          *owner,
+                                     const char          *dom,
+                                     sid_kv_namespace_t   group_ns,
+                                     sid_ucmd_kv_flags_t  group_flags,
+                                     const char          *group_cat,
+                                     const char          *group_id)
 {
 	char       *key = NULL;
 	kv_vector_t vvalue[VVALUE_HEADER_CNT];
@@ -3507,12 +3507,12 @@ out:
 	return r;
 }
 
-int sid_ucmd_grp_create(sid_res_t              *mod_res,
-                        struct sid_ucmd_ctx    *ucmd_ctx,
-                        sid_ucmd_kv_namespace_t group_ns,
-                        sid_ucmd_kv_flags_t     group_flags,
-                        const char             *group_cat,
-                        const char             *group_id)
+int sid_ucmd_grp_create(sid_res_t           *mod_res,
+                        struct sid_ucmd_ctx *ucmd_ctx,
+                        sid_kv_namespace_t   group_ns,
+                        sid_ucmd_kv_flags_t  group_flags,
+                        const char          *group_cat,
+                        const char          *group_id)
 {
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
@@ -3533,11 +3533,11 @@ int sid_ucmd_grp_create(sid_res_t              *mod_res,
 	                                 group_id);
 }
 
-int sid_ucmd_grp_add_current_dev(sid_res_t              *mod_res,
-                                 struct sid_ucmd_ctx    *ucmd_ctx,
-                                 sid_ucmd_kv_namespace_t group_ns,
-                                 const char             *group_cat,
-                                 const char             *group_id)
+int sid_ucmd_grp_add_current_dev(sid_res_t           *mod_res,
+                                 struct sid_ucmd_ctx *ucmd_ctx,
+                                 sid_kv_namespace_t   group_ns,
+                                 const char          *group_cat,
+                                 const char          *group_id)
 {
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_cat) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
@@ -3559,11 +3559,11 @@ int sid_ucmd_grp_add_current_dev(sid_res_t              *mod_res,
 	                              false);
 }
 
-int sid_ucmd_grp_del_current_dev(sid_res_t              *mod_res,
-                                 struct sid_ucmd_ctx    *ucmd_ctx,
-                                 sid_ucmd_kv_namespace_t group_ns,
-                                 const char             *group_cat,
-                                 const char             *group_id)
+int sid_ucmd_grp_del_current_dev(sid_res_t           *mod_res,
+                                 struct sid_ucmd_ctx *ucmd_ctx,
+                                 sid_kv_namespace_t   group_ns,
+                                 const char          *group_cat,
+                                 const char          *group_id)
 {
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_cat) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
@@ -3585,12 +3585,12 @@ int sid_ucmd_grp_del_current_dev(sid_res_t              *mod_res,
 	                              false);
 }
 
-int sid_ucmd_grp_destroy(sid_res_t              *mod_res,
-                         struct sid_ucmd_ctx    *ucmd_ctx,
-                         sid_ucmd_kv_namespace_t group_ns,
-                         const char             *group_cat,
-                         const char             *group_id,
-                         int                     force)
+int sid_ucmd_grp_destroy(sid_res_t           *mod_res,
+                         struct sid_ucmd_ctx *ucmd_ctx,
+                         sid_kv_namespace_t   group_ns,
+                         const char          *group_cat,
+                         const char          *group_id,
+                         int                  force)
 {
 	if (!mod_res || !ucmd_ctx || (group_ns == SID_KV_NS_UNDEFINED) || UTIL_STR_EMPTY(group_id))
 		return -EINVAL;
