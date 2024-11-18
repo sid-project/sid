@@ -280,7 +280,7 @@ struct sid_ucmd_ctx {
 			sid_res_t              *type_mod_res_current;
 			sid_res_t              *type_mod_res_next;
 			cmd_scan_phase_t        phase; /* current scan phase */
-			sid_ucmd_dev_ready_t    dev_ready;
+			sid_dev_ready_t         dev_ready;
 			sid_ucmd_dev_reserved_t dev_reserved;
 		} scan;
 
@@ -2887,7 +2887,7 @@ int sid_ucmd_kv_unreserve(sid_res_t *mod_res, struct sid_ucmd_common_ctx *common
 	return _do_sid_ucmd_mod_reserve_kv(mod_res, common, _owner_name(mod_res), dom, ns, key, SID_KV_FL_NONE, 1);
 }
 
-const char *sid_ucmd_dev_ready_to_str(sid_ucmd_dev_ready_t ready)
+const char *sid_ucmd_dev_ready_to_str(sid_dev_ready_t ready)
 {
 	return dev_ready_str[ready];
 }
@@ -2900,11 +2900,11 @@ const char *sid_ucmd_dev_reserved_to_str(sid_ucmd_dev_reserved_t reserved)
 static int _do_sid_ucmd_dev_set_ready(sid_res_t           *res,
                                       struct sid_ucmd_ctx *ucmd_ctx,
                                       const char          *owner,
-                                      sid_ucmd_dev_ready_t ready,
+                                      sid_dev_ready_t      ready,
                                       bool                 is_sync)
 {
-	sid_ucmd_dev_ready_t old_ready = ucmd_ctx->scan.dev_ready;
-	int                  r;
+	sid_dev_ready_t old_ready = ucmd_ctx->scan.dev_ready;
+	int             r;
 
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RDY)) {
 		r = -EPERM;
@@ -2985,7 +2985,7 @@ out:
 	return r;
 }
 
-int sid_ucmd_dev_set_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_ready_t ready)
+int sid_ucmd_dev_set_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_dev_ready_t ready)
 {
 	if (!mod_res || !ucmd_ctx)
 		return -EINVAL;
@@ -2997,11 +2997,11 @@ int sid_ucmd_dev_set_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, si
 	return _do_sid_ucmd_dev_set_ready(mod_res, ucmd_ctx, _owner_name(mod_res), ready, false);
 }
 
-static sid_ucmd_dev_ready_t
+static sid_dev_ready_t
 	_do_sid_ucmd_dev_get_ready(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, const char *owner, unsigned int archive)
 {
-	const void          *val;
-	sid_ucmd_dev_ready_t ready_arch;
+	const void     *val;
+	sid_dev_ready_t ready_arch;
 
 	if (archive) {
 		if ((val = _do_sid_ucmd_get_kv(res,
@@ -3011,7 +3011,7 @@ static sid_ucmd_dev_ready_t
 		                               &((struct sid_ucmd_kv_get_args) {.ns      = SID_KV_NS_DEVICE,
 		                                                                .key     = KV_KEY_DEV_READY,
 		                                                                .archive = archive}))))
-			memcpy(&ready_arch, val, sizeof(sid_ucmd_dev_ready_t));
+			memcpy(&ready_arch, val, sizeof(sid_dev_ready_t));
 		else
 			ready_arch = SID_DEV_RDY_UNDEFINED;
 
@@ -3024,13 +3024,13 @@ static sid_ucmd_dev_ready_t
 		                               owner,
 		                               NULL,
 		                               &((struct sid_ucmd_kv_get_args) {.ns = SID_KV_NS_DEVICE, .key = KV_KEY_DEV_READY}))))
-			memcpy(&ucmd_ctx->scan.dev_ready, val, sizeof(sid_ucmd_dev_ready_t));
+			memcpy(&ucmd_ctx->scan.dev_ready, val, sizeof(sid_dev_ready_t));
 	}
 
 	return ucmd_ctx->scan.dev_ready;
 }
 
-sid_ucmd_dev_ready_t sid_ucmd_dev_get_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
+sid_dev_ready_t sid_ucmd_dev_get_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
 	if (!mod_res || !ucmd_ctx)
 		return SID_DEV_RDY_UNDEFINED;
@@ -3140,7 +3140,7 @@ static sid_ucmd_dev_reserved_t
 		                               &((struct sid_ucmd_kv_get_args) {.ns      = SID_KV_NS_DEVICE,
 		                                                                .key     = KV_KEY_DEV_RESERVED,
 		                                                                .archive = archive}))))
-			memcpy(&reserved_arch, val, sizeof(sid_ucmd_dev_ready_t));
+			memcpy(&reserved_arch, val, sizeof(sid_dev_ready_t));
 		else
 			reserved_arch = SID_DEV_RES_UNDEFINED;
 
@@ -3154,7 +3154,7 @@ static sid_ucmd_dev_reserved_t
 			     owner,
 			     NULL,
 			     &((struct sid_ucmd_kv_get_args) {.ns = SID_KV_NS_DEVICE, .key = KV_KEY_DEV_RESERVED}))))
-			memcpy(&ucmd_ctx->scan.dev_reserved, val, sizeof(sid_ucmd_dev_ready_t));
+			memcpy(&ucmd_ctx->scan.dev_reserved, val, sizeof(sid_dev_ready_t));
 	}
 
 	return ucmd_ctx->scan.dev_reserved;
@@ -4154,7 +4154,7 @@ out:
 
 static const char *_sval_to_dev_ready_str(kv_scalar_t *val)
 {
-	sid_ucmd_dev_ready_t ready;
+	sid_dev_ready_t ready;
 
 	memcpy(&ready, val->data + _svalue_ext_data_offset(val), sizeof(ready));
 	return dev_ready_str[ready];
@@ -4976,7 +4976,7 @@ static int _cmd_exec_scan_a_pre(sid_res_t *cmd_res)
 static int _cmd_exec_scan_a_current(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
-	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, sid_res_get_data(cmd_res), _owner_name(NULL), 0);
+	sid_dev_ready_t      ready    = _do_sid_ucmd_dev_get_ready(cmd_res, sid_res_get_data(cmd_res), _owner_name(NULL), 0);
 
 	if (ready == SID_DEV_RDY_UNPROCESSED && !ucmd_ctx->scan.type_mod_res_current) {
 		/*
@@ -4999,7 +4999,7 @@ static int _cmd_exec_scan_a_current(sid_res_t *cmd_res)
 static int _cmd_exec_scan_a_next(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
-	sid_ucmd_dev_ready_t ready;
+	sid_dev_ready_t      ready;
 	const char          *next_mod_name;
 
 	ready = _do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0);
@@ -5026,7 +5026,7 @@ static int _cmd_exec_scan_a_next(sid_res_t *cmd_res)
 static int _cmd_exec_scan_a_post_current(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
-	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0);
+	sid_dev_ready_t      ready    = _do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0);
 
 	if (!UTIL_IN_SET(ready, SID_DEV_RDY_PRIVATE, SID_DEV_RDY_FLAT, SID_DEV_RDY_PUBLIC))
 		return 1;
@@ -5038,7 +5038,7 @@ static int _cmd_exec_scan_a_post_current(sid_res_t *cmd_res)
 static int _cmd_exec_scan_a_post_next(sid_res_t *cmd_res)
 {
 	struct sid_ucmd_ctx *ucmd_ctx = sid_res_get_data(cmd_res);
-	sid_ucmd_dev_ready_t ready    = _do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0);
+	sid_dev_ready_t      ready    = _do_sid_ucmd_dev_get_ready(cmd_res, ucmd_ctx, _owner_name(NULL), 0);
 
 	if (!UTIL_IN_SET(ready, SID_DEV_RDY_PUBLIC))
 		return 1;

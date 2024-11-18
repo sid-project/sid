@@ -677,12 +677,12 @@ SID_UCMD_SCAN_A_INIT(_dm_scan_a_init)
  */
 static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_ucmd_dev_ready_t ready;
-	int                  has_cookie, is_synth, is_suspended;
-	const void          *val;
-	udev_action_t        action;
-	dm_cookie_flags_t    cookie_flags = 0;
-	int                  r            = 0;
+	sid_dev_ready_t   ready;
+	int               has_cookie, is_synth, is_suspended;
+	const void       *val;
+	udev_action_t     action;
+	dm_cookie_flags_t cookie_flags = 0;
+	int               r            = 0;
 
 	sid_res_log_debug(mod_res, "scan-pre");
 
@@ -882,7 +882,7 @@ SID_UCMD_SCAN_POST_NEXT(_dm_scan_post_next)
 
 static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_ucmd_dev_ready_t     ready;
+	sid_dev_ready_t          ready;
 	const dm_cookie_flags_t *flags;
 	const char              *flag_name;
 	int                      i;

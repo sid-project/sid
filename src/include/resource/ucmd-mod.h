@@ -235,7 +235,7 @@ typedef enum {
 	/* markers for easier state matching */
 	_SID_DEV_RDY         = SID_DEV_RDY_UNINITIALIZED,
 	_SID_DEV_RDY_LAYERED = SID_DEV_RDY_UNAVAILABLE,
-} sid_ucmd_dev_ready_t;
+} sid_dev_ready_t;
 
 typedef enum {
 	SID_DEV_RES_UNDEFINED,   /* undefined or invalid */
@@ -245,8 +245,8 @@ typedef enum {
 	SID_DEV_RES_FREE,        /* not yet reserved or used by a layer above */
 } sid_ucmd_dev_reserved_t;
 
-int                  sid_ucmd_dev_set_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_ready_t ready);
-sid_ucmd_dev_ready_t sid_ucmd_dev_get_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
+int             sid_ucmd_dev_set_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_dev_ready_t ready);
+sid_dev_ready_t sid_ucmd_dev_get_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);
 
 int sid_ucmd_dev_set_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved);
 sid_ucmd_dev_reserved_t sid_ucmd_dev_get_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive);

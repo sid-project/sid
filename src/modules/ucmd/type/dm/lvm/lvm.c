@@ -283,7 +283,7 @@ static int _lvm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
 	static const char        failed_to_change_dev_rdy_msg[] = "Failed to change LVM device ready state";
 	const dm_cookie_flags_t *flags;
-	sid_ucmd_dev_ready_t     ready;
+	sid_dev_ready_t          ready;
 	int                      r = 0;
 
 	sid_res_log_debug(mod_res, "scan-pre");
