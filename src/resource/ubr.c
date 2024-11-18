@@ -276,12 +276,12 @@ struct sid_ucmd_ctx {
 	/* cmd specific context */
 	union {
 		struct {
-			sid_res_iter_t         *block_mod_iter;
-			sid_res_t              *type_mod_res_current;
-			sid_res_t              *type_mod_res_next;
-			cmd_scan_phase_t        phase; /* current scan phase */
-			sid_dev_ready_t         dev_ready;
-			sid_ucmd_dev_reserved_t dev_reserved;
+			sid_res_iter_t    *block_mod_iter;
+			sid_res_t         *type_mod_res_current;
+			sid_res_t         *type_mod_res_next;
+			cmd_scan_phase_t   phase; /* current scan phase */
+			sid_dev_ready_t    dev_ready;
+			sid_dev_reserved_t dev_reserved;
 		} scan;
 
 		struct {
@@ -2892,7 +2892,7 @@ const char *sid_ucmd_dev_ready_to_str(sid_dev_ready_t ready)
 	return dev_ready_str[ready];
 }
 
-const char *sid_ucmd_dev_reserved_to_str(sid_ucmd_dev_reserved_t reserved)
+const char *sid_ucmd_dev_reserved_to_str(sid_dev_reserved_t reserved)
 {
 	return dev_reserved_str[reserved];
 }
@@ -3042,14 +3042,14 @@ sid_dev_ready_t sid_ucmd_dev_get_ready(sid_res_t *mod_res, struct sid_ucmd_ctx *
 	return _do_sid_ucmd_dev_get_ready(mod_res, ucmd_ctx, _owner_name(mod_res), archive);
 }
 
-static int _do_sid_ucmd_dev_set_reserved(sid_res_t              *res,
-                                         struct sid_ucmd_ctx    *ucmd_ctx,
-                                         const char             *owner,
-                                         sid_ucmd_dev_reserved_t reserved,
-                                         bool                    is_sync)
+static int _do_sid_ucmd_dev_set_reserved(sid_res_t           *res,
+                                         struct sid_ucmd_ctx *ucmd_ctx,
+                                         const char          *owner,
+                                         sid_dev_reserved_t   reserved,
+                                         bool                 is_sync)
 {
-	sid_ucmd_dev_reserved_t old_reserved = ucmd_ctx->scan.dev_reserved;
-	int                     r;
+	sid_dev_reserved_t old_reserved = ucmd_ctx->scan.dev_reserved;
+	int                r;
 
 	if (!(_cmd_scan_phase_regs[ucmd_ctx->scan.phase].flags & CMD_SCAN_CAP_RES)) {
 		r = -EPERM;
@@ -3114,7 +3114,7 @@ out:
 	return r;
 }
 
-int sid_ucmd_dev_set_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_ucmd_dev_reserved_t reserved)
+int sid_ucmd_dev_set_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, sid_dev_reserved_t reserved)
 {
 	if (!mod_res || !ucmd_ctx)
 		return -EINVAL;
@@ -3126,11 +3126,11 @@ int sid_ucmd_dev_set_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx,
 	return _do_sid_ucmd_dev_set_reserved(mod_res, ucmd_ctx, _owner_name(mod_res), reserved, false);
 }
 
-static sid_ucmd_dev_reserved_t
+static sid_dev_reserved_t
 	_do_sid_ucmd_dev_get_reserved(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, const char *owner, unsigned int archive)
 {
-	const void             *val;
-	sid_ucmd_dev_reserved_t reserved_arch;
+	const void        *val;
+	sid_dev_reserved_t reserved_arch;
 
 	if (archive) {
 		if ((val = _do_sid_ucmd_get_kv(res,
@@ -3160,7 +3160,7 @@ static sid_ucmd_dev_reserved_t
 	return ucmd_ctx->scan.dev_reserved;
 }
 
-sid_ucmd_dev_reserved_t sid_ucmd_dev_get_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
+sid_dev_reserved_t sid_ucmd_dev_get_reserved(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, unsigned int archive)
 {
 	if (!mod_res || !ucmd_ctx)
 		return SID_DEV_RES_UNDEFINED;
@@ -4162,7 +4162,7 @@ static const char *_sval_to_dev_ready_str(kv_scalar_t *val)
 
 static const char *_sval_to_dev_reserved_str(kv_scalar_t *val)
 {
-	sid_ucmd_dev_reserved_t reserved;
+	sid_dev_reserved_t reserved;
 
 	memcpy(&reserved, val->data + _svalue_ext_data_offset(val), sizeof(reserved));
 	return dev_reserved_str[reserved];
