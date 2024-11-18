@@ -157,18 +157,18 @@ typedef enum {
 #define SID_KV_FL_SUP_WR  UINT64_C(0x0000000000000400) /* superior modules can write */
 #define SID_KV_FL_WR      UINT64_C(0x0000000000000700) /* shortcut for KV_FRG_WR | KV_SUB_WR | KV_SUP_WR */
 
-typedef uint64_t sid_ucmd_kv_flags_t;
+typedef uint64_t sid_kv_flags_t;
 
 #define SID_UCMD_KV_UNSET            ((void *) -1)
 #define SID_UCMD_KEY_DEVICE_NEXT_MOD "SID_NEXT_MOD"
 
 struct sid_ucmd_kv_set_args {
-	sid_kv_namespace_t  ns;
-	const char         *key;
-	const void         *value;
-	size_t              size;
-	sid_ucmd_kv_flags_t flags;
-	const void        **stored_value;
+	sid_kv_namespace_t ns;
+	const char        *key;
+	const void        *value;
+	size_t             size;
+	sid_kv_flags_t     flags;
+	const void       **stored_value;
 };
 
 int sid_ucmd_kv_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_kv_set_args *args);
@@ -176,14 +176,14 @@ int sid_ucmd_kv_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct si
 	sid_ucmd_kv_set(mod_res, ucmd_ctx, &((struct sid_ucmd_kv_set_args) {__VA_ARGS__}))
 
 struct sid_ucmd_kv_get_args {
-	sid_kv_namespace_t   ns;
-	const char          *foreign_mod_name;
-	const char          *foreign_dev_id;
-	const char          *key;
-	unsigned int         archive;
-	sid_ucmd_kv_flags_t *flags;
-	size_t              *size;
-	int                 *ret_code;
+	sid_kv_namespace_t ns;
+	const char        *foreign_mod_name;
+	const char        *foreign_dev_id;
+	const char        *key;
+	unsigned int       archive;
+	sid_kv_flags_t    *flags;
+	size_t            *size;
+	int               *ret_code;
 };
 
 const void *sid_ucmd_kv_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_kv_get_args *args);
@@ -207,13 +207,13 @@ const void *sid_ucmd_kv_get_disk_part(sid_res_t           *mod_res,
                                       struct sid_ucmd_ctx *ucmd_ctx,
                                       const char          *key,
                                       size_t              *value_size,
-                                      sid_ucmd_kv_flags_t *flags);
+                                      sid_kv_flags_t      *flags);
 
 int sid_ucmd_kv_reserve(sid_res_t                  *mod_res,
                         struct sid_ucmd_common_ctx *ucmd_common_ctx,
                         sid_kv_namespace_t          ns,
                         const char                 *key,
-                        sid_ucmd_kv_flags_t         flags);
+                        sid_kv_flags_t              flags);
 
 int sid_ucmd_kv_unreserve(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx, sid_kv_namespace_t ns, const char *key);
 
@@ -276,7 +276,7 @@ const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucm
 int sid_ucmd_grp_create(sid_res_t           *mod_res,
                         struct sid_ucmd_ctx *ucmd_ctx,
                         sid_kv_namespace_t   group_ns,
-                        sid_ucmd_kv_flags_t  group_flags,
+                        sid_kv_flags_t       group_flags,
                         const char          *group_cat,
                         const char          *group_id);
 

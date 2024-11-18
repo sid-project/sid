@@ -165,7 +165,7 @@ static void _set_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **data
 	struct kv_key_spec   key_spec = base_spec;
 	char                *key;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT + nr_data];
-	sid_ucmd_kv_flags_t  flags      = SID_KV_FL_RD;
+	sid_kv_flags_t       flags      = SID_KV_FL_RD;
 	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                   .custom   = NULL,
@@ -205,7 +205,7 @@ static void _set_broken_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 	struct kv_key_spec   key_spec = base_spec;
 	char                *key;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT];
-	sid_ucmd_kv_flags_t  flags      = SID_KV_FL_RD;
+	sid_kv_flags_t       flags      = SID_KV_FL_RD;
 	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                   .custom   = NULL,
