@@ -2529,7 +2529,7 @@ static int _do_sid_ucmd_kv_set(sid_res_t                   *res,
 	                    &flags,
 	                    &ucmd_ctx->common->gennum,
 	                    (char *) owner);
-	_vvalue_data_prep(vvalue, vvalue_cnt, 0, (void *) value, value ? args->size : 0);
+	_vvalue_data_prep(vvalue, vvalue_cnt, 0, (void *) value, value ? args->size ?: strlen(value) + 1 : 0);
 
 	key[0]     = KV_PREFIX_OP_ARCHIVE_C[0];
 	update_arg = KV_UPDATE_ARG(.res = ucmd_ctx->common->kvs_res, .gen_buf = ucmd_ctx->common->gen_buf, .ret_code = -EREMOTEIO);
