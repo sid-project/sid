@@ -365,7 +365,6 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	                       .ns    = SID_KV_NS_DEVMOD,
 	                       .key   = DM_X_UUID,
 	                       .value = uuid,
-	                       .size  = strlen(uuid) + 1,
 	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_SUB_RD) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_X_UUID);
 		return -1;
@@ -376,7 +375,6 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	                       .ns    = SID_KV_NS_DEVMOD,
 	                       .key   = DM_X_NAME,
 	                       .value = name,
-	                       .size  = strlen(name) + 1,
 	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_SUB_RD) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_X_NAME);
 		return -1;
@@ -387,7 +385,6 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	                                  .ns    = SID_KV_NS_UDEV,
 	                                  .key   = DM_U_UUID,
 	                                  .value = uuid,
-	                                  .size  = strlen(uuid) + 1,
 	                                  .flags = SID_KV_FL_SYNC_P) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_U_UUID);
 		return -1;
@@ -398,7 +395,6 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	                       .ns    = SID_KV_NS_UDEV,
 	                       .key   = DM_U_NAME,
 	                       .value = name,
-	                       .size  = strlen(name) + 1,
 	                       .flags = SID_KV_FL_SYNC_P) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_U_NAME);
 		return -1;
@@ -409,7 +405,6 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	                       .ns    = SID_KV_NS_UDEV,
 	                       .key   = DM_U_SUSPENDED,
 	                       .value = suspended,
-	                       .size  = strlen(suspended) + 1,
 	                       .flags = SID_KV_FL_SYNC_P) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_U_SUSPENDED);
 		return -1;
@@ -560,7 +555,6 @@ static int _dm_submod_common_scan_init(sid_res_t *mod_res, struct sid_ucmd_ctx *
 		                       .ns    = SID_KV_NS_DEVICE,
 		                       .key   = DM_SUBMODULES_ID,
 		                       .value = submod_name,
-		                       .size  = strlen(submod_name) + 1,
 		                       .flags = SID_KV_FL_SYNC_P | SID_KV_FL_FRG_RD) < 0) {
 			sid_res_log_error(mod_res, _failed_to_set_msg, DM_SUBMODULES_ID);
 			return -1;
@@ -902,7 +896,6 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 		                       .ns    = SID_KV_NS_UDEV,
 		                       .key   = DM_U_UDEV_RULES_VSN,
 		                       .value = DM_UDEV_RULES_VSN,
-		                       .size  = sizeof(DM_UDEV_RULES_VSN),
 		                       .flags = SID_KV_FL_SYNC_P) < 0) {
 			sid_res_log_error(mod_res, _failed_to_set_msg, DM_U_UDEV_RULES_VSN);
 			return -1;
@@ -921,7 +914,6 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 			                       .ns    = SID_KV_NS_UDEV,
 			                       .key   = flag_name,
 			                       .value = "1",
-			                       .size  = 2,
 			                       .flags = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
 				goto fail;
 		} else {
@@ -945,7 +937,6 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 			                       .key = flag_name =
 			                               _udev_cookie_flag_names[__builtin_ctz(DM_UDEV_DISABLE_OTHER_RULES_FLAG)],
 			                       .value = "1",
-			                       .size  = 2,
 			                       .flags = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
 				goto fail;
 		case SID_DEV_RDY_FLAT:
@@ -955,7 +946,6 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 			                       .key = flag_name =
 			                               _udev_cookie_flag_names[__builtin_ctz(DM_UDEV_DISABLE_DISK_RULES_FLAG)],
 			                       .value = "1",
-			                       .size  = 2,
 			                       .flags = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
 				goto fail;
 			break;
