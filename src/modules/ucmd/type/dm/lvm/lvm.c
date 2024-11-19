@@ -72,28 +72,24 @@ static int _store_component_names(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 	                       .ns    = SID_KV_NS_UDEV,
 	                       .key   = "DM_VG_NAME",
 	                       .value = vg_name,
-	                       .size  = strlen(vg_name) + 1,
 	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0 ||
 	    sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
 	                       .ns    = SID_KV_NS_DEVMOD,
 	                       .key   = "vg_name",
 	                       .value = vg_name,
-	                       .size  = strlen(vg_name) + 1,
 	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0 ||
 	    sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
 	                       .ns    = SID_KV_NS_UDEV,
 	                       .key   = "DM_LV_NAME",
 	                       .value = lv_name,
-	                       .size  = strlen(lv_name) + 1,
 	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0 ||
 	    sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
 	                       .ns    = SID_KV_NS_DEVMOD,
 	                       .key   = "lv_name",
 	                       .value = lv_name,
-	                       .size  = strlen(lv_name) + 1,
 	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0)
 		goto out;
 
@@ -103,14 +99,12 @@ static int _store_component_names(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 		                       .ns    = SID_KV_NS_UDEV,
 		                       .key   = "DM_LV_LAYER",
 		                       .value = lv_layer,
-		                       .size  = strlen(lv_layer) + 1,
 		                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0 ||
 		    sid_ucmd_kv_va_set(mod_res,
 		                       ucmd_ctx,
 		                       .ns    = SID_KV_NS_DEVMOD,
 		                       .key   = "lv_layer",
 		                       .value = lv_layer,
-		                       .size  = strlen(lv_layer) + 1,
 		                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0)
 			goto out;
 	}
@@ -156,7 +150,6 @@ static int _process_out_line(const char *line, size_t len, bool merge_back, void
 	                       .ns    = SID_KV_NS_DEVMOD,
 	                       .key   = key,
 	                       .value = val,
-	                       .size  = strlen(val) + 1,
 	                       .flags = SID_KV_FL_NONE) < 0)
 		return -EREMOTEIO;
 
