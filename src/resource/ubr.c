@@ -3627,7 +3627,6 @@ static int _device_add_field(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, cons
 	                        &KV_SET_ARGS(.ns           = SID_KV_NS_UDEV,
 	                                     .key          = key,
 	                                     .value        = value,
-	                                     .size         = strlen(value) + 1,
 	                                     .flags        = SID_KV_FL_RD | SID_KV_FL_WR,
 	                                     .stored_value = (const void **) &value)) < 0)
 		return -1;
@@ -4862,7 +4861,6 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 		                        &KV_SET_ARGS(.ns    = SID_KV_NS_UDEV,
 		                                     .key   = KV_KEY_UDEV_SID_DEV_ID,
 		                                     .value = ucmd_ctx->req_env.dev.uid_s,
-		                                     .size  = strlen(ucmd_ctx->req_env.dev.uid_s) + 1,
 		                                     .flags = SID_KV_FL_SYNC)) < 0) {
 			sid_res_log_error(cmd_res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_DEV_ID);
 			return -1;
@@ -4876,7 +4874,6 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 	                        &KV_SET_ARGS(.ns    = SID_KV_NS_UDEV,
 	                                     .key   = KV_KEY_UDEV_SID_TAGS,
 	                                     .value = UDEV_TAG_SID,
-	                                     .size  = sizeof(UDEV_TAG_SID) + 1,
 	                                     .flags = SID_KV_FL_SYNC)) < 0) {
 		sid_res_log_error(cmd_res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_TAGS);
 		return -1;
@@ -4911,7 +4908,6 @@ static const char *_get_base_mod_name(sid_res_t *cmd_res, char *buf, size_t buf_
 		                        &KV_SET_ARGS(.ns    = SID_KV_NS_DEVICE,
 		                                     .key   = KV_KEY_DEV_MOD,
 		                                     .value = mod_name,
-		                                     .size  = strlen(mod_name) + 1,
 		                                     .flags = DEFAULT_VALUE_FLAGS_CORE)) < 0) {
 			sid_res_log_error(cmd_res,
 			                  "Failed to store device " CMD_DEV_PRINT_FMT " module name",
@@ -5885,7 +5881,6 @@ static int _init_command(sid_res_t *res, const void *kickstart_data, void **data
 		                        &KV_SET_ARGS(.ns    = SID_KV_NS_UDEV,
 		                                     .key   = KV_KEY_UDEV_SID_SESSION_ID,
 		                                     .value = worker_id,
-		                                     .size  = strlen(worker_id) + 1,
 		                                     .flags = SID_KV_FL_SYNC_P)) < 0) {
 			sid_res_log_error(res, "Failed to set %s udev variable.", KV_KEY_UDEV_SID_SESSION_ID);
 			goto fail;
