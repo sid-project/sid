@@ -2729,6 +2729,72 @@ out:
 	return strv;
 }
 
+static char **_strv_add_strv(char **strv1, size_t size1, char **strv2, size_t size2)
+{
+	char **strv = NULL;
+	char  *p1, *p2;
+	size_t size, i;
+
+	if (!(strv1 && size1 && strv2 && size2))
+		return NULL;
+
+	size = size1 + size2;
+	p1   = strv1[size1 - 1];
+	p2   = strv2[size2 - 1];
+
+	if (!(strv = malloc((size * sizeof(char *)) + (p1 + strlen(p1) + 1 - strv1[0]) + (p2 + strlen(p2) + 1 - strv2[0]))))
+		return NULL;
+
+	p1 = (char *) strv + size * sizeof(char *);
+
+	for (i = 0; i < size; i++) {
+		if (i < size1)
+			p2 = stpcpy(p1, strv1[i]);
+		else
+			p2 = stpcpy(p1, strv2[i - size1]);
+
+		strv[i] = p1;
+		p1      = p2 + 1;
+	}
+
+	return strv;
+}
+
+static char **_strv_add_str(char **strv1, size_t size1, char *str)
+{
+	char **strv = NULL;
+	char  *p1, *p2;
+	size_t mem_size, i = 0;
+
+	if (!str)
+		return NULL;
+
+	mem_size = sizeof(char *) + strlen(str) + 1;
+
+	if (strv1) {
+		p1        = strv1[size1 - 1];
+		mem_size += p1 + strlen(p1) + 1 - (char *) strv1;
+	}
+
+	if (!(strv = malloc(mem_size)))
+		return NULL;
+
+	p1 = (char *) strv + (size1 + 1) * sizeof(char *);
+
+	if (strv1) {
+		for (; i < size1; i++) {
+			p2      = stpcpy(p1, strv1[i]);
+			strv[i] = p1;
+			p1      = p2 + 1;
+		}
+	}
+
+	strv[i] = p1;
+	(void) stpcpy(p1, str);
+
+	return strv;
+}
+
 static const void *_do_sid_ucmd_get_kv(sid_res_t                   *res,
                                        struct sid_ucmd_ctx         *ucmd_ctx,
                                        const char                  *owner,
