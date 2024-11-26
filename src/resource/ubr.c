@@ -2716,10 +2716,13 @@ static char **_get_key_strv_from_vvalue(const kv_vector_t  *vvalue,
 	struct iovec key_parts[_KEY_PART_COUNT];
 	key_part_t   last_key_part;
 	size_t       i, count = 0;
-	struct bmp  *bmp;
+	struct bmp  *bmp  = NULL;
 	char       **strv = NULL;
 	char        *p;
 	int          r = 0;
+
+	if (!vvalue || !size)
+		goto out;
 
 	_key_spec_to_parts(key_filter, key_filter_parts);
 
