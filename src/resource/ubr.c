@@ -2590,15 +2590,14 @@ int sid_ucmd_kv_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct si
 	return _do_sid_ucmd_kv_set(mod_res, ucmd_ctx, _owner_name(mod_res), dom, args);
 }
 
-static const void *_cmd_get_key_spec_value(sid_res_t           *res,
-                                           struct sid_ucmd_ctx *ucmd_ctx,
-                                           const char          *owner,
-                                           struct kv_key_spec  *key_spec,
-                                           size_t              *value_size,
-                                           sid_kv_flags_t      *flags,
-                                           int                 *ret_code)
+static void *_cmd_get_key_value(sid_res_t           *res,
+                                struct sid_ucmd_ctx *ucmd_ctx,
+                                const char          *owner,
+                                const char          *key,
+                                size_t              *value_size,
+                                sid_kv_flags_t      *flags,
+                                int                 *ret_code)
 {
-	const char      *key = NULL;
 	sid_kvs_val_fl_t kvs_flags;
 	kv_vector_t      tmp_vvalue[VVALUE_SINGLE_ALIGNED_CNT];
 	void            *val;
@@ -2606,11 +2605,6 @@ static const void *_cmd_get_key_spec_value(sid_res_t           *res,
 	size_t           size, ext_data_offset;
 	void            *ret = NULL;
 	int              r   = 0;
-
-	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, key_spec))) {
-		r = -ENOMEM;
-		goto out;
-	}
 
 	if (!(val = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &size, .flags = &kvs_flags, .ret_code = &r)))
 		goto out;
@@ -2666,9 +2660,31 @@ static const void *_cmd_get_key_spec_value(sid_res_t           *res,
 		*value_size = size;
 
 out:
-	_destroy_key(ucmd_ctx->common->gen_buf, key);
 	if (ret_code)
 		*ret_code = r;
+	return ret;
+}
+
+static const void *_cmd_get_key_spec_value(sid_res_t           *res,
+                                           struct sid_ucmd_ctx *ucmd_ctx,
+                                           const char          *owner,
+                                           struct kv_key_spec  *key_spec,
+                                           size_t              *value_size,
+                                           sid_kv_flags_t      *flags,
+                                           int                 *ret_code)
+{
+	const char *key;
+	void       *ret = NULL;
+
+	if (!(key = _compose_key(ucmd_ctx->common->gen_buf, key_spec))) {
+		if (ret_code)
+			*ret_code = -ENOMEM;
+		return NULL;
+	}
+
+	ret = _cmd_get_key_value(res, ucmd_ctx, owner, key, value_size, flags, ret_code);
+
+	_destroy_key(ucmd_ctx->common->gen_buf, key);
 	return ret;
 }
 
