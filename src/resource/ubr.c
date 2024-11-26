@@ -3675,6 +3675,74 @@ int sid_ucmd_grp_destroy(sid_res_t           *mod_res,
 	                                  force);
 }
 
+static int _dev_raw_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
+                                   const char          *key,
+                                   uint16_t            *gennum,
+                                   size_t              *count,
+                                   char                *buf,
+                                   size_t               buf_size)
+{
+	char        *p;
+	kv_vector_t *vvalue;
+	size_t       vvalue_size;
+	int          r;
+
+	if (!(vvalue = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &vvalue_size))) {
+		r = -ENODATA;
+		goto out;
+	}
+
+	if (gennum)
+		*gennum = VVALUE_GENNUM(vvalue);
+
+	vvalue      += VVALUE_HEADER_CNT;
+	vvalue_size -= VVALUE_HEADER_CNT;
+
+	if (count)
+		*count = vvalue_size;
+
+	for (p = buf; vvalue_size; vvalue_size--, vvalue++) {
+		if (!_copy_ns_part_from_key(vvalue->iov_base, p, buf_size)) {
+			r = -ENOBUFS;
+			goto out;
+		}
+
+		p        += vvalue->iov_len;
+		buf_size -= vvalue->iov_len;
+	}
+
+	r = 0;
+out:
+	return r;
+}
+
+static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
+                               const char          *owner,
+                               const char          *alias_key,
+                               const char          *alias,
+                               uint16_t            *gennum,
+                               size_t              *count,
+                               char                *buf,
+                               size_t               buf_size)
+{
+	const char *key;
+	int         r;
+
+	if ((key = _compose_key(ucmd_ctx->common->gen_buf,
+	                        &KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
+	                                     .ns      = SID_KV_NS_MODULE,
+	                                     .ns_part = _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MODULE),
+	                                     .id_cat  = alias_key,
+	                                     .id      = alias,
+	                                     .core    = KV_KEY_GEN_GROUP_MEMBERS))))
+		r = _dev_raw_alias_to_devid(ucmd_ctx, key, gennum, count, buf, buf_size);
+	else
+		r = -ENOMEM;
+
+	_destroy_key(ucmd_ctx->common->gen_buf, key);
+	return r;
+}
+
 static int _device_add_field(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 {
 	const char *key;
@@ -4358,61 +4426,6 @@ const void *sid_ucmd_kv_get_disk_part(sid_res_t           *mod_res,
 	return _cmd_get_key_spec_value(mod_res, ucmd_ctx, _owner_name(mod_res), &key_spec, value_size, flags, NULL);
 }
 
-static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
-                               const char          *alias_key,
-                               const char          *alias,
-                               uint16_t            *gennum,
-                               size_t              *count,
-                               char                *buf,
-                               size_t               buf_size)
-{
-	const char  *key;
-	char        *p;
-	kv_vector_t *vvalue;
-	size_t       vvalue_size;
-	int          r;
-
-	if (!(key = _compose_key(ucmd_ctx->common->gen_buf,
-	                         &KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
-	                                      .ns      = SID_KV_NS_MODULE,
-	                                      .ns_part = _get_ns_part(ucmd_ctx, _owner_name(NULL), SID_KV_NS_MODULE),
-	                                      .id_cat  = alias_key,
-	                                      .id      = alias,
-	                                      .core    = KV_KEY_GEN_GROUP_MEMBERS)))) {
-		r = -ENOMEM;
-		goto out;
-	}
-
-	if (!(vvalue = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &vvalue_size))) {
-		r = -ENODATA;
-		goto out;
-	}
-
-	if (gennum)
-		*gennum = VVALUE_GENNUM(vvalue);
-
-	vvalue      += VVALUE_HEADER_CNT;
-	vvalue_size -= VVALUE_HEADER_CNT;
-
-	if (count)
-		*count = vvalue_size;
-
-	for (p = buf; vvalue_size; vvalue_size--, vvalue++) {
-		if (!_copy_ns_part_from_key(vvalue->iov_base, p, buf_size)) {
-			r = -ENOBUFS;
-			goto out;
-		}
-
-		p        += vvalue->iov_len;
-		buf_size -= vvalue->iov_len;
-	}
-
-	r = 0;
-out:
-	_destroy_key(ucmd_ctx->common->gen_buf, key);
-	return r;
-}
-
 static int _set_new_dev_kvs(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, bool is_sync)
 {
 	static const char failed_msg[] = "Failed to set %s for new device %s (%s/%s).";
@@ -4869,7 +4882,14 @@ static int _set_dev_kvs(sid_res_t *cmd_res)
 	                                 &((struct sid_ucmd_kv_get_args) {.ns = SID_KV_NS_UDEV, .key = KV_KEY_UDEV_SID_DEV_ID}));
 
 	// TODO: check we have only a single devid returned and that the generation is correct
-	r          = _dev_alias_to_devid(ucmd_ctx, DEV_ALIAS_DEVNO, ucmd_ctx->req_env.dev.num_s, NULL, &count, buf, sizeof(buf));
+	r          = _dev_alias_to_devid(ucmd_ctx,
+                                _owner_name(NULL),
+                                DEV_ALIAS_DEVNO,
+                                ucmd_ctx->req_env.dev.num_s,
+                                NULL,
+                                &count,
+                                buf,
+                                sizeof(buf));
 
 	if (r == 0)
 		devid = buf;
