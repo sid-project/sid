@@ -591,6 +591,22 @@ const char *sid_ucmd_ev_get_dev_synth_uuid(struct sid_ucmd_ctx *ucmd_ctx)
 	return ucmd_ctx->req_env.dev.udev.synth_uuid;
 }
 
+static char *_cat_prefix_and_key(struct sid_buf *buf, const char *prefix, const char *key)
+{
+	static const char fmt[] = "%s%s";
+	char             *full_key;
+
+	if (buf) {
+		if (sid_buf_add_fmt(buf, (const void **) &full_key, NULL, fmt, prefix, key) < 0)
+			full_key = NULL;
+	} else {
+		if (asprintf((char **) &full_key, fmt, prefix, key) < 0)
+			full_key = NULL;
+	}
+
+	return full_key;
+}
+
 static char *_do_compose_key(struct sid_buf *buf, struct kv_key_spec *key_spec, int prefix_only)
 {
 	static const char fmt[] = "%s"                  /* space for extra op */
