@@ -3775,6 +3775,44 @@ static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 	return r;
 }
 
+static int _dev_key_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
+                             const char          *dev_key,
+                             uint16_t            *gennum,
+                             size_t              *count,
+                             char                *buf,
+                             size_t               buf_size)
+{
+	struct iovec key_parts[_KEY_PART_COUNT];
+	key_part_t   last_key_part;
+	const char  *key;
+	int          r;
+
+	last_key_part = _decompose_key(dev_key, key_parts);
+
+	if (last_key_part == _KEY_PART_START) {
+		// TODO: still check the key is a proper UUID (the 'devid')
+		// maybe also not copy to buf and just return a code to
+		// denote there was no translation
+		strncpy(buf, dev_key, buf_size - 1);
+		return 0;
+	}
+
+	if (last_key_part != KEY_PART_CORE)
+		return -ENOKEY;
+
+	// TODO: check key parts are not empty and that domain is ALS (alias)
+
+	// TODO: no need to check the at all if we got the key from KV store and not from user
+
+	if (!(key = _cat_prefix_and_key(ucmd_ctx->common->gen_buf, dev_key, KV_KEY_GEN_GROUP_MEMBERS)))
+		return -ENOMEM;
+
+	r = _dev_raw_alias_to_devid(ucmd_ctx, key, gennum, count, buf, buf_size);
+
+	_destroy_key(ucmd_ctx->common->gen_buf, key);
+	return r;
+}
+
 static int _device_add_field(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 {
 	const char *key;
