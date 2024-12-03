@@ -3813,6 +3813,68 @@ static int _dev_key_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 	return r;
 }
 
+static int _dev_key_to_dsq(struct sid_ucmd_ctx *ucmd_ctx, const char *dev_key, uint16_t *gennum, char *buf, size_t buf_size)
+
+{
+	struct iovec key_parts[_KEY_PART_COUNT];
+	key_part_t   last_key_part;
+	const char  *key;
+	kv_vector_t *vvalue;
+	size_t       vvalue_size;
+	char       **key_strv = NULL;
+	size_t       count;
+	int          r;
+
+	last_key_part = _decompose_key(dev_key, key_parts);
+
+	if (last_key_part == _KEY_PART_START) {
+		strncpy(buf, dev_key, buf_size - 1);
+		return 0;
+	}
+
+	if (last_key_part != KEY_PART_CORE)
+		return -ENOKEY;
+
+	if (!(key = _cat_prefix_and_key(ucmd_ctx->common->gen_buf, dev_key, KV_KEY_GEN_GROUP_IN)))
+		return -ENOMEM;
+
+	if (!(vvalue = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &vvalue_size))) {
+		r = -ENODATA;
+		goto out;
+	}
+
+	if (gennum)
+		*gennum = VVALUE_GENNUM(vvalue);
+
+	vvalue      += VVALUE_HEADER_CNT;
+	vvalue_size -= VVALUE_HEADER_CNT;
+
+	key_strv     = _get_key_strv_from_vvalue(vvalue,
+                                             vvalue_size,
+                                             &KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
+                                                          .ns      = SID_KV_NS_MODULE,
+                                                          .ns_part = _owner_name(NULL),
+                                                          .id_cat  = DEV_ALIAS_DSEQ),
+                                             &count,
+                                             &r);
+
+	if (count != 1) {
+		r = -EMLINK;
+		goto out;
+	}
+
+	if (!_copy_id_from_key(key_strv[0], buf, buf_size)) {
+		r = -ENOBUFS;
+		goto out;
+	}
+
+	r = 0;
+out:
+	free(key_strv);
+	_destroy_key(ucmd_ctx->common->gen_buf, key);
+	return r;
+}
+
 static int _device_add_field(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, const char *start)
 {
 	const char *key;
