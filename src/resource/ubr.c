@@ -4202,19 +4202,6 @@ static void _canonicalize_module_name(char *name)
 	}
 }
 
-static char *_canonicalize_kv_key(char *id)
-{
-	char *p = id;
-
-	while (*p) {
-		if (*p == ':')
-			*p = '_';
-		p++;
-	}
-
-	return id;
-}
-
 static int _part_get_whole_disk(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, char *devno_buf, size_t devno_buf_size)
 {
 	const char *s;
@@ -4753,30 +4740,6 @@ static int _cmd_exec_dbstats(sid_res_t *cmd_res)
 	}
 	return r;
 }
-
-/*
-const void *sid_ucmd_kv_get_disk_part(sid_res_t           *mod_res,
-                                      struct sid_ucmd_ctx *ucmd_ctx,
-                                      const char          *key_core,
-                                      size_t              *value_size,
-                                      sid_kv_fl_t         *flags)
-{
-        char               devno_buf[16];
-        struct kv_key_spec key_spec = KV_KEY_SPEC(.dom  = KV_KEY_DOM_USER,
-                                                  .ns   = SID_KV_NS_DEV,
-                                                  .core = key_core);
-
-        if (!mod_res || !ucmd_ctx || UTIL_STR_EMPTY(key_core) || (key_core[0] == KV_PREFIX_KEY_SYS_C[0]))
-                return NULL;
-
-        if (_part_get_whole_disk(mod_res, ucmd_ctx, devno_buf, sizeof(devno_buf)) < 0)
-                return NULL;
-
-        key_spec.ns_part = _canonicalize_kv_key(devno_buf);
-
-        return _cmd_get_key_spec_value(mod_res, ucmd_ctx, _owner_name(mod_res), &key_spec, value_size, flags, NULL);
-}
-*/
 
 static int _set_new_dev_kvs(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, bool is_sync)
 {
