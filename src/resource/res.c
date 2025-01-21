@@ -50,11 +50,11 @@ typedef struct sid_res {
 	char                 *id;
 
 	/* properties */
-	pid_t           pid_created;
-	sid_res_flags_t flags;
-	int64_t         prio;
-	unsigned        ref_count;
-	bool            initialized:1;
+	pid_t        pid_created;
+	sid_res_fl_t flags;
+	int64_t      prio;
+	unsigned     ref_count;
+	bool         initialized:1;
 
 	/* event handling */
 	struct {
@@ -246,7 +246,7 @@ static void _remove_res_from_parent_res(sid_res_t *res)
 
 sid_res_t *sid_res_create(sid_res_t            *parent_res,
                           const sid_res_type_t *type,
-                          sid_res_flags_t       flags,
+                          sid_res_fl_t          flags,
                           const char           *id_part,
                           const void           *kickstart_data,
                           int64_t               prio,
@@ -1189,7 +1189,7 @@ static int _res_clone_slgs(sid_res_t *res, sid_res_t *child)
 	return 0;
 }
 
-int sid_res_add_child(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags)
+int sid_res_add_child(sid_res_t *res, sid_res_t *child, sid_res_fl_t flags)
 {
 	int r;
 

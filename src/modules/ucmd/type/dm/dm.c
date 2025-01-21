@@ -249,20 +249,20 @@ static int _exec_dm_submod(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm
 	return 0;
 }
 
-static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm_cookie_flags_t *cookie_flags)
+static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, dm_cookie_fl_t *cookie_flags)
 {
 	const char       *str;
 	unsigned long int val;
 	dm_cookie_base_t  base;
-	dm_cookie_flags_t flags;
+	dm_cookie_fl_t    flags;
 	char             *p;
 
 	if (!(str = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = DM_U_COOKIE))) {
 		if (sid_ucmd_kv_va_set(mod_res,
 		                       ucmd_ctx,
-		                       .ns    = SID_KV_NS_DEVMOD,
-		                       .key   = DM_X_COOKIE_FLAGS,
-		                       .flags = SID_KV_FL_AR | SID_KV_FL_SYNC | SID_KV_FL_SUB_RD) < 0) {
+		                       .ns  = SID_KV_NS_DEVMOD,
+		                       .key = DM_X_COOKIE_FLAGS,
+		                       .fl  = SID_KV_FL_AR | SID_KV_FL_SC | SID_KV_FL_SUB_RD) < 0) {
 			sid_res_log_error(mod_res, _failed_to_set_msg, DM_X_COOKIE_FLAGS);
 			return -1;
 		}
@@ -277,7 +277,7 @@ static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, 
 	}
 
 	base  = (dm_cookie_base_t) val;
-	flags = (dm_cookie_flags_t) (val >> COOKIE_FLAGS_SHIFT);
+	flags = (dm_cookie_fl_t) (val >> COOKIE_FLAGS_SHIFT);
 
 	/*
 	 * Store cookie base and flags in SID_KV_NS_DEVMOD for use in SID.
@@ -286,22 +286,22 @@ static int _get_cookie_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, 
 	 */
 	if (sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
-	                       .ns    = SID_KV_NS_DEVMOD,
-	                       .key   = DM_X_COOKIE_BASE,
-	                       .value = &base,
-	                       .size  = sizeof(base),
-	                       .flags = SID_KV_FL_ALIGN) < 0) {
+	                       .ns  = SID_KV_NS_DEVMOD,
+	                       .key = DM_X_COOKIE_BASE,
+	                       .val = &base,
+	                       .sz  = sizeof(base),
+	                       .fl  = SID_KV_FL_AL) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_X_COOKIE_BASE);
 		return -1;
 	}
 
 	if (sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
-	                       .ns    = SID_KV_NS_DEVMOD,
-	                       .key   = DM_X_COOKIE_FLAGS,
-	                       .value = &flags,
-	                       .size  = sizeof(flags),
-	                       .flags = SID_KV_FL_ALIGN | SID_KV_FL_AR | SID_KV_FL_SYNC | SID_KV_FL_SUB_RD) < 0) {
+	                       .ns  = SID_KV_NS_DEVMOD,
+	                       .key = DM_X_COOKIE_FLAGS,
+	                       .val = &flags,
+	                       .sz  = sizeof(flags),
+	                       .fl  = SID_KV_FL_AL | SID_KV_FL_AR | SID_KV_FL_SC | SID_KV_FL_SUB_RD) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_X_COOKIE_FLAGS);
 		return -1;
 	}
@@ -362,50 +362,41 @@ static int _get_sysfs_props(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	if (sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
-	                       .ns    = SID_KV_NS_DEVMOD,
-	                       .key   = DM_X_UUID,
-	                       .value = uuid,
-	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_SUB_RD) < 0) {
+	                       .ns  = SID_KV_NS_DEVMOD,
+	                       .key = DM_X_UUID,
+	                       .val = uuid,
+	                       .fl  = SID_KV_FL_SC | SID_KV_FL_SUB_RD) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_X_UUID);
 		return -1;
 	}
 
 	if (sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
-	                       .ns    = SID_KV_NS_DEVMOD,
-	                       .key   = DM_X_NAME,
-	                       .value = name,
-	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_SUB_RD) < 0) {
+	                       .ns  = SID_KV_NS_DEVMOD,
+	                       .key = DM_X_NAME,
+	                       .val = name,
+	                       .fl  = SID_KV_FL_SC | SID_KV_FL_SUB_RD) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_X_NAME);
 		return -1;
 	}
 
-	if (uuid[0] && sid_ucmd_kv_va_set(mod_res,
-	                                  ucmd_ctx,
-	                                  .ns    = SID_KV_NS_UDEV,
-	                                  .key   = DM_U_UUID,
-	                                  .value = uuid,
-	                                  .flags = SID_KV_FL_SYNC_P) < 0) {
+	if (uuid[0] &&
+	    sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = DM_U_UUID, .val = uuid, .fl = SID_KV_FL_SCPS) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_U_UUID);
 		return -1;
 	}
 
-	if (sid_ucmd_kv_va_set(mod_res,
-	                       ucmd_ctx,
-	                       .ns    = SID_KV_NS_UDEV,
-	                       .key   = DM_U_NAME,
-	                       .value = name,
-	                       .flags = SID_KV_FL_SYNC_P) < 0) {
+	if (sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = DM_U_NAME, .val = name, .fl = SID_KV_FL_SCPS) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_U_NAME);
 		return -1;
 	}
 
 	if (sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
-	                       .ns    = SID_KV_NS_UDEV,
-	                       .key   = DM_U_SUSPENDED,
-	                       .value = suspended,
-	                       .flags = SID_KV_FL_SYNC_P) < 0) {
+	                       .ns  = SID_KV_NS_UDEV,
+	                       .key = DM_U_SUSPENDED,
+	                       .val = suspended,
+	                       .fl  = SID_KV_FL_SCPS) < 0) {
 		sid_res_log_error(mod_res, _failed_to_set_msg, DM_U_SUSPENDED);
 		return -1;
 	}
@@ -532,7 +523,7 @@ static int _dm_submod_common_scan_init(sid_res_t *mod_res, struct sid_ucmd_ctx *
 	const char        *submod_name = NULL;
 
 	dm_mod                         = sid_mod_get_data(mod_res);
-	submod_name                    = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_DEVICE, .key = DM_SUBMODULES_ID);
+	submod_name                    = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_DEV, .key = DM_SUBMODULES_ID);
 
 	if (submod_name) {
 		if (strcmp(submod_name, DM_SUBMODULE_ID_NONE) != 0) {
@@ -552,10 +543,10 @@ static int _dm_submod_common_scan_init(sid_res_t *mod_res, struct sid_ucmd_ctx *
 
 		if (sid_ucmd_kv_va_set(mod_res,
 		                       ucmd_ctx,
-		                       .ns    = SID_KV_NS_DEVICE,
-		                       .key   = DM_SUBMODULES_ID,
-		                       .value = submod_name,
-		                       .flags = SID_KV_FL_SYNC_P | SID_KV_FL_FRG_RD) < 0) {
+		                       .ns  = SID_KV_NS_DEV,
+		                       .key = DM_SUBMODULES_ID,
+		                       .val = submod_name,
+		                       .fl  = SID_KV_FL_SCPS | SID_KV_FL_FRG_RD) < 0) {
 			sid_res_log_error(mod_res, _failed_to_set_msg, DM_SUBMODULES_ID);
 			return -1;
 		}
@@ -671,12 +662,12 @@ SID_UCMD_SCAN_A_INIT(_dm_scan_a_init)
  */
 static int _dm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_dev_ready_t   ready;
-	int               has_cookie, is_synth, is_suspended;
-	const void       *val;
-	udev_action_t     action;
-	dm_cookie_flags_t cookie_flags = 0;
-	int               r            = 0;
+	sid_dev_ready_t ready;
+	int             has_cookie, is_synth, is_suspended;
+	const void     *val;
+	udev_action_t   action;
+	dm_cookie_fl_t  cookie_flags = 0;
+	int             r            = 0;
 
 	sid_res_log_debug(mod_res, "scan-pre");
 
@@ -876,10 +867,10 @@ SID_UCMD_SCAN_POST_NEXT(_dm_scan_post_next)
 
 static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	sid_dev_ready_t          ready;
-	const dm_cookie_flags_t *flags;
-	const char              *flag_name;
-	int                      i;
+	sid_dev_ready_t       ready;
+	const dm_cookie_fl_t *flags;
+	const char           *flag_name;
+	int                   i;
 
 	sid_res_log_debug(mod_res, "scan-a-exit");
 
@@ -893,10 +884,10 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	if (ready >= _SID_DEV_RDY) {
 		if (sid_ucmd_kv_va_set(mod_res,
 		                       ucmd_ctx,
-		                       .ns    = SID_KV_NS_UDEV,
-		                       .key   = DM_U_UDEV_RULES_VSN,
-		                       .value = DM_UDEV_RULES_VSN,
-		                       .flags = SID_KV_FL_SYNC_P) < 0) {
+		                       .ns  = SID_KV_NS_UDEV,
+		                       .key = DM_U_UDEV_RULES_VSN,
+		                       .val = DM_UDEV_RULES_VSN,
+		                       .fl  = SID_KV_FL_SCPS) < 0) {
 			sid_res_log_error(mod_res, _failed_to_set_msg, DM_U_UDEV_RULES_VSN);
 			return -1;
 		}
@@ -911,17 +902,17 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 		if (1 << i & (*flags)) {
 			if (sid_ucmd_kv_va_set(mod_res,
 			                       ucmd_ctx,
-			                       .ns    = SID_KV_NS_UDEV,
-			                       .key   = flag_name,
-			                       .value = "1",
-			                       .flags = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
+			                       .ns  = SID_KV_NS_UDEV,
+			                       .key = flag_name,
+			                       .val = "1",
+			                       .fl  = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
 				goto fail;
 		} else {
 			if (sid_ucmd_kv_va_set(mod_res,
 			                       ucmd_ctx,
-			                       .ns    = SID_KV_NS_UDEV,
-			                       .key   = flag_name,
-			                       .flags = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
+			                       .ns  = SID_KV_NS_UDEV,
+			                       .key = flag_name,
+			                       .fl  = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
 				goto fail;
 		}
 	}
@@ -936,8 +927,8 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 			                       .ns  = SID_KV_NS_UDEV,
 			                       .key = flag_name =
 			                               _udev_cookie_flag_names[__builtin_ctz(DM_UDEV_DISABLE_OTHER_RULES_FLAG)],
-			                       .value = "1",
-			                       .flags = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
+			                       .val = "1",
+			                       .fl  = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
 				goto fail;
 		case SID_DEV_RDY_FLAT:
 			if (sid_ucmd_kv_va_set(mod_res,
@@ -945,8 +936,8 @@ static int _dm_scan_a_exit(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 			                       .ns  = SID_KV_NS_UDEV,
 			                       .key = flag_name =
 			                               _udev_cookie_flag_names[__builtin_ctz(DM_UDEV_DISABLE_DISK_RULES_FLAG)],
-			                       .value = "1",
-			                       .flags = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
+			                       .val = "1",
+			                       .fl  = SID_KV_FL_FRG_RD | SID_KV_FL_SUB_RD) < 0)
 				goto fail;
 			break;
 		default:

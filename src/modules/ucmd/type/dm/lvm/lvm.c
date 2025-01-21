@@ -52,11 +52,8 @@ static int _store_component_names(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 	char       *vg_name = NULL, *lv_name, *lv_layer;
 	int         r       = -1;
 
-	if (!(dm_name = sid_ucmd_kv_va_get(mod_res,
-	                                   ucmd_ctx,
-	                                   .foreign_mod_name = "/type/dm",
-	                                   .ns               = SID_KV_NS_DEVMOD,
-	                                   .key              = DM_X_NAME)))
+	if (!(dm_name =
+	              sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .frg_mod_name = "/type/dm", .ns = SID_KV_NS_DEVMOD, .key = DM_X_NAME)))
 		goto out;
 
 	if (!(vg_name = strdup(dm_name)))
@@ -69,43 +66,43 @@ static int _store_component_names(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 
 	if (sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
-	                       .ns    = SID_KV_NS_UDEV,
-	                       .key   = "DM_VG_NAME",
-	                       .value = vg_name,
-	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0 ||
+	                       .ns  = SID_KV_NS_UDEV,
+	                       .key = "DM_VG_NAME",
+	                       .val = vg_name,
+	                       .fl  = SID_KV_FL_SC | SID_KV_FL_RD) < 0 ||
 	    sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
-	                       .ns    = SID_KV_NS_DEVMOD,
-	                       .key   = "vg_name",
-	                       .value = vg_name,
-	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0 ||
+	                       .ns  = SID_KV_NS_DEVMOD,
+	                       .key = "vg_name",
+	                       .val = vg_name,
+	                       .fl  = SID_KV_FL_SC | SID_KV_FL_RD) < 0 ||
 	    sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
-	                       .ns    = SID_KV_NS_UDEV,
-	                       .key   = "DM_LV_NAME",
-	                       .value = lv_name,
-	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0 ||
+	                       .ns  = SID_KV_NS_UDEV,
+	                       .key = "DM_LV_NAME",
+	                       .val = lv_name,
+	                       .fl  = SID_KV_FL_SC | SID_KV_FL_RD) < 0 ||
 	    sid_ucmd_kv_va_set(mod_res,
 	                       ucmd_ctx,
-	                       .ns    = SID_KV_NS_DEVMOD,
-	                       .key   = "lv_name",
-	                       .value = lv_name,
-	                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0)
+	                       .ns  = SID_KV_NS_DEVMOD,
+	                       .key = "lv_name",
+	                       .val = lv_name,
+	                       .fl  = SID_KV_FL_SC | SID_KV_FL_RD) < 0)
 		goto out;
 
 	if (*lv_layer) {
 		if (sid_ucmd_kv_va_set(mod_res,
 		                       ucmd_ctx,
-		                       .ns    = SID_KV_NS_UDEV,
-		                       .key   = "DM_LV_LAYER",
-		                       .value = lv_layer,
-		                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0 ||
+		                       .ns  = SID_KV_NS_UDEV,
+		                       .key = "DM_LV_LAYER",
+		                       .val = lv_layer,
+		                       .fl  = SID_KV_FL_SC | SID_KV_FL_RD) < 0 ||
 		    sid_ucmd_kv_va_set(mod_res,
 		                       ucmd_ctx,
-		                       .ns    = SID_KV_NS_DEVMOD,
-		                       .key   = "lv_layer",
-		                       .value = lv_layer,
-		                       .flags = SID_KV_FL_SYNC | SID_KV_FL_RD) < 0)
+		                       .ns  = SID_KV_NS_DEVMOD,
+		                       .key = "lv_layer",
+		                       .val = lv_layer,
+		                       .fl  = SID_KV_FL_SC | SID_KV_FL_RD) < 0)
 			goto out;
 	}
 
@@ -145,12 +142,8 @@ static int _process_out_line(const char *line, size_t len, bool merge_back, void
 	if ((r = util_str_get_kv(line_buf, &key, &val) < 0))
 		return r;
 
-	if (sid_ucmd_kv_va_set(ctx->mod_res,
-	                       ctx->ucmd_ctx,
-	                       .ns    = SID_KV_NS_DEVMOD,
-	                       .key   = key,
-	                       .value = val,
-	                       .flags = SID_KV_FL_NONE) < 0)
+	if (sid_ucmd_kv_va_set(ctx->mod_res, ctx->ucmd_ctx, .ns = SID_KV_NS_DEVMOD, .key = key, .val = val, .fl = SID_KV_FL_NONE) <
+	    0)
 		return -EREMOTEIO;
 
 	return 0;
@@ -241,7 +234,7 @@ static int _lvm_subsys_match_current(sid_res_t *mod_res, struct sid_ucmd_ctx *uc
 
 	sid_res_log_debug(mod_res, "scan-dm-subsys-match");
 
-	if (!(uuid = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .foreign_mod_name = "/type/dm", .ns = SID_KV_NS_DEVMOD, .key = "uuid")))
+	if (!(uuid = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .frg_mod_name = "/type/dm", .ns = SID_KV_NS_DEVMOD, .key = "uuid")))
 		return 0;
 
 	return !strncmp(uuid, LVM_DM_UUID_PREFIX, sizeof(LVM_DM_UUID_PREFIX) - 1);
@@ -274,10 +267,10 @@ SID_UCMD_SCAN_A_INIT(_lvm_scan_a_init)
 
 static int _lvm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
-	static const char        failed_to_change_dev_rdy_msg[] = "Failed to change LVM device ready state";
-	const dm_cookie_flags_t *flags;
-	sid_dev_ready_t          ready;
-	int                      r = 0;
+	static const char     failed_to_change_dev_rdy_msg[] = "Failed to change LVM device ready state";
+	const dm_cookie_fl_t *flags;
+	sid_dev_ready_t       ready;
+	int                   r = 0;
 
 	sid_res_log_debug(mod_res, "scan-pre");
 
@@ -286,11 +279,7 @@ static int _lvm_scan_pre(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 	if (ready < _SID_DEV_RDY)
 		return 0;
 
-	flags = sid_ucmd_kv_va_get(mod_res,
-	                           ucmd_ctx,
-	                           .foreign_mod_name = "/type/dm",
-	                           .ns               = SID_KV_NS_DEVMOD,
-	                           .key              = DM_X_COOKIE_FLAGS);
+	flags = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .frg_mod_name = "/type/dm", .ns = SID_KV_NS_DEVMOD, .key = DM_X_COOKIE_FLAGS);
 
 	switch (ready) {
 		case SID_DEV_RDY_PUBLIC:

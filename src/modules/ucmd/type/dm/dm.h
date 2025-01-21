@@ -23,7 +23,7 @@ extern "C" {
 #define DM_X_UUID                                         "uuid"
 #define DM_X_COOKIE_FLAGS                                 "cookie_flags"
 
-typedef uint16_t dm_cookie_flags_t;
+typedef uint16_t dm_cookie_fl_t;
 
 #define DM_UDEV_DISABLE_DM_RULES_FLAG        0x0001
 #define DM_UDEV_DISABLE_SUBSYSTEM_RULES_FLAG 0x0002

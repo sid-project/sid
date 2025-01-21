@@ -112,7 +112,7 @@ static void test_kvstore_iterate(void **state)
 	const char          *key;
 	struct iovec        *return_iov;
 	sid_kvs_iter_t      *iter;
-	sid_kv_flags_t       ucmd_flags = SID_KV_FL_NONE;
+	sid_kv_fl_t          ucmd_flags = SID_KV_FL_NONE;
 	sid_kvs_val_fl_t     flags;
 	uint64_t             seqnum       = 0;
 	uint16_t             gennum       = 0;

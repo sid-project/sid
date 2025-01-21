@@ -46,7 +46,7 @@ typedef struct sid_res_type {
 #define SID_RES_FL_RESTRICT_MASK      UINT64_C(0x0000000000000003)
 #define SID_RES_FL_DISALLOW_ISOLATION UINT64_C(0x0000000000000004)
 
-typedef uint64_t sid_res_flags_t;
+typedef uint64_t sid_res_fl_t;
 
 #define SID_RES_NO_PARENT          NULL
 #define SID_RES_NO_CUSTOM_ID       NULL
@@ -69,7 +69,7 @@ typedef struct sid_res_srv_lnk_def {
 
 sid_res_t *sid_res_create(sid_res_t            *parent_res,
                           const sid_res_type_t *type,
-                          sid_res_flags_t       flags,
+                          sid_res_fl_t          flags,
                           const char           *id,
                           const void           *kickstart_data,
                           int64_t               prio,
@@ -146,7 +146,7 @@ bool       sid_res_search_match_res(sid_res_t *start_res, sid_res_search_t metho
 
 typedef uint32_t sid_res_isol_fl_t;
 
-int sid_res_add_child(sid_res_t *res, sid_res_t *child, sid_res_flags_t flags);
+int sid_res_add_child(sid_res_t *res, sid_res_t *child, sid_res_fl_t flags);
 int sid_res_isolate(sid_res_t *res, sid_res_isol_fl_t flags);
 
 /*

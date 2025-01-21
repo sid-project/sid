@@ -130,45 +130,45 @@ typedef enum {
 	SID_KV_NS_UDEV,      /* per-device ns with records in the scope of current device
 	                    records automatically imported from udev and all
 	                    changed/new records are exported back to udev */
-	SID_KV_NS_DEVICE,    /* per-device ns with records in the scope of current device */
-	SID_KV_NS_MODULE,    /* per-module ns with records in the scope of current module */
+	SID_KV_NS_DEV,       /* per-device ns with records in the scope of current device */
+	SID_KV_NS_MOD,       /* per-module ns with records in the scope of current module */
 	SID_KV_NS_DEVMOD,    /* per-device ns with records in the scope of current device and module */
-	SID_KV_NS_GLOBAL,    /* global ns with records visible for all modules and when processing any device */
-} sid_kv_namespace_t;
+	SID_KV_NS_GLOB,      /* global ns with records visible for all modules and when processing any device */
+} sid_kv_ns_t;
 
-#define SID_KV_FL_NONE    UINT64_C(0x0000000000000000)
-#define SID_KV_FL_ALIGN   UINT64_C(0x0000000000000001) /* make sure value's address is aligned to sizeof(void *) */
+#define SID_KV_FL_NONE   UINT64_C(0x0000000000000000)
+#define SID_KV_FL_AL     UINT64_C(0x0000000000000001) /* make sure value's address is aligned to sizeof(void *) */
 
-#define SID_KV_FL_SYNC    UINT64_C(0x0000000000000002) /* synchronize with main KV store */
-#define SID_KV_FL_PERSIST UINT64_C(0x0000000000000004) /* make record persistent */
-#define SID_KV_FL_SYNC_P  UINT64_C(0x0000000000000006) /* shortcut for KV_SYNC | KV_PERSISTENT */
+#define SID_KV_FL_SC     UINT64_C(0x0000000000000002) /* synchronize with main KV store */
+#define SID_KV_FL_PS     UINT64_C(0x0000000000000004) /* make record persistent */
+#define SID_KV_FL_SCPS   UINT64_C(0x0000000000000006) /* shortcut for KV_SC | KV_PS */
 
-#define SID_KV_FL_AR      UINT64_C(0x0000000000000008) /* create an archive of current value */
+#define SID_KV_FL_AR     UINT64_C(0x0000000000000008) /* create an archive of current value */
 
-#define SID_KV_FL_RS      UINT64_C(0x0000000000000010) /* reserve key */
+#define SID_KV_FL_RS     UINT64_C(0x0000000000000010) /* reserve key */
 
-#define SID_KV_FL_FRG_RD  UINT64_C(0x0000000000000020) /* foreign modules can read */
-#define SID_KV_FL_SUB_RD  UINT64_C(0x0000000000000040) /* subordinate modules can read */
-#define SID_KV_FL_SUP_RD  UINT64_C(0x0000000000000080) /* superior modules can read */
-#define SID_KV_FL_RD      UINT64_C(0x00000000000000E0) /* shortcut for KV_FRG_RD | KV_SUB_RD | KV_SUP_RD */
+#define SID_KV_FL_FRG_RD UINT64_C(0x0000000000000020) /* foreign modules can read */
+#define SID_KV_FL_SUB_RD UINT64_C(0x0000000000000040) /* subordinate modules can read */
+#define SID_KV_FL_SUP_RD UINT64_C(0x0000000000000080) /* superior modules can read */
+#define SID_KV_FL_RD     UINT64_C(0x00000000000000E0) /* shortcut for KV_FRG_RD | KV_SUB_RD | KV_SUP_RD */
 
-#define SID_KV_FL_FRG_WR  UINT64_C(0x0000000000000100) /* foreign modules can write */
-#define SID_KV_FL_SUB_WR  UINT64_C(0x0000000000000200) /* subordinate modules can write */
-#define SID_KV_FL_SUP_WR  UINT64_C(0x0000000000000400) /* superior modules can write */
-#define SID_KV_FL_WR      UINT64_C(0x0000000000000700) /* shortcut for KV_FRG_WR | KV_SUB_WR | KV_SUP_WR */
+#define SID_KV_FL_FRG_WR UINT64_C(0x0000000000000100) /* foreign modules can write */
+#define SID_KV_FL_SUB_WR UINT64_C(0x0000000000000200) /* subordinate modules can write */
+#define SID_KV_FL_SUP_WR UINT64_C(0x0000000000000400) /* superior modules can write */
+#define SID_KV_FL_WR     UINT64_C(0x0000000000000700) /* shortcut for KV_FRG_WR | KV_SUB_WR | KV_SUP_WR */
 
-typedef uint64_t sid_kv_flags_t;
+typedef uint64_t sid_kv_fl_t;
 
 #define SID_UCMD_KV_UNSET            ((void *) -1)
 #define SID_UCMD_KEY_DEVICE_NEXT_MOD "SID_NEXT_MOD"
 
 struct sid_ucmd_kv_set_args {
-	sid_kv_namespace_t ns;
-	const char        *key;
-	const void        *value;
-	size_t             size;
-	sid_kv_flags_t     flags;
-	const void       **stored_value;
+	sid_kv_ns_t  ns;
+	const char  *key;
+	const void  *val;
+	size_t       sz;
+	sid_kv_fl_t  fl;
+	const void **st_val;
 };
 
 int sid_ucmd_kv_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_kv_set_args *args);
@@ -176,14 +176,14 @@ int sid_ucmd_kv_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct si
 	sid_ucmd_kv_set(mod_res, ucmd_ctx, &((struct sid_ucmd_kv_set_args) {__VA_ARGS__}))
 
 struct sid_ucmd_kv_get_args {
-	sid_kv_namespace_t ns;
-	const char        *foreign_mod_name;
-	const char        *foreign_dev_id;
-	const char        *key;
-	unsigned int       archive;
-	sid_kv_flags_t    *flags;
-	size_t            *size;
-	int               *ret_code;
+	sid_kv_ns_t  ns;
+	const char  *frg_mod_name;
+	const char  *frg_dev_id;
+	const char  *key;
+	unsigned int ar;
+	sid_kv_fl_t *fl;
+	size_t      *sz;
+	int         *ret_code;
 };
 
 const void *sid_ucmd_kv_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_kv_get_args *args);
@@ -207,15 +207,15 @@ const void *sid_ucmd_kv_get_disk_part(sid_res_t           *mod_res,
                                       struct sid_ucmd_ctx *ucmd_ctx,
                                       const char          *key,
                                       size_t              *value_size,
-                                      sid_kv_flags_t      *flags);
+                                      sid_kv_fl_t         *fl);
 
 int sid_ucmd_kv_reserve(sid_res_t                  *mod_res,
-                        struct sid_ucmd_common_ctx *ucmd_common_ctx,
-                        sid_kv_namespace_t          ns,
+                        struct sid_ucmd_common_ctx *sid_ucmd_common_ctx,
+                        sid_kv_ns_t                 ns,
                         const char                 *key,
-                        sid_kv_flags_t              flags);
+                        sid_kv_fl_t                 fl);
 
-int sid_ucmd_kv_unreserve(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx, sid_kv_namespace_t ns, const char *key);
+int sid_ucmd_kv_unreserve(sid_res_t *mod_res, struct sid_ucmd_common_ctx *sid_ucmd_common_ctx, sid_kv_ns_t ns, const char *key);
 
 typedef enum {
 	/* states in which any layers above are not possible */
@@ -273,31 +273,31 @@ const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucm
 #define sid_ucmd_dev_alias_va_get(mod_res, ucmd_ctx, ...)                                                                          \
 	sid_ucmd_dev_alias_get(mod_res, ucmd_ctx, &((struct sid_ucmd_dev_alias_get_args) {__VA_ARGS__}))
 
-int sid_ucmd_grp_create(sid_res_t           *mod_res,
-                        struct sid_ucmd_ctx *ucmd_ctx,
-                        sid_kv_namespace_t   group_ns,
-                        sid_kv_flags_t       group_flags,
-                        const char          *group_cat,
-                        const char          *group_id);
+int sid_ucmd_group_create(sid_res_t           *mod_res,
+                          struct sid_ucmd_ctx *ucmd_ctx,
+                          sid_kv_ns_t          group_ns,
+                          sid_kv_fl_t          group_flags,
+                          const char          *group_cat,
+                          const char          *group_id);
 
-int sid_ucmd_grp_add_current_dev(sid_res_t           *mod_res,
-                                 struct sid_ucmd_ctx *ucmd_ctx,
-                                 sid_kv_namespace_t   group_ns,
-                                 const char          *group_cat,
-                                 const char          *group_id);
+int sid_ucmd_group_add_current_dev(sid_res_t           *mod_res,
+                                   struct sid_ucmd_ctx *ucmd_ctx,
+                                   sid_kv_ns_t          group_ns,
+                                   const char          *group_cat,
+                                   const char          *group_id);
 
-int sid_ucmd_grp_del_current_dev(sid_res_t           *mod_res,
-                                 struct sid_ucmd_ctx *ucmd_ctx,
-                                 sid_kv_namespace_t   group_ns,
-                                 const char          *group_cat,
-                                 const char          *group_id);
+int sid_ucmd_group_del_current_dev(sid_res_t           *mod_res,
+                                   struct sid_ucmd_ctx *ucmd_ctx,
+                                   sid_kv_ns_t          group_ns,
+                                   const char          *group_cat,
+                                   const char          *group_id);
 
-int sid_ucmd_grp_destroy(sid_res_t           *mod_res,
-                         struct sid_ucmd_ctx *ucmd_ctx,
-                         sid_kv_namespace_t   group_ns,
-                         const char          *group_cat,
-                         const char          *group_id,
-                         int                  force);
+int sid_ucmd_group_destroy(sid_res_t           *mod_res,
+                           struct sid_ucmd_ctx *ucmd_ctx,
+                           sid_kv_ns_t          group_ns,
+                           const char          *group_cat,
+                           const char          *group_id,
+                           int                  force);
 
 typedef enum {
 	SID_DEV_SEARCH_IMM_ANC,

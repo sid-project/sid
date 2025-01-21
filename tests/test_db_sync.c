@@ -106,7 +106,7 @@ int _do_build_buffers(sid_res_t *cmd_res)
 struct kv_key_spec base_spec = {.extra_op = NULL,
                                 .op       = KV_OP_SET,
                                 .dom      = KV_KEY_DOM_USER,
-                                .ns       = SID_KV_NS_GLOBAL,
+                                .ns       = SID_KV_NS_GLOB,
                                 .ns_part  = ID_NULL,
                                 .id_cat   = ID_NULL,
                                 .id       = ID_NULL,
@@ -165,7 +165,7 @@ static void _set_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core, char **data
 	struct kv_key_spec   key_spec = base_spec;
 	char                *key;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT + nr_data];
-	sid_kv_flags_t       flags      = SID_KV_FL_RD;
+	sid_kv_fl_t          flags      = SID_KV_FL_RD;
 	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                   .custom   = NULL,
@@ -205,7 +205,7 @@ static void _set_broken_kv(struct sid_ucmd_ctx *ucmd_ctx, const char *core)
 	struct kv_key_spec   key_spec = base_spec;
 	char                *key;
 	kv_vector_t          vvalue[VVALUE_HEADER_CNT];
-	sid_kv_flags_t       flags      = SID_KV_FL_RD;
+	sid_kv_fl_t          flags      = SID_KV_FL_RD;
 	struct kv_update_arg update_arg = {.res      = ucmd_ctx->common->kvs_res,
 	                                   .gen_buf  = ucmd_ctx->common->gen_buf,
 	                                   .custom   = NULL,

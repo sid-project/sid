@@ -82,7 +82,7 @@ static int _blkid_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_comm
 	}
 
 	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
-		if (sid_ucmd_kv_reserve(mod_res, ucmd_common_ctx, SID_KV_NS_DEVICE, keys[i], SID_KV_FL_FRG_RD) < 0) {
+		if (sid_ucmd_kv_reserve(mod_res, ucmd_common_ctx, SID_KV_NS_DEV, keys[i], SID_KV_FL_FRG_RD) < 0) {
 			sid_res_log_error(mod_res, "Failed to reserve blkid device key %s.", keys[i]);
 			return -1;
 		}
@@ -106,7 +106,7 @@ static int _blkid_exit(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_comm
 	}
 
 	for (i = _DEVICE_KEY_START; i <= _DEVICE_KEY_END; i++) {
-		if (sid_ucmd_kv_unreserve(mod_res, ucmd_common_ctx, SID_KV_NS_DEVICE, keys[i]) < 0) {
+		if (sid_ucmd_kv_unreserve(mod_res, ucmd_common_ctx, SID_KV_NS_DEV, keys[i]) < 0) {
 			sid_res_log_error(mod_res, "Failed to unreserve blkid device key %s.", keys[i]);
 			return -1;
 		}
@@ -134,139 +134,134 @@ static void _add_property(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, con
 	if (!strcmp(name, "TYPE")) {
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_TYPE],
-		                   .value = value,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_TYPE],
+		                   .val = value,
+		                   .fl  = SID_KV_FL_RD);
 
 		/* Translate blkid type name to sid module name and save the result in SID_UCMD_KEY_DEVICE_NEXT_MOD variable in
 		 * KV_NS_DEVICE. */
 		if ((blkid_type = blkid_type_lookup(value, strlen(value))))
 			sid_ucmd_kv_va_set(mod_res,
 			                   ucmd_ctx,
-			                   .ns    = SID_KV_NS_DEVICE,
-			                   .key   = keys[D_NEXT_MOD],
-			                   .value = blkid_type->module_name,
-			                   .flags = SID_KV_FL_SYNC_P | SID_KV_FL_RD);
+			                   .ns  = SID_KV_NS_DEV,
+			                   .key = keys[D_NEXT_MOD],
+			                   .val = blkid_type->module_name,
+			                   .fl  = SID_KV_FL_SCPS | SID_KV_FL_RD);
 	} else if (!strcmp(name, "USAGE")) {
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_USAGE],
-		                   .value = value,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_USAGE],
+		                   .val = value,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "VERSION")) {
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_VERSION],
-		                   .value = value,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_VERSION],
+		                   .val = value,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "UUID")) {
 		blkid_safe_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_UUID],
-		                   .value = value,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_UUID],
+		                   .val = value,
+		                   .fl  = SID_KV_FL_RD);
 		blkid_encode_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = keys[U_FS_UUID_ENC], s, SID_KV_FL_RD);
 	} else if (!strcmp(name, "UUID_SUB")) {
 		blkid_safe_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_UUID_SUB],
-		                   .value = value,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_UUID_SUB],
+		                   .val = value,
+		                   .fl  = SID_KV_FL_RD);
 		blkid_encode_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_UUID_SUB_ENC],
-		                   .value = s,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_UUID_SUB_ENC],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "LABEL")) {
 		blkid_safe_string(value, s, sizeof(s));
-		sid_ucmd_kv_va_set(mod_res,
-		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_LABEL],
-		                   .value = s,
-		                   .flags = SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = keys[U_FS_LABEL], .val = s, .fl = SID_KV_FL_RD);
 		blkid_encode_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_LABEL_ENC],
-		                   .value = s,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_LABEL_ENC],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PTTYPE")) {
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_PART_TABLE_TYPE],
-		                   .value = value,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_PART_TABLE_TYPE],
+		                   .val = value,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PTUUID")) {
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_PART_TABLE_UUID],
-		                   .value = value,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_PART_TABLE_UUID],
+		                   .val = value,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PART_ENTRY_NAME")) {
 		blkid_encode_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_PART_ENTRY_NAME],
-		                   .value = s,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_PART_ENTRY_NAME],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PART_ENTRY_TYPE")) {
 		blkid_encode_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_PART_ENTRY_TYPE],
-		                   .value = s,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_PART_ENTRY_TYPE],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strncmp(name, "PART_ENTRY_", strlen("PART_ENTRY_"))) {
 		snprintf(s, sizeof(s), "ID_%s", name);
-		sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = s, .value = value, .flags = SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = s, .val = value, .fl = SID_KV_FL_RD);
 	} else if (!strcmp(name, "SYSTEM_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_SYSTEM_ID],
-		                   .value = s,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_SYSTEM_ID],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PUBLISHER_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_PUBLISHER_ID],
-		                   .value = s,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_PUBLISHER_ID],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "APPLICATION_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_APPLICATION_ID],
-		                   .value = s,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_APPLICATION_ID],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "BOOT_SYSTEM_ID")) {
 		blkid_encode_string(value, s, sizeof(s));
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
-		                   .ns    = SID_KV_NS_UDEV,
-		                   .key   = keys[U_FS_BOOT_SYSTEM_ID],
-		                   .value = s,
-		                   .flags = SID_KV_FL_RD);
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_BOOT_SYSTEM_ID],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
 	}
 }
 

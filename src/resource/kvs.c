@@ -20,7 +20,7 @@
 
 #define KV_STORE_VALUE_INT_ALLOC UINT32_C(0x00000001)
 
-typedef uint32_t kv_store_value_int_flags_t;
+typedef uint32_t kv_store_value_int_fl_t;
 
 struct kv_store {
 	sid_kvs_backend_t backend;
@@ -34,10 +34,10 @@ struct kv_store {
 };
 
 struct kv_store_value {
-	size_t                     size;
-	kv_store_value_int_flags_t int_flags;
-	sid_kvs_val_fl_t           ext_flags;
-	char                       data[] __aligned;
+	size_t                  size;
+	kv_store_value_int_fl_t int_flags;
+	sid_kvs_val_fl_t        ext_flags;
+	char                    data[] __aligned;
 };
 
 struct kv_rollback_arg {
