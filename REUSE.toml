@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+# SPDX-FileCopyrightText: (C) 2017-2025 Red Hat, Inc.
 #
 # SPDX-License-Identifier: CC0-1.0
 #
@@ -8,7 +8,7 @@ version = 1
 
 [[annotations]]
 path = [".csmock-kfp.js", ".gitignore", "AUTHORS", "README.md", "tests/.gitignore"]
-SPDX-FileCopyrightText = "2017-2024 Red Hat, Inc."
+SPDX-FileCopyrightText = "2017-2025 Red Hat, Inc."
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]

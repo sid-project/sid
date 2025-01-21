@@ -1,5 +1,5 @@
 dnl
-dnl SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+dnl SPDX-FileCopyrightText: (C) 2017-2025 Red Hat, Inc.
 dnl
 dnl SPDX-License-Identifier: FSFAP-no-warranty-disclaimer
 dnl

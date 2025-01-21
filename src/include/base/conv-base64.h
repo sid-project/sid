@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: (C) 2005, Jouni Malinen <j@w1.fi>
- * SPDX-FileCopyrightText: (C) 2017-2024 Red Hat, Inc.
+ * SPDX-FileCopyrightText: (C) 2017-2025 Red Hat, Inc.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
