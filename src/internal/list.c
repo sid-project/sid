@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: (C) 2001-2004 Sistina Software, Inc.
- * SPDX-FileCopyrightText: (C) 2004-2024 Red Hat, Inc.
+ * SPDX-FileCopyrightText: (C) 2004-2025 Red Hat, Inc.
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */

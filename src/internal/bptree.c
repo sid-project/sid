@@ -1,6 +1,6 @@
 /*
  * SPDX-FileCopyrightText: (C) 2018 Amittai Aviram  http://www.amittai.com
- * SPDX-FileCopyrightText: (C) 2022-2024 Red Hat, Inc.
+ * SPDX-FileCopyrightText: (C) 2022-2025 Red Hat, Inc.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  */
