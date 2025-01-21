@@ -79,18 +79,18 @@ static int _is_parent_multipathed(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 
 	valid_str = sid_ucmd_kv_get_disk_part(mod_res, ucmd_ctx, X_VALID, NULL, NULL);
 	if (!valid_str || !valid_str[0])
-		return 0;
+	        return 0;
 	else {
-		errno = 0;
-		r     = strtol(valid_str, &p, 10);
-		if (errno || !p || *p)
-			return 0;
+	        errno = 0;
+	        r     = strtol(valid_str, &p, 10);
+	        if (errno || !p || *p)
+	                return 0;
 	}
 	if (r == MPATH_IS_VALID) {
-		sid_res_log_debug(mod_res, "%s whole disk is a multipath path", sid_ucmd_ev_get_dev_name(ucmd_ctx));
-		sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = U_DEV_PATH, .val = "1", .fl = SID_KV_FL_RD);
+	        sid_res_log_debug(mod_res, "%s whole disk is a multipath path", sid_ucmd_ev_get_dev_name(ucmd_ctx));
+	        sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = U_DEV_PATH, .val = "1", .fl = SID_KV_FL_RD);
 	} else
-		sid_res_log_debug(mod_res, "%s whole disk is not a multipath path", sid_ucmd_ev_get_dev_name(ucmd_ctx));
+	        sid_res_log_debug(mod_res, "%s whole disk is not a multipath path", sid_ucmd_ev_get_dev_name(ucmd_ctx));
 	*/
 
 	return 0;
