@@ -3963,10 +3963,11 @@ static char **_do_sid_ucmd_dev_stack_get(sid_res_t           *mod_res,
 	size_t i, count, count1, count2;
 	char **strv = NULL, **strv1 = NULL, **strv2 = NULL;
 	char **strv_merged;
+	int    r;
 
-	strv = _get_dev_imm_deps(mod_res, ucmd_ctx, dev_key, method, &count, ret_code);
+	strv = _get_dev_imm_deps(mod_res, ucmd_ctx, dev_key, method, &count, &r);
 
-	if (*ret_code < 0)
+	if (r < 0)
 		goto fail;
 
 	switch (method) {
@@ -3983,16 +3984,16 @@ static char **_do_sid_ucmd_dev_stack_get(sid_res_t           *mod_res,
 			count1 = count;
 
 			for (i = 0; i < count; i++) {
-				strv2 = _do_sid_ucmd_dev_stack_get(mod_res, ucmd_ctx, strv[i], method, &count2, ret_code);
+				strv2 = _do_sid_ucmd_dev_stack_get(mod_res, ucmd_ctx, strv[i], method, &count2, &r);
 
-				if (*ret_code < 0)
+				if (r < 0)
 					goto fail;
 
 				if (!strv2)
 					continue;
 
 				if (!(strv_merged = _strv_add_strv(strv1, count1, strv2, count2))) {
-					*ret_code = -ENOMEM;
+					r = -ENOMEM;
 					goto fail;
 				}
 
@@ -4020,14 +4021,14 @@ static char **_do_sid_ucmd_dev_stack_get(sid_res_t           *mod_res,
 			count1 = 0;
 
 			for (i = 0; i < count; i++) {
-				strv2 = _do_sid_ucmd_dev_stack_get(mod_res, ucmd_ctx, strv[i], method, &count2, ret_code);
+				strv2 = _do_sid_ucmd_dev_stack_get(mod_res, ucmd_ctx, strv[i], method, &count2, &r);
 
-				if (*ret_code < 0)
+				if (r < 0)
 					goto fail;
 
 				if (!strv2) {
 					if (!(strv_merged = _strv_add_str(strv1, count1, strv[i]))) {
-						*ret_code = -ENOMEM;
+						r = -ENOMEM;
 						goto fail;
 					}
 
@@ -4039,7 +4040,7 @@ static char **_do_sid_ucmd_dev_stack_get(sid_res_t           *mod_res,
 				} else {
 					if (strv1) {
 						if (!(strv_merged = _strv_add_strv(strv1, count1, strv2, count2))) {
-							*ret_code = -ENOMEM;
+							r = -ENOMEM;
 							goto fail;
 						}
 
@@ -4064,14 +4065,20 @@ static char **_do_sid_ucmd_dev_stack_get(sid_res_t           *mod_res,
 			break;
 	}
 out:
-	*ret_count = count;
+	if (ret_count)
+		*ret_count = count;
+	if (ret_code)
+		*ret_code = 0;
 	return strv;
 fail:
 	free(strv1);
 	free(strv2);
 	if (strv != strv1)
 		free(strv);
-	*ret_count = 0;
+	if (ret_count)
+		*ret_count = 0;
+	if (ret_code)
+		*ret_code = r;
 	return NULL;
 }
 
