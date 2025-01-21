@@ -18,15 +18,15 @@ extern "C" {
 struct hash_table;
 struct hash_node;
 
-typedef void (*hash_iterate_fn_t)(const void *key, uint32_t key_len, void *data, size_t data_len);
+typedef void (*hash_iterate_fn_t)(const void *key, uint32_t key_size, void *data, size_t data_size);
 
 struct hash_table *hash_create(unsigned size_hint);
 void               hash_wipe(struct hash_table *t);
 void               hash_destroy(struct hash_table *t);
 
-int   hash_add(struct hash_table *t, const void *key, uint32_t key_len, void *data, size_t data_len);
-void *hash_lookup(struct hash_table *t, const void *key, uint32_t key_len, size_t *data_len);
-void  hash_del(struct hash_table *t, const void *key, uint32_t key_len);
+int   hash_add(struct hash_table *t, const void *key, uint32_t key_size, void *data, size_t data_size);
+void *hash_lookup(struct hash_table *t, const void *key, uint32_t key_size, size_t *data_size);
+void  hash_del(struct hash_table *t, const void *key, uint32_t key_size);
 
 unsigned hash_get_entry_count(struct hash_table *t);
 size_t   hash_get_size(struct hash_table *t, size_t *meta_size, size_t *data_size);
@@ -35,8 +35,8 @@ void     hash_iter(struct hash_table *t, hash_iterate_fn_t f);
 struct hash_node *hash_get_first(struct hash_table *t);
 struct hash_node *hash_get_next(struct hash_table *t, struct hash_node *n);
 
-char *hash_get_key(struct hash_table *t, struct hash_node *n, uint32_t *key_len);
-void *hash_get_data(struct hash_table *t, struct hash_node *n, size_t *data_len);
+char *hash_get_key(struct hash_table *t, struct hash_node *n, uint32_t *key_size);
+void *hash_get_data(struct hash_table *t, struct hash_node *n, size_t *data_size);
 
 /*
  * hash_insert() replaces the data of an existing
@@ -45,23 +45,23 @@ void *hash_get_data(struct hash_table *t, struct hash_node *n, size_t *data_len)
  *
  * hash_insert_allow_multiple() inserts a new entry if
  * another entry with the same key already exists.
- * data_len is the size of the data being inserted.
+ * data_size is the size of the data being inserted.
  *
  * If two entries with the same key exist,
  * (added using hash_insert_allow_multiple), then:
  * . hash_lookup() returns the first one it finds, and
  *   hash_lookup_with_data() returns the one with a matching
- *   data_len/data.
+ *   data_size/data.
  * . hash_del() removes the first one it finds, and
  *   hash_del_with_data() removes the one with a matching
- *   data_len/data.
+ *   data_size/data.
  *
  * If a single entry with a given key exists, and it has
- * zero data_len, then:
+ * zero data_size, then:
  * . hash_lookup() returns it
- * . hash_lookup_with_data(data_len=0) returns it
+ * . hash_lookup_with_data(data_size=0) returns it
  * . hash_del() removes it
- * . hash_del_with_data(data_len=0) removes it
+ * . hash_del_with_data(data_size=0) removes it
  *
  * hash_lookup_with_count() is a single call that will
  * both lookup a key's data and check if there is more
@@ -82,10 +82,10 @@ void *hash_get_data(struct hash_table *t, struct hash_node *n, size_t *data_len)
  *   returned and count is set to N.
  */
 
-int   hash_add_allow_multiple(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
-void *hash_lookup_with_data(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
-void *hash_lookup_with_count(struct hash_table *t, const char *key, uint32_t key_len, size_t *data_len, unsigned *count);
-void  hash_del_with_data(struct hash_table *t, const char *key, uint32_t key_len, void *data, size_t data_len);
+int   hash_add_allow_multiple(struct hash_table *t, const char *key, uint32_t key_size, void *data, size_t data_size);
+void *hash_lookup_with_data(struct hash_table *t, const char *key, uint32_t key_size, void *data, size_t data_size);
+void *hash_lookup_with_count(struct hash_table *t, const char *key, uint32_t key_size, size_t *data_size, unsigned *count);
+void  hash_del_with_data(struct hash_table *t, const char *key, uint32_t key_size, void *data, size_t data_size);
 
 #define hash_iterate(v, h) for (v = hash_get_first((h)); v; v = hash_get_next((h), v))
 
@@ -106,11 +106,11 @@ typedef enum {
  * 	1 for hash table to update old_data with new_data (new_data may be modified and/or newly allocated by this function)
  */
 typedef hash_update_action_t (*hash_update_cb_fn_t)(const void *key,
-                                                    uint32_t    key_len,
+                                                    uint32_t    key_size,
                                                     void       *old_data,
-                                                    size_t      old_data_len,
+                                                    size_t      old_data_size,
                                                     void      **new_data,
-                                                    size_t     *new_data_len,
+                                                    size_t     *new_data_size,
                                                     void       *arg);
 
 /*
@@ -119,9 +119,9 @@ typedef hash_update_action_t (*hash_update_cb_fn_t)(const void *key,
  */
 int hash_update(struct hash_table  *t,
                 const void         *key,
-                uint32_t            key_len,
+                uint32_t            key_size,
                 void              **data,
-                size_t             *data_len,
+                size_t             *data_size,
                 hash_update_cb_fn_t hash_update_fn,
                 void               *hash_update_fn_arg);
 
