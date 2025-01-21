@@ -190,25 +190,6 @@ const void *sid_ucmd_kv_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, s
 #define sid_ucmd_kv_va_get(mod_res, ucmd_ctx, ...)                                                                                 \
 	sid_ucmd_kv_get(mod_res, ucmd_ctx, &((struct sid_ucmd_kv_get_args) {__VA_ARGS__}))
 
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-// TODO: The sid_ucmd_kv_get_disk_part doesn't work right now.
-//
-// 	 Instead, we should be using sid_ucmd_get_foreign_dev_mod_kv with the
-// 	 dev ID of the parent disk and then remove this function.
-//
-// 	 We will be adding ucmd-mod.h API to get the layer/list of devices
-// 	 underneath given device and also the layer/list of devices above
-// 	 (thinking in the form of an iterator). This still needs some thinking
-// 	 of a good way how to represent it as we'll be using this for both
-// 	 partitions and other devices which are not partitions, but layered
-// 	 devices in general.
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-const void *sid_ucmd_kv_get_disk_part(sid_res_t           *mod_res,
-                                      struct sid_ucmd_ctx *ucmd_ctx,
-                                      const char          *key,
-                                      size_t              *value_size,
-                                      sid_kv_fl_t         *fl);
-
 int sid_ucmd_kv_reserve(sid_res_t                  *mod_res,
                         struct sid_ucmd_common_ctx *sid_ucmd_common_ctx,
                         sid_kv_ns_t                 ns,

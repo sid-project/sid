@@ -72,6 +72,7 @@ SID_UCMD_MOD_RESET(_dm_mpath_reset)
 
 static int _is_parent_multipathed(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 {
+	/*
 	int         r = MPATH_IS_ERROR;
 	const char *valid_str;
 	char       *p;
@@ -90,6 +91,8 @@ static int _is_parent_multipathed(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 		sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = U_DEV_PATH, .val = "1", .fl = SID_KV_FL_RD);
 	} else
 		sid_res_log_debug(mod_res, "%s whole disk is not a multipath path", sid_ucmd_ev_get_dev_name(ucmd_ctx));
+	*/
+
 	return 0;
 }
 
