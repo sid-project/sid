@@ -1,21 +1,73 @@
 {
     "scan": {
-        "analyzer-version-clang": "19.1.4",
-        "analyzer-version-cppcheck": "2.16.0",
+        "analyzer-version-clang": "19.1.5",
+        "analyzer-version-cppcheck": "2.16.2",
         "analyzer-version-gcc": "14.2.1",
         "enabled-plugins": "clang, cppcheck, gcc",
         "exit-code": 0,
         "host": "fed.virt",
         "mock-config": "default",
         "project-name": "sid-0.0.6-1.fc41",
-        "store-results-to": "/root/rpmbuild/SRPMS/csmock-results",
-        "time-created": "2024-12-03 15:56:50",
-        "time-finished": "2024-12-03 15:59:12",
+        "store-results-to": "/root/rpmbuild/SRPMS/sid-csmock-results.tar.xz",
+        "time-created": "2025-01-22 10:47:46",
+        "time-finished": "2025-01-22 10:50:09",
         "tool": "csmock",
-        "tool-args": "'/usr/bin/csmock' '--cppcheck-add-flag=--check-level=exhaustive' '-r' 'default' '--tools' 'clang,cppcheck,gcc' 'sid-0.0.6-1.fc41.src.rpm' '-o' 'csmock-results'",
+        "tool-args": "'/usr/bin/csmock' '--cppcheck-add-flag=--check-level=exhaustive' '-o' 'sid-csmock-results.tar.xz' '-r' 'default' '--tools' 'clang,cppcheck,gcc' 'sid-0.0.6-1.fc41.src.rpm'",
         "tool-version": "csmock-3.8.0-1.fc41"
     },
     "defects": [
+        {
+            "checker": "CPPCHECK_WARNING",
+            "cwe": 457,
+            "language": "c/c++",
+            "tool": "cppcheck",
+            "hash_v1": "895a3f8e96c613a4f8eefe0713afbf2005e3d2f2",
+            "key_event_idx": 0,
+            "events": [
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/modules/ucmd/block/dm_mpath/dm_mpath.c",
+                    "line": 82,
+                    "event": "error[uninitvar]",
+                    "message": "Uninitialized variable: r",
+                    "verbosity_level": 0
+                },
+                {
+                    "file_name": "",
+                    "line": 0,
+                    "event": "#",
+                    "message": "   80|   ",
+                    "verbosity_level": 1
+                },
+                {
+                    "file_name": "",
+                    "line": 0,
+                    "event": "#",
+                    "message": "   81|   \tparent = sid_ucmd_dev_stack_va_get(mod_res, ucmd_ctx, .method = SID_DEV_SEARCH_IMM_ANC, .ret_code = &r);",
+                    "verbosity_level": 1
+                },
+                {
+                    "file_name": "",
+                    "line": 0,
+                    "event": "#",
+                    "message": "   82|-> \tif (r < 0 || !parent)",
+                    "verbosity_level": 1
+                },
+                {
+                    "file_name": "",
+                    "line": 0,
+                    "event": "#",
+                    "message": "   83|   \t\treturn 0;",
+                    "verbosity_level": 1
+                },
+                {
+                    "file_name": "",
+                    "line": 0,
+                    "event": "#",
+                    "message": "   84|   ",
+                    "verbosity_level": 1
+                }
+            ]
+        },
         {
             "checker": "CLANG_WARNING",
             "language": "c/c++",
@@ -378,7 +430,7 @@
                 },
                 {
                     "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 7310,
+                    "line": 7265,
                     "column": 22,
                     "event": "note",
                     "message": "at offset 80 into object 'vvalue' of size 80",
@@ -388,7 +440,7 @@
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 7310 |         kv_vector_t  vvalue[VVALUE_SINGLE_CNT];",
+                    "message": " 7265 |         kv_vector_t  vvalue[VVALUE_SINGLE_CNT];",
                     "verbosity_level": 1
                 },
                 {
@@ -402,7 +454,7 @@
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": "  843|   \tif (VVALUE_FLAGS(vvalue) & SID_KV_FL_ALIGN) {",
+                    "message": "  843|   \tif (VVALUE_FLAGS(vvalue) & SID_KV_FL_AL) {",
                     "verbosity_level": 1
                 },
                 {
@@ -436,10 +488,262 @@
             ]
         },
         {
+            "checker": "CLANG_WARNING",
+            "language": "c/c++",
+            "tool": "clang",
+            "hash_v1": "7727f84c366253cee43728c7153783bfd3cb395b",
+            "key_event_idx": 0,
+            "events": [
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3944,
+                    "column": 11,
+                    "event": "warning[core.CallAndMessage]",
+                    "message": "2nd function call argument is an uninitialized value",
+                    "verbosity_level": 0
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 4087,
+                    "column": 6,
+                    "event": "note",
+                    "message": "Assuming 'args' is non-null",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 4087,
+                    "column": 2,
+                    "event": "note",
+                    "message": "Taking false branch",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 4094,
+                    "column": 3,
+                    "event": "note",
+                    "message": "Calling '_do_sid_ucmd_dev_stack_get'",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3968,
+                    "column": 9,
+                    "event": "note",
+                    "message": "Calling '_get_dev_imm_deps'",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3877,
+                    "column": 2,
+                    "event": "note",
+                    "message": "'vvalue_size' declared without an initial value",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3880,
+                    "column": 2,
+                    "event": "note",
+                    "message": "Control jumps to 'case SID_DEV_SEARCH_IMM_DESC:'  at line 3916",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3920,
+                    "column": 8,
+                    "event": "note",
+                    "message": "Assuming 'dev_key' is null",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3920,
+                    "column": 4,
+                    "event": "note",
+                    "message": "Taking false branch",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3935,
+                    "column": 61,
+                    "event": "note",
+                    "message": "'?' condition is false",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3928,
+                    "column": 13,
+                    "event": "note",
+                    "message": "Calling '_cmd_get_key_spec_value'",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2679,
+                    "column": 8,
+                    "event": "note",
+                    "message": "Assuming 'key' is non-null",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2679,
+                    "column": 2,
+                    "event": "note",
+                    "message": "Taking false branch",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2685,
+                    "column": 8,
+                    "event": "note",
+                    "message": "Calling '_cmd_get_key_value'",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2609,
+                    "column": 8,
+                    "event": "note",
+                    "message": "Assuming 'val' is null",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2609,
+                    "column": 2,
+                    "event": "note",
+                    "message": "Taking true branch",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2610,
+                    "column": 3,
+                    "event": "note",
+                    "message": "Control jumps to line 2663",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2663,
+                    "column": 6,
+                    "event": "note",
+                    "message": "'ret_code' is non-null",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2663,
+                    "column": 2,
+                    "event": "note",
+                    "message": "Taking true branch",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2665,
+                    "column": 2,
+                    "event": "note",
+                    "message": "Returning without writing to '*value_size'",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2685,
+                    "column": 8,
+                    "event": "note",
+                    "message": "Returning from '_cmd_get_key_value'",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 2688,
+                    "column": 2,
+                    "event": "note",
+                    "message": "Returning without writing to '*value_size'",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3928,
+                    "column": 13,
+                    "event": "note",
+                    "message": "Returning from '_cmd_get_key_spec_value'",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3941,
+                    "column": 8,
+                    "event": "note",
+                    "message": "Assuming the condition is false",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3941,
+                    "column": 22,
+                    "event": "note",
+                    "message": "Left side of '&&' is false",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "line": 3944,
+                    "column": 11,
+                    "event": "note",
+                    "message": "2nd function call argument is an uninitialized value",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "",
+                    "line": 0,
+                    "event": "#",
+                    "message": " 3942|   \t\t\t\treturn NULL;",
+                    "verbosity_level": 1
+                },
+                {
+                    "file_name": "",
+                    "line": 0,
+                    "event": "#",
+                    "message": " 3943|   ",
+                    "verbosity_level": 1
+                },
+                {
+                    "file_name": "",
+                    "line": 0,
+                    "event": "#",
+                    "message": " 3944|-> \t\t\treturn _get_key_strv_from_vvalue(vvalue,",
+                    "verbosity_level": 1
+                },
+                {
+                    "file_name": "",
+                    "line": 0,
+                    "event": "#",
+                    "message": " 3945|   \t\t\t                                 vvalue_size,",
+                    "verbosity_level": 1
+                },
+                {
+                    "file_name": "",
+                    "line": 0,
+                    "event": "#",
+                    "message": " 3946|   \t\t\t                                 &KV_KEY_SPEC(.ns = SID_KV_NS_DEV),",
+                    "verbosity_level": 1
+                }
+            ]
+        },
+        {
             "checker": "COMPILER_WARNING",
             "language": "c/c++",
             "tool": "gcc",
-            "hash_v1": "9319daeb237eae066205b57ff503fc7160e64785",
+            "hash_v1": "23cb19e7dca8ad7639be49106698fe9b787618d3",
             "key_event_idx": 1,
             "events": [
                 {
@@ -451,17 +755,17 @@
                 },
                 {
                     "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 4023,
+                    "line": 4010,
                     "column": 39,
                     "event": "warning[-Wuse-after-free]",
-                    "message": "pointer 'strv1_30' used after 'free'",
+                    "message": "pointer 'strv1_31' used after 'free'",
                     "verbosity_level": 0
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4023 |                                 strv  = strv1;",
+                    "message": " 4010 |                                 strv  = strv1;",
                     "verbosity_level": 1
                 },
                 {
@@ -473,7 +777,7 @@
                 },
                 {
                     "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 4022,
+                    "line": 4009,
                     "column": 33,
                     "event": "note",
                     "message": "call to 'free' here",
@@ -483,7 +787,7 @@
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4022 |                                 free(strv);",
+                    "message": " 4009 |                                 free(strv);",
                     "verbosity_level": 1
                 },
                 {
@@ -497,35 +801,35 @@
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4021|   \t\t\tif (strv1 != strv) {",
+                    "message": " 4008|   \t\t\tif (strv1 != strv) {",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4022|   \t\t\t\tfree(strv);",
+                    "message": " 4009|   \t\t\t\tfree(strv);",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4023|-> \t\t\t\tstrv  = strv1;",
+                    "message": " 4010|-> \t\t\t\tstrv  = strv1;",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4024|   \t\t\t\tcount = count1;",
+                    "message": " 4011|   \t\t\t\tcount = count1;",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4025|   \t\t\t}",
+                    "message": " 4012|   \t\t\t}",
                     "verbosity_level": 1
                 }
             ]
