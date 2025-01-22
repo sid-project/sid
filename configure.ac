@@ -6,7 +6,7 @@
 
 m4_define([VERSION_MAJOR], [0])
 m4_define([VERSION_MINOR], [0])
-m4_define([VERSION_RELEASE], [6])
+m4_define([VERSION_RELEASE], [7])
 
 AC_INIT([sid], [VERSION_MAJOR.VERSION_MINOR.VERSION_RELEASE], [prajnoha@redhat.com])
 AC_CONFIG_AUX_DIR(autoconf)

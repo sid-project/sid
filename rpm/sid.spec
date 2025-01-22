@@ -23,7 +23,7 @@ Name: sid
 %if 0%{?rhel}
 Epoch: %{rhel}
 %endif
-Version: 0.0.6
+Version: 0.0.7
 Release: 1%{?scmsnap:.%{scmsnap}}%{?dist}
 Summary: Storage Instantiation Daemon (SID)
 
