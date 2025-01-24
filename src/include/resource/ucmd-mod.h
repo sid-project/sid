@@ -178,7 +178,7 @@ int sid_ucmd_kv_set(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct si
 struct sid_ucmd_kv_get_args {
 	sid_kv_ns_t  ns;
 	const char  *frg_mod_name;
-	const char  *frg_dev_id;
+	const char  *frg_dev_key;
 	const char  *key;
 	unsigned int ar;
 	sid_kv_fl_t *fl;
@@ -243,7 +243,7 @@ int sid_ucmd_dev_alias_rename(sid_res_t           *mod_res,
 int sid_ucmd_dev_alias_del(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, const char *alias_key, const char *alias);
 
 struct sid_ucmd_dev_alias_get_args {
-	const char *dev_id;
+	const char *dev_key;
 	const char *mod_name;
 	const char *alias_key;
 	size_t     *count;

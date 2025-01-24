@@ -2836,14 +2836,14 @@ static const void *_do_sid_ucmd_get_kv(sid_res_t                   *res,
                                        const char                  *dom,
                                        struct sid_ucmd_kv_get_args *args)
 {
-	int foreign = args->frg_mod_name || args->frg_dev_id;
+	int foreign = args->frg_mod_name || args->frg_dev_key;
 
 	struct kv_key_spec key_spec =
 		KV_KEY_SPEC(.extra_op = args->ar == 1 ? KV_PREFIX_OP_ARCHIVE_C : KV_PREFIX_OP_BLANK_C,
 	                    .dom      = dom,
 	                    .ns       = args->ns,
 	                    .ns_part =
-	                            foreign ? _get_foreign_ns_part(ucmd_ctx, owner, args->frg_mod_name, args->frg_dev_id, args->ns)
+	                            foreign ? _get_foreign_ns_part(ucmd_ctx, owner, args->frg_mod_name, args->frg_dev_key, args->ns)
 	                                    : _get_ns_part(ucmd_ctx, owner, args->ns),
 	                    .id_cat = args->ns == SID_KV_NS_DEVMOD ? KV_PREFIX_NS_MOD_C : ID_NULL,
 	                    .id     = args->ns == SID_KV_NS_DEVMOD
@@ -3519,7 +3519,7 @@ const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucm
 		ucmd_ctx,
 		_owner_name(mod_res),
 		&KV_KEY_SPEC(.ns      = SID_KV_NS_DEV,
-	                     .ns_part = args->dev_id ?: _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_DEV),
+	                     .ns_part = args->dev_key ?: _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_DEV),
 	                     .core    = KV_KEY_GEN_GROUP_IN),
 		&vvalue_size,
 		NULL,
