@@ -110,6 +110,7 @@ uint64_t util_time_get_now_usec(clockid_t clock_id);
 #define UTIL_UUID_STR_SIZE UUID_STR_LEN
 
 char *util_uuid_gen_str(util_mem_t *mem);
+bool  util_uuid_check_str(const char *str);
 char *util_uuid_get_boot_id(util_mem_t *mem, int *ret_code);
 
 #ifdef __cplusplus

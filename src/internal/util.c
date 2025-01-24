@@ -10,6 +10,7 @@
 
 #include "internal/mem.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -552,6 +553,24 @@ char *util_uuid_gen_str(util_mem_t *mem)
 	uuid_unparse(uu, str);
 
 	return str;
+}
+
+bool util_uuid_check_str(const char *str)
+{
+	unsigned int i;
+
+	if (!str || !*str)
+		return 0;
+
+	for (i = 0; i < UUID_STR_LEN - 1; i++) {
+		if ((i == 8 || i == 13 || i == 18 || i == 23)) {
+			if (str[i] != '-')
+				return false;
+		} else if (!isxdigit(str[i]))
+			return false;
+	}
+
+	return true;
 }
 
 char *util_uuid_get_boot_id(util_mem_t *mem, int *ret_code)
