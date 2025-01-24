@@ -82,7 +82,7 @@ static int _is_parent_multipathed(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 	if (r < 0 || !parent)
 		return 0;
 
-	valid_str = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_DEV, .frg_dev_id = parent[0], .key = X_VALID);
+	valid_str = sid_ucmd_kv_va_get(mod_res, ucmd_ctx, .ns = SID_KV_NS_DEV, .frg_dev_key = parent[0], .key = X_VALID);
 	free(parent);
 
 	if (!valid_str || !valid_str[0])
