@@ -2830,6 +2830,175 @@ static char **_strv_add_str(char **strv1, size_t size1, char *str)
 	return strv;
 }
 
+static int _get_devid_from_alias_record(struct sid_ucmd_ctx *ucmd_ctx,
+                                        const char          *key,
+                                        uint16_t            *gennum,
+                                        size_t              *count,
+                                        char                *buf,
+                                        size_t               buf_size)
+{
+	char        *p;
+	kv_vector_t *vvalue;
+	size_t       vvalue_size;
+	int          r;
+
+	if (!buf || (buf_size < UTIL_UUID_STR_SIZE))
+		return -ENOMEM;
+
+	if (!(vvalue = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &vvalue_size))) {
+		r = -ENODATA;
+		goto out;
+	}
+
+	if (gennum)
+		*gennum = VVALUE_GENNUM(vvalue);
+
+	vvalue      += VVALUE_HEADER_CNT;
+	vvalue_size -= VVALUE_HEADER_CNT;
+
+	if (count)
+		*count = vvalue_size;
+
+	for (p = buf; vvalue_size; vvalue_size--, vvalue++) {
+		if (!_copy_ns_part_from_key(vvalue->iov_base, p, buf_size)) {
+			r = -ENOBUFS;
+			goto out;
+		}
+
+		p        += vvalue->iov_len;
+		buf_size -= vvalue->iov_len;
+	}
+
+	r = 0;
+out:
+	return r;
+}
+
+static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
+                               const char          *owner,
+                               const char          *alias_key,
+                               const char          *alias,
+                               uint16_t            *gennum,
+                               size_t              *count,
+                               char                *buf,
+                               size_t               buf_size)
+{
+	const char *key;
+	int         r;
+
+	if ((key = _compose_key(ucmd_ctx->common->gen_buf,
+	                        &KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
+	                                     .ns      = SID_KV_NS_MOD,
+	                                     .ns_part = _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MOD),
+	                                     .id_cat  = alias_key,
+	                                     .id      = alias,
+	                                     .core    = KV_KEY_GEN_GROUP_MEMBERS))))
+		r = _get_devid_from_alias_record(ucmd_ctx, key, gennum, count, buf, buf_size);
+	else
+		r = -ENOMEM;
+
+	_destroy_key(ucmd_ctx->common->gen_buf, key);
+	return r;
+}
+
+static int _dev_key_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
+                             const char          *dev_key,
+                             uint16_t            *gennum,
+                             size_t              *count,
+                             char                *buf,
+                             size_t               buf_size)
+{
+	struct iovec key_parts[_KEY_PART_COUNT];
+	key_part_t   last_key_part;
+	const char  *key;
+	int          r;
+
+	last_key_part = _decompose_key(dev_key, key_parts);
+
+	if (last_key_part == _KEY_PART_START) {
+		// TODO: still check the key is a proper UUID (the 'devid')
+		// maybe also not copy to buf and just return a code to
+		// denote there was no translation
+		strncpy(buf, dev_key, buf_size - 1);
+		return 0;
+	}
+
+	if (last_key_part != KEY_PART_CORE)
+		return -ENOKEY;
+
+	// TODO: check key parts are not empty and that domain is ALS (alias)
+
+	// TODO: no need to check the at all if we got the key from KV store and not from user
+
+	if (!(key = _cat_prefix_and_key(ucmd_ctx->common->gen_buf, dev_key, KV_KEY_GEN_GROUP_MEMBERS)))
+		return -ENOMEM;
+
+	r = _get_devid_from_alias_record(ucmd_ctx, key, gennum, count, buf, buf_size);
+
+	_destroy_key(ucmd_ctx->common->gen_buf, key);
+	return r;
+}
+
+static int _dev_key_to_dsq(struct sid_ucmd_ctx *ucmd_ctx, const char *dev_key, uint16_t *gennum, char *buf, size_t buf_size)
+
+{
+	struct iovec key_parts[_KEY_PART_COUNT];
+	key_part_t   last_key_part;
+	const char  *key;
+	kv_vector_t *vvalue;
+	size_t       vvalue_size;
+	char       **key_strv = NULL;
+	size_t       count;
+	int          r;
+
+	last_key_part = _decompose_key(dev_key, key_parts);
+
+	if (last_key_part == _KEY_PART_START) {
+		strncpy(buf, dev_key, buf_size - 1);
+		return 0;
+	}
+
+	if (last_key_part != KEY_PART_CORE)
+		return -ENOKEY;
+
+	if (!(key = _cat_prefix_and_key(ucmd_ctx->common->gen_buf, dev_key, KV_KEY_GEN_GROUP_IN)))
+		return -ENOMEM;
+
+	if (!(vvalue = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &vvalue_size))) {
+		r = -ENODATA;
+		goto out;
+	}
+
+	if (gennum)
+		*gennum = VVALUE_GENNUM(vvalue);
+
+	vvalue      += VVALUE_HEADER_CNT;
+	vvalue_size -= VVALUE_HEADER_CNT;
+
+	key_strv     = _get_key_strv_from_vvalue(
+                vvalue,
+                vvalue_size,
+                &KV_KEY_SPEC(.dom = KV_KEY_DOM_ALIAS, .ns = SID_KV_NS_MOD, .ns_part = _owner_name(NULL), .id_cat = DEV_ALIAS_DSEQ),
+                &count,
+                &r);
+
+	if (count != 1) {
+		r = -EMLINK;
+		goto out;
+	}
+
+	if (!_copy_id_from_key(key_strv[0], buf, buf_size)) {
+		r = -ENOBUFS;
+		goto out;
+	}
+
+	r = 0;
+out:
+	free(key_strv);
+	_destroy_key(ucmd_ctx->common->gen_buf, key);
+	return r;
+}
+
 static const void *_do_sid_ucmd_get_kv(sid_res_t                   *res,
                                        struct sid_ucmd_ctx         *ucmd_ctx,
                                        const char                  *owner,
@@ -3697,172 +3866,6 @@ int sid_ucmd_group_destroy(sid_res_t           *mod_res,
 	                                  group_cat,
 	                                  group_id,
 	                                  force);
-}
-
-static int _get_devid_from_alias_record(struct sid_ucmd_ctx *ucmd_ctx,
-                                        const char          *key,
-                                        uint16_t            *gennum,
-                                        size_t              *count,
-                                        char                *buf,
-                                        size_t               buf_size)
-{
-	char        *p;
-	kv_vector_t *vvalue;
-	size_t       vvalue_size;
-	int          r;
-
-	if (!(vvalue = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &vvalue_size))) {
-		r = -ENODATA;
-		goto out;
-	}
-
-	if (gennum)
-		*gennum = VVALUE_GENNUM(vvalue);
-
-	vvalue      += VVALUE_HEADER_CNT;
-	vvalue_size -= VVALUE_HEADER_CNT;
-
-	if (count)
-		*count = vvalue_size;
-
-	for (p = buf; vvalue_size; vvalue_size--, vvalue++) {
-		if (!_copy_ns_part_from_key(vvalue->iov_base, p, buf_size)) {
-			r = -ENOBUFS;
-			goto out;
-		}
-
-		p        += vvalue->iov_len;
-		buf_size -= vvalue->iov_len;
-	}
-
-	r = 0;
-out:
-	return r;
-}
-
-static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
-                               const char          *owner,
-                               const char          *alias_key,
-                               const char          *alias,
-                               uint16_t            *gennum,
-                               size_t              *count,
-                               char                *buf,
-                               size_t               buf_size)
-{
-	const char *key;
-	int         r;
-
-	if ((key = _compose_key(ucmd_ctx->common->gen_buf,
-	                        &KV_KEY_SPEC(.dom     = KV_KEY_DOM_ALIAS,
-	                                     .ns      = SID_KV_NS_MOD,
-	                                     .ns_part = _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MOD),
-	                                     .id_cat  = alias_key,
-	                                     .id      = alias,
-	                                     .core    = KV_KEY_GEN_GROUP_MEMBERS))))
-		r = _get_devid_from_alias_record(ucmd_ctx, key, gennum, count, buf, buf_size);
-	else
-		r = -ENOMEM;
-
-	_destroy_key(ucmd_ctx->common->gen_buf, key);
-	return r;
-}
-
-static int _dev_key_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
-                             const char          *dev_key,
-                             uint16_t            *gennum,
-                             size_t              *count,
-                             char                *buf,
-                             size_t               buf_size)
-{
-	struct iovec key_parts[_KEY_PART_COUNT];
-	key_part_t   last_key_part;
-	const char  *key;
-	int          r;
-
-	last_key_part = _decompose_key(dev_key, key_parts);
-
-	if (last_key_part == _KEY_PART_START) {
-		// TODO: still check the key is a proper UUID (the 'devid')
-		// maybe also not copy to buf and just return a code to
-		// denote there was no translation
-		strncpy(buf, dev_key, buf_size - 1);
-		return 0;
-	}
-
-	if (last_key_part != KEY_PART_CORE)
-		return -ENOKEY;
-
-	// TODO: check key parts are not empty and that domain is ALS (alias)
-
-	// TODO: no need to check the at all if we got the key from KV store and not from user
-
-	if (!(key = _cat_prefix_and_key(ucmd_ctx->common->gen_buf, dev_key, KV_KEY_GEN_GROUP_MEMBERS)))
-		return -ENOMEM;
-
-	r = _get_devid_from_alias_record(ucmd_ctx, key, gennum, count, buf, buf_size);
-
-	_destroy_key(ucmd_ctx->common->gen_buf, key);
-	return r;
-}
-
-static int _dev_key_to_dsq(struct sid_ucmd_ctx *ucmd_ctx, const char *dev_key, uint16_t *gennum, char *buf, size_t buf_size)
-
-{
-	struct iovec key_parts[_KEY_PART_COUNT];
-	key_part_t   last_key_part;
-	const char  *key;
-	kv_vector_t *vvalue;
-	size_t       vvalue_size;
-	char       **key_strv = NULL;
-	size_t       count;
-	int          r;
-
-	last_key_part = _decompose_key(dev_key, key_parts);
-
-	if (last_key_part == _KEY_PART_START) {
-		strncpy(buf, dev_key, buf_size - 1);
-		return 0;
-	}
-
-	if (last_key_part != KEY_PART_CORE)
-		return -ENOKEY;
-
-	if (!(key = _cat_prefix_and_key(ucmd_ctx->common->gen_buf, dev_key, KV_KEY_GEN_GROUP_IN)))
-		return -ENOMEM;
-
-	if (!(vvalue = sid_kvs_va_get(ucmd_ctx->common->kvs_res, .key = key, .size = &vvalue_size))) {
-		r = -ENODATA;
-		goto out;
-	}
-
-	if (gennum)
-		*gennum = VVALUE_GENNUM(vvalue);
-
-	vvalue      += VVALUE_HEADER_CNT;
-	vvalue_size -= VVALUE_HEADER_CNT;
-
-	key_strv     = _get_key_strv_from_vvalue(
-                vvalue,
-                vvalue_size,
-                &KV_KEY_SPEC(.dom = KV_KEY_DOM_ALIAS, .ns = SID_KV_NS_MOD, .ns_part = _owner_name(NULL), .id_cat = DEV_ALIAS_DSEQ),
-                &count,
-                &r);
-
-	if (count != 1) {
-		r = -EMLINK;
-		goto out;
-	}
-
-	if (!_copy_id_from_key(key_strv[0], buf, buf_size)) {
-		r = -ENOBUFS;
-		goto out;
-	}
-
-	r = 0;
-out:
-	free(key_strv);
-	_destroy_key(ucmd_ctx->common->gen_buf, key);
-	return r;
 }
 
 static char **_get_dev_imm_deps(sid_res_t           *mod_res,
