@@ -3045,20 +3045,29 @@ static const void *_do_sid_ucmd_get_kv(sid_res_t                   *res,
                                        const char                  *dom,
                                        struct sid_ucmd_kv_get_args *args)
 {
-	int foreign = args->frg_mod_name || args->frg_dev_key;
+	int         foreign = args->frg_mod_name || args->frg_dev_key;
+	char        buf[UTIL_UUID_STR_SIZE];
+	const char *devid;
+	int         r;
+
+	devid = _get_devid(ucmd_ctx, args->frg_dev_key, buf, sizeof(buf), &r);
+	if (r < 0) {
+		if (args->ret_code)
+			*args->ret_code = r;
+		return NULL;
+	}
 
 	struct kv_key_spec key_spec =
 		KV_KEY_SPEC(.extra_op = args->ar == 1 ? KV_PREFIX_OP_ARCHIVE_C : KV_PREFIX_OP_BLANK_C,
 	                    .dom      = dom,
 	                    .ns       = args->ns,
-	                    .ns_part =
-	                            foreign ? _get_foreign_ns_part(ucmd_ctx, owner, args->frg_mod_name, args->frg_dev_key, args->ns)
-	                                    : _get_ns_part(ucmd_ctx, owner, args->ns),
-	                    .id_cat = args->ns == SID_KV_NS_DEVMOD ? KV_PREFIX_NS_MOD_C : ID_NULL,
-	                    .id     = args->ns == SID_KV_NS_DEVMOD
-	                                      ? foreign ? args->frg_mod_name : _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MOD)
-	                                      : ID_NULL,
-	                    .core   = args->key);
+	                    .ns_part  = foreign ? _get_foreign_ns_part(ucmd_ctx, owner, args->frg_mod_name, devid, args->ns)
+	                                        : _get_ns_part(ucmd_ctx, owner, args->ns),
+	                    .id_cat   = args->ns == SID_KV_NS_DEVMOD ? KV_PREFIX_NS_MOD_C : ID_NULL,
+	                    .id       = args->ns == SID_KV_NS_DEVMOD
+	                                        ? foreign ? args->frg_mod_name : _get_ns_part(ucmd_ctx, owner, SID_KV_NS_MOD)
+	                                        : ID_NULL,
+	                    .core     = args->key);
 
 	return _cmd_get_key_spec_value(res, ucmd_ctx, owner, &key_spec, args->sz, args->fl, args->ret_code);
 }
