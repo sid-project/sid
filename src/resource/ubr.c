@@ -3717,6 +3717,8 @@ int sid_ucmd_dev_alias_del(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, co
 
 const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_dev_alias_get_args *args)
 {
+	char               buf[UTIL_UUID_STR_SIZE];
+	const char        *devid;
 	const kv_vector_t *vvalue;
 	size_t             vvalue_size;
 	char             **key_strv = NULL;
@@ -3732,12 +3734,16 @@ const char **sid_ucmd_dev_alias_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucm
 		goto out;
 	}
 
+	devid = _get_devid(ucmd_ctx, args->dev_key, buf, sizeof(buf), &r);
+	if (r < 0)
+		return NULL;
+
 	vvalue = _cmd_get_key_spec_value(
 		mod_res,
 		ucmd_ctx,
 		_owner_name(mod_res),
 		&KV_KEY_SPEC(.ns      = SID_KV_NS_DEV,
-	                     .ns_part = args->dev_key ?: _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_DEV),
+	                     .ns_part = devid ?: _get_ns_part(ucmd_ctx, _owner_name(mod_res), SID_KV_NS_DEV),
 	                     .core    = KV_KEY_GEN_GROUP_IN),
 		&vvalue_size,
 		NULL,
