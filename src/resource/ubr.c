@@ -3699,12 +3699,12 @@ int sid_ucmd_group_destroy(sid_res_t           *mod_res,
 	                                  force);
 }
 
-static int _dev_raw_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
-                                   const char          *key,
-                                   uint16_t            *gennum,
-                                   size_t              *count,
-                                   char                *buf,
-                                   size_t               buf_size)
+static int _get_devid_from_alias_record(struct sid_ucmd_ctx *ucmd_ctx,
+                                        const char          *key,
+                                        uint16_t            *gennum,
+                                        size_t              *count,
+                                        char                *buf,
+                                        size_t               buf_size)
 {
 	char        *p;
 	kv_vector_t *vvalue;
@@ -3759,7 +3759,7 @@ static int _dev_alias_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 	                                     .id_cat  = alias_key,
 	                                     .id      = alias,
 	                                     .core    = KV_KEY_GEN_GROUP_MEMBERS))))
-		r = _dev_raw_alias_to_devid(ucmd_ctx, key, gennum, count, buf, buf_size);
+		r = _get_devid_from_alias_record(ucmd_ctx, key, gennum, count, buf, buf_size);
 	else
 		r = -ENOMEM;
 
@@ -3799,7 +3799,7 @@ static int _dev_key_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 	if (!(key = _cat_prefix_and_key(ucmd_ctx->common->gen_buf, dev_key, KV_KEY_GEN_GROUP_MEMBERS)))
 		return -ENOMEM;
 
-	r = _dev_raw_alias_to_devid(ucmd_ctx, key, gennum, count, buf, buf_size);
+	r = _get_devid_from_alias_record(ucmd_ctx, key, gennum, count, buf, buf_size);
 
 	_destroy_key(ucmd_ctx->common->gen_buf, key);
 	return r;
