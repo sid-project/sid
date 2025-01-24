@@ -2999,6 +2999,46 @@ out:
 	return r;
 }
 
+static bool _key_is_alias(const char *key)
+{
+	return (!strncmp(key, ":" KV_KEY_DOM_ALIAS ":", 1 + sizeof(KV_KEY_DOM_ALIAS)));
+}
+
+static const char *_get_devid(struct sid_ucmd_ctx *ucmd_ctx, const char *dev_key, char *buf, size_t buf_size, int *ret_code)
+{
+	const char *devid = NULL;
+	int         r     = 0;
+
+	if (UTIL_STR_EMPTY(dev_key))
+		goto out;
+
+	/* we accept either devid (uuid) or dev alias */
+	if (util_uuid_check_str(dev_key)) {
+		devid = dev_key;
+		goto out;
+	}
+
+	if (_key_is_alias(dev_key)) {
+		if ((r = _dev_key_to_devid(ucmd_ctx, dev_key, NULL, NULL, buf, buf_size)) < 0) {
+			if (r == -ENOBUFS)
+				/*
+				 * The devid did not fit into a single UUID buffer.
+				 * We must have found more dev UUIDs for a single alias.
+				 * Return -EMLINK error indicating ambiguity.
+				 */
+				r = -EMLINK;
+			else
+				r = -ENOLINK;
+			goto out;
+		}
+		devid = buf;
+	}
+out:
+	if (ret_code)
+		*ret_code = r;
+	return devid;
+}
+
 static const void *_do_sid_ucmd_get_kv(sid_res_t                   *res,
                                        struct sid_ucmd_ctx         *ucmd_ctx,
                                        const char                  *owner,
