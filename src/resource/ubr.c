@@ -4142,14 +4142,21 @@ fail:
 
 const char **sid_ucmd_dev_stack_get(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, struct sid_ucmd_dev_stack_get_args *args)
 {
+	char        buf[UTIL_UUID_STR_SIZE];
+	const char *devid;
+	int         r;
+
 	if (!args)
 		return NULL;
 
-	// TODO: deal with situation when args->count and args->ret_code is NULL - we are setting both of these inside
-	// _do_sid_cumd_dev_stack_get
+	devid = _get_devid(ucmd_ctx, args->dev_key, buf, sizeof(buf), &r);
+	if (r < 0) {
+		if (args->ret_code)
+			*args->ret_code = r;
+		return NULL;
+	}
 
-	return (const char **)
-		_do_sid_ucmd_dev_stack_get(mod_res, ucmd_ctx, args->dev_key, args->method, args->count, args->ret_code);
+	return (const char **) _do_sid_ucmd_dev_stack_get(mod_res, ucmd_ctx, devid, args->method, args->count, args->ret_code);
 }
 
 static int _device_add_field(sid_res_t *res, struct sid_ucmd_ctx *ucmd_ctx, const char *start)
