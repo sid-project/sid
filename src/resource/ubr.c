@@ -2916,12 +2916,11 @@ static int _dev_key_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 	last_key_part = _decompose_key(dev_key, key_parts);
 
 	if (last_key_part == _KEY_PART_START) {
-		// TODO: still check the key is a proper UUID (the 'devid')
-		// maybe also not copy to buf and just return a code to
-		// denote there was no translation
 		strncpy(buf, dev_key, buf_size - 1);
 		buf[buf_size - 1] = '\0';
-		return 0;
+		if (util_uuid_check_str(buf))
+			return 0;
+		return -ENOKEY;
 	}
 
 	if (last_key_part != KEY_PART_CORE)
