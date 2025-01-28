@@ -2920,6 +2920,7 @@ static int _dev_key_to_devid(struct sid_ucmd_ctx *ucmd_ctx,
 		// maybe also not copy to buf and just return a code to
 		// denote there was no translation
 		strncpy(buf, dev_key, buf_size - 1);
+		buf[buf_size - 1] = '\0';
 		return 0;
 	}
 
@@ -2955,6 +2956,7 @@ static int _dev_key_to_dsq(struct sid_ucmd_ctx *ucmd_ctx, const char *dev_key, u
 
 	if (last_key_part == _KEY_PART_START) {
 		strncpy(buf, dev_key, buf_size - 1);
+		buf[buf_size - 1] = '\0';
 		return 0;
 	}
 
