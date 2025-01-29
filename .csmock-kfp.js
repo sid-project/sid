@@ -1,18 +1,18 @@
 {
     "scan": {
-        "analyzer-version-clang": "19.1.5",
+        "analyzer-version-clang": "19.1.7",
         "analyzer-version-cppcheck": "2.16.2",
         "analyzer-version-gcc": "14.2.1",
         "enabled-plugins": "clang, cppcheck, gcc",
         "exit-code": 0,
         "host": "fed.virt",
         "mock-config": "default",
-        "project-name": "sid-0.0.6-1.fc41",
+        "project-name": "sid-0.0.7-1.fc41",
         "store-results-to": "/root/rpmbuild/SRPMS/sid-csmock-results.tar.xz",
-        "time-created": "2025-01-22 10:47:46",
-        "time-finished": "2025-01-22 10:50:09",
+        "time-created": "2025-01-29 09:21:01",
+        "time-finished": "2025-01-29 09:23:38",
         "tool": "csmock",
-        "tool-args": "'/usr/bin/csmock' '--cppcheck-add-flag=--check-level=exhaustive' '-o' 'sid-csmock-results.tar.xz' '-r' 'default' '--tools' 'clang,cppcheck,gcc' 'sid-0.0.6-1.fc41.src.rpm'",
+        "tool-args": "'/usr/bin/csmock' '--cppcheck-add-flag=--check-level=exhaustive' '-o' 'sid-csmock-results.tar.xz' '-r' 'default' '--tools' 'clang,cppcheck,gcc' 'sid-0.0.7-1.fc41.src.rpm'",
         "tool-version": "csmock-3.8.0-1.fc41"
     },
     "defects": [
@@ -21,11 +21,11 @@
             "cwe": 457,
             "language": "c/c++",
             "tool": "cppcheck",
-            "hash_v1": "895a3f8e96c613a4f8eefe0713afbf2005e3d2f2",
+            "hash_v1": "7bb806057e84ecd51493ff44530c6d5e0851bad3",
             "key_event_idx": 0,
             "events": [
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/modules/ucmd/block/dm_mpath/dm_mpath.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/modules/ucmd/block/dm_mpath/dm_mpath.c",
                     "line": 82,
                     "event": "error[uninitvar]",
                     "message": "Uninitialized variable: r",
@@ -72,11 +72,11 @@
             "checker": "CLANG_WARNING",
             "language": "c/c++",
             "tool": "clang",
-            "hash_v1": "dd1f9ed25489877d3960a2caa3ef5b351d6cdeb6",
+            "hash_v1": "ba5fda7b592cf252fc961c678ed06c653254012c",
             "key_event_idx": 0,
             "events": [
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 512,
                     "column": 20,
                     "event": "warning[core.NonNullParamChecker]",
@@ -84,7 +84,7 @@
                     "verbosity_level": 0
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 804,
                     "column": 6,
                     "event": "note",
@@ -92,7 +92,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 804,
                     "column": 2,
                     "event": "note",
@@ -100,7 +100,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 807,
                     "column": 6,
                     "event": "note",
@@ -108,7 +108,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 807,
                     "column": 6,
                     "event": "note",
@@ -116,7 +116,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 807,
                     "column": 63,
                     "event": "note",
@@ -124,7 +124,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/include/internal/util.h",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/include/internal/util.h",
                     "line": 76,
                     "column": 34,
                     "event": "note",
@@ -132,7 +132,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 807,
                     "column": 63,
                     "event": "note",
@@ -140,7 +140,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/include/internal/util.h",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/include/internal/util.h",
                     "line": 76,
                     "column": 34,
                     "event": "note",
@@ -148,7 +148,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 807,
                     "column": 63,
                     "event": "note",
@@ -156,7 +156,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/include/internal/util.h",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/include/internal/util.h",
                     "line": 76,
                     "column": 42,
                     "event": "note",
@@ -164,7 +164,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/include/internal/util.h",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/include/internal/util.h",
                     "line": 74,
                     "column": 34,
                     "event": "note",
@@ -172,7 +172,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 807,
                     "column": 2,
                     "event": "note",
@@ -180,7 +180,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 813,
                     "column": 2,
                     "event": "note",
@@ -188,7 +188,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 817,
                     "column": 74,
                     "event": "note",
@@ -196,7 +196,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 820,
                     "column": 11,
                     "event": "note",
@@ -204,7 +204,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 781,
                     "column": 2,
                     "event": "note",
@@ -212,7 +212,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 783,
                     "column": 8,
                     "event": "note",
@@ -220,7 +220,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 783,
                     "column": 8,
                     "event": "note",
@@ -228,7 +228,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 784,
                     "column": 4,
                     "event": "note",
@@ -236,7 +236,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 791,
                     "column": 6,
                     "event": "note",
@@ -244,7 +244,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 791,
                     "column": 6,
                     "event": "note",
@@ -252,7 +252,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 791,
                     "column": 15,
                     "event": "note",
@@ -260,7 +260,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 791,
                     "column": 2,
                     "event": "note",
@@ -268,7 +268,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 794,
                     "column": 2,
                     "event": "note",
@@ -276,7 +276,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 820,
                     "column": 11,
                     "event": "note",
@@ -284,7 +284,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 820,
                     "column": 2,
                     "event": "note",
@@ -292,7 +292,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 823,
                     "column": 6,
                     "event": "note",
@@ -300,7 +300,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 823,
                     "column": 6,
                     "event": "note",
@@ -308,7 +308,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 823,
                     "column": 39,
                     "event": "note",
@@ -316,7 +316,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 823,
                     "column": 2,
                     "event": "note",
@@ -324,7 +324,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 830,
                     "column": 23,
                     "event": "note",
@@ -332,7 +332,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 829,
                     "column": 12,
                     "event": "note",
@@ -340,7 +340,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 508,
                     "column": 2,
                     "event": "note",
@@ -348,7 +348,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/kvs.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/kvs.c",
                     "line": 512,
                     "column": 20,
                     "event": "note",
@@ -396,11 +396,11 @@
             "checker": "COMPILER_WARNING",
             "language": "c/c++",
             "tool": "gcc",
-            "hash_v1": "ff0a12a77b437e87894902eb408f554917c5e381",
+            "hash_v1": "a14432df4e694f4780eddfdd63cda9b1e9136b22",
             "key_event_idx": 0,
             "events": [
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 845,
                     "column": 55,
                     "event": "warning[-Warray-bounds=]",
@@ -422,15 +422,15 @@
                     "verbosity_level": 1
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 0,
                     "event": "scope_hint",
                     "message": "In function '_init_common'",
                     "verbosity_level": 1
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 7265,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 7331,
                     "column": 22,
                     "event": "note",
                     "message": "at offset 80 into object 'vvalue' of size 80",
@@ -440,7 +440,7 @@
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 7265 |         kv_vector_t  vvalue[VVALUE_SINGLE_CNT];",
+                    "message": " 7331 |         kv_vector_t  vvalue[VVALUE_SINGLE_CNT];",
                     "verbosity_level": 1
                 },
                 {
@@ -491,99 +491,115 @@
             "checker": "CLANG_WARNING",
             "language": "c/c++",
             "tool": "clang",
-            "hash_v1": "7727f84c366253cee43728c7153783bfd3cb395b",
+            "hash_v1": "ba2e17fb6718ca4d0a83d5ea3a340d4bd4ba096a",
             "key_event_idx": 0,
             "events": [
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3944,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4003,
                     "column": 11,
                     "event": "warning[core.CallAndMessage]",
                     "message": "2nd function call argument is an uninitialized value",
                     "verbosity_level": 0
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 4087,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4150,
                     "column": 6,
                     "event": "note",
                     "message": "Assuming 'args' is non-null",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 4087,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4150,
                     "column": 2,
                     "event": "note",
                     "message": "Taking false branch",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 4094,
-                    "column": 3,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4154,
+                    "column": 6,
+                    "event": "note",
+                    "message": "Assuming 'r' is >= 0",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4154,
+                    "column": 2,
+                    "event": "note",
+                    "message": "Taking false branch",
+                    "verbosity_level": 2
+                },
+                {
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4160,
+                    "column": 25,
                     "event": "note",
                     "message": "Calling '_do_sid_ucmd_dev_stack_get'",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3968,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4027,
                     "column": 9,
                     "event": "note",
                     "message": "Calling '_get_dev_imm_deps'",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3877,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 3936,
                     "column": 2,
                     "event": "note",
                     "message": "'vvalue_size' declared without an initial value",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3880,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 3939,
                     "column": 2,
                     "event": "note",
-                    "message": "Control jumps to 'case SID_DEV_SEARCH_IMM_DESC:'  at line 3916",
+                    "message": "Control jumps to 'case SID_DEV_SEARCH_IMM_DESC:'  at line 3975",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3920,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 3979,
                     "column": 8,
                     "event": "note",
                     "message": "Assuming 'dev_key' is null",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3920,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 3979,
                     "column": 4,
                     "event": "note",
                     "message": "Taking false branch",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3935,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 3994,
                     "column": 61,
                     "event": "note",
                     "message": "'?' condition is false",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3928,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 3987,
                     "column": 13,
                     "event": "note",
                     "message": "Calling '_cmd_get_key_spec_value'",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2679,
                     "column": 8,
                     "event": "note",
@@ -591,7 +607,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2679,
                     "column": 2,
                     "event": "note",
@@ -599,7 +615,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2685,
                     "column": 8,
                     "event": "note",
@@ -607,7 +623,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2609,
                     "column": 8,
                     "event": "note",
@@ -615,7 +631,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2609,
                     "column": 2,
                     "event": "note",
@@ -623,7 +639,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2610,
                     "column": 3,
                     "event": "note",
@@ -631,7 +647,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2663,
                     "column": 6,
                     "event": "note",
@@ -639,7 +655,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2663,
                     "column": 2,
                     "event": "note",
@@ -647,7 +663,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2665,
                     "column": 2,
                     "event": "note",
@@ -655,7 +671,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2685,
                     "column": 8,
                     "event": "note",
@@ -663,7 +679,7 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 2688,
                     "column": 2,
                     "event": "note",
@@ -671,32 +687,32 @@
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3928,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 3987,
                     "column": 13,
                     "event": "note",
                     "message": "Returning from '_cmd_get_key_spec_value'",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3941,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4000,
                     "column": 8,
                     "event": "note",
                     "message": "Assuming the condition is false",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3941,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4000,
                     "column": 22,
                     "event": "note",
                     "message": "Left side of '&&' is false",
                     "verbosity_level": 2
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 3944,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4003,
                     "column": 11,
                     "event": "note",
                     "message": "2nd function call argument is an uninitialized value",
@@ -706,35 +722,35 @@
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 3942|   \t\t\t\treturn NULL;",
+                    "message": " 4001|   \t\t\t\treturn NULL;",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 3943|   ",
+                    "message": " 4002|   ",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 3944|-> \t\t\treturn _get_key_strv_from_vvalue(vvalue,",
+                    "message": " 4003|-> \t\t\treturn _get_key_strv_from_vvalue(vvalue,",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 3945|   \t\t\t                                 vvalue_size,",
+                    "message": " 4004|   \t\t\t                                 vvalue_size,",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 3946|   \t\t\t                                 &KV_KEY_SPEC(.ns = SID_KV_NS_DEV),",
+                    "message": " 4005|   \t\t\t                                 &KV_KEY_SPEC(.ns = SID_KV_NS_DEV),",
                     "verbosity_level": 1
                 }
             ]
@@ -743,19 +759,19 @@
             "checker": "COMPILER_WARNING",
             "language": "c/c++",
             "tool": "gcc",
-            "hash_v1": "23cb19e7dca8ad7639be49106698fe9b787618d3",
+            "hash_v1": "749c52550a54405d977d6b0a0befac87fee1f1bb",
             "key_event_idx": 1,
             "events": [
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
                     "line": 0,
                     "event": "scope_hint",
                     "message": "In function '_do_sid_ucmd_dev_stack_get'",
                     "verbosity_level": 1
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 4010,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4069,
                     "column": 39,
                     "event": "warning[-Wuse-after-free]",
                     "message": "pointer 'strv1_31' used after 'free'",
@@ -765,7 +781,7 @@
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4010 |                                 strv  = strv1;",
+                    "message": " 4069 |                                 strv  = strv1;",
                     "verbosity_level": 1
                 },
                 {
@@ -776,8 +792,8 @@
                     "verbosity_level": 1
                 },
                 {
-                    "file_name": "sid-0.0.6-build/sid-0.0.6/src/resource/ubr.c",
-                    "line": 4009,
+                    "file_name": "sid-0.0.7-build/sid-0.0.7/src/resource/ubr.c",
+                    "line": 4068,
                     "column": 33,
                     "event": "note",
                     "message": "call to 'free' here",
@@ -787,7 +803,7 @@
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4009 |                                 free(strv);",
+                    "message": " 4068 |                                 free(strv);",
                     "verbosity_level": 1
                 },
                 {
@@ -801,35 +817,35 @@
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4008|   \t\t\tif (strv1 != strv) {",
+                    "message": " 4067|   \t\t\tif (strv1 != strv) {",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4009|   \t\t\t\tfree(strv);",
+                    "message": " 4068|   \t\t\t\tfree(strv);",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4010|-> \t\t\t\tstrv  = strv1;",
+                    "message": " 4069|-> \t\t\t\tstrv  = strv1;",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4011|   \t\t\t\tcount = count1;",
+                    "message": " 4070|   \t\t\t\tcount = count1;",
                     "verbosity_level": 1
                 },
                 {
                     "file_name": "",
                     "line": 0,
                     "event": "#",
-                    "message": " 4012|   \t\t\t}",
+                    "message": " 4071|   \t\t\t}",
                     "verbosity_level": 1
                 }
             ]
