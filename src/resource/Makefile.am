@@ -28,6 +28,7 @@ resource_HEADERS = $(top_srcdir)/src/include/resource/res.h \
 		   $(top_srcdir)/src/include/resource/wrk-ctl.h
 
 libsidresource_la_CFLAGS = $(SYSTEMD_CFLAGS) \
+			   $(ELOGIND_CFLAGS) \
 			   $(UDEV_CFLAGS)
 
 libsidresource_la_LDFLAGS = -version-info 0:0:0
@@ -37,6 +38,7 @@ libsidresource_la_LIBADD = $(top_builddir)/src/internal/libsidinternal.la \
 			   $(top_builddir)/src/iface/libsidiface_servicelink.la \
 			   $(top_builddir)/src/iface/libsidiface.la \
 			   $(SYSTEMD_LIBS) \
+			   $(ELOGIND_LIBS) \
 			   $(UDEV_LIBS) \
 			   -ldl
 
