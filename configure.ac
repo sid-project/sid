@@ -142,7 +142,7 @@ AC_ARG_ENABLE(mod-block-blkid,
 	      BUILD_MOD_UCMD_BLOCK_BLKID=yes)
 AC_MSG_RESULT($BUILD_MOD_UCMD_BLOCK_BLKID)
 if test x$BUILD_MOD_UCMD_BLOCK_BLKID = xyes; then
-	PKG_CHECK_MODULES(BLKID, blkid)
+	PKG_CHECK_MODULES(BLKID, blkid >= 2.39) # BLKID_SUBLKS_FSINFO supported in libblkid version >= 2.39
 	AC_DEFINE([MOD_UCMD_BLOCK_BLKID], 1, [Define to 1 to enable blkid block module.])
 fi
 AM_CONDITIONAL([BUILD_MOD_UCMD_BLOCK_BLKID], [test x$BUILD_MOD_UCMD_BLOCK_BLKID = xyes])

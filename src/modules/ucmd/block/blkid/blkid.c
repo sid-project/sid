@@ -30,42 +30,59 @@ enum {
 	U_FS_UUID_SUB_ENC,
 	U_FS_LABEL,
 	U_FS_LABEL_ENC,
+	U_FS_SIZE,
+	U_FS_LASTBLOCK,
+	U_FS_BLOCKSIZE,
 	U_PART_TABLE_TYPE,
 	U_PART_TABLE_UUID,
 	U_PART_ENTRY_NAME,
 	U_PART_ENTRY_TYPE,
+	U_PART_ENTRY_UUID,
+	U_PART_ENTRY_FLAGS,
 	U_FS_SYSTEM_ID,
 	U_FS_PUBLISHER_ID,
 	U_FS_APPLICATION_ID,
 	U_FS_BOOT_SYSTEM_ID,
+	U_FS_VOLUME_ID,
+	U_FS_LOGICAL_VOLUME_ID,
+	U_FS_VOLUME_SET_ID,
+	U_FS_DATA_PREPARER_ID,
 	_UDEV_KEY_START = U_FS_TYPE,
-	_UDEV_KEY_END   = U_FS_BOOT_SYSTEM_ID,
+	_UDEV_KEY_END   = U_FS_DATA_PREPARER_ID,
 	D_NEXT_MOD,
 	_DEVICE_KEY_START = D_NEXT_MOD,
 	_DEVICE_KEY_END   = D_NEXT_MOD,
-
 	_NUM_KEYS
 };
 
 static const char *keys[_NUM_KEYS] = {
-	[U_FS_TYPE]           = "ID_FS_TYPE",
-	[U_FS_USAGE]          = "ID_FS_USAGE",
-	[U_FS_VERSION]        = "ID_FS_VERSION",
-	[U_FS_UUID]           = "ID_FS_UUID",
-	[U_FS_UUID_ENC]       = "ID_FS_UUID_ENC",
-	[U_FS_UUID_SUB]       = "ID_FS_UUID_SUB",
-	[U_FS_UUID_SUB_ENC]   = "ID_FS_UUID_SUB_ENC",
-	[U_FS_LABEL]          = "ID_FS_LABEL",
-	[U_FS_LABEL_ENC]      = "ID_FS_LABEL_ENC",
-	[U_PART_TABLE_TYPE]   = "ID_PART_TABLE_TYPE",
-	[U_PART_TABLE_UUID]   = "ID_PART_TABLE_UUID",
-	[U_PART_ENTRY_NAME]   = "ID_PART_ENTRY_NAME",
-	[U_PART_ENTRY_TYPE]   = "ID_PART_ENTRY_TYPE",
-	[U_FS_SYSTEM_ID]      = "ID_FS_SYSTEM_ID",
-	[U_FS_PUBLISHER_ID]   = "ID_FS_PUBLISHER_ID",
-	[U_FS_APPLICATION_ID] = "ID_FS_APPLICATION_ID",
-	[U_FS_BOOT_SYSTEM_ID] = "ID_FS_BOOT_SYSTEM_ID",
-	[D_NEXT_MOD]          = SID_UCMD_KEY_DEVICE_NEXT_MOD,
+	[U_FS_TYPE]              = "ID_FS_TYPE",
+	[U_FS_USAGE]             = "ID_FS_USAGE",
+	[U_FS_VERSION]           = "ID_FS_VERSION",
+	[U_FS_UUID]              = "ID_FS_UUID",
+	[U_FS_UUID_ENC]          = "ID_FS_UUID_ENC",
+	[U_FS_UUID_SUB]          = "ID_FS_UUID_SUB",
+	[U_FS_UUID_SUB_ENC]      = "ID_FS_UUID_SUB_ENC",
+	[U_FS_LABEL]             = "ID_FS_LABEL",
+	[U_FS_LABEL_ENC]         = "ID_FS_LABEL_ENC",
+	[U_FS_SIZE]              = "ID_FS_SIZE",
+	[U_FS_LASTBLOCK]         = "ID_FS_LASTBLOCK",
+	[U_FS_BLOCKSIZE]         = "ID_FS_BLOCKSIZE",
+	[U_PART_TABLE_TYPE]      = "ID_PART_TABLE_TYPE",
+	[U_PART_TABLE_UUID]      = "ID_PART_TABLE_UUID",
+	[U_PART_ENTRY_NAME]      = "ID_PART_ENTRY_NAME",
+	[U_PART_ENTRY_TYPE]      = "ID_PART_ENTRY_TYPE",
+	[U_PART_ENTRY_UUID]      = "ID_PART_ENTRY_UUID",
+	[U_PART_ENTRY_FLAGS]     = "ID_PART_ENTRY_FLAGS",
+	[U_FS_SYSTEM_ID]         = "ID_FS_SYSTEM_ID",
+	[U_FS_PUBLISHER_ID]      = "ID_FS_PUBLISHER_ID",
+	[U_FS_APPLICATION_ID]    = "ID_FS_APPLICATION_ID",
+	[U_FS_BOOT_SYSTEM_ID]    = "ID_FS_BOOT_SYSTEM_ID",
+	[U_FS_VOLUME_ID]         = "ID_FS_VOLUME_ID",
+	[U_FS_LOGICAL_VOLUME_ID] = "ID_FS_LOGICAL_VOLUME_ID",
+	[U_FS_VOLUME_SET_ID]     = "ID_FS_VOLUME_SET_ID",
+	[U_FS_DATA_PREPARER_ID]  = "ID_FS_DATA_PREPARER_ID",
+	[D_NEXT_MOD]             = SID_UCMD_KEY_DEVICE_NEXT_MOD,
 };
 
 static int _blkid_init(sid_res_t *mod_res, struct sid_ucmd_common_ctx *ucmd_common_ctx)
@@ -197,6 +214,22 @@ static void _add_property(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, con
 		                   .key = keys[U_FS_LABEL_ENC],
 		                   .val = s,
 		                   .fl  = SID_KV_FL_RD);
+	} else if (!strcmp(name, "FSSIZE")) {
+		sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = keys[U_FS_SIZE], .val = s, .fl = SID_KV_FL_RD);
+	} else if (!strcmp(name, "FSLASTBLOCK")) {
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_LASTBLOCK],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
+	} else if (!strcmp(name, "FSBLOCKSIZE")) {
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_BLOCKSIZE],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PTTYPE")) {
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
@@ -225,6 +258,20 @@ static void _add_property(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, con
 		                   ucmd_ctx,
 		                   .ns  = SID_KV_NS_UDEV,
 		                   .key = keys[U_PART_ENTRY_TYPE],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
+	} else if (!strcmp(name, "PART_ENTRY_UUID")) {
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_PART_ENTRY_UUID],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
+	} else if (!strcmp(name, "PART_ENTRY_FLAGS")) {
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_PART_ENTRY_FLAGS],
 		                   .val = s,
 		                   .fl  = SID_KV_FL_RD);
 	} else if (!strncmp(name, "PART_ENTRY_", strlen("PART_ENTRY_"))) {
@@ -260,6 +307,38 @@ static void _add_property(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, con
 		                   ucmd_ctx,
 		                   .ns  = SID_KV_NS_UDEV,
 		                   .key = keys[U_FS_BOOT_SYSTEM_ID],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
+	} else if (!strcmp(name, "VOLUME_ID")) {
+		blkid_encode_string(value, s, sizeof(s));
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_VOLUME_ID],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
+	} else if (!strcmp(name, "LOGICAL_VOLUME_ID")) {
+		blkid_encode_string(value, s, sizeof(s));
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_LOGICAL_VOLUME_ID],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
+	} else if (!strcmp(name, "VOLUME_SET_ID")) {
+		blkid_encode_string(value, s, sizeof(s));
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_VOLUME_SET_ID],
+		                   .val = s,
+		                   .fl  = SID_KV_FL_RD);
+	} else if (!strcmp(name, "DATA_PREPARER_ID")) {
+		blkid_encode_string(value, s, sizeof(s));
+		sid_ucmd_kv_va_set(mod_res,
+		                   ucmd_ctx,
+		                   .ns  = SID_KV_NS_UDEV,
+		                   .key = keys[U_FS_DATA_PREPARER_ID],
 		                   .val = s,
 		                   .fl  = SID_KV_FL_RD);
 	}
@@ -317,7 +396,7 @@ static int _blkid_scan_next(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx)
 
 	blkid_probe_set_superblocks_flags(pr,
 	                                  BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID | BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
-	                                          BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
+	                                          BLKID_SUBLKS_FSINFO | BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
 
 	// TODO: Also decide when to use offset (including exact value) and noraid options.
 
