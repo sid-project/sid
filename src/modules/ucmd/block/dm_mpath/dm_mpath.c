@@ -78,7 +78,7 @@ static int _is_parent_multipathed(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_
 	char        *p;
 	int          r = 0;
 
-	parent = sid_ucmd_dev_stack_va_get(mod_res, ucmd_ctx, .method = SID_DEV_SEARCH_IMM_ANC, .ret_code = &r);
+	parent         = sid_ucmd_dev_stack_va_get(mod_res, ucmd_ctx, .method = SID_DEV_SEARCH_IMM_ANC, .ret_code = &r);
 	if (r < 0 || !parent)
 		return 0;
 
