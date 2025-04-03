@@ -24,6 +24,8 @@ blkid_LTLIBRARIES = blkid.la
 
 blkid_la_SOURCES = blkid-type.h \
 		   blkid-type-mapper.c \
+		   blkid-key.h \
+		   blkid-key-mapper.c \
 		   blkid.c
 
 blkid_la_CFLAGS = $(BLKID_CFLAGS)
@@ -33,7 +35,8 @@ blkid_la_LDFLAGS = -module -avoid-version
 blkid_la_LIBADD = $(top_builddir)/src/resource/libsidresource.la \
 		  $(BLKID_LIBS)
 
-EXTRA_DIST = blkid-type-mapper.gperf
+EXTRA_DIST = blkid-type-mapper.gperf \
+	     blkid-key-mapper.gperf
 
 mostlyclean-local:
 	$(RM) blkid-type-mapper.c
