@@ -30,9 +30,9 @@ enum {
 	U_FS_UUID_SUB_ENC,
 	U_FS_LABEL,
 	U_FS_LABEL_ENC,
-	U_FS_SIZE,
-	U_FS_LASTBLOCK,
-	U_FS_BLOCKSIZE,
+	U_FS_FSSIZE,
+	U_FS_FSLASTBLOCK,
+	U_FS_FSBLOCKSIZE,
 	U_PART_TABLE_TYPE,
 	U_PART_TABLE_UUID,
 	U_PART_ENTRY_NAME,
@@ -65,9 +65,9 @@ static const char *keys[_NUM_KEYS] = {
 	[U_FS_UUID_SUB_ENC]      = "ID_FS_UUID_SUB_ENC",
 	[U_FS_LABEL]             = "ID_FS_LABEL",
 	[U_FS_LABEL_ENC]         = "ID_FS_LABEL_ENC",
-	[U_FS_SIZE]              = "ID_FS_SIZE",
-	[U_FS_LASTBLOCK]         = "ID_FS_LASTBLOCK",
-	[U_FS_BLOCKSIZE]         = "ID_FS_BLOCKSIZE",
+	[U_FS_FSSIZE]            = "ID_FS_FSSIZE",
+	[U_FS_FSLASTBLOCK]       = "ID_FS_FSLASTBLOCK",
+	[U_FS_FSBLOCKSIZE]       = "ID_FS_FSBLOCKSIZE",
 	[U_PART_TABLE_TYPE]      = "ID_PART_TABLE_TYPE",
 	[U_PART_TABLE_UUID]      = "ID_PART_TABLE_UUID",
 	[U_PART_ENTRY_NAME]      = "ID_PART_ENTRY_NAME",
@@ -215,19 +215,19 @@ static void _add_property(sid_res_t *mod_res, struct sid_ucmd_ctx *ucmd_ctx, con
 		                   .val = s,
 		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "FSSIZE")) {
-		sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = keys[U_FS_SIZE], .val = s, .fl = SID_KV_FL_RD);
+		sid_ucmd_kv_va_set(mod_res, ucmd_ctx, .ns = SID_KV_NS_UDEV, .key = keys[U_FS_FSSIZE], .val = s, .fl = SID_KV_FL_RD);
 	} else if (!strcmp(name, "FSLASTBLOCK")) {
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
 		                   .ns  = SID_KV_NS_UDEV,
-		                   .key = keys[U_FS_LASTBLOCK],
+		                   .key = keys[U_FS_FSLASTBLOCK],
 		                   .val = s,
 		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "FSBLOCKSIZE")) {
 		sid_ucmd_kv_va_set(mod_res,
 		                   ucmd_ctx,
 		                   .ns  = SID_KV_NS_UDEV,
-		                   .key = keys[U_FS_BLOCKSIZE],
+		                   .key = keys[U_FS_FSBLOCKSIZE],
 		                   .val = s,
 		                   .fl  = SID_KV_FL_RD);
 	} else if (!strcmp(name, "PTTYPE")) {
