@@ -8,7 +8,7 @@ include $(top_srcdir)/Makefile.common
 
 blkiddir = $(pkglibdir)/modules/ucmd/block
 
-blkid-type-mapper.c: blkid-type-mapper.gperf
+%.c: %.gperf
 	$(AM_V_GEN) \
 	if $(GPERF) $(GPERFFLAGS) < $< >$@.temp; then \
 		mv $@.temp $@; \
