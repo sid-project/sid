@@ -2533,9 +2533,6 @@ static int _do_sid_ucmd_kv_set(sid_res_t                   *res,
 		goto out;
 	}
 
-	if (args->ns == SID_KV_NS_UDEV)
-		flags |= SID_KV_FL_SCPS;
-
 	if (value == SID_UCMD_KV_UNSET)
 		value = NULL;
 
